@@ -1155,3 +1155,422 @@ extern "C" uint8_t ext_stress_solver_apply_fracture_commands(ExtStressSolverHand
     return truncated ? 2U : 1U;
 }
 
+extern "C" ExtStressSolverHandle*
+ext_stress_solver_create_hierarchical(const HierarchicalChunkDesc* chunks,
+                                      uint32_t chunk_count,
+                                      const ExtStressBondDesc* bonds,
+                                      uint32_t bond_count,
+                                      const ExtStressSolverSettingsDesc* settingsDesc)
+{
+    if (!chunks || chunk_count == 0U || !bonds || bond_count == 0U)
+    {
+        return nullptr;
+    }
+
+    ExtStressSolverHandleImpl* handle = new (std::nothrow) ExtStressSolverHandleImpl();
+    if (!handle)
+    {
+        return nullptr;
+    }
+
+    // Build NvBlastChunkDesc array directly from caller-provided hierarchy.
+    // Chunk indices in the input map 1:1 to NvBlastChunkDesc indices.
+    std::vector<NvBlastChunkDesc> chunkDescs;
+    chunkDescs.resize(chunk_count);
+
+    uint32_t supportCount = 0;
+    for (uint32_t i = 0; i < chunk_count; ++i)
+    {
+        NvBlastChunkDesc& desc = chunkDescs[i];
+        desc.centroid[0] = chunks[i].centroid.x;
+        desc.centroid[1] = chunks[i].centroid.y;
+        desc.centroid[2] = chunks[i].centroid.z;
+        desc.volume = chunks[i].volume > 0.0f ? chunks[i].volume : std::max(chunks[i].mass, 1.0f);
+        desc.parentChunkDescIndex = chunks[i].parentIndex; // UINT32_MAX = root
+        desc.flags = chunks[i].isSupport ? NvBlastChunkDesc::SupportFlag : NvBlastChunkDesc::NoFlags;
+        desc.userData = i;
+
+        if (chunks[i].isSupport)
+        {
+            ++supportCount;
+        }
+    }
+
+    // Build bond descriptors — bonds reference chunk indices directly.
+    std::vector<NvBlastBondDesc> bondDescs;
+    bondDescs.resize(bond_count);
+    for (uint32_t i = 0; i < bond_count; ++i)
+    {
+        NvBlastBondDesc& desc = bondDescs[i];
+        desc.chunkIndices[0] = bonds[i].node0;
+        desc.chunkIndices[1] = bonds[i].node1;
+
+        desc.bond.centroid[0] = bonds[i].centroid.x;
+        desc.bond.centroid[1] = bonds[i].centroid.y;
+        desc.bond.centroid[2] = bonds[i].centroid.z;
+
+        desc.bond.normal[0] = bonds[i].normal.x;
+        desc.bond.normal[1] = bonds[i].normal.y;
+        desc.bond.normal[2] = bonds[i].normal.z;
+
+        desc.bond.area = bonds[i].area > 0.0f ? bonds[i].area : 1.0f;
+        desc.bond.userData = i;
+    }
+
+    NvBlastAssetDesc assetDesc;
+    assetDesc.chunkCount = static_cast<uint32_t>(chunkDescs.size());
+    assetDesc.chunkDescs = chunkDescs.data();
+    assetDesc.bondCount = static_cast<uint32_t>(bondDescs.size());
+    assetDesc.bondDescs = bondDescs.data();
+
+    const size_t scratchSize = NvBlastGetRequiredScratchForCreateAsset(&assetDesc, kLogFn);
+    handle->assetScratch = NVBLAST_ALLOC(scratchSize);
+    if (!handle->assetScratch)
+    {
+        releaseHandle(handle);
+        return nullptr;
+    }
+
+    const size_t assetMemSize = NvBlastGetAssetMemorySize(&assetDesc, kLogFn);
+    handle->assetMem = NVBLAST_ALLOC(assetMemSize);
+    if (!handle->assetMem)
+    {
+        releaseHandle(handle);
+        return nullptr;
+    }
+
+    handle->asset = NvBlastCreateAsset(handle->assetMem, &assetDesc, handle->assetScratch, kLogFn);
+    if (!handle->asset)
+    {
+        releaseHandle(handle);
+        return nullptr;
+    }
+
+    const size_t familyMemSize = NvBlastAssetGetFamilyMemorySize(handle->asset, kLogFn);
+    handle->familyMem = NVBLAST_ALLOC(familyMemSize);
+    if (!handle->familyMem)
+    {
+        releaseHandle(handle);
+        return nullptr;
+    }
+
+    handle->family = NvBlastAssetCreateFamily(handle->familyMem, handle->asset, kLogFn);
+    if (!handle->family)
+    {
+        releaseHandle(handle);
+        return nullptr;
+    }
+
+    NvBlastActorDesc actorDesc{};
+    actorDesc.uniformInitialBondHealth = 1.0f;
+    actorDesc.uniformInitialLowerSupportChunkHealth = 1.0f;
+
+    const size_t actorScratchSize = NvBlastFamilyGetRequiredScratchForCreateFirstActor(handle->family, kLogFn);
+    handle->actorScratch = NVBLAST_ALLOC(actorScratchSize);
+    if (!handle->actorScratch)
+    {
+        releaseHandle(handle);
+        return nullptr;
+    }
+
+    NvBlastActor* createdActor = NvBlastFamilyCreateFirstActor(handle->family, &actorDesc, handle->actorScratch, kLogFn);
+    if (!createdActor)
+    {
+        releaseHandle(handle);
+        return nullptr;
+    }
+
+    ExtStressSolverSettings settings = toSettings(settingsDesc);
+    handle->solver = ExtStressSolver::create(*handle->family, settings);
+    if (!handle->solver)
+    {
+        releaseHandle(handle);
+        return nullptr;
+    }
+
+    // Build inputToGraph / graphToInput mapping.
+    // In the hierarchical case, only support chunks have corresponding graph nodes.
+    // The input chunk index is the chunk's userData (which we set to i above).
+    const NvBlastSupportGraph supportGraph = NvBlastAssetGetSupportGraph(handle->asset, kLogFn);
+    handle->inputToGraph.assign(chunk_count, UINT32_MAX);
+    handle->graphNodeIndices.resize(supportGraph.nodeCount);
+    handle->graphToInput.assign(supportGraph.nodeCount, UINT32_MAX);
+    for (uint32_t graphIndex = 0; graphIndex < supportGraph.nodeCount; ++graphIndex)
+    {
+        handle->graphNodeIndices[graphIndex] = graphIndex;
+        const uint32_t chunkIndex = supportGraph.chunkIndices[graphIndex];
+        if (chunkIndex < chunk_count)
+        {
+            handle->inputToGraph[chunkIndex] = graphIndex;
+            handle->graphToInput[graphIndex] = chunkIndex;
+            const HierarchicalChunkDesc& chunkDesc = chunks[chunkIndex];
+            handle->solver->setNodeInfo(graphIndex,
+                                        chunkDesc.mass,
+                                        chunkDesc.volume > 0.0f ? chunkDesc.volume : std::max(chunkDesc.mass, 1.0f),
+                                        toNvcVec3(chunkDesc.centroid));
+        }
+    }
+
+    rebuildActorTable(*handle);
+    for (auto& entry : handle->actors)
+    {
+        if (entry.actor)
+        {
+            handle->solver->notifyActorCreated(*entry.actor);
+        }
+    }
+
+    return reinterpret_cast<ExtStressSolverHandle*>(handle);
+}
+
+extern "C" uint8_t
+ext_stress_solver_apply_chunk_damage(ExtStressSolverHandle* handlePtr,
+                                     uint32_t actor_index,
+                                     const ExtStressChunkDamage* damages,
+                                     uint32_t damage_count,
+                                     ExtStressSplitEvent* events_buffer,
+                                     uint32_t event_capacity,
+                                     ExtStressActor* child_buffer,
+                                     uint32_t child_capacity,
+                                     uint32_t* out_event_count,
+                                     uint32_t* out_child_count,
+                                     uint32_t* nodes_buffer,
+                                     uint32_t nodes_capacity,
+                                     uint32_t* out_node_count)
+{
+    auto* handle = reinterpret_cast<ExtStressSolverHandleImpl*>(handlePtr);
+    if (!handle || !handle->solver || !damages || damage_count == 0U)
+    {
+        if (out_event_count) { *out_event_count = 0; }
+        if (out_child_count) { *out_child_count = 0; }
+        if (out_node_count) { *out_node_count = 0; }
+        return 0U;
+    }
+
+    auto* actorEntry = findActorByIndex(*handle, actor_index);
+    if (!actorEntry || !actorEntry->actor)
+    {
+        if (out_event_count) { *out_event_count = 0; }
+        if (out_child_count) { *out_child_count = 0; }
+        if (out_node_count) { *out_node_count = 0; }
+        return 0U;
+    }
+
+    // Build chunk fracture commands.
+    std::vector<NvBlastChunkFractureData> chunkFractures(damage_count);
+    for (uint32_t i = 0; i < damage_count; ++i)
+    {
+        chunkFractures[i].userdata = damages[i].chunkIndex;
+        chunkFractures[i].chunkIndex = damages[i].chunkIndex;
+        chunkFractures[i].health = damages[i].damage;
+    }
+
+    NvBlastFractureBuffers buffers{};
+    buffers.chunkFractureCount = damage_count;
+    buffers.chunkFractures = chunkFractures.data();
+
+    // ApplyFracture handles the subsupport cascade internally via fractureSubSupport().
+    NvBlastActorApplyFracture(nullptr, actorEntry->actor, &buffers, kLogFn, nullptr);
+
+    uint32_t storedEvents = 0;
+    uint32_t storedChildren = 0;
+    uint32_t storedNodes = 0;
+    bool truncated = false;
+
+    if (!NvBlastActorIsSplitRequired(actorEntry->actor, kLogFn))
+    {
+        // Damage applied but no split needed (subsupport cascade may have occurred).
+        if (out_event_count) { *out_event_count = 0; }
+        if (out_child_count) { *out_child_count = 0; }
+        if (out_node_count) { *out_node_count = 0; }
+        return 1U;
+    }
+
+    const size_t entryIndex = static_cast<size_t>(actorEntry - handle->actors.data());
+
+    const size_t scratchSize = NvBlastActorGetRequiredScratchForSplit(actorEntry->actor, kLogFn);
+    handle->splitScratch.resize(scratchSize);
+    const uint32_t maxChildren = NvBlastActorGetMaxActorCountForSplit(actorEntry->actor, kLogFn);
+    handle->splitActors.resize(maxChildren);
+
+    NvBlastActorSplitEvent splitEvent{};
+    splitEvent.deletedActor = actorEntry->actor;
+    splitEvent.newActors = handle->splitActors.data();
+
+    const uint32_t created = NvBlastActorSplit(&splitEvent,
+                                               actorEntry->actor,
+                                               maxChildren,
+                                               handle->splitScratch.data(),
+                                               kLogFn,
+                                               nullptr);
+
+    if (created == 0U)
+    {
+        if (out_event_count) { *out_event_count = 0; }
+        if (out_child_count) { *out_child_count = 0; }
+        if (out_node_count) { *out_node_count = 0; }
+        return 1U;
+    }
+
+    handle->solver->notifyActorDestroyed(*actorEntry->actor);
+
+    if (entryIndex < handle->actors.size())
+    {
+        handle->actors.erase(handle->actors.begin() + static_cast<std::ptrdiff_t>(entryIndex));
+    }
+
+    ExtStressSplitEvent* evt = nullptr;
+    if (events_buffer && storedEvents < event_capacity)
+    {
+        evt = &events_buffer[storedEvents];
+        evt->parentActorIndex = actor_index;
+        evt->childCount = 0U;
+        evt->children = nullptr;
+    }
+    else
+    {
+        truncated = true;
+    }
+
+    for (uint32_t i = 0; i < created; ++i)
+    {
+        NvBlastActor* child = splitEvent.newActors[i];
+        if (!child)
+        {
+            continue;
+        }
+
+        handle->solver->notifyActorCreated(*child);
+
+        ExtStressSolverHandleImpl::ActorEntry entry;
+        entry.actor = child;
+        entry.actorIndex = NvBlastActorGetIndex(child, kLogFn);
+
+        const uint32_t graphNodeCount = NvBlastActorGetGraphNodeCount(child, kLogFn);
+        entry.graphNodes.resize(graphNodeCount);
+        if (graphNodeCount > 0)
+        {
+            NvBlastActorGetGraphNodeIndices(entry.graphNodes.data(), graphNodeCount, child, kLogFn);
+        }
+        entry.inputNodes.resize(graphNodeCount);
+        for (uint32_t n = 0; n < graphNodeCount; ++n)
+        {
+            entry.inputNodes[n] = mapGraphNodeToInput(*handle, entry.graphNodes[n]);
+        }
+
+        bool childStored = false;
+        if (child_buffer && storedChildren < child_capacity)
+        {
+            ExtStressActor& childOut = child_buffer[storedChildren];
+            childOut.actorIndex = entry.actorIndex;
+            childOut.nodeCount = static_cast<uint32_t>(entry.inputNodes.size());
+            childOut.nodes = nullptr;
+
+            if (nodes_buffer && storedNodes + childOut.nodeCount <= nodes_capacity)
+            {
+                std::memcpy(nodes_buffer + storedNodes,
+                            entry.inputNodes.data(),
+                            childOut.nodeCount * sizeof(uint32_t));
+                childOut.nodes = nodes_buffer + storedNodes;
+                storedNodes += childOut.nodeCount;
+            }
+            else if (childOut.nodeCount > 0)
+            {
+                truncated = true;
+            }
+
+            if (evt)
+            {
+                if (!evt->children)
+                {
+                    evt->children = &child_buffer[storedChildren];
+                }
+                evt->childCount += 1U;
+            }
+
+            ++storedChildren;
+            childStored = true;
+        }
+        else
+        {
+            truncated = true;
+        }
+
+        handle->actors.push_back(std::move(entry));
+    }
+
+    if (evt)
+    {
+        ++storedEvents;
+    }
+
+    if (out_event_count) { *out_event_count = storedEvents; }
+    if (out_child_count) { *out_child_count = storedChildren; }
+    if (out_node_count) { *out_node_count = storedNodes; }
+
+    return truncated ? 2U : 1U;
+}
+
+extern "C" uint32_t
+ext_stress_solver_get_visible_chunk_count(const ExtStressSolverHandle* handlePtr,
+                                          uint32_t actor_index)
+{
+    const auto* handle = reinterpret_cast<const ExtStressSolverHandleImpl*>(handlePtr);
+    if (!handle)
+    {
+        return 0U;
+    }
+
+    for (const auto& entry : handle->actors)
+    {
+        if (entry.actorIndex == actor_index && entry.actor)
+        {
+            return NvBlastActorGetVisibleChunkCount(entry.actor, kLogFn);
+        }
+    }
+    return 0U;
+}
+
+extern "C" uint32_t
+ext_stress_solver_get_visible_chunks(const ExtStressSolverHandle* handlePtr,
+                                     uint32_t actor_index,
+                                     uint32_t* out_chunk_indices,
+                                     uint32_t capacity)
+{
+    const auto* handle = reinterpret_cast<const ExtStressSolverHandleImpl*>(handlePtr);
+    if (!handle || !out_chunk_indices || capacity == 0U)
+    {
+        return 0U;
+    }
+
+    for (const auto& entry : handle->actors)
+    {
+        if (entry.actorIndex == actor_index && entry.actor)
+        {
+            return NvBlastActorGetVisibleChunkIndices(out_chunk_indices, capacity, entry.actor, kLogFn);
+        }
+    }
+    return 0U;
+}
+
+extern "C" uint32_t
+ext_stress_solver_get_chunk_count(const ExtStressSolverHandle* handlePtr)
+{
+    const auto* handle = reinterpret_cast<const ExtStressSolverHandleImpl*>(handlePtr);
+    if (!handle || !handle->asset)
+    {
+        return 0U;
+    }
+    return NvBlastAssetGetChunkCount(handle->asset, kLogFn);
+}
+
+extern "C" uint32_t ext_stress_sizeof_hierarchical_chunk_desc()
+{
+    return static_cast<uint32_t>(sizeof(HierarchicalChunkDesc));
+}
+
+extern "C" uint32_t ext_stress_sizeof_chunk_damage()
+{
+    return static_cast<uint32_t>(sizeof(ExtStressChunkDamage));
+}
+

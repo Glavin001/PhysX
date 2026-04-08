@@ -14,6 +14,7 @@ import type {
   BufferGeometryChunkResolver,
   BondingConfig,
   BondStress,
+  ChunkDamage,
   ExtDebugModeValue,
   ExtForceModeValue,
   ExtStressBondDesc,
@@ -24,6 +25,8 @@ import type {
   ExtStressSolver as ExtStressSolverType,
   ExtStressSolverDescription,
   ExtStressSolverSettings,
+  HierarchicalChunkDesc,
+  HierarchicalExtStressSolverDescription,
   LoadStressSolverOptions,
   SplitEvent,
   StressImpulse,
@@ -346,7 +349,9 @@ function createRuntime(module: any): StressRuntime {
     extFractureCommands: module.ccall('ext_stress_sizeof_ext_fracture_commands', 'number', [], []),
     extActor: module.ccall('ext_stress_sizeof_actor_buffer', 'number', [], []),
     extSplitEvent: module.ccall('ext_stress_sizeof_ext_split_event', 'number', [], []),
-    authoringBond: module.ccall('authoring_sizeof_ext_bond_desc', 'number', [], [])
+    authoringBond: module.ccall('authoring_sizeof_ext_bond_desc', 'number', [], []),
+    extHierarchicalChunk: module.ccall('ext_stress_sizeof_hierarchical_chunk_desc', 'number', [], []),
+    extChunkDamage: module.ccall('ext_stress_sizeof_chunk_damage', 'number', [], [])
   };
 
   const memory = new ModuleMemory(module);
@@ -377,6 +382,9 @@ function createRuntime(module: any): StressRuntime {
     },
     createExtSolver(description: ExtStressSolverDescription): ExtStressSolverType {
       return new ExtStressSolver(module, memory, sizes, description);
+    },
+    createHierarchicalExtSolver(description: HierarchicalExtStressSolverDescription): ExtStressSolverType {
+      return ExtStressSolver.createHierarchical(module, memory, sizes, description);
     },
     createBondsFromTriangles(chunks: AuthoringChunkInput[], config?: BondingConfig) {
       return generateBondsFromTriangles(module, memory, sizes, chunks, config);
@@ -643,8 +651,76 @@ class ExtStressSolver implements ExtStressSolverType {
   _fractureCommandsPtr: number;
   _forcePtr: number;
   _torquePtr: number;
+  /** Total chunk count for hierarchical solvers (includes root + subsupport). */
+  _chunkCount: number;
 
-  constructor(module: any, memory: ModuleMemory, sizes: RuntimeSizes, description: ExtStressSolverDescription) {
+  static createHierarchical(
+    module: any, memory: ModuleMemory, sizes: RuntimeSizes,
+    description: HierarchicalExtStressSolverDescription
+  ): ExtStressSolver {
+    const chunks = description.chunks ?? [];
+    const bonds = description.bonds ?? [];
+    if (chunks.length === 0 || bonds.length === 0) {
+      throw new Error('Hierarchical ExtStressSolver requires at least one chunk and one bond');
+    }
+
+    const chunkStructSize = sizes.extHierarchicalChunk!;
+    const bondStructSize = sizes.extBond;
+
+    const chunksPtr = memory.alloc(chunkStructSize * chunks.length);
+    const bondsPtr = memory.alloc(bondStructSize * bonds.length);
+    const settingsPtr = description.settings ? memory.alloc(sizes.extSettings) : 0;
+
+    try {
+      const view = memory.view();
+      chunks.forEach((chunk, i) => writeHierarchicalChunk(view, chunksPtr + i * chunkStructSize, chunk));
+      bonds.forEach((bond, i) => writeExtBond(view, bondsPtr + i * bondStructSize, bond));
+      if (settingsPtr) writeExtSettings(view, settingsPtr, description.settings!);
+
+      const handle = module.ccall(
+        'ext_stress_solver_create_hierarchical',
+        'number',
+        ['number', 'number', 'number', 'number', 'number'],
+        [chunksPtr, chunks.length, bondsPtr, bonds.length, settingsPtr]
+      );
+
+      if (!handle) throw new Error('Failed to create hierarchical ExtStressSolver');
+
+      // Build a solver using the pre-created handle.
+      const solver = new ExtStressSolver(module, memory, sizes, { nodes: [], bonds: [] }, handle >>> 0);
+      solver.nodeCount = chunks.length;
+      solver.bondCount = bonds.length;
+      solver._chunkCount = chunks.length;
+      return solver;
+    } finally {
+      memory.free(chunksPtr);
+      memory.free(bondsPtr);
+      if (settingsPtr) memory.free(settingsPtr);
+    }
+  }
+
+  constructor(module: any, memory: ModuleMemory, sizes: RuntimeSizes, description: ExtStressSolverDescription, preCreatedHandle?: number) {
+    this.module = module;
+    this.memory = memory;
+    this.sizes = sizes;
+    this._chunkCount = 0;
+
+    if (preCreatedHandle != null && preCreatedHandle !== 0) {
+      // Pre-created handle path (used by createHierarchical).
+      // nodeCount and bondCount are set by the caller after construction.
+      this.nodeCount = 0;
+      this.bondCount = 0;
+      this.handle = preCreatedHandle;
+      this._debugCapacity = 1;
+      this._debugPtr = memory.alloc(this._debugCapacity * sizes.extDebugLine);
+      this._fractureCapacity = 1;
+      this._fracturePtr = memory.alloc(this._fractureCapacity * sizes.extBondFracture);
+      this._fractureCommandsPtr = memory.alloc(sizes.extFractureCommands);
+      this._forcePtr = memory.alloc(sizes.vec3);
+      this._torquePtr = memory.alloc(sizes.vec3);
+      return;
+    }
+
     if (!description) throw new Error('ExtStressSolver description is required');
 
     const nodes = description.nodes ?? [];
@@ -652,10 +728,6 @@ class ExtStressSolver implements ExtStressSolverType {
     if (nodes.length === 0 || bonds.length === 0) {
       throw new Error('ExtStressSolver requires at least one node and one bond');
     }
-
-    this.module = module;
-    this.memory = memory;
-    this.sizes = sizes;
 
     this.nodeCount = nodes.length;
     this.bondCount = bonds.length;
@@ -1020,6 +1092,157 @@ class ExtStressSolver implements ExtStressSolverType {
   }
 
   converged() { if (!this.handle) return false; return this.module.ccall('ext_stress_solver_converged', 'number', ['number'], [this.handle]) !== 0; }
+
+  applyChunkDamage(damages: ChunkDamage[], actorIndex: number): SplitEvent[] {
+    if (!this.handle || !Array.isArray(damages) || damages.length === 0) return [];
+
+    const chunkDamageSize = this.sizes.extChunkDamage!;
+    const splitEventSize = this.sizes.extSplitEvent;
+    const actorStructSize = this.sizes.extActor;
+
+    const baseCapacity = Math.max(this._chunkCount || this.nodeCount, 1);
+    let childCapacity = Math.max(baseCapacity, 2);
+    let nodeCapacity = baseCapacity;
+    let splitEvents: SplitEvent[] = [];
+    let status = 0;
+    let attempts = 0;
+    const maxAttempts = 4;
+
+    do {
+      const damagePtr = this.memory.alloc(chunkDamageSize * damages.length);
+      const splitPtr = this.memory.alloc(splitEventSize);
+      const childPtr = this.memory.alloc(actorStructSize * childCapacity);
+      const nodesPtr = this.memory.alloc(nodeCapacity * 4);
+      const eventCountPtr = this.memory.alloc(4);
+      const childCountPtr = this.memory.alloc(4);
+      const nodeCountPtr = this.memory.alloc(4);
+
+      try {
+        const view = this.memory.view();
+        damages.forEach((d, i) => writeChunkDamage(view, damagePtr + i * chunkDamageSize, d));
+        view.setUint32(eventCountPtr, 0, true);
+        view.setUint32(childCountPtr, 0, true);
+        view.setUint32(nodeCountPtr, 0, true);
+
+        status = this.module.ccall(
+          'ext_stress_solver_apply_chunk_damage',
+          'number',
+          ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
+          [
+            this.handle,
+            actorIndex >>> 0,
+            damagePtr,
+            damages.length >>> 0,
+            splitPtr,
+            1 /* event capacity */,
+            childPtr,
+            childCapacity >>> 0,
+            eventCountPtr,
+            childCountPtr,
+            nodesPtr,
+            nodeCapacity >>> 0,
+            nodeCountPtr
+          ]
+        );
+
+        const eventCount = view.getUint32(eventCountPtr, true);
+        const heapU32 = this.module.HEAPU32 as Uint32Array;
+        const parsed: SplitEvent[] = [];
+
+        for (let i = 0; i < eventCount; ++i) {
+          const base = splitPtr + i * splitEventSize;
+          const parentActorIndex = view.getUint32(base, true);
+          const childCountForEvent = view.getUint32(base + 8, true);
+          const childAddress = view.getUint32(base + 4, true);
+          const children: Array<{ actorIndex: number; nodes: number[] }> = [];
+          if (childAddress) {
+            for (let c = 0; c < childCountForEvent; ++c) {
+              const actorBase = childAddress + c * actorStructSize;
+              const childActorIndex = view.getUint32(actorBase, true);
+              const nodesAddress = view.getUint32(actorBase + 4, true);
+              const nodeCount = view.getUint32(actorBase + 8, true);
+              const nodes: number[] = [];
+              if (nodesAddress) {
+                const nodeOffset = nodesAddress >>> 2;
+                for (let n = 0; n < nodeCount; ++n) {
+                  nodes.push((heapU32 as any)[nodeOffset + n]);
+                }
+              }
+              children.push({ actorIndex: childActorIndex, nodes });
+            }
+          }
+          parsed.push({ parentActorIndex, children });
+        }
+
+        if (status !== 2) {
+          splitEvents = parsed;
+        }
+      } finally {
+        this.memory.free(damagePtr);
+        this.memory.free(splitPtr);
+        this.memory.free(childPtr);
+        this.memory.free(nodesPtr);
+        this.memory.free(eventCountPtr);
+        this.memory.free(childCountPtr);
+        this.memory.free(nodeCountPtr);
+      }
+
+      if (status === 2) {
+        attempts += 1;
+        childCapacity = Math.min(baseCapacity * 4, childCapacity * 2);
+        nodeCapacity = Math.min(baseCapacity * 4, nodeCapacity * 2);
+      } else {
+        break;
+      }
+    } while (attempts < maxAttempts);
+
+    return splitEvents;
+  }
+
+  getVisibleChunkCount(actorIndex: number): number {
+    if (!this.handle) return 0;
+    return this.module.ccall(
+      'ext_stress_solver_get_visible_chunk_count',
+      'number',
+      ['number', 'number'],
+      [this.handle, actorIndex >>> 0]
+    ) >>> 0;
+  }
+
+  getVisibleChunks(actorIndex: number): number[] {
+    if (!this.handle) return [];
+    const count = this.getVisibleChunkCount(actorIndex);
+    if (count === 0) return [];
+
+    const ptr = this.memory.alloc(count * 4);
+    try {
+      const written = this.module.ccall(
+        'ext_stress_solver_get_visible_chunks',
+        'number',
+        ['number', 'number', 'number', 'number'],
+        [this.handle, actorIndex >>> 0, ptr, count]
+      ) >>> 0;
+
+      const view = this.memory.view();
+      const result: number[] = [];
+      for (let i = 0; i < written; ++i) {
+        result.push(view.getUint32(ptr + i * 4, true));
+      }
+      return result;
+    } finally {
+      this.memory.free(ptr);
+    }
+  }
+
+  getChunkCount(): number {
+    if (!this.handle) return 0;
+    return this.module.ccall(
+      'ext_stress_solver_get_chunk_count',
+      'number',
+      ['number'],
+      [this.handle]
+    ) >>> 0;
+  }
 }
 
 function writeNode(view: DataView, base: number, node: { com?: Vec3; mass?: number; inertia?: number }) {
@@ -1064,6 +1287,24 @@ function writeExtBond(view: DataView, base: number, bond: ExtStressBondDesc) {
   view.setFloat32(base + 24, bond.area ?? 1.0, true);
   view.setUint32(base + 28, bond.node0 >>> 0, true);
   view.setUint32(base + 32, bond.node1 >>> 0, true);
+}
+
+function writeHierarchicalChunk(view: DataView, base: number, chunk: HierarchicalChunkDesc) {
+  // Layout matches C struct HierarchicalChunkDesc:
+  // Vec3 centroid (12 bytes), float mass (4), float volume (4), uint32_t parentIndex (4), uint8_t isSupport (1), + 3 padding
+  writeVec3(view, base, chunk.centroid ?? vec3());
+  view.setFloat32(base + 12, chunk.mass ?? 0.0, true);
+  view.setFloat32(base + 16, chunk.volume ?? Math.max(chunk.mass ?? 0.0, 1.0), true);
+  const parentIndex = (chunk.parentIndex == null || chunk.parentIndex < 0) ? 0xFFFFFFFF : chunk.parentIndex;
+  view.setUint32(base + 20, parentIndex >>> 0, true);
+  view.setUint8(base + 24, chunk.isSupport ? 1 : 0);
+}
+
+function writeChunkDamage(view: DataView, base: number, damage: ChunkDamage) {
+  // Layout matches C struct ExtStressChunkDamage:
+  // uint32_t chunkIndex (4 bytes), float damage (4 bytes)
+  view.setUint32(base, damage.chunkIndex >>> 0, true);
+  view.setFloat32(base + 4, damage.damage ?? 0.0, true);
 }
 
 function readExtBond(view: DataView, base: number): ExtStressBondDesc {

@@ -454,6 +454,60 @@ export interface ExtStressSolverDescription {
   settings?: ExtStressSolverSettings;
 }
 
+/**
+ * Chunk descriptor for hierarchical destruction.
+ *
+ * Each chunk lives in a parent-child tree. Support chunks participate in
+ * bond stress and define the support graph. Non-support chunks (subsupport)
+ * are detail pieces revealed when their parent support chunk's health is
+ * depleted — Blast handles the damage cascade automatically.
+ */
+export interface HierarchicalChunkDesc {
+  /** Chunk centroid in asset local coordinates (meters). */
+  centroid?: Vec3;
+  /**
+   * Physical mass (kg). Zero = static/anchored chunk.
+   */
+  mass?: number;
+  /** Volume (m³). */
+  volume?: number;
+  /**
+   * Index of parent chunk in the chunks array. Use -1 (or omit) for root chunks.
+   */
+  parentIndex?: number;
+  /**
+   * Whether this chunk is a support chunk (participates in bond stress).
+   * Subsupport chunks (false) are revealed by chunk-level damage cascade.
+   *
+   * @default false
+   */
+  isSupport?: boolean;
+}
+
+/**
+ * Factory description for creating a hierarchical ExtStressSolver.
+ *
+ * Unlike flat {@link ExtStressSolverDescription}, chunks have parent-child
+ * relationships and support flags. Bonds connect support-level chunks.
+ * Subsupport chunks are managed internally by Blast's damage cascade.
+ */
+export interface HierarchicalExtStressSolverDescription {
+  /** Chunks with parent-child hierarchy and support flags. */
+  chunks: HierarchicalChunkDesc[];
+  /** Bonds between support-level chunk indices. */
+  bonds: ExtStressBondDesc[];
+  /** Optional solver settings. */
+  settings?: ExtStressSolverSettings;
+}
+
+/** Chunk damage descriptor for applying damage to specific chunks. */
+export interface ChunkDamage {
+  /** Asset chunk index to damage. */
+  chunkIndex: number;
+  /** Amount of damage to apply (positive). */
+  damage: number;
+}
+
 /** Debug line rendered by ExtStressSolver.fillDebugRender. */
 export interface ExtStressDebugLine {
   /** Line start in asset local coordinates (meters). */
@@ -557,6 +611,28 @@ export interface ExtStressSolver {
   stressError(): { lin: number; ang: number };
   /** True if the solver converged within the requested tolerance. */
   converged(): boolean;
+
+  /**
+   * Apply damage to specific chunks, triggering Blast's native subsupport
+   * cascade. Damage is divided among children recursively when a chunk's
+   * health is depleted. Returns split events if any actors split.
+   */
+  applyChunkDamage(damages: ChunkDamage[], actorIndex: number): SplitEvent[];
+
+  /**
+   * Return the number of visible chunks owned by the given actor.
+   * Only meaningful for solvers created with hierarchical chunks.
+   */
+  getVisibleChunkCount(actorIndex: number): number;
+
+  /**
+   * Return the visible chunk indices owned by the given actor.
+   * These are asset chunk indices (matching the input chunk array).
+   */
+  getVisibleChunks(actorIndex: number): number[];
+
+  /** Total chunk count in the underlying Blast asset. */
+  getChunkCount(): number;
 }
 
 /** Sizes (in bytes) of C++ structures exported by the WASM bridge. */
@@ -595,6 +671,10 @@ export interface RuntimeSizes {
   extSplitEvent: number;
   /** sizeof(ExtStressBondDesc) returned by authoring bridge. */
   authoringBond?: number;
+  /** sizeof(HierarchicalChunkDesc) for hierarchical asset creation. */
+  extHierarchicalChunk?: number;
+  /** sizeof(ExtStressChunkDamage) for chunk damage. */
+  extChunkDamage?: number;
 }
 
 /**
@@ -672,6 +752,29 @@ export interface StressRuntime {
    * @see ExtStressSolver.applyFractureCommands
    */
   createExtSolver(description: ExtStressSolverDescription): ExtStressSolver;
+  /**
+   * Factory for the high-level `ExtStressSolver` with hierarchical chunk support.
+   *
+   * Creates a solver where chunks have parent-child relationships and support flags.
+   * Bond stress operates on support-level chunks. Subsupport chunks are detail revealed
+   * when their parent chunk's health is depleted via `applyChunkDamage()`.
+   *
+   * @example
+   * ```ts
+   * const solver = rt.createHierarchicalExtSolver({
+   *   chunks: [
+   *     { centroid: { x: 0, y: 0, z: 0 }, mass: 0, volume: 1, parentIndex: -1, isSupport: false }, // root
+   *     { centroid: { x: -1, y: 1, z: 0 }, mass: 5, volume: 0.5, parentIndex: 0, isSupport: true },
+   *     { centroid: { x: 1, y: 1, z: 0 }, mass: 5, volume: 0.5, parentIndex: 0, isSupport: true },
+   *     { centroid: { x: -1.2, y: 1.2, z: 0 }, mass: 2, volume: 0.2, parentIndex: 1, isSupport: false },
+   *     { centroid: { x: -0.8, y: 0.8, z: 0 }, mass: 3, volume: 0.3, parentIndex: 1, isSupport: false },
+   *   ],
+   *   bonds: [{ node0: 1, node1: 2, centroid: { x: 0, y: 1, z: 0 }, normal: { x: 1, y: 0, z: 0 }, area: 0.5 }],
+   *   settings
+   * });
+   * ```
+   */
+  createHierarchicalExtSolver(description: HierarchicalExtStressSolverDescription): ExtStressSolver;
   /**
    * Generate NvBlast-style bonds from prefractured triangle meshes.
    *
