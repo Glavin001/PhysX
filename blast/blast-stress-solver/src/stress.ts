@@ -331,6 +331,15 @@ export function normalize(v: Vec3): Vec3 {
   return vec3(v.x / mag, v.y / mag, v.z / mag);
 }
 
+/** Try to call a WASM sizeof function; returns 0 if the function is not exported. */
+function optionalCcall(module: any, fnName: string): number {
+  try {
+    return module.ccall(fnName, 'number', [], []) as number;
+  } catch {
+    return 0;
+  }
+}
+
 function createRuntime(module: any): StressRuntime {
   const sizes: RuntimeSizes = {
     vec3: module.ccall('stress_sizeof_stress_vec3', 'number', [], []),
@@ -350,8 +359,8 @@ function createRuntime(module: any): StressRuntime {
     extActor: module.ccall('ext_stress_sizeof_actor_buffer', 'number', [], []),
     extSplitEvent: module.ccall('ext_stress_sizeof_ext_split_event', 'number', [], []),
     authoringBond: module.ccall('authoring_sizeof_ext_bond_desc', 'number', [], []),
-    extHierarchicalChunk: module.ccall('ext_stress_sizeof_hierarchical_chunk_desc', 'number', [], []),
-    extChunkDamage: module.ccall('ext_stress_sizeof_chunk_damage', 'number', [], [])
+    extHierarchicalChunk: optionalCcall(module, 'ext_stress_sizeof_hierarchical_chunk_desc'),
+    extChunkDamage: optionalCcall(module, 'ext_stress_sizeof_chunk_damage'),
   };
 
   const memory = new ModuleMemory(module);
@@ -384,6 +393,12 @@ function createRuntime(module: any): StressRuntime {
       return new ExtStressSolver(module, memory, sizes, description);
     },
     createHierarchicalExtSolver(description: HierarchicalExtStressSolverDescription): ExtStressSolverType {
+      if (!sizes.extHierarchicalChunk || !sizes.extChunkDamage) {
+        throw new Error(
+          'Hierarchical solver not available: WASM module does not export hierarchy functions. ' +
+          'Rebuild the WASM with hierarchy support or use the flat solver.',
+        );
+      }
       return ExtStressSolver.createHierarchical(module, memory, sizes, description);
     },
     createBondsFromTriangles(chunks: AuthoringChunkInput[], config?: BondingConfig) {

@@ -483,7 +483,10 @@ window.addEventListener('resize', onResize);
 
 // ── Boot ──────────────────────────────────────────────────────
 
-initScene().then(() => loop()).catch((err) => {
+initScene().then(() => {
+  (window as any).__demoReady = true;
+  loop();
+}).catch((err) => {
   console.error('Failed to initialize hierarchical tower demo:', err);
   const hint = document.querySelector('.viewport-hint');
   if (hint) hint.textContent = `Error: ${err.message}`;
