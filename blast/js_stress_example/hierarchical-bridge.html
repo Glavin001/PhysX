@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hierarchical Bridge — blast-stress-solver Demo</title>
+    <link rel="stylesheet" href="./styles/demo-common.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/build/three.module.js",
+          "three/addons/": "/vendor/three/examples/jsm/",
+          "@dimforge/rapier3d-compat": "/vendor/rapier/rapier.mjs",
+          "@dgreenheck/three-pinata": "/vendor/three-pinata/three-pinata.es.js",
+          "blast-stress-solver": "/vendor/blast-stress-solver/index.js",
+          "blast-stress-solver/rapier": "/vendor/blast-stress-solver/rapier.js",
+          "blast-stress-solver/three": "/vendor/blast-stress-solver/three.js",
+          "blast-stress-solver/scenarios": "/vendor/blast-stress-solver/scenarios.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="layout">
+      <section class="viewport">
+        <canvas id="demo-canvas"></canvas>
+        <div class="viewport-hint">Click to shoot projectiles at the bridge</div>
+      </section>
+
+      <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle settings panel">
+        <span class="icon-open">&#9776;</span>
+        <span class="icon-close">&#10005;</span>
+      </button>
+      <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+      <aside class="sidebar" id="sidebar">
+        <header>
+          <a href="./demo-index.html" class="back-link">&larr; All Demos</a>
+          <h1>Hierarchical Bridge</h1>
+          <p>Bridge deck with multi-level fracture — support bonds break, then subsupport detail revealed</p>
+        </header>
+
+        <!-- Bridge Config (deferred) -->
+        <section class="config-section">
+          <h2 class="section-title">Bridge (Reset to apply)</h2>
+          <div class="config-row">
+            <label class="config-label" for="cfg-deck-span">Deck Span</label>
+            <input type="range" id="cfg-deck-span" class="config-slider" min="4" max="16" step="0.5" value="10" />
+            <span class="config-value"><span id="cfg-deck-span-value">10.0</span> m</span>
+          </div>
+          <div class="config-row">
+            <label class="config-label" for="cfg-support-frags">Support Fragments</label>
+            <input type="range" id="cfg-support-frags" class="config-slider" min="6" max="24" step="1" value="14" />
+            <span class="config-value"><span id="cfg-support-frags-value">14</span></span>
+          </div>
+          <div class="config-row">
+            <label class="config-label" for="cfg-subsupport-frags">Subsupport per Chunk</label>
+            <input type="range" id="cfg-subsupport-frags" class="config-slider" min="2" max="8" step="1" value="4" />
+            <span class="config-value"><span id="cfg-subsupport-frags-value">4</span></span>
+          </div>
+        </section>
+
+        <!-- Projectile -->
+        <section class="config-section">
+          <h2 class="section-title">Projectile</h2>
+          <div class="config-row">
+            <label class="config-label" for="cfg-proj-radius">Radius</label>
+            <input type="range" id="cfg-proj-radius" class="config-slider" min="0.1" max="1.0" step="0.05" value="0.25" />
+            <span class="config-value"><span id="cfg-proj-radius-value">0.25</span> m</span>
+          </div>
+          <div class="config-row">
+            <label class="config-label" for="cfg-proj-mass">Mass</label>
+            <input type="range" id="cfg-proj-mass" class="config-slider" min="1000" max="30000" step="500" value="10000" />
+            <span class="config-value"><span id="cfg-proj-mass-value">10,000</span> kg</span>
+          </div>
+          <div class="config-row">
+            <label class="config-label" for="cfg-proj-speed">Speed</label>
+            <input type="range" id="cfg-proj-speed" class="config-slider" min="5" max="60" step="1" value="18" />
+            <span class="config-value"><span id="cfg-proj-speed-value">18</span> m/s</span>
+          </div>
+        </section>
+
+        <!-- Solver (deferred) -->
+        <section class="config-section">
+          <h2 class="section-title">Solver (Reset to apply)</h2>
+          <div class="config-row">
+            <label class="config-label" for="cfg-gravity">Gravity</label>
+            <input type="range" id="cfg-gravity" class="config-slider" min="-30" max="0" step="0.5" value="-9.81" />
+            <span class="config-value"><span id="cfg-gravity-value">-9.8</span> m/s&sup2;</span>
+          </div>
+          <div class="config-row">
+            <label class="config-label" for="cfg-material">Material Scale</label>
+            <input type="range" id="cfg-material" class="config-slider" min="2" max="10" step="0.1" value="7.5" />
+            <span class="config-value"><span id="cfg-material-value">1e8</span></span>
+          </div>
+        </section>
+
+        <!-- Physics -->
+        <section class="config-section">
+          <h2 class="section-title">Physics</h2>
+          <div class="config-row">
+            <label class="config-label" for="cfg-debris-collision">Debris Collision</label>
+            <select id="cfg-debris-collision" class="config-select">
+              <option value="all">All</option>
+              <option value="noDebrisPairs" selected>No debris pairs</option>
+              <option value="debrisGroundOnly">Debris ground only</option>
+              <option value="debrisNone">Debris: none</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <label class="config-label" for="cfg-contact-force">Contact Force Scale</label>
+            <input type="range" id="cfg-contact-force" class="config-slider" min="1" max="100" step="1" value="20" />
+            <span class="config-value"><span id="cfg-contact-force-value">20</span></span>
+          </div>
+        </section>
+
+        <!-- Chunk Damage -->
+        <section class="config-section">
+          <h2 class="section-title">Chunk Damage</h2>
+          <div class="config-row">
+            <label class="config-label" for="cfg-auto-shatter">Auto-shatter on detach</label>
+            <input type="checkbox" id="cfg-auto-shatter" />
+          </div>
+          <div class="config-row">
+            <label class="config-label" for="cfg-chunk-damage">Damage Amount</label>
+            <input type="range" id="cfg-chunk-damage" class="config-slider" min="10" max="500" step="10" value="100" />
+            <span class="config-value"><span id="cfg-chunk-damage-value">100</span></span>
+          </div>
+        </section>
+
+        <!-- Actions -->
+        <div class="control-actions">
+          <button id="btn-reset" class="button button-primary">&#8635; Reset Bridge</button>
+          <button id="btn-shatter" class="button">Shatter All Pieces</button>
+          <button id="btn-debug" class="button">&#9671; Show Debug</button>
+        </div>
+
+        <!-- Status -->
+        <section class="status-panel">
+          <h2>Hierarchy</h2>
+          <div class="status-grid">
+            <div class="status-item">
+              <span class="status-label">Actors</span>
+              <span class="status-value" id="stat-actors">0</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Chunks</span>
+              <span class="status-value" id="stat-chunks">0</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Bodies</span>
+              <span class="status-value" id="stat-bodies">0</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Bonds</span>
+              <span class="status-value" id="stat-bonds">0</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Projectiles</span>
+              <span class="status-value" id="stat-projectiles">0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Performance -->
+        <section class="status-panel">
+          <h2>Performance</h2>
+          <div class="status-grid">
+            <div class="status-item">
+              <span class="status-label">Physics</span>
+              <span class="status-value" id="stat-physics-ms">&mdash; ms</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Render</span>
+              <span class="status-value" id="stat-render-ms">&mdash; ms</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Draw Calls</span>
+              <span class="status-value" id="stat-draw-calls">0</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Triangles</span>
+              <span class="status-value" id="stat-triangles">0</span>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <script>
+      // Sidebar toggle
+      (function () {
+        var toggle = document.getElementById('sidebar-toggle');
+        var sidebar = document.getElementById('sidebar');
+        var backdrop = document.getElementById('sidebar-backdrop');
+        var layout = document.querySelector('.layout');
+        var mql = window.matchMedia('(max-width: 768px)');
+
+        function isMobile() { return mql.matches; }
+
+        function close() {
+          toggle.classList.remove('active');
+          if (isMobile()) { sidebar.classList.remove('open'); backdrop.classList.remove('visible'); }
+          else { layout.classList.add('sidebar-hidden'); }
+        }
+
+        function open() {
+          toggle.classList.add('active');
+          if (isMobile()) { sidebar.classList.add('open'); backdrop.classList.add('visible'); }
+          else { layout.classList.remove('sidebar-hidden'); }
+        }
+
+        function isOpen() {
+          return isMobile() ? sidebar.classList.contains('open') : !layout.classList.contains('sidebar-hidden');
+        }
+
+        toggle.addEventListener('click', function () { if (isOpen()) close(); else open(); });
+        backdrop.addEventListener('click', close);
+        if (!isMobile()) toggle.classList.add('active');
+      })();
+    </script>
+    <script type="module" src="./dist/hierarchical-bridge.js"></script>
+  </body>
+</html>
