@@ -557,6 +557,7 @@ export async function buildDestructibleCore({
   const projectiles: ProjectileState[] = [];
   const removedBondIndices = new Set<number>();
   const pendingExternalForces: Array<{ nodeIndex:number; point: Vec3; force: Vec3 }> = [];
+  // actorIndex → Set<bondIndex>: bonds queued for fracture pipeline (with split detection)
   const pendingDamageFractures = new Map<number, Set<number>>();
   const nowSeconds = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
 
@@ -1344,6 +1345,25 @@ export async function buildDestructibleCore({
       }
     }
     disabledCollidersToRemove.clear();
+
+    // Cull stale collider→node mappings where collider no longer exists in the world
+    for (const [h] of colliderToNode) {
+      if (!world.getCollider(h)) {
+        colliderToNode.delete(h);
+      }
+    }
+
+    // Queue empty bodies (zero colliders) for removal, excluding root/ground
+    world.forEachRigidBody((b) => {
+      const handle = b.handle;
+      if (handle === rootBody.handle || handle === groundBody.handle) return;
+      try {
+        const rb = b as RigidBodyWithColliderCount;
+        const count = typeof rb.numColliders === 'function' ? rb.numColliders() : -1;
+        if (count === 0) bodiesToRemove.add(handle);
+      } catch {}
+    });
+
     for (const bh of bodiesToRemove) {
       const body = world.getRigidBody(bh);
       if (body) {
@@ -1585,33 +1605,21 @@ export async function buildDestructibleCore({
     if (pendingDamageFractures.size === 0) return;
     const t0 = startTiming();
 
-    // Group fractures by actor index for the fracture command format
-    const fracturesByActor = new Map<number, Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }>>();
-    for (const [nodeA, partners] of pendingDamageFractures) {
-      for (const nodeB of partners) {
-        const bondList = bondsByNode.get(nodeA);
-        if (!bondList) continue;
-        for (const bi of bondList) {
-          const b = bondTable[bi];
-          if (!b) continue;
-          if ((b.node0 === nodeA && b.node1 === nodeB) || (b.node0 === nodeB && b.node1 === nodeA)) {
-            if (removedBondIndices.has(bi)) break;
-            const actorIndex = nodeToActor.get(nodeA) ?? 0;
-            let fractures = fracturesByActor.get(actorIndex);
-            if (!fractures) { fractures = []; fracturesByActor.set(actorIndex, fractures); }
-            fractures.push({ userdata: bi, nodeIndex0: b.node0, nodeIndex1: b.node1, health: 1e9 });
-            removedBondIndices.add(bi);
-            break;
-          }
-        }
+    // pendingDamageFractures is Map<actorIndex, Set<bondIndex>>
+    // Build fracture commands directly from bond indices — no scan needed
+    const commands: Array<{ actorIndex: number; fractures: Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }> }> = [];
+    for (const [actorIndex, bondSet] of pendingDamageFractures) {
+      const fractures: Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }> = [];
+      for (const bondIndex of bondSet) {
+        const bond = bondTable[bondIndex];
+        if (!bond || removedBondIndices.has(bondIndex)) continue;
+        fractures.push({ userdata: bondIndex, nodeIndex0: bond.node0, nodeIndex1: bond.node1, health: 1e9 });
+        removedBondIndices.add(bondIndex);
       }
+      if (fractures.length > 0) commands.push({ actorIndex, fractures });
     }
     pendingDamageFractures.clear();
 
-    const commands: Array<{ actorIndex: number; fractures: Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }> }> = [];
-    for (const [actorIndex, fractures] of fracturesByActor) {
-      if (fractures.length > 0) commands.push({ actorIndex, fractures });
-    }
     if (commands.length === 0) {
       stopTiming(t0, 'damageFlushMs');
       return;
@@ -1655,20 +1663,8 @@ export async function buildDestructibleCore({
       for (const ni of previewDestroyed) {
         const chunk = chunks[ni];
         if (!chunk) continue;
-
-        const neighborBondIndices = bondsByNode.get(ni);
-        if (neighborBondIndices) {
-          for (const bi of neighborBondIndices) {
-            if (removedBondIndices.has(bi)) continue;
-            const b = bondTable[bi];
-            if (!b) continue;
-            const otherNode = b.node0 === ni ? b.node1 : b.node0;
-            let set = pendingDamageFractures.get(ni);
-            if (!set) { set = new Set(); pendingDamageFractures.set(ni, set); }
-            set.add(otherNode);
-          }
-        }
-
+        // handleNodeDestroyed('impact') enqueues bonds via enqueueDamageFracturesForNode
+        // (routes through fracture pipeline for split detection) and cleans up the node.
         if (damageOptions.autoDetachOnDestroy) {
           try { handleNodeDestroyed(ni, 'impact'); } catch {}
         }
@@ -1694,6 +1690,9 @@ export async function buildDestructibleCore({
         try { handleNodeDestroyed(ni, 'impact'); } catch {}
       }
     }
+
+    // Flush enqueued damage fractures through the fracture pipeline (split detection)
+    flushPendingDamageFractures();
 
     return false;
   }
@@ -1897,9 +1896,36 @@ export async function buildDestructibleCore({
   }
 
   /**
+   * Enqueue all active bonds for a destroyed node into pendingDamageFractures.
+   * Unlike cutNodeBonds (which removes bonds directly from the WASM solver
+   * bypassing split detection), this routes bonds through the fracture pipeline
+   * (applyFractureCommands) which performs island/split detection and creates
+   * new physics bodies for separated fragments.
+   */
+  function enqueueDamageFracturesForNode(nodeIndex: number) {
+    const bonds = getNodeBonds(nodeIndex);
+    if (bonds.length === 0) return;
+    for (const br of bonds) {
+      if (removedBondIndices.has(br.index)) continue;
+      const actor0 = nodeToActor.get(br.node0);
+      const actor1 = nodeToActor.get(br.node1);
+      const actorIndex = actor0 != null ? actor0 : actor1;
+      if (actorIndex == null) continue;
+      // Skip cross-actor bonds — they were already fractured during a prior split
+      if (actor0 != null && actor1 != null && actor0 !== actor1) continue;
+      let set = pendingDamageFractures.get(actorIndex);
+      if (!set) {
+        set = new Set<number>();
+        pendingDamageFractures.set(actorIndex, set);
+      }
+      set.add(br.index);
+    }
+  }
+
+  /**
    * Centralized node destruction handler. Marks the chunk as destroyed,
-   * cuts its bonds from the WASM solver, cleans up collider/body links,
-   * and notifies listeners. Matches vibe-city's handleNodeDestroyed pattern.
+   * manages bond removal (via fracture pipeline for impacts, direct cut for manual),
+   * cleans up collider/body links, and notifies listeners.
    */
   function handleNodeDestroyed(nodeIndex: number, reason: 'impact' | 'manual') {
     const chunk = chunks[nodeIndex];
@@ -1910,8 +1936,15 @@ export async function buildDestructibleCore({
     chunk.active = false;
     if (chunk.health != null) chunk.health = 0;
 
-    // Cut bonds from the WASM solver so it stops computing stress on destroyed nodes
-    try { cutNodeBonds(nodeIndex); } catch {}
+    // Bond removal strategy depends on reason:
+    // - 'impact': enqueue bonds for fracture pipeline (applyFractureCommands) which
+    //   performs island/split detection and creates new bodies for separated fragments.
+    // - 'manual': cut bonds directly from the WASM solver (no split detection needed).
+    if (reason === 'impact') {
+      try { enqueueDamageFracturesForNode(nodeIndex); } catch {}
+    } else {
+      try { cutNodeBonds(nodeIndex); } catch {}
+    }
 
     // Disable/remove collider
     if (chunk.colliderHandle != null) {
