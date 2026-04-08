@@ -382,7 +382,29 @@ export async function buildDestructibleCore({
     console.warn('[Core] no supports (nodes with mass=0) found in scenario', scenario);
   }
 
-  const solver = runtime.createExtSolver({ nodes, bonds, settings: scaledSettings });
+  let isHierarchical = !!(scenario.hierarchicalChunks && scenario.hierarchicalChunks.length > 0);
+  let solver: ReturnType<typeof runtime.createExtSolver>;
+  if (isHierarchical) {
+    try {
+      solver = runtime.createHierarchicalExtSolver({
+        chunks: scenario.hierarchicalChunks!.map(c => ({
+          centroid: c.centroid,
+          mass: c.mass,
+          volume: c.volume,
+          parentIndex: c.parentIndex,
+          isSupport: c.isSupport,
+        })),
+        bonds,
+        settings: scaledSettings,
+      });
+    } catch (e) {
+      console.warn('[Core] Hierarchical solver unavailable, falling back to flat solver:', (e as Error).message);
+      isHierarchical = false;
+      solver = runtime.createExtSolver({ nodes, bonds, settings: scaledSettings });
+    }
+  } else {
+    solver = runtime.createExtSolver({ nodes, bonds, settings: scaledSettings });
+  }
 
   const bondTable: Array<{ index:number; node0:number; node1:number; centroid:Vec3; normal:Vec3; area:number }> = scenario.bonds.map((b, i) => ({ index: i, node0: b.node0, node1: b.node1, centroid: b.centroid, normal: b.normal, area: b.area }));
   const bondsByNode = new Map<number, number[]>();
@@ -2109,6 +2131,22 @@ export async function buildDestructibleCore({
     applyNodeDamage: damageOptions.enabled ? applyNodeDamage : undefined,
     getNodeHealth: damageOptions.enabled ? getNodeHealth : undefined,
     damageEnabled: damageOptions.enabled,
+    isHierarchical,
+    applyChunkDamage: isHierarchical
+      ? (actorIndex: number, damages: Array<{ chunkIndex: number; damage: number }>) => {
+          const splitEvents = solver.applyChunkDamage(damages, actorIndex);
+          if (splitEvents.length > 0) {
+            processSplitEvents(splitEvents);
+          }
+          return splitEvents;
+        }
+      : undefined,
+    getVisibleChunks: isHierarchical
+      ? (actorIndex: number) => solver.getVisibleChunks(actorIndex)
+      : undefined,
+    getChunkCount: isHierarchical
+      ? () => solver.getChunkCount()
+      : undefined,
     dispose,
     setProfiler,
     recordProjectileCleanupDuration: recordProjectileCleanupDurationInternal,

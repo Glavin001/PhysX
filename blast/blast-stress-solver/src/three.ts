@@ -5,6 +5,7 @@ export * from './three/fracture';
 export * from './three/fractureBuilders';
 export * from './three/foundation';
 export * from './three/geometryUtils';
+export * from './three/hierarchicalFracture';
 export * from './three/pinataFracture';
 export * from './three/rapier-debug-renderer';
 export * from './three/scenario';

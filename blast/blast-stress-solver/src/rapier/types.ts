@@ -123,6 +123,17 @@ export type ScenarioBond = {
   area: number;
 };
 
+/**
+ * Hierarchical chunk used in ScenarioDesc.hierarchicalChunks.
+ * Extends ScenarioNode with parent-child relationships and support flags.
+ */
+export type HierarchicalScenarioChunk = ScenarioNode & {
+  /** Parent chunk index (-1 or undefined = root). */
+  parentIndex?: number;
+  /** Whether this chunk is a support chunk (bonds connect here). */
+  isSupport?: boolean;
+};
+
 export type ScenarioDesc = {
   nodes: ScenarioNode[];
   bonds: ScenarioBond[];
@@ -132,6 +143,14 @@ export type ScenarioDesc = {
   // Optional per-node collider descriptors (one entry per node index). If omitted or entry returns null,
   // the core falls back to a box collider sized from the node (nodeSize).
   colliderDescForNode?: Array<ColliderDescBuilder | null>;
+  /**
+   * Optional hierarchical chunk descriptions. When provided, the core creates a
+   * hierarchical Blast solver with native subsupport cascade. Bond indices in
+   * `bonds` refer to chunk indices in this array (support-level chunks only).
+   * The `nodes` field is still required for node-size and collider resolution
+   * but the hierarchy comes from here.
+   */
+  hierarchicalChunks?: HierarchicalScenarioChunk[];
 };
 
 export type ChunkData = {
@@ -317,6 +336,16 @@ export type DestructibleCore = {
   // Fracture policy API - tune realism ↔ performance spectrum at runtime
   setFracturePolicy?: (policy: FracturePolicy) => void;
   getFracturePolicy?: () => Required<FracturePolicy>;
+  // Hierarchical destruction API (present when scenario has hierarchicalChunks)
+  /** Apply damage to specific Blast chunks, triggering native subsupport cascade.
+   *  Returns split events if any actors split as a result. */
+  applyChunkDamage?: (actorIndex: number, damages: Array<{ chunkIndex: number; damage: number }>) => Array<{ parentActorIndex: number; children: Array<{ actorIndex: number; nodes: number[] }> }>;
+  /** Query visible chunk indices for a given actor. Returns asset chunk indices. */
+  getVisibleChunks?: (actorIndex: number) => number[];
+  /** Total chunk count in the Blast asset (including root + subsupport). */
+  getChunkCount?: () => number;
+  /** Whether this core was created with hierarchical chunks. */
+  isHierarchical?: boolean;
   dispose: () => void;
   setProfiler: (config: CoreProfilerConfig | null) => void;
   recordProjectileCleanupDuration?: (durationMs: number) => void;

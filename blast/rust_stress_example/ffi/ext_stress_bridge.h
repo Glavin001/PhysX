@@ -67,11 +67,31 @@ typedef struct ExtStressSplitEvent {
     uint32_t childCount;
 } ExtStressSplitEvent;
 
+typedef struct HierarchicalChunkDesc {
+    StressVec3 centroid;
+    float mass;
+    float volume;
+    uint32_t parentIndex;    /* UINT32_MAX = root */
+    uint8_t  isSupport;      /* 1 = support chunk (bonds here), 0 = subsupport */
+} HierarchicalChunkDesc;
+
+typedef struct ExtStressChunkDamage {
+    uint32_t chunkIndex;
+    float damage;
+} ExtStressChunkDamage;
+
 ExtStressSolverHandle* ext_stress_solver_create(const ExtStressNodeDesc* nodes,
                                                 uint32_t node_count,
                                                 const ExtStressBondDesc* bonds,
                                                 uint32_t bond_count,
                                                 const ExtStressSolverSettingsDesc* settings);
+
+ExtStressSolverHandle* ext_stress_solver_create_hierarchical(
+    const HierarchicalChunkDesc* chunks,
+    uint32_t chunk_count,
+    const ExtStressBondDesc* bonds,
+    uint32_t bond_count,
+    const ExtStressSolverSettingsDesc* settings);
 
 void ext_stress_solver_destroy(ExtStressSolverHandle* handle);
 
@@ -155,6 +175,33 @@ float ext_stress_solver_get_angular_error(const ExtStressSolverHandle* handle);
 
 uint8_t ext_stress_solver_converged(const ExtStressSolverHandle* handle);
 
+uint8_t ext_stress_solver_apply_chunk_damage(
+    ExtStressSolverHandle* handle,
+    uint32_t actor_index,
+    const ExtStressChunkDamage* damages,
+    uint32_t damage_count,
+    ExtStressSplitEvent* events_buffer,
+    uint32_t event_capacity,
+    ExtStressActor* child_buffer,
+    uint32_t child_capacity,
+    uint32_t* out_event_count,
+    uint32_t* out_child_count,
+    uint32_t* nodes_buffer,
+    uint32_t nodes_capacity,
+    uint32_t* out_node_count);
+
+uint32_t ext_stress_solver_get_visible_chunk_count(
+    const ExtStressSolverHandle* handle,
+    uint32_t actor_index);
+
+uint32_t ext_stress_solver_get_visible_chunks(
+    const ExtStressSolverHandle* handle,
+    uint32_t actor_index,
+    uint32_t* out_chunk_indices,
+    uint32_t capacity);
+
+uint32_t ext_stress_solver_get_chunk_count(const ExtStressSolverHandle* handle);
+
 uint32_t ext_stress_sizeof_ext_node_desc();
 uint32_t ext_stress_sizeof_ext_bond_desc();
 uint32_t ext_stress_sizeof_ext_settings();
@@ -164,6 +211,8 @@ uint32_t ext_stress_sizeof_ext_fracture_commands();
 uint32_t ext_stress_sizeof_actor();
 uint32_t ext_stress_sizeof_actor_buffer();
 uint32_t ext_stress_sizeof_ext_split_event();
+uint32_t ext_stress_sizeof_hierarchical_chunk_desc();
+uint32_t ext_stress_sizeof_chunk_damage();
 
 #ifdef __cplusplus
 }
