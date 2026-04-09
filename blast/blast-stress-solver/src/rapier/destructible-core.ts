@@ -1721,64 +1721,136 @@ export async function buildDestructibleCore({
 
     applyExternalForcesFromBuffer();
     spawnPendingProjectiles();
-
-    if (resimulateOnFracture) {
-      captureWorldSnapshot();
-    }
-
-    const initialT0 = startTiming();
-    // Set the clamped dt on the world, restore original afterwards
     setWorldDtValue(clampedDt);
-    const rapierT0 = startTiming();
-    world.step(eventQueue);
-    stopTiming(rapierT0, 'rapierStepMs');
 
-    drainContactForces();
+    // ── Unified resimulation loop (matches vibe-city architecture) ──
+    // Each iteration: snapshot → step → detect → (if resim: rollback → apply → continue) or (done → break)
+    const maxResim = Math.max(0, maxResimulationPasses);
+    const fractureResimEnabled = !!resimulateOnFracture && maxResim > 0;
+    const damageResimEnabled = damageOptions.enabled && !!resimulateOnDamageDestroy && maxResim > 0;
+    let passesRemaining = maxResim;
+    let passIndex = 0;
 
-    if (activeProfilerSample) {
-      activeProfilerSample.bufferedExternalContacts = bufferedExternalContacts.length;
-      activeProfilerSample.bufferedInternalContacts = bufferedInternalContacts.length;
-    }
+    while (true) {
+      // ── 1. Capture snapshot (includes ALL current bodies, including new ones from prior iteration) ──
+      const snapshotNeeded = (fractureResimEnabled || damageResimEnabled) && passesRemaining > 0;
+      if (snapshotNeeded) {
+        captureWorldSnapshot();
+      }
 
-    const needsResim = damageDrivePass(dt);
+      // ── 2. Physics step ──
+      const rapierT0 = startTiming();
+      world.step(eventQueue);
+      stopTiming(rapierT0, 'rapierStepMs');
 
-    const hadFracture = processOneFracturePass(0, ['initial']);
-    stopTiming(initialT0, 'initialPassMs');
+      // ── 3. Drain contacts + solver update ──
+      drainContactForces();
+      if (activeProfilerSample && passIndex === 0) {
+        activeProfilerSample.bufferedExternalContacts = bufferedExternalContacts.length;
+        activeProfilerSample.bufferedInternalContacts = bufferedInternalContacts.length;
+      }
 
-    if (hadFracture || needsResim) {
+      const hadFracture = processOneFracturePass(passIndex, passIndex === 0 ? ['initial'] : ['resim']);
+
+      // ── 4. Damage preview ──
+      let damagePreviewDestroyed: number[] = [];
+      let damageSnapshot: DamageStateSnapshot | null = null;
+      if (damageOptions.enabled) {
+        const shouldSnapshotDamage = damageResimEnabled || (fractureResimEnabled && hadFracture);
+        if (shouldSnapshotDamage) {
+          try { damageSnapshot = damageSystem.captureImpactState(); } catch {}
+        }
+        contactReplayBuffer.replay(damageSystem);
+        if (damageResimEnabled) {
+          try { damagePreviewDestroyed = damageSystem.previewTick(clampedDt); } catch { damagePreviewDestroyed = []; }
+        }
+      }
+
+      // ── 5. Resimulation trigger decision ──
+      const shouldResimFracture = fractureResimEnabled && hadFracture;
+      const shouldResimDamage = damageResimEnabled && damagePreviewDestroyed.length > 0;
+
+      if (!shouldResimFracture && !shouldResimDamage) {
+        // ── No resimulation needed: apply damage directly and exit ──
+        if (damageOptions.enabled) {
+          const tickDestroyed = damageSystem.tick(clampedDt);
+          for (const ni of tickDestroyed) {
+            if (!chunks[ni]) continue;
+            if (damageOptions.autoDetachOnDestroy) {
+              try { handleNodeDestroyed(ni, 'impact'); } catch {}
+            }
+          }
+          flushPendingDamageFractures();
+        }
+        // Apply any remaining pending bodies/collider migrations from fracture pass
+        flushPendingBodies();
+        flushColliderMigrations();
+        break;
+      }
+
+      // ── 6. Resimulation needed: rollback and reprocess ──
+      if (!snapshotNeeded) {
+        // No snapshot was captured (passesRemaining was 0) — can't rollback.
+        // Apply damage and fractures directly as a fallback.
+        if (damageOptions.enabled) {
+          const tickDestroyed = damageSystem.tick(clampedDt);
+          for (const ni of tickDestroyed) {
+            if (!chunks[ni]) continue;
+            if (damageOptions.autoDetachOnDestroy) {
+              try { handleNodeDestroyed(ni, 'impact'); } catch {}
+            }
+          }
+          flushPendingDamageFractures();
+        }
+        flushPendingBodies();
+        flushColliderMigrations();
+        break;
+      }
+
+      if (activeProfilerSample) {
+        activeProfilerSample.resimPasses = (activeProfilerSample.resimPasses || 0) + 1;
+        if (shouldResimFracture) activeProfilerSample.resimReasons.push('fracture');
+        if (shouldResimDamage) activeProfilerSample.resimReasons.push('damage');
+      }
+      passesRemaining -= 1;
+
+      // ── 6a. Rollback physics state ──
+      try {
+        restoreWorldSnapshot();
+      } catch (e) {
+        if (isDev) console.error('[Core] rollback failed; proceeding without resim', e);
+        flushPendingBodies();
+        flushColliderMigrations();
+        break;
+      }
+
+      // ── 6b. Rollback damage state ──
+      if (damageSnapshot) {
+        try { damageSystem.restoreImpactState(damageSnapshot); } catch {}
+      }
+
+      // ── 6c. Apply fracture commands on restored state (bonds removed, new bodies created) ──
+      // Fracture commands are still available in the solver from the detection pass above.
+      // New bodies are created from RESTORED positions (correct initial conditions for re-step).
       flushPendingBodies();
       flushColliderMigrations();
       rebuildColliderToNodeMap();
 
-      let resimCount = 0;
-      const maxResim = Math.max(0, maxResimulationPasses);
-
-      while (resimCount < maxResim) {
-        const resimT0 = startTiming();
-        if (resimulateOnFracture) {
-          restoreWorldSnapshot();
-          captureWorldSnapshot();
-          const rapierResimT0 = startTiming();
-          world.step(eventQueue);
-          stopTiming(rapierResimT0, 'rapierStepMs');
-          drainContactForces();
+      // ── 6d. Apply damage pre-destruction (nodes destroyed by damage preview) ──
+      if (damagePreviewDestroyed.length > 0) {
+        for (const ni of damagePreviewDestroyed) {
+          const chunk = chunks[ni];
+          if (!chunk || chunk.destroyed) continue;
+          if (chunk.isSupport) continue;
+          if (damageOptions.autoDetachOnDestroy) {
+            try { handleNodeDestroyed(ni, 'impact'); } catch {}
+          }
         }
-
-        const hadMore = processOneFracturePass(resimCount + 1, ['resim']);
-        stopTiming(resimT0, 'resimMs');
-        resimCount++;
-
-        if (activeProfilerSample) {
-          activeProfilerSample.resimPasses = resimCount;
-          activeProfilerSample.resimReasons.push(needsResim ? 'damage' : 'fracture');
-        }
-
-        if (!hadMore) break;
-
-        flushPendingBodies();
-        flushColliderMigrations();
-        rebuildColliderToNodeMap();
+        flushPendingDamageFractures();
       }
+
+      passIndex++;
+      // Continue loop: re-snapshot → re-step → re-detect with updated topology
     }
 
     flushPendingBodies();
@@ -1811,7 +1883,6 @@ export async function buildDestructibleCore({
       activeProfilerSample.projectiles = projectiles.length;
       const wbc = world as WorldWithBodyCount;
       activeProfilerSample.rigidBodies = typeof wbc.numRigidBodies === 'function' ? wbc.numRigidBodies() : 0;
-      // Capture body/chunk distribution stats
       const bcs = captureBodyColliderStats();
       if (bcs) {
         activeProfilerSample.bodyCount = bcs.bodyCount;
@@ -1911,8 +1982,12 @@ export async function buildDestructibleCore({
       const actor1 = nodeToActor.get(br.node1);
       const actorIndex = actor0 != null ? actor0 : actor1;
       if (actorIndex == null) continue;
-      // Skip cross-actor bonds — they were already fractured during a prior split
-      if (actor0 != null && actor1 != null && actor0 !== actor1) continue;
+      // Cross-actor bonds: these nodes are already on separate bodies from prior splits.
+      // No split detection needed — just cut the bond directly.
+      if (actor0 != null && actor1 != null && actor0 !== actor1) {
+        cutBond(br.index);
+        continue;
+      }
       let set = pendingDamageFractures.get(actorIndex);
       if (!set) {
         set = new Set<number>();
