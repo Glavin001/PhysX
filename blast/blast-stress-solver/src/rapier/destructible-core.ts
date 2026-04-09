@@ -559,6 +559,9 @@ export async function buildDestructibleCore({
   const pendingExternalForces: Array<{ nodeIndex:number; point: Vec3; force: Vec3 }> = [];
   // actorIndex → Set<bondIndex>: bonds queued for fracture pipeline (with split detection)
   const pendingDamageFractures = new Map<number, Set<number>>();
+  // Reusable command array for flushPendingDamageFractures (avoids per-call allocation)
+  const _damageFractureCommands: Array<{ actorIndex: number; fractures: Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }> }> = [];
+  const _damageFracturePool: Array<Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }>> = [];
   const nowSeconds = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
 
   // ── Spatial grid for fast splash-radius neighbor lookups ──
@@ -1149,7 +1152,7 @@ export async function buildDestructibleCore({
         fractureMs: 0,
         bodyCreateMs: 0,
         totalMs: passMs,
-        reasons: [...reasons],
+        reasons,
       });
     }
 
@@ -1231,7 +1234,12 @@ export async function buildDestructibleCore({
     }
     // Remove processed entries, keep deferred ones for next frame
     if (maxBodies > 0 && bodiesCreated < pendingBodiesToCreate.length) {
-      pendingBodiesToCreate.splice(0, bodiesCreated);
+      // Compact: shift remaining entries to front (avoids O(n) splice reallocation)
+      const remaining = pendingBodiesToCreate.length - bodiesCreated;
+      for (let ci = 0; ci < remaining; ci++) {
+        pendingBodiesToCreate[ci] = pendingBodiesToCreate[ci + bodiesCreated];
+      }
+      pendingBodiesToCreate.length = remaining;
     } else {
       pendingBodiesToCreate.length = 0;
     }
@@ -1605,28 +1613,34 @@ export async function buildDestructibleCore({
     if (pendingDamageFractures.size === 0) return;
     const t0 = startTiming();
 
-    // pendingDamageFractures is Map<actorIndex, Set<bondIndex>>
-    // Build fracture commands directly from bond indices — no scan needed
-    const commands: Array<{ actorIndex: number; fractures: Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }> }> = [];
+    // Reuse pre-allocated command arrays to avoid per-call allocation
+    _damageFractureCommands.length = 0;
+    let poolIdx = 0;
     for (const [actorIndex, bondSet] of pendingDamageFractures) {
-      const fractures: Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }> = [];
+      // Get or grow fracture array from pool
+      if (poolIdx >= _damageFracturePool.length) _damageFracturePool.push([]);
+      const fractures = _damageFracturePool[poolIdx];
+      fractures.length = 0;
       for (const bondIndex of bondSet) {
         const bond = bondTable[bondIndex];
         if (!bond || removedBondIndices.has(bondIndex)) continue;
         fractures.push({ userdata: bondIndex, nodeIndex0: bond.node0, nodeIndex1: bond.node1, health: 1e9 });
         removedBondIndices.add(bondIndex);
       }
-      if (fractures.length > 0) commands.push({ actorIndex, fractures });
+      if (fractures.length > 0) {
+        _damageFractureCommands.push({ actorIndex, fractures });
+        poolIdx++;
+      }
     }
     pendingDamageFractures.clear();
 
-    if (commands.length === 0) {
+    if (_damageFractureCommands.length === 0) {
       stopTiming(t0, 'damageFlushMs');
       return;
     }
 
     try {
-      const splitEvents = profiledApplyFractureCommands(commands as FractureCommands);
+      const splitEvents = profiledApplyFractureCommands(_damageFractureCommands as FractureCommands);
       if (splitEvents.length > 0) {
         processSplitEvents(splitEvents);
         flushPendingBodies();
@@ -1730,6 +1744,8 @@ export async function buildDestructibleCore({
     const damageResimEnabled = damageOptions.enabled && !!resimulateOnDamageDestroy && maxResim > 0;
     let passesRemaining = maxResim;
     let passIndex = 0;
+    let damagePreviewDestroyed: number[] = [];
+    let damageSnapshot: DamageStateSnapshot | null = null;
 
     while (true) {
       // ── 1. Capture snapshot (includes ALL current bodies, including new ones from prior iteration) ──
@@ -1753,8 +1769,8 @@ export async function buildDestructibleCore({
       const hadFracture = processOneFracturePass(passIndex, passIndex === 0 ? ['initial'] : ['resim']);
 
       // ── 4. Damage preview ──
-      let damagePreviewDestroyed: number[] = [];
-      let damageSnapshot: DamageStateSnapshot | null = null;
+      damagePreviewDestroyed.length = 0;
+      damageSnapshot = null;
       if (damageOptions.enabled) {
         const shouldSnapshotDamage = damageResimEnabled || (fractureResimEnabled && hadFracture);
         if (shouldSnapshotDamage) {
@@ -1937,12 +1953,26 @@ export async function buildDestructibleCore({
   function getNodeBonds(nodeIndex: number): BondRef[] {
     const indices = bondsByNode.get(nodeIndex);
     if (!indices) return [];
-    return indices
-      .filter((bi) => !removedBondIndices.has(bi))
-      .map((bi) => {
-        const b = bondTable[bi];
-        return { index: bi, node0: b.node0, node1: b.node1, centroid: b.centroid, normal: b.normal, area: b.area };
-      });
+    const result: BondRef[] = [];
+    for (let i = 0; i < indices.length; i++) {
+      const bi = indices[i];
+      if (removedBondIndices.has(bi)) continue;
+      const b = bondTable[bi];
+      result.push({ index: bi, node0: b.node0, node1: b.node1, centroid: b.centroid, normal: b.normal, area: b.area });
+    }
+    return result;
+  }
+
+  /** Zero-allocation bond iteration for hot paths. Returns false from cb to stop early. */
+  function forEachNodeBond(nodeIndex: number, cb: (bondIndex: number, node0: number, node1: number) => void | false): void {
+    const indices = bondsByNode.get(nodeIndex);
+    if (!indices) return;
+    for (let i = 0; i < indices.length; i++) {
+      const bi = indices[i];
+      if (removedBondIndices.has(bi)) continue;
+      const b = bondTable[bi];
+      if (cb(bi, b.node0, b.node1) === false) return;
+    }
   }
 
   function cutBond(bondIndex: number): boolean {
@@ -1974,27 +2004,24 @@ export async function buildDestructibleCore({
    * new physics bodies for separated fragments.
    */
   function enqueueDamageFracturesForNode(nodeIndex: number) {
-    const bonds = getNodeBonds(nodeIndex);
-    if (bonds.length === 0) return;
-    for (const br of bonds) {
-      if (removedBondIndices.has(br.index)) continue;
-      const actor0 = nodeToActor.get(br.node0);
-      const actor1 = nodeToActor.get(br.node1);
+    forEachNodeBond(nodeIndex, (bondIndex, node0, node1) => {
+      const actor0 = nodeToActor.get(node0);
+      const actor1 = nodeToActor.get(node1);
       const actorIndex = actor0 != null ? actor0 : actor1;
-      if (actorIndex == null) continue;
-      // Cross-actor bonds: these nodes are already on separate bodies from prior splits.
+      if (actorIndex == null) return;
+      // Cross-actor bonds: nodes already on separate bodies from prior splits.
       // No split detection needed — just cut the bond directly.
       if (actor0 != null && actor1 != null && actor0 !== actor1) {
-        cutBond(br.index);
-        continue;
+        cutBond(bondIndex);
+        return;
       }
       let set = pendingDamageFractures.get(actorIndex);
       if (!set) {
         set = new Set<number>();
         pendingDamageFractures.set(actorIndex, set);
       }
-      set.add(br.index);
-    }
+      set.add(bondIndex);
+    });
   }
 
   /**

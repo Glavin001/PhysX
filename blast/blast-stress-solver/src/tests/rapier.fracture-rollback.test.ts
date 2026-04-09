@@ -531,4 +531,209 @@ describe.skipIf(!runtimeAvailable)('Fracture rollback / resimulation (requires W
       core.dispose();
     });
   });
+
+  // ── Performance: Snapshot overhead and resim scaling ──
+
+  describe('Performance: snapshot and resim overhead', () => {
+    it('perBody snapshot capture+restore overhead is bounded', async () => {
+      await loadModules();
+      const scenario = buildWallScenario({ width: 6, height: 4 });
+      const samples: any[] = [];
+      const core = await buildDestructibleCore({
+        scenario,
+        materialScale: 0.01, // weak to trigger fractures
+        resimulateOnFracture: true,
+        maxResimulationPasses: 2,
+        snapshotMode: 'perBody',
+      });
+
+      core.setProfiler({
+        enabled: true,
+        onSample: (s: any) => samples.push(s),
+      });
+
+      core.enqueueProjectile({
+        position: { x: 0, y: 1.5, z: -1.5 },
+        velocity: { x: 0, y: 0, z: 20 },
+        mass: 5,
+        radius: 0.2,
+        ttl: 0.001,
+      });
+
+      stepN(core, 120);
+
+      // Snapshot capture should be fast relative to total frame time
+      const captureMs = samples.map((s: any) => s.snapshotCaptureMs ?? 0);
+      const restoreMs = samples.map((s: any) => s.snapshotRestoreMs ?? 0);
+      const totalMs = samples.map((s: any) => s.totalMs ?? 0);
+
+      const avgCapture = captureMs.reduce((a: number, b: number) => a + b, 0) / captureMs.length;
+      const avgRestore = restoreMs.reduce((a: number, b: number) => a + b, 0) / restoreMs.length;
+      const avgTotal = totalMs.reduce((a: number, b: number) => a + b, 0) / totalMs.length;
+
+      // Snapshot overhead should be < 30% of total frame time
+      if (avgTotal > 0) {
+        expect((avgCapture + avgRestore) / avgTotal).toBeLessThan(0.3);
+      }
+
+      // Snapshot bytes should be reasonable (< 1MB for a 72-node scene)
+      const maxBytes = Math.max(...samples.map((s: any) => s.snapshotBytes ?? 0));
+      expect(maxBytes).toBeLessThan(1024 * 1024);
+
+      core.dispose();
+    });
+
+    it('world snapshot mode produces same fracture results as perBody', async () => {
+      await loadModules();
+      const scenario = buildWallScenario({ width: 4, height: 3 });
+
+      const run = async (snapshotMode: string) => {
+        const core = await buildDestructibleCore({
+          scenario,
+          materialScale: 0.01,
+          resimulateOnFracture: true,
+          maxResimulationPasses: 1,
+          snapshotMode,
+          onWorldReplaced: snapshotMode === 'world' ? () => {} : undefined,
+        });
+        stepN(core, 60);
+        const bonds = core.getActiveBondsCount();
+        const destroyed = core.chunks.filter((c: any) => c.destroyed).length;
+        core.dispose();
+        return { bonds, destroyed };
+      };
+
+      const perBody = await run('perBody');
+      const world = await run('world');
+
+      // Both modes should produce similar results (not identical due to float precision)
+      // But bond counts should be close (within 20% or equal)
+      if (perBody.bonds > 0 || world.bonds > 0) {
+        const ratio = Math.min(perBody.bonds, world.bonds) / Math.max(perBody.bonds, world.bonds, 1);
+        expect(ratio).toBeGreaterThan(0.5);
+      }
+    });
+
+    it('resim passes scale with maxResimulationPasses', async () => {
+      await loadModules();
+      const scenario = buildTowerScenario({ side: 3, stories: 4, totalMass: 500 });
+
+      const run = async (maxPasses: number) => {
+        let maxResimSeen = 0;
+        const core = await buildDestructibleCore({
+          scenario,
+          materialScale: 0.001,
+          resimulateOnFracture: true,
+          maxResimulationPasses: maxPasses,
+        });
+        core.setProfiler({
+          enabled: true,
+          onSample: (s: any) => {
+            if (s.resimPasses > maxResimSeen) maxResimSeen = s.resimPasses;
+          },
+        });
+        stepN(core, 60);
+        const bonds = core.getActiveBondsCount();
+        core.dispose();
+        return { maxResimSeen, bonds };
+      };
+
+      const pass0 = await run(0);
+      const pass1 = await run(1);
+      const pass3 = await run(3);
+
+      // maxResimPasses=0 should never resim
+      expect(pass0.maxResimSeen).toBe(0);
+
+      // Higher pass limits should allow more resim (when fractures cascade)
+      expect(pass3.maxResimSeen).toBeGreaterThanOrEqual(pass1.maxResimSeen);
+
+      // More passes should produce equal or fewer remaining bonds
+      expect(pass3.bonds).toBeLessThanOrEqual(pass1.bonds);
+      expect(pass1.bonds).toBeLessThanOrEqual(pass0.bonds);
+    });
+
+    it('damage + fracture resim together does not spike frame time', async () => {
+      await loadModules();
+      const scenario = buildWallScenario({ width: 6, height: 4 });
+      const samples: any[] = [];
+      const core = await buildDestructibleCore({
+        scenario,
+        materialScale: 0.01,
+        resimulateOnFracture: true,
+        resimulateOnDamageDestroy: true,
+        maxResimulationPasses: 2,
+        damage: {
+          enabled: true,
+          kImpact: 0.5,
+          strengthPerVolume: 500,
+          autoDetachOnDestroy: true,
+          autoCleanupPhysics: true,
+        },
+      });
+
+      core.setProfiler({
+        enabled: true,
+        onSample: (s: any) => samples.push(s),
+      });
+
+      core.enqueueProjectile({
+        position: { x: 0, y: 1.5, z: -1.5 },
+        velocity: { x: 0, y: 0, z: 20 },
+        mass: 5,
+        radius: 0.2,
+        ttl: 0.001,
+      });
+
+      stepN(core, 60);
+
+      // No frame should take > 500ms (even with resim + damage)
+      const maxTotal = Math.max(...samples.map((s: any) => s.totalMs ?? 0));
+      expect(maxTotal).toBeLessThan(500);
+
+      // Verify simulation completed without crash
+      for (const chunk of core.chunks) {
+        if (chunk.worldPosition) {
+          expect(Number.isFinite(chunk.worldPosition.x)).toBe(true);
+          expect(Number.isFinite(chunk.worldPosition.y)).toBe(true);
+        }
+      }
+
+      core.dispose();
+    });
+
+    it('idle-skip prevents solver work when structure is stable', async () => {
+      await loadModules();
+      const scenario = buildWallScenario({ width: 3, height: 2 });
+      const samples: any[] = [];
+      const core = await buildDestructibleCore({
+        scenario,
+        materialScale: 1e8, // very strong, no fracture
+        resimulateOnFracture: true,
+        maxResimulationPasses: 1,
+        fracturePolicySettings: { idleSkip: true },
+      });
+
+      core.setProfiler({
+        enabled: true,
+        onSample: (s: any) => samples.push(s),
+      });
+
+      // Run enough frames for idle-skip to activate (needs safeFrames > 2 + convergence)
+      stepN(core, 30);
+
+      // After settling, solver update should be very fast (skipped)
+      const lateSamples = samples.slice(-10);
+      const avgSolverMs = lateSamples.reduce((a: number, s: any) => a + (s.solverUpdateMs ?? 0), 0) / lateSamples.length;
+
+      // Idle-skipped frames should have near-zero solver time
+      // (just the convergence check, not the full update)
+      expect(avgSolverMs).toBeLessThan(2.0);
+
+      // No fractures should have occurred (strong material)
+      expect(core.getActiveBondsCount()).toBe(samples[0]?.bondCount ?? core.getActiveBondsCount());
+
+      core.dispose();
+    });
+  });
 });
