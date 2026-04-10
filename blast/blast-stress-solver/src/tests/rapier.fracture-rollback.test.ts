@@ -736,4 +736,64 @@ describe.skipIf(!runtimeAvailable)('Fracture rollback / resimulation (requires W
       core.dispose();
     });
   });
+
+  // ── Runtime setters for resim configuration ──
+
+  describe('Runtime resim setters', () => {
+    it('setResimulateOnFracture/setMaxResimulationPasses live-tune without rebuild', async () => {
+      await loadModules();
+      const scenario = buildWallScenario({ width: 3, height: 2 });
+      const core = await buildDestructibleCore({
+        scenario,
+        materialScale: 1e8,
+        resimulateOnFracture: false,
+        maxResimulationPasses: 0,
+        resimulateOnDamageDestroy: false,
+      });
+
+      const initial = core.getResimConfig();
+      expect(initial.resimulateOnFracture).toBe(false);
+      expect(initial.maxResimulationPasses).toBe(0);
+      expect(initial.resimulateOnDamageDestroy).toBe(false);
+
+      // Flip all runtime-tunable settings
+      core.setResimulateOnFracture(true);
+      core.setMaxResimulationPasses(3);
+      core.setResimulateOnDamageDestroy(true);
+
+      const updated = core.getResimConfig();
+      expect(updated.resimulateOnFracture).toBe(true);
+      expect(updated.maxResimulationPasses).toBe(3);
+      expect(updated.resimulateOnDamageDestroy).toBe(true);
+
+      // Simulation should still run without crash after runtime change
+      for (let i = 0; i < 5; i++) core.step(1 / 60);
+
+      // Flip back
+      core.setResimulateOnFracture(false);
+      core.setMaxResimulationPasses(0);
+      expect(core.getResimConfig().resimulateOnFracture).toBe(false);
+      expect(core.getResimConfig().maxResimulationPasses).toBe(0);
+
+      core.dispose();
+    });
+
+    it('setMaxResimulationPasses clamps negative values to 0', async () => {
+      await loadModules();
+      const scenario = buildWallScenario({ width: 3, height: 2 });
+      const core = await buildDestructibleCore({
+        scenario,
+        materialScale: 1e8,
+        maxResimulationPasses: 1,
+      });
+
+      core.setMaxResimulationPasses(-5);
+      expect(core.getResimConfig().maxResimulationPasses).toBe(0);
+
+      core.setMaxResimulationPasses(2.7);
+      expect(core.getResimConfig().maxResimulationPasses).toBe(2);
+
+      core.dispose();
+    });
+  });
 });

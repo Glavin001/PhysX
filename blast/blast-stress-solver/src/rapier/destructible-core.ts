@@ -117,11 +117,11 @@ export async function buildDestructibleCore({
   debrisCollisionMode,
   damage,
   onNodeDestroyed,
-  resimulateOnFracture = true,
-  maxResimulationPasses = 1,
+  resimulateOnFracture: _initialResimulateOnFracture = true,
+  maxResimulationPasses: _initialMaxResimulationPasses = 1,
   snapshotMode = 'perBody',
   onWorldReplaced,
-  resimulateOnDamageDestroy = !!damage?.enabled,
+  resimulateOnDamageDestroy: _initialResimulateOnDamageDestroy = !!damage?.enabled,
   contactForceScale = 30,
   skipSingleBodies = false,
   sleepLinearThreshold = 0.1,
@@ -131,6 +131,11 @@ export async function buildDestructibleCore({
   debrisCleanup,
   fracturePolicy,
 }: BuildDestructibleCoreOptions): Promise<DestructibleCore> {
+  // Runtime-tunable resim settings (mutable via setters below)
+  let resimulateOnFracture = _initialResimulateOnFracture;
+  let maxResimulationPasses = _initialMaxResimulationPasses;
+  let resimulateOnDamageDestroy = _initialResimulateOnDamageDestroy;
+
   await RAPIER.init();
   const runtime = await loadStressSolver();
   const profiler = {
@@ -2247,6 +2252,16 @@ export async function buildDestructibleCore({
     dispose,
     setProfiler,
     recordProjectileCleanupDuration: recordProjectileCleanupDurationInternal,
+    // Runtime setters for resimulation settings (live-tunable, no rebuild needed)
+    setResimulateOnFracture: (v: boolean) => { resimulateOnFracture = !!v; },
+    setResimulateOnDamageDestroy: (v: boolean) => { resimulateOnDamageDestroy = !!v; },
+    setMaxResimulationPasses: (v: number) => { maxResimulationPasses = Math.max(0, Math.floor(v)); },
+    getResimConfig: () => ({
+      resimulateOnFracture,
+      resimulateOnDamageDestroy,
+      maxResimulationPasses,
+      snapshotMode,
+    }),
   };
 
   return core;

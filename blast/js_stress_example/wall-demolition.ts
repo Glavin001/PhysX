@@ -17,6 +17,7 @@ import {
   applyAutoBondingToScenario,
 } from 'blast-stress-solver/three';
 import { buildWallScenario } from 'blast-stress-solver/scenarios';
+import { createResimPanel, applyResimConfigToCore } from './demo-helpers/resim-panel.js';
 
 // ── Config ────────────────────────────────────────────────────
 
@@ -154,6 +155,10 @@ let visualsRef: ReturnType<typeof createDestructibleThreeBundle> | null = null;
 let rapierDebug: RapierDebugRenderer | null = null;
 let showDebug = false;
 
+// Shared resim + damage config panel (injected into sidebar)
+const resim = createResimPanel({ insertBeforeId: 'btn-reset' });
+resim.onChange(() => { if (coreRef) applyResimConfigToCore(coreRef, resim.config); });
+
 async function initScene() {
   let scenario = buildWallScenario(CONFIG.wall);
 
@@ -196,9 +201,6 @@ async function initScene() {
     contactForceScale: CONFIG.physics.contactForceScale,
     debrisCollisionMode: CONFIG.physics.debrisCollisionMode as any,
     skipSingleBodies: CONFIG.physics.skipSingleBodies,
-    damage: {
-      enabled: false,
-    },
     smallBodyDamping: {
       mode: CONFIG.optimization.smallBodyDampingMode as any,
     },
@@ -207,6 +209,8 @@ async function initScene() {
       debrisTtlMs: CONFIG.optimization.debrisTtlMs,
       maxCollidersForDebris: CONFIG.optimization.maxCollidersForDebris,
     },
+    // Fracture rollback + damage settings from the sidebar config panel
+    ...resim.getCoreOptions(),
   });
 
   const group = new THREE.Group();

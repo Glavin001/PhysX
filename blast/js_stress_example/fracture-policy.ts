@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildDestructibleCore } from 'blast-stress-solver/rapier';
+import { createResimPanel, applyResimConfigToCore } from './demo-helpers/resim-panel.js';
 import {
   createDestructibleThreeBundle,
   RapierDebugRenderer,
@@ -150,6 +151,10 @@ let visualsRef: ReturnType<typeof createDestructibleThreeBundle> | null = null;
 let rapierDebug: RapierDebugRenderer | null = null;
 let showDebug = false;
 
+// Shared resim + damage config panel (injected into sidebar)
+const resim = createResimPanel({ insertBeforeId: 'btn-reset' });
+resim.onChange(() => { if (coreRef) applyResimConfigToCore(coreRef, resim.config); });
+
 async function initScene() {
   const scenario = buildTowerScenario(CONFIG.tower);
 
@@ -178,7 +183,6 @@ async function initScene() {
     contactForceScale: CONFIG.physics.contactForceScale,
     debrisCollisionMode: CONFIG.physics.debrisCollisionMode as any,
     skipSingleBodies: CONFIG.physics.skipSingleBodies,
-    damage: { enabled: false },
     debrisCleanup: {
       mode: CONFIG.optimization.debrisCleanupMode as any,
       debrisTtlMs: CONFIG.optimization.debrisTtlMs,
@@ -191,6 +195,8 @@ async function initScene() {
       minAngularDamping: 2,
     },
     fracturePolicy: { ...CONFIG.fracturePolicy },
+    // Fracture rollback + damage settings from the sidebar config panel
+    ...resim.getCoreOptions(),
   });
 
   const group = new THREE.Group();
