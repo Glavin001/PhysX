@@ -14,6 +14,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import Stats from 'three/addons/libs/stats.module.js';
 import * as pinata from '@dgreenheck/three-pinata';
 import { buildDestructibleCore } from 'blast-stress-solver/rapier';
+import { createResimPanel, applyResimConfigToCore } from './demo-helpers/resim-panel.js';
 import {
   createDestructibleThreeBundle,
   RapierDebugRenderer,
@@ -149,6 +150,10 @@ let visualsRef: ReturnType<typeof createDestructibleThreeBundle> | null = null;
 let rapierDebug: RapierDebugRenderer | null = null;
 let showDebug = false;
 
+// Shared resim + damage config panel (injected into sidebar)
+const resim = createResimPanel({ insertBeforeId: 'btn-reset' });
+resim.onChange(() => { if (coreRef) applyResimConfigToCore(coreRef, resim.config); });
+
 async function initScene() {
   const { width, floorCount, floorHeight, fragmentCountPerWall, fragmentCountPerFloor, fragmentCountPerColumn, deckMass } = CONFIG.tower;
 
@@ -184,7 +189,6 @@ async function initScene() {
     restitution: CONFIG.physics.restitution,
     contactForceScale: CONFIG.physics.contactForceScale,
     debrisCollisionMode: CONFIG.physics.debrisCollisionMode as any,
-    damage: { enabled: false },
     debrisCleanup: {
       mode: CONFIG.optimization.debrisCleanupMode as any,
       debrisTtlMs: CONFIG.optimization.debrisTtlMs,
@@ -196,6 +200,8 @@ async function initScene() {
       minLinearDamping: 2,
       minAngularDamping: 2,
     },
+    // Fracture rollback + damage settings from the sidebar config panel
+    ...resim.getCoreOptions(),
   });
 
   const group = new THREE.Group();

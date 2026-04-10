@@ -320,4 +320,14 @@ export type DestructibleCore = {
   dispose: () => void;
   setProfiler: (config: CoreProfilerConfig | null) => void;
   recordProjectileCleanupDuration?: (durationMs: number) => void;
+  // Runtime setters for resimulation settings (live-tunable)
+  setResimulateOnFracture: (v: boolean) => void;
+  setResimulateOnDamageDestroy: (v: boolean) => void;
+  setMaxResimulationPasses: (v: number) => void;
+  getResimConfig: () => {
+    resimulateOnFracture: boolean;
+    resimulateOnDamageDestroy: boolean;
+    maxResimulationPasses: number;
+    snapshotMode: 'perBody' | 'world';
+  };
 };

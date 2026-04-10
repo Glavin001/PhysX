@@ -18,6 +18,7 @@ import {
   RapierDebugRenderer,
 } from 'blast-stress-solver/three';
 import { buildFracturedBridgeScenario } from 'blast-stress-solver/scenarios';
+import { createResimPanel, applyResimConfigToCore } from './demo-helpers/resim-panel.js';
 
 // ── Config ────────────────────────────────────────────────────
 
@@ -150,6 +151,10 @@ let visualsRef: ReturnType<typeof createDestructibleThreeBundle> | null = null;
 let rapierDebug: RapierDebugRenderer | null = null;
 let showDebug = false;
 
+// Shared resim + damage config panel (injected into sidebar)
+const resim = createResimPanel({ insertBeforeId: 'btn-reset' });
+resim.onChange(() => { if (coreRef) applyResimConfigToCore(coreRef, resim.config); });
+
 async function initScene() {
   const hint = document.querySelector('.viewport-hint') as HTMLElement;
   if (hint) hint.textContent = 'Building bridge...';
@@ -179,7 +184,6 @@ async function initScene() {
     restitution: CONFIG.physics.restitution,
     contactForceScale: CONFIG.physics.contactForceScale,
     debrisCollisionMode: CONFIG.physics.debrisCollisionMode as any,
-    damage: { enabled: false },
     debrisCleanup: {
       mode: CONFIG.optimization.debrisCleanupMode as any,
       debrisTtlMs: CONFIG.optimization.debrisTtlMs,
@@ -191,6 +195,8 @@ async function initScene() {
       minLinearDamping: 2,
       minAngularDamping: 2,
     },
+    // Fracture rollback + damage settings from the sidebar config panel
+    ...resim.getCoreOptions(),
   });
 
   const group = new THREE.Group();

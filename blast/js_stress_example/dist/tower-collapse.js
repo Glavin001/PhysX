@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import Stats from 'three/addons/libs/stats.module.js';
 import { buildDestructibleCore } from 'blast-stress-solver/rapier';
+import { createResimPanel, applyResimConfigToCore } from './demo-helpers/resim-panel.js';
 import { createDestructibleThreeBundle, RapierDebugRenderer, applyAutoBondingToScenario, } from 'blast-stress-solver/three';
 import { buildTowerScenario } from 'blast-stress-solver/scenarios';
 // ── Config ────────────────────────────────────────────────────
@@ -120,6 +121,10 @@ let coreRef = null;
 let visualsRef = null;
 let rapierDebug = null;
 let showDebug = false;
+// Shared resim + damage config panel (injected into sidebar)
+const resim = createResimPanel({ insertBeforeId: 'btn-reset' });
+resim.onChange(() => { if (coreRef)
+    applyResimConfigToCore(coreRef, resim.config); });
 async function initScene() {
     let scenario = buildTowerScenario(CONFIG.tower);
     // Attach fragment geometries for auto-bonding support
@@ -150,9 +155,6 @@ async function initScene() {
         contactForceScale: CONFIG.physics.contactForceScale,
         debrisCollisionMode: CONFIG.physics.debrisCollisionMode,
         skipSingleBodies: CONFIG.physics.skipSingleBodies,
-        damage: {
-            enabled: false,
-        },
         debrisCleanup: {
             mode: CONFIG.optimization.debrisCleanupMode,
             debrisTtlMs: CONFIG.optimization.debrisTtlMs,
@@ -164,6 +166,8 @@ async function initScene() {
             minLinearDamping: 2,
             minAngularDamping: 2,
         },
+        // Fracture rollback + damage settings from the sidebar config panel
+        ...resim.getCoreOptions(),
     });
     const group = new THREE.Group();
     scene.add(group);

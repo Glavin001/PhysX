@@ -117,11 +117,11 @@ export async function buildDestructibleCore({
   debrisCollisionMode,
   damage,
   onNodeDestroyed,
-  resimulateOnFracture = true,
-  maxResimulationPasses = 1,
+  resimulateOnFracture: _initialResimulateOnFracture = true,
+  maxResimulationPasses: _initialMaxResimulationPasses = 1,
   snapshotMode = 'perBody',
   onWorldReplaced,
-  resimulateOnDamageDestroy = !!damage?.enabled,
+  resimulateOnDamageDestroy: _initialResimulateOnDamageDestroy = !!damage?.enabled,
   contactForceScale = 30,
   skipSingleBodies = false,
   sleepLinearThreshold = 0.1,
@@ -131,6 +131,11 @@ export async function buildDestructibleCore({
   debrisCleanup,
   fracturePolicy,
 }: BuildDestructibleCoreOptions): Promise<DestructibleCore> {
+  // Runtime-tunable resim settings (mutable via setters below)
+  let resimulateOnFracture = _initialResimulateOnFracture;
+  let maxResimulationPasses = _initialMaxResimulationPasses;
+  let resimulateOnDamageDestroy = _initialResimulateOnDamageDestroy;
+
   await RAPIER.init();
   const runtime = await loadStressSolver();
   const profiler = {
@@ -557,7 +562,11 @@ export async function buildDestructibleCore({
   const projectiles: ProjectileState[] = [];
   const removedBondIndices = new Set<number>();
   const pendingExternalForces: Array<{ nodeIndex:number; point: Vec3; force: Vec3 }> = [];
+  // actorIndex → Set<bondIndex>: bonds queued for fracture pipeline (with split detection)
   const pendingDamageFractures = new Map<number, Set<number>>();
+  // Reusable command array for flushPendingDamageFractures (avoids per-call allocation)
+  const _damageFractureCommands: Array<{ actorIndex: number; fractures: Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }> }> = [];
+  const _damageFracturePool: Array<Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }>> = [];
   const nowSeconds = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
 
   // ── Spatial grid for fast splash-radius neighbor lookups ──
@@ -1148,7 +1157,7 @@ export async function buildDestructibleCore({
         fractureMs: 0,
         bodyCreateMs: 0,
         totalMs: passMs,
-        reasons: [...reasons],
+        reasons,
       });
     }
 
@@ -1230,7 +1239,12 @@ export async function buildDestructibleCore({
     }
     // Remove processed entries, keep deferred ones for next frame
     if (maxBodies > 0 && bodiesCreated < pendingBodiesToCreate.length) {
-      pendingBodiesToCreate.splice(0, bodiesCreated);
+      // Compact: shift remaining entries to front (avoids O(n) splice reallocation)
+      const remaining = pendingBodiesToCreate.length - bodiesCreated;
+      for (let ci = 0; ci < remaining; ci++) {
+        pendingBodiesToCreate[ci] = pendingBodiesToCreate[ci + bodiesCreated];
+      }
+      pendingBodiesToCreate.length = remaining;
     } else {
       pendingBodiesToCreate.length = 0;
     }
@@ -1344,6 +1358,25 @@ export async function buildDestructibleCore({
       }
     }
     disabledCollidersToRemove.clear();
+
+    // Cull stale collider→node mappings where collider no longer exists in the world
+    for (const [h] of colliderToNode) {
+      if (!world.getCollider(h)) {
+        colliderToNode.delete(h);
+      }
+    }
+
+    // Queue empty bodies (zero colliders) for removal, excluding root/ground
+    world.forEachRigidBody((b) => {
+      const handle = b.handle;
+      if (handle === rootBody.handle || handle === groundBody.handle) return;
+      try {
+        const rb = b as RigidBodyWithColliderCount;
+        const count = typeof rb.numColliders === 'function' ? rb.numColliders() : -1;
+        if (count === 0) bodiesToRemove.add(handle);
+      } catch {}
+    });
+
     for (const bh of bodiesToRemove) {
       const body = world.getRigidBody(bh);
       if (body) {
@@ -1585,40 +1618,34 @@ export async function buildDestructibleCore({
     if (pendingDamageFractures.size === 0) return;
     const t0 = startTiming();
 
-    // Group fractures by actor index for the fracture command format
-    const fracturesByActor = new Map<number, Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }>>();
-    for (const [nodeA, partners] of pendingDamageFractures) {
-      for (const nodeB of partners) {
-        const bondList = bondsByNode.get(nodeA);
-        if (!bondList) continue;
-        for (const bi of bondList) {
-          const b = bondTable[bi];
-          if (!b) continue;
-          if ((b.node0 === nodeA && b.node1 === nodeB) || (b.node0 === nodeB && b.node1 === nodeA)) {
-            if (removedBondIndices.has(bi)) break;
-            const actorIndex = nodeToActor.get(nodeA) ?? 0;
-            let fractures = fracturesByActor.get(actorIndex);
-            if (!fractures) { fractures = []; fracturesByActor.set(actorIndex, fractures); }
-            fractures.push({ userdata: bi, nodeIndex0: b.node0, nodeIndex1: b.node1, health: 1e9 });
-            removedBondIndices.add(bi);
-            break;
-          }
-        }
+    // Reuse pre-allocated command arrays to avoid per-call allocation
+    _damageFractureCommands.length = 0;
+    let poolIdx = 0;
+    for (const [actorIndex, bondSet] of pendingDamageFractures) {
+      // Get or grow fracture array from pool
+      if (poolIdx >= _damageFracturePool.length) _damageFracturePool.push([]);
+      const fractures = _damageFracturePool[poolIdx];
+      fractures.length = 0;
+      for (const bondIndex of bondSet) {
+        const bond = bondTable[bondIndex];
+        if (!bond || removedBondIndices.has(bondIndex)) continue;
+        fractures.push({ userdata: bondIndex, nodeIndex0: bond.node0, nodeIndex1: bond.node1, health: 1e9 });
+        removedBondIndices.add(bondIndex);
+      }
+      if (fractures.length > 0) {
+        _damageFractureCommands.push({ actorIndex, fractures });
+        poolIdx++;
       }
     }
     pendingDamageFractures.clear();
 
-    const commands: Array<{ actorIndex: number; fractures: Array<{ userdata: number; nodeIndex0: number; nodeIndex1: number; health: number }> }> = [];
-    for (const [actorIndex, fractures] of fracturesByActor) {
-      if (fractures.length > 0) commands.push({ actorIndex, fractures });
-    }
-    if (commands.length === 0) {
+    if (_damageFractureCommands.length === 0) {
       stopTiming(t0, 'damageFlushMs');
       return;
     }
 
     try {
-      const splitEvents = profiledApplyFractureCommands(commands as FractureCommands);
+      const splitEvents = profiledApplyFractureCommands(_damageFractureCommands as FractureCommands);
       if (splitEvents.length > 0) {
         processSplitEvents(splitEvents);
         flushPendingBodies();
@@ -1655,20 +1682,8 @@ export async function buildDestructibleCore({
       for (const ni of previewDestroyed) {
         const chunk = chunks[ni];
         if (!chunk) continue;
-
-        const neighborBondIndices = bondsByNode.get(ni);
-        if (neighborBondIndices) {
-          for (const bi of neighborBondIndices) {
-            if (removedBondIndices.has(bi)) continue;
-            const b = bondTable[bi];
-            if (!b) continue;
-            const otherNode = b.node0 === ni ? b.node1 : b.node0;
-            let set = pendingDamageFractures.get(ni);
-            if (!set) { set = new Set(); pendingDamageFractures.set(ni, set); }
-            set.add(otherNode);
-          }
-        }
-
+        // handleNodeDestroyed('impact') enqueues bonds via enqueueDamageFracturesForNode
+        // (routes through fracture pipeline for split detection) and cleans up the node.
         if (damageOptions.autoDetachOnDestroy) {
           try { handleNodeDestroyed(ni, 'impact'); } catch {}
         }
@@ -1694,6 +1709,9 @@ export async function buildDestructibleCore({
         try { handleNodeDestroyed(ni, 'impact'); } catch {}
       }
     }
+
+    // Flush enqueued damage fractures through the fracture pipeline (split detection)
+    flushPendingDamageFractures();
 
     return false;
   }
@@ -1722,64 +1740,138 @@ export async function buildDestructibleCore({
 
     applyExternalForcesFromBuffer();
     spawnPendingProjectiles();
-
-    if (resimulateOnFracture) {
-      captureWorldSnapshot();
-    }
-
-    const initialT0 = startTiming();
-    // Set the clamped dt on the world, restore original afterwards
     setWorldDtValue(clampedDt);
-    const rapierT0 = startTiming();
-    world.step(eventQueue);
-    stopTiming(rapierT0, 'rapierStepMs');
 
-    drainContactForces();
+    // ── Unified resimulation loop (matches vibe-city architecture) ──
+    // Each iteration: snapshot → step → detect → (if resim: rollback → apply → continue) or (done → break)
+    const maxResim = Math.max(0, maxResimulationPasses);
+    const fractureResimEnabled = !!resimulateOnFracture && maxResim > 0;
+    const damageResimEnabled = damageOptions.enabled && !!resimulateOnDamageDestroy && maxResim > 0;
+    let passesRemaining = maxResim;
+    let passIndex = 0;
+    let damagePreviewDestroyed: number[] = [];
+    let damageSnapshot: DamageStateSnapshot | null = null;
 
-    if (activeProfilerSample) {
-      activeProfilerSample.bufferedExternalContacts = bufferedExternalContacts.length;
-      activeProfilerSample.bufferedInternalContacts = bufferedInternalContacts.length;
-    }
+    while (true) {
+      // ── 1. Capture snapshot (includes ALL current bodies, including new ones from prior iteration) ──
+      const snapshotNeeded = (fractureResimEnabled || damageResimEnabled) && passesRemaining > 0;
+      if (snapshotNeeded) {
+        captureWorldSnapshot();
+      }
 
-    const needsResim = damageDrivePass(dt);
+      // ── 2. Physics step ──
+      const rapierT0 = startTiming();
+      world.step(eventQueue);
+      stopTiming(rapierT0, 'rapierStepMs');
 
-    const hadFracture = processOneFracturePass(0, ['initial']);
-    stopTiming(initialT0, 'initialPassMs');
+      // ── 3. Drain contacts + solver update ──
+      drainContactForces();
+      if (activeProfilerSample && passIndex === 0) {
+        activeProfilerSample.bufferedExternalContacts = bufferedExternalContacts.length;
+        activeProfilerSample.bufferedInternalContacts = bufferedInternalContacts.length;
+      }
 
-    if (hadFracture || needsResim) {
+      const hadFracture = processOneFracturePass(passIndex, passIndex === 0 ? ['initial'] : ['resim']);
+
+      // ── 4. Damage preview ──
+      damagePreviewDestroyed.length = 0;
+      damageSnapshot = null;
+      if (damageOptions.enabled) {
+        const shouldSnapshotDamage = damageResimEnabled || (fractureResimEnabled && hadFracture);
+        if (shouldSnapshotDamage) {
+          try { damageSnapshot = damageSystem.captureImpactState(); } catch {}
+        }
+        contactReplayBuffer.replay(damageSystem);
+        if (damageResimEnabled) {
+          try { damagePreviewDestroyed = damageSystem.previewTick(clampedDt); } catch { damagePreviewDestroyed = []; }
+        }
+      }
+
+      // ── 5. Resimulation trigger decision ──
+      const shouldResimFracture = fractureResimEnabled && hadFracture;
+      const shouldResimDamage = damageResimEnabled && damagePreviewDestroyed.length > 0;
+
+      if (!shouldResimFracture && !shouldResimDamage) {
+        // ── No resimulation needed: apply damage directly and exit ──
+        if (damageOptions.enabled) {
+          const tickDestroyed = damageSystem.tick(clampedDt);
+          for (const ni of tickDestroyed) {
+            if (!chunks[ni]) continue;
+            if (damageOptions.autoDetachOnDestroy) {
+              try { handleNodeDestroyed(ni, 'impact'); } catch {}
+            }
+          }
+          flushPendingDamageFractures();
+        }
+        // Apply any remaining pending bodies/collider migrations from fracture pass
+        flushPendingBodies();
+        flushColliderMigrations();
+        break;
+      }
+
+      // ── 6. Resimulation needed: rollback and reprocess ──
+      if (!snapshotNeeded) {
+        // No snapshot was captured (passesRemaining was 0) — can't rollback.
+        // Apply damage and fractures directly as a fallback.
+        if (damageOptions.enabled) {
+          const tickDestroyed = damageSystem.tick(clampedDt);
+          for (const ni of tickDestroyed) {
+            if (!chunks[ni]) continue;
+            if (damageOptions.autoDetachOnDestroy) {
+              try { handleNodeDestroyed(ni, 'impact'); } catch {}
+            }
+          }
+          flushPendingDamageFractures();
+        }
+        flushPendingBodies();
+        flushColliderMigrations();
+        break;
+      }
+
+      if (activeProfilerSample) {
+        activeProfilerSample.resimPasses = (activeProfilerSample.resimPasses || 0) + 1;
+        if (shouldResimFracture) activeProfilerSample.resimReasons.push('fracture');
+        if (shouldResimDamage) activeProfilerSample.resimReasons.push('damage');
+      }
+      passesRemaining -= 1;
+
+      // ── 6a. Rollback physics state ──
+      try {
+        restoreWorldSnapshot();
+      } catch (e) {
+        if (isDev) console.error('[Core] rollback failed; proceeding without resim', e);
+        flushPendingBodies();
+        flushColliderMigrations();
+        break;
+      }
+
+      // ── 6b. Rollback damage state ──
+      if (damageSnapshot) {
+        try { damageSystem.restoreImpactState(damageSnapshot); } catch {}
+      }
+
+      // ── 6c. Apply fracture commands on restored state (bonds removed, new bodies created) ──
+      // Fracture commands are still available in the solver from the detection pass above.
+      // New bodies are created from RESTORED positions (correct initial conditions for re-step).
       flushPendingBodies();
       flushColliderMigrations();
       rebuildColliderToNodeMap();
 
-      let resimCount = 0;
-      const maxResim = Math.max(0, maxResimulationPasses);
-
-      while (resimCount < maxResim) {
-        const resimT0 = startTiming();
-        if (resimulateOnFracture) {
-          restoreWorldSnapshot();
-          captureWorldSnapshot();
-          const rapierResimT0 = startTiming();
-          world.step(eventQueue);
-          stopTiming(rapierResimT0, 'rapierStepMs');
-          drainContactForces();
+      // ── 6d. Apply damage pre-destruction (nodes destroyed by damage preview) ──
+      if (damagePreviewDestroyed.length > 0) {
+        for (const ni of damagePreviewDestroyed) {
+          const chunk = chunks[ni];
+          if (!chunk || chunk.destroyed) continue;
+          if (chunk.isSupport) continue;
+          if (damageOptions.autoDetachOnDestroy) {
+            try { handleNodeDestroyed(ni, 'impact'); } catch {}
+          }
         }
-
-        const hadMore = processOneFracturePass(resimCount + 1, ['resim']);
-        stopTiming(resimT0, 'resimMs');
-        resimCount++;
-
-        if (activeProfilerSample) {
-          activeProfilerSample.resimPasses = resimCount;
-          activeProfilerSample.resimReasons.push(needsResim ? 'damage' : 'fracture');
-        }
-
-        if (!hadMore) break;
-
-        flushPendingBodies();
-        flushColliderMigrations();
-        rebuildColliderToNodeMap();
+        flushPendingDamageFractures();
       }
+
+      passIndex++;
+      // Continue loop: re-snapshot → re-step → re-detect with updated topology
     }
 
     flushPendingBodies();
@@ -1812,7 +1904,6 @@ export async function buildDestructibleCore({
       activeProfilerSample.projectiles = projectiles.length;
       const wbc = world as WorldWithBodyCount;
       activeProfilerSample.rigidBodies = typeof wbc.numRigidBodies === 'function' ? wbc.numRigidBodies() : 0;
-      // Capture body/chunk distribution stats
       const bcs = captureBodyColliderStats();
       if (bcs) {
         activeProfilerSample.bodyCount = bcs.bodyCount;
@@ -1867,12 +1958,26 @@ export async function buildDestructibleCore({
   function getNodeBonds(nodeIndex: number): BondRef[] {
     const indices = bondsByNode.get(nodeIndex);
     if (!indices) return [];
-    return indices
-      .filter((bi) => !removedBondIndices.has(bi))
-      .map((bi) => {
-        const b = bondTable[bi];
-        return { index: bi, node0: b.node0, node1: b.node1, centroid: b.centroid, normal: b.normal, area: b.area };
-      });
+    const result: BondRef[] = [];
+    for (let i = 0; i < indices.length; i++) {
+      const bi = indices[i];
+      if (removedBondIndices.has(bi)) continue;
+      const b = bondTable[bi];
+      result.push({ index: bi, node0: b.node0, node1: b.node1, centroid: b.centroid, normal: b.normal, area: b.area });
+    }
+    return result;
+  }
+
+  /** Zero-allocation bond iteration for hot paths. Returns false from cb to stop early. */
+  function forEachNodeBond(nodeIndex: number, cb: (bondIndex: number, node0: number, node1: number) => void | false): void {
+    const indices = bondsByNode.get(nodeIndex);
+    if (!indices) return;
+    for (let i = 0; i < indices.length; i++) {
+      const bi = indices[i];
+      if (removedBondIndices.has(bi)) continue;
+      const b = bondTable[bi];
+      if (cb(bi, b.node0, b.node1) === false) return;
+    }
   }
 
   function cutBond(bondIndex: number): boolean {
@@ -1897,9 +2002,37 @@ export async function buildDestructibleCore({
   }
 
   /**
+   * Enqueue all active bonds for a destroyed node into pendingDamageFractures.
+   * Unlike cutNodeBonds (which removes bonds directly from the WASM solver
+   * bypassing split detection), this routes bonds through the fracture pipeline
+   * (applyFractureCommands) which performs island/split detection and creates
+   * new physics bodies for separated fragments.
+   */
+  function enqueueDamageFracturesForNode(nodeIndex: number) {
+    forEachNodeBond(nodeIndex, (bondIndex, node0, node1) => {
+      const actor0 = nodeToActor.get(node0);
+      const actor1 = nodeToActor.get(node1);
+      const actorIndex = actor0 != null ? actor0 : actor1;
+      if (actorIndex == null) return;
+      // Cross-actor bonds: nodes already on separate bodies from prior splits.
+      // No split detection needed — just cut the bond directly.
+      if (actor0 != null && actor1 != null && actor0 !== actor1) {
+        cutBond(bondIndex);
+        return;
+      }
+      let set = pendingDamageFractures.get(actorIndex);
+      if (!set) {
+        set = new Set<number>();
+        pendingDamageFractures.set(actorIndex, set);
+      }
+      set.add(bondIndex);
+    });
+  }
+
+  /**
    * Centralized node destruction handler. Marks the chunk as destroyed,
-   * cuts its bonds from the WASM solver, cleans up collider/body links,
-   * and notifies listeners. Matches vibe-city's handleNodeDestroyed pattern.
+   * manages bond removal (via fracture pipeline for impacts, direct cut for manual),
+   * cleans up collider/body links, and notifies listeners.
    */
   function handleNodeDestroyed(nodeIndex: number, reason: 'impact' | 'manual') {
     const chunk = chunks[nodeIndex];
@@ -1910,8 +2043,15 @@ export async function buildDestructibleCore({
     chunk.active = false;
     if (chunk.health != null) chunk.health = 0;
 
-    // Cut bonds from the WASM solver so it stops computing stress on destroyed nodes
-    try { cutNodeBonds(nodeIndex); } catch {}
+    // Bond removal strategy depends on reason:
+    // - 'impact': enqueue bonds for fracture pipeline (applyFractureCommands) which
+    //   performs island/split detection and creates new bodies for separated fragments.
+    // - 'manual': cut bonds directly from the WASM solver (no split detection needed).
+    if (reason === 'impact') {
+      try { enqueueDamageFracturesForNode(nodeIndex); } catch {}
+    } else {
+      try { cutNodeBonds(nodeIndex); } catch {}
+    }
 
     // Disable/remove collider
     if (chunk.colliderHandle != null) {
@@ -2112,6 +2252,16 @@ export async function buildDestructibleCore({
     dispose,
     setProfiler,
     recordProjectileCleanupDuration: recordProjectileCleanupDurationInternal,
+    // Runtime setters for resimulation settings (live-tunable, no rebuild needed)
+    setResimulateOnFracture: (v: boolean) => { resimulateOnFracture = !!v; },
+    setResimulateOnDamageDestroy: (v: boolean) => { resimulateOnDamageDestroy = !!v; },
+    setMaxResimulationPasses: (v: number) => { maxResimulationPasses = Math.max(0, Math.floor(v)); },
+    getResimConfig: () => ({
+      resimulateOnFracture,
+      resimulateOnDamageDestroy,
+      maxResimulationPasses,
+      snapshotMode,
+    }),
   };
 
   return core;
