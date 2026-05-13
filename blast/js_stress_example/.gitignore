@@ -1,5 +1,6 @@
 dist/
 node_modules/
+vendor/
 
 stress_solver.cjs
 stress_solver.wasm
