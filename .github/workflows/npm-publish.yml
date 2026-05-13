@@ -1,0 +1,67 @@
+name: Publish to NPM
+
+on:
+  push:
+    tags:
+      - 'npm/*'
+
+jobs:
+  publish:
+    name: Build & Publish to NPM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install Emscripten SDK
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.51
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install blast-stress-solver dependencies
+        working-directory: blast/blast-stress-solver
+        run: npm install --ignore-scripts
+
+      - name: Install js_stress_example dependencies
+        working-directory: blast/js_stress_example
+        run: npm install
+
+      - name: Build WASM + JS (js_stress_example)
+        working-directory: blast/js_stress_example
+        run: npm run build
+
+      - name: Build blast-stress-solver package
+        working-directory: blast/blast-stress-solver
+        run: npm run build
+
+      - name: Set pre-release version from tag
+        working-directory: blast/blast-stress-solver
+        run: |
+          # Extract suffix from tag: refs/tags/npm/alpha.1 → alpha.1
+          TAG_SUFFIX="${GITHUB_REF#refs/tags/npm/}"
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          PUBLISH_VERSION="${BASE_VERSION}-${TAG_SUFFIX}"
+
+          # Derive npm dist-tag from suffix (alpha.1 → alpha, beta.2 → beta)
+          DIST_TAG=$(echo "$TAG_SUFFIX" | cut -d'.' -f1)
+
+          echo "PUBLISH_VERSION=${PUBLISH_VERSION}" >> "$GITHUB_ENV"
+          echo "DIST_TAG=${DIST_TAG}" >> "$GITHUB_ENV"
+          echo "Publishing blast-stress-solver@${PUBLISH_VERSION} with dist-tag '${DIST_TAG}'"
+
+          npm version "${PUBLISH_VERSION}" --no-git-tag-version
+
+      - name: Publish to NPM
+        working-directory: blast/blast-stress-solver
+        run: npm publish --tag "${DIST_TAG}" --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
