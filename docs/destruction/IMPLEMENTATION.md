@@ -7,7 +7,10 @@ PhysX collision/constraint solver. The native stress stage does not commit fract
 or perform internal correction; see [NATIVE_GPU_STRESS.md](NATIVE_GPU_STRESS.md).
 
 The standalone reference demo and recording workflow are documented in
-[DEMO.md](DEMO.md). Contact-stress/correction fidelity fixes and their unresolved
+[DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
+[SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
+comparison and the new, unresolved wall-crushing behavior gap. The latest full
+suite is 37/42 passing (four baseline failures plus that new gap). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.

@@ -156,6 +156,8 @@ ExtStressPhysXDestructible* createFacade(
     desc.settings.applyExcessForces = false;
     desc.settings.minimumSeparationVelocity = 0.0f;
     desc.settings.maximumBodies = maximumBodies;
+    desc.settings.gpuStressSolver = context.mode() == PhysicsMode::Gpu;
+    desc.settings.gpuStressMinimumBondCount = 0;
     ExtStressPhysXMaterial material;
     material.compressionElasticLimit = 5.0e5f;
     material.compressionFatalLimit = 1.5e6f;
@@ -223,11 +225,11 @@ struct ImpactContacts : public PxSimulationEventCallback
     }
 };
 
-void testImpactFramePunchthrough()
+void testImpactFramePunchthrough(PhysicsMode mode, bool legacy)
 {
     ImpactContacts contacts;
     SceneCapacity capacity;
-    PhysXScene context(PhysicsMode::Cpu, false, capacity, &contacts);
+    PhysXScene context(mode, mode == PhysicsMode::Gpu, capacity, &contacts);
     context.scene().setGravity(kGravity);
 
     // 8x8 panels + 2 columns. Pass an explicit low maximumBodies to prove the
@@ -259,6 +261,7 @@ void testImpactFramePunchthrough()
     ExtStressPhysXDestructible* destructibles[] = {&destructible};
     ExtStressPhysXResimOptions options;
     options.maxPasses = 1;
+    options.evaluateStressOnFinalPass = legacy;
 
     // Emergent-tear window: with per-frame damage accumulation a marginal bond
     // may survive the first contact frame and fail on the next as load
@@ -291,6 +294,16 @@ void testImpactFramePunchthrough()
                 step - static_cast<std::uint64_t>(firstContactStep) < kTearWindowFrames,
                 "tear did not complete within the emergent window of first contact");
             require(stats.resimPasses >= 1, "the split frame must trigger a resim pass");
+            if (!legacy)
+            {
+                require(stats.resimPasses == 1, "single-verdict impact must replay exactly once");
+                require(stats.correctionStatus == ExtStressPhysXCorrectionStatus::Complete,
+                    "motion-only replay must leave the actual projectile interaction corrected");
+                require(stats.resimTickMilliseconds == 0,
+                    "final motion correction must not run another material tick");
+            }
+            require(mode != PhysicsMode::Gpu || destructible.usesGpuStressSolver(),
+                "GPU punchthrough must actually evaluate CUDA stress");
             const float forwardAfter = ball->getLinearVelocity().dot(launchDir);
             require(
                 forwardAfter > 0.25f * launchSpeed,
@@ -313,11 +326,14 @@ void testImpactFramePunchthrough()
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     try
     {
-        testImpactFramePunchthrough();
+        const PhysicsMode mode = argc == 2 && std::string(argv[1]) == "--gpu"
+            ? PhysicsMode::Gpu : PhysicsMode::Cpu;
+        testImpactFramePunchthrough(mode, true);
+        testImpactFramePunchthrough(mode, false);
     }
     catch (const std::exception& error)
     {

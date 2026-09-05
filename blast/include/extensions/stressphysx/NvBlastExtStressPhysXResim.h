@@ -29,6 +29,12 @@ struct ExtStressPhysXResimOptions
     bool useDirectGpuMotionState;
     float settledLinearSpeed;
     float settledAngularSpeed;
+    // Legacy reference behavior evaluates/applies another material verdict on
+    // every replay, including the last one. False makes the final permitted
+    // replay motion-only: its contacts are observations, not another damage
+    // interval. With maxPasses=1 this is one verdict and at most one rewind.
+    // Appended for existing field offsets; native consumers must rebuild.
+    bool evaluateStressOnFinalPass;
 
     ExtStressPhysXResimOptions()
         : maxPasses(1)
@@ -37,6 +43,7 @@ struct ExtStressPhysXResimOptions
         , useDirectGpuMotionState(false)
         , settledLinearSpeed(0.15f)
         , settledAngularSpeed(0.15f)
+        , evaluateStressOnFinalPass(true) // retain the imported reference default
     {
     }
 };

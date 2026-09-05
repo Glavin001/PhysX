@@ -356,8 +356,10 @@ that cannot be compared to any other run.
   1`, engine contract §2.8/§4): the library-owned `ExtStressPhysXFrameStepper`
   (`NvBlastExtStressPhysXResim.h`) captures every scene `PxRigidDynamic` before
   `simulate()`, and on a fracture tick rolls motion state back (keeping the new
-  topology), re-steps, and re-ticks so the projectile's contact resolves
-  against the already-split pieces. Fracture children are re-derived from their
+  topology), and re-steps so the projectile's contact resolves against the
+  already-split pieces. The demo now uses a motion-only final replay, without
+  another stress/material tick; `--legacy-resim-fracture` selects the imported
+  re-tick policy. The SDK options retain the imported default for compatibility. Fracture children are re-derived from their
   parent's restored state via creation provenance. With resimulation on, the
   excess-force kick and separation impulse are disabled — the re-solved contact
   is the momentum source; splits still fit child state and reconcile PhysX

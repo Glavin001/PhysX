@@ -220,6 +220,7 @@ target_link_libraries(resim_snapshot_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
 add_test(NAME blast_stress_physx_resim_snapshot COMMAND resim_snapshot_test)
+add_test(NAME blast_stress_physx_resim_policy_gpu COMMAND resim_snapshot_test --gpu)
 
 add_executable(velocity_fidelity_test tests/velocity_fidelity_test.cpp physx_scene.cpp)
 target_link_libraries(velocity_fidelity_test PRIVATE NvBlastExtStressPhysX ${PHYSX_LINK_LIBS})
@@ -288,6 +289,7 @@ target_link_libraries(resim_punchthrough_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
 add_test(NAME blast_stress_physx_resim_punchthrough COMMAND resim_punchthrough_test)
+add_test(NAME blast_stress_physx_resim_punchthrough_gpu COMMAND resim_punchthrough_test --gpu)
 
 add_executable(resim_scoped_cascade_test
     tests/resim_scoped_cascade_test.cpp

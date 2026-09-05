@@ -778,6 +778,83 @@ void testCrushResistanceChargesTheCrusher()
                 + std::to_string(withResistance));
 }
 
+// A motion-only replay must retain the chosen verdict's energy bill even
+// though it never calls solveTick/endTick again. Use an isolated real payer
+// and a controlled surface load so its energy loss has an analytic value.
+void testMotionOnlyResistance(PhysicsMode mode)
+{
+    const bool gpu = mode == PhysicsMode::Gpu;
+    PhysXScene context(mode, gpu, SceneCapacity{}, nullptr);
+    context.scene().setGravity(PxVec3(0.0f));
+    const auto structure = makeColumn(1, 5000.0f);
+    const auto material = withCrush(unbreakableJoints(), 0.8e6f, 2.0e6f);
+    ExtStressPhysXDesc desc;
+    desc.physics = &context.physics(); desc.scene = &context.scene();
+    desc.material = &context.material();
+    desc.nodes = structure.nodes.data(); desc.nodeCount = structure.nodes.size();
+    desc.bonds = structure.bonds.data(); desc.bondCount = structure.bonds.size();
+    desc.stressMaterials = &material; desc.stressMaterialCount = 1;
+    desc.settings.applyExcessForces = false;
+    desc.settings.skipSettledIslands = false; desc.settings.idleSkip = false;
+    desc.settings.applyCrushResistance = true;
+    desc.settings.gpuStressSolver = gpu; desc.settings.gpuStressMinimumBondCount = 0;
+    Holder holder; holder.value = ExtStressPhysXDestructible::create(desc);
+    require(holder.value != nullptr, "motion-only energy fixture creation failed");
+    PxRigidDynamic* payer = context.physics().createRigidDynamic(PxTransform(PxVec3(50, 1.5f, 0)));
+    require(payer != nullptr, "motion-only payer creation failed");
+    PxShape* shape = context.physics().createShape(PxSphereGeometry(0.5f), context.material(), true);
+    require(shape && payer->attachShape(*shape), "motion-only payer shape creation failed");
+    shape->release();
+    PxRigidBodyExt::setMassAndUpdateInertia(*payer, 20000.0f);
+    payer->setLinearDamping(0.0f); payer->setAngularDamping(0.0f);
+    payer->setLinearVelocity(PxVec3(-20, 0, 0));
+    context.scene().addActor(*payer);
+    // Initialize GPU body storage before taking the reference checkpoint.
+    context.scene().simulate(kDt);
+    require(context.scene().fetchResults(true), "energy fixture warmup failed");
+    require(holder.value->captureResimulationSnapshot() > 0, "energy fixture capture failed");
+    const PxTransform payerPose = payer->getGlobalPose();
+    context.scene().simulate(kDt);
+    require(context.scene().fetchResults(true), "energy trial failed");
+    ExtStressPhysXContact contact;
+    contact.nodeIndex = 1;
+    contact.worldPosition = structure.nodes[1].centroid + PxVec3(0.5f, 0, 0);
+    contact.worldImpulse = PxVec3(-4.0e6f * kDt, 0, 0);
+    contact.worldRelativeVelocity = payer->getLinearVelocity();
+    contact.otherActor = payer;
+    require(holder.value->queueContact(contact), "energy fixture contact rejected");
+    require(holder.value->tick(kDt, PxVec3(0.0f)), "energy trial verdict failed");
+    auto damage = crushDamage(*holder.value, 2);
+    require(damage[1] > 0 && damage[1] < 1, "energy fixture must produce partial crush damage");
+    require(!gpu || holder.value->usesGpuStressSolver(), "energy fixture must use CUDA stress");
+    const float work = damage[1] * material.crushEnergy * structure.nodes[1].volume;
+    require(work < 0.5f * payer->getMass() * 400.0f, "payer must have enough kinetic energy");
+    // The ordinary scene checkpoint refunds the provisional force accumulator.
+    payer->setGlobalPose(payerPose);
+    payer->setLinearVelocity(PxVec3(-20, 0, 0)); payer->setAngularVelocity(PxVec3(0.0f));
+    payer->clearForce(PxForceMode::eIMPULSE); payer->clearTorque(PxForceMode::eIMPULSE);
+    require(holder.value->restoreResimulationSnapshot(), "energy restore failed");
+    context.scene().simulate(kDt);
+    require(context.scene().fetchResults(true), "energy motion replay failed");
+    const auto ticks = holder.value->getTelemetry().ticks;
+    const auto charges = holder.value->getTelemetry().crushResistanceImpulses;
+    require(holder.value->finishMotionCorrection(), "energy motion-only finish failed");
+    require(holder.value->getTelemetry().crushResistanceImpulses == charges + 1,
+        "motion-only replay must reissue the refunded energy charge");
+    require(holder.value->finishMotionCorrection(), "repeated energy finish failed");
+    require(holder.value->getTelemetry().crushResistanceImpulses == charges + 1,
+        "repeated finish must not charge the selected material work twice");
+    require(holder.value->getTelemetry().ticks == ticks && crushDamage(*holder.value, 2) == damage,
+        "retaining energy must not evaluate material damage again");
+    // The existing reference applies these impulses at the next simulate.
+    context.scene().simulate(kDt);
+    require(context.scene().fetchResults(true), "energy charge integration failed");
+    const float expected = std::sqrt(400.0f - 2.0f * work / payer->getMass());
+    require(std::fabs(-payer->getLinearVelocity().x - expected) < 1.0e-4f,
+        "corrected payer speed must match the selected material work");
+    payer->release();
+}
+
 // A separated chunk can be pulverized without another split event. The
 // interaction still needs correction, and a disabled pass budget must report
 // the mismatch. Detach it first through the normal gravity/stress model.
@@ -900,11 +977,13 @@ int main(int argc, char** argv)
     {
         if (argc == 2 && std::string(argv[1]) == "--gpu")
         {
+            testMotionOnlyResistance(PhysicsMode::Gpu);
             testCrushOnlyCorrection(0, PhysicsMode::Gpu);
             testCrushOnlyCorrection(1, PhysicsMode::Gpu);
             std::printf("GPU crush correction tests passed\n");
             return 0;
         }
+        testMotionOnlyResistance(PhysicsMode::Cpu);
         testCrushOnlyCorrection(0);
         testCrushOnlyCorrection(1);
         testDisabledByDefault();

@@ -38,9 +38,19 @@ The current target sequence is:
 Additional physics/stress/fracture correction rounds may be supported as an
 explicitly selected mode. They change the single-resim reference behavior. A maximum-pass setting of one on the current multi-pass
 adapter is not sufficient to implement the intended algorithm: it can merely
-turn later fracture into an incomplete-step error. Native integration must
-implement the single-rewind lifecycle deliberately and compare against the
-original reference behavior.
+turn later fracture into an incomplete-step error.
+
+The standalone demo and recorder now select `maxPasses=1` and
+`evaluateStressOnFinalPass=false`. The final replay resolves motion and consumes
+its contact queue without another stress/material tick. Actual trial impulses
+still determine the complete fracture verdict. The SDK's imported reference
+option retains `evaluateStressOnFinalPass=true` by default for compatibility;
+the demo's `--legacy-resim-fracture` selects that historical behavior explicitly.
+`--resim-passes N` remains configurable, including values greater than one.
+See [single-resim reference qualification](SINGLE_RESIM_REFERENCE.md).
+
+Native integration must implement this lifecycle inside PhysX's task graph;
+this reference policy change does not implement that missing engine path.
 
 GPU stress iterations and graph connectivity iterations may still run within
 this sequence. Multiple broken bonds can be processed together in one fracture

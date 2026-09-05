@@ -2061,6 +2061,32 @@ public:
         return beginTick(dt, worldGravity) && solveTick() && endTick();
     }
 
+    bool finishMotionCorrection() override
+    {
+        if (m_tickPhase != TickPhase::Idle)
+        {
+            return fail(ExtStressPhysXError::InvalidDescriptor, INVALID_INDEX,
+                "finishMotionCorrection requires a completed stress tick.");
+        }
+        // Restore rewinds the reference crush-resistance damage baseline as
+        // well as motion. Reissue that selected verdict's deferred energy
+        // charges, as endTick did, without evaluating new material damage.
+        applyCrushResistanceImpulses();
+        // These impulses already resolved the changed collision geometry.
+        // The chosen final-pass policy accepts that motion without applying
+        // another material verdict or charging a second interval of damage.
+        // Keep explicit CPU wake commands, even though no stress tick follows.
+        for (const QueuedContact& contact : m_contacts)
+        {
+            if (!contact.wake || contact.nodeIndex >= m_nodes.size()) continue;
+            BodyState* body = m_nodes[contact.nodeIndex].body;
+            if (body && body->body && !isKinematic(*body) && body->body->isSleeping())
+                body->body->wakeUp();
+        }
+        m_contacts.clear();
+        return true;
+    }
+
     bool validateMappings() override
     {
         const TelemetryClock::time_point validationStart = TelemetryClock::now();

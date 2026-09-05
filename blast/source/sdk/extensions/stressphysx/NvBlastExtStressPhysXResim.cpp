@@ -362,6 +362,23 @@ public:
             }
             frameHooks.onPostFetchResults(frame.resimPasses);
 
+            // The final replay resolves the verdict already applied. Starting
+            // a new verdict here can fracture again with no replay left, and
+            // charges another material time interval for the same timestep.
+            // Keep the imported iterative policy explicitly selectable.
+            if (resimPass && passesRemaining == 0 && !options.evaluateStressOnFinalPass)
+            {
+                for (uint32_t i = 0; i < destructibleCount; ++i)
+                {
+                    if (!destructibles[i]->finishMotionCorrection())
+                    {
+                        wakeFrozenBodies();
+                        return false;
+                    }
+                }
+                break;
+            }
+
             const uint64_t splitsBefore = sumSplits(destructibles, destructibleCount);
             const uint64_t crushedBefore = sumCrushed(destructibles, destructibleCount);
             double beginMs = 0.0;

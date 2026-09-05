@@ -801,6 +801,16 @@ public:
     virtual bool endTickApply() = 0;
     virtual bool tick(float dt, const physx::PxVec3& worldGravity) = 0;
 
+    /** Finish a motion-only replay after fetchResults, outside a stress tick.
+     * Consumes queued replay contacts without another stress/material update;
+     * they must not leak into the next timestep. Reissues the reference's
+     * deferred crush-energy charges after motion restore, without new damage.
+     * Explicit wake requests still apply. Shape/body snapshots read the
+     * corrected PhysX state directly.
+     * The frame stepper calls this when evaluateStressOnFinalPass is false.
+     */
+    virtual bool finishMotionCorrection() = 0;
+
     virtual bool validateMappings() = 0;
     virtual const ExtStressPhysXTelemetry& getTelemetry() const = 0;
     virtual bool usesGpuStressSolver() const = 0;

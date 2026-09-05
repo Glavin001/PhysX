@@ -1,0 +1,251 @@
+{
+  "createdUtc": "2026-09-05T22:13:09.352341+00:00",
+  "baseRevision": "7fcc9347944351c87cec0a1ee2205751b5caf814",
+  "scope": "External reference single-verdict replay policy; native collision ownership/correction remains incomplete",
+  "defaultDemo": {
+    "maxResimPasses": 1,
+    "evaluateStressOnFinalPass": false
+  },
+  "importedSdkDefault": {
+    "maxResimPasses": 1,
+    "evaluateStressOnFinalPass": true
+  },
+  "regression": {
+    "tests": 42,
+    "passed": 37,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newBehaviorGap": "blast_stress_crush_wall_bite: 3/216 chunks = 0.0139, unchanged minimum 0.015 requires 4; identical legacy policy passes",
+    "assertionsWeakened": false
+  },
+  "installedConsumers": {
+    "referenceCpu": true,
+    "referenceGpu": true,
+    "nativeOnlyCpu": true,
+    "nativeOnlyGpu": true
+  },
+  "gpuCapture": {
+    "validationPassed": true,
+    "validationFailures": [],
+    "continuity": {
+      "maxPositionDriftMetres": 2.75289e-06,
+      "maxPointVelocityDriftMps": 0,
+      "tolerance": 0.001
+    },
+    "backend": "reference: PhysX GPU + CUDA stress, CPU fracture/replay orchestration",
+    "qualification": "development capture only; not an isolated performance campaign",
+    "steps": 600,
+    "chunks": 216,
+    "authoredBonds": 464,
+    "buildings": 1,
+    "finalBodies": 16,
+    "peakDestructionBodies": 16,
+    "peakAwakeDestructionBodies": 9,
+    "peakDestructionBodiesAndLaunchedProjectiles": 17,
+    "projectilesRetainedAtEnd": 1,
+    "splits": 2,
+    "crushedChunks": 15,
+    "motion": {
+      "structuresWithMovedChunks": 1,
+      "structuresWithFallenChunks": 1,
+      "movedChunks": 8,
+      "fallenChunks": 8,
+      "farTravelingChunks": 7,
+      "dynamicChunks": 9,
+      "movingChunks": 0,
+      "supportedRemainderChunks": 192,
+      "maximumDisplacement": 34.5858,
+      "maximumDownwardDisplacement": 1.6
+    },
+    "tuning": {
+      "projectileMass": 4800,
+      "projectileSpeed": 49,
+      "projectileRadius": 0.45,
+      "projectileLifetimeSeconds": 12,
+      "projectileWaves": 1,
+      "projectileTargetStride": 1,
+      "targetBuildingCount": 1,
+      "projectileLaunchWindowSeconds": -5,
+      "keepProjectiles": false,
+      "projectilePattern": "facade",
+      "forwardWaveMassKg": 4800,
+      "oppositeWaveMassKg": 5520,
+      "forwardWaveLaunchSpeedMps": 51.45,
+      "oppositeWaveLaunchSpeedMps": 44.1,
+      "projectileCount": 1,
+      "contactForceScale": 1,
+      "minimumStressContactImpulse": 0,
+      "stressLimitScale": 1,
+      "excessForceScale": 0.017,
+      "maximumBodiesPerStructure": 0,
+      "maximumFracturesPerActorPerTick": 0,
+      "tallBuildingStride": 0
+    },
+    "simulationSeconds": 10.0,
+    "simulationWallSeconds": 0.324728,
+    "processedContacts": 11948,
+    "peakContactsPerStep": 1124,
+    "stressTransferBytes": {
+      "gpu_stress_h2d_bytes": 42516,
+      "gpu_stress_d2h_bytes": 850448
+    },
+    "timingPhasesOverlap": true,
+    "phaseMilliseconds": {
+      "frame_host_ms": {
+        "p50": 0.456361,
+        "p95": 1.19553,
+        "p99": 1.37536,
+        "worst": 3.98932,
+        "total": 318.433746,
+        "missed16_67ms": 0
+      },
+      "physics_step_ms": {
+        "p50": 0.400957,
+        "p95": 0.644591,
+        "p99": 0.80433,
+        "worst": 2.60231,
+        "total": 234.059283,
+        "missed16_67ms": 0
+      },
+      "stress_solve_ms": {
+        "p50": 0.034895,
+        "p95": 0.484944,
+        "p99": 0.50438,
+        "worst": 1.05714,
+        "total": 66.836006,
+        "missed16_67ms": 0
+      },
+      "gpu_stress_solve_ms": {
+        "p50": 0.0,
+        "p95": 0.4096,
+        "p99": 0.410624,
+        "worst": 0.476736,
+        "total": 37.729824,
+        "missed16_67ms": 0
+      },
+      "contact_processing_ms": {
+        "p50": 0.000961,
+        "p95": 0.007764,
+        "p99": 0.012573,
+        "worst": 0.057617,
+        "total": 1.288871,
+        "missed16_67ms": 0
+      },
+      "fracture_topology_ms": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "worst": 0.361133,
+        "total": 0.44765499999999997,
+        "missed16_67ms": 0
+      },
+      "state_export_ms": {
+        "p50": 0.003346,
+        "p95": 0.030387,
+        "p99": 0.0482,
+        "worst": 0.05373,
+        "total": 3.721952,
+        "missed16_67ms": 0
+      },
+      "resim_capture_ms": {
+        "p50": 0.001583,
+        "p95": 0.002073,
+        "p99": 0.002525,
+        "worst": 0.011251,
+        "total": 0.855622,
+        "missed16_67ms": 0
+      },
+      "resim_restore_ms": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "worst": 0.125424,
+        "total": 0.15374700000000002,
+        "missed16_67ms": 0
+      },
+      "resim_simulate_submit_ms": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "worst": 0.005269,
+        "total": 0.009446,
+        "missed16_67ms": 0
+      },
+      "resim_fetch_results_ms": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "worst": 1.40762,
+        "total": 2.62962,
+        "missed16_67ms": 0
+      },
+      "resim_tick_ms": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "worst": 0.0,
+        "total": 0.0,
+        "missed16_67ms": 0
+      }
+    },
+    "projectileImpulseNs": 168822,
+    "correctionPasses": 2,
+    "incompleteSteps": 0,
+    "configuredResimPasses": 1,
+    "maxResimPassesPerStep": 1,
+    "evaluateStressOnFinalPass": false,
+    "droppedContacts": 0,
+    "frozenOutsiders": 0,
+    "gpuStressMilliseconds": 38.4284,
+    "frameHostMilliseconds": {
+      "p50": 0.456361,
+      "p95": 1.19553,
+      "p99": 1.37536,
+      "worst": 3.98932,
+      "total": 318.433746,
+      "missed16_67ms": 0
+    }
+  },
+  "qualification": "Shared GPU development correctness checks. No scaling/60 Hz claim; no new video rendered.",
+  "sourceSha256": {
+    "blast/include/extensions/stressphysx/NvBlastExtStressPhysX.h": "f0fbd798a366c74a25900a119287abf950c1f20b102af9a3ff3f83fb9eca6425",
+    "blast/include/extensions/stressphysx/NvBlastExtStressPhysXResim.h": "562c19e8e4ae70edd98a99fb404237e0c190fb8109670868e21dd8259f8e0b1e",
+    "blast/source/sdk/extensions/stressphysx/NvBlastExtStressPhysX.cpp": "b9b929d88b34c5faf387e2d91e3429c333d039a944b0afa2d5e78b0f3e41ca02",
+    "blast/source/sdk/extensions/stressphysx/NvBlastExtStressPhysXResim.cpp": "7b7fcad3b67d23fb7b39c9b4d6c9ceed0e1a827034498cbc654b26ce5de11019",
+    "demos/blast-stress-demo/CMakeLists.txt": "e028bdec3ca7eff476c1498e7fd13f70fe444946245949dd765161e84729f19c",
+    "demos/blast-stress-demo/README.md": "9c8767f6c3cfb0caacac6a28d75b583338e0714ea6889e92c0dafa4636373aa5",
+    "demos/blast-stress-demo/mini_city_main.cpp": "885b4a8359de905b0691937b34bb10bff1244fa3a97fb6172ab457df302ddcfc",
+    "demos/blast-stress-demo/tests/chunk_crush_test.cpp": "9eab2d97a99fa58e88d012460c58c9e910236e8f4eedec64b0a59d92bc9626a9",
+    "demos/blast-stress-demo/tests/resim_punchthrough_test.cpp": "8e5ffc75a96e7521f49482630e684ebd9584123064d434ddabdc8aa062897a03",
+    "demos/blast-stress-demo/tests/resim_snapshot_test.cpp": "e32db9d5548e58826ba08c85c43fe9bb39e6ac176e53b95d5247a9511bebe5a8",
+    "docs/destruction/DEMO.md": "b7f4afba3b23556c44c4fcd861015c96b36fd0933a85fb39a323b44b90fd1b34",
+    "docs/destruction/IMPLEMENTATION.md": "bfd5bbf78ac73080ab20cf5698abc5e541ecb3d01e323fc0c4b99ff104a98b04",
+    "docs/destruction/RESIMULATION.md": "e1e48368840b70aa74541d9bcc6a7a496297af743713d703652c28343043fe35",
+    "tools/scripts/record-destruction-demo.py": "c504657bd8e7d6d99327180ad3ac8c1967411c4e4f5f4e12ef21eb625afb44b6",
+    "docs/destruction/SINGLE_RESIM_REFERENCE.md": "864c5d83b699dc5d850c0a76896df585ff0686d2029429e10c7b21fb70a084a9"
+  },
+  "artifactSha256": {
+    "out/single-resim-final-build.log": "8933f573ede93cff9a1179f96b5de16fc6ed12deb3256391af7bc8e68a24efb2",
+    "out/single-resim-regression.log": "10723ccb696e385ac4b3e02af71a044575bfcd72e4b680c9fb52e67c0a5933ee",
+    "out/destruction-sdk/single-resim-regression.xml": "56fe1421e6342b8f92dfeda2d8fe6b0d0875bb888fe1daf27bfff450b6967c01",
+    "out/single-resim-package-consumer.log": "b77aca33aaa20534deba7eac5ee5e85bbb2742ae260015b975b5196bcd2385b9",
+    "out/single-resim-validator-checks.json": "97609fcbe063197c7d977cd9c791e9b866406acd3487ffb67c7e43bea1d88305",
+    "out/destruction-sdk/reference/blast_stress_demo": "32d414c2d164d093cef921700a7858726f010dd4b843d6e111141fb3de0a4309",
+    "out/destruction-sdk/reference/resim_snapshot_test": "e5ee9348a2a2c5ae9321ce0ddb7939ab81cc65ae9a63a66176cf1fdac088d9a4",
+    "out/destruction-sdk/reference/resim_punchthrough_test": "2ad6a20466fc5afbb47fe44be0118008fd680f15019cb560024e70a34291ccfa",
+    "out/destruction-sdk/reference/chunk_crush_test": "9a7ad93d017c1c8e23fc21cd5d1bf182ce472e4670e166010f721cd327eb9216",
+    "out/single-resim-probes/commands.json": "067feb80dec9187fb959ff2a17dd867abb2b0531f941eecef8be816e2598cd51",
+    "out/single-resim-probes/gpu-wall-one.frames.csv": "55ff8ed99d8925c947ebe13762ea020b14be2fbc619051fa1461deb7f199ef2f",
+    "out/single-resim-probes/gpu-wall-one.json": "346aadfb49bda40832561dd651700ddfbb9f516ccc8ed15e26823bd7f1532fed",
+    "out/single-resim-probes/gpu-wall-one.log": "8b4d79a118b68c6d3b453292f567e5dfcf8ae0c93011e13e173acaa0dad84ffb",
+    "out/single-resim-probes/gpu-wall-one.twstate": "83e86a8d35c61465cdd886e2ea3178bf87c2c77ac7882769c62b62996c8baa80",
+    "out/single-resim-probes/gpu-wall-one.validation.json": "c4997298dbc9b00d99ce9073c2c12a24bf605437e7cf763a884986e22060acf0",
+    "out/single-resim-probes/legacy-wall-bite.json": "9d52b36d04fdf46eb966864cecb0f498e47368ee161a54112656ffc2c10c4582",
+    "out/single-resim-probes/legacy-wall-bite.log": "86720a68103b41a41af428608cddbebb6c935c15357a3c6f8b31f5975b5c39c0"
+  }
+}

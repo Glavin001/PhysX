@@ -90,6 +90,7 @@ struct Options
     float requireCrushFractionMax{-1.0f};
     float excessForceScale{0.017f};
     std::uint32_t resimPasses{1};
+    bool legacyResimFracture{false};
     bool requireCompleteCorrection{false};
     bool scopedResim{true};
     bool quietCaptureSkip{true};
@@ -848,7 +849,8 @@ void usage(const char* executable)
         "  --impact-transfer-scale X    Alias for --excess-force-scale\n"
         "  --resim-passes N        Rollback + re-step passes on fracture frames (default 1;\n"
         "                          0 disables and re-enables the excess-force kick; a resim\n"
-        "                          frame costs ~2x physics, so pin 0 with --require-realtime)\n"
+        "                          final replay resolves motion without another fracture round)\n"
+        "  --legacy-resim-fracture  Re-evaluate fracture after the final replay (reference comparison)\n"
         "  --require-complete-correction  Fail if final collision topology has not been re-solved\n"
         "  --resim-assert penetrate|deflect  Self-test probe: assert the projectile keeps\n"
         "                          (penetrate) or loses (deflect) forward speed on the\n"
@@ -1008,6 +1010,7 @@ Options parseOptions(int argc, char** argv)
             options.excessForceScale = parseFloat(argument(), option.c_str());
         else if (option == "--resim-passes")
             options.resimPasses = parseU32(argument(), "--resim-passes");
+        else if (option == "--legacy-resim-fracture") options.legacyResimFracture = true;
         else if (option == "--require-complete-correction") options.requireCompleteCorrection = true;
         else if (option == "--scoped-resim") options.scopedResim = true;
         else if (option == "--no-scoped-resim") options.scopedResim = false;
@@ -2434,6 +2437,7 @@ void writeMetadata(
         << "  \"realtimeRequired\": " << (options.requireRealtime ? "true" : "false") << ",\n"
         << "  \"resimulation\": {\n"
         << "    \"maxPasses\": " << options.resimPasses << ",\n"
+        << "    \"evaluateStressOnFinalPass\": " << (options.legacyResimFracture ? "true" : "false") << ",\n"
         << "    \"completeCorrectionRequired\": " << (options.requireCompleteCorrection ? "true" : "false") << ",\n"
         << "    \"incompleteFrames\": " << timings.incompleteCorrectionFrames << ",\n"
         << "    \"scoped\": " << (options.scopedResim ? "true" : "false") << ",\n"
@@ -2931,6 +2935,7 @@ int run(const Options& options)
     }
     ExtStressPhysXResimOptions resimOptions;
     resimOptions.maxPasses = options.resimPasses;
+    resimOptions.evaluateStressOnFinalPass = options.legacyResimFracture;
     resimOptions.scopedResim = options.scopedResim;
     resimOptions.quietCaptureSkip = options.quietCaptureSkip;
     resimOptions.useDirectGpuMotionState = options.useDirectGpuMotionState;

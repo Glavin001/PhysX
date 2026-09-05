@@ -61,6 +61,11 @@ def validate_capture(metadata_path, frames_path):
                 "correction_status", "resim_bodies_frozen", "contacts_dropped_total",
                 "splits_total", "chunks_crushed_total", "resim_passes"]
     require(all(k in rows[0] for k in required), "required capture diagnostics are missing")
+    per_step_passes = [int(row["resim_passes"]) for row in rows]
+    require(all(0 <= n <= correction["maxPasses"] for n in per_step_passes),
+            "capture exceeded the configured resimulation count")
+    require(sum(per_step_passes) == correction["passesTotal"],
+            "resimulation totals disagree with per-step diagnostics")
     for i, row in enumerate(rows):
         require(int(row["step"]) == i, "physics step sequence has a gap")
         require(all(math.isfinite(float(value)) for value in row.values()), "non-finite frame diagnostic")
@@ -113,6 +118,9 @@ def validate_capture(metadata_path, frames_path):
         "phaseMilliseconds": {k: timing_summary([float(r[k]) for r in rows]) for k in phases},
         "projectileImpulseNs": data["projectileImpactImpulse"],
         "correctionPasses": correction["passesTotal"], "incompleteSteps": 0,
+        "configuredResimPasses": correction["maxPasses"],
+        "maxResimPassesPerStep": max(per_step_passes),
+        "evaluateStressOnFinalPass": correction.get("evaluateStressOnFinalPass", True),
         "droppedContacts": 0, "frozenOutsiders": 0,
         "gpuStressMilliseconds": data["gpuStressSolveMilliseconds"],
         "frameHostMilliseconds": timing_summary([float(r["frame_host_ms"]) for r in rows]),
@@ -123,6 +131,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", action="store_true", help="build this checkout's SDK and recorder first")
     parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument("--resim-passes", type=int, default=1,
+                        help="maximum rewinds per timestep (default 1; stress iterations are separate)")
+    parser.add_argument("--legacy-resim-fracture", action="store_true",
+                        help="re-evaluate fracture after the final replay for historical reference comparisons")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--scenes", nargs="+", choices=SCENES, default=["wall", "building"])
     parser.add_argument("--city-grid", type=int, default=12, help="city width in buildings (1..64)")
@@ -135,6 +147,7 @@ def main():
     parser.add_argument("--city-launch-window", type=float, default=48)
     args = parser.parse_args()
     require(args.jobs > 0, "jobs must be positive")
+    require(1 <= args.resim_passes <= 256, "recording requires 1..256 resim passes")
     require(1 <= args.city_grid <= 64 and 1 <= args.city_waves <= 256, "invalid city size/waves")
     require(math.isfinite(args.city_duration) and math.isfinite(args.city_launch_window)
             and 0 <= args.city_launch_window < args.city_duration, "invalid city launch duration")
@@ -209,7 +222,8 @@ def main():
                      "--uniform-building-heights", "--duration", duration, "--settle", "2",
                      "--projectile-waves", args.city_waves if city else 1, "--projectile-mass-scale", mass,
                      "--projectile-speed-scale", speed, "--projectile-ttl-scale", "2",
-                     "--contact-force-scale", "1", "--resim-passes", "64" if city else "8",
+                     "--contact-force-scale", "1", "--resim-passes", args.resim_passes,
+                     *(["--legacy-resim-fracture"] if args.legacy_resim_fracture else []),
                      "--no-scoped-resim", "--no-quiet-capture-skip", "--require-complete-correction",
                      *extra, "--snapshot-fps", "60", "--state", prefix.with_suffix(".twstate"),
                      "--metadata", prefix.with_suffix(".json"), "--frame-telemetry", prefix.with_suffix(".frames.csv")],
@@ -219,6 +233,9 @@ def main():
                 sampler.wait(timeout=10)
                 gpu_log.close()
             report = validate_capture(prefix.with_suffix(".json"), prefix.with_suffix(".frames.csv"))
+            require(report["configuredResimPasses"] == args.resim_passes
+                    and report["evaluateStressOnFinalPass"] == args.legacy_resim_fracture,
+                    "simulator did not honor the requested resimulation policy; rebuild the SDK")
             require(report["steps"] == math.ceil((duration + 2) * 60), "simulation capture is incomplete")
             report["nativeExitCode"] = native_exit
             if native_exit:

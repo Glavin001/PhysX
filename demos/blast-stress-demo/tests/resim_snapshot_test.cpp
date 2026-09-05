@@ -98,7 +98,8 @@ struct DestructibleHolder
 ExtStressPhysXDestructible* createStack(
     PhysXScene& context,
     const StackDesc& stack,
-    const PxTransform& worldTransform)
+    const PxTransform& worldTransform,
+    bool gpuStress = false)
 {
     ExtStressPhysXDesc desc;
     desc.physics = &context.physics();
@@ -109,6 +110,8 @@ ExtStressPhysXDestructible* createStack(
     desc.bonds = stack.bonds.data();
     desc.bondCount = static_cast<std::uint32_t>(stack.bonds.size());
     desc.worldTransform = worldTransform;
+    desc.settings.gpuStressSolver = gpuStress;
+    desc.settings.gpuStressMinimumBondCount = 0;
     desc.settings.applyExcessForces = false;
     desc.settings.minimumSeparationVelocity = 0.0f;
     // Far above the ~500 N self-weight load, far below the synthetic
@@ -345,17 +348,107 @@ void testFrameStepper(PhysXScene& context)
     sphereShape->release();
 }
 
+// Deliberately inject a second lethal load only after the first rewind. The
+// legacy policy must fracture it and report an uncorrected interaction; the
+// motion-only final pass must leave it intact and consume its contact queue.
+// A two-rewind configuration must evaluate that intermediate verdict and then
+// finish with a motion-only replay, proving the implementation isn't hardcoded
+// to a single extra simulation.
+void testFinalReplayPolicy(PhysicsMode mode, std::uint32_t passes, bool legacy)
+{
+    const bool gpu = mode == PhysicsMode::Gpu;
+    PhysXScene context(mode, gpu, SceneCapacity{}, nullptr);
+    context.scene().setGravity(PxVec3(0.0f));
+    const auto stack = makeStack(5);
+    DestructibleHolder first, second;
+    first.value = createStack(context, stack, PxTransform(PxVec3(-10, 0, 0)), gpu);
+    second.value = createStack(context, stack, PxTransform(PxVec3(10, 0, 0)), gpu);
+    ExtStressPhysXDestructible* structures[] = {first.value, second.value};
+    struct Hooks : ExtStressPhysXFrameHooks
+    {
+        ExtStressPhysXDestructible *first, *second;
+        std::uint32_t fetches = 0, solves = 0;
+        Hooks(ExtStressPhysXDestructible* a, ExtStressPhysXDestructible* b) : first(a), second(b) {}
+        void onPostFetchResults(std::uint32_t pass) override
+        {
+            ++fetches;
+            if (pass == 0) queueFracturingContact(*first, 5);
+            if (pass == 1) queueFracturingContact(*second, 5);
+        }
+        bool solveAll(ExtStressPhysXDestructible* const* objects, std::uint32_t count) override
+        {
+            ++solves;
+            return ExtStressPhysXFrameHooks::solveAll(objects, count);
+        }
+    } hooks(first.value, second.value);
+    ExtStressPhysXFrameStepper* stepper = ExtStressPhysXFrameStepper::create(context.scene());
+    require(stepper, "replay policy stepper creation failed");
+    ExtStressPhysXResimOptions options;
+    options.maxPasses = passes;
+    options.scopedResim = false;
+    options.quietCaptureSkip = false;
+    options.evaluateStressOnFinalPass = legacy;
+    ExtStressPhysXFrameStats stats;
+    require(stepper->stepFrame(kDt, PxVec3(0.0f), structures, 2, options, &hooks, &stats),
+        "replay policy step failed");
+    require(first.value->getTelemetry().splits > 0, "trial verdict must fracture the first structure");
+    require(stats.resimPasses == passes && hooks.fetches == passes + 1,
+        "configured number of actual rewinds must be honored");
+    const std::uint32_t expectedSolves = legacy ? passes + 1 : passes;
+    require(hooks.solves == expectedSolves, "final replay must use the selected stress policy");
+    for (auto* object : structures)
+    {
+        require(object->getTelemetry().ticks == expectedSolves,
+            "material time must advance only on selected verdict rounds");
+        require(!gpu || object->usesGpuStressSolver(), "GPU policy test must actually use CUDA stress");
+        require(object->validateMappings(), "replay must retain valid shape/cluster membership");
+    }
+    if (legacy)
+    {
+        require(second.value->getTelemetry().splits > 0,
+            "control load must cause a second fracture in the legacy policy");
+        require(stats.correctionStatus == ExtStressPhysXCorrectionStatus::PassLimitReached,
+            "legacy final fracture must remain visibly incomplete");
+    }
+    else
+    {
+        require(stats.correctionStatus == ExtStressPhysXCorrectionStatus::Complete,
+            "motion-only final replay must solve the published collision topology");
+        require((second.value->getTelemetry().splits > 0) == (passes > 1),
+            "only an intermediate replay may generate another fracture verdict");
+        if (passes == 1)
+        {
+            ExtStressPhysXFrameStats unloaded;
+            require(stepper->stepFrame(kDt, PxVec3(0.0f), structures, 2, options, nullptr, &unloaded),
+                "unloaded step after correction failed");
+            require(second.value->getTelemetry().splits == 0 && unloaded.resimPasses == 0,
+                "final replay contacts must not leak into the next timestep");
+            require(second.value->getTelemetry().contactsDropped == 0,
+                "motion-only contact consumption is not a capacity drop");
+        }
+    }
+    stepper->release();
+}
+
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     try
     {
-        SceneCapacity capacity;
-        PhysXScene context(PhysicsMode::Cpu, false, capacity, nullptr);
-        context.scene().setGravity(kGravity);
-        testRoundTripAndProvenance(context);
-        testFrameStepper(context);
+        const bool gpu = argc == 2 && std::string(argv[1]) == "--gpu";
+        const PhysicsMode mode = gpu ? PhysicsMode::Gpu : PhysicsMode::Cpu;
+        testFinalReplayPolicy(mode, 1, false);
+        testFinalReplayPolicy(mode, 1, true);
+        testFinalReplayPolicy(mode, 2, false);
+        if (!gpu)
+        {
+            SceneCapacity capacity;
+            PhysXScene context(PhysicsMode::Cpu, false, capacity, nullptr);
+            context.scene().setGravity(kGravity);
+            testRoundTripAndProvenance(context);
+            testFrameStepper(context);
+        }
     }
     catch (const std::exception& error)
     {

@@ -39,12 +39,16 @@ one in both selected assets. Projectile mass/speed are explicit physical inputs,
 not a modification to transferred impulses. The heavy building case uses the
 existing hard-impact mass scale. Each projectile remains alive throughout its
 capture. All material verdicts and fracture counts remain uncapped. Reference
-correction has an eight-pass guard: if that is insufficient, recording fails.
-There is no scoped freezing or quiet-checkpoint omission in this preset.
+correction now defaults to **one replay per timestep**. It evaluates the actual
+trial impulses, applies that complete verdict, then resolves motion once without
+starting another material/fracture round. `--resim-passes N` selects a different
+count explicitly. There is no scoped freezing or quiet-checkpoint omission in
+this preset. `--legacy-resim-fracture` restores the previous final-pass material
+update for reference comparisons. See [resimulation policy](RESIMULATION.md).
 
-The pass limits below belong to the historical multi-pass reference demo. They
-are a departure from the intended single-rewind native lifecycle; see
-[resimulation terminology and counts](RESIMULATION.md).
+Earlier recordings used eight passes for the wall/building presets and 64 for
+the city. Their manifests remain historical evidence of that configuration;
+they do not qualify the new single-verdict mode.
 
 ## Sustained city bombardment
 
@@ -66,11 +70,12 @@ remain unchanged. The renderer follows captured poses; it does not script collap
 
 The native demo exposes `--projectile-pattern overhead`, `--keep-projectiles`
 and `--projectile-launch-window SECONDS` independently of the old TTL-based
-facade demo. The city preset permits up to 64 correction passes, still failing
-explicitly if topology changes exhaust that guard. This was necessary after the
-400-building sizing probe hit the old eight-pass limit at step 174. The native
-CLI accepts 0–256 passes; legacy presets retain their previous values.
-The native grid limit is now 64 (up to 4,096 instances of the selected asset).
+facade demo. The city preset also defaults to one replay; it no longer silently
+overrides the selected count to 64. The historical 400-building sizing probe
+hit the old eight-pass limit at step 174 while re-evaluating fracture on every
+replay. Reproduce that policy explicitly with `--legacy-resim-fracture` and the
+recorded `--resim-passes` value. The demo CLI accepts 0–256 passes; the strict
+recorder requires 1–256. The grid limit is 64 (up to 4,096 asset instances).
 
 The city report includes peak destruction/awake body counts, retained balls,
 contacts, stress transfer bytes, per-phase step timings and missed 16.67 ms
