@@ -28,6 +28,7 @@
 #include <chrono>
 #include "NvBlastExtStressSolver.h"
 #include "NvBlastExtStressFormula.h"
+#include "NvBlastExtStressMaterialFormula.h"
 #include "NvBlast.h"
 #include "NvBlastGlobals.h"
 #include "NvBlastArray.h"
@@ -1423,16 +1424,7 @@ public:
     static void fibreStresses(float stressNormal, float stressBend,
                               float& compression, float& tension)
     {
-        if (!fibreBending())
-        {
-            // Legacy: bend amplifies whatever the axial sign already is.
-            const float combined = stressNormal + std::copysign(stressBend, stressNormal);
-            compression = combined <= 0.0f ? -combined : 0.0f;
-            tension = combined > 0.0f ? combined : 0.0f;
-            return;
-        }
-        tension = std::max(0.0f, stressNormal + stressBend);
-        compression = std::max(0.0f, stressBend - stressNormal);
+        extStressFibre(fibreBending(), stressNormal, stressBend, compression, tension);
     }
 
     float mapStressToRange(float stress, float elasticLimit, float fatalLimit) const
@@ -2304,135 +2296,17 @@ private:
             NodeData& data = m_nodesData[node];
             const ExtStressCrushProperties& crush = materialForNode(node).crush;
 
-            if (!crush.enabled() || data.crushed || data.volume <= 0.0f || data.mass <= 0.0f)
-            {
-                data.pressure = 0.0f;
-                data.deviator = 0.0f;
-                data.crushUtilisation = 0.0f;
-                continue;
-            }
-
-            const float recipVolume = 1.0f / data.volume;
-            const float sxx = data.virial[0] * recipVolume;
-            const float syy = data.virial[1] * recipVolume;
-            const float szz = data.virial[2] * recipVolume;
-            const float sxy = data.virial[3] * recipVolume;
-            const float sxz = data.virial[4] * recipVolume;
-            const float syz = data.virial[5] * recipVolume;
-
-            // p is positive in compression, so it carries the opposite sign to
-            // the trace of the stress tensor.
-            const float pressure = -(sxx + syy + szz) / 3.0f;
-
-            // Deviator s = sigma + p*I, then q = sqrt(1.5 * s:s).
-            const float dxx = sxx + pressure;
-            const float dyy = syy + pressure;
-            const float dzz = szz + pressure;
-            const float deviatorSq =
-                dxx * dxx + dyy * dyy + dzz * dzz + 2.0f * (sxy * sxy + sxz * sxz + syz * syz);
-            const float deviator = sqrtf(1.5f * (deviatorSq > 0.0f ? deviatorSq : 0.0f));
-
-            // A jammed debris pile can feed the solver forces large enough to
-            // overflow the virial into inf/nan (measured on a 20k-chunk city:
-            // one degenerate island reported q = inf, which crushed everything
-            // it touched and poisoned every peak statistic downstream).
-            // A non-finite stress state is not "very crushed", it is "not a
-            // number": treat the tick as unreadable and do nothing.
-            if (!std::isfinite(pressure) || !std::isfinite(deviator))
-            {
-                data.pressure = 0.0f;
-                data.deviator = 0.0f;
-                data.crushUtilisation = 0.0f;
-                continue;
-            }
-
-            data.pressure = pressure;
-            data.deviator = deviator;
-
-            // TENSION CUTOFF. Comminution is a compressive phenomenon: a chunk
-            // in net tension fails by cracking, which is exactly what the bond
-            // model already represents, and it does not turn to powder. Without
-            // this the Drucker-Prager cone would make crushing EASIER in
-            // tension (its limit falls with pressure), so free-floating debris
-            // -- which has no confining pressure at all -- would crumble
-            // instead of tumbling. That is the failure mode this whole model
-            // exists to avoid.
-            if (pressure <= 0.0f)
-            {
-                data.crushUtilisation = 0.0f;
-                continue;
-            }
-
-            // Utilisation is a property of the STRESS STATE alone, so compute
-            // it whether or not anything is closing on the chunk. That is what
-            // makes it usable the way bond utilisation is: sample it after a
-            // gravity settle to see how much of a chunk's crush capacity its
-            // own structure already consumes, before anything moves.
-            {
-                const float coneLimitNow = crush.cohesion + crush.frictionSlope * pressure;
-                const float coneUse = coneLimitNow > 0.0f ? deviator / coneLimitNow : 0.0f;
-                const float capUse =
-                    crush.capPressure > 0.0f ? pressure / crush.capPressure : 0.0f;
-                data.crushUtilisation = coneUse > capUse ? coneUse : capUse;
-            }
-
-            if (deltaTime <= 0.0f)
-            {
-                continue;
-            }
-            const float strainRate = data.strainRate;
-
-            // Optional CEB-style dynamic increase factor: concrete is stronger
-            // the faster it is loaded, which is why a fast projectile spalls
-            // where a slow press crushes.
-            float strengthScale = 1.0f;
-            if (crush.strainRateExponent > 0.0f && crush.referenceStrainRate > 0.0f)
-            {
-                strengthScale = powf(strainRate / crush.referenceStrainRate, crush.strainRateExponent);
-                if (strengthScale < 1.0f)
-                {
-                    strengthScale = 1.0f;   // rate hardening only, never softening
-                }
-            }
-
-            // Drucker-Prager cone with a pressure cap. Using a cap surface
-            // rather than a bare pressure threshold is what distinguishes
-            // CONFINED crushing from unconfined shear: unconfined debris sits
-            // at low p, stays inside the cone, and tumbles intact.
-            const float coneLimit = strengthScale * (crush.cohesion + crush.frictionSlope * pressure);
-            const float capLimit = strengthScale * crush.capPressure;
-            const float shearExcess = deviator - coneLimit;
-            const float capExcess = pressure - capLimit;
-            const float excess = shearExcess > capExcess ? shearExcess : capExcess;
-
-            if (excess <= 0.0f)
-            {
-                continue;
-            }
-
-            // Perzyna overstress flow: the plastic strain rate is how far
-            // outside the yield surface the stress sits, divided by the
-            // material's viscosity. Damage is that plastic work per unit
-            // volume, normalized by the specific comminution energy.
-            //
-            //     epsdot_p = excess / crushViscosity
-            //     dD       = excess * epsdot_p * dt / crushEnergy
-            //
-            // Quadratic in overstress, which is what keeps a barely-yielding
-            // chunk intact for a long time while a hard hit comminutes almost
-            // at once. Crucially it needs no strain measurement, so a chunk
-            // loaded purely through its BONDS -- buried in a collapse, never
-            // touched directly -- crushes exactly as a struck one does.
-            const float crushEnergy = crush.crushEnergy > 0.0f ? crush.crushEnergy : 1.0f;
-            const float crushViscosity = crush.crushViscosity > 0.0f ? crush.crushViscosity : 1.0f;
-            data.crushDamage += excess * excess * deltaTime / (crushViscosity * crushEnergy);
-
-            if (data.crushDamage >= 1.0f)
-            {
-                data.crushDamage = 1.0f;
-                data.crushed = true;
-                m_crushedNodes.pushBack(node);
-            }
+            const bool wasCrushed = data.crushed;
+            const ExtStressCrushState before{data.crushDamage, data.pressure,
+                data.deviator, data.crushUtilisation, data.crushed};
+            const auto next = extStressCrushStep(data.virial, data.volume, data.mass,
+                data.strainRate, deltaTime, crush, before);
+            data.crushDamage = next.damage;
+            data.pressure = next.pressure;
+            data.deviator = next.deviator;
+            data.crushUtilisation = next.utilisation;
+            data.crushed = next.crushed;
+            if (!wasCrushed && next.crushed) m_crushedNodes.pushBack(node);
         }
         // Forces submitted since the previous update belong to this update
         // only. Retain diagnostic pressure/deviator/damage, not their inputs.
@@ -5702,104 +5576,12 @@ bool ExtStressSolverImpl::generateStressDamage(const NvBlastActor& actor, uint32
     }
     if (haveStress)
     {
-        // Compression and tension are opposite directions of AXIAL load, but a
-        // bending moment produces both at once on opposite faces, so both are
-        // checked. They are combined with max() rather than added: it is one
-        // cross-section failing, and summing would count the same failure twice.
-        const ExtStressMaterial& material = materialForBond(bondIndex);
-        float stressMultiplier = 0.0f;
-        float axialMultiplier = 0.0f;
-        if (stressCompression > material.compressionElasticLimit)
+        const auto verdict = extStressBondDamage(stressCompression, stressTension,
+            stressShear, bondHealth, m_bonds[bondIndex].area, materialForBond(bondIndex),
+            m_deltaTime, damageRatePerSecond());
+        if (verdict.command)
         {
-            const float excessStress = stressCompression - material.compressionElasticLimit;
-            const float compressionDenom = material.compressionFatalLimit - material.compressionElasticLimit;
-            axialMultiplier = excessStress / (compressionDenom > 0.0f ? compressionDenom : 1.0f);
-        }
-        if (stressTension > material.tensionElasticLimit)
-        {
-            const float excessStress = stressTension - material.tensionElasticLimit;
-            const float tensionDenom = material.tensionFatalLimit - material.tensionElasticLimit;
-            const float tensionMultiplier = excessStress / (tensionDenom > 0.0f ? tensionDenom : 1.0f);
-            axialMultiplier = std::max(axialMultiplier, tensionMultiplier);
-        }
-        stressMultiplier += axialMultiplier;
-
-        // shear can co-exist with either compression or tension so must be accounted for independently of them
-        if (stressShear > material.shearElasticLimit)
-        {
-            const float excessStress = stressShear - material.shearElasticLimit;
-            const float shearDenom = material.shearFatalLimit - material.shearElasticLimit;
-            const float shearMultiplier = excessStress / (shearDenom > 0.0f ? shearDenom : 1.0f);
-            stressMultiplier += shearMultiplier;
-        }
-
-        if (stressMultiplier > 0.0f)
-        {
-            // Bond health/area is reduced by excess pressure, approximating
-            // micro bonds in the material breaking.
-            //
-            // Two DIFFERENT failure mechanisms live in this one number, and
-            // they are separated here:
-            //
-            //   at or past the fatal limit (multiplier >= 1) the joint is
-            //   overloaded outright and fails now, in this tick, however
-            //   briefly the load was applied. This is what a blast or an
-            //   impact does: microseconds of enormous stress, and the thing
-            //   breaks.
-            //
-            //   between elastic and fatal it does not fail, it DAMAGES, at a
-            //   rate -- losing section for as long as it is held there. This
-            //   is what an overloaded cantilever does: holds, creaks, and lets
-            //   go some seconds later.
-            //
-            // Scaling both by the timestep, as a single rate, cannot serve
-            // both: slow enough for a floor to strain visibly before it goes
-            // is slow enough that a rocket deposits under a percent of a
-            // bond's health in its one tick and nothing breaks at all. Slow
-            // enough for a rocket is a floor that vanishes the instant it is
-            // overloaded. They are separate mechanisms and the model now says
-            // so.
-            //
-            // m_deltaTime of 0 means nobody told us the timestep, which is the
-            // offline case: fall back to per-tick, unchanged.
-            float bondDamage;
-            if (stressMultiplier >= 1.0f)
-            {
-                bondDamage = bondHealth;
-            }
-            else if (m_deltaTime > 0.0f)
-            {
-                bondDamage = bondHealth * std::min(
-                    1.0f, stressMultiplier * m_deltaTime * damageRatePerSecond());
-            }
-            else
-            {
-                bondDamage = bondHealth * stressMultiplier;
-            }
-            // Damage ARRESTS at the residual the reinforcement represents.
-            //
-            // Health is remaining area and stress is force/health, so a joint
-            // that keeps losing area keeps raising its own stress -- the
-            // runaway that makes an overloaded joint fail eventually no matter
-            // how slowly. Stopping at a floor turns that into what a
-            // reinforced crack does: crack, weaken to the section the steel
-            // holds, and stay there.
-            // ...but only on the GRADUAL path. Past the fatal limit the joint
-            // goes outright, arrest or no arrest: reinforcement holds a crack
-            // open at a stable width, it does not survive the steel yielding.
-            // Clamping the fatal case too let bonds sit at 172x their elastic
-            // limit indefinitely, which is how a garage stripped of 90% of its
-            // columns stood there with nothing broken.
-            if (stressMultiplier < 1.0f && material.residualAreaFraction > 0.0f)
-            {
-                const float floorHealth =
-                    m_bonds[bondIndex].area * material.residualAreaFraction;
-                if (bondHealth - bondDamage < floorHealth)
-                {
-                    bondDamage = std::max(0.0f, bondHealth - floorHealth);
-                }
-            }
-
+            const float bondDamage = verdict.damage;
             const NvBlastBondFractureData data = {
                 0,
                 node0,
