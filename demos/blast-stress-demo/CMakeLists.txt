@@ -551,6 +551,16 @@ if(BLAST_ENABLE_CUDA_STRESS)
     set_tests_properties(blast_stress_gpu_lazy_readback blast_stress_gpu_lazy_cpu_observer
         blast_stress_gpu_lazy_parallel_observer blast_stress_gpu_cpu_walk_preparation PROPERTIES ENVIRONMENT "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1;BLAST_GPU_GATHER=1")
 
+    add_executable(gpu_quiet_load_test tests/gpu_quiet_load_test.cpp)
+    target_link_libraries(gpu_quiet_load_test PRIVATE NvBlastExtStressGpu)
+    add_test(NAME blast_stress_gpu_quiet_load COMMAND gpu_quiet_load_test)
+    add_test(NAME blast_stress_gpu_quiet_load_bond_space COMMAND gpu_quiet_load_test)
+    set_tests_properties(blast_stress_gpu_quiet_load_bond_space PROPERTIES ENVIRONMENT "BLAST_GPU_NODE_SPACE=0")
+    add_test(NAME blast_stress_gpu_quiet_load_deterministic COMMAND gpu_quiet_load_test)
+    set_tests_properties(blast_stress_gpu_quiet_load_deterministic PROPERTIES ENVIRONMENT "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1")
+    add_test(NAME blast_stress_gpu_quiet_load_unrolled COMMAND gpu_quiet_load_test)
+    set_tests_properties(blast_stress_gpu_quiet_load_unrolled PROPERTIES ENVIRONMENT "BLAST_GPU_COND_LOOP=0")
+
     add_executable(gpu_device_input_test tests/gpu_device_input_test.cu)
     set_target_properties(gpu_device_input_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     target_link_libraries(gpu_device_input_test PRIVATE NvBlastExtStressGpu)

@@ -1428,7 +1428,8 @@ __global__ void nodeSpaceUpdateDirection(
     float* qSqSlots,
     std::uint32_t slotCount,
     const std::uint32_t* activeNodes,
-    const std::uint32_t* activeCounts)
+    const std::uint32_t* activeCounts,
+    const std::uint32_t* iteration)
 {
     const std::uint32_t slot = blockIdx.x * blockDim.x + threadIdx.x;
     if (slot >= activeCounts[1])
@@ -1442,7 +1443,12 @@ __global__ void nodeSpaceUpdateDirection(
         return;
     }
     const float denominator = zSqPrev[island];
-    const float beta = denominator > 0.0f ? zSq[island] / denominator : 0.0f;
+    // The first direction belongs to this solve. A quiet previous solve can
+    // leave a subnormal denominator; forming new/old then multiplying the
+    // reset vectors by infinity produces NaNs and retires a loaded island.
+    // Match the bond-space solver's explicit first-iteration restart.
+    const float beta = *iteration != 0u && denominator > 0.0f
+        ? zSq[island] / denominator : 0.0f;
     // `rho` is the preconditioned direction source: it is rho itself when
     // unpreconditioned, and g = N w when preconditioned.
     pi[node].angular = add(rho[node].angular, mul(pi[node].angular, beta));
@@ -6664,7 +6670,7 @@ private:
             m_nsPi, m_nsQ, directionSource, jacobiEnabled() ? m_nsW2 : m_nsW,
             numerator, numeratorPrev,
             m_nodeIsland, m_islandActive, output, slots,
-            m_activeNodes, m_activeCounts);
+            m_activeNodes, m_activeCounts, m_iteration);
         m_kernelProfile.end(stream);
 
         // NOTE: the periodic explicit refresh of q = L pi was removed here.
