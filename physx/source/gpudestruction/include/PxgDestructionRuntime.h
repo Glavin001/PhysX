@@ -3,6 +3,7 @@
 #include "PxDestructionScene.h"
 #include "PxContact.h"
 namespace physx {
+struct PxgBodySim;
 // Private bridge between PhysX's kernel-wrangler module and the runtime CUDA
 // stress module. Both share the scene's CUDA context; no physics API replay.
 class PxgDestructionRuntime : public PxDestructionScene {
@@ -16,7 +17,7 @@ public:
     virtual PxVec3* angularVelocities() const = 0;
     virtual const PxRigidDynamicGPUIndex* bodyIndices() const = 0;
     virtual PxU32 clusterCount() const = 0;
-    virtual bool advance(PxReal dt, const PxVec3& gravity) = 0;
+    virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgBodySim* bodyStates) = 0;
     virtual bool finish() = 0;
     virtual void release() = 0;
 };

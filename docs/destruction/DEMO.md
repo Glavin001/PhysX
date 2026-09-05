@@ -42,6 +42,10 @@ capture. All material verdicts and fracture counts remain uncapped. Reference
 correction has an eight-pass guard: if that is insufficient, recording fails.
 There is no scoped freezing or quiet-checkpoint omission in this preset.
 
+The pass limits below belong to the historical multi-pass reference demo. They
+are a departure from the intended single-rewind native lifecycle; see
+[resimulation terminology and counts](RESIMULATION.md).
+
 ## Sustained city bombardment
 
 ```sh

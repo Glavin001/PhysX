@@ -561,6 +561,12 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME blast_stress_gpu_quiet_load_unrolled COMMAND gpu_quiet_load_test)
     set_tests_properties(blast_stress_gpu_quiet_load_unrolled PROPERTIES ENVIRONMENT "BLAST_GPU_COND_LOOP=0")
 
+    add_executable(native_gpu_material_test tests/native_gpu_material_test.cpp physx_scene.cpp)
+    target_include_directories(native_gpu_material_test PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+    target_link_options(native_gpu_material_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_gpu_material_test PRIVATE NvBlastExtStressPhysX ${PHYSX_LINK_LIBS})
+    add_test(NAME physx_native_gpu_material COMMAND native_gpu_material_test)
+
     add_executable(native_gpu_destruction_test tests/native_gpu_destruction_test.cpp physx_scene.cpp)
     target_include_directories(native_gpu_destruction_test PRIVATE ${CUDAToolkit_INCLUDE_DIRS} ${PHYSX_ROOT}/include)
     target_compile_definitions(native_gpu_destruction_test PRIVATE PX_PHYSX_STATIC_LIB)

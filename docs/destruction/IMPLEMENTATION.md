@@ -1,7 +1,7 @@
 # First-class GPU destruction implementation
 
 **The complete plan is not implemented or qualified yet.** The repository now
-contains a buildable reference SDK, a native scene GPU contact/stress stage, and
+contains a buildable reference SDK, a native scene GPU contact/stress/material stage, and
 GPU topology/motion foundations. The topology foundations do not yet drive the
 PhysX collision/constraint solver. The native stress stage does not commit fracture
 or perform internal correction; see [NATIVE_GPU_STRESS.md](NATIVE_GPU_STRESS.md).
@@ -35,9 +35,13 @@ cooked collision geometry and persistent shape ownership are not implemented by
 that primitive. The reference retains its existing GPU stress solver.
 
 The new native scene stage bypasses the reference adapter for GPU contact load
-assembly and stress solving. Its CPU work is configuration, task submission,
-capacity growth and a compact status observation; it does not yet apply fracture.
-The new native and solver regressions bring the native suite to 35/39 passing,
+assembly, stress solving and material evaluation. Accepted damage persists on the
+GPU; topology-changing verdicts remain uncommitted and fail the step explicitly.
+Its CPU work is configuration, task submission, capacity growth and a compact
+status observation; it does not yet apply fracture. Detached chunks retain
+contact/crush evaluation without a bond solve. The single-rewind target and the
+older demo's multi-pass departure are documented in [RESIMULATION.md](RESIMULATION.md).
+The new native and solver regressions bring the native suite to 36/40 passing,
 with the four existing failures unchanged. The quiet-load recurrence correction
 is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
 
@@ -73,9 +77,10 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   removal/reinsertion and crush ancestry.
 - Engine-owned persistent collision geometry and GPU shape/cluster rebinding;
   new fragment pair eligibility and contact/constraint cache invalidation.
-- Connect the native GPU contact/stress stage to the complete material/crush/
-  fracture verdict and GPU topology ownership. No predicted breakage is permitted.
-- Full internal correction of all participants and joints, state/damage/command
+- Complete material parity for merged/reduced bond groups, expose explicit
+  chunk loads, and connect native GPU trial verdicts to topology ownership and
+  full crush fragment/energy accounting. No predicted breakage is permitted.
+- One internal rewind/resimulation of all affected participants and joints, state/damage/command
   transaction accounting, committed-only event publication, and explicit errors
   for incomplete steps. Existing external replay is still the reference.
 - Validated dependency work sets and selective collision/constraint reuse with

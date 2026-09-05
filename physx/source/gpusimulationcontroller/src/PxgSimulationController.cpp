@@ -650,7 +650,7 @@ namespace physx
         if(ok)
             ok = getRigidDynamicData(mDestruction->angularVelocities(), mDestruction->bodyIndices(),
                 PxRigidDynamicGPUAPIReadType::eANGULAR_VELOCITY, mDestruction->clusterCount(), ready, ready);
-        if(ok) ok = mDestruction->advance(dt, gravity);
+        if(ok) ok = mDestruction->advance(dt, gravity, mSimulationCore->getBodySimBufferDevicePtr().getPointer());
         // Complete before contact buffers can be recycled or the scene is
         // published. No node, bond, or contact arrays are read back to the CPU.
         const bool complete = mDestruction->finish();

@@ -59,6 +59,18 @@ int main(int argc, char**) {
         scene->simulate(1.0f/60.0f);physx::PxU32 error=0;
         ok &= scene->fetchResults(true,&error) && !error;
         ok &= native->getLastStatus().frame==1 && native->getLastStatus().converged;
+        scene->setGravity(physx::PxVec3(0,-9.81f,0));
+        physx::PxDestructionMaterial stressMaterial;
+        stressMaterial.compressionElasticLimit=10;stressMaterial.compressionFatalLimit=100;
+        graph.materials=&stressMaterial;graph.materialCount=1;
+        ok &= native->configureStress(graph);
+        scene->simulate(1.0f/60.0f);ok &= scene->fetchResults(true,&error) && !error;
+        ok &= native->getLastStatus().bondCommands==1 && !native->getLastStatus().brokenBonds;
+        graph.bonds=nullptr;graph.bondCount=0;
+        ok &= native->configureStress(graph);
+        scene->simulate(1.0f/60.0f);ok &= scene->fetchResults(true,&error) && !error;
+        ok &= !native->getDeviceView().bondCount && !native->getDeviceView().bondForces;
+        ok &= !native->getLastStatus().iterations && native->getLastStatus().converged;
         ok &= native->clearStress();body->release();
     }
 #ifndef PXD_NATIVE_ONLY
