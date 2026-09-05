@@ -25,8 +25,10 @@
 #include "../physx_scene.h"
 
 #include <NvBlastExtStressPhysX.h>
+#include <NvBlastExtStressPhysXResim.h>
 
 #include <cmath>
+#include <memory>
 #include <cstdio>
 #include <stdexcept>
 #include <string>
@@ -776,12 +778,135 @@ void testCrushResistanceChargesTheCrusher()
                 + std::to_string(withResistance));
 }
 
+// A separated chunk can be pulverized without another split event. The
+// interaction still needs correction, and a disabled pass budget must report
+// the mismatch. Detach it first through the normal gravity/stress model.
+void testCrushOnlyCorrection(std::uint32_t maxPasses, PhysicsMode mode = PhysicsMode::Cpu)
+{
+    PhysXScene context(mode, mode == PhysicsMode::Gpu, SceneCapacity{}, nullptr);
+    Structure structure = makeColumn(1, 5000.0f);
+    structure.bonds[0].material = 1;
+    ExtStressPhysXMaterial weakBond;
+    weakBond.compressionElasticLimit = 1000.0f;
+    weakBond.compressionFatalLimit = 2000.0f;
+    const std::vector<ExtStressPhysXMaterial> materials{
+        withCrush(unbreakableJoints(), 0.8e6f, 2.0e6f), weakBond};
+    Holder holder;
+    holder.value = create(context, structure, materials, PxVec3(0.0f));
+    for (std::uint32_t i = 0; i < 60 && holder.value->getTelemetry().splits == 0; ++i)
+    {
+        step(context, *holder.value, 1);
+    }
+    require(holder.value->getTelemetry().splits > 0, "fixture must first detach through gravity load");
+    require(holder.value->getTelemetry().chunksCrushed == 0, "gravity must not crush the fixture");
+    // A separate ordinary actor must advance once, even when destruction
+    // corrects this whole scene. This catches replay without motion rollback.
+    struct BodyRelease { void operator()(PxRigidDynamic* p) const { p->release(); } };
+    std::unique_ptr<PxRigidDynamic, BodyRelease> ordinary(
+        context.physics().createRigidDynamic(PxTransform(PxVec3(20.0f, 20.0f, 20.0f))));
+    require(ordinary != nullptr, "ordinary actor creation failed");
+    PxShape* ordinaryShape = context.physics().createShape(PxSphereGeometry(0.2f), context.material());
+    require(ordinaryShape != nullptr && ordinary->attachShape(*ordinaryShape), "ordinary shape creation failed");
+    ordinaryShape->release();
+    ordinary->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, true);
+    ordinary->setLinearDamping(0.0f);
+    ordinary->setLinearVelocity(PxVec3(3.0f, 0.0f, 0.0f));
+    context.scene().addActor(*ordinary);
+    ExtStressPhysXDestructible* structures[] = {holder.value};
+    struct StepperRelease { void operator()(ExtStressPhysXFrameStepper* p) const { p->release(); } };
+    std::unique_ptr<ExtStressPhysXFrameStepper, StepperRelease> stepper(
+        ExtStressPhysXFrameStepper::create(context.scene()));
+    require(stepper != nullptr, "stepper creation failed");
+    ExtStressPhysXResimOptions options;
+    options.maxPasses = maxPasses;
+    options.scopedResim = false;
+    options.quietCaptureSkip = false;
+    bool observed = false;
+    for (std::uint32_t stepIndex = 0; stepIndex < 180 && !observed; ++stepIndex)
+    {
+        // A bondless chunk gets its virial stress from the surface contact
+        // lever arm. A force applied at its COM alone has zero virial stress.
+        ExtStressPhysXShapeSnapshot shapes[2];
+        const std::uint32_t shapeCount = holder.value->getShapeSnapshots(shapes, 2);
+        for (std::uint32_t i = 0; i < shapeCount; ++i)
+        {
+            if (shapes[i].nodeIndex != 1) continue;
+            ExtStressPhysXContact contact;
+            contact.shapeId = shapes[i].shapeId;
+            contact.worldPosition = shapes[i].worldPose.transform(PxVec3(0.0f, 0.5f, 0.0f));
+            contact.worldImpulse = shapes[i].worldPose.q.rotate(PxVec3(0.0f, -4.0e6f * kDt, 0.0f));
+            holder.value->queueContact(contact);
+        }
+        const float ordinaryBefore = ordinary->getGlobalPose().p.x;
+        ExtStressPhysXFrameStats stats;
+        require(stepper->stepFrame(kDt, kGravity, structures, 1, options, nullptr, &stats),
+            "crush correction step failed");
+        require(std::fabs(ordinary->getGlobalPose().p.x - ordinaryBefore - 3.0f * kDt) < 1.0e-4f,
+            "ordinary actor must advance exactly once through correction");
+        if (stepIndex == 0)
+        {
+            // sigma_yy = (-4e6 N * .5 m) / 1 m^3 = -2 MPa.
+            // p = 2/3 MPa, q = 2 MPa, excess = .72 MPa;
+            // dD = excess^2 * dt / (viscosity * crushEnergy) = .0216.
+            float pressure[2], deviator[2], damage[2];
+            holder.value->getNodeStressInvariants(pressure, deviator, 2);
+            holder.value->getNodeCrushDamage(damage, 2);
+            require(std::fabs(pressure[1] / (2.0e6f / 3.0f) - 1.0f) < 1.0e-4f,
+                "post-split surface pressure must match analytic virial stress");
+            require(std::fabs(deviator[1] / 2.0e6f - 1.0f) < 1.0e-4f,
+                "post-split deviator must match analytic virial stress");
+            require(std::fabs(damage[1] / 0.0216f - 1.0f) < 1.0e-4f,
+                "one surface load must charge exactly one material damage increment");
+            const float priorDamage = damage[1];
+            ExtStressPhysXFrameStats unloaded;
+            require(stepper->stepFrame(kDt, kGravity, structures, 1, options, nullptr, &unloaded),
+                "unloaded step failed");
+            holder.value->getNodeStressInvariants(pressure, deviator, 2);
+            holder.value->getNodeCrushDamage(damage, 2);
+            require(pressure[1] == 0.0f && deviator[1] == 0.0f && damage[1] == priorDamage,
+                "consumed contact stress must not leak into the next unloaded step");
+        }
+        if (holder.value->getTelemetry().chunksCrushed == 0)
+        {
+            require(stats.correctionStatus == ExtStressPhysXCorrectionStatus::Complete,
+                "unchanged collision topology must not report incomplete correction");
+            continue;
+        }
+        observed = true;
+        require(stats.splits == 0, "leaf crush fixture must not split a surviving cluster");
+        if (maxPasses == 0)
+        {
+            require(stats.resimPasses == 0, "disabled correction must not replay");
+            require(stats.correctionStatus == ExtStressPhysXCorrectionStatus::PassLimitReached,
+                "uncorrected crush must report the exhausted budget");
+        }
+        else
+        {
+            require(stats.resimPasses == 1, "leaf removal must re-solve once");
+            require(stats.correctionStatus == ExtStressPhysXCorrectionStatus::Complete,
+                "unchanged corrected topology must be complete");
+            require(stats.sceneBodiesCaptured > 0, "crush-only correction must checkpoint scene motion");
+        }
+        require(holder.value->validateMappings(), "crush correction must preserve mappings");
+    }
+    require(observed, "leaf must crush under the imposed load");
+}
+
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     try
     {
+        if (argc == 2 && std::string(argv[1]) == "--gpu")
+        {
+            testCrushOnlyCorrection(0, PhysicsMode::Gpu);
+            testCrushOnlyCorrection(1, PhysicsMode::Gpu);
+            std::printf("GPU crush correction tests passed\n");
+            return 0;
+        }
+        testCrushOnlyCorrection(0);
+        testCrushOnlyCorrection(1);
         testDisabledByDefault();
         testSettledStructureNeverCrushes();
         testUtilisationIsReadableBeforeYield();

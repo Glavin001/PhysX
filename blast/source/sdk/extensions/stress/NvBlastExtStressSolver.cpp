@@ -2434,6 +2434,9 @@ private:
                 m_crushedNodes.pushBack(node);
             }
         }
+        // Forces submitted since the previous update belong to this update
+        // only. Retain diagnostic pressure/deviator/damage, not their inputs.
+        clearVirials();
     }
 
     /**
@@ -2447,7 +2450,10 @@ private:
     */
     void accumulateBondVirial(const float* bondHealth)
     {
-        clearVirials();
+        // External surface forces have already populated virial through
+        // addNodeForceAt. Add bond tractions to that same sum; clearing here
+        // used to erase every contact contribution, including all stress on
+        // a separated chunk. updateNodeStress clears after consuming the sum.
 
         for (uint32_t group = 0; group < m_solverBondsData.size(); ++group)
         {

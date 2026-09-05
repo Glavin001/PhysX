@@ -41,6 +41,16 @@ struct ExtStressPhysXResimOptions
     }
 };
 
+// This reports whether the last solved interaction matches the resulting
+// collision topology. Complete does not promise convergence of the stress
+// model or transactional rollback of damage/events in this external reference.
+enum class ExtStressPhysXCorrectionStatus : uint32_t
+{
+    Complete,
+    PassLimitReached,
+    SnapshotUnavailable
+};
+
 struct ExtStressPhysXFrameStats
 {
     uint32_t resimPasses;
@@ -71,6 +81,11 @@ struct ExtStressPhysXFrameStats
     double resimFetchResultsMilliseconds;
     double resimTickMilliseconds;
 
+    // Appended to retain the offsets of existing fields. Consumers must rebuild
+    // against this header. An incomplete step has already modified the scene;
+    // do not blindly retry it as though stepFrame were an atomic transaction.
+    ExtStressPhysXCorrectionStatus correctionStatus;
+
     ExtStressPhysXFrameStats()
         : resimPasses(0)
         , sceneBodiesCaptured(0)
@@ -96,6 +111,7 @@ struct ExtStressPhysXFrameStats
         , resimSimulateSubmitMilliseconds(0.0)
         , resimFetchResultsMilliseconds(0.0)
         , resimTickMilliseconds(0.0)
+        , correctionStatus(ExtStressPhysXCorrectionStatus::Complete)
     {
     }
 };

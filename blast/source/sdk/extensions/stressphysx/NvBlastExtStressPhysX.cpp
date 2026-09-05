@@ -669,23 +669,10 @@ public:
             return false;
         }
 
-        // A contact on a body with no bonds cannot do anything.
-        //
-        // Islands are built by walking BONDS (stress.cpp): a node with no
-        // bond never joins one, so it is not in any island, the CG solve
-        // never visits it, and no bond of its can be overstressed because it
-        // has none. Every stage this contact would pass through -- the queue
-        // push, the pose transform, the three array appends, the solver's
-        // per-force accumulation -- is work whose only possible outcome is
-        // zero. Dropping it is not an approximation; it removes arithmetic
-        // that provably cannot change a result.
-        //
-        // Measured on a grid-2 collapse: 92% of AWAKE bodies are single-node
-        // debris, and 65% of queued contacts are aimed at them.
-        //
-        // Wake is handled before the skip: a single-node body still needs to
-        // be woken by an impact, and that is the one effect a contact on it
-        // legitimately has.
+        // Bondless, non-crushable chunks cannot develop internal bond stress.
+        // Crushable chunks still require contact virial stress and energy
+        // accounting after separation. Never discard those loads merely
+        // because the last bond has gone. Wake requests also retain their path.
         // One byte read, not two pointer chases.
         //
         // This test used to be m_nodes[nodeIndex].body followed by
@@ -699,7 +686,7 @@ public:
         // per tick in refreshNodeBondless(). 87 KB fits in L2, the rebuild is
         // a linear walk over bodies rather than random access, and the
         // decision it encodes is bit-identical to the two derefs it replaces.
-        if (skipBondlessContacts() && !contact.wake)
+        if (skipBondlessContacts() && !contact.wake && !nodeCanCrush(nodeIndex))
         {
             bool bondless = false;
             if (flatBondlessFlags())
@@ -750,13 +737,19 @@ public:
         return true;
     }
 
+    bool nodeCanCrush(uint32_t nodeIndex) const
+    {
+        return m_crushEnabled && nodeIndex < m_nodes.size()
+            && m_materials[m_nodes[nodeIndex].material].crushCapPressure > 0.0f;
+    }
+
     bool isNodeBondless(uint32_t nodeIndex) const override
     {
         // Must mirror queueContact's skip EXACTLY, including its gates: if
         // skipping is disabled, or the flat array is disabled, the answer has
         // to be "not bondless" so the caller takes the normal path and
         // queueContact makes the real decision.
-        if (!skipBondlessContacts() || !flatBondlessFlags())
+        if (!skipBondlessContacts() || !flatBondlessFlags() || nodeCanCrush(nodeIndex))
         {
             return false;
         }
@@ -1308,8 +1301,8 @@ public:
                 body.contactGeneration = generation;
             }
             const PxTransform& pose = body.contactGlobalPose;
-            const PxVec3 localPosition = pose.transformInv(contact.position);
-            const PxVec3 localForce = pose.q.rotateInv(contact.impulse / dt);
+            const PxVec3 localPosition = body.bodyToStress.transform(pose.transformInv(contact.position));
+            const PxVec3 localForce = body.bodyToStress.q.rotate(pose.q.rotateInv(contact.impulse / dt));
 
             accumulateCrushStrainRate(contact);
 
@@ -2835,6 +2828,9 @@ private:
 
     struct BodyState
     {
+        // The immutable stress asset frame survives changes to a cluster's
+        // PhysX body origin. One transform per rigid cluster, not per chunk.
+        PxTransform bodyToStress{PxIdentity};
         /// See ExtStressPhysXBodySnapshot::mass.
         float cachedMass = 0.0f;
         /// Row this body occupied in the last getBodySnapshots output.
@@ -3394,8 +3390,8 @@ private:
                 body.contactGeneration = generation;
             }
             const PxTransform& pose = body.contactGlobalPose;
-            const PxVec3 localPosition = pose.transformInv(contact.position);
-            const PxVec3 localForce = pose.q.rotateInv(contact.impulse / dt);
+            const PxVec3 localPosition = body.bodyToStress.transform(pose.transformInv(contact.position));
+            const PxVec3 localForce = body.bodyToStress.q.rotate(pose.q.rotateInv(contact.impulse / dt));
 
             accumulateCrushStrainRate(contact);
 
@@ -4220,6 +4216,7 @@ private:
             ChildPlan* plan{nullptr};
             std::unique_ptr<BodyState> body;
         };
+        const PxTransform parentBodyToStress = parentBody->bodyToStress;
         std::vector<AssignedChild> assigned;
         assigned.reserve(plans.size());
 
@@ -4246,6 +4243,7 @@ private:
                 {
                     return false;
                 }
+                child.body->bodyToStress = parentBodyToStress * parent.pose.getInverse() * pose;
                 if (m_resimSnapshotValid)
                 {
                     // parent.pose is the pre-mutation pose of the surviving

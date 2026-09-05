@@ -363,6 +363,7 @@ public:
             frameHooks.onPostFetchResults(frame.resimPasses);
 
             const uint64_t splitsBefore = sumSplits(destructibles, destructibleCount);
+            const uint64_t crushedBefore = sumCrushed(destructibles, destructibleCount);
             double beginMs = 0.0;
             double solveMs = 0.0;
             double endMs = 0.0;
@@ -397,13 +398,23 @@ public:
 
             const uint64_t splitsAfter = sumSplits(destructibles, destructibleCount);
             frame.splits = splitsAfter - splitsAtFrameStart;
-            const bool fractured = splitsAfter > splitsBefore;
-            if (!fractured || passesRemaining == 0)
+            // Removing a crushed chunk changes collision geometry and mass even
+            // when the surviving bond graph remains one connected component.
+            // Its projectile/other participants need correction just as on split.
+            const bool topologyChanged = splitsAfter > splitsBefore
+                || sumCrushed(destructibles, destructibleCount) > crushedBefore;
+            if (!topologyChanged)
             {
+                break;
+            }
+            if (passesRemaining == 0)
+            {
+                frame.correctionStatus = ExtStressPhysXCorrectionStatus::PassLimitReached;
                 break;
             }
             if (!haveSnapshot)
             {
+                frame.correctionStatus = ExtStressPhysXCorrectionStatus::SnapshotUnavailable;
                 wakeFrozenBodies();
                 /* Phase D: host calls applyBaseStepSleep after long quiet */
                 return true;
@@ -496,6 +507,17 @@ public:
     }
 
 private:
+    static uint64_t sumCrushed(
+        ExtStressPhysXDestructible* const* destructibles, uint32_t count)
+    {
+        uint64_t crushed = 0;
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            crushed += destructibles[i]->getTelemetry().chunksCrushed;
+        }
+        return crushed;
+    }
+
     static uint64_t sumSplits(
         ExtStressPhysXDestructible* const* destructibles,
         uint32_t destructibleCount)

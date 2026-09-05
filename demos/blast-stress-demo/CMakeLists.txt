@@ -534,6 +534,7 @@ add_test(NAME blast_stress_node_mesh
         "${REPO_ROOT}/blast/blast-stress-solver/assets/reference/reference-building.json")
 
 if(BLAST_ENABLE_CUDA_STRESS)
+    add_test(NAME blast_stress_gpu_crush_correction COMMAND chunk_crush_test --gpu)
     add_executable(direct_gpu_contact_test tests/direct_gpu_contact_test.cu physx_scene.cpp)
     set_target_properties(direct_gpu_contact_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}" CUDA_RUNTIME_LIBRARY Shared)
     target_link_options(direct_gpu_contact_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")

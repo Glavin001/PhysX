@@ -86,6 +86,7 @@ struct Options
     float requireCrushFractionMax{-1.0f};
     float excessForceScale{0.017f};
     std::uint32_t resimPasses{1};
+    bool requireCompleteCorrection{false};
     bool scopedResim{true};
     bool quietCaptureSkip{true};
     bool baseStepSleep{false};
@@ -533,6 +534,7 @@ struct FrameMetrics
     double mappingValidationMilliseconds{0.0};
     double stateExportMilliseconds{0.0};
     double frameHostMilliseconds{0.0};
+    std::uint32_t correctionStatus{0};
     std::uint32_t resimPasses{0};
     std::uint32_t resimBodiesCaptured{0};
     std::uint32_t resimBodiesRestored{0};
@@ -584,6 +586,7 @@ struct RuntimeTimings
     double maximumDestructionFrameMilliseconds{0.0};
     std::uint64_t resimPassesTotal{0};
     std::uint32_t resimFrames{0};
+    std::uint32_t incompleteCorrectionFrames{0};
     double resimCaptureMilliseconds{0.0};
     double resimSceneCaptureMilliseconds{0.0};
     double resimAdapterCaptureMilliseconds{0.0};
@@ -838,6 +841,7 @@ void usage(const char* executable)
         "  --resim-passes N        Rollback + re-step passes on fracture frames (default 1;\n"
         "                          0 disables and re-enables the excess-force kick; a resim\n"
         "                          frame costs ~2x physics, so pin 0 with --require-realtime)\n"
+        "  --require-complete-correction  Fail if final collision topology has not been re-solved\n"
         "  --resim-assert penetrate|deflect  Self-test probe: assert the projectile keeps\n"
         "                          (penetrate) or loses (deflect) forward speed on the\n"
         "                          fracture frame; requires --self-test\n"
@@ -990,6 +994,7 @@ Options parseOptions(int argc, char** argv)
             options.excessForceScale = parseFloat(argument(), option.c_str());
         else if (option == "--resim-passes")
             options.resimPasses = parseU32(argument(), "--resim-passes");
+        else if (option == "--require-complete-correction") options.requireCompleteCorrection = true;
         else if (option == "--scoped-resim") options.scopedResim = true;
         else if (option == "--no-scoped-resim") options.scopedResim = false;
         else if (option == "--quiet-capture-skip") options.quietCaptureSkip = true;
@@ -2181,7 +2186,7 @@ public:
                "resim_restore_ms,resim_scene_restore_ms,resim_adapter_restore_ms,"
                "base_simulate_submit_ms,base_fetch_results_ms,base_tick_ms,"
                "resim_simulate_submit_ms,resim_fetch_results_ms,resim_tick_ms,"
-               "projectiles_active,projectile_max_speed,projectile_max_forward_speed\n";
+               "projectiles_active,projectile_max_speed,projectile_max_forward_speed,correction_status\n";
     }
 
     void write(const FrameMetrics& frame)
@@ -2259,7 +2264,7 @@ public:
             << frame.resimTickMilliseconds << ','
             << frame.projectilesActive << ','
             << frame.projectileMaxSpeed << ','
-            << frame.projectileMaxForwardSpeed << '\n';
+            << frame.projectileMaxForwardSpeed << ',' << frame.correctionStatus << '\n';
     }
 
 private:
@@ -2377,6 +2382,10 @@ void writeMetadata(
         << "  \"realtimeRequired\": " << (options.requireRealtime ? "true" : "false") << ",\n"
         << "  \"resimulation\": {\n"
         << "    \"maxPasses\": " << options.resimPasses << ",\n"
+        << "    \"completeCorrectionRequired\": " << (options.requireCompleteCorrection ? "true" : "false") << ",\n"
+        << "    \"incompleteFrames\": " << timings.incompleteCorrectionFrames << ",\n"
+        << "    \"scoped\": " << (options.scopedResim ? "true" : "false") << ",\n"
+        << "    \"quietCaptureSkip\": " << (options.quietCaptureSkip ? "true" : "false") << ",\n"
         << "    \"passesTotal\": " << timings.resimPassesTotal << ",\n"
         << "    \"framesWithResim\": " << timings.resimFrames << ",\n"
         << "    \"bodiesCapturedTotal\": " << timings.resimBodiesCapturedTotal << ",\n"
@@ -3219,6 +3228,17 @@ int run(const Options& options)
             frameStats.sceneRestoreMilliseconds + frameStats.adapterRestoreMilliseconds;
         const double contactCallbackMilliseconds =
             contacts.callbackMilliseconds() - previousContactCallbackMilliseconds;
+        if (frameStats.correctionStatus != ExtStressPhysXCorrectionStatus::Complete)
+        {
+            ++runtimeTimings.incompleteCorrectionFrames;
+            if (options.requireCompleteCorrection)
+            {
+                throw std::runtime_error("incomplete fracture correction at step "
+                    + std::to_string(step) + ": "
+                    + (frameStats.correctionStatus == ExtStressPhysXCorrectionStatus::PassLimitReached
+                        ? "correction pass limit reached" : "motion checkpoint unavailable"));
+            }
+        }
         runtimeTimings.resimPassesTotal += frameStats.resimPasses;
         if (frameStats.resimPasses > 0)
         {
@@ -3370,6 +3390,7 @@ int run(const Options& options)
         frame.projectileImpactImpulse = contacts.projectileImpactImpulse();
         frame.frameProjectileImpactImpulse =
             frame.projectileImpactImpulse - previousProjectileImpactImpulse;
+        frame.correctionStatus = static_cast<std::uint32_t>(frameStats.correctionStatus);
         frame.resimPasses = frameStats.resimPasses;
         frame.resimBodiesCaptured = frameStats.sceneBodiesCaptured;
         frame.resimBodiesRestored = frameStats.sceneBodiesRestored;
