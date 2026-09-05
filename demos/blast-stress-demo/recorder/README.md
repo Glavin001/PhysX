@@ -1,5 +1,9 @@
 # Blast PhysX GPU Mini-City Recorder
 
+For the current standalone SDK demo and strict capture preset, see
+[the SDK demo guide](../../../docs/destruction/DEMO.md). Older benchmark commands
+below retain historical settings and are not the current fidelity/qualification preset.
+
 Self-contained headless recording pipeline for the Blast PhysX GPU Mini-City:
 
 ```text
@@ -179,3 +183,14 @@ NVENC integration, and NVIDIA telemetry retain that implementation's structure.
 It has no build-time or runtime dependency on the source workspace. Existing
 source license/copyright headers were retained; the upstream Rust/WGSL files
 did not contain additional per-file headers.
+
+## Presentation controls
+
+Both `record` and `render` accept `--camera 0` (full-screen overview), `--camera 1`
+or `2` (fixed views), `--compact-hud`, and `--title TEXT`. Without `--camera`, the
+existing four-view diagnostic mosaic is retained. `--ground-y 0` draws a reference
+surface at the simulator's ground height; it changes rendering only.
+
+The compact HUD displays the measured simulation step and reference correction
+status. Older telemetry without correction status displays `unknown`. Video
+encoding/rendering throughput is separate from simulation throughput.

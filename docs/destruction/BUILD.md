@@ -67,3 +67,8 @@ The integration game's branch uses this SDK's reference path. Its native bridge
 resolves `../../physx-2` relative to its manifest; `PHYSX_DESTRUCTION_SDK` overrides
 that checkout location. `PHYSX_ROOT` and `BLAST_ROOT` remain supported explicit
 overrides. No server or client service needs to run for the smoke suites.
+
+The standalone demo/video pipeline is documented in [DEMO.md](DEMO.md).
+`python3 tools/scripts/record-destruction-demo.py --build` builds the SDK and
+recorder, runs the GPU captures with strict checks, and writes a local MP4 plus
+reproducibility evidence. It never starts or modifies a game service.

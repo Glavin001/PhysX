@@ -16,6 +16,7 @@ use wgpu::util::DeviceExt;
 use crate::{
     diagnostics::{draw_overlay, simulation_overlay, SimulationFrame, SimulationTelemetry},
     state::{Actor, Camera, Shape, StateReader, Transform},
+    PresentationArgs,
 };
 
 const STAGING_BUFFER_COUNT: usize = 3;
@@ -316,6 +317,7 @@ pub fn render_recording(
     simulation_telemetry_path: Option<&Path>,
     render_frames_path: &Path,
     render_summary_path: &Path,
+    presentation: &PresentationArgs,
 ) -> Result<()> {
     pollster::block_on(render_recording_async(
         state_path,
@@ -325,6 +327,7 @@ pub fn render_recording(
         simulation_telemetry_path,
         render_frames_path,
         render_summary_path,
+        presentation,
     ))
 }
 
@@ -345,7 +348,11 @@ async fn render_recording_async(
     simulation_telemetry_path: Option<&Path>,
     render_frames_path: &Path,
     render_summary_path: &Path,
+    presentation: &PresentationArgs,
 ) -> Result<()> {
+    if presentation.ground_y.is_some_and(|y| !y.is_finite()) {
+        bail!("ground-y must be finite");
+    }
     let mut state = StateReader::open(state_path)?;
     let simulation_telemetry = simulation_telemetry_path
         .map(SimulationTelemetry::load)
@@ -538,7 +545,18 @@ async fn render_recording_async(
     // h264_nvenc made the whole pipeline unusable on any FFmpeg built without
     // it -- including builds that ship av1_nvenc but not h264_nvenc.
     let codec_args: &[&str] = if ffmpeg_has_encoder("h264_nvenc") {
-        &["-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-cq", "18", "-b:v", "0"]
+        &[
+            "-c:v",
+            "h264_nvenc",
+            "-preset",
+            "p5",
+            "-tune",
+            "hq",
+            "-cq",
+            "18",
+            "-b:v",
+            "0",
+        ]
     } else {
         eprintln!("h264_nvenc unavailable; encoding with libx264 (CPU)");
         &["-c:v", "libx264", "-preset", "slow", "-crf", "18"]
@@ -562,12 +580,7 @@ async fn render_recording_async(
             "-an",
         ])
         .args(codec_args)
-        .args([
-            "-pix_fmt",
-            "yuv420p",
-            "-movflags",
-            "+faststart",
-        ])
+        .args(["-pix_fmt", "yuv420p", "-movflags", "+faststart"])
         .arg(output_path)
         .stdin(Stdio::piped())
         .spawn()
@@ -608,6 +621,7 @@ async fn render_recording_async(
                 &mut ffmpeg_stdin,
                 simulation_frame,
                 submit_info[written_frames],
+                presentation,
             )?;
             write_render_telemetry(
                 &mut render_frames,
@@ -624,8 +638,16 @@ async fn render_recording_async(
             queue.write_buffer(&camera_buffers[3], 0, bytemuck::bytes_of(&uniform));
         }
         if orbit_camera.is_none() {
-            let bounds =
+            let mut bounds =
                 scene_bounds(&state.actors).context("initial frame has no visible scene bounds")?;
+            if presentation.camera.is_some() {
+                // Leave room around the authored structure for the incoming
+                // projectile and falling fragments. Do not chase moving rubble.
+                let margin = (bounds.maximum - bounds.minimum).max_element() * 0.5;
+                bounds.minimum -= Vec3::new(margin, 0.0, margin);
+                bounds.minimum.y = presentation.ground_y.unwrap_or(bounds.minimum.y);
+                bounds.maximum += Vec3::new(margin, 0.0, margin);
+            }
             orbit_camera = Some(OverviewOrbitCamera::new(
                 state.header.cameras[0],
                 bounds,
@@ -656,7 +678,16 @@ async fn render_recording_async(
         if mesh_actors.is_empty() && !state.actors.is_empty() {
             mesh_actors = build_mesh_actors(&device, &state.actors);
         }
-        let (boxes, spheres) = collect_instances(&state.actors, sleep_tint);
+        let (mut boxes, spheres) = collect_instances(&state.actors, sleep_tint);
+        if let Some(y) = presentation.ground_y {
+            boxes.push(InstanceRaw {
+                model: (Mat4::from_translation(Vec3::new(0.0, y - 0.01, 0.0))
+                    * Mat4::from_scale(Vec3::new(1000.0, 0.01, 1000.0)))
+                .to_cols_array_2d(),
+                // A negative alpha marks the reference grid in the shader.
+                color: [0.19, 0.23, 0.29, -1.0],
+            });
+        }
         box_buffer.upload(&device, &queue, "box-instances", &boxes);
         sphere_buffer.upload(&device, &queue, "sphere-instances", &spheres);
         let visible_meshes = update_mesh_instances(&queue, &state.actors, &mesh_actors, sleep_tint);
@@ -695,22 +726,31 @@ async fn render_recording_async(
             });
             pass.set_pipeline(&pipeline);
             for (camera_index, camera_group) in camera_groups.iter().enumerate() {
-                let x = (camera_index % 2) as f32 * state.header.pane_width as f32;
-                let y = (camera_index / 2) as f32 * state.header.pane_height as f32;
+                if presentation
+                    .camera
+                    .is_some_and(|index| index as usize != camera_index)
+                {
+                    continue;
+                }
+                let (x, y, viewport_width, viewport_height) = if presentation.camera.is_some() {
+                    (0, 0, width, height)
+                } else {
+                    (
+                        (camera_index as u32 % 2) * state.header.pane_width,
+                        (camera_index as u32 / 2) * state.header.pane_height,
+                        state.header.pane_width,
+                        state.header.pane_height,
+                    )
+                };
                 pass.set_viewport(
-                    x,
-                    y,
-                    state.header.pane_width as f32,
-                    state.header.pane_height as f32,
+                    x as f32,
+                    y as f32,
+                    viewport_width as f32,
+                    viewport_height as f32,
                     0.0,
                     1.0,
                 );
-                pass.set_scissor_rect(
-                    x as u32,
-                    y as u32,
-                    state.header.pane_width,
-                    state.header.pane_height,
-                );
+                pass.set_scissor_rect(x, y, viewport_width, viewport_height);
                 pass.set_bind_group(0, camera_group, &[]);
                 draw_instances(&mut pass, &cube, &box_buffer.buffer, boxes.len() as u32);
                 draw_instances(
@@ -780,6 +820,7 @@ async fn render_recording_async(
             &mut ffmpeg_stdin,
             simulation_frame,
             submit_info[written_frames],
+            presentation,
         )?;
         write_render_telemetry(
             &mut render_frames,
@@ -836,10 +877,7 @@ fn draw_instances<'a>(
     pass.draw_indexed(0..mesh.index_count, 0, 0..instance_count);
 }
 
-fn collect_instances(
-    actors: &[Actor],
-    sleep_tint: bool,
-) -> (Vec<InstanceRaw>, Vec<InstanceRaw>) {
+fn collect_instances(actors: &[Actor], sleep_tint: bool) -> (Vec<InstanceRaw>, Vec<InstanceRaw>) {
     let mut boxes = Vec::with_capacity(INITIAL_INSTANCE_CAPACITY);
     let mut spheres = Vec::with_capacity(16);
     for actor in actors.iter().filter(|actor| actor.visible) {
@@ -1036,6 +1074,7 @@ fn write_staging_frame(
     output: &mut impl Write,
     simulation: Option<&SimulationFrame>,
     submit: RenderSubmitInfo,
+    presentation: &PresentationArgs,
 ) -> Result<OutputTiming> {
     let output_start = Instant::now();
     let readback_start = Instant::now();
@@ -1061,18 +1100,47 @@ fn write_staging_frame(
     let readback_ms = readback_start.elapsed().as_secs_f64() * 1000.0;
 
     let overlay_start = Instant::now();
-    draw_dividers(
-        &mut frame,
-        layout.width,
-        layout.height,
-        layout.pane_width,
-        layout.pane_height,
-    );
-    let mut lines = simulation.map(simulation_overlay).unwrap_or_default();
-    lines.push(format!(
-        "offline renderer: cpu-submit={:5.2}ms  readback={:5.2}ms  visible={} boxes + {} spheres",
-        submit.cpu_submit_ms, readback_ms, submit.boxes, submit.spheres
-    ));
+    if presentation.camera.is_none() {
+        draw_dividers(
+            &mut frame,
+            layout.width,
+            layout.height,
+            layout.pane_width,
+            layout.pane_height,
+        );
+    }
+    let mut lines = Vec::new();
+    if let Some(title) = &presentation.title {
+        lines.push(title.clone());
+    }
+    if presentation.compact_hud {
+        if let Some(sample) = simulation {
+            lines.push(format!(
+                "t={:5.2}s | bodies={} | splits={} | crushed={} | contact impulse={:.0} N s",
+                sample.simulation_seconds,
+                sample.bodies,
+                sample.splits_total,
+                sample.chunks_crushed_total.unwrap_or(0),
+                sample.projectile_impulse_total
+            ));
+            lines.push(format!(
+                "captured step={:.2} ms | correction passes={} | incomplete={} | offline rendering",
+                sample.frame_host_ms,
+                sample.resim_passes,
+                sample
+                    .correction_status
+                    .map_or_else(|| "unknown".to_owned(), |s| s.to_string())
+            ));
+        } else {
+            lines.push("Recorded simulation | offline rendering".to_owned());
+        }
+    } else {
+        lines.extend(simulation.map(simulation_overlay).unwrap_or_default());
+        lines
+            .push(format!(
+            "offline renderer: cpu-submit={:5.2}ms readback={:5.2}ms visible={} boxes + {} spheres",
+            submit.cpu_submit_ms, readback_ms, submit.boxes, submit.spheres));
+    }
     draw_overlay(&mut frame, layout.width, layout.height, &lines, 2);
     let overlay_ms = overlay_start.elapsed().as_secs_f64() * 1000.0;
 

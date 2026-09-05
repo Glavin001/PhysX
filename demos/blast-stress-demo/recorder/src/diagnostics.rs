@@ -11,6 +11,8 @@ use font8x8::{UnicodeFonts, BASIC_FONTS};
 #[derive(Clone, Debug, Default)]
 pub struct SimulationFrame {
     pub step: u32,
+    pub resim_passes: u32,
+    pub correction_status: Option<u32>,
     pub simulation_seconds: f64,
     pub physics_step_ms: f64,
     pub contact_callback_ms: f64,
@@ -119,6 +121,12 @@ impl SimulationTelemetry {
             }
             frames.push(SimulationFrame {
                 step: parse_u64("step")? as u32,
+                resim_passes: parse_optional_f64("resim_passes")? as u32,
+                correction_status: if columns.contains_key("correction_status") {
+                    Some(parse_u64("correction_status")? as u32)
+                } else {
+                    None
+                },
                 simulation_seconds: parse_f64("simulation_seconds")?,
                 physics_step_ms: parse_f64("physics_step_ms")?,
                 contact_callback_ms: parse_f64("contact_callback_ms")?,

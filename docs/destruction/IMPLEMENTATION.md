@@ -4,6 +4,10 @@
 contains a buildable reference SDK plus GPU topology/motion foundations. These
 foundations do not yet drive the PhysX collision/constraint solver.
 
+The standalone reference demo and recording workflow are documented in
+[DEMO.md](DEMO.md). Contact-stress/correction fidelity fixes and their unresolved
+expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
+
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
 The SDK branch is `codex/gpu-destruction`; the integration game is `vibe-land-2`
 on `codex/gpu-destruction-integration`. No service, deployment, or publication was
@@ -87,10 +91,10 @@ GPU topology/motion component, not integrated-path qualification.
 - Initial native: 25/32 pass. Three missing default-scene-path failures were fixed
   by resolving the imported asset within this SDK. The intermittent activity
   observation failure was diagnosed and fixed without relaxing assertions.
-- Current native CUDA architecture 89: **30/33 pass**. Remaining failures:
+- Pre-fidelity native CUDA architecture 89: **30/33 pass**. Remaining failures:
   `blast_stress_load_path`, `blast_stress_reference_building_load_path`, and
   `blast_stress_destruction_quality`. All existed in the initial baseline.
-- Rust CPU/Rapier/scenarios: six failing targets before solver changes:
+- Initial Rust CPU/Rapier/scenarios: six failing targets before solver changes:
   `cross_validation_test`, `excess_force_integration_test`,
   `excess_force_persistence_test`, `headless_scenarios_test`,
   `projectile_impact_test`, `solver_mechanisms_test`. See the complete log.
@@ -107,3 +111,24 @@ GPU topology/motion component, not integrated-path qualification.
 A copied adapter, wrapper, isolated kernel test, or unqualified fast path does
 not satisfy the plan's completion definition. Reference failures must be resolved
 without weakening tests; full GPU destruction and its qualification remain open.
+
+## Standalone demo milestone (2026-09-05)
+
+- Added strict recording completion checks, per-step correction status, one-camera
+  video presentation and an explicit visual ground reference. The video is actual
+  captured GPU simulation with CPU reference orchestration, rendered offline.
+- Corrected singleton crush contact filtering, external virial lifetime, contact
+  frame conversion after splitting, and scheduling of crush-only correction.
+- New analytic CPU/GPU tests pass. Current native result is **30/34 passing**;
+  `blast_stress_reference_building_crush_ordinary_impact` additionally fails its
+  unchanged zero-crushing assertion after contact stress is preserved.
+- Current WASM result: **52/70 files passing**, 473 passed / 53 failed / 1 skipped
+  tests. These remain unqualified baseline/fidelity expectations.
+- Current Rust CPU/Rapier/scenarios run has seven failing targets; the six initial
+  targets plus `high_rise_scenarios_test`. The generated high-rise asset now exists;
+  the initial suite permits skipping these tests when it is absent. An isolated
+  build of the pre-change `e0a93ea7` revision reproduces all four high-rise
+  failures with identical metrics using this generated asset.
+
+This milestone does not implement `PxDestructionScene`, persistent native GPU
+collision/cluster ownership, internal correction transactions, or scale qualification.

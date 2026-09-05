@@ -34,8 +34,29 @@ enum Commands {
     Render(RenderArgs),
 }
 
+#[derive(Args, Default)]
+pub struct PresentationArgs {
+    /// Show one camera full-screen (0 = orbit, 1/2 = fixed, 3 = impact).
+    #[arg(long, value_parser = clap::value_parser!(u32).range(0..=3))]
+    camera: Option<u32>,
+
+    /// Use a short HUD; full diagnostics remain in the frame CSV.
+    #[arg(long)]
+    compact_hud: bool,
+
+    /// Label the actual simulation backend/provenance in the video.
+    #[arg(long)]
+    title: Option<String>,
+
+    /// Draw a reference ground surface at this world Y (rendering only).
+    #[arg(long, allow_hyphen_values = true)]
+    ground_y: Option<f32>,
+}
+
 #[derive(Args)]
 struct RecordArgs {
+    #[command(flatten)]
+    presentation: PresentationArgs,
     /// Blast PhysX GPU Mini-City simulation executable.
     #[arg(long)]
     sim_bin: Option<PathBuf>,
@@ -115,6 +136,8 @@ struct RecordArgs {
 
 #[derive(Args)]
 struct RenderArgs {
+    #[command(flatten)]
+    presentation: PresentationArgs,
     /// Existing TWSTATE1 state stream.
     #[arg(long)]
     state: PathBuf,
@@ -257,6 +280,7 @@ fn record(args: RecordArgs) -> Result<()> {
         args.chase_projectile,
         !args.no_sleep_tint,
         Some(&frame_telemetry_path),
+        &args.presentation,
     )?;
     verify_video(&output)?;
 
@@ -278,6 +302,7 @@ fn render(args: &RenderArgs) -> Result<()> {
         args.chase_projectile,
         !args.no_sleep_tint,
         args.frame_telemetry.as_deref(),
+        &args.presentation,
     )?;
     verify_video(&args.output)
 }
@@ -288,6 +313,7 @@ fn render_with_telemetry(
     chase_projectile: bool,
     sleep_tint: bool,
     simulation_frames: Option<&Path>,
+    presentation: &PresentationArgs,
 ) -> Result<()> {
     let render_csv = phase_path(output, "render.gpu.csv");
     let render_summary = phase_path(output, "render.gpu-summary.txt");
@@ -302,6 +328,7 @@ fn render_with_telemetry(
         simulation_frames,
         &render_frames,
         &render_frame_summary,
+        presentation,
     );
     telemetry.stop()?;
     result
