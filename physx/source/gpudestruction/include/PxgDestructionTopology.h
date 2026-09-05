@@ -2,69 +2,22 @@
 #pragma once
 
 #include <cstdint>
+#include "PxDestructionTopologyTypes.h"
 
 namespace physx {
 
-// Asset-frame mass properties. Geometry identity and these records never move
-// when connectivity changes. The symmetric tensor is xx, yy, zz, xy, xz, yz.
-struct PxgDestructionChunk {
-    double center[3];
-    double mass;
-    double inertia[6];
-    std::uint32_t supported;
-};
+// Compatibility names for the public mass/topology PODs.
+using PxgDestructionChunk = PxDestructionChunkMassProperties;
+using PxgDestructionBond = PxDestructionBondEndpoints;
+using PxgDestructionCluster = PxDestructionClusterMassProperties;
+using PxgDestructionClusterMotion = PxDestructionClusterMotion;
+using PxgDestructionTopologyStatus = PxDestructionTopologyStatus;
+using PxgDestructionTopologyView = PxDestructionTopologyDeviceView;
 
-struct PxgDestructionBond { std::uint32_t chunk0, chunk1; };
 enum class PxgDestructionEditKind : std::uint32_t { BreakBond, DestroyChunk };
 struct PxgDestructionEdit {
     PxgDestructionEditKind kind;
     std::uint32_t index;
-};
-
-// Slots are indexed by the smallest surviving authored chunk in a component.
-// Only roots in activeClusters participate in motion/constraint solving.
-struct PxgDestructionCluster {
-    double center[3];
-    double mass;
-    double inertia[6];
-    std::uint32_t chunkCount;
-    std::uint32_t supported;
-};
-
-// One live motion record per active cluster, in activeClusters order. origin
-// and orientation map the immutable asset frame into world space; linear
-// velocity is at that cluster's COM, angular velocity is in world space.
-struct PxgDestructionClusterMotion {
-    double origin[3];
-    double orientation[4]; // x, y, z, w
-    double linearVelocity[3];
-    double angularVelocity[3];
-};
-
-struct PxgDestructionTopologyStatus {
-    std::uint64_t generation;
-    std::uint32_t clusterCount;
-    std::uint32_t invalidEdit;
-    std::uint32_t changed;
-};
-
-struct PxgDestructionTopologyView {
-    const PxgDestructionChunk* chunks;
-    const PxgDestructionBond* bonds;
-    const std::uint32_t* activeBonds;
-    const std::uint32_t* activeChunks;
-    const std::uint32_t* chunkCluster;
-    const std::uint32_t* orderedChunks;
-    const std::uint32_t* activeClusters;
-    const PxgDestructionCluster* clusters;
-    const PxgDestructionTopologyStatus* status;
-    // Writable by the owning motion solver, after readyEvent. Order writes
-    // before apply() with consumerDone. Only status->clusterCount entries are
-    // live; allocation capacity permits every authored chunk to separate.
-    PxgDestructionClusterMotion* motions;
-    std::uint32_t chunkCount;
-    std::uint32_t bondCount;
-    void* readyEvent;
 };
 
 /** Persistent GPU graph and rigid-cluster mass properties, in the caller's CUDA
@@ -92,6 +45,38 @@ public:
     virtual void release() = 0;
 protected:
     virtual ~PxgDestructionTopology() = default;
+};
+
+/** GPU-owned fracture transaction. prepare() validates the entire device batch
+ * and computes candidate connectivity/mass/motion, preserving accepted state.
+ * commit() copies a prepared candidate only when its device acceptance flag is
+ * nonzero. No edit count, graph or cluster state is read back to the CPU.
+ *
+ * Device views remain borrowed until the next prepare/commit/discard/release.
+ * Only a trial with status()->prepared != 0 has readable candidate arrays.
+ * Empty, redundant, rejected and invalid batches do not rebuild connectivity.
+ * Optional sourceMotion supplies provisional parent motion in accepted cluster
+ * order, leaving accepted motion unchanged while preparing a candidate.
+ * All input pointers remain alive through readyEvent. Callers order readers and
+ * motion writers with consumerDone, including on discarded and empty trials.
+ */
+class PxgDestructionTopologyTransaction {
+public:
+    static PxgDestructionTopologyTransaction* create(const PxgDestructionChunk* chunks,
+        std::uint32_t chunkCount, const PxgDestructionBond* bonds, std::uint32_t bondCount);
+    virtual bool prepare(const PxgDestructionEdit* deviceEdits, const std::uint32_t* deviceCount,
+        std::uint32_t capacity, const std::uint32_t* deviceAbortFlags = nullptr,
+        std::uint32_t abortMask = 0xffffffffu, void* producerReady = nullptr,
+        void* consumerDone = nullptr, const PxgDestructionClusterMotion* sourceMotion = nullptr) = 0;
+    virtual bool commit(const std::uint32_t* deviceAccept, void* producerReady = nullptr,
+        void* consumerDone = nullptr) = 0;
+    virtual bool discard(void* producerReady = nullptr, void* consumerDone = nullptr) = 0;
+    virtual PxgDestructionTopologyView accepted() const = 0;
+    virtual PxgDestructionTopologyView trial() const = 0;
+    virtual const PxDestructionTopologyTransactionStatus* status() const = 0;
+    virtual void release() = 0;
+protected:
+    virtual ~PxgDestructionTopologyTransaction() = default;
 };
 
 } // namespace physx

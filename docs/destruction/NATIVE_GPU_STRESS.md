@@ -33,7 +33,10 @@ adapter, stress callback, or external resimulation for this stage.
    separate storage. Nonfracturing valid steps commit the material transaction;
    any verdict requiring bond separation or full chunk crushing reports an
    incomplete step (error bit 8) and leaves the entire accepted material state
-   unchanged. Actual topology and motion correction remain unfinished.
+   unchanged. Optional full mass properties now enable a GPU candidate topology
+   transaction, including component mass/inertia and inherited motion; see
+   [NATIVE_GPU_TOPOLOGY.md](NATIVE_GPU_TOPOLOGY.md). PhysX collision rebinding and
+   motion correction remain unfinished.
 8. The native task waits for completion before PhysX publishes the scene. A
    40-byte status observation reaches the CPU; chunk, contact, and bond arrays do
    not. Submission/allocation failures and detected overflow/nonfinite forces
@@ -46,7 +49,7 @@ There is no claim that the whole engine is CPU-free.
 
 ## API and binary boundary
 
-The version 2 API is in `physx/include/PxDestructionScene.h`. Registered actors and
+The version 3 API is in `physx/include/PxDestructionScene.h`. Registered actors and
 shapes must remain alive and attached until `clearStress` or reconfiguration,
 which occur outside simulation. Shape identity is the transform-cache contact
 index, not a geometry index. Existing Direct GPU host-access support can supply
@@ -128,15 +131,16 @@ performance campaign or a 60 Hz scale qualification.
 ## Work still required
 
 The stage does **not** yet commit topology-changing fracture verdicts, bind GPU
-connectivity to persistent collision ownership, create clusters, or correct any
+connectivity to persistent collision ownership, create PhysX solver bodies for
+candidate clusters, or correct any
 participant's motion. Full crushing still requires fragment geometry, ancestry,
 mass/motion handling and energy accounting. Generation-bearing handles,
 loads/commands through the final asset API, mutable support, joint/articulation
 inputs, merged/reduced bond groups, CCD parity, event publication, and
 convergence-validated structural activity remain unfinished.
 
-Next, connect trial material verdicts to GPU topology and native collision
-ownership, then implement the [single-rewind lifecycle](RESIMULATION.md) inside
-PhysX. Stress or material diagnostics alone are not the complete simulation.
+Next, bind the GPU candidate topology to native collision ownership and implement
+internal correction, with [one resimulation configured initially](RESIMULATION.md)
+and additional passes supported explicitly later. Stress or material diagnostics alone are not the complete simulation.
 The old demos still use the external reference orchestration; these changes do
 not make their recordings demonstrations of completed native destruction.

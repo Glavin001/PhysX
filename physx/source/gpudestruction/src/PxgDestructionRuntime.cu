@@ -1,5 +1,6 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxgDestructionRuntime.h"
+#include "PxgDestructionTopology.h"
 #include "NvBlastExtStressGpu.h"
 #include <cuda_runtime.h>
 #include <cuda.h>
@@ -132,6 +133,44 @@ __global__ void finishStatus(const ExtStressGpuDeviceStatus* solve,PxDestruction
     if(i<count && (!forces[i].linear.isFinite() || !forces[i].angular.isFinite())) atomicOr(&status->error,2u);
 }
 
+__global__ void provisionalTopologyMotion(PxDestructionTopologyDeviceView topology,
+    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
+    const PxTransform* poses,const PxgBodySim* bodies,PxDestructionClusterMotion* motion) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=topology.status->clusterCount)return;
+    const PxU32 root=topology.activeClusters[i],cluster=chunks[root].cluster;
+    const auto pose=poses[cluster];const auto body=bodies[clusters[cluster].body];
+    PxDestructionClusterMotion out{};
+    for(PxU32 k=0;k<3;++k)out.origin[k]=pose.p[k];
+    out.orientation[0]=pose.q.x;out.orientation[1]=pose.q.y;out.orientation[2]=pose.q.z;out.orientation[3]=pose.q.w;
+    const auto* d=topology.clusters[root].center;const auto* q=out.orientation;
+    const double t[3]={2*(q[1]*d[2]-q[2]*d[1]),2*(q[2]*d[0]-q[0]*d[2]),2*(q[0]*d[1]-q[1]*d[0])};
+    const double r[3]={pose.p.x+d[0]+q[3]*t[0]+q[1]*t[2]-q[2]*t[1]-body.body2World.p.x,
+        pose.p.y+d[1]+q[3]*t[1]+q[2]*t[0]-q[0]*t[2]-body.body2World.p.y,
+        pose.p.z+d[2]+q[3]*t[2]+q[0]*t[1]-q[1]*t[0]-body.body2World.p.z};
+    const auto v=body.linearVelocityXYZ_inverseMassW,w=body.angularVelocityXYZ_maxPenBiasW;
+    out.angularVelocity[0]=w.x;out.angularVelocity[1]=w.y;out.angularVelocity[2]=w.z;
+    out.linearVelocity[0]=v.x+w.y*r[2]-w.z*r[1];
+    out.linearVelocity[1]=v.y+w.z*r[0]-w.x*r[2];
+    out.linearVelocity[2]=v.z+w.x*r[1]-w.y*r[0];
+    motion[i]=out;
+}
+__global__ void emitTopologyEdits(const PxDestructionBondVerdict* bonds,PxU32 nb,
+    const PxDestructionCrushState* trial,const PxDestructionCrushState* accepted,PxU32 nc,
+    PxgDestructionEdit* edits,PxU32* count) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<nb && bonds[i].broken)edits[atomicAdd(count,1u)]={PxgDestructionEditKind::BreakBond,i};
+    if(i<nc && trial[i].crushed && !accepted[i].crushed)
+        edits[atomicAdd(count,1u)]={PxgDestructionEditKind::DestroyChunk,i};
+}
+__global__ void inspectTopologyTransaction(const PxDestructionTopologyTransactionStatus* topology,PxDestructionStageStatus* status) {
+    if(topology->error)status->error|=32u;
+}
+__global__ void commitObservedTopologyMotion(PxDestructionTopologyDeviceView topology,
+    const PxDestructionClusterMotion* motion,const PxDestructionStageStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(!status->error && i<topology.status->clusterCount)topology.motions[i]=motion[i];
+}
+
 class Runtime final : public PxgDestructionRuntime {
     CUcontext mContext; void* mScene; bool(*mWriteAllowed)(void*);
     cudaStream_t mStream{}; cudaEvent_t mInput{},mReady{}; CUevent mConsumer{};
@@ -147,6 +186,9 @@ class Runtime final : public PxgDestructionRuntime {
     PxVec3* mBondCentroids{};PxDestructionBondVerdict* mVerdicts{};
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
+    PxgDestructionTopologyTransaction* mTopology{};
+    PxDestructionClusterMotion* mProvisionalMotion{};
+    PxgDestructionEdit* mTopologyEdits{};PxU32* mTopologyCount{};PxU32 mEditCapacity{};
     bool mPending=false; bool mFailed=false;
 public:
     Runtime(CUcontext c,void* scene,bool(*gate)(void*)) : mContext(c),mScene(scene),mWriteAllowed(gate) {
@@ -166,6 +208,9 @@ public:
         cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaStreamDestroy(mStream);
     }
     void clear() {
+        if(mTopology)mTopology->release();mTopology=nullptr;
+        cudaFree(mProvisionalMotion);mProvisionalMotion=nullptr;
+        cudaFree(mTopologyEdits);mTopologyEdits=nullptr;cudaFree(mTopologyCount);mTopologyCount=nullptr;mEditCapacity=0;
         if(mSolver)mSolver->release();mSolver=nullptr;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
         cudaFree(mBodies);mBodies=nullptr;cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
@@ -233,6 +278,29 @@ public:
             for(PxU32 k=0;k<3;++k){bonds[i].centroid[k]=b.centroid[k];bonds[i].normal[k]=b.normal[k];}
             bonds[i].area=b.area;bonds[i].health=b.health;bonds[i].colScale=b.complianceScale;
         }
+        std::vector<PxgDestructionBond> topologyBonds;
+        if(d.chunkMassProperties) {
+            if(size_t(d.chunkCount)+d.bondCount>size_t(std::numeric_limits<int>::max()))return false;
+            std::set<PxU32> boundBodies;
+            for(PxU32 body:bodies)if(!boundBodies.insert(body).second)return false;
+            topologyBonds.resize(d.bondCount);
+            std::vector<PxU32> parent(d.chunkCount),owner(d.chunkCount,PX_INVALID_U32),clusterRoot(d.clusterCount,PX_INVALID_U32);
+            for(PxU32 i=0;i<d.chunkCount;++i)parent[i]=i;
+            auto root=[&](PxU32 i){while(parent[i]!=i)i=parent[i];return i;};
+            for(PxU32 i=0;i<d.bondCount;++i) {
+                topologyBonds[i]={d.bonds[i].chunk0,d.bonds[i].chunk1};
+                const PxU32 a=root(d.bonds[i].chunk0),b=root(d.bonds[i].chunk1);parent[std::max(a,b)]=std::min(a,b);
+            }
+            for(PxU32 i=0;i<d.chunkCount;++i) {
+                const PxU32 r=root(i),c=d.chunks[i].cluster;const auto& properties=d.chunkMassProperties[i];
+                if((owner[r]!=PX_INVALID_U32 && owner[r]!=c) || (clusterRoot[c]!=PX_INVALID_U32 && clusterRoot[c]!=r))return false;
+                owner[r]=c;clusterRoot[c]=r;
+                for(PxU32 k=0;k<3;++k)if(float(properties.center[k])!=d.chunks[i].position[k])return false;
+                if(bool(properties.supported)!=(d.chunks[i].mass==0))return false;
+                if(d.chunks[i].mass>0 && std::abs(properties.mass-d.chunks[i].mass)>1e-6*std::max(1.0,properties.mass))return false;
+            }
+            for(PxU32 r:clusterRoot)if(r==PX_INVALID_U32)return false;
+        }
             for(PxU32 i=0;i<d.chunkCount;++i)begin[i+1]+=begin[i];
             auto cursor=begin;
             for(PxU32 i=0;i<d.bondCount;++i){refs[cursor[d.bonds[i].chunk0]++]=i;refs[cursor[d.bonds[i].chunk1]++]=i;}
@@ -269,6 +337,12 @@ public:
                 check(cudaMemset(mCrush,0,sizeof(*mCrush)*d.chunkCount));
                 mDamageRate=d.damageRate;mBendGain=d.bendGainMax;mFibres=d.fibreBending;
             }
+            if(d.chunkMassProperties) {
+                mTopology=PxgDestructionTopologyTransaction::create(d.chunkMassProperties,d.chunkCount,topologyBonds.data(),d.bondCount);
+                if(!mTopology){clear();return false;}
+                mEditCapacity=d.chunkCount+d.bondCount;
+                allocate(mProvisionalMotion,d.clusterCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
+            }
             mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.warmStart=d.warmStart;
             check(cudaMemset(mStatus,0,sizeof(*mStatus)));*mHostStatus={};
             check(cudaEventRecord(mReady,mStream));return true;
@@ -289,6 +363,10 @@ public:
         PxDestructionDeviceView v;v.nodeAccelerations=mInputs;v.surfaceLoads=mSurface;v.status=mStatus;
         v.bondForces=mSolver?reinterpret_cast<const PxDestructionVectorPair*>(mSolver->deviceView().bondImpulses):nullptr;
         v.bondHealth=mHealth;v.chunkCrush=mCrush;v.bondVerdicts=mVerdicts;v.trialChunkCrush=mTrialCrush;v.strainRates=mRates;
+        if(mTopology) {
+            v.acceptedTopology=mTopology->accepted();v.trialTopology=mTopology->trial();v.topologyTransaction=mTopology->status();
+            v.acceptedTopology.readyEvent=v.trialTopology.readyEvent=mReady;
+        }
         v.chunkCount=mN;v.bondCount=mM;v.readyEvent=reinterpret_cast<CUevent>(mReady);return v;
     }
     void setConsumerEvent(CUevent e) override {if(mWriteAllowed(mScene))mConsumer=e;}
@@ -335,8 +413,21 @@ public:
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mM,mStatus);
                 requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);
-                commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus);
             }
+            if(mTopology) {
+                check(cudaMemsetAsync(mTopologyCount,0,sizeof(*mTopologyCount),mStream));
+                if(mMaterials)emitTopologyEdits<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mM,mTrialCrush,mCrush,mN,mTopologyEdits,mTopologyCount);
+                provisionalTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mChunks,mClusters,mPoses,bodyStates,mProvisionalMotion);
+                check(cudaEventRecord(mReady,mStream));
+                if(!mTopology->prepare(mTopologyEdits,mTopologyCount,mEditCapacity,&mStatus->error,~8u,mReady,nullptr,mProvisionalMotion))
+                    throw std::runtime_error("native topology transaction submission failed");
+                check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
+                inspectTopologyTransaction<<<1,1,0,mStream>>>(mTopology->status(),mStatus);
+                // Collision rebinding and resimulation will gate topology commit.
+                // Until then an incomplete step retains accepted topology/motion.
+                commitObservedTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mProvisionalMotion,mStatus);
+            }
+            if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus);
             check(cudaGetLastError());
             check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));mPending=true;return true;

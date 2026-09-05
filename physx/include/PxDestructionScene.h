@@ -1,9 +1,10 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 2
+#define PX_DESTRUCTION_SCENE_VERSION 3
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
+#include "PxDestructionTopologyTypes.h"
 
 namespace physx {
 
@@ -57,13 +58,16 @@ struct PxDestructionStressDesc {
     const PxDestructionStressBond* bonds = NULL;
     const PxDestructionStressCluster* clusters = NULL;
     PxU32 chunkCount = 0, bondCount = 0, clusterCount = 0;
-    PxU32 maxIterations = 25;
+    PxU32 maxIterations = 25; // stress iterations, independent of physics resimulation count
     PxReal tolerance = 0.001f;
     bool warmStart = true;
     const PxDestructionMaterial* materials = NULL;
     PxU32 materialCount = 0; // zero preserves stress-only operation
     PxReal damageRate = 2.0f, bendGainMax = 3.0f;
     bool fibreBending = true;
+    // Optional full mass properties enable native candidate cluster creation.
+    // Initial cluster bindings must match the bond graph's connected components.
+    const PxDestructionChunkMassProperties* chunkMassProperties = NULL;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
@@ -77,7 +81,7 @@ struct PxDestructionSurfaceLoad {
 struct PxDestructionStageStatus {
     PxU64 frame;
     PxU32 error; // 1: contacts, 2: nonfinite, 4: runtime, 8: correction required,
-                 // 16: unsupported articulation strain-rate input
+                 // 16: unsupported articulation strain-rate input, 32: topology transaction
 
     PxU32 normalContacts, frictionAnchors;
     PxU32 iterations, converged;
@@ -93,6 +97,12 @@ struct PxDestructionDeviceView {
     const PxDestructionBondVerdict* bondVerdicts = NULL; // trial decisions
     const PxDestructionCrushState* trialChunkCrush = NULL;
     const PxReal* strainRates = NULL;
+    // Candidate arrays require topologyTransaction->prepared. These describe
+    // topology/motion candidates; native collision rebinding is not yet committed.
+    // Accepted motion is initialized by the first successful native step.
+    PxDestructionTopologyDeviceView acceptedTopology{};
+    PxDestructionTopologyDeviceView trialTopology{};
+    const PxDestructionTopologyTransactionStatus* topologyTransaction = NULL;
     PxU32 chunkCount = 0, bondCount = 0;
     CUevent readyEvent = NULL;
 };

@@ -37,6 +37,9 @@ void scenario(blast_demo::PhysXScene& context,PxRigidDynamic& body,const char* n
     PxDestructionStressCluster cluster{body.getGPUIndex(),PxVec3(0)};
     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=2;desc.bonds=&bond;desc.bondCount=1;
     desc.clusters=&cluster;desc.clusterCount=1;desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;
+    const PxDestructionChunkMassProperties massProperties[2]={
+        {{0,-1,0},0,{0,0,0,0,0,0},1},{{0,0,0},2,{1,1,1,0,0,0},0}};
+    desc.chunkMassProperties=massProperties;
     require(stage->configureStress(desc),"native material configuration failed");
     auto invalid=desc;invalid.materialCount=1;auto bad=material;bad.residualAreaFraction=2;invalid.materials=&bad;
     require(!stage->configureStress(invalid),"invalid material silently accepted");
@@ -66,11 +69,17 @@ void scenario(blast_demo::PhysXScene& context,PxRigidDynamic& body,const char* n
         scene.simulate(dt);PxU32 error=0;const bool complete=scene.fetchResults(true,&error);
         const auto view=stage->getDeviceView();PxDestructionBondVerdict verdict;
         PxDestructionCrushState accepted[2],trial[2];float health;
+        PxDestructionTopologyTransactionStatus topologyTransaction;
+        PxDestructionTopologyStatus acceptedTopology;
+        PxDestructionClusterMassProperties acceptedClusters[2];
         {PxScopedCudaLock lock(*context.cudaContextManager());check(cuEventSynchronize(view.readyEvent));
             check(cuMemcpyDtoH(&health,reinterpret_cast<CUdeviceptr>(view.bondHealth),sizeof(health)));
             check(cuMemcpyDtoH(&verdict,reinterpret_cast<CUdeviceptr>(view.bondVerdicts),sizeof(verdict)));
             check(cuMemcpyDtoH(accepted,reinterpret_cast<CUdeviceptr>(view.chunkCrush),sizeof(accepted)));
             check(cuMemcpyDtoH(trial,reinterpret_cast<CUdeviceptr>(view.trialChunkCrush),sizeof(trial)));
+            check(cuMemcpyDtoH(&topologyTransaction,reinterpret_cast<CUdeviceptr>(view.topologyTransaction),sizeof(topologyTransaction)));
+            check(cuMemcpyDtoH(&acceptedTopology,reinterpret_cast<CUdeviceptr>(view.acceptedTopology.status),sizeof(acceptedTopology)));
+            check(cuMemcpyDtoH(acceptedClusters,reinterpret_cast<CUdeviceptr>(view.acceptedTopology.clusters),sizeof(acceptedClusters)));
         }
         const auto status=stage->getLastStatus();
         near(verdict.damage,command.bondFractureCount?commandBond.health:0,"bond damage parity");
@@ -81,8 +90,23 @@ void scenario(blast_demo::PhysXScene& context,PxRigidDynamic& body,const char* n
         near(trial[1].damage,damage[1],"crush damage parity");near(trial[1].pressure,pressure[1],"pressure parity");near(trial[1].deviator,deviator[1],"deviator parity");
         const bool referenceBreak=(command.bondFractureCount && commandBond.health>=previousHealth) || command.chunkFractureCount;
         require(bool(status.brokenBonds || status.crushedChunks)==referenceBreak,"fracture decision parity");
+        require(acceptedTopology.generation==0 && acceptedTopology.clusterCount==1 && acceptedClusters[0].mass==2,
+            "native trial changed accepted cluster ownership/mass");
+        require(!topologyTransaction.error && !topologyTransaction.commits,"unexpected native topology transaction state");
         commandsSeen+=status.bondCommands;
         if(referenceBreak){
+            require(topologyTransaction.prepared && topologyTransaction.rebuilds==1,"fracture did not prepare native GPU clusters");
+            PxDestructionTopologyStatus candidate;PxDestructionClusterMassProperties clusters[2];PxU32 labels[2],active[2];
+            {PxScopedCudaLock lock(*context.cudaContextManager());
+                check(cuMemcpyDtoH(&candidate,reinterpret_cast<CUdeviceptr>(view.trialTopology.status),sizeof(candidate)));
+                check(cuMemcpyDtoH(clusters,reinterpret_cast<CUdeviceptr>(view.trialTopology.clusters),sizeof(clusters)));
+                check(cuMemcpyDtoH(labels,reinterpret_cast<CUdeviceptr>(view.trialTopology.chunkCluster),sizeof(labels)));
+                check(cuMemcpyDtoH(active,reinterpret_cast<CUdeviceptr>(view.trialTopology.activeChunks),sizeof(active)));}
+            require(candidate.generation==1 && !candidate.invalidEdit,"candidate topology generation invalid");
+            require(candidate.clusterCount==(status.crushedChunks?1u:2u),"native candidate cluster membership invalid");
+            require(active[0] && labels[0]==0 && clusters[0].mass==0 && clusters[0].supported,"candidate lost authored support");
+            if(status.crushedChunks)require(!active[1] && labels[1]==PX_INVALID_U32,"crushed chunk survived candidate graph");
+            else require(active[1] && labels[1]==1 && clusters[1].mass==2 && clusters[1].inertia[0]==1,"detached chunk mass/inertia invalid");
             require(!complete && error && status.error==8,"fracture requiring correction was falsely accepted");
             near(health,previousHealth,"failed frame committed bond damage");near(accepted[1].damage,previousCrush,"failed frame committed crush damage");
             // A failed correction retry must start from exactly the accepted
@@ -96,6 +120,7 @@ void scenario(blast_demo::PhysXScene& context,PxRigidDynamic& body,const char* n
             near(retryHealth,health,"retry applied bond damage twice");near(retry[1].damage,accepted[1].damage,"retry applied crush damage twice");
             near(retryVerdict.damage,verdict.damage,"retry changed damage verdict");fractured=true;break;
         }
+        require(!topologyTransaction.prepared && !topologyTransaction.rebuilds,"nonfracturing frame rebuilt GPU connectivity");
         require(complete && !error && !status.error,"nonfracturing material step failed");
         near(health,previousHealth-verdict.damage,"accepted health incorrect");near(accepted[1].damage,trial[1].damage,"accepted crush incorrect");
         if(command.bondFractureCount || command.chunkFractureCount){
@@ -111,6 +136,83 @@ void scenario(blast_demo::PhysXScene& context,PxRigidDynamic& body,const char* n
     require(stage->clearStress(),"native clear after verdict failed");
     std::printf("%s: parity passed, health=%g crush=%g fracture=%d\n",name,previousHealth,previousCrush,fractured);
 }
+void rotatingCluster(blast_demo::PhysXScene& context) {
+    auto& scene=context.scene();scene.setGravity(PxVec3(0));
+    auto* body=context.physics().createRigidDynamic(PxTransform(PxVec3(10,5,0),PxQuat(.35f,PxVec3(0,0,1))));
+    require(body,"rotating cluster create failed");
+    for(unsigned i=0;i<2;++i) {
+        auto* shape=context.physics().createShape(PxBoxGeometry(.25f,.25f,.25f),context.material(),true);
+        require(shape,"rotating chunk geometry create failed");shape->setLocalPose(PxTransform(PxVec3(2.0f*i,0,0)));
+        require(body->attachShape(*shape),"rotating chunk attach failed");shape->release();
+    }
+    constexpr float childInertia=1.0f/24.0f;
+    body->setMass(2);body->setMassSpaceInertiaTensor(PxVec3(2*childInertia,2+2*childInertia,2+2*childInertia));
+    body->setCMassLocalPose(PxTransform(PxVec3(1,0,0)));body->setLinearDamping(0);body->setAngularDamping(0);
+    body->setLinearVelocity(PxVec3(3,4,1));body->setAngularVelocity(PxVec3(0,0,2));scene.addActor(*body);
+    scene.simulate(1.0f/60);require(scene.fetchResults(true),"rotating warmup failed");
+    PxDestructionStressChunk chunks[2]={
+        {PxVec3(0),1,childInertia,0,PX_INVALID_U32,.125f,0},
+        {PxVec3(2,0,0),1,childInertia,0,PX_INVALID_U32,.125f,0}};
+    const PxDestructionChunkMassProperties mass[2]={
+        {{0,0,0},1,{childInertia,childInertia,childInertia,0,0,0},0},
+        {{2,0,0},1,{childInertia,childInertia,childInertia,0,0,0},0}};
+    const PxDestructionStressBond bond{0,1,PxVec3(1,0,0),PxVec3(1,0,0),1,1,1};
+    const PxDestructionStressCluster cluster{body->getGPUIndex(),PxVec3(1,0,0)};
+    PxDestructionMaterial material;PxDestructionStressDesc desc;
+    desc.chunks=chunks;desc.chunkCount=2;desc.bonds=&bond;desc.bondCount=1;desc.clusters=&cluster;desc.clusterCount=1;
+    desc.materials=&material;desc.materialCount=1;desc.chunkMassProperties=mass;desc.maxIterations=128;desc.tolerance=1e-5f;
+    auto* stage=scene.getDestructionScene();require(stage->configureStress(desc),"rotating native graph configuration failed");
+    auto invalid=desc;PxDestructionStressChunk separate[2]={chunks[0],chunks[1]};separate[1].cluster=1;
+    const PxDestructionStressCluster duplicateBindings[2]={cluster,cluster};
+    invalid.chunks=separate;invalid.clusters=duplicateBindings;invalid.clusterCount=2;invalid.bonds=nullptr;invalid.bondCount=0;
+    require(!stage->configureStress(invalid),"disconnected components accepted one shared motion binding");
+    scene.simulate(1.0f/60);PxU32 error=0;
+    require(!scene.fetchResults(true,&error) && error && stage->getLastStatus().error==8,"rotating fracture was falsely committed");
+    const auto view=stage->getDeviceView();PxDestructionClusterMotion motions[2];PxDestructionVectorPair force;
+    PxDestructionTopologyTransactionStatus transaction;PxDestructionTopologyStatus accepted,candidate;
+    CUdeviceptr buffer,indices;
+    {PxScopedCudaLock lock(*context.cudaContextManager());
+        check(cuEventSynchronize(view.readyEvent));
+        check(cuMemcpyDtoH(motions,reinterpret_cast<CUdeviceptr>(view.trialTopology.motions),sizeof(motions)));
+        check(cuMemcpyDtoH(&force,reinterpret_cast<CUdeviceptr>(view.bondForces),sizeof(force)));
+        check(cuMemcpyDtoH(&transaction,reinterpret_cast<CUdeviceptr>(view.topologyTransaction),sizeof(transaction)));
+        check(cuMemcpyDtoH(&accepted,reinterpret_cast<CUdeviceptr>(view.acceptedTopology.status),sizeof(accepted)));
+        check(cuMemcpyDtoH(&candidate,reinterpret_cast<CUdeviceptr>(view.trialTopology.status),sizeof(candidate)));
+        check(cuMemAlloc(&buffer,sizeof(PxTransform)));check(cuMemAlloc(&indices,sizeof(PxU32)));
+        const auto index=body->getGPUIndex();check(cuMemcpyHtoD(indices,&index,sizeof(index)));}
+    auto observe=[&](void* out,size_t bytes,PxRigidDynamicGPUAPIReadType::Enum type) {
+        require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(buffer),reinterpret_cast<const PxU32*>(indices),type,1),"rotating body observation failed");
+        PxScopedCudaLock lock(*context.cudaContextManager());check(cuMemcpyDtoH(out,buffer,bytes));
+    };
+    PxTransform pose;PxVec3 linear,angular;
+    observe(&pose,sizeof(pose),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE);
+    observe(&linear,sizeof(linear),PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY);
+    observe(&angular,sizeof(angular),PxRigidDynamicGPUAPIReadType::eANGULAR_VELOCITY);
+    require(transaction.prepared && transaction.rebuilds==1 && !transaction.commits && !transaction.error,"rotating topology transaction invalid");
+    require(accepted.clusterCount==1 && !accepted.generation && candidate.clusterCount==2 && candidate.generation==1,"rotating trial changed accepted graph");
+    near(force.linear.magnitude(),4,"centrifugal bond force analytic check");
+    PxVec3 momentum(0);float spinMomentum=0,kinetic=0;
+    for(unsigned i=0;i<2;++i) {
+        const auto m=motions[i];const PxVec3 r=pose.q.rotate(PxVec3(i?1.0f:-1.0f,0,0));
+        const PxVec3 expected=linear+angular.cross(r),v(float(m.linearVelocity[0]),float(m.linearVelocity[1]),float(m.linearVelocity[2]));
+        for(unsigned k=0;k<3;++k) {
+            near(float(m.origin[k]),pose.p[k],"candidate actor origin continuity");
+            near(v[k],expected[k],"offset COM point-velocity continuity");
+            near(float(m.angularVelocity[k]),angular[k],"candidate angular velocity continuity");
+        }
+        near(float(m.orientation[0]),pose.q.x,"orientation x");near(float(m.orientation[1]),pose.q.y,"orientation y");
+        near(float(m.orientation[2]),pose.q.z,"orientation z");near(float(m.orientation[3]),pose.q.w,"orientation w");
+        momentum+=v;spinMomentum+=childInertia*angular.z+r.cross(v-linear).z;
+        kinetic+=.5f*v.magnitudeSquared()+.5f*childInertia*angular.magnitudeSquared();
+    }
+    for(unsigned k=0;k<3;++k)near(momentum[k],2*linear[k],"candidate linear momentum conservation");
+    near(spinMomentum,(2+2*childInertia)*angular.z,"candidate angular momentum conservation");
+    near(kinetic,linear.magnitudeSquared()+.5f*(2+2*childInertia)*angular.magnitudeSquared(),"candidate kinetic energy conservation");
+    require(stage->clearStress(),"rotating clear failed");
+    {PxScopedCudaLock lock(*context.cudaContextManager());check(cuMemFree(buffer));check(cuMemFree(indices));}
+    body->release();std::puts("native centrifugal fracture: candidate COM motion, momentum and energy checks passed");
+}
+
 }
 int main(){try{
     blast_demo::SceneCapacity capacity;capacity.maxBodies=64;capacity.maxShapes=64;capacity.maxContactPairs=4096;
@@ -134,5 +236,5 @@ int main(){try{
     scenario(context,*body,"bond-driven crush",m,PxVec3(0,-9.81f,0),100,1.0f/60,true);
     scenario(context,*body,"crush timestep",m,PxVec3(0,-9.81f,0),100,1.0f/120,true);
     scenario(context,*body,"crush tension cutoff",m,PxVec3(0,9.81f,0),10,1.0f/60,false);
-    body->release();require(context.healthy() && !context.errors().warningCount(),"unexpected PhysX failure");return 0;
+    body->release();rotatingCluster(context);require(context.healthy() && !context.errors().warningCount(),"unexpected PhysX failure");return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

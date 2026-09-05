@@ -22,7 +22,11 @@ was not 103 resimulations of one timestep, but the multi-pass behavior was still
 a departure from the user's single-rewind design. Later eight/64-pass demo
 settings are historical reference configurations, not a native engine contract.
 
-The target sequence is:
+The user subsequently clarified that multiple resimulations may be supported,
+with a configurable count, but the current setting should be **one per timestep**.
+Additional passes are for later optimization/validation, not the current default.
+
+The current target sequence is:
 
 1. Checkpoint the state needed for the supported resimulation.
 2. Solve the intact interaction and evaluate its actual impulses with the
@@ -31,8 +35,8 @@ The target sequence is:
    simulate the changed interaction once.
 4. Publish accepted motion and events, accounting for damage and commands once.
 
-Repeated physics/stress/fracture loops until no new fracture occurs are a
-separate algorithm. A maximum-pass setting of one on the current multi-pass
+Additional physics/stress/fracture correction rounds may be supported as an
+explicitly selected mode. They change the single-resim reference behavior. A maximum-pass setting of one on the current multi-pass
 adapter is not sufficient to implement the intended algorithm: it can merely
 turn later fracture into an incomplete-step error. Native integration must
 implement the single-rewind lifecycle deliberately and compare against the

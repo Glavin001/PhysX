@@ -2,7 +2,7 @@
 
 **The complete plan is not implemented or qualified yet.** The repository now
 contains a buildable reference SDK, a native scene GPU contact/stress/material stage, and
-GPU topology/motion foundations. The topology foundations do not yet drive the
+GPU candidate topology/motion transactions. These transactions do not yet drive the
 PhysX collision/constraint solver. The native stress stage does not commit fracture
 or perform internal correction; see [NATIVE_GPU_STRESS.md](NATIVE_GPU_STRESS.md).
 
@@ -29,10 +29,12 @@ work, not the target design.
 Current exceptions: the imported reference adapter still prepares loads, applies
 fractures through CPU actors/shapes, and orchestrates replay on the host. PhysX's
 island/activity coordination remains on the CPU. The new GPU topology/motion
-primitive does its calculations without graph/motion readback, but is not wired
-into the scene lifecycle. Its immutable chunk records describe mass properties;
+transaction performs its calculations without graph/motion readback. Its immutable chunk records describe mass properties;
 cooked collision geometry and persistent shape ownership are not implemented by
-that primitive. The reference retains its existing GPU stress solver.
+that primitive. Native scene material verdicts now prepare candidate GPU
+connectivity and cluster motion through that transaction; see
+[NATIVE_GPU_TOPOLOGY.md](NATIVE_GPU_TOPOLOGY.md). The reference retains its
+existing GPU stress solver.
 
 The new native scene stage bypasses the reference adapter for GPU contact load
 assembly, stress solving and material evaluation. Accepted damage persists on the
@@ -78,9 +80,10 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
 - Engine-owned persistent collision geometry and GPU shape/cluster rebinding;
   new fragment pair eligibility and contact/constraint cache invalidation.
 - Complete material parity for merged/reduced bond groups, expose explicit
-  chunk loads, and connect native GPU trial verdicts to topology ownership and
+  chunk loads, and connect native GPU candidate clusters to collision ownership and
   full crush fragment/energy accounting. No predicted breakage is permitted.
-- One internal rewind/resimulation of all affected participants and joints, state/damage/command
+- Configurable internal resimulation (one initially) of all affected participants
+  and joints, state/damage/command
   transaction accounting, committed-only event publication, and explicit errors
   for incomplete steps. Existing external replay is still the reference.
 - Validated dependency work sets and selective collision/constraint reuse with

@@ -1,6 +1,6 @@
 # Native CUDA stress module. Keep runtime registration local: PhysX's kernel
 # wrangler implements its own __cudaRegister* entry points for upstream kernels.
-find_package(CUDAToolkit REQUIRED)
+find_package(CUDAToolkit 12.3 REQUIRED)
 get_filename_component(DESTRUCTION_REPO_ROOT "${PHYSX_ROOT_DIR}/.." ABSOLUTE)
 set(PX_DESTRUCTION_CUDA_ARCHITECTURES "89" CACHE STRING "Native destruction CUDA architectures")
 # Match the reference stress compiler's arithmetic, independently of upstream
@@ -8,6 +8,7 @@ set(PX_DESTRUCTION_CUDA_ARCHITECTURES "89" CACHE STRING "Native destruction CUDA
 get_property(CMAKE_CUDA_FLAGS CACHE CMAKE_CUDA_FLAGS PROPERTY VALUE)
 add_library(PhysXDestructionGpuRuntime SHARED
     ../src/PxgDestructionRuntime.cu
+    ../src/PxgDestructionTopology.cu
     ${DESTRUCTION_REPO_ROOT}/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu)
 target_include_directories(PhysXDestructionGpuRuntime PRIVATE
     ../include ${PHYSX_ROOT_DIR}/include

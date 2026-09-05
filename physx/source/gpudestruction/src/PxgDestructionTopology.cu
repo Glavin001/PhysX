@@ -177,12 +177,13 @@ __global__ void initializeMotion(PxgDestructionClusterMotion* motions,
 __global__ void captureClusterMotion(const unsigned* roots,
     const PxgDestructionCluster* clusters, const PxgDestructionClusterMotion* motion,
     PxgDestructionClusterMotion* previousMotion, double* previousCenters,
-    unsigned* previousSlots, const PxgDestructionTopologyStatus* status) {
+    unsigned* previousSlots, const PxgDestructionTopologyStatus* status,
+    const PxgDestructionClusterMotion* const* sourceMotion = nullptr) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i<status->clusterCount) {
         const unsigned r=roots[i];
         previousSlots[r]=i;
-        previousMotion[i]=motion[i];
+        previousMotion[i]=sourceMotion && *sourceMotion ? (*sourceMotion)[i] : motion[i];
         for(unsigned k=0;k<3;++k)previousCenters[3*i+k]=clusters[r].center[k];
     }
 }
@@ -215,7 +216,10 @@ __global__ void emptyBatch(PxgDestructionTopologyStatus* status) {
     status->changed=0;
 }
 
+class Transaction;
 class Topology final : public PxgDestructionTopology {
+    friend class Transaction;
+    bool mOwnAssets = true;
     PxgDestructionChunk* mChunks = nullptr;
     PxgDestructionBond* mBonds = nullptr;
     unsigned *mActiveChunks = nullptr, *mActiveBonds = nullptr, *mLabels = nullptr;
@@ -235,7 +239,7 @@ class Topology final : public PxgDestructionTopology {
     template<class T> bool alloc(T*& ptr, size_t count) {
         return !count || cudaMalloc(reinterpret_cast<void**>(&ptr), sizeof(T)*count) == cudaSuccess;
     }
-    bool rebuild(bool transfer = false) {
+    bool rebuild(bool transfer = false, bool signal = true) {
         const unsigned grid = (mN + BLOCK - 1)/BLOCK;
         resetLabels<<<grid, BLOCK, 0, mStream>>>(mActiveChunks, mLabels, mIndices, mClusters, mN);
         if (mM) connect<<<(mM+BLOCK-1)/BLOCK, BLOCK, 0, mStream>>>(mBonds, mM, mActiveBonds, mActiveChunks, mLabels);
@@ -253,22 +257,23 @@ class Topology final : public PxgDestructionTopology {
                 mPreviousSlots,mPreviousCenters,mPreviousMotions,mMotions,mStatus);
         else
             initializeMotion<<<grid,BLOCK,0,mStream>>>(mMotions,mStatus);
-        return cudaGetLastError() == cudaSuccess && cudaEventRecord(mReady, mStream) == cudaSuccess;
+        return cudaGetLastError() == cudaSuccess && (!signal || cudaEventRecord(mReady, mStream) == cudaSuccess);
     }
 public:
     bool init(const PxgDestructionChunk* chunks, unsigned n,
-        const PxgDestructionBond* bonds, unsigned m) {
+        const PxgDestructionBond* bonds, unsigned m, const Topology* shared = nullptr) {
         mN = n; mM = m;
+        if(shared){mChunks=shared->mChunks;mBonds=shared->mBonds;mOwnAssets=false;}
         if (cudaStreamCreateWithFlags(&mStream, cudaStreamNonBlocking) != cudaSuccess
             || cudaEventCreateWithFlags(&mReady, cudaEventDisableTiming) != cudaSuccess) return false;
-        if (!alloc(mChunks,n) || !alloc(mBonds,m) || !alloc(mActiveChunks,n)
+        if ((mOwnAssets && (!alloc(mChunks,n) || !alloc(mBonds,m))) || !alloc(mActiveChunks,n)
             || !alloc(mActiveBonds,m) || !alloc(mLabels,n) || !alloc(mIndices,n)
             || !alloc(mKeys,n) || !alloc(mOrder,n) || !alloc(mBegins,n)
             || !alloc(mEnds,n) || !alloc(mRoots,n) || !alloc(mRootFlags,n) || !alloc(mClusters,n) || !alloc(mStatus,1)
             || !alloc(mMotions,n) || !alloc(mPreviousMotions,n) || !alloc(mPreviousLabels,n)
             || !alloc(mPreviousSlots,n) || !alloc(mPreviousCenters,size_t(n)*3)) return false;
-        if (cudaMemcpyAsync(mChunks,chunks,sizeof(*chunks)*n,cudaMemcpyHostToDevice,mStream) != cudaSuccess
-            || (m && cudaMemcpyAsync(mBonds,bonds,sizeof(*bonds)*m,cudaMemcpyHostToDevice,mStream) != cudaSuccess)) return false;
+        if (mOwnAssets && (cudaMemcpyAsync(mChunks,chunks,sizeof(*chunks)*n,cudaMemcpyHostToDevice,mStream) != cudaSuccess
+            || (m && cudaMemcpyAsync(mBonds,bonds,sizeof(*bonds)*m,cudaMemcpyHostToDevice,mStream) != cudaSuccess))) return false;
         size_t sortBytes = 0, selectBytes = 0;
         if (cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,mLabels,mKeys,mIndices,mOrder,n,0,32,mStream) != cudaSuccess
             || cub::DeviceSelect::Flagged(nullptr,selectBytes,mIndices,mRootFlags,mRoots,
@@ -304,7 +309,7 @@ public:
     void release() override { delete this; }
     ~Topology() override {
         if (mStream) cudaStreamSynchronize(mStream);
-        cudaFree(mChunks); cudaFree(mBonds); cudaFree(mActiveChunks); cudaFree(mActiveBonds);
+        if(mOwnAssets){cudaFree(mChunks);cudaFree(mBonds);} cudaFree(mActiveChunks); cudaFree(mActiveBonds);
         cudaFree(mLabels); cudaFree(mIndices); cudaFree(mKeys); cudaFree(mOrder);
         cudaFree(mMotions); cudaFree(mPreviousMotions); cudaFree(mPreviousLabels);
         cudaFree(mPreviousSlots); cudaFree(mPreviousCenters);
@@ -313,6 +318,7 @@ public:
         if (mStream) cudaStreamDestroy(mStream);
     }
 };
+#include "PxgDestructionTransaction.cuh"
 } // namespace
 
 PxgDestructionTopology* PxgDestructionTopology::create(const PxgDestructionChunk* chunks,
@@ -330,6 +336,15 @@ PxgDestructionTopology* PxgDestructionTopology::create(const PxgDestructionChunk
     auto* out = new (std::nothrow) Topology;
     if (out && out->init(chunks,n,bonds,m)) return out;
     delete out;
+    return nullptr;
+}
+PxgDestructionTopologyTransaction* PxgDestructionTopologyTransaction::create(
+    const PxgDestructionChunk* chunks, std::uint32_t n, const PxgDestructionBond* bonds, std::uint32_t m) {
+    auto* accepted=static_cast<Topology*>(PxgDestructionTopology::create(chunks,n,bonds,m));
+    if(!accepted)return nullptr;
+    auto* transaction=new(std::nothrow) Transaction(accepted);
+    if(transaction && transaction->init(chunks,n,bonds,m))return transaction;
+    if(transaction)delete transaction;else accepted->release();
     return nullptr;
 }
 } // namespace physx

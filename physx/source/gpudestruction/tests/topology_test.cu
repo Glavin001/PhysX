@@ -58,8 +58,8 @@ struct Fixture {
         compare(!valid);
         if (d) CUDA(cudaFree(d));
     }
-    void compare(bool invalid) {
-        const auto view = gpu->view();
+    void compare(bool invalid, const PxgDestructionTopologyView* other = nullptr) {
+        const auto view = other ? *other : gpu->view();
         CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(view.readyEvent)));
         const auto status = read(view.status,1)[0];
         CHECK(status.generation == generation);
@@ -158,7 +158,114 @@ void motionContinuity() {
     CUDA(cudaEventDestroy(done)); CUDA(cudaStreamDestroy(producer));
 }
 
+__global__ void produceTransaction(PxgDestructionEdit* edits,unsigned* count,unsigned* abort,unsigned* accept,
+    unsigned mode,unsigned allow) {
+    *count=mode==0?0:mode==3?3:2;*abort=mode==4?1:0;*accept=allow;
+    edits[0]={PxgDestructionEditKind::BreakBond,0};
+    edits[1]={PxgDestructionEditKind::BreakBond,mode==2?999u:3u};
+    if(mode==5)edits[0]={PxgDestructionEditKind::DestroyChunk,0};
+}
+void deviceTransactions() {
+    Fixture f(4);f.bonds={{0,1},{1,2},{2,0},{2,3}};f.create();
+    auto* tx=PxgDestructionTopologyTransaction::create(f.chunks.data(),4,f.bonds.data(),4);CHECK(tx);
+    CHECK(tx->accepted().chunks==tx->trial().chunks && tx->accepted().bonds==tx->trial().bonds);
+    PxgDestructionEdit* edits;unsigned *count,*abort,*accept;
+    CUDA(cudaMalloc(&edits,2*sizeof(*edits)));CUDA(cudaMalloc(&count,sizeof(unsigned)));
+    CUDA(cudaMalloc(&abort,sizeof(unsigned)));CUDA(cudaMalloc(&accept,sizeof(unsigned)));
+    cudaStream_t producer;cudaEvent_t ready;
+    CUDA(cudaStreamCreateWithFlags(&producer,cudaStreamNonBlocking));CUDA(cudaEventCreateWithFlags(&ready,cudaEventDisableTiming));
+    auto submit=[&](unsigned mode,unsigned allow) {
+        CUDA(cudaStreamWaitEvent(producer,static_cast<cudaEvent_t>(tx->accepted().readyEvent),0));
+        produceTransaction<<<1,1,0,producer>>>(edits,count,abort,accept,mode,allow);
+        CUDA(cudaEventRecord(ready,producer));
+        CHECK(tx->prepare(edits,count,2,abort,0xffffffffu,ready));
+        CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->trial().readyEvent)));
+        return read(tx->status(),1)[0];
+    };
+    auto unchanged=[&] {auto v=tx->accepted();f.compare(false,&v);};
+    auto status=submit(0,1);CHECK(!status.prepared && !status.error && !status.rebuilds);unchanged();
+    CHECK(tx->commit(accept));CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));
+    CHECK(!read(tx->status(),1)[0].commits);unchanged();
+    status=submit(2,1);CHECK(status.error==1 && !status.prepared && !status.rebuilds);unchanged();
+    CHECK(tx->commit(accept));CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));unchanged();
+    status=submit(3,1);CHECK(status.error==2 && !status.prepared && !status.rebuilds);unchanged();
+    status=submit(4,1);CHECK(status.error==4 && !status.prepared && !status.rebuilds);unchanged();
+    status=submit(1,0);CHECK(!status.error && status.prepared && status.rebuilds==1);unchanged();
+    CHECK(read(tx->trial().status,1)[0].clusterCount==2);
+    CHECK(tx->commit(accept));CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));
+    CHECK(!read(tx->status(),1)[0].commits);unchanged();
+    CHECK(tx->discard());CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));
+    CHECK(!read(tx->status(),1)[0].prepared);unchanged();
+    status=submit(1,1);CHECK(!status.error && status.prepared && status.rebuilds==2);unchanged();
+    CHECK(tx->commit(accept));CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));
+    f.apply({{PxgDestructionEditKind::BreakBond,0},{PxgDestructionEditKind::BreakBond,3}});unchanged();
+    CHECK(read(tx->status(),1)[0].commits==1);
+    CHECK(tx->commit(accept));CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));
+    CHECK(read(tx->status(),1)[0].commits==1);unchanged(); // commit once
+    status=submit(1,1);CHECK(!status.prepared && !status.error && status.rebuilds==2);unchanged(); // duplicate batch
+    status=submit(0,1);CHECK(!status.prepared && !status.error && status.rebuilds==2);unchanged();
+    status=submit(5,1);CHECK(status.prepared && !status.error && status.rebuilds==3);unchanged();
+    CHECK(tx->commit(accept));CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));
+    f.apply({{PxgDestructionEditKind::DestroyChunk,0},{PxgDestructionEditKind::BreakBond,3}});unchanged();
+    CHECK(read(tx->status(),1)[0].commits==2);
+    tx->release();CUDA(cudaFree(edits));CUDA(cudaFree(count));CUDA(cudaFree(abort));CUDA(cudaFree(accept));
+    CUDA(cudaEventDestroy(ready));CUDA(cudaStreamDestroy(producer));
+    std::puts("GPU topology transaction: device counts, rejected/overflow/empty trials, discard and commit-once passed");
+}
+
+__global__ void largeTransactionEdits(const PxgDestructionBond* bonds,unsigned n,PxgDestructionEdit* edits,
+    unsigned* count,bool all) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<n && (all || bonds[i].chunk0/1000!=bonds[i].chunk1/1000))
+        edits[atomicAdd(count,1u)]={PxgDestructionEditKind::BreakBond,i};
+}
+void largeTransactions() {
+    Fixture f(100000);
+    for(unsigned i=1;i<100000;++i)f.bonds.push_back({i-1,i});
+    for(unsigned i=2;i<100000;++i)f.bonds.push_back({i-2,i});
+    f.bonds.push_back({0,99999});f.bonds.push_back({1,99999});f.bonds.push_back({2,99999});
+    CHECK(f.bonds.size()==200000);f.create();
+    auto* tx=PxgDestructionTopologyTransaction::create(f.chunks.data(),100000,f.bonds.data(),200000);CHECK(tx);
+    PxgDestructionEdit* edits;unsigned* count;
+    CUDA(cudaMalloc(&edits,200000*sizeof(*edits)));CUDA(cudaMalloc(&count,sizeof(unsigned)));
+    cudaStream_t producer;cudaEvent_t ready;
+    CUDA(cudaStreamCreateWithFlags(&producer,cudaStreamNonBlocking));CUDA(cudaEventCreateWithFlags(&ready,cudaEventDisableTiming));
+    auto prepare=[&](bool all) {
+        CUDA(cudaStreamWaitEvent(producer,static_cast<cudaEvent_t>(tx->accepted().readyEvent),0));
+        CUDA(cudaMemsetAsync(count,0,sizeof(unsigned),producer));
+        largeTransactionEdits<<<(200000+255)/256,256,0,producer>>>(tx->accepted().bonds,200000,edits,count,all);
+        CUDA(cudaEventRecord(ready,producer));
+        CHECK(tx->prepare(edits,count,200000,nullptr,0xffffffffu,ready));
+        CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->trial().readyEvent)));
+        CHECK(read(tx->status(),1)[0].prepared && !read(tx->status(),1)[0].error);
+    };
+    prepare(false);
+    auto candidate=tx->trial();CHECK(read(candidate.status,1)[0].clusterCount==100);
+    std::vector<PxgDestructionEdit> expected;
+    for(unsigned i=0;i<f.bonds.size();++i)if(f.bonds[i].chunk0/1000!=f.bonds[i].chunk1/1000)
+        expected.push_back({PxgDestructionEditKind::BreakBond,i});
+    f.apply(expected);f.compare(false,&candidate);
+    // A second candidate replaces the first without consuming it. All 200k
+    // break decisions are retained and yield 100k independent components.
+    prepare(true);candidate=tx->trial();CHECK(read(candidate.status,1)[0].clusterCount==100000);
+    const auto roots=read(candidate.activeClusters,100000),labels=read(candidate.chunkCluster,100000);
+    const auto properties=read(candidate.clusters,100000);
+    for(unsigned i=0;i<100000;++i) {
+        CHECK(roots[i]==i && labels[i]==i && properties[i].chunkCount==1);
+        CHECK(properties[i].mass==f.chunks[i].mass && properties[i].supported==f.chunks[i].supported);
+        for(unsigned k=0;k<3;++k)CHECK(properties[i].center[k]==f.chunks[i].center[k]);
+        for(unsigned k=0;k<6;++k)CHECK(properties[i].inertia[k]==f.chunks[i].inertia[k]);
+    }
+    CHECK(read(tx->accepted().status,1)[0].clusterCount==1 && !read(tx->accepted().status,1)[0].generation);
+    CHECK(read(tx->status(),1)[0].editCount==200000 && read(tx->status(),1)[0].rebuilds==2 && !read(tx->status(),1)[0].commits);
+    CHECK(tx->discard());tx->release();CUDA(cudaFree(edits));CUDA(cudaFree(count));
+    CUDA(cudaEventDestroy(ready));CUDA(cudaStreamDestroy(producer));
+    std::puts("GPU topology transaction: 100k chunks / 200k bonds, all fracture decisions retained, candidate replacement without commit passed");
+}
+
 int main() {
+    deviceTransactions();
+    largeTransactions();
     motionContinuity();
     {
         Fixture f(4); f.bonds={{0,1},{1,2},{2,0},{2,3}}; f.create();

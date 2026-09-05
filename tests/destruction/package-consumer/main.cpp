@@ -63,9 +63,15 @@ int main(int argc, char**) {
         physx::PxDestructionMaterial stressMaterial;
         stressMaterial.compressionElasticLimit=10;stressMaterial.compressionFatalLimit=100;
         graph.materials=&stressMaterial;graph.materialCount=1;
+        const physx::PxDestructionChunkMassProperties massProperties[2]={
+            {{0,-1,0},0,{0,0,0,0,0,0},1},{{0,0,0},2,{1,1,1,0,0,0},0}};
+        graph.chunkMassProperties=massProperties;
         ok &= native->configureStress(graph);
         scene->simulate(1.0f/60.0f);ok &= scene->fetchResults(true,&error) && !error;
         ok &= native->getLastStatus().bondCommands==1 && !native->getLastStatus().brokenBonds;
+        ok &= native->getDeviceView().topologyTransaction!=nullptr;
+        ok &= native->getDeviceView().acceptedTopology.chunkCount==2;
+        graph.chunkMassProperties=nullptr;
         graph.bonds=nullptr;graph.bondCount=0;
         ok &= native->configureStress(graph);
         scene->simulate(1.0f/60.0f);ok &= scene->fetchResults(true,&error) && !error;
