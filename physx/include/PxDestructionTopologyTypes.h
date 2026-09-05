@@ -24,6 +24,23 @@ struct PxDestructionClusterMotion {
     double origin[3], orientation[4];
     double linearVelocity[3], angularVelocity[3];
 };
+// Solver-body candidates, in compact activeClusters order. The actor frame
+// remains the immutable asset frame; principal axes only change the COM frame.
+// These are GPU-calculated candidates, not allocated/committed PhysX bodies.
+struct PxDestructionClusterBodyState {
+    float bodyToWorldPosition[3], bodyToWorldOrientation[4];
+    float bodyToActorPosition[3], bodyToActorOrientation[4];
+    float linearVelocity[3], angularVelocity[3]; // world space, velocity at stored COM
+    float mass, principalInertia[3], inverseMass, inverseInertia[3];
+    std::uint32_t cluster, sourceBody, supported;
+};
+struct PxDestructionBodyPreparationStatus {
+    std::uint64_t generation;
+    std::uint32_t count, valid, error;
+    // error bits: 1 invalid mass, 2 invalid/nonconverged inertia,
+    // 4 invalid motion, 8 not representable as a PhysX float body.
+    // Entire batch is usable only when valid != 0; errors never clamp physics.
+};
 struct PxDestructionTopologyStatus {
     std::uint64_t generation;
     std::uint32_t clusterCount, invalidEdit, changed;

@@ -249,11 +249,15 @@ void rotatingCluster(blast_demo::PhysXScene& context) {
     scene.simulate(1.0f/60);PxU32 error=0;
     require(!scene.fetchResults(true,&error) && error && stage->getLastStatus().error==8,"rotating fracture was falsely committed");
     const auto view=stage->getDeviceView();PxDestructionClusterMotion motions[2];PxDestructionVectorPair force;
+    PxDestructionClusterBodyState solverBodies[2];PxDestructionBodyPreparationStatus bodyStatus;
     PxDestructionTopologyTransactionStatus transaction;PxDestructionTopologyStatus accepted,candidate;
     CUdeviceptr buffer,indices;
     {PxScopedCudaLock lock(*context.cudaContextManager());
         check(cuEventSynchronize(view.readyEvent));
         check(cuMemcpyDtoH(motions,reinterpret_cast<CUdeviceptr>(view.trialTopology.motions),sizeof(motions)));
+        check(cuMemcpyDtoH(&bodyStatus,reinterpret_cast<CUdeviceptr>(view.bodyPreparation),sizeof(bodyStatus)));
+        require(bodyStatus.valid && !bodyStatus.error && bodyStatus.count==2 && bodyStatus.generation==1,"rotating GPU solver-body preparation failed");
+        check(cuMemcpyDtoH(solverBodies,reinterpret_cast<CUdeviceptr>(view.trialBodies),sizeof(solverBodies)));
         check(cuMemcpyDtoH(&force,reinterpret_cast<CUdeviceptr>(view.bondForces),sizeof(force)));
         check(cuMemcpyDtoH(&transaction,reinterpret_cast<CUdeviceptr>(view.topologyTransaction),sizeof(transaction)));
         check(cuMemcpyDtoH(&accepted,reinterpret_cast<CUdeviceptr>(view.acceptedTopology.status),sizeof(accepted)));
@@ -282,6 +286,16 @@ void rotatingCluster(blast_demo::PhysXScene& context) {
         }
         near(float(m.orientation[0]),pose.q.x,"orientation x");near(float(m.orientation[1]),pose.q.y,"orientation y");
         near(float(m.orientation[2]),pose.q.z,"orientation z");near(float(m.orientation[3]),pose.q.w,"orientation w");
+        const auto& candidateBody=solverBodies[i];
+        require(candidateBody.cluster==i && candidateBody.sourceBody==body->getGPUIndex() && !candidateBody.supported,"rotating solver body provenance invalid");
+        const PxVec3 solverCOM(candidateBody.bodyToWorldPosition[0],candidateBody.bodyToWorldPosition[1],candidateBody.bodyToWorldPosition[2]);
+        const PxVec3 originalCOM=pose.transform(PxVec3(1,0,0));
+        const PxVec3 solverExpected=linear+angular.cross(solverCOM-originalCOM);
+        for(unsigned k=0;k<3;++k) {
+            near(candidateBody.linearVelocity[k],solverExpected[k],"float solver COM velocity reconciliation");
+            near(candidateBody.angularVelocity[k],angular[k],"solver-body angular velocity transfer");
+            near(candidateBody.principalInertia[k],childInertia,"solver-body principal inertia");
+        }
         momentum+=v;spinMomentum+=childInertia*angular.z+r.cross(v-linear).z;
         kinetic+=.5f*v.magnitudeSquared()+.5f*childInertia*angular.magnitudeSquared();
     }

@@ -111,3 +111,12 @@ The subsequent [persistent collision-owner boundary](PERSISTENT_GPU_COLLISION_OW
 updates actual PhysX collision bindings without recreating shape IDs. Native
 verdicts do not invoke it yet; new solver-body allocation and internal correction
 remain required before a true split can commit.
+
+## Solver-body candidate follow-up
+
+The native task now converts candidate full inertia and inherited motion to
+GPU-resident principal-axis solver-body records, with whole-batch failure and
+COM-velocity reconciliation. See
+[NATIVE_GPU_CLUSTER_BODIES.md](NATIVE_GPU_CLUSTER_BODIES.md). These records are
+not allocated or committed native bodies; the internal allocation/collision
+transaction and one resimulation remain unfinished.

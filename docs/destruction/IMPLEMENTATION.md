@@ -6,6 +6,8 @@ GPU topology/motion transactions. Native steps now commit bond cuts that retain
 all chunk motion owners, with GPU-owned stress connectivity. An internal
 persistent collision-owner transfer now updates actual GPU collision bindings and CPU membership; see
 [PERSISTENT_GPU_COLLISION_OWNERSHIP.md](PERSISTENT_GPU_COLLISION_OWNERSHIP.md).
+The native task now prepares principal-axis solver-body candidates on the GPU;
+see [NATIVE_GPU_CLUSTER_BODIES.md](NATIVE_GPU_CLUSTER_BODIES.md).
 Native true splits still need solver-body allocation, invocation of that boundary
 and internal correction.
 
@@ -13,7 +15,7 @@ The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 44/49 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
+suite is 46/51 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
@@ -90,6 +92,12 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   contact-owner rebinding and CPU query membership. Rotated/offset-COM transfers,
   repeated pending transfers, removal and explicit overflow tests pass. Native
   material-driven invocation and solver-body allocation remain unfinished.
+
+- Added native GPU solver-body preparation from actual candidate topology:
+  principal inertia/COM frames, support semantics, source body provenance and
+  velocity reconciliation at the float solver COM. Invalid candidate batches
+  reject without material/topology commit. Analytic GPU and real PhysX GPU
+  force/torque response tests pass; native allocation/correction is still open.
 
 ## Remaining completion gates
 

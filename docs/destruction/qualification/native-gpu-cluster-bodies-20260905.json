@@ -1,0 +1,162 @@
+{
+  "createdUtc": "2026-09-05T23:45:29.964011+00:00",
+  "baseRevision": "7a94ec4014cc94010811cddd551ef07cd2b5de8f",
+  "branch": "codex/gpu-destruction",
+  "scope": "Native GPU solver-body candidates from actual stress/material/topology verdicts. Engine body allocation, material-driven collision rebinding and one internal resimulation remain incomplete.",
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05, GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+  "cudaArchitectures": "89",
+  "compilers": {
+    "/usr/local/cuda/bin/nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+    "clang": "Ubuntu clang version 18.1.3 (1ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/bin\n",
+    "clang++": "Ubuntu clang version 18.1.3 (1ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/bin\n"
+  },
+  "buildCommand": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+  "regressionCommand": {
+    "command": [
+      "ctest",
+      "--test-dir",
+      "out/destruction-sdk",
+      "--output-on-failure",
+      "--output-junit",
+      "/root/workspace/physx-2/out/cluster-body-regression.xml"
+    ],
+    "returncode": 8
+  },
+  "regression": {
+    "tests": 51,
+    "passed": 46,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newFailures": [],
+    "existingAssertionsWeakened": false
+  },
+  "newTests": [
+    "destruction_gpu_body_state",
+    "physx_native_gpu_body_state"
+  ],
+  "extendedTests": [
+    "physx_native_gpu_material"
+  ],
+  "coverage": [
+    "4096 analytic rotated/full inertia tensors and repeated principal moments",
+    "Scale-normalized principal frames across 1e-25..1e25 physical scales",
+    "Full tensor reconstruction and actual PhysX GPU torque/force response",
+    "Rotated/offset asset and COM, inherited motion and float COM reconciliation",
+    "Approximately unit quaternion observation regression reproduced then fixed",
+    "Supported physical mass and massless authored anchors",
+    "Atomic candidate-batch rejection on invalid inertia with accepted material/topology preservation",
+    "Candidate validity cleared on nonfracturing frames",
+    "Persistent shape identity when test fixture inserts GPU-prepared body",
+    "Existing rotating native fracture momentum/energy and new solver-body velocity checks"
+  ],
+  "memoryChecks": [
+    {
+      "name": "cluster-body-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/topology/destruction_body_test"
+      ],
+      "returncode": 0,
+      "log": "out/cluster-body-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "55635216dfc4c51dd885e91705f2103bef124cded3f2982cd7bd7ce9d1835ddc"
+    },
+    {
+      "name": "native-cluster-body-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_body_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-cluster-body-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "5822f2c742dc4a204d5e015911f6bfdacab69339d8ae291bdb171b6e38f5dedd"
+    },
+    {
+      "name": "native-cluster-material-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_material_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-cluster-material-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "6356fd59954e3ebb5be4791020c90286b74b4d77a0923f3061736f76baeb0ace"
+    }
+  ],
+  "installedConsumers": [
+    {
+      "command": [
+        "out/package-consumer/package_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    }
+  ],
+  "sourceSha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "a451f158b427629eab41aef9437d2c6a5a68a702750ce51bcd372207385ff2ee",
+    "demos/blast-stress-demo/tests/native_gpu_body_test.cpp": "48da57e3bd0bc8dd4a93ceb155d7efb2222eef1d89378d7fcd18578f9b9df74d",
+    "demos/blast-stress-demo/tests/native_gpu_material_test.cpp": "ceb81923024c1b75f2b05c630b4ee25757210d23536134e4bc1126bd5f30f213",
+    "physx/include/PxDestructionScene.h": "b60e0dd112dad97e243e58c184766cb99769e2a464b884fbe6430d4d390ba013",
+    "physx/include/PxDestructionTopologyTypes.h": "7ef649d2acf482574f44e4e0c592ad1fab08b2f61aeaaed8dcdd8865f1e1b4cc",
+    "physx/source/gpudestruction/CMakeLists.txt": "d1216b24118bdd031c99765eb89117ae68f138f914fc47631af6340eda7904dc",
+    "physx/source/gpudestruction/src/PxgDestructionBody.cuh": "1ec1f91f885f2bebd81ac251c2cd7853ce63248f4ad83fb8f9b870521395666f",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "e3804b37ee76889d420d5f2dc449c4bcf5dcc22479994a2f7da0d8d991cccfa5",
+    "physx/source/gpudestruction/tests/body_test.cu": "01c052a9f311c514970dcd2b7d3ef7fee4aa4e40232a144a7f7e0ddc0a2e2d89"
+  },
+  "librarySha256": {
+    "libPhysXDestructionGpuRuntime_64.so": "e224ed53493e1767d1ad16fefdbc20d0e00ad18422872c1afa7cde803cfa769d",
+    "libPhysXGpuActivity_64.so": "006325aafb197d4afb30b9dc9ad20c6cf493bbc198362e4ffef1974fe9f23ec4"
+  },
+  "logsSha256": {
+    "out/cluster-body-sdk-build.log": "5b999554699455e42e79f30235035a30688967b32641d88d975ac218b64d76f3",
+    "out/cluster-body-regression.log": "146da0f47cebd9954de2c03e519c874cefeefd2774b4621baf25307d9fcab09d",
+    "out/cluster-body-regression.xml": "05df16738396a01a1e359057a88fd98df86d98f9dc80e51dfced56e4181f0662",
+    "out/cluster-body-package-build.log": "bef17c8160156c754dee0cdd75f8185291ba7836f83de11bebbbb2028a735cdf",
+    "out/cluster-body-package-consumer.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "out/cluster-body-rounded-before.log": "f2513c75c8930e44147fb921bd138e28f7a12e9b26435f15ad44f99821834938"
+  },
+  "remaining": [
+    "Allocate native PhysX cluster solver bodies and bind prepared GPU state",
+    "Invoke persistent collision-owner updates at an internal task barrier",
+    "Single internal resimulation with ordinary bodies/joints and once-only command/damage/events",
+    "Complete lifecycle, supports, crushing, capacity growth, consumers, fidelity fixes and full-scale qualification"
+  ],
+  "qualification": "Correctness checks only. No full-scene scale, isolated performance, 60 Hz or completed native-destruction claim. No video generated."
+}

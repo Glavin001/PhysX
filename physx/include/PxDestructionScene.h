@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 4
+#define PX_DESTRUCTION_SCENE_VERSION 5
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -82,7 +82,7 @@ struct PxDestructionStageStatus {
     PxU64 frame;
     PxU32 error; // 1: contacts, 2: nonfinite, 4: runtime, 8: correction required,
                  // 16: unsupported articulation strain-rate input, 32: topology transaction,
-                 // 64: resident stress topology update
+                 // 64: resident stress topology update, 128: solver-body preparation
 
     PxU32 normalContacts, frictionAnchors;
     PxU32 iterations, converged;
@@ -109,6 +109,11 @@ struct PxDestructionDeviceView {
     PxDestructionTopologyDeviceView acceptedTopology{};
     PxDestructionTopologyDeviceView trialTopology{};
     const PxDestructionTopologyTransactionStatus* topologyTransaction = NULL;
+    // Generated from this step's candidate topology, before any commit. Valid
+    // only when bodyPreparation->valid; generation/count identify the batch.
+    // No solver-body slots or collision ownership are changed by preparation.
+    const PxDestructionClusterBodyState* trialBodies = NULL;
+    const PxDestructionBodyPreparationStatus* bodyPreparation = NULL;
     const PxDestructionStressTopologyStatus* stressTopology = NULL;
     const PxU32* stressNodeIslands = NULL; // minimum dynamic-node labels; support/isolated = invalid
     const PxU32* stressBondIslands = NULL;

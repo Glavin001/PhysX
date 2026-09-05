@@ -5,6 +5,7 @@
 #include <cuda_runtime.h>
 #include <cuda.h>
 #include "PxgBodySim.h"
+#include "PxgDestructionBody.cuh"
 #include "NvBlastExtStressMaterialFormula.h"
 #include <set>
 #include <algorithm>
@@ -185,6 +186,26 @@ __global__ void inspectStressTopology(const ExtStressGpuDeviceTopologyStatus* to
     if(topology->error)status->error|=64u;
 }
 
+__global__ void beginBodyPreparation(const PxDestructionTopologyTransactionStatus* transaction,
+    PxDestructionTopologyDeviceView topology,PxDestructionBodyPreparationStatus* status) {
+    *status={};
+    if(transaction->prepared && !transaction->error) {status->generation=topology.status->generation;status->count=topology.status->clusterCount;}
+}
+__global__ void prepareCandidateBodies(PxDestructionTopologyDeviceView topology,
+    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
+    PxDestructionClusterBodyState* bodies,PxDestructionBodyPreparationStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=status->count)return;
+    const PxU32 root=topology.activeClusters[i];PxDestructionClusterBodyState body;
+    const PxU32 error=destructionBody::prepare(topology.clusters[root],topology.motions[i],body);
+    body.cluster=root;body.sourceBody=clusters[chunks[root].cluster].body;bodies[i]=body;
+    if(error)atomicOr(&status->error,error);
+}
+__global__ void finishBodyPreparation(const PxDestructionTopologyTransactionStatus* transaction,
+    PxDestructionBodyPreparationStatus* status,PxDestructionStageStatus* stage) {
+    status->valid=transaction->prepared && !transaction->error && !status->error;
+    if(status->error)stage->error|=128u;
+}
+
 __global__ void commitObservedTopologyMotion(PxDestructionTopologyDeviceView topology,
     const PxDestructionClusterMotion* motion,const PxDestructionStageStatus* status) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
@@ -208,6 +229,8 @@ class Runtime final : public PxgDestructionRuntime {
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
     PxgDestructionTopologyTransaction* mTopology{};
     PxDestructionClusterMotion* mProvisionalMotion{};
+    PxDestructionClusterBodyState* mTrialBodies{};
+    PxDestructionBodyPreparationStatus* mBodyPreparation{};
     PxgDestructionEdit* mTopologyEdits{};PxU32* mTopologyCount{};PxU32* mTopologyAccept{};PxU32 mEditCapacity{};
     bool mPending=false; bool mFailed=false;
 public:
@@ -230,6 +253,7 @@ public:
     void clear() {
         if(mTopology)mTopology->release();mTopology=nullptr;
         cudaFree(mProvisionalMotion);mProvisionalMotion=nullptr;
+        cudaFree(mTrialBodies);mTrialBodies=nullptr;cudaFree(mBodyPreparation);mBodyPreparation=nullptr;
         cudaFree(mTopologyEdits);mTopologyEdits=nullptr;cudaFree(mTopologyCount);mTopologyCount=nullptr;mEditCapacity=0;
         cudaFree(mTopologyAccept);mTopologyAccept=nullptr;
         if(mSolver)mSolver->release();mSolver=nullptr;
@@ -362,6 +386,8 @@ public:
                 mTopology=PxgDestructionTopologyTransaction::create(d.chunkMassProperties,d.chunkCount,topologyBonds.data(),d.bondCount);
                 if(!mTopology || (mSolver && !mSolver->enableDeviceTopology())){clear();return false;}
                 allocate(mTopologyAccept,1);
+                allocate(mTrialBodies,d.chunkCount);allocate(mBodyPreparation,1);
+                check(cudaMemset(mBodyPreparation,0,sizeof(*mBodyPreparation)));
                 mEditCapacity=d.chunkCount+d.bondCount;
                 allocate(mProvisionalMotion,d.clusterCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
             }
@@ -392,6 +418,7 @@ public:
             v.stressNodeIslands=stress.nodeIslands;v.stressBondIslands=stress.bondIslands;
         }
         if(mTopology) {
+            v.trialBodies=mTrialBodies;v.bodyPreparation=mBodyPreparation;
             v.acceptedTopology=mTopology->accepted();v.trialTopology=mTopology->trial();v.topologyTransaction=mTopology->status();
             v.acceptedTopology.readyEvent=v.trialTopology.readyEvent=mReady;
         }
@@ -451,6 +478,9 @@ public:
                     throw std::runtime_error("native topology transaction submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
                 inspectTopologyTransaction<<<1,1,0,mStream>>>(mTopology->status(),mStatus);
+                beginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation);
+                prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation);
+                finishBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus);
                 beginUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopology->status(),mStatus,mTopologyAccept);
                 checkUnchangedMotionCommit<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept);
                 acceptUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopologyAccept,mStatus);
