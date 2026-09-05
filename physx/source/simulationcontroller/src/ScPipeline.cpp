@@ -2834,6 +2834,10 @@ void Sc::Scene::finalizationPhase(PxBaseTask* /*continuation*/)
 	}
 #endif
 
+    // The ordinary trial solve and integration have finished. Native stress
+    // consumes solved impulses before the scene publishes its results.
+    mSimulationController->advanceDestruction(mDt, mGravity);
+
 	fireOnAdvanceCallback();  // placed here because it needs to be done after sleep check and after potential CCD passes
 
 	checkConstraintBreakage(); // Performs breakage tests on breakable constraints

@@ -56,6 +56,7 @@ namespace physx
 
 	class PxsKernelWranglerManager;
 
+	class PxgDestructionRuntime;
 	class PxgSimulationCore;
 	class PxgParticleSystemCore;
 	class PxgPBDParticleSystemCore;
@@ -491,6 +492,10 @@ namespace physx
 		virtual	bool	computeArticulationData(void* data, const PxArticulationGPUIndex* gpuIndices, PxArticulationGPUAPIComputeType::Enum operation, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;
 
 		virtual bool 	evaluateSDFDistances(PxVec4* localGradientAndSDFConcatenated, const PxShapeGPUIndex* shapeIndices, const PxVec4* localSamplePointsConcatenated, const PxU32* samplePointCountPerShape, PxU32 nbElements, PxU32 maxPointCount, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;
+        virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*)) PX_OVERRIDE PX_FINAL;
+        virtual void advanceDestruction(PxReal dt, const PxVec3& gravity) PX_OVERRIDE PX_FINAL;
+        virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
+
 		virtual	bool	copyContactData(void* data, PxU32* numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent copyEvent) PX_OVERRIDE PX_FINAL;
 
 		virtual PxArticulationGPUAPIMaxCounts getArticulationGPUAPIMaxCounts()	const	PX_OVERRIDE PX_FINAL;
@@ -733,6 +738,8 @@ namespace physx
 		PxI32													mSharedPathToRootIndex;
 
 		PxgCudaKernelWranglerManager*							mGpuWranglerManager;
+        PxgDestructionRuntime* mDestruction = NULL;
+        PxU32 mDestructionError = 0;
 		PxCudaContextManager*									mCudaContextManager;
 		PxgAllocatorDesc										mAllocDesc;
 		PxgCudaBroadPhaseSap*									mBroadPhase;

@@ -263,6 +263,21 @@ struct ExtStressGpuBondStressResult
     std::uint32_t bondsAboveHalfUtilisation{0};
 };
 
+struct ExtStressGpuDeviceStatus
+{
+    std::uint32_t active;
+    std::uint32_t iterations;
+    std::uint32_t converged;
+};
+
+struct ExtStressGpuDeviceView
+{
+    const ExtStressGpuImpulse* bondImpulses{nullptr}; // physical units, same as readbackImpulses
+    const ExtStressGpuDeviceStatus* status{nullptr};
+    std::uint32_t bondCount{0};
+    void* readyEvent{nullptr};
+};
+
 class ExtStressGpuSolver
 {
 public:
@@ -301,6 +316,23 @@ public:
         std::uint32_t nodeCount,
         const ExtStressGpuSolveParams& params,
         void* producerReady = nullptr) = 0;
+
+    /** Prepare the static topology/launch lists outside simulation. May synchronize.
+     * Call again after host topology changes or use of settled-list scheduling.
+     */
+    virtual bool prepareDeviceSolve() = 0;
+
+    /** Enqueue a solve with no per-step host/device copies or CPU completion wait.
+     * Producer and previous consumer events order borrowed buffers. Inputs must
+     * remain alive until deviceView().readyEvent completes. Uses the same CG
+     * kernels/settings as solveDevice; settled skipping and internal damage are
+     * explicitly rejected here until their device transaction paths are enabled.
+     * Returns false if prepareDeviceSolve is needed. No hidden CPU fallback.
+     */
+    virtual bool solveDeviceAsync(const ExtStressGpuImpulse* inputs, std::uint32_t count,
+        const ExtStressGpuSolveParams& params, void* producerReady = nullptr,
+        void* consumerDone = nullptr) = 0;
+    virtual ExtStressGpuDeviceView deviceView() const = 0;
 
     virtual bool readbackImpulses(
         ExtStressGpuImpulse* bondImpulses,

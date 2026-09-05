@@ -513,12 +513,7 @@ struct Inertia
     float linear;
 };
 
-struct SolveStatus
-{
-    std::uint32_t active;
-    std::uint32_t iterations;
-    std::uint32_t converged;
-};
+using SolveStatus = ExtStressGpuDeviceStatus;
 
 /// Bonds/nodes that belong to no solvable island (static-static bonds, and
 /// static nodes, which are fixed boundaries carrying no coupling).
@@ -2233,6 +2228,17 @@ __global__ void retireDegenerateIslands(
 /// Pack the impulses of the islands that were actually solved into a dense
 /// block, so the device-to-host copy and the host's conversion loop cost what
 /// changed rather than what exists.
+__global__ void exportPhysicalImpulses(const AngLin* impulses, const float* colScales,
+    ExtStressGpuImpulse* output, unsigned count, float angularScale, float linearScale)
+{
+    const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= count) return;
+    const auto v = impulses[i];
+    const float a = angularScale * colScales[i], l = linearScale * colScales[i];
+    output[i] = {{v.angular.x*a, v.angular.y*a, v.angular.z*a},
+                 {v.linear.x*l, v.linear.y*l, v.linear.z*l}};
+}
+
 __global__ void gatherImpulses(
     const AngLin* impulses,
     const std::uint32_t* indices,
@@ -2855,6 +2861,7 @@ uploadIslands();
         cudaFreeHost(m_hostBrokenCount);
         cudaFreeHost(m_hostIslandConvergedPinned);
         cudaFreeHost(m_hostImpulses);
+        cudaFree(m_devicePhysicalImpulses);
         cudaFreeHost(m_hostInput);
         cudaFreeHost(m_hostScatterIndices);
         cudaFreeHost(m_hostScatterValues);
@@ -3034,6 +3041,56 @@ uploadIslands();
     {
         if (nodeCount != m_nodeCount) { return false; }
         return solveInputs(nodeVelocities, params, true, producerReady);
+    }
+
+    bool prepareDeviceSolve() override
+    {
+        ContextGuard context(m_cudaContext);
+        if (m_topologyDirty) applyTopologyChange();
+        if (!m_bondCount) return false;
+        refreshActiveLists(false);
+        // Preparation is the asset/topology boundary, never the simulation path.
+        checkCuda(cudaStreamSynchronize(m_stream), "prepare resident stress solve");
+        m_activeBondCount = m_hostActiveCounts[0];
+        m_activeNodeCount = m_hostActiveCounts[1];
+        return true;
+    }
+
+    bool solveDeviceAsync(const ExtStressGpuImpulse* inputs, std::uint32_t count,
+        const ExtStressGpuSolveParams& params, void* producerReady, void* consumerDone) override
+    {
+        if (!inputs || count != m_nodeCount || !m_bondCount || !params.maxIterations
+            || !std::isfinite(params.tolerance) || params.tolerance <= 0
+            || params.skipSettledIslands || params.skipStableUnconverged || params.applyDamage
+            || m_topologyDirty || m_activeListsDirty || m_prevListsSkipping)
+            return false;
+        ContextGuard context(m_cudaContext);
+        if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,
+            reinterpret_cast<cudaEvent_t>(consumerDone), 0), "wait stress consumer");
+        if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,
+            reinterpret_cast<cudaEvent_t>(producerReady), 0), "wait stress producer");
+        m_telemetry = {};
+        m_telemetry.islandCount = m_islandCount;
+        m_telemetry.deviceToDeviceBytes = sizeof(*inputs) * std::uint64_t(count);
+        m_bendGainMax = params.bendGainMax;
+        m_skipStableUnconverged = false;
+        m_hostInputValid = false;
+        m_settledBaselineValid = false;
+        checkCuda(cudaMemcpyAsync(m_input, inputs, sizeof(*inputs)*count,
+            cudaMemcpyDeviceToDevice, m_stream), "copy resident stress inputs");
+        executeSolve(params);
+        exportPhysicalImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
+            m_impulses, m_colScales, m_devicePhysicalImpulses, m_bondCount,
+            m_lengthScale*m_lengthScale*m_massScale, m_lengthScale*m_massScale);
+        checkCuda(cudaGetLastError(), "export resident bond forces");
+        checkCuda(cudaEventRecord(m_statusReady, m_stream), "record resident stress completion");
+        m_hasWarmStart = true;
+        return true;
+    }
+
+    ExtStressGpuDeviceView deviceView() const override
+    {
+        return {m_devicePhysicalImpulses, m_status, m_bondCount, m_statusReady};
     }
 
     bool solveInputs(
@@ -5964,6 +6021,7 @@ private:
         m_hostActiveCounts[1] = 0u;
         allocateHost(m_hostInput, m_nodeCount, "allocate pinned stress input");
         allocateHost(m_hostImpulses, m_bondCount, "allocate pinned stress impulses");
+        allocateDevice(m_devicePhysicalImpulses, m_bondCount, "allocate resident physical bond forces");
         allocateHost(m_hostStatus, 1, "allocate pinned stress status");
         allocateHost(m_hostBrokenCount, 1, "allocate pinned broken count");
         *m_hostBrokenCount = 0u;
@@ -7486,6 +7544,7 @@ private:
     ExtStressGpuImpulse* m_hostInput{nullptr};
     bool m_hostInputValid{true};
     AngLin* m_hostImpulses{nullptr};
+    ExtStressGpuImpulse* m_devicePhysicalImpulses{nullptr};
     SolveStatus* m_hostStatus{nullptr};
     std::uint32_t* m_hostBrokenCount{nullptr};
     std::uint32_t* m_hostIslandSkip{nullptr};

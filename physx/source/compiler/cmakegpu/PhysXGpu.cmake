@@ -164,3 +164,10 @@ SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES
 	POSITION_INDEPENDENT_CODE TRUE
 )
 
+
+# Destruction uses the same scene CUDA context and native simulation lifecycle.
+add_subdirectory(${PHYSX_SOURCE_DIR}/gpudestruction/runtime ${CMAKE_CURRENT_BINARY_DIR}/destruction-runtime)
+target_include_directories(PhysXSimulationControllerGpu PRIVATE ${PHYSX_SOURCE_DIR}/gpudestruction/include)
+target_link_libraries(PhysXGpu PRIVATE PhysXDestructionGpuRuntime)
+set_property(TARGET PhysXGpu APPEND PROPERTY BUILD_RPATH "$ORIGIN")
+set_property(TARGET PhysXGpu APPEND PROPERTY INSTALL_RPATH "$ORIGIN")

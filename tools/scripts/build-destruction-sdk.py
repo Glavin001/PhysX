@@ -38,7 +38,7 @@ def main():
         f'-DPHYSX_ROOT_DIR={sdk}', f'-DPX_OUTPUT_LIB_DIR={sdk}', f'-DPX_OUTPUT_BIN_DIR={sdk}',
         f'-DCMAKE_INSTALL_PREFIX={out / "install"}', '-DTARGET_BUILD_PLATFORM=linux',
         '-DNV_FORCE_64BIT_SUFFIX=TRUE', '-DPX_GENERATE_STATIC_LIBRARIES=TRUE',
-        '-DPX_GENERATE_GPU_PROJECTS=TRUE', '-DPX_BUILDPVDRUNTIME=TRUE', '-DPX_BUILDSNIPPETS=FALSE')
+        '-DPX_GENERATE_GPU_PROJECTS=TRUE', f'-DPX_DESTRUCTION_CUDA_ARCHITECTURES={args.cuda_architectures}', '-DPX_BUILDPVDRUNTIME=TRUE', '-DPX_BUILDSNIPPETS=FALSE')
     run('cmake', '--build', out / 'sdk-release', '--target', *TARGETS, f'-j{args.jobs}')
     run('cmake', '-S', ROOT / 'destruction', '-B', out / 'destruction-sdk',
         '-DCMAKE_BUILD_TYPE=Release', f'-DCMAKE_CXX_COMPILER={args.cxx}',
@@ -48,7 +48,7 @@ def main():
     run('cmake', '--build', out / 'destruction-sdk', f'-j{args.jobs}')
     run('cmake', '--install', out / 'destruction-sdk')
     lib = sdk / 'bin/linux.x86_64/release'
-    names = ['libPhysXGpuActivity_64.so', 'libPVDRuntime_64.so'] + [
+    names = ['libPhysXDestructionGpuRuntime_64.so', 'libPhysXGpuActivity_64.so', 'libPVDRuntime_64.so'] + [
         f'lib{target}_static_64.a' for target in TARGETS if target not in ('PhysXGpu', 'PVDRuntime')]
     manifest = {'source_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                 'libraries': {name: hashlib.sha256((lib / name).read_bytes()).hexdigest() for name in names}}

@@ -349,6 +349,7 @@ class NpScene : public NpSceneAccessor, public PxUserAllocated
 	virtual			PxSolverType::Enum				getSolverType()	const	PX_OVERRIDE PX_FINAL;
 
 	virtual 		PxDirectGPUAPI&					getDirectGPUAPI()	PX_OVERRIDE	PX_FINAL;
+    virtual PxDestructionScene* getDestructionScene() PX_OVERRIDE PX_FINAL;
 
 	// NpSceneAccessor
 	virtual			PxsSimulationController*		getSimulationController()	PX_OVERRIDE PX_FINAL;

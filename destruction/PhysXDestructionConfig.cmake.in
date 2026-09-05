@@ -6,6 +6,32 @@ if(@BLAST_ENABLE_CUDA_STRESS@)
     include("${CMAKE_CURRENT_LIST_DIR}/../PhysXDestructionTopology/PhysXDestructionTopologyTargets.cmake")
 endif()
 
+# Native applications advance destruction through PxScene and need no Blast
+# adapter or application CUDA runtime. PhysX loads its GPU module at runtime.
+if(NOT TARGET PhysXDestruction::NativeScene)
+    add_library(PhysXDestruction::NativeScene INTERFACE IMPORTED)
+    set(_pxn_lib "${PACKAGE_PREFIX_DIR}/lib")
+    set_property(TARGET PhysXDestruction::NativeScene PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+        "${PACKAGE_PREFIX_DIR}/include/physx")
+    set_property(TARGET PhysXDestruction::NativeScene PROPERTY INTERFACE_COMPILE_DEFINITIONS
+        "PX_PHYSX_STATIC_LIB;$<IF:$<CONFIG:Debug>,_DEBUG,NDEBUG>")
+    set(_pxn_links "-Wl,--start-group")
+    foreach(_pxn_name PhysXExtensions PhysXCudaContextManager PhysX PhysXPvdSDK PhysXCooking PhysXCommon PhysXFoundation)
+        list(APPEND _pxn_links "${_pxn_lib}/lib${_pxn_name}_static_64.a")
+    endforeach()
+    list(APPEND _pxn_links "-Wl,--end-group" "${_pxn_lib}/libPVDRuntime_64.so" Threads::Threads ${CMAKE_DL_LIBS})
+    if(TARGET CUDA::cuda_driver)
+        list(APPEND _pxn_links CUDA::cuda_driver)
+    else()
+        list(APPEND _pxn_links cuda)
+    endif()
+    set_property(TARGET PhysXDestruction::NativeScene PROPERTY INTERFACE_LINK_LIBRARIES "${_pxn_links}")
+    set_property(TARGET PhysXDestruction::NativeScene PROPERTY INTERFACE_LINK_OPTIONS "-Wl,-rpath,${_pxn_lib}")
+    unset(_pxn_links)
+    unset(_pxn_name)
+    unset(_pxn_lib)
+endif()
+
 if(NOT TARGET PhysXDestruction::Sdk)
     add_library(PhysXDestruction::Sdk INTERFACE IMPORTED)
     set(_pxd_root "${PACKAGE_PREFIX_DIR}")

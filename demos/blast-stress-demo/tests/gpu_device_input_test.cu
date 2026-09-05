@@ -62,12 +62,27 @@ struct Producer
         check(cudaEventRecord(ready, stream));
     }
 };
-void compare(ExtStressGpuSolver& a, ExtStressGpuSolver& b, const char* phase)
+void compare(ExtStressGpuSolver& a, ExtStressGpuSolver& b, const char* phase, bool asynchronous = false)
 {
     require(a.bondCount() == b.bondCount(), "bond count differs");
     std::vector<ExtStressGpuImpulse> expected(a.bondCount()), actual(a.bondCount());
     require(a.readbackImpulses(expected.data(), expected.size()), "reference readback failed");
-    require(b.readbackImpulses(actual.data(), actual.size()), "device readback failed");
+    if (asynchronous)
+    {
+        const auto view = b.deviceView();
+        require(view.bondCount == actual.size() && view.bondImpulses && view.readyEvent,
+            "invalid asynchronous device view");
+        cudaStream_t observer; cudaEvent_t consumed;
+        check(cudaStreamCreateWithFlags(&observer, cudaStreamNonBlocking));
+        check(cudaEventCreateWithFlags(&consumed, cudaEventDisableTiming));
+        check(cudaStreamWaitEvent(observer, reinterpret_cast<cudaEvent_t>(view.readyEvent), 0));
+        check(cudaMemcpyAsync(actual.data(), view.bondImpulses, actual.size()*sizeof(actual[0]),
+            cudaMemcpyDeviceToHost, observer));
+        check(cudaEventRecord(consumed, observer));
+        check(cudaEventSynchronize(consumed));
+        check(cudaEventDestroy(consumed)); check(cudaStreamDestroy(observer));
+    }
+    else require(b.readbackImpulses(actual.data(), actual.size()), "device readback failed");
     float peak = 0.0f, error = 0.0f;
     for (unsigned i = 0; i < expected.size(); ++i)
     {
@@ -149,6 +164,51 @@ int main()
         run(2, true, "topology invalidates settled inputs");
         params.warmStart = false;
         run(1, true, "cold restart after removal");
+        params.skipSettledIslands = false;
+        require(device->prepareDeviceSolve(), "resident preparation failed");
+        for (unsigned revision : {0u, 0u, 3u, 1u})
+        {
+            std::vector<ExtStressGpuImpulse> inputs(count);
+            for (unsigned i=0; i<count; ++i) inputs[i]=load(i, revision);
+            producer.submit(revision);
+            require(device->solveDeviceAsync(producer.values, count, params, producer.ready),
+                "asynchronous solve failed");
+            const auto& telemetry = device->telemetry();
+            require(telemetry.hostToDeviceBytes == 0 && telemetry.deviceToHostBytes == 0,
+                "asynchronous stress solve transferred host data");
+            require(host->solve(inputs.data(), params), "async reference solve failed");
+            compare(*host, *device, "event-ordered resident forces", true);
+            params.warmStart = true;
+        }
+        auto rejected=params; rejected.applyDamage=true;
+        require(!device->solveDeviceAsync(producer.values,count,rejected), "async damage silently accepted");
+        rejected=params; rejected.skipSettledIslands=true;
+        require(!device->solveDeviceAsync(producer.values,count,rejected), "host scheduling silently accepted");
+        require(device->removeBond(0) && host->removeBond(0), "async topology removal failed");
+        require(!device->solveDeviceAsync(producer.values,count,params), "dirty topology silently accepted");
+        require(device->prepareDeviceSolve(), "changed resident graph preparation failed");
+        producer.submit(2);
+        require(device->solveDeviceAsync(producer.values,count,params,producer.ready), "changed async graph failed");
+        std::vector<ExtStressGpuImpulse> inputs(count);
+        for(unsigned i=0;i<count;++i) inputs[i]=load(i,2);
+        require(host->solve(inputs.data(),params), "changed reference graph failed");
+        compare(*host,*device,"resident topology refresh",true);
+        run(1, false, "async to CPU-input compatibility");
+        // A long quiet interval must not certify a subsequent changed load.
+        ExtStressGpuNode quietNodes[2]={{{0,-1,0},0,0},{{0,0,0},2,1}};
+        ExtStressGpuBond quietBond{};quietBond.node0=0;quietBond.node1=1;quietBond.centroid[1]=-0.5f;
+        Solver quietHost(ExtStressGpuSolver::create(quietNodes,2,&quietBond,1));
+        Solver quietDevice(ExtStressGpuSolver::create(quietNodes,2,&quietBond,1));
+        require(quietDevice->prepareDeviceSolve(),"quiet graph preparation failed");
+        for(unsigned tick=0;tick<34;++tick) {
+            ExtStressGpuImpulse quietInputs[2]{};
+            if(tick==6) quietInputs[1].linear={100,10,20};
+            if(tick==33) quietInputs[1].linear={-3.36383f,-9.21525f,0};
+            check(cudaMemcpy(producer.values,quietInputs,sizeof(quietInputs),cudaMemcpyHostToDevice));
+            require(quietDevice->solveDeviceAsync(producer.values,2,params),"quiet async solve failed");
+            require(quietHost->solve(quietInputs,params),"quiet host solve failed");
+            if(tick==33)compare(*quietHost,*quietDevice,"gravity after quiet interval",true);
+        }
         std::puts("device input regression passed");
         return 0;
     }

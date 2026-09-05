@@ -86,6 +86,7 @@ SET(PHYSX_HEADERS
 	${PHYSX_ROOT_DIR}/include/PxRigidDynamic.h
 	${PHYSX_ROOT_DIR}/include/PxRigidStatic.h
 	${PHYSX_ROOT_DIR}/include/PxScene.h
+	${PHYSX_ROOT_DIR}/include/PxDestructionScene.h
 	${PHYSX_ROOT_DIR}/include/PxSceneDesc.h
 	${PHYSX_ROOT_DIR}/include/PxSceneLock.h
 	${PHYSX_ROOT_DIR}/include/PxSceneQueryDesc.h

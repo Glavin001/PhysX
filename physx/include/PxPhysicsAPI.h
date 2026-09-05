@@ -176,6 +176,7 @@ Alternatively, one can instead directly #include a subset of the below files.
 #include "PxRigidDynamic.h"
 #include "PxRigidStatic.h"
 #include "PxScene.h"
+#include "PxDestructionScene.h"
 #include "PxSceneDesc.h"
 #include "PxSceneLock.h"
 #include "PxShape.h"

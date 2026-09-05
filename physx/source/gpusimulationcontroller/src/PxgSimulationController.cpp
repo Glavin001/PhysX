@@ -1,3 +1,4 @@
+#include "PxgDestructionRuntime.h"
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -230,6 +231,7 @@ namespace physx
 
 	PxgSimulationController::~PxgSimulationController()
 	{
+        if(mDestruction) mDestruction->release();
         {
             PxScopedCudaLock lock(*mCudaContextManager);
             PxCudaContext* cuda = mCudaContextManager->getCudaContext();
@@ -620,6 +622,43 @@ namespace physx
 
 		return artiCore->computeArticulationData(data, gpuIndices, operation, nbElements, mMaxLinks, mMaxDofs, startEvent, finishEvent);
 	}
+
+    PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*))
+    {
+        if(!mDestruction)
+            mDestruction = PxCreateDestructionRuntime(mCudaContextManager->getContext(), scene, gate);
+        return mDestruction;
+    }
+
+    void PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity)
+    {
+        if(!mDestruction) return;
+        if(!mDestruction->configured())
+        {
+            mDestructionError = mDestruction->finish() ? 0 : 1;
+            return;
+        }
+        PX_PROFILE_ZONE("GpuDestruction.contactStress", 0);
+        const PxU32 pairs = mNpContext->getGpuNarrowphaseCore()->mTotalNumPairs;
+        bool ok = mDestruction->prepareFrame(pairs);
+        CUevent ready = mDestruction->inputEvent();
+        if(ok && pairs)
+            ok = copyContactData(mDestruction->contactPairs(), mDestruction->contactCount(), pairs, ready, ready);
+        if(ok)
+            ok = getRigidDynamicData(mDestruction->poses(), mDestruction->bodyIndices(),
+                PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE, mDestruction->clusterCount(), ready, ready);
+        if(ok)
+            ok = getRigidDynamicData(mDestruction->angularVelocities(), mDestruction->bodyIndices(),
+                PxRigidDynamicGPUAPIReadType::eANGULAR_VELOCITY, mDestruction->clusterCount(), ready, ready);
+        if(ok) ok = mDestruction->advance(dt, gravity);
+        // Complete before contact buffers can be recycled or the scene is
+        // published. No node, bond, or contact arrays are read back to the CPU.
+        const bool complete = mDestruction->finish();
+        mDestructionError = ok && complete ? 0 : 1;
+        if(mDestructionError)
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                "Native GPU destruction stage failed; this simulation step is incomplete.");
+    }
 
 	bool PxgSimulationController::copyContactData(void* PX_RESTRICT data, PxU32* PX_RESTRICT numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent copyEvent)
 	{

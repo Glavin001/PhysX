@@ -235,7 +235,7 @@ bool NpScene::fetchResults(bool block, PxU32* errorState)
 		PX_PROFILE_STOP_CROSSTHREAD("Basic.simulate", getContextId());
 
 		if(errorState)
-			*errorState = 0;
+			*errorState = mScene.getSimulationController()->getDestructionError();
 
 #if PX_SUPPORT_OMNI_PVD
 		OmniPvdPxSampler* omniPvdSampler = NpPhysics::getInstance().mOmniPvdSampler;
@@ -552,7 +552,7 @@ bool NpScene::fetchResults(bool block, PxU32* errorState)
 #if PX_SUPPORT_PVD
 	mScenePvdClient.frameEnd();
 #endif
-	return true;
+	return mScene.getSimulationController()->getDestructionError() == 0;
 }
 
 bool NpScene::fetchResultsStart(const PxContactPairHeader*& contactPairs, PxU32& nbContactPairs, bool block)
@@ -668,7 +668,7 @@ void NpScene::fetchResultsFinish(PxU32* errorState)
 		fetchResultsPostContactCallbacks();
 
 		if (errorState)
-			*errorState = 0;
+			*errorState = mScene.getSimulationController()->getDestructionError();
 
 		PX_PROFILE_STOP_CROSSTHREAD("Basic.fetchResults", getContextId());
 		PX_PROFILE_STOP_CROSSTHREAD("Basic.simulate", getContextId());

@@ -3823,6 +3823,17 @@ void NpScene::setDeformableVolumeGpuPostSolveCallback(PxPostSolveCallback* postS
 	mScene.setDeformableVolumeGpuPostSolveCallback(postSolveCallback);
 }
 
+PxDestructionScene* NpScene::getDestructionScene()
+{
+    NP_WRITE_CHECK(this);
+    if(isAPIWriteForbidden() || !(mScene.getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+        || (mScene.getFlags() & PxSceneFlag::eENABLE_CCD))
+        return NULL;
+    return mScene.getSimulationController()->getDestructionScene(this, [](void* scene) {
+        return !static_cast<NpScene*>(scene)->isAPIWriteForbidden();
+    });
+}
+
 PxDirectGPUAPI& NpScene::getDirectGPUAPI()
 {
 #if PX_SUPPORT_GPU_PHYSX

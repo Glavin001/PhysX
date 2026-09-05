@@ -1,8 +1,10 @@
 # First-class GPU destruction implementation
 
 **The complete plan is not implemented or qualified yet.** The repository now
-contains a buildable reference SDK plus GPU topology/motion foundations. These
-foundations do not yet drive the PhysX collision/constraint solver.
+contains a buildable reference SDK, a native scene GPU contact/stress stage, and
+GPU topology/motion foundations. The topology foundations do not yet drive the
+PhysX collision/constraint solver. The native stress stage does not commit fracture
+or perform internal correction; see [NATIVE_GPU_STRESS.md](NATIVE_GPU_STRESS.md).
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). Contact-stress/correction fidelity fixes and their unresolved
@@ -32,6 +34,13 @@ into the scene lifecycle. Its immutable chunk records describe mass properties;
 cooked collision geometry and persistent shape ownership are not implemented by
 that primitive. The reference retains its existing GPU stress solver.
 
+The new native scene stage bypasses the reference adapter for GPU contact load
+assembly and stress solving. Its CPU work is configuration, task submission,
+capacity growth and a compact status observation; it does not yet apply fracture.
+The new native and solver regressions bring the native suite to 35/39 passing,
+with the four existing failures unchanged. The quiet-load recurrence correction
+is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
+
 ## Completed and verified work
 
 - Cloned fork main at `4f2103c3a9052906296defb12166753450ef787c`; created both branches.
@@ -59,12 +68,13 @@ that primitive. The reference retains its existing GPU stress solver.
 
 ## Remaining completion gates
 
-- Scene-attached `PxDestructionScene` and SDK-wide stable generation-bearing
-  structure/chunk/cluster handles, removal/reinsertion and crush ancestry.
+- Complete the initial scene-attached `PxDestructionScene` beyond stress bindings:
+  SDK-wide stable generation-bearing structure/chunk/cluster handles,
+  removal/reinsertion and crush ancestry.
 - Engine-owned persistent collision geometry and GPU shape/cluster rebinding;
   new fragment pair eligibility and contact/constraint cache invalidation.
-- GPU stress load preparation and the complete material/crush/fracture verdict
-  integrated into PhysX's task graph. No predicted breakage is permitted.
+- Connect the native GPU contact/stress stage to the complete material/crush/
+  fracture verdict and GPU topology ownership. No predicted breakage is permitted.
 - Full internal correction of all participants and joints, state/damage/command
   transaction accounting, committed-only event publication, and explicit errors
   for incomplete steps. Existing external replay is still the reference.

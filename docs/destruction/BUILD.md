@@ -1,9 +1,10 @@
 # Building the destruction SDK
 
 This checkout builds the PhysX GPU engine, imported destruction reference SDK,
-and new GPU topology/motion primitives. The engine-integrated destruction backend
-is still under implementation; this build does not provide a finished
-`PxDestructionScene`.
+new GPU topology/motion primitives, and a native scene GPU stress stage. The
+engine-integrated destruction backend is still under implementation; the initial
+`PxDestructionScene` stress API is described in [NATIVE_GPU_STRESS.md](NATIVE_GPU_STRESS.md)
+and does not yet commit fractures or perform internal correction.
 
 Linux prerequisites: CMake >= 3.24, a C++ compiler, CUDA toolkit, NVIDIA driver.
 The current qualification target is the RTX 4090 (CUDA architecture 89).
@@ -24,6 +25,10 @@ An external CMake consumer can use:
 find_package(PhysXDestruction CONFIG REQUIRED)
 target_link_libraries(my_app PRIVATE PhysXDestruction::Sdk)
 ```
+
+Native scene applications can link `PhysXDestruction::NativeScene` to use
+`PxScene::getDestructionScene()` without the external Blast adapter or application
+CUDA runtime. The complete SDK/reference target above remains compatible.
 
 Configure with `-DCMAKE_PREFIX_PATH=/path/to/sdk/install`. CPU and GPU consumer
 execution is covered by `tests/destruction/package-consumer`; both have been
