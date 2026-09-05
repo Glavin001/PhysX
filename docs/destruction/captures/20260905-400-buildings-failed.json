@@ -1,0 +1,179 @@
+{
+  "validationPassed": false,
+  "validationFailures": [
+    "split continuity exceeded reference tolerance"
+  ],
+  "continuity": {
+    "maxPositionDriftMetres": 4.278e-05,
+    "maxPointVelocityDriftMps": 0.00103771,
+    "tolerance": 0.001
+  },
+  "backend": "reference: PhysX GPU + CUDA stress, CPU fracture/replay orchestration",
+  "qualification": "development capture only; not an isolated performance campaign",
+  "steps": 720,
+  "chunks": 25600,
+  "authoredBonds": null,
+  "buildings": 400,
+  "finalBodies": 18636,
+  "peakDestructionBodies": 18636,
+  "peakAwakeDestructionBodies": 14993,
+  "peakDestructionBodiesAndLaunchedProjectiles": 19436,
+  "projectilesRetainedAtEnd": 800,
+  "splits": 3757,
+  "crushedChunks": 1759,
+  "motion": {
+    "structuresWithMovedChunks": 400,
+    "structuresWithFallenChunks": 400,
+    "movedChunks": 22061,
+    "fallenChunks": 20759,
+    "farTravelingChunks": 20655,
+    "dynamicChunks": 22187,
+    "movingChunks": 2799,
+    "supportedRemainderChunks": 1654,
+    "maximumDisplacement": 64.0615,
+    "maximumDownwardDisplacement": 9.60144
+  },
+  "tuning": {
+    "projectileMass": 16000,
+    "projectileSpeed": 36,
+    "projectileRadius": 0.5,
+    "projectileLifetimeSeconds": 3.2,
+    "projectileWaves": 2,
+    "projectileLaunchWindowSeconds": 7,
+    "keepProjectiles": true,
+    "projectilePattern": "overhead",
+    "forwardWaveMassKg": 16000,
+    "oppositeWaveMassKg": 18400,
+    "forwardWaveLaunchSpeedMps": 37.8,
+    "oppositeWaveLaunchSpeedMps": 32.4,
+    "projectileCount": 800,
+    "contactForceScale": 1,
+    "minimumStressContactImpulse": 0,
+    "stressLimitScale": 1,
+    "excessForceScale": 0.017,
+    "maximumBodiesPerStructure": 0,
+    "maximumFracturesPerActorPerTick": 0,
+    "tallBuildingStride": 0
+  },
+  "simulationSeconds": 12.0,
+  "simulationWallSeconds": 235.348,
+  "processedContacts": 290855688,
+  "peakContactsPerStep": 3286314,
+  "stressTransferBytes": {
+    "gpu_stress_h2d_bytes": 808902492,
+    "gpu_stress_d2h_bytes": 500869316
+  },
+  "timingPhasesOverlap": true,
+  "phaseMilliseconds": {
+    "frame_host_ms": {
+      "p50": 256.926,
+      "p95": 996.36,
+      "p99": 1548.8,
+      "worst": 2534.53,
+      "total": 235332.62743,
+      "missed16_67ms": 573
+    },
+    "physics_step_ms": {
+      "p50": 79.8049,
+      "p95": 325.789,
+      "p99": 521.038,
+      "worst": 870.644,
+      "total": 78068.250672,
+      "missed16_67ms": 564
+    },
+    "stress_solve_ms": {
+      "p50": 411.453,
+      "p95": 1044.28,
+      "p99": 1489.83,
+      "worst": 2143.81,
+      "total": 337371.27888,
+      "missed16_67ms": 573
+    },
+    "gpu_stress_solve_ms": {
+      "p50": 173.271,
+      "p95": 457.59,
+      "p99": 632.097,
+      "worst": 889.221,
+      "total": 146739.35938,
+      "missed16_67ms": 570
+    },
+    "contact_processing_ms": {
+      "p50": 27.2048,
+      "p95": 99.6285,
+      "p99": 158.433,
+      "worst": 258.736,
+      "total": 24377.746802,
+      "missed16_67ms": 392
+    },
+    "fracture_topology_ms": {
+      "p50": 0.66971,
+      "p95": 3.55478,
+      "p99": 5.12444,
+      "worst": 8.0965,
+      "total": 711.222435,
+      "missed16_67ms": 0
+    },
+    "state_export_ms": {
+      "p50": 6.10624,
+      "p95": 7.30637,
+      "p99": 8.18698,
+      "worst": 8.54153,
+      "total": 3196.562536,
+      "missed16_67ms": 0
+    },
+    "resim_capture_ms": {
+      "p50": 4.90659,
+      "p95": 22.919,
+      "p99": 36.4877,
+      "worst": 60.8137,
+      "total": 5707.707212,
+      "missed16_67ms": 99
+    },
+    "resim_restore_ms": {
+      "p50": 69.2408,
+      "p95": 384.383,
+      "p99": 619.889,
+      "worst": 1022.93,
+      "total": 75326.12942,
+      "missed16_67ms": 415
+    },
+    "resim_simulate_submit_ms": {
+      "p50": 0.01115,
+      "p95": 0.090429,
+      "p99": 0.12753,
+      "worst": 0.193561,
+      "total": 16.709126,
+      "missed16_67ms": 0
+    },
+    "resim_fetch_results_ms": {
+      "p50": 51.8221,
+      "p95": 281.566,
+      "p99": 477.597,
+      "worst": 821.011,
+      "total": 57023.43566,
+      "missed16_67ms": 412
+    },
+    "resim_tick_ms": {
+      "p50": 47.3709,
+      "p95": 201.071,
+      "p99": 314.484,
+      "worst": 505.552,
+      "total": 43682.25921,
+      "missed16_67ms": 411
+    }
+  },
+  "projectileImpulseNs": 612127000.0,
+  "correctionPasses": 1485,
+  "incompleteSteps": 0,
+  "droppedContacts": 0,
+  "frozenOutsiders": 0,
+  "gpuStressMilliseconds": 147339,
+  "frameHostMilliseconds": {
+    "p50": 256.926,
+    "p95": 996.36,
+    "p99": 1548.8,
+    "worst": 2534.53,
+    "total": 235332.62743,
+    "missed16_67ms": 573
+  }
+}

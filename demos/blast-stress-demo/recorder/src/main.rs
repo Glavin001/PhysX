@@ -51,6 +51,18 @@ pub struct PresentationArgs {
     /// Draw a reference ground surface at this world Y (rendering only).
     #[arg(long, allow_hyphen_values = true)]
     ground_y: Option<f32>,
+
+    /// Extra horizontal framing margin as a fraction of the initial scene span.
+    #[arg(long, default_value_t = 0.5)]
+    camera_margin: f32,
+
+    /// Center a neighborhood view at world X Y Z; affects rendering only.
+    #[arg(long, num_args = 3, allow_hyphen_values = true)]
+    focus_center: Vec<f32>,
+
+    /// Horizontal half-width of the neighborhood framing box in metres.
+    #[arg(long, default_value_t = 30.0)]
+    focus_radius: f32,
 }
 
 #[derive(Args)]

@@ -36,6 +36,7 @@ pub struct SimulationFrame {
     pub contacts_frame: u64,
     pub contacts_total: u64,
     pub contacts_dropped_total: u64,
+    pub projectiles_active: Option<u64>,
     pub projectile_impacts_frame: u64,
     pub projectile_impacts_total: u64,
     pub projectile_impulse_frame: f64,
@@ -150,6 +151,11 @@ impl SimulationTelemetry {
                 contacts_frame: parse_u64("contacts_frame")?,
                 contacts_total: parse_u64("contacts_total")?,
                 contacts_dropped_total: parse_u64("contacts_dropped_total")?,
+                projectiles_active: if columns.contains_key("projectiles_active") {
+                    Some(parse_u64("projectiles_active")?)
+                } else {
+                    None
+                },
                 projectile_impacts_frame: parse_optional_f64("projectile_impacts_frame")? as u64,
                 projectile_impacts_total: parse_optional_f64("projectile_impacts_total")? as u64,
                 projectile_impulse_frame: parse_optional_f64("projectile_impulse_frame")?,

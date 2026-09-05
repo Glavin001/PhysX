@@ -1,0 +1,18 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start  1: blast_stress_physx_cpu_contract
+1/6 Test  #1: blast_stress_physx_cpu_contract ........   Passed    0.09 sec
+    Start  2: blast_stress_physx_resim_penetration
+2/6 Test  #2: blast_stress_physx_resim_penetration ...   Passed    0.12 sec
+    Start  3: blast_stress_physx_resim_baseline
+3/6 Test  #3: blast_stress_physx_resim_baseline ......   Passed    0.13 sec
+    Start  4: blast_stress_physx_resim_snapshot
+4/6 Test  #4: blast_stress_physx_resim_snapshot ......   Passed    0.01 sec
+    Start  6: blast_stress_velocity_fidelity_gpu
+5/6 Test  #6: blast_stress_velocity_fidelity_gpu .....   Passed    0.43 sec
+    Start 26: blast_stress_gpu_crush_correction
+6/6 Test #26: blast_stress_gpu_crush_correction ......   Passed    0.79 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =   1.58 sec

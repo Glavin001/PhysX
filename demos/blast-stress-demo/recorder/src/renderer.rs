@@ -643,10 +643,36 @@ async fn render_recording_async(
             if presentation.camera.is_some() {
                 // Leave room around the authored structure for the incoming
                 // projectile and falling fragments. Do not chase moving rubble.
-                let margin = (bounds.maximum - bounds.minimum).max_element() * 0.5;
+                anyhow::ensure!(
+                    presentation.camera_margin.is_finite() && presentation.camera_margin >= 0.0,
+                    "camera margin must be finite and nonnegative"
+                );
+                let margin =
+                    (bounds.maximum - bounds.minimum).max_element() * presentation.camera_margin;
                 bounds.minimum -= Vec3::new(margin, 0.0, margin);
                 bounds.minimum.y = presentation.ground_y.unwrap_or(bounds.minimum.y);
                 bounds.maximum += Vec3::new(margin, 0.0, margin);
+            }
+            if !presentation.focus_center.is_empty() {
+                anyhow::ensure!(
+                    presentation.focus_center.len() == 3
+                        && presentation.focus_center.iter().all(|v| v.is_finite())
+                        && presentation.focus_radius.is_finite()
+                        && presentation.focus_radius > 0.0,
+                    "focus requires a finite XYZ center and positive radius"
+                );
+                let center = Vec3::new(
+                    presentation.focus_center[0],
+                    presentation.focus_center[1],
+                    presentation.focus_center[2],
+                );
+                let radius = presentation.focus_radius;
+                bounds.minimum = Vec3::new(
+                    center.x - radius,
+                    presentation.ground_y.unwrap_or(0.0),
+                    center.z - radius,
+                );
+                bounds.maximum = Vec3::new(center.x + radius, center.y + 10.0, center.z + radius);
             }
             orbit_camera = Some(OverviewOrbitCamera::new(
                 state.header.cameras[0],
@@ -1116,12 +1142,15 @@ fn write_staging_frame(
     if presentation.compact_hud {
         if let Some(sample) = simulation {
             lines.push(format!(
-                "t={:5.2}s | bodies={} | splits={} | crushed={} | contact impulse={:.0} N s",
+                "t={:5.2}s | bodies={} | splits={} | crushed={} | launched balls={} | contacts={}",
                 sample.simulation_seconds,
                 sample.bodies,
                 sample.splits_total,
                 sample.chunks_crushed_total.unwrap_or(0),
-                sample.projectile_impulse_total
+                sample
+                    .projectiles_active
+                    .map_or_else(|| "unknown".to_owned(), |n| n.to_string()),
+                sample.contacts_frame
             ));
             lines.push(format!(
                 "captured step={:.2} ms | correction passes={} | incomplete={} | offline rendering",

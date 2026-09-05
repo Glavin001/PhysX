@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENES = {
     "wall": ("blast/blast-stress-solver/assets/reference/crush-wall.json", 8, 1, 1.4),
     "building": ("blast/blast-stress-solver/assets/reference/reference-building-crush.json", 10, 8, 1),
+    "city": ("blast/blast-stress-solver/assets/reference/reference-building-crush.json", 58, 8, 2),
 }
 
 
@@ -54,8 +55,8 @@ def validate_capture(metadata_path, frames_path):
             "capture contains no actual projectile impulse")
     require(data["splits"] > 0 and data["destructionMotion"]["movedChunks"] > 0,
             "capture contains no visible fracture motion")
-    require(data["maxSplitWorldPositionDrift"] <= 1e-3 and
-            data["maxSplitPointVelocityDrift"] <= 1e-3, "split continuity exceeded reference tolerance")
+    continuity_passed = (data["maxSplitWorldPositionDrift"] <= 1e-3 and
+                         data["maxSplitPointVelocityDrift"] <= 1e-3)
     required = ["step", "simulation_seconds", "frame_host_ms", "gpu_stress_solve_ms",
                 "correction_status", "resim_bodies_frozen", "contacts_dropped_total",
                 "splits_total", "chunks_crushed_total", "resim_passes"]
@@ -69,21 +70,52 @@ def validate_capture(metadata_path, frames_path):
         if float(row["simulation_seconds"]) < 2:
             require(int(row["splits_total"]) == 0 and int(row["chunks_crushed_total"]) == 0,
                     "structure changed topology before projectile launch")
-    times = sorted(float(row["frame_host_ms"]) for row in rows)
-    def percentile(p):
-        return times[max(0, math.ceil(p * len(times)) - 1)]
+    def timing_summary(values):
+        values = sorted(values)
+        def percentile(p):
+            return values[max(0, math.ceil(p * len(values)) - 1)]
+        return {"p50": percentile(.5), "p95": percentile(.95), "p99": percentile(.99),
+                "worst": values[-1], "total": sum(values),
+                "missed16_67ms": sum(t > 1000 / 60 for t in values)}
+    if data["tuning"].get("keepProjectiles"):
+        active = [int(row["projectiles_active"]) for row in rows]
+        require(all(a <= b for a, b in zip(active, active[1:])), "launched projectiles were retired")
+        require(active[-1] == data["tuning"]["projectileCount"], "not all projectiles launched")
+    phases = ["frame_host_ms", "physics_step_ms", "stress_solve_ms", "gpu_stress_solve_ms",
+              "contact_processing_ms", "fracture_topology_ms", "state_export_ms",
+              "resim_capture_ms", "resim_restore_ms", "resim_simulate_submit_ms",
+              "resim_fetch_results_ms", "resim_tick_ms"]
     return {
+        "validationPassed": continuity_passed,
+        "validationFailures": [] if continuity_passed else ["split continuity exceeded reference tolerance"],
+        "continuity": {"maxPositionDriftMetres": data["maxSplitWorldPositionDrift"],
+                       "maxPointVelocityDriftMps": data["maxSplitPointVelocityDrift"],
+                       "tolerance": 1e-3},
         "backend": "reference: PhysX GPU + CUDA stress, CPU fracture/replay orchestration",
         "qualification": "development capture only; not an isolated performance campaign",
         "steps": len(rows), "chunks": data["authoredChunkCount"],
-        "finalBodies": data["bodyCount"], "splits": data["splits"],
+        "authoredBonds": data.get("authoredBondCount"),
+        "buildings": data["buildingCount"],
+        "finalBodies": int(rows[-1]["bodies"]),
+        "peakDestructionBodies": max(int(r["bodies"]) for r in rows),
+        "peakAwakeDestructionBodies": max(int(r["awake_bodies"]) for r in rows),
+        "peakDestructionBodiesAndLaunchedProjectiles": max(int(r["bodies"]) + int(r["projectiles_active"]) for r in rows),
+        "projectilesRetainedAtEnd": int(rows[-1]["projectiles_active"]),
+        "splits": data["splits"], "crushedChunks": int(rows[-1]["chunks_crushed_total"]),
+        "motion": data["destructionMotion"], "tuning": data["tuning"],
+        "simulationSeconds": len(rows) / 60,
+        "simulationWallSeconds": data["wallSeconds"],
+        "processedContacts": int(rows[-1]["contacts_total"]),
+        "peakContactsPerStep": max(int(r["contacts_frame"]) for r in rows),
+        "stressTransferBytes": {k: sum(int(r[k]) for r in rows)
+                                for k in ("gpu_stress_h2d_bytes", "gpu_stress_d2h_bytes")},
+        "timingPhasesOverlap": True,
+        "phaseMilliseconds": {k: timing_summary([float(r[k]) for r in rows]) for k in phases},
         "projectileImpulseNs": data["projectileImpactImpulse"],
         "correctionPasses": correction["passesTotal"], "incompleteSteps": 0,
         "droppedContacts": 0, "frozenOutsiders": 0,
         "gpuStressMilliseconds": data["gpuStressSolveMilliseconds"],
-        "frameHostMilliseconds": {"p50": percentile(.5), "p95": percentile(.95),
-                                  "p99": percentile(.99), "worst": times[-1],
-                                  "missed16_67ms": sum(t > 1000 / 60 for t in times)},
+        "frameHostMilliseconds": timing_summary([float(r["frame_host_ms"]) for r in rows]),
     }
 
 
@@ -92,9 +124,21 @@ def main():
     parser.add_argument("--build", action="store_true", help="build this checkout's SDK and recorder first")
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--output-dir", type=Path)
-    parser.add_argument("--scenes", nargs="+", choices=SCENES, default=list(SCENES))
+    parser.add_argument("--scenes", nargs="+", choices=SCENES, default=["wall", "building"])
+    parser.add_argument("--city-grid", type=int, default=12, help="city width in buildings (1..64)")
+    parser.add_argument("--city-duration", type=float, default=58, help="bombardment + aftermath, plus 2s settling")
+    parser.add_argument("--city-waves", type=int, default=4)
+    parser.add_argument("--city-target-stride", type=int, default=1,
+                        help="attack every Nth row/column; all city structures remain simulated")
+    parser.add_argument("--render-diagnostic-on-failure", action="store_true",
+                        help="render complete captures with failed validation, label them, and exit nonzero")
+    parser.add_argument("--city-launch-window", type=float, default=48)
     args = parser.parse_args()
     require(args.jobs > 0, "jobs must be positive")
+    require(1 <= args.city_grid <= 64 and 1 <= args.city_waves <= 256, "invalid city size/waves")
+    require(math.isfinite(args.city_duration) and math.isfinite(args.city_launch_window)
+            and 0 <= args.city_launch_window < args.city_duration, "invalid city launch duration")
+    require(1 <= args.city_target_stride <= args.city_grid, "invalid target stride")
     require(len(set(args.scenes)) == len(args.scenes), "scene names must be unique")
     for program in ("ffmpeg", "ffprobe", "nvidia-smi"):
         require(shutil.which(program), f"required tool missing: {program}")
@@ -121,13 +165,14 @@ def main():
     manifest_path = output / "manifest.json"
     def save():
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-    def run(command, log_name):
+    def run(command, log_name, allow_failure=False):
         command = [str(x) for x in command]
         manifest["commands"].append(command)
         save()
         with (output / log_name).open("w") as log:
             completed = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
-        require(completed.returncode == 0, f"command failed; see {output / log_name}")
+        require(allow_failure or completed.returncode == 0, f"command failed; see {output / log_name}")
+        return completed.returncode
     try:
         for path in [sim, recorder, Path(__file__).resolve(),
                      *sorted((ROOT / "physx/bin/linux.x86_64/release").glob("*.so"))]:
@@ -142,27 +187,70 @@ def main():
                     "recording requires authored unity contact transfer")
             manifest["inputs"][relative] = digest(scene)
             prefix = output / name
+            city = name == "city"
+            if city:
+                duration = args.city_duration
+            extra = (["--projectile-pattern", "overhead", "--keep-projectiles",
+                      "--projectile-launch-window", args.city_launch_window,
+                      "--projectile-target-stride", args.city_target_stride] if city else [])
             print(f"Simulating {name} with strict GPU/correction checks", flush=True)
-            run([sim, "--scene", scene, "--physics", "gpu", "--require-gpu",
-                 "--gpu-stress", "--gpu-stress-min-bonds", "0", "--grid", "1",
-                 "--uniform-building-heights", "--duration", duration, "--settle", "2",
-                 "--projectile-waves", "1", "--projectile-mass-scale", mass,
-                 "--projectile-speed-scale", speed, "--projectile-ttl-scale", "2",
-                 "--contact-force-scale", "1", "--resim-passes", "8",
-                 "--no-scoped-resim", "--no-quiet-capture-skip", "--require-complete-correction",
-                 "--snapshot-fps", "60", "--state", prefix.with_suffix(".twstate"),
-                 "--metadata", prefix.with_suffix(".json"), "--frame-telemetry", prefix.with_suffix(".frames.csv")],
-                f"{name}.simulation.log")
+            # Sample the shared GPU throughout simulation. Stop only our sampler;
+            # never modify other processes to manufacture benchmark isolation.
+            gpu_log = (output / f"{name}.gpu.csv").open("w")
+            sampler_command = [
+                "nvidia-smi", "--query-gpu=timestamp,name,memory.used,utilization.gpu,utilization.memory,power.draw,temperature.gpu",
+                "--format=csv,nounits", "--loop-ms=500"]
+            manifest["commands"].append(sampler_command)
+            save()
+            sampler = subprocess.Popen(sampler_command, stdout=gpu_log, stderr=subprocess.STDOUT)
+            try:
+                native_exit = run([sim, "--scene", scene, "--physics", "gpu", "--require-gpu",
+                     "--gpu-stress", "--gpu-stress-min-bonds", "0", "--grid", args.city_grid if city else 1,
+                     "--uniform-building-heights", "--duration", duration, "--settle", "2",
+                     "--projectile-waves", args.city_waves if city else 1, "--projectile-mass-scale", mass,
+                     "--projectile-speed-scale", speed, "--projectile-ttl-scale", "2",
+                     "--contact-force-scale", "1", "--resim-passes", "64" if city else "8",
+                     "--no-scoped-resim", "--no-quiet-capture-skip", "--require-complete-correction",
+                     *extra, "--snapshot-fps", "60", "--state", prefix.with_suffix(".twstate"),
+                     "--metadata", prefix.with_suffix(".json"), "--frame-telemetry", prefix.with_suffix(".frames.csv")],
+                    f"{name}.simulation.log", allow_failure=args.render_diagnostic_on_failure)
+            finally:
+                sampler.terminate()
+                sampler.wait(timeout=10)
+                gpu_log.close()
             report = validate_capture(prefix.with_suffix(".json"), prefix.with_suffix(".frames.csv"))
+            require(report["steps"] == math.ceil((duration + 2) * 60), "simulation capture is incomplete")
+            report["nativeExitCode"] = native_exit
+            if native_exit:
+                report["validationPassed"] = False
+                report["validationFailures"].append(f"native contract failed (exit {native_exit}); inspect simulation log")
             (output / f"{name}.validation.json").write_text(json.dumps(report, indent=2) + "\n")
             manifest["scenes"][name] = report
             save()
-            print(f"Rendering {name}: actual captured states", flush=True)
+            require(report["validationPassed"] or args.render_diagnostic_on_failure,
+                    "; ".join(report["validationFailures"]))
+            failure_title = "VALIDATION FAILED | " if not report["validationPassed"] else ""
+            print(f"Rendering {name}: actual captured states; validationPassed={report['validationPassed']}", flush=True)
             run([recorder, "render", "--state", prefix.with_suffix(".twstate"),
                  "--frame-telemetry", prefix.with_suffix(".frames.csv"),
                  "--camera", "0", "--compact-hud", "--ground-y", "0",
-                 "--title", f"{name.upper()} | PhysX GPU + CUDA stress | CPU orchestration (reference)",
+                 "--camera-margin", "0.08" if city else "0.5",
+                 "--title", failure_title + (f"{report['chunks']:,} CHUNKS | {report['authoredBonds']:,} BONDS | "
+                             f"{report['tuning']['projectileCount']} SHOTS | PhysX GPU reference"
+                             if city else f"{name.upper()} | PhysX GPU + CUDA stress | CPU orchestration (reference)"),
                  "--output", prefix.with_suffix(".mp4")], f"{name}.render.log")
+            if city:
+                # This is a second view of the same captured world, never a smaller simulation.
+                pitch = 18.0  # native demo city spacing
+                origin = -(args.city_grid - 1) * pitch * 0.5
+                column = (args.city_grid // 2 // args.city_target_stride) * args.city_target_stride
+                row = args.city_target_stride if args.city_target_stride < args.city_grid else 0
+                run([recorder, "render", "--state", prefix.with_suffix(".twstate"),
+                     "--frame-telemetry", prefix.with_suffix(".frames.csv"), "--camera", "0",
+                     "--compact-hud", "--ground-y", "0", "--focus-center",
+                     origin + column * pitch, "8", origin + row * pitch, "--focus-radius", "30",
+                     "--title", failure_title + f"NEIGHBORHOOD VIEW | {report['chunks']:,}-chunk world | PhysX GPU reference",
+                     "--output", output / "city-detail.mp4"], "city-detail.render.log")
         # Names above are fixed identifiers; ffmpeg's concat file needs no path escaping.
         concat = output / "clips.txt"
         concat.write_text("".join(f"file '{name}.mp4'\n" for name in args.scenes))
@@ -181,12 +269,14 @@ def main():
         run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", video, "-f", "null", "-"], "decode-check.log")
         run(["nvidia-smi", "--query-gpu=name,uuid,driver_version,memory.used,utilization.gpu", "--format=csv"],
             "gpu-after.csv")
-        manifest.update(status="complete", video=str(video), videoProbe=probe,
+        all_passed = all(r["validationPassed"] for r in manifest["scenes"].values())
+        manifest.update(status="complete" if all_passed else "diagnostic-failed-validation", video=str(video), videoProbe=probe,
                         artifacts={p.name: digest(p) for p in sorted(output.iterdir())
                                    if p.is_file() and p != manifest_path})
         save()
         print(video)
         print(f"Evidence: {manifest_path}")
+        return 0 if all_passed else 2
     except Exception as error:
         manifest.update(status="failed", error=str(error))
         save()
@@ -195,7 +285,7 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except (RuntimeError, subprocess.CalledProcessError) as error:
         print(f"recording failed: {error}", file=sys.stderr)
         sys.exit(1)

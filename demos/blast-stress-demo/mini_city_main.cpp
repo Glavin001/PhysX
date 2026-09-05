@@ -69,6 +69,10 @@ struct Options
     float projectileRadiusScale{1.0f};
     float projectileTtlScale{0.4f};
     std::uint32_t projectileWaves{4};
+    std::uint32_t projectileTargetStride{1};
+    float projectileLaunchWindow{-1.0f}; // negative selects the legacy TTL-derived schedule
+    bool keepProjectiles{false};
+    std::string projectilePattern{"facade"};
     // Multiplies the pack's contactForceScale. 1.0 keeps the physically
     // correct impulse/dt transfer; deviate only to characterize sensitivity,
     // never to compensate for authored bond areas.
@@ -823,6 +827,10 @@ void usage(const char* executable)
         "  --projectile-radius-scale X  Multiply ScenePack projectile radius\n"
         "  --projectile-ttl-scale X     Multiply ScenePack projectile lifetime (default 0.4)\n"
         "  --projectile-waves N         Launch waves per building (default 4; total balls = N*grid^2)\n"
+        "  --projectile-launch-window X  Seconds between first and last launch (independent of TTL)\n"
+        "  --keep-projectiles           Keep launched balls dynamic through the entire capture\n"
+        "  --projectile-pattern NAME    facade (default) or overhead bombardment\n"
+        "  --projectile-target-stride N  Target every Nth city row/column (default 1 = all)\n"
         "  --contact-force-scale X      Multiply stress contact impulse transfer\n"
         "  --min-stress-contact-impulse X  Ignore weaker non-projectile stress feedback\n"
         "  --stress-limit-scale X       Multiply all elastic/fatal stress limits\n"
@@ -973,6 +981,12 @@ Options parseOptions(int argc, char** argv)
             options.projectileTtlScale = parseFloat(argument(), "--projectile-ttl-scale");
         else if (option == "--projectile-waves")
             options.projectileWaves = parseU32(argument(), "--projectile-waves");
+        else if (option == "--projectile-launch-window")
+            options.projectileLaunchWindow = parseFloat(argument(), "--projectile-launch-window");
+        else if (option == "--keep-projectiles") options.keepProjectiles = true;
+        else if (option == "--projectile-pattern") options.projectilePattern = argument();
+        else if (option == "--projectile-target-stride")
+            options.projectileTargetStride = parseU32(argument(), "--projectile-target-stride");
         else if (option == "--contact-force-scale")
             options.contactForceScale = parseFloat(argument(), "--contact-force-scale");
         else if (option == "--min-stress-contact-impulse")
@@ -1011,9 +1025,9 @@ Options parseOptions(int argc, char** argv)
         else if (option == "--pane-height") options.paneHeight = parseU32(argument(), "--pane-height");
         else throw std::runtime_error("unknown option: " + option);
     }
-    if (options.grid == 0 || options.grid > 20)
+    if (options.grid == 0 || options.grid > 64)
     {
-        throw std::runtime_error("--grid must be between 1 and 20");
+        throw std::runtime_error("--grid must be between 1 and 64");
     }
     if (options.stressWorkers > 64)
     {
@@ -1030,6 +1044,19 @@ Options parseOptions(int argc, char** argv)
     if (options.durationSeconds <= 0.0f || options.settleSeconds < 0.0f)
     {
         throw std::runtime_error("duration must be positive and settle must be non-negative");
+    }
+    if ((options.projectileLaunchWindow < 0.0f && options.projectileLaunchWindow != -1.0f)
+        || options.projectileLaunchWindow >= options.durationSeconds)
+    {
+        throw std::runtime_error("projectile launch window must be -1 (automatic) or within the destruction duration");
+    }
+    if (options.projectilePattern != "facade" && options.projectilePattern != "overhead")
+    {
+        throw std::runtime_error("--projectile-pattern must be facade or overhead");
+    }
+    if (options.projectileTargetStride == 0 || options.projectileTargetStride > options.grid)
+    {
+        throw std::runtime_error("--projectile-target-stride must be between 1 and the city grid size");
     }
     if (options.projectileWaves == 0 || options.projectileWaves > 256)
     {
@@ -1057,9 +1084,9 @@ Options parseOptions(int argc, char** argv)
     {
         throw std::runtime_error("--snapshot-fps must be a positive divisor of 60");
     }
-    if (options.resimPasses > 8)
+    if (options.resimPasses > 256)
     {
-        throw std::runtime_error("--resim-passes must be between 0 and 8");
+        throw std::runtime_error("--resim-passes must be between 0 and 256");
     }
     if (!options.resimAssert.empty())
     {
@@ -1469,6 +1496,13 @@ std::vector<PxVec3> buildingOffsets(std::uint32_t grid, float pitch)
     return offsets;
 }
 
+std::uint32_t projectileTargetCount(const Options& options)
+{
+    const std::uint32_t side = (options.grid + options.projectileTargetStride - 1)
+        / options.projectileTargetStride;
+    return side * side;
+}
+
 std::vector<Projectile> createProjectiles(
     PhysXScene& context,
     const ScenePack& pack,
@@ -1479,12 +1513,15 @@ std::vector<Projectile> createProjectiles(
     float settleSeconds)
 {
     const std::size_t waveCount = options.projectileWaves;
-    const std::size_t projectileCount = offsets.size() * waveCount;
+    const std::size_t projectileCount = projectileTargetCount(options) * waveCount;
     const float projectileLifetime =
         pack.projectileTtlSeconds * options.projectileTtlScale;
-    const float launchWindow =
-        options.durationSeconds - projectileLifetime - 1.0f;
-    if (projectileCount > 1 && launchWindow <= 0.0f)
+    const float launchWindow = options.projectileLaunchWindow >= 0.0f
+        ? options.projectileLaunchWindow
+        : (options.keepProjectiles ? options.durationSeconds * 0.8f
+                                   : options.durationSeconds - projectileLifetime - 1.0f);
+    if (projectileCount > 1 && (launchWindow < 0.0f
+        || (launchWindow == 0.0f && options.projectileLaunchWindow < 0.0f && !options.keepProjectiles)))
     {
         throw std::runtime_error(
             "destruction duration must exceed projectile lifetime by at least one second");
@@ -1494,19 +1531,31 @@ std::vector<Projectile> createProjectiles(
     const float launchSpacing = projectileCount > 1
         ? launchWindow / static_cast<float>(projectileCount - 1)
         : 0.0f;
+    const float skyline = *std::max_element(buildingHeights.begin(), buildingHeights.end());
     std::vector<Projectile> projectiles;
     projectiles.reserve(projectileCount);
     for (std::size_t wave = 0; wave < waveCount; ++wave)
     {
         for (std::size_t i = 0; i < offsets.size(); ++i)
         {
+            if ((i / options.grid) % options.projectileTargetStride != 0
+                || (i % options.grid) % options.projectileTargetStride != 0)
+            {
+                continue; // authored attack selection; every structure still simulates normally
+            }
             const bool opposite = (wave % 2) == 1;
             const float heightFrac = opposite ? 0.34f : (0.45f + 0.12f * static_cast<float>(wave % 3));
             const float targetHeight = std::max(1.5f, buildingHeights[i] * heightFrac);
             const PxVec3 target = offsets[i] + PxVec3(0.0f, targetHeight, 0.0f);
             const float side = opposite ? 1.0f : -1.0f;
             const float along = (static_cast<float>(wave) - 1.5f) * 1.5f;
-            const PxVec3 start = target + PxVec3(side * 12.0f, 1.5f + 0.4f * static_cast<float>(wave), along);
+            // Overhead shots start above the tallest authored structure, clear of
+            // neighboring buildings. Rotate the approach between waves; all
+            // subsequent impacts and resting balls use ordinary scene physics.
+            const PxVec3 start = options.projectilePattern == "overhead"
+                ? PxVec3(target.x + side * 5.0f, skyline + 16.0f,
+                         target.z + ((wave % 4 < 2) ? -5.0f : 5.0f))
+                : target + PxVec3(side * 12.0f, 1.5f + 0.4f * static_cast<float>(wave), along);
             const PxVec3 velocity = (target - start).getNormalized()
                 * pack.projectileSpeed
                 * options.projectileSpeedScale
@@ -1545,7 +1594,9 @@ std::vector<Projectile> createProjectiles(
             projectile.launchAt =
                 settleSeconds
                 + static_cast<float>(projectiles.size()) * launchSpacing;
-            projectile.retireAt = projectile.launchAt + projectileLifetime;
+            projectile.retireAt = options.keepProjectiles
+                ? std::numeric_limits<float>::max()
+                : projectile.launchAt + projectileLifetime;
             projectile.launchPosition = start;
             projectile.launchVelocity = velocity;
             projectiles.push_back(projectile);
@@ -2330,6 +2381,7 @@ void writeMetadata(
     double projectileImpactImpulse,
     double wallSeconds,
     std::uint32_t frameCount,
+    std::uint64_t totalAuthoredBonds,
     const std::vector<std::uint32_t>& nodesPerBuilding,
     const std::vector<std::uint32_t>& floorsPerBuilding,
     const std::vector<JointClassLoad>& loadPath)
@@ -2474,8 +2526,20 @@ void writeMetadata(
         << "    \"projectileLifetimeSeconds\": "
         << pack.projectileTtlSeconds * options.projectileTtlScale << ",\n"
         << "    \"projectileWaves\": " << options.projectileWaves << ",\n"
+        << "    \"projectileTargetStride\": " << options.projectileTargetStride << ",\n"
+        << "    \"targetBuildingCount\": " << projectileTargetCount(options) << ",\n"
+        << "    \"projectileLaunchWindowSeconds\": "
+        << (options.projectileLaunchWindow >= 0.0f ? options.projectileLaunchWindow
+            : (options.keepProjectiles ? options.durationSeconds * 0.8f
+                : options.durationSeconds - pack.projectileTtlSeconds * options.projectileTtlScale - 1.0f)) << ",\n"
+        << "    \"keepProjectiles\": " << (options.keepProjectiles ? "true" : "false") << ",\n"
+        << "    \"projectilePattern\": \"" << options.projectilePattern << "\",\n"
+        << "    \"forwardWaveMassKg\": " << pack.projectileMass * options.projectileMassScale << ",\n"
+        << "    \"oppositeWaveMassKg\": " << pack.projectileMass * options.projectileMassScale * 1.15f << ",\n"
+        << "    \"forwardWaveLaunchSpeedMps\": " << pack.projectileSpeed * options.projectileSpeedScale * 1.05f << ",\n"
+        << "    \"oppositeWaveLaunchSpeedMps\": " << pack.projectileSpeed * options.projectileSpeedScale * 0.9f << ",\n"
         << "    \"projectileCount\": "
-        << (options.grid * options.grid * options.projectileWaves) << ",\n"
+        << (projectileTargetCount(options) * options.projectileWaves) << ",\n"
         << "    \"contactForceScale\": "
         << pack.contactForceScale * options.contactForceScale << ",\n"
         << "    \"minimumStressContactImpulse\": "
@@ -2493,6 +2557,7 @@ void writeMetadata(
         << "  \"variedBuildingHeights\": "
         << (options.variedBuildingHeights ? "true" : "false") << ",\n"
         << "  \"authoredChunkCount\": " << totalAuthoredChunks << ",\n"
+        << "  \"authoredBondCount\": " << totalAuthoredBonds << ",\n"
         << "  \"minimumNodesPerBuilding\": " << minimumNodesPerBuilding << ",\n"
         << "  \"maximumNodesPerBuilding\": " << maximumNodesPerBuilding << ",\n"
         << "  \"meanNodesPerBuilding\": " << meanNodesPerBuilding << ",\n"
@@ -2700,6 +2765,7 @@ int run(const Options& options)
     visualBases.reserve(offsets.size());
     buildingHeights.reserve(offsets.size());
     std::uint32_t totalAuthoredChunks = 0;
+    std::uint64_t totalAuthoredBonds = 0;
     for (std::size_t buildingIndex = 0; buildingIndex < offsets.size(); ++buildingIndex)
     {
         std::size_t variantIndex = 0;
@@ -2725,6 +2791,7 @@ int run(const Options& options)
         visualBases.push_back(totalAuthoredChunks);
         buildingHeights.push_back(variant.height);
         totalAuthoredChunks += static_cast<std::uint32_t>(variant.pack.nodes.size());
+        totalAuthoredBonds += variant.pack.bonds.size();
     }
     if (options.requireVariedBuildingHeights)
     {
@@ -2752,10 +2819,10 @@ int run(const Options& options)
         options.minimumStressContactImpulse);
     SceneCapacity capacity;
     capacity.maxBodies = totalAuthoredChunks * 2
-        + options.grid * options.grid * options.projectileWaves
+        + projectileTargetCount(options) * options.projectileWaves
         + 1024;
     capacity.maxShapes = capacity.maxBodies
-        + options.grid * options.grid * options.projectileWaves
+        + projectileTargetCount(options) * options.projectileWaves
         + 1024;
     capacity.maxContactPairs = std::max<std::uint32_t>(65536, capacity.maxBodies * 64);
     PhysXScene context(
@@ -3502,6 +3569,7 @@ int run(const Options& options)
         contacts.projectileImpactImpulse(),
         wallSeconds,
         writtenFrames,
+        totalAuthoredBonds,
         nodesPerBuilding,
         floorsPerBuilding,
         loadPath);
@@ -3521,6 +3589,7 @@ int run(const Options& options)
             contacts.projectileImpactImpulse(),
             wallSeconds,
             writtenFrames,
+            totalAuthoredBonds,
             nodesPerBuilding,
             floorsPerBuilding,
             loadPath);
