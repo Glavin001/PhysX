@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 3
+#define PX_DESTRUCTION_SCENE_VERSION 4
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -81,15 +81,20 @@ struct PxDestructionSurfaceLoad {
 struct PxDestructionStageStatus {
     PxU64 frame;
     PxU32 error; // 1: contacts, 2: nonfinite, 4: runtime, 8: correction required,
-                 // 16: unsupported articulation strain-rate input, 32: topology transaction
+                 // 16: unsupported articulation strain-rate input, 32: topology transaction,
+                 // 64: resident stress topology update
 
     PxU32 normalContacts, frictionAnchors;
     PxU32 iterations, converged;
     PxU32 bondCommands, brokenBonds, crushedChunks;
 };
+struct PxDestructionStressTopologyStatus {
+    PxU64 generation, solvedGeneration, rebuilds;
+    PxU32 initialized, error, islandCount, activeBondCount, activeNodeCount;
+};
 struct PxDestructionDeviceView {
     const PxDestructionVectorPair* nodeAccelerations = NULL;
-    const PxDestructionVectorPair* bondForces = NULL;
+    const PxDestructionVectorPair* bondForces = NULL; // last trial solve; see stressTopology->solvedGeneration
     const PxDestructionSurfaceLoad* surfaceLoads = NULL;
     const PxDestructionStageStatus* status = NULL;
     const PxReal* bondHealth = NULL; // accepted material state
@@ -98,19 +103,24 @@ struct PxDestructionDeviceView {
     const PxDestructionCrushState* trialChunkCrush = NULL;
     const PxReal* strainRates = NULL;
     // Candidate arrays require topologyTransaction->prepared. These describe
-    // topology/motion candidates; native collision rebinding is not yet committed.
+    // topology/motion candidates. Cuts preserving every chunk's motion owner
+    // can commit; native collision rebinding for splits remains unfinished.
     // Accepted motion is initialized by the first successful native step.
     PxDestructionTopologyDeviceView acceptedTopology{};
     PxDestructionTopologyDeviceView trialTopology{};
     const PxDestructionTopologyTransactionStatus* topologyTransaction = NULL;
+    const PxDestructionStressTopologyStatus* stressTopology = NULL;
+    const PxU32* stressNodeIslands = NULL; // minimum dynamic-node labels; support/isolated = invalid
+    const PxU32* stressBondIslands = NULL;
     PxU32 chunkCount = 0, bondCount = 0;
     CUevent readyEvent = NULL;
 };
 
-// Material verdicts requiring topology correction currently return an incomplete
-// step (error bit 8). Their trial state is observable; accepted material state is
-// unchanged until native topology/motion correction is implemented. No fracture
-// is silently committed while collision ownership still describes intact bodies.
+// Material verdicts changing collision ownership/geometry return an incomplete
+// step (error bit 8); their accepted material and cluster state stay unchanged.
+// Cycle cuts preserving all chunk owners commit natively and update resident
+// stress constraints. They require no motion correction because rigid motion,
+// mass and collision geometry are unchanged. General split correction is unfinished.
 // Scene-owned. The native task graph advances the GPU stage once per ordinary
 // timestep; consumers never call a separate solve or replay function. CPU work
 // is asset setup, task submission, allocation growth and a small completion/error

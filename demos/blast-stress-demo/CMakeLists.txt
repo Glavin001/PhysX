@@ -583,6 +583,17 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(gpu_device_input_test PRIVATE NvBlastExtStressGpu)
     add_test(NAME blast_stress_gpu_device_input COMMAND gpu_device_input_test)
 
+    add_executable(gpu_stress_topology_test tests/gpu_stress_topology_test.cu)
+    set_target_properties(gpu_stress_topology_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    target_link_libraries(gpu_stress_topology_test PRIVATE NvBlastExtStressGpu)
+    add_test(NAME blast_stress_gpu_topology COMMAND gpu_stress_topology_test)
+    add_test(NAME blast_stress_gpu_topology_deterministic COMMAND gpu_stress_topology_test)
+    set_tests_properties(blast_stress_gpu_topology_deterministic PROPERTIES ENVIRONMENT "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1")
+    add_test(NAME blast_stress_gpu_topology_jacobi COMMAND gpu_stress_topology_test)
+    set_tests_properties(blast_stress_gpu_topology_jacobi PROPERTIES ENVIRONMENT "BLAST_GPU_JACOBI=1")
+    add_test(NAME blast_stress_gpu_topology_bond_space COMMAND gpu_stress_topology_test)
+    set_tests_properties(blast_stress_gpu_topology_bond_space PROPERTIES ENVIRONMENT "BLAST_GPU_NODE_SPACE=0")
+
     add_executable(gpu_stress_test tests/gpu_stress_test.cpp)
     target_include_directories(gpu_stress_test PRIVATE
         "${BLAST_ROOT}/include/extensions/stressgpu"

@@ -7,6 +7,7 @@
 #define NVBLAST_STRESS_NORMALIZATION_EPSILON float(1e-20f)
 
 #include <cub/device/device_reduce.cuh>
+#include <cub/device/device_radix_sort.cuh>
 #include <cub/device/device_select.cuh>
 #include <cub/device/device_scan.cuh>
 #include <cub/iterator/counting_input_iterator.cuh>
@@ -1714,10 +1715,13 @@ __global__ void accumulateSquaredByIsland(
 constexpr std::uint32_t kDeterministicTileSize = 1024u;
 __global__ void reduceIslandTiles(
     const float* values, const std::uint32_t* order,
-    const uint2* tiles, float* results)
+    const uint2* tiles, float* results, const std::uint32_t* tileCount)
 {
     __shared__ float partial[kBlockSize];
-    const uint2 tile = tiles[blockIdx.x];
+    const std::uint32_t end = tileCount ? *tileCount : gridDim.x;
+    for (std::uint32_t tileIndex=blockIdx.x; tileIndex<end; tileIndex+=gridDim.x)
+    {
+    const uint2 tile = tiles[tileIndex];
     float sum = 0.0f;
     for (std::uint32_t i = tile.x + threadIdx.x; i < tile.y; i += blockDim.x)
         sum += values[order[i]];
@@ -1728,7 +1732,9 @@ __global__ void reduceIslandTiles(
         if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
         __syncthreads();
     }
-    if (threadIdx.x == 0u) results[blockIdx.x] = partial[0];
+    if (threadIdx.x == 0u) results[tileIndex] = partial[0];
+    __syncthreads();
+    }
 }
 
 __device__ float sumIslandPartials(
@@ -2786,6 +2792,8 @@ struct IslandReductionOrder
     uint2* deviceTiles{nullptr};
 };
 
+#include "NvBlastExtStressGpuTopology.cuh"
+
 class ExtStressGpuSolverImpl final : public ExtStressGpuSolver
 {
 public:
@@ -2837,6 +2845,7 @@ uploadIslands();
     {
         ContextGuard context(m_cudaContext);
         cudaStreamSynchronize(m_stream);
+        delete m_deviceTopology;
         if (m_graphExec)
         {
             cudaGraphExecDestroy(m_graphExec);
@@ -3045,6 +3054,7 @@ uploadIslands();
 
     bool prepareDeviceSolve() override
     {
+        if (m_deviceTopology || m_deviceTopologyFailed) return false;
         ContextGuard context(m_cudaContext);
         if (m_topologyDirty) applyTopologyChange();
         if (!m_bondCount) return false;
@@ -3062,7 +3072,7 @@ uploadIslands();
         if (!inputs || count != m_nodeCount || !m_bondCount || !params.maxIterations
             || !std::isfinite(params.tolerance) || params.tolerance <= 0
             || params.skipSettledIslands || params.skipStableUnconverged || params.applyDamage
-            || m_topologyDirty || m_activeListsDirty || m_prevListsSkipping)
+            || m_topologyDirty || m_activeListsDirty || m_prevListsSkipping || m_deviceTopologyFailed)
             return false;
         ContextGuard context(m_cudaContext);
         if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,
@@ -3070,7 +3080,8 @@ uploadIslands();
         if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,
             reinterpret_cast<cudaEvent_t>(producerReady), 0), "wait stress producer");
         m_telemetry = {};
-        m_telemetry.islandCount = m_islandCount;
+        // The exact live island count is a device observation in this mode.
+        m_telemetry.islandCount = m_deviceTopology ? 0 : m_islandCount;
         m_telemetry.deviceToDeviceBytes = sizeof(*inputs) * std::uint64_t(count);
         m_bendGainMax = params.bendGainMax;
         m_skipStableUnconverged = false;
@@ -3082,6 +3093,7 @@ uploadIslands();
         exportPhysicalImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
             m_impulses, m_colScales, m_devicePhysicalImpulses, m_bondCount,
             m_lengthScale*m_lengthScale*m_massScale, m_lengthScale*m_massScale);
+        if (m_deviceTopology) markDeviceStressSolved<<<1,1,0,m_stream>>>(m_deviceTopology->status());
         checkCuda(cudaGetLastError(), "export resident bond forces");
         checkCuda(cudaEventRecord(m_statusReady, m_stream), "record resident stress completion");
         m_hasWarmStart = true;
@@ -3090,7 +3102,50 @@ uploadIslands();
 
     ExtStressGpuDeviceView deviceView() const override
     {
-        return {m_devicePhysicalImpulses, m_status, m_bondCount, m_statusReady};
+        return {m_devicePhysicalImpulses, m_status, m_bondCount, m_statusReady,
+            m_deviceTopology ? m_deviceTopology->status() : nullptr,
+            m_deviceTopology ? m_nodeIsland : nullptr, m_deviceTopology ? m_bondIsland : nullptr};
+    }
+
+    bool enableDeviceTopology() override
+    {
+        if (m_deviceTopologyFailed) return false;
+        if (m_deviceTopology) return true;
+        if (!prepareDeviceSolve()) return false;
+        ContextGuard context(m_cudaContext);
+        try {
+            DeviceStressTopologyBuffers buffers{m_nodeCount,m_bondCount,
+                m_node0,m_node1,m_nodeBondBegin,m_nodeBondRef,m_inertia,m_offset0,m_offset1,
+                m_colScales,m_health,m_nsJacobi,m_impulses,m_rhs,m_residual,m_projectedDirection,m_nodeIsland,m_bondIsland,
+                m_activeNodes,m_activeBonds,m_activeCounts,m_activeFlags,m_islandConverged,m_islandSkip,
+                m_selectScratch,m_selectScratchBytes,m_reductionOrder};
+            m_deviceTopology = new DeviceStressTopology(buffers);
+            m_deviceTopology->init(m_stream);
+            checkCuda(cudaStreamSynchronize(m_stream), "prepare device-owned stress topology");
+            // Sparse minimum-node island IDs need capacity-sized scalar launches.
+            // Active lists and deterministic tile counts remain device-sized.
+            m_islandCount = m_islandCapacity;
+            m_activeBondCount = m_bondCount; m_activeNodeCount = m_nodeCount;
+            m_graphParamsDirty = true;
+            m_hasWarmStart = false; m_settledBaselineValid = false; m_hostInputValid = false;
+            m_jacobiBuilt = true; // topology rebuild maintains it on the device
+            checkCuda(cudaEventRecord(m_statusReady,m_stream), "record device topology preparation");
+            return true;
+        } catch (...) { m_deviceTopologyFailed=true; return false; }
+    }
+
+    bool updateDeviceTopologyAsync(const std::uint32_t* mask, std::uint32_t count,
+        const std::uint64_t* generation, const std::uint32_t* accept,
+        void* producerReady, void* consumerDone) override
+    {
+        if (!m_deviceTopology || m_deviceTopologyFailed || !mask || !generation || count!=m_bondCount) return false;
+        ContextGuard context(m_cudaContext);
+        if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(consumerDone),0), "wait stress topology consumer");
+        if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(producerReady),0), "wait stress topology producer");
+        m_telemetry = {};
+        m_deviceTopology->submit({mask,generation,accept},m_stream);
+        checkCuda(cudaEventRecord(m_statusReady,m_stream), "record stress topology update");
+        return true;
     }
 
     bool solveInputs(
@@ -3293,7 +3348,7 @@ uploadIslands();
 
     bool removeBond(std::uint32_t bondIndex) override
     {
-        if (bondIndex >= m_bondCount)
+        if (m_deviceTopology || m_deviceTopologyFailed || bondIndex >= m_bondCount)
         {
             return false;
         }
@@ -3362,6 +3417,7 @@ uploadIslands();
 
     bool setBondStressTopology(const ExtStressGpuBondStressTopology& topology) override
     {
+        if (m_deviceTopology || m_deviceTopologyFailed) return false;
         // Every other public entry point pushes PhysX's CUDA context before
         // touching the device; these did not, so their allocations, streams
         // and launches landed in whatever context the calling thread happened
@@ -3511,6 +3567,7 @@ uploadIslands();
         float unbreakableLimit,
         ExtStressGpuBondStressResult& result) override
     {
+        if (m_deviceTopology || m_deviceTopologyFailed) return false;
         // Every other public entry point pushes PhysX's CUDA context before
         // touching the device; these did not, so their allocations, streams
         // and launches landed in whatever context the calling thread happened
@@ -4251,7 +4308,14 @@ uploadIslands();
     void resetWarmStart() override
     {
         ContextGuard context(m_cudaContext);
-        checkCuda(cudaMemset(m_impulses, 0, sizeof(AngLin) * m_bondCount), "reset warm start");
+        if (m_deviceTopology) {
+            // Order the reset behind asynchronous topology/solve work instead
+            // of racing the nonblocking solver stream through the default one.
+            checkCuda(cudaMemsetAsync(m_impulses,0,sizeof(AngLin)*m_bondCount,m_stream), "reset resident warm start");
+            checkCuda(cudaEventRecord(m_statusReady,m_stream), "record resident warm reset");
+        } else {
+            checkCuda(cudaMemset(m_impulses, 0, sizeof(AngLin) * m_bondCount), "reset warm start");
+        }
         m_hasWarmStart = false;
         // The impulses these flags certified are gone, so nothing may be
         // skipped against them.
@@ -4331,6 +4395,7 @@ private:
         const ExtStressGpuSolveParams& params,
         bool deviceInput = false, void* producerReady = nullptr)
     {
+        if (m_deviceTopology || m_deviceTopologyFailed) return false;
         // Latch the bending policy the host resolved, so every kernel this
         // solve launches uses the same one the CPU walk does.
         m_bendGainMax = params.bendGainMax;
@@ -6454,11 +6519,14 @@ private:
     {
         if (!deterministicReductionsEnabled()) return m_reduceSlots;
         const auto& order = m_reductionOrder[kind];
-        if (!order.tiles.empty())
+        if (m_deviceTopology || !order.tiles.empty())
         {
             m_kernelProfile.begin("reduceIslandTiles", stream);
-            reduceIslandTiles<<<static_cast<unsigned>(order.tiles.size()), kBlockSize, 0, stream>>>(
-                m_reductionInput, order.deviceOrder, order.deviceTiles, m_deterministicPartials);
+            const unsigned blocks = m_deviceTopology ? std::min(2560u,kind ? m_nodeCount : m_bondCount)
+                                                     : static_cast<unsigned>(order.tiles.size());
+            reduceIslandTiles<<<blocks, kBlockSize, 0, stream>>>(
+                m_reductionInput, order.deviceOrder, order.deviceTiles, m_deterministicPartials,
+                m_deviceTopology ? order.devicePartialBegin+m_islandCount : nullptr);
             m_kernelProfile.end(stream);
         }
         return m_deterministicPartials;
@@ -7358,6 +7426,8 @@ private:
     std::uint32_t m_nodeCount;
     std::uint32_t m_bondCount;
     CUcontext m_cudaContext{nullptr};
+    DeviceStressTopology* m_deviceTopology{nullptr};
+    bool m_deviceTopologyFailed{false};
     float m_massScale{1.0f};
     float m_lengthScale{1.0f};
     bool m_hasWarmStart{false};

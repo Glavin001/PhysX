@@ -3,8 +3,11 @@
 The native `PxScene` destruction task now feeds its material verdict directly
 into a persistent GPU topology transaction. This is an intermediate integration:
 **candidate clusters do not yet replace PhysX collision/solver bodies**, and the
-native internal resimulation is still unfinished. A topology-changing native
-step continues to return error bit 8, preserving accepted material and topology.
+native internal resimulation is still unfinished. Bond cuts that preserve every
+chunk's rigid owner now commit with GPU-owned stress connectivity; see
+[NATIVE_GPU_STRESS_TOPOLOGY.md](NATIVE_GPU_STRESS_TOPOLOGY.md). A native step that
+changes collision ownership or destroys chunk geometry continues to return error
+bit 8, preserving accepted material and topology.
 
 ## Data and execution
 
@@ -46,9 +49,12 @@ so preparing or discarding a candidate does not overwrite accepted motion.
 
 The transaction's `commit` operation takes a device acceptance flag. Rejection
 preserves accepted buffers; a successful commit updates connectivity, properties,
-and motion once. Repeating commit has no effect. Native PhysX does not call this
-commit yet: it first needs collision ownership rebinding, constraint/cache
-invalidation, participant checkpoint/restore, and the corrected physics solve.
+and motion once. Repeating commit has no effect. Native PhysX now calls commit
+with a GPU acceptance flag requiring every chunk to retain its active state and
+rigid owner. The stress solver consumes the accepted bond mask and generation
+without host graph readback. True splits still need collision ownership rebinding,
+constraint/cache invalidation, participant checkpoint/restore, and the corrected
+physics solve.
 Normal nonfracturing native steps update the observed accepted cluster motion.
 At configuration, topology motion starts at identity; it is a valid native motion
 observation only after a successful native step. Initial and failed-step physical
@@ -80,7 +86,7 @@ existing 40-byte stage completion/error observation.
 - Compute Sanitizer memcheck covers the transaction suite, including the large
   graph and overflow cases; its report is `out/topology-transaction-memcheck.log`.
 
-The full native suite remains **36/40 passing**, with the same four recorded
+The topology-transaction milestone passed **36/40 tests**, with the same four recorded
 baseline failures and no loosened tolerances. Installed CPU/GPU consumers for
 both the reference SDK and native scene interface pass. The source/artifact
 record is `qualification/native-scene-topology-20260905.json`; full regression
@@ -92,7 +98,11 @@ The current resimulation setting is to be one per timestep, while allowing
 additional passes as an explicit later configuration. Stress-solver iterations
 are separate. See [RESIMULATION.md](RESIMULATION.md).
 
-Required completion work remains: native collision ownership, GPU solver
-connectivity updates after commit, checkpoint/restore and corrected interaction,
+The subsequent stress-connectivity milestone passes **41/46 tests**, with the
+five failures recorded after the single-resim policy unchanged; see
+[NATIVE_GPU_STRESS_TOPOLOGY.md](NATIVE_GPU_STRESS_TOPOLOGY.md).
+
+Required completion work remains: native collision ownership, rigid-body solver
+connectivity updates, checkpoint/restore and corrected interaction,
 GPU support changes, generation-bearing lifecycle handles, crush geometry and
 energy accounting, committed events/observations, and full-scale qualification.

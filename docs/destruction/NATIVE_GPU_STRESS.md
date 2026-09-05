@@ -30,13 +30,13 @@ adapter, stress callback, or external resimulation for this stage.
    combine contact tractions and solved bond forces. Contact strain rates use
    post-solve point velocities, including rotation, matching the reference.
 7. Accepted bond health and crush state persist on device. Trial verdicts use
-   separate storage. Nonfracturing valid steps commit the material transaction;
-   any verdict requiring bond separation or full chunk crushing reports an
-   incomplete step (error bit 8) and leaves the entire accepted material state
-   unchanged. Optional full mass properties now enable a GPU candidate topology
-   transaction, including component mass/inertia and inherited motion; see
-   [NATIVE_GPU_TOPOLOGY.md](NATIVE_GPU_TOPOLOGY.md). PhysX collision rebinding and
-   motion correction remain unfinished.
+   separate storage. Optional full mass properties enable a GPU topology
+   transaction, including component mass/inertia and inherited motion. Cuts that
+   preserve every chunk's rigid owner now commit material and stress connectivity
+   on the GPU; see [NATIVE_GPU_STRESS_TOPOLOGY.md](NATIVE_GPU_STRESS_TOPOLOGY.md).
+   A verdict changing collision ownership or destroying geometry reports an
+   incomplete step (error bit 8), preserving accepted material and topology.
+   PhysX collision rebinding and motion correction remain unfinished.
 8. The native task waits for completion before PhysX publishes the scene. A
    40-byte status observation reaches the CPU; chunk, contact, and bond arrays do
    not. Submission/allocation failures and detected overflow/nonfinite forces
@@ -49,7 +49,7 @@ There is no claim that the whole engine is CPU-free.
 
 ## API and binary boundary
 
-The version 3 API is in `physx/include/PxDestructionScene.h`. Registered actors and
+The version 4 API is in `physx/include/PxDestructionScene.h`. Registered actors and
 shapes must remain alive and attached until `clearStress` or reconfiguration,
 which occur outside simulation. Shape identity is the transform-cache contact
 index, not a geometry index. Existing Direct GPU host-access support can supply
@@ -130,9 +130,9 @@ performance campaign or a 60 Hz scale qualification.
 
 ## Work still required
 
-The stage does **not** yet commit topology-changing fracture verdicts, bind GPU
-connectivity to persistent collision ownership, create PhysX solver bodies for
-candidate clusters, or correct any
+The stage does **not** yet commit fractures that create new rigid clusters, bind
+GPU connectivity to persistent collision ownership, create PhysX solver bodies
+for candidate clusters, or correct any
 participant's motion. Full crushing still requires fragment geometry, ancestry,
 mass/motion handling and energy accounting. Generation-bearing handles,
 loads/commands through the final asset API, mutable support, joint/articulation

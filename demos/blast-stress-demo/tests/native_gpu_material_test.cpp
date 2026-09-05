@@ -136,6 +136,86 @@ void scenario(blast_demo::PhysXScene& context,PxRigidDynamic& body,const char* n
     require(stage->clearStress(),"native clear after verdict failed");
     std::printf("%s: parity passed, health=%g crush=%g fracture=%d\n",name,previousHealth,previousCrush,fractured);
 }
+// Native acceptance without changed motion ownership, followed by a true split.
+void nativeCycleCommit(blast_demo::PhysXScene& context) {
+    auto& scene=context.scene();scene.setGravity(PxVec3(0,-10,0));
+    auto* body=context.physics().createRigidDynamic(PxTransform(PxVec3(20,5,0)));
+    require(body,"cycle body create failed");body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
+    const PxVec3 positions[3]={PxVec3(0,-1,0),PxVec3(-1,0,0),PxVec3(1,0,0)};
+    for(unsigned i=0;i<3;++i) {
+        auto* shape=context.physics().createShape(PxBoxGeometry(.25f,.25f,.25f),context.material(),true);
+        require(shape,"cycle geometry create failed");shape->setLocalPose(PxTransform(positions[i]));
+        require(body->attachShape(*shape),"cycle shape attach failed");shape->release();
+    }
+    scene.addActor(*body);scene.simulate(1.0f/60);require(scene.fetchResults(true),"cycle warmup failed");
+    const PxU32 bodyIndex=body->getGPUIndex();
+    PxDestructionStressChunk chunks[3];PxDestructionChunkMassProperties mass[3]{};
+    for(unsigned i=0;i<3;++i) {
+        chunks[i]={positions[i],i?1.0f:0.0f,i?1.0f:0.0f,0,PX_INVALID_U32,1,1};
+        for(unsigned k=0;k<3;++k)mass[i].center[k]=positions[i][k];
+        mass[i].mass=i?1:0;mass[i].supported=i?0:1;
+        for(unsigned k=0;k<3;++k)mass[i].inertia[k]=i?1:0;
+    }
+    PxDestructionStressBond bonds[3]={
+        {0,1,(positions[0]+positions[1])*.5f,(positions[1]-positions[0]).getNormalized(),1,1,1,0},
+        {0,2,(positions[0]+positions[2])*.5f,(positions[2]-positions[0]).getNormalized(),1,1,1,1},
+        {1,2,PxVec3(0),PxVec3(1,0,0),1,1,1,1}};
+    PxDestructionMaterial materials[2];
+    materials[0].compressionElasticLimit=.01f;materials[0].compressionFatalLimit=.02f;
+    materials[1].compressionElasticLimit=1e4f;materials[1].compressionFatalLimit=2e4f;
+    const PxDestructionStressCluster cluster{bodyIndex,PxVec3(0)};
+    PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=3;desc.bonds=bonds;desc.bondCount=3;
+    desc.clusters=&cluster;desc.clusterCount=1;desc.materials=materials;desc.materialCount=2;
+    desc.chunkMassProperties=mass;desc.maxIterations=128;desc.tolerance=1e-5f;
+    auto* stage=scene.getDestructionScene();require(stage->configureStress(desc),"cycle native configuration failed");
+    for(unsigned tick=0;tick<5;++tick) {
+        scene.simulate(1.0f/60);PxU32 error=0;
+        require(scene.fetchResults(true,&error) && !error,"native cycle cut failed despite unchanged collision motion");
+        const auto view=stage->getDeviceView();float health[3];PxDestructionVectorPair forces[3];
+        PxDestructionStressTopologyStatus stress;PxDestructionTopologyStatus topology;
+        PxDestructionTopologyTransactionStatus transaction;PxU32 owners[3];
+        {PxScopedCudaLock lock(*context.cudaContextManager());check(cuEventSynchronize(view.readyEvent));
+            check(cuMemcpyDtoH(health,reinterpret_cast<CUdeviceptr>(view.bondHealth),sizeof(health)));
+            check(cuMemcpyDtoH(forces,reinterpret_cast<CUdeviceptr>(view.bondForces),sizeof(forces)));
+            check(cuMemcpyDtoH(&stress,reinterpret_cast<CUdeviceptr>(view.stressTopology),sizeof(stress)));
+            check(cuMemcpyDtoH(&topology,reinterpret_cast<CUdeviceptr>(view.acceptedTopology.status),sizeof(topology)));
+            check(cuMemcpyDtoH(&transaction,reinterpret_cast<CUdeviceptr>(view.topologyTransaction),sizeof(transaction)));
+            check(cuMemcpyDtoH(owners,reinterpret_cast<CUdeviceptr>(view.acceptedTopology.chunkCluster),sizeof(owners)));
+        }
+        const auto status=stage->getLastStatus();
+        require(status.error==0 && status.brokenBonds==(tick?0u:1u),"accepted bond failure was duplicated or lost");
+        require(health[0]==0 && health[1]==1 && health[2]==1,"native committed wrong material verdict");
+        require(topology.generation==1 && topology.clusterCount==1 && transaction.commits==1 && !transaction.prepared,
+            "native unchanged-motion topology must commit exactly once");
+        require(transaction.rebuilds==1 && stress.rebuilds==2,"quiet accepted graph repeated connectivity work");
+        require(stress.generation==1 && stress.solvedGeneration==(tick?1u:0u) && !stress.error,
+            "native stress topology and force generations disagree");
+        require(stress.islandCount==1 && stress.activeBondCount==2 && stress.activeNodeCount==2,
+            "native stress constraints still contain the broken bond");
+        require(!owners[0] && !owners[1] && !owners[2] && body->getGPUIndex()==bodyIndex && body->getNbShapes()==3,
+            "cycle cut changed persistent collision ownership");
+        if(tick) {
+            near(forces[0].linear.magnitude(),0,"broken native bond still transmits load");
+            near(std::abs(forces[1].linear.y),20,"surviving support bond must carry both chunk weights");
+            near(std::abs(forces[2].linear.y),10,"surviving internal bond must carry one chunk weight");
+        }
+    }
+    scene.setGravity(PxVec3(0,-4e4f,0));scene.simulate(1.0f/60);PxU32 error=0;
+    require(!scene.fetchResults(true,&error) && error && stage->getLastStatus().error==8,
+        "true cluster split was accepted without collision correction");
+    const auto view=stage->getDeviceView();PxDestructionTopologyStatus accepted,trial;PxDestructionStressTopologyStatus stress;
+    {PxScopedCudaLock lock(*context.cudaContextManager());check(cuEventSynchronize(view.readyEvent));
+        check(cuMemcpyDtoH(&accepted,reinterpret_cast<CUdeviceptr>(view.acceptedTopology.status),sizeof(accepted)));
+        check(cuMemcpyDtoH(&trial,reinterpret_cast<CUdeviceptr>(view.trialTopology.status),sizeof(trial)));
+        check(cuMemcpyDtoH(&stress,reinterpret_cast<CUdeviceptr>(view.stressTopology),sizeof(stress)));
+    }
+    require(accepted.generation==1 && accepted.clusterCount==1 && trial.generation==2 && trial.clusterCount==3,
+        "rejected split changed accepted topology");
+    require(stress.generation==1 && stress.activeBondCount==2,"rejected split changed accepted stress constraints");
+    require(stage->clearStress(),"cycle clear failed");body->release();
+    std::puts("native cycle commit and post-break load redistribution passed");
+}
+
 void rotatingCluster(blast_demo::PhysXScene& context) {
     auto& scene=context.scene();scene.setGravity(PxVec3(0));
     auto* body=context.physics().createRigidDynamic(PxTransform(PxVec3(10,5,0),PxQuat(.35f,PxVec3(0,0,1))));
@@ -236,5 +316,5 @@ int main(){try{
     scenario(context,*body,"bond-driven crush",m,PxVec3(0,-9.81f,0),100,1.0f/60,true);
     scenario(context,*body,"crush timestep",m,PxVec3(0,-9.81f,0),100,1.0f/120,true);
     scenario(context,*body,"crush tension cutoff",m,PxVec3(0,9.81f,0),10,1.0f/60,false);
-    body->release();rotatingCluster(context);require(context.healthy() && !context.errors().warningCount(),"unexpected PhysX failure");return 0;
+    body->release();nativeCycleCommit(context);rotatingCluster(context);require(context.healthy() && !context.errors().warningCount(),"unexpected PhysX failure");return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

@@ -2,15 +2,16 @@
 
 **The complete plan is not implemented or qualified yet.** The repository now
 contains a buildable reference SDK, a native scene GPU contact/stress/material stage, and
-GPU candidate topology/motion transactions. These transactions do not yet drive the
-PhysX collision/constraint solver. The native stress stage does not commit fracture
-or perform internal correction; see [NATIVE_GPU_STRESS.md](NATIVE_GPU_STRESS.md).
+GPU topology/motion transactions. Native steps now commit bond cuts that retain
+all chunk motion owners, with GPU-owned stress connectivity. True splits still
+need PhysX collision/body rebinding and internal correction; see
+[NATIVE_GPU_STRESS_TOPOLOGY.md](NATIVE_GPU_STRESS_TOPOLOGY.md).
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 37/42 passing (four baseline failures plus that new gap). Contact-stress/correction fidelity fixes and their unresolved
+suite is 41/46 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
@@ -41,13 +42,14 @@ existing GPU stress solver.
 
 The new native scene stage bypasses the reference adapter for GPU contact load
 assembly, stress solving and material evaluation. Accepted damage persists on the
-GPU; topology-changing verdicts remain uncommitted and fail the step explicitly.
-Its CPU work is configuration, task submission, capacity growth and a compact
-status observation; it does not yet apply fracture. Detached chunks retain
+GPU. Cuts that retain every chunk's rigid owner commit topology and rebuild
+stress connectivity on device. Verdicts changing collision ownership or destroying
+chunk geometry remain uncommitted and fail the step explicitly. Its CPU work is
+configuration, task submission, capacity growth and a compact status observation. Detached chunks retain
 contact/crush evaluation without a bond solve. The single-rewind target and the
 older demo's multi-pass departure are documented in [RESIMULATION.md](RESIMULATION.md).
-The new native and solver regressions bring the native suite to 36/40 passing,
-with the four existing failures unchanged. The quiet-load recurrence correction
+The earlier contact/material-stage regressions passed 36/40 tests,
+with the four failures at that milestone unchanged. The quiet-load recurrence correction
 is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
 
 ## Completed and verified work
@@ -74,6 +76,12 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   sleep, checkpoint and activity paths. The observation fixture now orders its
   reused index slot before reading it from a nonblocking GPU stream. It previously
   sometimes observed another body's pose; unchanged assertions now pass five runs.
+
+- Added GPU-owned stress connectivity and accepted native cycle cuts, including
+  stable bond slots, cache invalidation and device generations for force validity.
+  Four solver modes pass connectivity checks at 100k nodes / 200k bonds; native
+  triangle cuts preserve rigid ownership and analytic surviving-bond loads.
+  Memcheck reports zero errors; full regression is 41/46 with known failures.
 
 ## Remaining completion gates
 

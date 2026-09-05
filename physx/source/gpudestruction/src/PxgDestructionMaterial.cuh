@@ -71,13 +71,13 @@ __global__ void evaluateChunkMaterials(const PxDestructionStressChunk* chunks,
     if(!a.crushed && next.crushed)atomicAdd(&status->crushedChunks,1u);
 }
 __global__ void finalizeMaterialVerdict(const PxDestructionStressBond* bonds,
-    PxDestructionBondVerdict* verdict,const PxDestructionCrushState* chunks,PxU32 count,
+    PxDestructionBondVerdict* verdict,const PxDestructionCrushState* chunks,const float* acceptedHealth,PxU32 count,
     PxDestructionStageStatus* status)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     auto& v=verdict[i];const auto b=bonds[i];
     if(chunks[b.chunk0].crushed || chunks[b.chunk1].crushed)v.health=0;
-    v.broken=v.health<=0?1u:0u;
+    v.broken=acceptedHealth[i]>0 && v.health<=0?1u:0u;
     if(v.broken)atomicAdd(&status->brokenBonds,1u);
 }
 __global__ void requireFractureCorrection(PxDestructionStageStatus* status)

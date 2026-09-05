@@ -270,12 +270,24 @@ struct ExtStressGpuDeviceStatus
     std::uint32_t converged;
 };
 
+// Device topology updates preserve authored bond slots. These are GPU-only
+// observations, ordered by deviceView().readyEvent; no per-update readback is
+// required. A rejected batch preserves the accepted generation and constraints.
+struct ExtStressGpuDeviceTopologyStatus
+{
+    std::uint64_t generation, solvedGeneration, rebuilds;
+    std::uint32_t initialized, error, islandCount, activeBondCount, activeNodeCount;
+};
+
 struct ExtStressGpuDeviceView
 {
     const ExtStressGpuImpulse* bondImpulses{nullptr}; // physical units, same as readbackImpulses
     const ExtStressGpuDeviceStatus* status{nullptr};
     std::uint32_t bondCount{0};
     void* readyEvent{nullptr};
+    const ExtStressGpuDeviceTopologyStatus* topologyStatus{nullptr};
+    const std::uint32_t* nodeIslands{nullptr}; // minimum dynamic-node ID; static/isolated = UINT32_MAX
+    const std::uint32_t* bondIslands{nullptr};
 };
 
 class ExtStressGpuSolver
@@ -460,6 +472,30 @@ public:
     virtual std::uint32_t nodeCount() const = 0;
     virtual std::uint32_t bondCount() const = 0;
     virtual const ExtStressGpuTelemetry& telemetry() const = 0;
+
+    /** Select immutable bond slots and GPU-owned connectivity. Configuration
+     * boundary: may allocate/synchronize. Thereafter use solveDeviceAsync and
+     * updateDeviceTopologyAsync; host solving/removal/material-walk APIs reject
+     * this mode. Material damage belongs to the caller's transaction.
+     * Nodes, support masses, geometry and compliance remain fixed. Bond removal
+     * rebuilds stress islands entirely on the GPU, cutting at static nodes.
+     */
+    virtual bool enableDeviceTopology() = 0;
+
+    /** Enqueue a complete 0/1 mask in original bond order. A strictly newer
+     * device generation requests an update; an equal generation is a no-op
+     * (its mask must be unchanged). Bond resurrection is explicitly unsupported.
+     * A zero deviceAccept rejects the proposed update without reading its mask.
+     * Inputs/events remain alive until readyEvent. No host transfer or wait.
+     * Status error bits: 1 invalid mask, 2 resurrection, 4 stale generation.
+     * Successful updates reset incompatible warm starts and preconditioners.
+     * Last-solve forces retain solvedGeneration until the next solve; they are
+     * diagnostic trial output, not a solved answer for a newer topology.
+     */
+    virtual bool updateDeviceTopologyAsync(const std::uint32_t* activeBonds,
+        std::uint32_t bondCount, const std::uint64_t* generation,
+        const std::uint32_t* deviceAccept = nullptr, void* producerReady = nullptr,
+        void* consumerDone = nullptr) = 0;
 
 protected:
     virtual ~ExtStressGpuSolver() = default;
