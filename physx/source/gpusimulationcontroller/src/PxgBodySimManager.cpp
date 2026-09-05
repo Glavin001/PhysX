@@ -41,9 +41,6 @@ using namespace physx;
 
 void PxgBodySimManager::addBody(PxsRigidBody* rigidBody, const PxU32 nodeIndex)
 {
-	if (mUpdatedMap.boundedTest(nodeIndex))
-		return;
-
 	if (mBodies.capacity() <= nodeIndex)
 	{
 		mBodies.resize(2 * nodeIndex + 1);
@@ -51,8 +48,14 @@ void PxgBodySimManager::addBody(PxsRigidBody* rigidBody, const PxU32 nodeIndex)
 
 	mBodies[nodeIndex] = reinterpret_cast<void*>(rigidBody);
 
-	mUpdatedMap.growAndSet(nodeIndex);
-	mNewOrUpdatedBodySims.pushBack(nodeIndex);
+    // A removed body may already have a queued update at this reused index.
+    // Refresh ownership and first-upload state even when the queue entry exists.
+    // Only deduplicate the queue itself; the new actor must initialize GPU motion.
+    if(!mUpdatedMap.boundedTest(nodeIndex))
+    {
+        mUpdatedMap.growAndSet(nodeIndex);
+        mNewOrUpdatedBodySims.pushBack(nodeIndex);
+    }
 	mTotalNumBodies = PxMax(mTotalNumBodies, nodeIndex + 1);
 
 	mStaticConstraints.reserve(mTotalNumBodies);
@@ -792,6 +795,7 @@ void PxgBodySimManager::updateBodies(PxsRigidBody** rigidBodies, PxU32* nodeIndi
 	{
 		PxsRigidBody* rigid = rigidBodies[i];
 		PxsBodyCore& bcLL = rigid->getCore();
+        const PxU32 hostFlags = PxU32(rigid->mGpuHostDirty) << 16;
 
 		newUpdatedBodies[i + startIndex].linearVelocityXYZ_bodySimIndexW = make_float4(bcLL.linearVelocity.x, bcLL.linearVelocity.y, bcLL.linearVelocity.z, PX_FR(nodeIndices[i]));
 		newUpdatedBodies[i + startIndex].angularVelocityXYZ_maxPenBiasW = make_float4(bcLL.angularVelocity.x, bcLL.angularVelocity.y, bcLL.angularVelocity.z, bcLL.maxPenBias);
@@ -810,6 +814,9 @@ void PxgBodySimManager::updateBodies(PxsRigidBody** rigidBodies, PxU32* nodeIndi
 				newUpdatedBodies[i + startIndex].externalAngularAccelerationXYZ = make_float4(0.0f);
 			}
 		}
+        newUpdatedBodies[i + startIndex].externalLinearAccelerationXYZ.w = PX_FR(hostFlags);
+        rigid->mGpuHostDirty &= ~PxU16((PxsRigidBody::eHOST_VELOCITY_DELTA_GPU
+            | PxsRigidBody::eHOST_CLEAR_FORCE_GPU | PxsRigidBody::eHOST_CLEAR_TORQUE_GPU) >> 16);
 	}
 }
 

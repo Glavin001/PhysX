@@ -85,6 +85,12 @@ void Sc::BodyCore::restoreDynamicData()
 //
 //--------------------------------------------------------------
 
+static void markDirectGpuHostWrite(Sc::BodySim* sim, PxU32 flags)
+{
+    if(sim && (sim->getScene().getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
+        sim->getLowLevelBody().mGpuHostDirty |= PxU16(flags >> 16);
+}
+
 void Sc::BodyCore::setBody2World(const PxTransform& p)
 {
 	mCore.body2World = p;
@@ -94,6 +100,7 @@ void Sc::BodyCore::setBody2World(const PxTransform& p)
 	BodySim* sim = getSim();
 	if(sim)
 	{
+		markDirectGpuHostWrite(sim, PxsRigidBody::eHOST_POSE_COPY_GPU);
 		sim->postBody2WorldChange();
 		sim->getScene().gpu_updateBodySim(*sim);
 	}
@@ -113,6 +120,7 @@ void Sc::BodyCore::setCMassLocalPose(const PxTransform& newBody2Actor)
 
 void Sc::BodyCore::setLinearVelocity(const PxVec3& v, bool skipBodySimUpdate)
 {
+    markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_LINEAR_COPY_GPU);
 	mCore.linearVelocity = v;
 
 	PX_ASSERT(!skipBodySimUpdate || (getFlags() & PxRigidBodyFlag::eKINEMATIC));
@@ -123,6 +131,7 @@ void Sc::BodyCore::setLinearVelocity(const PxVec3& v, bool skipBodySimUpdate)
 
 void Sc::BodyCore::setAngularVelocity(const PxVec3& v, bool skipBodySimUpdate)
 {
+    markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_ANGULAR_COPY_GPU);
 	mCore.angularVelocity = v;
 
 	PX_ASSERT(!skipBodySimUpdate || (getFlags() & PxRigidBodyFlag::eKINEMATIC));

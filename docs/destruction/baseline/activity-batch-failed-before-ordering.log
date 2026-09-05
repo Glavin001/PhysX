@@ -1,0 +1,21 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 11: blast_stress_physx_gpu_activity
+    Test #11: blast_stress_physx_gpu_activity ...***Failed    4.57 sec
+joint wake mismatch sample=6 dp=2.0002 dv=1.44164e-06 dw=8.35533e-07
+reference p=(0.0232036,0.830759,-1.90663e-05), device p=(2.00535,0.562637,-5.13098e-06)
+previous reference p=(0.0152596,0.752805,-1.13453e-05), device p=(0.0152596,0.752805,-1.13453e-05)
+gpu_activity_test FAILED: native/device physical outcome differs
+commands and metadata passed: 31 body samples, max position error 5.96046e-08 m
+batched metadata pose preservation passed: 1577 body samples, max position error 0 m
+contact wake passed: 100 body samples, max position error 0 m
+support removal passed: 35 body samples, max position error 0 m
+
+
+0% tests passed, 1 tests failed out of 1
+
+Total Test time (real) =   4.57 sec
+
+The following tests FAILED:
+	 11 - blast_stress_physx_gpu_activity (Failed)
+Errors while running CTest

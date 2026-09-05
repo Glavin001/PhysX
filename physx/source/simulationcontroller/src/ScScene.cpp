@@ -625,6 +625,8 @@ Sc::Scene::Scene(const PxSceneDesc& desc, PxU64 contextID) :
 	mKineKineFilteringMode			(desc.kineKineFilteringMode),
 	mStaticKineFilteringMode		(desc.staticKineFilteringMode),
 	mSleepBodies					("sceneSleepBodies"),
+    mGpuSleepPendingBodies("sceneGpuSleepPendingBodies"),
+    mGpuSleepRollbackBodies("sceneGpuSleepRollbackBodies"),
 	mWokeBodies						("sceneWokeBodies"),
 	mEnableStabilization			(desc.flags & PxSceneFlag::eENABLE_STABILIZATION),
 	mActiveActors					("clientActiveActors"),
@@ -1649,9 +1651,16 @@ PxSimulationEventCallback* Sc::Scene::getSimulationEventCallback() const
 void Sc::Scene::removeBody(BodySim& body)	//this also notifies any connected joints!
 {
 	BodyCore& core = body.getBodyCore();
+    if(!body.isArticulationLink() && body.getNodeIndex().isValid())
+    {
+        mSimulationController->removeDynamic(body.getNodeIndex());
+    }
+
 
 	// Remove from sleepBodies array
 	mSleepBodies.erase(&core);
+    mGpuSleepPendingBodies.erase(&core);
+    mGpuSleepRollbackBodies.erase(&core);
 	PX_ASSERT(!mSleepBodies.contains(&core));
 
 	// Remove from wokeBodies array
@@ -2062,8 +2071,67 @@ void Sc::Scene::fireTriggerCallbacks()
 /*
 Threading: called in the context of the user thread, but only after the physics thread has finished its run
 */
+bool Sc::Scene::finalizeGpuSleep(BodyCore* body)
+{
+    if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING) || mGpuSleepPendingBodies.size() == 0)
+        return true;
+#if PX_SUPPORT_GPU_PHYSX
+    if(body && !mGpuSleepPendingBodies.contains(body)) return true;
+    PxArray<PxU32> indices, rollbackIndices;
+    const PxU32 count = body ? 1 : mGpuSleepPendingBodies.size();
+    BodyCore* const* entries = mGpuSleepPendingBodies.getEntries();
+    indices.reserve(count);
+    for(PxU32 i = 0; i < count; ++i)
+    {
+        BodyCore* core = body ? body : entries[i];
+        // A not-yet-uploaded body will start with the CPU's zero velocities.
+        if(!(core->getSim()->getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU))
+        {
+            PxArray<PxU32>& target = mGpuSleepRollbackBodies.contains(core) ? rollbackIndices : indices;
+            target.pushBack(static_cast<PxRigidDynamic*>(core->getPxActor())->getGPUIndex());
+        }
+    }
+    if(rollbackIndices.size() && !mSimulationController->finalizeSleepingRigidBodies(rollbackIndices.begin(), rollbackIndices.size(), true))
+        return false;
+    if(indices.size() && !mSimulationController->finalizeSleepingRigidBodies(indices.begin(), indices.size(), false))
+        return false;
+    if(body)
+    {
+        mGpuSleepPendingBodies.erase(body);
+        mGpuSleepRollbackBodies.erase(body);
+    }
+    else
+    {
+        mGpuSleepPendingBodies.clear();
+        mGpuSleepRollbackBodies.clear();
+    }
+#endif
+    return true;
+}
+
 void Sc::Scene::fireCallbacksPostSync()
 {
+    if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+    {
+        PxArray<PxU32> indices;
+        PxArray<PxTransform> poses;
+        const PxU32 count = getActiveKinematicBodiesCount();
+        BodyCore* const* bodies = getActiveKinematicBodies();
+        indices.reserve(count); poses.reserve(count);
+        for(PxU32 i=0; i<count; ++i)
+        {
+            BodyCore& core = *bodies[i];
+            indices.pushBack(static_cast<PxRigidDynamic*>(core.getPxActor())->getGPUIndex());
+            poses.pushBack(core.getBody2World() * core.getBody2Actor().getInverse());
+        }
+        if(count && !mSimulationController->publishHostRigidPoses(indices.begin(),poses.begin(),count))
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"GPU kinematic target publication failed.");
+    }
+    if(!finalizeGpuSleep())
+    {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU sleeping velocity finalization failed.");
+    }
+
 	//
 	// Fire sleep & woken callbacks
 	//
@@ -2716,6 +2784,11 @@ void Sc::Scene::clearSleepWakeBodies()
 
 void Sc::Scene::onBodySleep(BodySim* body)
 {
+    if((mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING) && !body->isKinematic())
+    {
+        mGpuSleepPendingBodies.insert(&body->getBodyCore());
+    }
+
 	if (!mSimulationEventCallback && !mOnSleepingStateChanged)
 		return;
 

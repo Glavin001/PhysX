@@ -133,7 +133,10 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 		// preist: note that we copy this flag to persistent GPU memory on first transfer, but that is no problem
 		// because we only check the update data flag here which will be reset on CPU
 		const bool firstTransfer = internalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU;
-		const bool copyVel = internalFlags & PxsRigidBody::eVELOCITY_COPY_GPU;
+        const bool copyVel = internalFlags & PxsRigidBody::eVELOCITY_COPY_GPU;
+        const bool copyPose = internalFlags & PxsRigidBody::eHOST_POSE_COPY_GPU;
+        const bool copyLinear = copyVel || (internalFlags & PxsRigidBody::eHOST_LINEAR_COPY_GPU);
+        const bool copyAngular = copyVel || (internalFlags & PxsRigidBody::eHOST_ANGULAR_COPY_GPU);
 
 
 		// figure out which threads will execute the else below.
@@ -182,9 +185,15 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 					oldBody2Actor = *reinterpret_cast<PxAlignedTransform*>(&gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + PXG_BODY_SIM_BODY2ACTOR_IND]);
 				}
 
+                // Lane zero must finish preserving both transforms before the
+                // other lanes overwrite them with the CPU metadata upload.
+                // Volta+ independent thread scheduling does not guarantee this
+                // ordering merely because the lanes belong to one warp.
+                __syncwarp(sync_mask);
+
 				// load the new stuff no matter what
 				// keep linear and angular velocity intact, but copy inverseMass and pen bias:
-				if(index < PXG_BODY_SIM_MAX_LIN_VEL_IND && !copyVel)
+				if(index < PXG_BODY_SIM_MAX_LIN_VEL_IND && ((index == 0 && !copyLinear) || (index == 1 && !copyAngular)))
 				{
 					gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + index].w = data.w;
 				}
@@ -201,14 +210,14 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 				{
 					PxAlignedTransform newBody2Actor = *reinterpret_cast<PxAlignedTransform*>(&gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + PXG_BODY_SIM_BODY2ACTOR_IND]);
 
-					if (oldBody2Actor != newBody2Actor)
+					if (!copyPose && oldBody2Actor != newBody2Actor)
 					{
 						PxAlignedTransform actor2World = body2World * oldBody2Actor.getInverse();
 						body2World = actor2World * newBody2Actor;
 					}
 
 					PxAlignedTransform* body2WorldPtr = reinterpret_cast<PxAlignedTransform*>(&gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + PXG_BODY_SIM_BODY2WORLD_IND]);
-					*body2WorldPtr = body2World;
+					if (!copyPose) *body2WorldPtr = body2World;
 				}
 
 				__syncwarp(sync_mask);
@@ -935,6 +944,23 @@ extern "C" __global__ void updateBodyExternalVelocitiesLaunch(const PxgUpdatedBo
 		const PxgBodySimVelocityUpdate& updatedBody = gUpdatedBodies[i];
 		float4 linearVel = updatedBody.linearVelocityXYZ_bodySimIndexW;
 		const PxU32 bodyIndex = reinterpret_cast<PxU32&>(linearVel.w);
+        const PxU32 hostFlags = __float_as_uint(updatedBody.externalLinearAccelerationXYZ.w);
+        if(hostFlags & PxsRigidBody::eHOST_VELOCITY_DELTA_GPU)
+        {
+            float4& lv = gBodySim[bodyIndex].linearVelocityXYZ_inverseMassW;
+            float4& av = gBodySim[bodyIndex].angularVelocityXYZ_maxPenBiasW;
+            lv.x += updatedBody.externalLinearAccelerationXYZ.x;
+            lv.y += updatedBody.externalLinearAccelerationXYZ.y;
+            lv.z += updatedBody.externalLinearAccelerationXYZ.z;
+            av.x += updatedBody.externalAngularAccelerationXYZ.x;
+            av.y += updatedBody.externalAngularAccelerationXYZ.y;
+            av.z += updatedBody.externalAngularAccelerationXYZ.z;
+            if(hostFlags & PxsRigidBody::eHOST_CLEAR_FORCE_GPU)
+                gBodySim[bodyIndex].externalLinearAcceleration = make_float4(0.f);
+            if(hostFlags & PxsRigidBody::eHOST_CLEAR_TORQUE_GPU)
+                gBodySim[bodyIndex].externalAngularAcceleration = make_float4(0.f);
+            continue;
+        }
 		const float4 originalLinearV = gBodySim[bodyIndex].linearVelocityXYZ_inverseMassW;
 		linearVel.w = originalLinearV.w;
 		gBodySim[bodyIndex].linearVelocityXYZ_inverseMassW = linearVel;

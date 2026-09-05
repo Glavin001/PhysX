@@ -1,0 +1,12 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-release
+Test project /root/workspace/physx-2/out/destruction-release
+    Start 1: blast_stress_physx_cpu_contract
+1/3 Test #1: blast_stress_physx_cpu_contract ........   Passed    0.10 sec
+    Start 2: blast_stress_physx_resim_penetration
+2/3 Test #2: blast_stress_physx_resim_penetration ...   Passed    0.13 sec
+    Start 3: blast_stress_physx_resim_baseline
+3/3 Test #3: blast_stress_physx_resim_baseline ......   Passed    0.14 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.37 sec

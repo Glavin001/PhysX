@@ -2658,6 +2658,19 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 		const PxNodeIndex*const deactivatingIndices = islandSim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
 
 		PxU32 previousNumBodiesToDeactivate = mNumDeactivatingNodes[IG::Node::eRIGID_BODY_TYPE];
+        if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+        {
+            // Include explicitly slept bodies: they may still have reached
+            // the solver while accurate island generation ran in parallel.
+            for(PxU32 i = 0; i < numBodiesToDeactivate; ++i)
+            {
+                PxsRigidBody* rigid = getRigidBodyFromIG(islandSim, deactivatingIndices[i]);
+                BodySim* sim = reinterpret_cast<BodySim*>(reinterpret_cast<PxU8*>(rigid) - rigidBodyOffset);
+                mGpuSleepPendingBodies.insert(&sim->getBodyCore());
+                mGpuSleepRollbackBodies.insert(&sim->getBodyCore());
+            }
+        }
+
 
 		{
 			PX_PROFILE_ZONE("AfterIntegration::deactivateStage", mContextId);
@@ -2673,11 +2686,14 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 				//user perceives the same behavior as before.
 
 				//if(!islandSim.getNode(bodySim->getNodeIndex()).isActive())
-				rigid->setPose(rigid->getLastCCDTransform());
-
-				// PT: we are not inside a task here so we can run the non-thread-safe version, but we still need atomics for the bitmap update, as there are other parts running in parallel
-				// that also update the same bitmap.
-				bodySim->updateCached_NotThreadSafe(params, &changedAABBMgrActorHandles, false, true);
+                // GPU-owned motion/cache are already current. CPU CCD poses
+                // and shape bounds are stale in this mode and must not feed
+                // the GPU bounds merge on a native sleep transition.
+                if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+                {
+                    rigid->setPose(rigid->getLastCCDTransform());
+                    bodySim->updateCached_NotThreadSafe(params, &changedAABBMgrActorHandles, false, true);
+                }
 
 				gpu_updateBodySim(*bodySim);
 
@@ -2685,8 +2701,8 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 				//might have processed bodies that are now considered deactivated. This could have resulted in either freezing or unfreezing one of these bodies this frame, so we need to process those
 				//events to ensure that the SqManager's bounds arrays are consistently maintained. Also, we need to clear the frame flags for these bodies.
 
-				if(rigid->isFreezeThisFrame())
-					bodySim->freezeTransforms(params, &changedAABBMgrActorHandles);
+				if(rigid->isFreezeThisFrame() && !(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+                    bodySim->freezeTransforms(params, &changedAABBMgrActorHandles);
 
 				//KS - the IG deactivates bodies in parallel with the solver. It appears that under certain circumstances, the solver's integration (which performs
 				//sleep checks) could decide that the body is no longer a candidate for sleeping on the same frame that the island gen decides to deactivate the island

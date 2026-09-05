@@ -230,6 +230,15 @@ namespace physx
 
 	PxgSimulationController::~PxgSimulationController()
 	{
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            if(mNativeSleepIndices) cuda->memFree(mNativeSleepIndices);
+            if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
+            if(mNativeSleepPoses) cuda->memFree(mNativeSleepPoses);
+            if(mNativeSleepReady) cuda->eventDestroy(mNativeSleepReady);
+        }
+
 		PX_DELETE(mSimulationCore);
 
 		if (mPBDParticleSystemCore)
@@ -268,6 +277,14 @@ namespace physx
 	{
 		mSimulationCore->mPxgShapeSimManager.removePxgShape(index);
 	}
+
+    void PxgSimulationController::removeDynamic(const PxNodeIndex& nodeIndex)
+    {
+        // BodySim storage can be reused before the next upload. Do not leave
+        // a pending entry dereferencing the removed body's old address.
+        const PxU32 index = nodeIndex.index();
+        if(index < mBodySimManager.mBodies.size()) mBodySimManager.mBodies[index] = NULL;
+    }
 
 	void PxgSimulationController::addDynamic(PxsRigidBody* rigidBody, const PxNodeIndex& nodeIndex)
 	{
@@ -833,6 +850,14 @@ namespace physx
 		mRecomputeArticulationBlockFormat = false;
 
 		const PxU32 nbNewArticulations = mBodySimManager.mNewArticulationSims.size();
+        // Compact once per upload, rather than scanning the queue per removal.
+        PxArray<PxU32>& pendingBodies = mBodySimManager.mNewOrUpdatedBodySims;
+        PxU32 liveCount = 0;
+        for(PxU32 i = 0; i < pendingBodies.size(); ++i)
+        {
+            if(mBodySimManager.mBodies[pendingBodies[i]]) pendingBodies[liveCount++] = pendingBodies[i];
+        }
+        pendingBodies.forceSize_Unsafe(liveCount);
 		const PxU32 nbNewBodies = mBodySimManager.mNewOrUpdatedBodySims.size();
 
 		const PxU32 totalNumNewBodies = nbNewBodies + nbNewArticulations;
@@ -2401,7 +2426,8 @@ namespace physx
 			
 			bodySim.externalLinearAcceleration = make_float4(0.0f);
 			bodySim.externalAngularAcceleration = make_float4(0.0f);
-			if (mBodySimManager.mExternalAccelerations && mBodySimManager.mExternalAccelerations->hasAccelerations())
+			if (!mDynamicContext->getEnableDirectGPUHostAccess()
+                && mBodySimManager.mExternalAccelerations && mBodySimManager.mExternalAccelerations->hasAccelerations())
 			{
 				const PxsRigidBodyExternalAcceleration& acc = mBodySimManager.mExternalAccelerations->get(index);
 				bodySim.externalLinearAcceleration = make_float4(acc.linearAcceleration.x, acc.linearAcceleration.y, acc.linearAcceleration.z, 0.0f);
@@ -2413,7 +2439,8 @@ namespace physx
 			bodySim.sleepAngVelAccXYZ_accelScaleW = make_float4(reinterpret_cast<float3&>(rbLL.mSleepAngVelAcc), rbLL.mAccelScale);
 			bodySim.disableGravity = bcLL.disableGravity;
 			bodySim.lockFlags = bcLL.lockFlags;
-			bodySim.internalFlags = rbLL.mInternalFlags;
+			bodySim.internalFlags = rbLL.mInternalFlags | (PxU32(rbLL.mGpuHostDirty) << 16);
+            rbLL.mGpuHostDirty = 0;
 			//Note: it might be tempting to copy the pattern for new articulations and use this opportunity to raise bodySim.internalFlags with eFIRST_BODY_COPY_GPU.
 			//This is possible for new articulations because we process new articulations in a single function that iterates over mBodySimManager.mNewArticulationSims.
 			//It is not possible for rigid bodies because we bundle new and updated bodies here so we cannot tell which bodies are new and which are updated.
@@ -2886,6 +2913,103 @@ namespace physx
 		}
 	}
 
+    bool PxgSimulationController::reserveNativeTransitionBuffers(PxU32 count)
+    {
+        PxScopedCudaLock lock(*mCudaContextManager);
+        PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+        if(!mNativeSleepReady && cuda->eventCreate(&mNativeSleepReady,2u)!=0) return false;
+            if(count > mNativeSleepCapacity)
+            {
+                CUdeviceptr newIndices = 0, newZeros = 0, newPoses = 0;
+                if(cuda->memAlloc(&newIndices, PxU64(count)*sizeof(PxU32)) != 0) return false;
+                if(cuda->memAlloc(&newZeros, PxU64(count)*sizeof(PxVec3)) != 0)
+                {
+                    cuda->memFree(newIndices);
+                    return false;
+                }
+                if(cuda->memAlloc(&newPoses, PxU64(count)*sizeof(PxTransform)) != 0)
+                {
+                    cuda->memFree(newIndices);
+                    cuda->memFree(newZeros);
+                    return false;
+                }
+                if(mNativeSleepIndices) cuda->memFree(mNativeSleepIndices);
+                if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
+                if(mNativeSleepPoses) cuda->memFree(mNativeSleepPoses);
+                mNativeSleepIndices = newIndices;
+                mNativeSleepZeros = newZeros;
+                mNativeSleepPoses = newPoses;
+                mNativeSleepCapacity = count;
+            }
+        return true;
+    }
+
+    bool PxgSimulationController::publishHostRigidPoses(const PxU32* indices, const PxTransform* poses, PxU32 count)
+    {
+        if(!count) return true;
+        if(!reserveNativeTransitionBuffers(count)) return false;
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            if(cuda->memcpyHtoD(mNativeSleepIndices,indices,PxU64(count)*sizeof(PxU32)) != 0
+                || cuda->memcpyHtoD(mNativeSleepPoses,poses,PxU64(count)*sizeof(PxTransform)) != 0
+                || cuda->eventRecord(mNativeSleepReady,NULL) != 0) return false;
+        }
+        return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepPoses),
+            reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+            PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE,count,mNativeSleepReady,NULL);
+    }
+
+    bool PxgSimulationController::finalizeSleepingRigidBodies(const PxU32* indices, PxU32 count, bool rollbackPose)
+    {
+        if(!count) return true;
+        if(!reserveNativeTransitionBuffers(count)) return false;
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            if(cuda->memcpyHtoD(mNativeSleepIndices, indices, PxU64(count)*sizeof(PxU32)) != 0
+                || cuda->memsetD32(mNativeSleepZeros, 0, PxU64(count)*3) != 0
+                || cuda->eventRecord(mNativeSleepReady,NULL) != 0) return false;
+        }
+        if(rollbackPose)
+        {
+            {
+                PxScopedCudaLock lock(*mCudaContextManager);
+                PxgSolverCore* solver = mDynamicContext->getGpuSolverCore();
+                const CUdeviceptr desc = solver->getSolverCoreDescDeviceptr();
+                const CUdeviceptr solverIndices = solver->getSolverBodyIndices();
+                PxCudaKernelParam params[] = {
+                    PX_CUDA_KERNEL_PARAM(mNativeSleepPoses), PX_CUDA_KERNEL_PARAM(mNativeSleepIndices),
+                    PX_CUDA_KERNEL_PARAM(desc), PX_CUDA_KERNEL_PARAM(solverIndices), PX_CUDA_KERNEL_PARAM(count)
+                };
+                const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_GATHER_POSES);
+                PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+                if(cuda->streamWaitEvent(solver->getStream(),mNativeSleepReady,0) != 0
+                    || cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, solver->getStream(),
+                    params, sizeof(params), 0, PX_FL) != 0 || cuda->streamSynchronize(solver->getStream()) != 0)
+                    return false;
+            }
+            // The setter also refreshes GPU shape bounds and transform caches.
+            if(!setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepPoses),
+                reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, mNativeSleepReady, NULL)) return false;
+        }
+        // Sparse transition work completes before fetch returns or commands
+        // wake a body. No stale CPU pose/velocity can overwrite a later write.
+        return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, mNativeSleepReady, NULL)
+            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, mNativeSleepReady, NULL)
+            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, mNativeSleepReady, NULL)
+            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                   PxRigidDynamicGPUAPIWriteType::eTORQUE, count, mNativeSleepReady, NULL);
+    }
+
 	void PxgSimulationController::updateScBodyAndShapeSim(PxsTransformCache& cache, Bp::BoundsArray& boundArray, PxBaseTask* continuation)
 	{
 		PX_UNUSED(cache);
@@ -2895,6 +3019,13 @@ namespace physx
 
 		mCudaContextManager->acquireContext();
 		mSimulationCore->syncDmaback(mNbFrozenShapes, mNbUnfrozenShapes, mHasBeenSimulated);
+        // Direct GPU omits the CPU scene-query frozen/unfrozen index arrays.
+        // Activity callbacks may run, but must never consume those arrays.
+        if(mDynamicContext->getEnableDirectGPUAPI())
+        {
+            mNbFrozenShapes = 0;
+            mNbUnfrozenShapes = 0;
+        }
 		if (mFEMClothCore)
 			mFEMClothCore->syncCloths();
 		if (mSoftBodyCore)
@@ -2910,7 +3041,7 @@ namespace physx
 #if PXG_SC_DEBUG
 			mSimulationCore->mPxgShapeSimManager.validateCacheAndBounds(boundArray.getBounds(), cache.getTransforms());
 #endif
-			if ( (!mDynamicContext->getEnableDirectGPUAPI()) || mEnableOVDReadback)
+			if ((!mDynamicContext->getEnableDirectGPUAPI()) || !mDynamicContext->isSleepingDisabled() || mEnableOVDReadback)
 			{
 				mCallback->updateScBodyAndShapeSim(continuation);
 				//Now update sleep state for FEM cloth...

@@ -480,6 +480,10 @@ namespace physx
 
 		// new direct-GPU API
 		virtual bool	getRigidDynamicData(void* data, const PxRigidDynamicGPUIndex* gpuIndices, PxRigidDynamicGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) const PX_OVERRIDE PX_FINAL;
+        virtual void removeDynamic(const PxNodeIndex& nodeIndex) PX_OVERRIDE;
+        bool finalizeSleepingRigidBodies(const PxU32* indices, PxU32 count, bool rollbackPose) PX_OVERRIDE PX_FINAL;
+        bool publishHostRigidPoses(const PxU32* indices, const PxTransform* poses, PxU32 count) PX_OVERRIDE PX_FINAL;
+        bool reserveNativeTransitionBuffers(PxU32 count);
 		virtual bool 	setRigidDynamicData(const void* data, const PxRigidDynamicGPUIndex* gpuIndices, PxRigidDynamicGPUAPIWriteType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;
 		
 		virtual bool 	getArticulationData(void* data, const PxArticulationGPUIndex* gpuIndices, PxArticulationGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) const PX_OVERRIDE PX_FINAL;
@@ -656,6 +660,11 @@ namespace physx
 		Cm::PinnableArray<PxGpuTendonJointCoefficientData>			mTendonJointCoefficientDataPool;
 		Cm::PinnableArray<PxU32>									mTendonTendonJointMapPool; //store each start index of the attachment to the corresponding tendons
 
+        CUdeviceptr mNativeSleepIndices = 0;
+        CUdeviceptr mNativeSleepZeros = 0;
+        CUdeviceptr mNativeSleepPoses = 0;
+        PxU32 mNativeSleepCapacity = 0;
+        CUevent mNativeSleepReady = NULL;
 		Cm::PinnableArray<PxU32>									mPathToRootPool;
 
 		Cm::PinnableArray<Dy::ArticulationMimicJointCore>			mMimicJointPool;

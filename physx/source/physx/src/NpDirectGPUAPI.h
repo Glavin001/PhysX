@@ -61,6 +61,10 @@ public:
 	virtual PxArticulationGPUAPIMaxCounts getArticulationGPUAPIMaxCounts()	const	PX_OVERRIDE PX_FINAL;
 
 	virtual bool getD6JointData(void* data, const PxD6JointGPUIndex* gpuIndices, PxD6JointGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent = NULL, CUevent finishEvent = NULL) const PX_OVERRIDE PX_FINAL;
+    virtual bool publishRigidDynamicHostData(PxRigidDynamic* const* bodies,
+        const PxTransform* poses, const PxVec3* linear, const PxVec3* angular,
+        PxU32 nbElements) PX_OVERRIDE PX_FINAL;
+    virtual PxU32 getShapeContactIndex(const PxShape& shape) const PX_OVERRIDE PX_FINAL;
 	//~PxDirectGPUAPI
 
 	NpScene& mNpScene;

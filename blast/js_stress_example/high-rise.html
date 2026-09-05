@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>High-Rise Demolition — blast-stress-solver Demo</title>
+    <link rel="stylesheet" href="./styles/demo-common.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/build/three.module.js",
+          "three/addons/": "/vendor/three/examples/jsm/",
+          "@dimforge/rapier3d-compat": "/vendor/rapier/rapier.mjs",
+          "@dgreenheck/three-pinata": "/vendor/three-pinata/three-pinata.es.js",
+          "blast-stress-solver": "/vendor/blast-stress-solver/index.js",
+          "blast-stress-solver/rapier": "/vendor/blast-stress-solver/rapier.js",
+          "blast-stress-solver/three": "/vendor/blast-stress-solver/three.js",
+          "blast-stress-solver/scenarios": "/vendor/blast-stress-solver/scenarios.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="layout">
+      <section class="viewport">
+        <canvas id="demo-canvas"></canvas>
+        <div class="viewport-hint">Loading high-rise...</div>
+      </section>
+
+      <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle settings panel">
+        <span class="icon-open">&#9776;</span>
+        <span class="icon-close">&#10005;</span>
+      </button>
+      <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+      <aside class="sidebar" id="sidebar">
+        <header>
+          <a href="./demo-index.html" class="back-link">&larr; All Demos</a>
+          <h1>&#127970; High-Rise Demolition</h1>
+          <p>
+            Reinforced-concrete apartment built live from the <em>Building</em> controls — size
+            it up (floors, footprint, columns) and optionally <em>fracture the walls</em> into
+            Voronoi shards (WASM auto-bonded) instead of boxes. Click the building to throw the
+            wrecking ball, then tune the projectile, material strength, gravity and physics below.
+            Destruction is stress-solver driven; the per-chunk <em>Custom damage system</em> is off
+            by default. (Scene material limits still come from the shared Rust/web scene pack.)
+          </p>
+        </header>
+
+        <div class="control-actions">
+          <button id="btn-reset" class="button button-primary">&orarr; Reset / Retry</button>
+        </div>
+
+        <!-- Building geometry (Reset to apply) -->
+        <section class="config-section">
+          <h2 class="section-title">Building (Reset to apply)</h2>
+          <div class="config-row">
+            <span class="config-label">Floors</span>
+            <input type="range" class="config-slider" id="cfg-floors" min="2" max="30" step="1" value="9" />
+            <span class="config-value" id="cfg-floors-value">9</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Floor height</span>
+            <input type="range" class="config-slider" id="cfg-floor-height" min="2.4" max="5" step="0.1" value="3.2" />
+            <span class="config-value" id="cfg-floor-height-value">3.2 m</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Width</span>
+            <input type="range" class="config-slider" id="cfg-width" min="8" max="60" step="1" value="18" />
+            <span class="config-value" id="cfg-width-value">18 m</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Depth</span>
+            <input type="range" class="config-slider" id="cfg-depth" min="8" max="60" step="1" value="14" />
+            <span class="config-value" id="cfg-depth-value">14 m</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Columns (X)</span>
+            <input type="range" class="config-slider" id="cfg-columns-x" min="2" max="10" step="1" value="4" />
+            <span class="config-value" id="cfg-columns-x-value">4</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Columns (Z)</span>
+            <input type="range" class="config-slider" id="cfg-columns-z" min="2" max="10" step="1" value="3" />
+            <span class="config-value" id="cfg-columns-z-value">3</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Pillar fractures</span>
+            <input type="range" class="config-slider" id="cfg-pillar-fractures" min="1" max="8" step="1" value="2" />
+            <span class="config-value" id="cfg-pillar-fractures-value">2 shards</span>
+          </div>
+          <label class="toggle-row">
+            <input type="checkbox" id="cfg-fracture-walls" />
+            <span class="toggle-text">
+              Fracture walls (auto-bond)
+              <small>Voronoi-shatter the drywall infill instead of boxes, bonded via the WASM auto-bonder. Heavier to build; rebuilds on toggle.</small>
+            </span>
+          </label>
+        </section>
+
+        <!-- Projectile (live at next throw) -->
+        <section class="config-section">
+          <h2 class="section-title">Projectile</h2>
+          <div class="config-row">
+            <span class="config-label">Radius</span>
+            <input type="range" class="config-slider" id="cfg-proj-radius" min="0.2" max="2.0" step="0.05" value="0.6" />
+            <span class="config-value" id="cfg-proj-radius-value">0.60 m</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Mass</span>
+            <input type="range" class="config-slider" id="cfg-proj-mass" min="200" max="10000" step="100" value="2500" />
+            <span class="config-value" id="cfg-proj-mass-value">2,500 kg</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Speed</span>
+            <input type="range" class="config-slider" id="cfg-proj-speed" min="4" max="80" step="1" value="45" />
+            <span class="config-value" id="cfg-proj-speed-value">45 m/s</span>
+          </div>
+        </section>
+
+        <!-- Structure / material (Reset to apply) -->
+        <section class="config-section">
+          <h2 class="section-title">Structure (Reset to apply)</h2>
+          <div class="config-row">
+            <span class="config-label">Strength</span>
+            <input type="range" class="config-slider" id="cfg-strength" min="0.25" max="10" step="0.05" value="3" />
+            <span class="config-value" id="cfg-strength-value">3.00&times;</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Impact&rarr;stress</span>
+            <input type="range" class="config-slider" id="cfg-contact-force" min="1" max="60" step="1" value="8" />
+            <span class="config-value" id="cfg-contact-force-value">8</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Solver iters</span>
+            <input type="range" class="config-slider" id="cfg-iterations" min="4" max="150" step="2" value="24" />
+            <span class="config-value" id="cfg-iterations-value">24</span>
+          </div>
+          <div class="config-row">
+            <span class="config-label">Graph reduce</span>
+            <input type="range" class="config-slider" id="cfg-graph-reduction" min="0" max="5" step="1" value="0" />
+            <span class="config-value" id="cfg-graph-reduction-value">0</span>
+          </div>
+        </section>
+
+        <!-- Solver -->
+        <section class="config-section">
+          <h2 class="section-title">Solver <small style="font-weight:normal;opacity:.5">&#9733; = live</small></h2>
+          <div class="config-row">
+            <span class="config-label">Gravity &#9733;</span>
+            <input type="range" class="config-slider" id="cfg-gravity" min="-30" max="0" step="0.5" value="-9.81" />
+            <span class="config-value" id="cfg-gravity-value">-9.8 m/s&sup2;</span>
+          </div>
+        </section>
+
+        <!-- Physics / Optimization / Features sections are injected by physics-controls.ts -->
+
+        <!-- Status -->
+        <section class="status-panel">
+          <h2>Simulation</h2>
+          <div class="status-grid">
+            <div class="status-item"><span class="status-label">Bodies</span><span class="status-value" id="stat-bodies">0</span></div>
+            <div class="status-item"><span class="status-label">Bonds</span><span class="status-value" id="stat-bonds">0</span></div>
+            <div class="status-item"><span class="status-label">Fragments</span><span class="status-value" id="stat-fragments">0</span></div>
+            <div class="status-item"><span class="status-label">Projectiles</span><span class="status-value" id="stat-projectiles">0</span></div>
+            <div class="status-item"><span class="status-label">Chunks</span><span class="status-value" id="stat-chunks">0</span></div>
+            <div class="status-item"><span class="status-label">Settle</span><span class="status-value" id="stat-settle">0.00 m</span></div>
+          </div>
+        </section>
+
+        <!-- Performance -->
+        <section class="status-panel">
+          <h2>Performance</h2>
+          <div class="status-grid">
+            <div class="status-item"><span class="status-label">Physics</span><span class="status-value" id="stat-physics-ms">&mdash; ms</span></div>
+            <div class="status-item"><span class="status-label">Render</span><span class="status-value" id="stat-render-ms">&mdash; ms</span></div>
+            <div class="status-item"><span class="status-label">Draw Calls</span><span class="status-value" id="stat-draw-calls">0</span></div>
+            <div class="status-item"><span class="status-label">Triangles</span><span class="status-value" id="stat-triangles">0</span></div>
+          </div>
+        </section>
+        <!-- Session recorder docks here (mounted by the demo via recordingOverlay). -->
+        <section class="config-section recorder-section" id="recorder-slot"></section>
+      </aside>
+    </main>
+
+    <script type="module" src="./dist/demo-shell.js"></script>
+    <script type="module" src="./dist/high-rise.js"></script>
+  </body>
+</html>

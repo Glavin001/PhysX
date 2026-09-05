@@ -373,7 +373,8 @@ PxScene* NpPhysics::createScene(const PxSceneDesc& desc)
 {
 	PxSceneDesc mutableDesc = desc;
 
-	if((mutableDesc.flags & PxSceneFlag::eENABLE_DIRECT_GPU_API) && !(mutableDesc.flags & PxSceneFlag::eDISABLE_SLEEPING))
+	if((mutableDesc.flags & PxSceneFlag::eENABLE_DIRECT_GPU_API) && !(mutableDesc.flags & PxSceneFlag::eDISABLE_SLEEPING)
+        && !(mutableDesc.flags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
 	{
 		mFoundation.error(PxErrorCode::eDEBUG_WARNING, PX_FL, "eENABLE_DIRECT_GPU_API is set, automatically enabling eDISABLE_SLEEPING");
 		mutableDesc.flags |= PxSceneFlag::eDISABLE_SLEEPING;

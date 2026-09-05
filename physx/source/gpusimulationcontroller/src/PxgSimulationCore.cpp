@@ -2283,8 +2283,9 @@ void PxgSimulationCore::syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnf
 
 void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies)
 {
+    const auto updateVelocities = [&]()
 	{
-		if (nbUpdatedBodies > 0 && !mGpuContext->getEnableDirectGPUAPI())
+		if (nbUpdatedBodies > 0)
 		{
 			CUdeviceptr descptr = mUpdatedBodiesDescBuffer.getDevicePtr();
 			PxCudaKernelParam kernelParams[] =
@@ -2304,7 +2305,8 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 				PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU update bodies velocities kernel fail!\n");
 #endif
 		}
-	}
+	};
+    if(!mGpuContext->getEnableDirectGPUAPI()) updateVelocities();
 
 	{
 		if (nbNewBodies > 0)
@@ -2335,6 +2337,7 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 #endif
 		}
 	}
+    if(mGpuContext->getEnableDirectGPUHostAccess()) updateVelocities();
 }
 
 void PxgSimulationCore::updateArticulations(const PxU32 nbNewArticulations, PxgArticulationSimUpdate* updates, 

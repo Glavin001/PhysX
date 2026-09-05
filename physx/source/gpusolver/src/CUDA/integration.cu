@@ -113,3 +113,22 @@ extern "C" __global__ void integrateCoreParallelLaunch(
 		assert(body2World.isSane());
 	}
 }
+
+// The CPU island manager can retire a body in parallel with integration.
+// Recover the existing pre-step transform on device, matching native sleep's
+// last-CCD-pose rollback without copying motion to the CPU.
+extern "C" __global__ void gatherNativeSleepPoses(PxTransform* poses, const PxU32* indices,
+    const PxgSolverCoreDesc* desc, const PxU32* solverIndices, PxU32 count)
+{
+    const PxU32 i = threadIdx.x + blockIdx.x * blockDim.x;
+    if(i < count)
+    {
+        const PxU32 node = indices[i];
+        const PxU32 solverIndex = solverIndices[node];
+        assert(solverIndex < desc->numSolverBodies);
+        const PxgSolverBodyData& data = desc->solverBodyDataPool[solverIndex];
+        assert(data.islandNodeIndex.index() == node);
+        const PxgBodySim& body = desc->mBodySimBufferDeviceData[node];
+        poses[i] = (data.body2World * body.body2Actor_maxImpulseW.getInverse()).getTransform();
+    }
+}

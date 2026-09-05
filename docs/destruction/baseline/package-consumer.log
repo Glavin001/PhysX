@@ -1,0 +1,6 @@
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /root/workspace/physx-2/out/package-consumer
+[ 50%] Building CXX object CMakeFiles/package_consumer.dir/main.cpp.o
+[100%] Linking CXX executable package_consumer
+[100%] Built target package_consumer

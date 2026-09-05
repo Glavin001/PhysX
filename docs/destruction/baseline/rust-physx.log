@@ -1,0 +1,172 @@
+   Compiling blast-stress-solver v0.1.1 (/root/workspace/physx-2/blast/blast-stress-solver-rs)
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/rust_stress_example/ffi/stress_bridge.cpp:6:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/rust_stress_example/ffi/stress_bridge.cpp:8:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/rust_stress_example/ffi/ext_stress_bridge.cpp:17:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h: In constructor 'Nv::Blast::ExtStressMaterial::ExtStressMaterial()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:216:11: warning: 'Nv::Blast::ExtStressMaterial::elasticModulusPa' will be initialized after [-Wreorder]
+warning: blast-stress-solver@0.1.1:   216 |     float elasticModulusPa;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:209:11: warning:   'float Nv::Blast::ExtStressMaterial::residualAreaFraction' [-Wreorder]
+warning: blast-stress-solver@0.1.1:   209 |     float residualAreaFraction;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:221:5: warning:   when initialized here [-Wreorder]
+warning: blast-stress-solver@0.1.1:   221 |     ExtStressMaterial() :
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/rust_stress_example/ffi/ext_stress_bridge.cpp: In function 'uint8_t ext_stress_solver_apply_fracture_commands(ExtStressSolverHandle*, const ExtStressFractureCommands*, uint32_t, ExtStressSplitEvent*, uint32_t, ExtStressActor*, uint32_t, uint32_t*, uint32_t*, uint32_t*, uint32_t, uint32_t*)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/rust_stress_example/ffi/ext_stress_bridge.cpp:2178:18: warning: variable 'childStored' set but not used [-Wunused-but-set-variable]
+warning: blast-stress-solver@0.1.1:  2178 |             bool childStored = false;
+warning: blast-stress-solver@0.1.1:       |                  ^~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:27:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:41:45: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                             ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:41:87: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                                                                       ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:41:117: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                                                                                                     ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/simd/simd_device_query.h:144:1: warning: 'void print_supported_instruction_sets()' defined but not used [-Wunused-function]
+warning: blast-stress-solver@0.1.1:   144 | print_supported_instruction_sets()
+warning: blast-stress-solver@0.1.1:       | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/globals/NvBlastGlobals.cpp: In member function 'virtual void Nv::Blast::DefaultErrorCallback::reportError(nvidia::NvErrorCode::Enum, const char*, const char*, int)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/globals/NvBlastGlobals.cpp:120:14: warning: variable 'critical' set but not used [-Wunused-but-set-variable]
+warning: blast-stress-solver@0.1.1:   120 |         bool critical = false;
+warning: blast-stress-solver@0.1.1:       |              ^~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamily.cpp: In function 'NvBlastFamily* Nv::Blast::createFamily(void*, const NvBlastAssetMemSizeData&, NvBlastLog)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamily.cpp:106:20: warning: unused variable 'bondCount' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:   106 |     const uint32_t bondCount = sizeData.bondCount;
+warning: blast-stress-solver@0.1.1:       |                    ^~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamilyGraph.h:37,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamilyGraph.cpp:28:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/common/NvBlastFixedPriorityQueue.h: In instantiation of 'Nv::Blast::FixedPriorityQueue<Element, Comparator>::FixedPriorityQueue(const Comparator&) [with Element = Nv::Blast::FamilyGraph::QueueElement; Comparator = Nv::Blast::FamilyGraph::NodeComparator]':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamilyGraph.cpp:440:71:   required from here
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/common/NvBlastFixedPriorityQueue.h:75:94: warning: implicitly-declared 'constexpr Nv::Blast::FamilyGraph::NodeComparator::NodeComparator(const Nv::Blast::FamilyGraph::NodeComparator&)' is deprecated [-Wdeprecated-copy]
+warning: blast-stress-solver@0.1.1:    75 |     FixedPriorityQueue(const Comparator& less = Comparator()) : Comparator(less), mHeapSize(0)
+warning: blast-stress-solver@0.1.1:       |                                                                                              ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamilyGraph.h:236:25: note: because 'Nv::Blast::FamilyGraph::NodeComparator' has user-provided 'Nv::Blast::FamilyGraph::NodeComparator& Nv::Blast::FamilyGraph::NodeComparator::operator=(const Nv::Blast::FamilyGraph::NodeComparator&)'
+warning: blast-stress-solver@0.1.1:   236 |         NodeComparator& operator = (const NodeComparator&);
+warning: blast-stress-solver@0.1.1:       |                         ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:29:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h: In constructor 'Nv::Blast::ExtStressMaterial::ExtStressMaterial()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:216:11: warning: 'Nv::Blast::ExtStressMaterial::elasticModulusPa' will be initialized after [-Wreorder]
+warning: blast-stress-solver@0.1.1:   216 |     float elasticModulusPa;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:209:11: warning:   'float Nv::Blast::ExtStressMaterial::residualAreaFraction' [-Wreorder]
+warning: blast-stress-solver@0.1.1:   209 |     float residualAreaFraction;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:221:5: warning:   when initialized here [-Wreorder]
+warning: blast-stress-solver@0.1.1:   221 |     ExtStressMaterial() :
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:43:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/anglin6.h: At global scope:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'void Nv::Blast::SupportGraphProcessor::addBond(uint32_t, uint32_t, uint32_t)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::stressShear' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1:  1560 |             };
+warning: blast-stress-solver@0.1.1:       |             ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::stressBend' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::normal' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::centroid' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'void Nv::Blast::SupportGraphProcessor::syncNodes(const NvBlastBond*)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:4007:24: warning: unused variable 'STATIC_NODES_COUNT_PENALTY' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:  4007 |         const uint32_t STATIC_NODES_COUNT_PENALTY = 2 << 2;
+warning: blast-stress-solver@0.1.1:       |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'virtual bool Nv::Blast::ExtStressSolverImpl::getExcessForces(uint32_t, const NvcVec3&, NvcVec3&, NvcVec3&)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5281:20: warning: unused variable 'retCount' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:  5281 |     const uint32_t retCount = NvBlastActorGetGraphNodeIndices(nodeIndices, nodeCount, actor, logLL);
+warning: blast-stress-solver@0.1.1:       |                    ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/NsFoundation/include/NsHashMap.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/sdk/common/NvBlastHashMap.h:33,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:34:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/NsFoundation/include/NsHashInternals.h: In instantiation of 'nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter::operator++() [with Entry = const NvBlastActor*; Key = const NvBlastActor*; HashFn = nvidia::shdfnd::Hash<const NvBlastActor*>; GetKey = nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey; Allocator = Nv::Blast::Allocator; bool compacting = false]':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5990:68:   required from here
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/NsFoundation/include/NsHashInternals.h:459:21: warning: implicitly-declared 'constexpr nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter::Iter(const nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter&)' is deprecated [-Wdeprecated-copy]
+warning: blast-stress-solver@0.1.1:   459 |             return *this;
+warning: blast-stress-solver@0.1.1:       |                     ^~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/NsFoundation/include/NsHashInternals.h:490:15: note: because 'nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter' has user-provided 'nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter& nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter::operator=(const nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter&) [with Entry = const NvBlastActor*; Key = const NvBlastActor*; HashFn = nvidia::shdfnd::Hash<const NvBlastActor*>; GetKey = nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey; Allocator = Nv::Blast::Allocator; bool compacting = false]'
+warning: blast-stress-solver@0.1.1:   490 |         Iter& operator=(const Iter&);
+warning: blast-stress-solver@0.1.1:       |               ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:45:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/simd/simd_device_query.h: At global scope:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/simd/simd_device_query.h:144:1: warning: 'void print_supported_instruction_sets()' defined but not used [-Wunused-function]
+warning: blast-stress-solver@0.1.1:   144 | print_supported_instruction_sets()
+warning: blast-stress-solver@0.1.1:       | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:32:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'virtual void Nv::Blast::ExtStressSolverImpl::release()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/globals/NvBlastGlobals.h:138:9: warning: 'nonnull' argument 'this' compared to NULL [-Wnonnull-compare]
+warning: blast-stress-solver@0.1.1:   138 |         if ((obj) != nullptr)                                       \
+warning: blast-stress-solver@0.1.1:       |         ^~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5223:5: note: in expansion of macro 'NVBLAST_DELETE'
+warning: blast-stress-solver@0.1.1:  5223 |     NVBLAST_DELETE(this, ExtStressSolverImpl);
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~
+warning: fields `ids` and `pts` are never read
+   --> src/backends/physx_backend.rs:298:5
+    |
+264 | struct Scratch {
+    |        ------- fields in this struct
+...
+298 |     ids: Vec<u64>,
+    |     ^^^
+299 |     pts: Vec<CVec3>,
+    |     ^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `blast-stress-solver` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.28s
+     Running tests/physx_conformance_test.rs (blast/blast-stress-solver-rs/target/debug/deps/physx_conformance_test-2afeb5c3a0dc6df3)
+
+running 3 tests
+test physx_cpu_satisfies_the_contract ... ok
+test physx_gpu_satisfies_the_contract ... ok
+test physx_ids_are_never_reused ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/physx_runtime_thread_safety_test.rs (blast/blast-stress-solver-rs/target/debug/deps/physx_runtime_thread_safety_test-d13b7e2f5a5fe79a)
+
+running 2 tests
+test worlds_can_be_created_concurrently_from_many_threads ... ok
+test worlds_can_be_created_and_dropped_concurrently ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

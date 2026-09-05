@@ -31,6 +31,7 @@
 
 #include "cudamanager/PxCudaTypes.h"
 #include "foundation/PxVec4.h"
+#include "foundation/PxTransform.h"
 #include "foundation/PxSimpleTypes.h"
 
 #if !PX_DOXYGEN
@@ -41,6 +42,8 @@ namespace physx
 /**
 \brief This flag specifies the type of data to get when calling PxDirectGPUAPI::getRigidDynamicData().
 */
+class PxRigidDynamic;
+
 class PxRigidDynamicGPUAPIReadType
 {
 public:
@@ -440,6 +443,27 @@ public:
 	
 	*/
 	virtual bool getD6JointData(void* data, const PxD6JointGPUIndex* gpuIndices, PxD6JointGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent = NULL, CUevent finishEvent = NULL) const = 0;
+
+    /** Publish a completed motion readback to CPU getters and scene queries.
+    All arrays are HOST arrays, ordered identically, with nbElements entries.
+    Call outside simulation, before querying or editing pose-dependent metadata.
+    Actors must remain alive and uploaded, with no pending host motion commands.
+    The caller owns readback freshness and actor lifetime; this method performs
+    no device read/write and does not change sleeping or force state.
+    Returns false without publishing any row if validation fails.
+    */
+    virtual bool publishRigidDynamicHostData(PxRigidDynamic* const* bodies,
+        const PxTransform* poses, const PxVec3* linear, const PxVec3* angular,
+        PxU32 nbElements) = 0;
+
+    /** Contact transform-cache identity of a live exclusive shape in this scene.
+    This is the identifier in PxGpuContactPair::transformCacheRef0/1, NOT the
+    geometry index returned by PxShape::getGPUIndex(). It changes on detach and
+    can be recycled. Call outside simulation after fetch; keep the actor/shape
+    alive and rebuild ownership after topology changes. Returns PX_INVALID_U32
+    for nonexclusive, detached or foreign shapes or unavailable host access.
+    */
+    virtual PxU32 getShapeContactIndex(const class PxShape& shape) const = 0;
 };
 
 #if !PX_DOXYGEN

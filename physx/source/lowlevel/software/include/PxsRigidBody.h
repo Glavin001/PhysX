@@ -67,12 +67,20 @@ class PxsRigidBody
 		eFREE_FLAG_3			= 1 << 13,
 		eFREE_FLAG_4			= 1 << 14,
 		eFREE_FLAG_5			= 1 << 15,
+        // Upload-only flags stored separately from the 16-bit native flags.
+        eHOST_POSE_COPY_GPU = 1 << 16,
+        eHOST_LINEAR_COPY_GPU = 1 << 17,
+        eHOST_ANGULAR_COPY_GPU = 1 << 18,
+        eHOST_VELOCITY_DELTA_GPU = 1 << 19,
+        eHOST_CLEAR_FORCE_GPU = 1 << 20,
+        eHOST_CLEAR_TORQUE_GPU = 1 << 21,
 		eFREE_FLAGS				= eFREE_FLAG_1 | eFREE_FLAG_2 | eFREE_FLAG_3 | eFREE_FLAG_4 | eFREE_FLAG_5
 	};
 
 	PX_FORCE_INLINE						PxsRigidBody(PxsBodyCore* core, PxReal freeze_count) :
 											mLastTransform	(core->body2World),
 											mInternalFlags	(0),
+                                            mGpuHostDirty   (0),
 											mCCD			(NULL),
 											mCore			(core),
 											mSleepLinVelAcc	(PxVec3(0.0f)),
@@ -135,7 +143,7 @@ class PxsRigidBody
 					PxTransform			mLastTransform;
 
 					PxU16				mInternalFlags;			// PT: PxsRigidBodyFlags
-					PxU16				mPadding16;				// PT: free space here
+					PxU16               mGpuHostDirty;          // Sparse CPU commands; layout unchanged
 
 					PxsCCDBody*			mCCD;					// only valid during CCD	
 

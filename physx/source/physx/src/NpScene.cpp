@@ -1027,6 +1027,12 @@ void NpScene::removeRigidDynamic(NpRigidDynamic& body, bool wakeOnLostTouch, boo
 
 bool NpScene::addArticulation(PxArticulationReducedCoordinate& articulation)
 {
+    if(getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+    {
+        outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "Direct GPU sleeping currently supports rigid bodies only; articulation insertion rejected.");
+        return false;
+    }
+
 	PX_PROFILE_ZONE("API.addArticulation", getContextId());
 	NP_WRITE_CHECK(this);
 	PX_CHECK_AND_RETURN_VAL(articulation.getNbLinks()>0, "PxScene::addArticulation: Empty articulations may not be added to a scene.", false);
@@ -1275,6 +1281,12 @@ bool NpScene::addArticulationMimicJointInternal(NpArticulationReducedCoordinate*
 
 bool NpScene::addArticulationInternal(PxArticulationReducedCoordinate& npa)
 {
+    if(getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+    {
+        outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "Direct GPU sleeping currently supports rigid bodies only; articulation insertion rejected.");
+        return false;
+    }
+
 	// Add root link first
 	const PxU32 nbLinks = npa.getNbLinks();
 	PX_ASSERT(nbLinks > 0);
@@ -2928,6 +2940,9 @@ bool NpScene::simulateOrCollide(PxReal elapsedTime, PxBaseTask* completionTask, 
 
 		if (!checkGpuErrorsPreSim(true))
 			return false;
+        if(!mScene.finalizeGpuSleep())
+            return outputError<PxErrorCode::eINTERNAL_ERROR>(__LINE__, "GPU sleep finalization failed before simulate.");
+
 
 		PX_CHECK_AND_RETURN_VAL(elapsedTime > 0, "PxScene::collide/simulate: The elapsed time must be positive!", false);
 

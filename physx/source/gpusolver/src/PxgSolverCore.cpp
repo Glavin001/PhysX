@@ -227,8 +227,13 @@ void PxgSolverCore::gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSo
 	{
 		mCudaContext->memcpyDtoHAsync(solverBodyPool, mOutVelocityPool.getDevicePtr(), sizeof(PxgSolverBody) * nbSolverBodies, mStream);
 		mCudaContext->memcpyDtoHAsync(body2WorldPool.begin(), mOutBody2WorldPool.getDevicePtr(), sizeof(PxAlignedTransform) * nbSolverBodies, mStream);
-		mCudaContext->memcpyDtoHAsync(solverBodySleepDataPool.begin(), mSolverBodySleepDataPool.getDevicePtr(), sizeof(PxgSolverBodySleepData) * nbSolverBodies, mStream);
-	}
+    }
+    // Native islands need sleep eligibility even when motion stays on device.
+    // This copy joins the existing solver completion fence below.
+    if (!enableDirectGPUAPI || !mGpuContext->isSleepingDisabled())
+    {
+        mCudaContext->memcpyDtoHAsync(solverBodySleepDataPool.begin(), mSolverBodySleepDataPool.getDevicePtr(), sizeof(PxgSolverBodySleepData) * nbSolverBodies, mStream);
+    }
 
 	synchronizeStreams(mCudaContext, mStream2, mStream, mIntegrateEvent);
 

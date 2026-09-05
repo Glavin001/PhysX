@@ -290,6 +290,12 @@ void BodySim::addSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 
 void BodySim::setSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 {
+    if(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+    {
+        const PxU32 flags = (linAcc ? PxsRigidBody::eHOST_CLEAR_FORCE_GPU : 0)
+            | (angAcc ? PxsRigidBody::eHOST_CLEAR_TORQUE_GPU : 0);
+        getLowLevelBody().mGpuHostDirty |= PxU16(flags >> 16);
+    }
 	notifyDirtySpatialAcceleration();
 
 	if (!mSimStateData || !mSimStateData->isVelMod())
@@ -304,6 +310,13 @@ void BodySim::setSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 
 void BodySim::clearSpatialAcceleration(bool force, bool torque)
 {
+    if(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+    {
+        if(!mSimStateData) setupSimStateData(false);
+        const PxU32 flags = (force ? PxsRigidBody::eHOST_CLEAR_FORCE_GPU : 0)
+            | (torque ? PxsRigidBody::eHOST_CLEAR_TORQUE_GPU : 0);
+        getLowLevelBody().mGpuHostDirty |= PxU16(flags >> 16);
+    }
 	PX_ASSERT(force || torque);
 
 	notifyDirtySpatialAcceleration();
@@ -703,7 +716,17 @@ bool BodySim::updateForces(PxReal dt, PxsRigidBody** updatedBodySims, PxU32* upd
 			angVelDt += velmod->getAngularVelModPerSec()*dt;
 		}
 
-		if (acceleration)
+        if(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+        {
+            PX_ASSERT(externalAccelerations);
+            // Preserve native integration ordering and rounding: these values
+            // are delta velocities, not acceleration reconstructed with 1/dt.
+            PxsRigidBodyExternalAcceleration delta(linVelDt,angVelDt);
+            externalAccelerations->setValue(delta,
+                getNodeIndex().index(),maxNumExternalAccelerations);
+            getLowLevelBody().mGpuHostDirty |= PxU16(PxsRigidBody::eHOST_VELOCITY_DELTA_GPU >> 16);
+        }
+        else if (acceleration)
 		{
 			const PxReal invDt = 1.f / dt;
 			acceleration->linear = linVelDt * invDt;

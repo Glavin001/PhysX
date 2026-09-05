@@ -604,3 +604,5 @@ KERNEL_DEF(sdf_ApplyHoleCorrections, "sdfApplyHoleCorrections")
 KERNEL_DEF(sdf_CalculateDenseGridPointCloud, "sdfCalculateDenseGridPointCloud")
 
 #endif
+
+KERNEL_DEF(NATIVE_SLEEP_GATHER_POSES, "gatherNativeSleepPoses")

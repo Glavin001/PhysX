@@ -32,6 +32,7 @@
 #include "ScArticulationSim.h"
 #include "ScArticulationCore.h"
 #include "DyIslandManager.h"
+#include "GuBounds.h"
 
 using namespace physx;
 using namespace Sc;
@@ -64,6 +65,7 @@ void BodySim::removeFromSpeculativeCCDMap()
 // PT: TODO: consider using a non-member function for this one
 void BodySim::updateContactDistance(PxReal* contactDistance, PxReal dt, const Bp::BoundsArray& boundsArray)
 {
+	PX_UNUSED(boundsArray);
 	const PxsRigidBody& llBody = getLowLevelBody();
 
 	const PxRigidBodyFlags flags = llBody.getCore().mFlags;
@@ -84,12 +86,21 @@ void BodySim::updateContactDistance(PxReal* contactDistance, PxReal dt, const Bp
 
 			const PxU32 index = current->getElementID();
 
-			const PxBounds3& bounds = boundsArray.getBounds(index);
+			// Enclose each point in the body's mass frame. World CPU bounds are
+			// stale in Direct GPU scenes; mixing them with an observed GPU COM
+			// makes a translating body acquire an ever-growing rotational halo.
+			// Local geometry and shape/COM transforms only change with metadata.
+			const ShapeCore& shape = current->getCore();
+			const PxTransform shapeToBody = llBody.getCore().getBody2Actor().transformInv(shape.getTransform());
+			PxBounds3 bounds;
+			Gu::computeBounds(bounds, shape.getGeometryUnion().getGeometry(), shapeToBody, 0.0f, 1.0f);
+			const PxReal radius = (bounds.getExtents() + bounds.getCenter().abs()).magnitude();
 
-			const PxReal radius = bounds.getExtents().magnitude();
-
-			//Heuristic for angular velocity...
-			const PxReal angularInflation = angVelMagTimesDt * radius;
+			// A point at radius r cannot move farther than 2*r under rotation,
+			// however many turns occur in the step. The arc-length bound w*dt*r
+			// is tighter for small angles. Both enclose the entire swept path;
+			// this limits search inflation, never angular velocity or impulses.
+			const PxReal angularInflation = PxMin(angVelMagTimesDt, 2.0f) * radius;
 
 			contactDistance[index] = linearInflation + current->getContactOffset() + angularInflation;
 		}

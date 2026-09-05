@@ -409,6 +409,7 @@ namespace physx
 		void 								allocateTempPinnedSolverMemoryCommon();
 
 		PX_FORCE_INLINE bool				getEnableDirectGPUAPI() const { return mEnableDirectGPUAPI;	}
+        PX_FORCE_INLINE bool getEnableDirectGPUHostAccess() const { return mEnableDirectGPUHostAccess; }
 
 		PxvSimStats&			 			getSimStats() { return mSimStats; }
 
@@ -574,6 +575,7 @@ namespace physx
 		PxU32									mMaxNumStaticPartitions;
 
 		const bool								mEnableDirectGPUAPI;
+        bool mEnableDirectGPUHostAccess;
 		bool									mRecomputeArticulationBlockFormat;
 
 		// when Direct GPU API is enabled, the constraint writeback data might have to be copied to host to

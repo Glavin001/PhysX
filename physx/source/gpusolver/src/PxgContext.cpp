@@ -381,6 +381,7 @@ namespace physx
 		mIsTGS(isTGS),
 		mIsExternalForcesEveryTgsIterationEnabled(false),
 		mEnableDirectGPUAPI(sceneFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API),
+        mEnableDirectGPUHostAccess(sceneFlags & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS),
 		mRecomputeArticulationBlockFormat(false),
 		mEnforceConstraintWriteBackToHostCopy(false),
 
@@ -682,6 +683,39 @@ namespace physx
 	};
 
 
+    // Only the small activity record crosses to the CPU. CPU motion remains
+    // unavailable in Direct GPU scenes; metadata uploads preserve device poses.
+    class PxgPostSolveSleepTask : public Cm::Task
+    {
+        const PxNodeIndex* mNodes;
+        const PxgSolverBodySleepData* mSleep;
+        PxU32 mCount;
+        IG::IslandSim& mIslands;
+    public:
+        PxgPostSolveSleepTask(const PxNodeIndex* nodes, const PxgSolverBodySleepData* sleep,
+                             PxU32 count, IG::IslandSim& islands)
+            : Cm::Task(0), mNodes(nodes), mSleep(sleep), mCount(count), mIslands(islands) {}
+        void runInternal() PX_OVERRIDE PX_FINAL
+        {
+            PX_PROFILE_ZONE("GpuDynamics.PxgPostSolveSleepTask", 0);
+            for(PxU32 i = 0; i < mCount; ++i)
+            {
+                PxsRigidBody& body = *getRigidBodyFromIG(mIslands, mNodes[i]);
+                PxsBodyCore& core = body.getCore();
+                core.solverWakeCounter = mSleep[i].wakeCounter;
+                body.mInternalFlags = PxU16((body.mInternalFlags & ~PxsRigidBody::eSLEEPING_FLAGS) | (mSleep[i].internalFlags & PxsRigidBody::eSLEEPING_FLAGS));
+                if(mSleep[i].wakeCounter == 0.0f)
+                {
+                    core.linearVelocity = PxVec3(0.0f);
+                    core.angularVelocity = PxVec3(0.0f);
+                }
+            }
+        }
+        const char* getName() const PX_OVERRIDE PX_FINAL { return "PxgPostSolveSleepTask"; }
+    private:
+        PX_NOCOPY(PxgPostSolveSleepTask)
+    };
+
 	class PxgPostSolveArticulationTask : public Cm::Task
 	{
 		PxNodeIndex* mNodeIndices;
@@ -847,6 +881,10 @@ namespace physx
 
 	void PxgGpuContext::doPostSolveTask(physx::PxBaseTask* continuation)
 	{
+        if(mEnableDirectGPUAPI)
+        {
+        }
+
 		if (!mSolvedThisFrame)
 			return;
 
@@ -868,6 +906,20 @@ namespace physx
 		// Solver friction patches are final only after syncDmaBack.
 		getNarrowphaseCore()->drawFrictionAnchors();
 		mForceChangedThresholdStream.forceSize_Unsafe(nbThresholdElems); 
+
+        if (mEnableDirectGPUAPI && !mIsSleepingDisabled && !getSimulationController()->getEnableOVDReadback())
+        {
+            const PxU32 offset = 1 + mKinematicCount;
+            const PxU32 total = mSolverBodyPool.size();
+            IG::IslandSim& islands = mIslandManager.getAccurateIslandSim();
+            for(PxU32 i = offset; i < total; i += 512)
+            {
+                PxgPostSolveSleepTask* task = PX_PLACEMENT_NEW(mFlushPool.allocate(sizeof(PxgPostSolveSleepTask)), PxgPostSolveSleepTask)(
+                    mActiveNodeIndex.begin() + i, mSolverBodySleepDataPool.begin() + i, PxMin(512u, total - i), islands);
+                task->setContinuation(continuation);
+                task->removeReference();
+            }
+        }
 
 		if (!mEnableDirectGPUAPI || getSimulationController()->getEnableOVDReadback())
 		{

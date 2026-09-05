@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/topology-release
+Test project /root/workspace/physx-2/out/topology-release
+    Start 1: destruction_gpu_topology
+1/1 Test #1: destruction_gpu_topology .........   Passed    0.18 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.18 sec

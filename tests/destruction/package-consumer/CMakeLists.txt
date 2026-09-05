@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.24)
+project(DestructionPackageConsumer LANGUAGES CXX)
+find_package(PhysXDestruction CONFIG REQUIRED)
+add_executable(package_consumer main.cpp)
+target_compile_features(package_consumer PRIVATE cxx_std_17)
+target_link_libraries(package_consumer PRIVATE PhysXDestruction::Sdk)

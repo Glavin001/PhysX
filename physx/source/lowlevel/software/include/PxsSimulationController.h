@@ -333,6 +333,11 @@ namespace physx
 		virtual bool					hasDeformableVolumes()					const	{ return false;	}
 #endif
 
+        // Experimental native activity bridge; append to preserve existing virtual slots.
+        virtual void removeDynamic(const PxNodeIndex& /*nodeIndex*/) {}
+        virtual bool finalizeSleepingRigidBodies(const PxU32* /*indices*/, PxU32 /*count*/, bool /*rollbackPose*/) { return false; }
+        virtual bool publishHostRigidPoses(const PxU32*, const PxTransform*, PxU32) { return false; }
+
 	protected:
 		PxsSimulationControllerCallback*	mCallback;
 	public:

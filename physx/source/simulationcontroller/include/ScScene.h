@@ -440,6 +440,7 @@ namespace Sc
 					void						postCallbacksPreSyncKinematics();
 					void						postReportsCleanup();
 					void						fireCallbacksPostSync();
+                    bool finalizeGpuSleep(BodyCore* body = NULL);
 					void						syncSceneQueryBounds(SqBoundsSync& sync, SqRefFinder& finder);					
 
 					PxU32						getDefaultContactReportStreamBufferSize() const;
@@ -783,6 +784,8 @@ namespace Sc
 			const	PxPairFilteringMode::Enum	mStaticKineFilteringMode;
 
 					PxCoalescedHashSet<BodyCore*> mSleepBodies;
+                    PxCoalescedHashSet<BodyCore*> mGpuSleepPendingBodies;
+        PxCoalescedHashSet<BodyCore*> mGpuSleepRollbackBodies;
 					PxCoalescedHashSet<BodyCore*> mWokeBodies;
 
 					bool						mWokeBodyListValid;

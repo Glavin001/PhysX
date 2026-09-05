@@ -1,0 +1,108 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-release
+Test project /root/workspace/physx-2/out/destruction-release
+      Start  1: blast_stress_physx_cpu_contract
+ 1/32 Test  #1: blast_stress_physx_cpu_contract .........................***Failed    0.00 sec
+blast_stress_demo: could not open scene pack: /root/workspace/physx-2/out/destruction-release/../../../blast/blast-stress-demo-rs/assets/scenes/fractured-tower.json
+
+      Start  2: blast_stress_physx_resim_penetration
+ 2/32 Test  #2: blast_stress_physx_resim_penetration ....................***Failed    0.00 sec
+blast_stress_demo: could not open scene pack: /root/workspace/physx-2/out/destruction-release/../../../blast/blast-stress-demo-rs/assets/scenes/fractured-tower.json
+
+      Start  3: blast_stress_physx_resim_baseline
+ 3/32 Test  #3: blast_stress_physx_resim_baseline .......................***Failed    0.00 sec
+blast_stress_demo: could not open scene pack: /root/workspace/physx-2/out/destruction-release/../../../blast/blast-stress-demo-rs/assets/scenes/fractured-tower.json
+
+      Start  4: blast_stress_physx_resim_snapshot
+ 4/32 Test  #4: blast_stress_physx_resim_snapshot .......................   Passed    0.01 sec
+      Start  5: blast_stress_velocity_fidelity_cpu
+ 5/32 Test  #5: blast_stress_velocity_fidelity_cpu ......................   Passed    0.01 sec
+      Start  6: blast_stress_velocity_fidelity_gpu
+ 6/32 Test  #6: blast_stress_velocity_fidelity_gpu ......................   Passed    0.42 sec
+      Start  7: blast_stress_load_path
+ 7/32 Test  #7: blast_stress_load_path ..................................***Failed    0.01 sec
+load path test failed: weak-material footing must fail under the same load and geometry
+physics mode: cpu
+
+      Start  8: blast_stress_physx_resim_punchthrough
+ 8/32 Test  #8: blast_stress_physx_resim_punchthrough ...................   Passed    0.01 sec
+      Start  9: blast_stress_physx_resim_scoped_cascade
+ 9/32 Test  #9: blast_stress_physx_resim_scoped_cascade .................   Passed    0.13 sec
+      Start 10: blast_stress_physx_direct_gpu_resim
+10/32 Test #10: blast_stress_physx_direct_gpu_resim .....................   Passed    0.33 sec
+      Start 11: blast_stress_physx_gpu_activity
+11/32 Test #11: blast_stress_physx_gpu_activity .........................***Failed    1.79 sec
+contact wake mismatch sample=87 dp=0.868351 dv=0 dw=0
+gpu_activity_test FAILED: native/device physical outcome differs
+commands and metadata passed: 31 body samples, max position error 5.96046e-08 m
+
+      Start 12: blast_stress_reference_building_load_path
+12/32 Test #12: blast_stress_reference_building_load_path ...............***Failed    0.01 sec
+blast_stress_demo: joint class 'infill~infill' has peak safety factor 1.165250 under self-weight, below the required 2.000000 (authored bond area is too small to carry gravity)
+gravity load path (utilisation = peak stress / that bond's material elastic limit):
+  infill~infill          drywall-panel          bonds=12     peakUtil=0.8582     safetyFactor=1.165      peak(c/t/s)=1.05e+05/1.03e+05/0 Pa
+  column~infill          facade-clip            bonds=48     peakUtil=0.4148     safetyFactor=2.411      peak(c/t/s)=2.07e+05/2.73e+04/1.85e+05 Pa
+  infill~slab            drywall-panel          bonds=24     peakUtil=0.3195     safetyFactor=3.13       peak(c/t/s)=1.41e+05/2.13e+04/1.44e+05 Pa
+  column~column          reinforced-concrete    bonds=12     peakUtil=0.09572    safetyFactor=10.45      peak(c/t/s)=2.78e+05/2.34e+04/3.83e+05 Pa
+  column~slab            reinforced-concrete    bonds=20     peakUtil=0.09572    safetyFactor=10.45      peak(c/t/s)=2.78e+05/2.34e+04/3.83e+05 Pa
+  slab~slab              concrete-slab          bonds=12     peakUtil=0.06961    safetyFactor=14.36      peak(c/t/s)=8.1e+04/8.35e+03/1.11e+05 Pa
+  column~foundation      footing-anchor         bonds=4      peakUtil=0.03444    safetyFactor=29.04      peak(c/t/s)=8.27e+05/0/8.54e+04 Pa
+
+      Start 13: blast_stress_material_behavior
+13/32 Test #13: blast_stress_material_behavior ..........................   Passed    0.04 sec
+      Start 14: blast_stress_chunk_crush
+14/32 Test #14: blast_stress_chunk_crush ................................   Passed    0.16 sec
+      Start 15: blast_stress_scene_pack_v3
+15/32 Test #15: blast_stress_scene_pack_v3 ..............................   Passed    0.00 sec
+      Start 16: blast_stress_reference_building_crush_gravity
+16/32 Test #16: blast_stress_reference_building_crush_gravity ...........   Passed    0.06 sec
+      Start 17: blast_stress_reference_building_crush_ordinary_impact
+17/32 Test #17: blast_stress_reference_building_crush_ordinary_impact ...   Passed    0.16 sec
+      Start 18: blast_stress_reference_building_crush_hard_impact
+18/32 Test #18: blast_stress_reference_building_crush_hard_impact .......   Passed    0.16 sec
+      Start 19: blast_stress_crush_wall_bite
+19/32 Test #19: blast_stress_crush_wall_bite ............................   Passed    0.07 sec
+      Start 20: blast_stress_crush_wall_bond_only
+20/32 Test #20: blast_stress_crush_wall_bond_only .......................   Passed    0.08 sec
+      Start 21: blast_stress_crush_multi_structure_resim
+21/32 Test #21: blast_stress_crush_multi_structure_resim ................   Passed    0.46 sec
+      Start 22: blast_stress_destruction_quality
+22/32 Test #22: blast_stress_destruction_quality ........................***Failed    0.05 sec
+destruction quality test failed: a 500 kg glancing hit must not break a 59 t concrete frame — a structure that shatters on contact is the 'glass' failure mode
+destruction quality (resim=1, unity contact gain):
+  gravity only           splits=0    bodies=1   largest=64  standing=1.00 frag=0.02 resim=0    moved(infill/column/slab/foundation)=0/0/0/0
+  glancing (500kg@12)    splits=5    bodies=9   largest=44  standing=0.69 frag=0.14 resim=4    moved(infill/column/slab/foundation)=0/0/0/0
+
+      Start 23: blast_stress_scene_pack_conformance
+23/32 Test #23: blast_stress_scene_pack_conformance .....................   Passed    0.00 sec
+      Start 24: blast_stress_scene_pack
+24/32 Test #24: blast_stress_scene_pack .................................   Passed    0.06 sec
+      Start 25: blast_stress_node_mesh
+25/32 Test #25: blast_stress_node_mesh ..................................   Passed    0.06 sec
+      Start 26: blast_stress_physx_direct_gpu_contacts
+26/32 Test #26: blast_stress_physx_direct_gpu_contacts ..................   Passed    0.35 sec
+      Start 27: blast_stress_gpu_lazy_readback
+27/32 Test #27: blast_stress_gpu_lazy_readback ..........................   Passed    0.63 sec
+      Start 28: blast_stress_gpu_lazy_cpu_observer
+28/32 Test #28: blast_stress_gpu_lazy_cpu_observer ......................   Passed    0.61 sec
+      Start 29: blast_stress_gpu_lazy_parallel_observer
+29/32 Test #29: blast_stress_gpu_lazy_parallel_observer .................   Passed    0.65 sec
+      Start 30: blast_stress_gpu_cpu_walk_preparation
+30/32 Test #30: blast_stress_gpu_cpu_walk_preparation ...................   Passed    0.65 sec
+      Start 31: blast_stress_gpu_device_input
+31/32 Test #31: blast_stress_gpu_device_input ...........................   Passed    0.18 sec
+      Start 32: blast_stress_gpu_equivalence
+32/32 Test #32: blast_stress_gpu_equivalence ............................   Passed    0.17 sec
+
+78% tests passed, 7 tests failed out of 32
+
+Total Test time (real) =   7.31 sec
+
+The following tests FAILED:
+	  1 - blast_stress_physx_cpu_contract (Failed)
+	  2 - blast_stress_physx_resim_penetration (Failed)
+	  3 - blast_stress_physx_resim_baseline (Failed)
+	  7 - blast_stress_load_path (Failed)
+	 11 - blast_stress_physx_gpu_activity (Failed)
+	 12 - blast_stress_reference_building_load_path (Failed)
+	 22 - blast_stress_destruction_quality (Failed)
+Errors while running CTest

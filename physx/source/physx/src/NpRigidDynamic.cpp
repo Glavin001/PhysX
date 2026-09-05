@@ -98,7 +98,8 @@ void NpRigidDynamic::setGlobalPose(const PxTransform& pose, bool autowake)
 
 	PX_CHECK_SCENE_API_WRITE_FORBIDDEN(npScene, "PxRigidDynamic::setGlobalPose() not allowed while simulation is running. Call will be ignored.")
 
-	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized())
+	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized()
+        && !(npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
 	{
 		outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxRigidDynamic::setGlobalPose(): it is illegal to call this method if PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled!");
 		return;
@@ -253,7 +254,8 @@ void NpRigidDynamic::setLinearVelocity(const PxVec3& velocity, bool autowake)
 
 	PX_CHECK_SCENE_API_WRITE_FORBIDDEN_EXCEPT_SPLIT_SIM(npScene, "PxRigidDynamic::setLinearVelocity() not allowed while simulation is running. Call will be ignored.")
 
-	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized())
+	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized()
+        && !(npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
 	{
 		outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxRigidDynamic::setLinearVelocity(): it is illegal to call this method if PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled!");
 		return;
@@ -299,7 +301,8 @@ void NpRigidDynamic::setAngularVelocity(const PxVec3& velocity, bool autowake)
 
 	OMNI_PVD_SET(OMNI_PVD_CONTEXT_HANDLE, PxRigidBody, angularVelocity, *static_cast<PxRigidBody*>(this), velocity);
 
-	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized())
+	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized()
+        && !(npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
 	{
 		outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxRigidDynamic::setAngularVelocity(): it is illegal to call this method if PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled!");
 		return;
@@ -325,7 +328,8 @@ void NpRigidDynamic::addForce(const PxVec3& force, PxForceMode::Enum mode, bool 
 		return;
 	}
 
-	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized())
+	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized()
+        && !(npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
 	{
 		outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxRigidDynamic::addForce(): it is illegal to call this method if PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled!");
 		return;
@@ -347,7 +351,8 @@ void NpRigidDynamic::setForceAndTorque(const PxVec3& force, const PxVec3& torque
 
 	PX_CHECK_SCENE_API_WRITE_FORBIDDEN_EXCEPT_SPLIT_SIM(npScene, "PxRigidDynamic::setForceAndTorque() not allowed while simulation is running. Call will be ignored.")
 
-	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized())
+	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized()
+        && !(npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
 	{
 		outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxRigidDynamic::setForceAndTorque(): it is illegal to call this method if PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled!");
 		return;
@@ -380,7 +385,8 @@ void NpRigidDynamic::addTorque(const PxVec3& torque, PxForceMode::Enum mode, boo
 		return;
 	}
 
-	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized())
+	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized()
+        && !(npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
 	{
 		outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxRigidDynamic::addTorque(): it is illegal to call this method if PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled!");
 		return;
@@ -406,7 +412,8 @@ void NpRigidDynamic::clearForce(PxForceMode::Enum mode)
 		return;
 	}
 	
-	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized())
+	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized()
+        && !(npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
 	{
 		outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxRigidDynamic::clearForce(): it is illegal to call this method if PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled!");
 		return;
@@ -430,7 +437,8 @@ void NpRigidDynamic::clearTorque(PxForceMode::Enum mode)
 		return;
 	}
 
-	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized())
+	if (npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && npScene->isDirectGPUAPIInitialized()
+        && !(npScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
 	{
 		outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxRigidDynamic::clearTorque(): it is illegal to call this method if PxSceneFlag::eENABLE_DIRECT_GPU_API is enabled!");
 		return;
@@ -533,6 +541,11 @@ void NpRigidDynamic::wakeUp()
 
 	PX_CHECK_SCENE_API_WRITE_FORBIDDEN_EXCEPT_SPLIT_SIM(npScene, "PxRigidDynamic::wakeUp() not allowed while simulation is running. Call will be ignored.")
 
+    if(!npScene->getScScene().finalizeGpuSleep(&mCore))
+    {
+        outputError<PxErrorCode::eINTERNAL_ERROR>(__LINE__, "GPU sleep finalization failed before wake.");
+        return;
+    }
 	scWakeUp();
 }
 
