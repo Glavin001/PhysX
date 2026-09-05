@@ -474,6 +474,7 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 	PX_ASSERT(desc.sharedFoundPairIndex >= desc.sharedFoundAggPairIndex);
 	PX_ASSERT(desc.sharedLostPairIndex >= desc.sharedLostAggPairIndex);
 
+
 	PxU32 foundLostPairsNeeded = PxMax(desc.sharedFoundPairIndex, desc.sharedLostPairIndex);
 #if PX_ENABLE_SIM_STATS
 	mFoundLostPairsStats = PxMax(mFoundLostPairsStats, foundLostPairsNeeded);
@@ -485,6 +486,10 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 	{
 		PxGetFoundation().error(PxErrorCode::eINVALID_PARAMETER, PX_FL,
 			"The application needs to increase PxGpuDynamicsMemoryConfig::foundLostPairsCapacity to %i, otherwise, the simulation will miss interactions\n", foundLostPairsNeeded);
+        // Ownership refresh cannot accept a truncated set of new interactions.
+        // Fail the step explicitly; capacity growth/retry belongs to the scene
+        // correction transaction. Ordinary upstream overflow policy is retained.
+        if (desc.refilterWordCount) mCudaContext->setAbortMode(true);
 	}
 
 	// AD: safety in case copyReports did not run due to abort mode
@@ -843,7 +848,7 @@ void PxgCudaBroadPhaseSap::computeRegionHistogramKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.computeRegionHistogramKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize)
+	if(mUpdateData_CreatedHandleSize || mBpDesc.get().refilterWordCount)
 	{
 		const PxU32 nbProjections = (mNumOfBoxes + mUpdateData_RemovedHandleSize) * 2; 
 		const PxU32 totalNbProjectionRegions = (nbProjections*64 + 3)&(~3);
@@ -873,7 +878,7 @@ void PxgCudaBroadPhaseSap::computeStartAndActiveHistogramKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.computeStartAndActiveHistogramKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize)
+	if(mUpdateData_CreatedHandleSize || mBpDesc.get().refilterWordCount)
 	{
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
 		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd) };
@@ -903,7 +908,7 @@ void PxgCudaBroadPhaseSap::generateNewPairsKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.generateNewPairsKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize)
+	if(mUpdateData_CreatedHandleSize || mBpDesc.get().refilterWordCount)
 	{
 		//Need to generate pairs for created handles...
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
@@ -922,7 +927,7 @@ void PxgCudaBroadPhaseSap::clearNewFlagKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.clearNewFlagKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize)
+	if(mUpdateData_CreatedHandleSize || mBpDesc.get().refilterWordCount)
 	{
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
 		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd) };
@@ -1007,6 +1012,8 @@ void PxgCudaBroadPhaseSap::updateDescriptor(PxgBroadPhaseDesc& desc)
 		// - accumulateReportsStage_1 (BP_ACCUMULATE_REPORT_STAGE_1)
 		// - accumulateReportsStage_2 (BP_ACCUMULATE_REPORT_STAGE_2)
 		desc.aabbMngr_volumeData = reinterpret_cast<Bp::VolumeData*>(mAABBManager->getVolumeData());
+        desc.refilterHandleMap = reinterpret_cast<const PxU32*>(mAABBManager->getRefilterHandles());
+        desc.refilterWordCount = mAABBManager->getRefilterWordCount();
 	}
 #ifdef SUPPORT_UPDATE_HANDLES_ARRAY_FOR_GPU
 	else

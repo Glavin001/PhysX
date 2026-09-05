@@ -109,6 +109,10 @@ namespace physx
 		virtual			void				setPersistentStateChanged()		PX_OVERRIDE	{ mPersistentStateChanged = true;	}
 		//~AABBManagerBase
 
+        virtual bool refilterBounds(Bp::BoundsIndex index, Bp::FilterGroup::Enum group) PX_OVERRIDE;
+        CUdeviceptr getRefilterHandles() const { return mRefilterHandlesBuf.getDevicePtr(); }
+        PxU32 getRefilterWordCount() const { return mRefilterPending ? mRefilterHandleMap.getWordCount() : 0; }
+
 						void				markAggregateBoundsBitmap();
 
 						void				processFoundPairs();
@@ -189,6 +193,10 @@ namespace physx
 		PxgCudaBuffer						mAddedHandleBuf;
 		PxgCudaBuffer						mRemovedHandleBuf;
 		PxgCudaBuffer						mChangedAABBMgrHandlesBuf;
+
+        Cm::PinnableBitMap mRefilterHandleMap;
+        PxgCudaBuffer mRefilterHandlesBuf;
+        bool mRefilterPending;
 
 		PxU32								mNumAggregatesSlots;
 

@@ -178,7 +178,8 @@ public:
 												}
 
 private:
-					PxActor*					mExclusiveShapeActor;
+                    friend class NpShapeManager;
+						PxActor*					mExclusiveShapeActor;
 					Sc::ShapeCore				mCore;
 					PxFilterData				mQueryFilterData;	// Query filter data PT: TODO: consider moving this to SQ structures
 

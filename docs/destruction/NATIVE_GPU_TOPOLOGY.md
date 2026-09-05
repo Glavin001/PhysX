@@ -106,3 +106,8 @@ Required completion work remains: native collision ownership, rigid-body solver
 connectivity updates, checkpoint/restore and corrected interaction,
 GPU support changes, generation-bearing lifecycle handles, crush geometry and
 energy accounting, committed events/observations, and full-scale qualification.
+
+The subsequent [persistent collision-owner boundary](PERSISTENT_GPU_COLLISION_OWNERSHIP.md)
+updates actual PhysX collision bindings without recreating shape IDs. Native
+verdicts do not invoke it yet; new solver-body allocation and internal correction
+remain required before a true split can commit.

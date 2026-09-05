@@ -1,0 +1,200 @@
+{
+  "createdUtc": "2026-09-05T23:23:05.528115+00:00",
+  "baseRevision": "4e9b0e656cdb3a9a7d8e1d4e21831081ed0dcf1c",
+  "branch": "codex/gpu-destruction",
+  "scope": "Native persistent collision-owner transfer between existing bodies at a between-step boundary; GPU broadphase/narrowphase/shape motion maps and CPU actor/query membership. Native material-driven split commit, solver-body allocation and internal resimulation remain incomplete.",
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05, GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+  "cudaArchitectures": "89",
+  "compilers": {
+    "/usr/local/cuda/bin/nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+    "clang": "Ubuntu clang version 18.1.3 (1ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/bin\n",
+    "clang++": "Ubuntu clang version 18.1.3 (1ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/bin\n"
+  },
+  "buildCommand": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+  "regressionCommand": "ctest --test-dir out/destruction-sdk --output-on-failure --output-junit /root/workspace/physx-2/out/persistent-owner-regression.xml",
+  "regression": {
+    "tests": 49,
+    "passed": 44,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newFailures": [],
+    "existingAssertionsWeakened": false
+  },
+  "newTests": [
+    "physx_persistent_shape_owner",
+    "physx_persistent_shape_owner_overflow",
+    "physx_persistent_shape_owner_overflow_split"
+  ],
+  "coverage": [
+    "Newly eligible overlapping chunks without endpoint movement",
+    "Persistent ShapeSim, contact IDs, geometry registration and reference counts",
+    "GPU contact actor/node ownership and actual depenetration",
+    "Rotated asset and offset/rotated body COM",
+    "Explicit committed CPU query observation",
+    "Existing contact invalidation after ownership merge",
+    "Repeated transfers before one GPU upload",
+    "Aggregate-configuration rejection without membership mutation",
+    "Geometry release before pending upload",
+    "Four-pair capacity needs 36 pairs: normal and split fetching reject truncated output",
+    "Failed scene retry retains hardware error"
+  ],
+  "memoryChecks": [
+    {
+      "name": "persistent-owner-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/persistent_shape_owner_test"
+      ],
+      "returncode": 0,
+      "log": "out/persistent-owner-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "4048e390f40a9ab7d5a91c573b4072a389fd698d064eecf657ac1136079d0155"
+    },
+    {
+      "name": "persistent-owner-overflow-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--overflow"
+      ],
+      "returncode": 0,
+      "log": "out/persistent-owner-overflow-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "a670f05e439eef00b3c1bad8f3f99d556726fa86be9c8ffcbf3be379187eea3b"
+    },
+    {
+      "name": "persistent-owner-overflow-split-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--overflow-split"
+      ],
+      "returncode": 0,
+      "log": "out/persistent-owner-overflow-split-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "a670f05e439eef00b3c1bad8f3f99d556726fa86be9c8ffcbf3be379187eea3b"
+    }
+  ],
+  "installedConsumers": [
+    {
+      "command": [
+        "cmake",
+        "-S",
+        "tests/destruction/package-consumer",
+        "-B",
+        "out/package-consumer",
+        "-DCMAKE_PREFIX_PATH=/root/workspace/physx-2/out/install"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "cmake",
+        "--build",
+        "out/package-consumer",
+        "--parallel",
+        "4"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    }
+  ],
+  "remaining": [
+    "Connect native GPU material/topology verdict to this ownership boundary at an internal task barrier",
+    "Allocate cluster solver bodies and populate full mass/inertia/motion on GPU",
+    "Batch device-driven ownership and CPU compatibility observations",
+    "Native one-resimulation checkpoint/correction including ordinary bodies and joints",
+    "Aggregate and query-compound ownership support",
+    "Capacity growth/retry; current overlap exhaustion aborts scene/context",
+    "Handles, support mutation, crush geometry and energy, events, consumers and full-scale qualification"
+  ],
+  "qualification": "Shared GPU correctness checks only; no isolated performance, 100k-body collision scale or 60 Hz claim. No video generated this turn.",
+  "sourceSha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "d8626835dd5aaf33e09088f051b9f173c007f390436d80bb353f000081016344",
+    "physx/source/gpubroadphase/include/PxgAABBManager.h": "6402d5167bb913504cb32f0f4021fb17010ea115321eb1dd2c8fbccee4f52b16",
+    "physx/source/gpubroadphase/include/PxgBroadPhaseDesc.h": "0694395f0dc6d8e0dba49a9271335000ed166e3e85e84ce95fe9695f8528882a",
+    "physx/source/gpubroadphase/src/CUDA/broadphase.cu": "007f78f08e2d1907315014919297740c6ec6a4443477a618a215cf92cb991187",
+    "physx/source/gpubroadphase/src/PxgAABBManager.cpp": "cccc5626a1798cf83c0ee501d06af9ee8dac1c7ab320f68c81aa3d47abf83de2",
+    "physx/source/gpubroadphase/src/PxgCudaBroadPhaseSap.cpp": "377801fb2006bf8004af0854a2ead3abc1776ea2ec376640cae257fdc7af8fe3",
+    "physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h": "e9005f138bf5d8e846ff4e019f1f26ceaef99891a4ffb0c8f89ea8b3ce6e5f6e",
+    "physx/source/gpunarrowphase/include/PxgNphaseImplementationContext.h": "fd72031542cc6d846a3c20f9378545d44bb796fe3fe676983dccfb23c664d389",
+    "physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp": "80fe97a43fc35fa9faf0e0d2f1e68df6bec74893c6886d4c92d0a17af30181cf",
+    "physx/source/gpunarrowphase/src/PxgNphaseImplementationContext.cpp": "e7ad76bff5d7a8c7b5cb862afc0814c334817e7bb03e5874eda3d575dfffc07a",
+    "physx/source/gpusimulationcontroller/include/PxgShapeSimManager.h": "fd2ccdd50672d92bd9c4c317d826a2e5aa4093b7f2db11c200937ae3a349a3c5",
+    "physx/source/gpusimulationcontroller/src/PxgShapeSimManager.cpp": "e178ba4cc68ff3182d0bfcac7900f5dc4e52fc7a482327b13e7b110cc2c67bb7",
+    "physx/source/lowlevel/software/include/PxvNphaseImplementationContext.h": "55f2e68c562f59b463e4bff92d5bf256e3542b29d6b89753a07a934a582f1726",
+    "physx/source/lowlevelaabb/include/BpAABBManagerBase.h": "d346e78f4e7c137d8155d4b7f2aff3c994416de0f33280c4cdecec3e750bd3ca",
+    "physx/source/physx/src/NpSceneFetchResults.cpp": "20e86fdd74edadeb70cfd17d3a52986f2dc1a93b2093cefb361f5b4a3dd7d317",
+    "physx/source/physx/src/NpShape.h": "d1296de1b7559746104a297a4bbda975bdaca21131a3ee4dcb64e0f691b0f6ea",
+    "physx/source/physx/src/NpShapeManager.cpp": "638bec97ef416ea18f9bca559e678c636a990851bafdd5cf880048d264e01e14",
+    "physx/source/physx/src/NpShapeManager.h": "dc1939dd2179728a47c5283654ac819adf5e930d6273dc50964943f91aa1b433",
+    "physx/source/simulationcontroller/src/ScElementSim.cpp": "f24e83bcb035b1bdb93c2ae292bafb618c5ca9df09fbd55e8766e239984faab0",
+    "physx/source/simulationcontroller/src/ScElementSim.h": "449c43b0ed69ad4ff120eacf21ad8a0ef6271c8fde48b607dfa937c9685f0b74",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.cpp": "725048e687e8b87977b0f9c0e474887545eb1712fc6d839970913067f18f20eb",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.h": "26f20282b379966969d82767468d7ca45490cf14657fb1b289b1dcb7c445ca42",
+    "demos/blast-stress-demo/tests/persistent_shape_owner_test.cpp": "7f0242a17ac9af7ff5a68c9c595c8dc4aa420ba37271177cf92841db60d18c51"
+  },
+  "artifactLibraries": {
+    "libPhysXDestructionGpuRuntime_64.so": "22ca8340ed7018cb2b90fd356c282daa0ff838ce20065931ff725f82e2f51c89",
+    "libPhysXGpuActivity_64.so": "006325aafb197d4afb30b9dc9ad20c6cf493bbc198362e4ffef1974fe9f23ec4",
+    "libPVDRuntime_64.so": "7ced8c8e62fd6323cbb75910cf1a9cf29e2cfe5cfe1d053a8ad061a6bd4d1c2b",
+    "libPhysX_static_64.a": "b62964786e45202b86b29ace8451051281facbbb2e0fbed3b0d5e62ab993f0ae",
+    "libPhysXCommon_static_64.a": "989af41e4b457eda140c1a05feeb62bdd2a5a816790c923860776d666821f42b",
+    "libPhysXFoundation_static_64.a": "245eb8a7d46693f37a13639d7ddde4707bac0b6b8a2a8564cae7c40888217f7a",
+    "libPhysXExtensions_static_64.a": "cf0f5b0269efdb3b0c1bf26c8200d076aa97495194e320f10def1f39df1ee148",
+    "libPhysXPvdSDK_static_64.a": "5904d7f4e41dc89807e90d7a11bb8cdf2b1fd2b88a6ed82c040d0b0669fbc94c",
+    "libPhysXCooking_static_64.a": "8c919efa53e9ad97930c370c0757e706bcc7f12f0e0b801278ddcd33ec5826a6",
+    "libPhysXCharacterKinematic_static_64.a": "b8dd6238ef1b039717b47aeaf949202388089a15db57cbf86de6397efd4f771d",
+    "libPhysXVehicle_static_64.a": "1175dd5c09cca78bd8f19204e826b4cb3a6f1bda14b79b8ea0f4af8b51ef3075",
+    "libPhysXCudaContextManager_static_64.a": "222cf8e3d3a9b9236cec0fb9940a67b10eb4483c5bce924519eca72be4158cdb"
+  },
+  "evidenceSha256": {
+    "out/persistent-owner-sdk-build.log": "48cef8530fe1a78109326cf65acf7a18b3a1c5d447470d7ee7f9a4ad32a472ef",
+    "out/persistent-owner-regression.log": "96c863076dc83bd414ebea4126b609beb4563851c7f1c4a5de566f127694c69e",
+    "out/persistent-owner-regression.xml": "bd7210556ea037dba3751ed06513fc12e4f2078f56d4bcaa037dfbf38cdb6eeb",
+    "out/persistent-owner-package-consumer.log": "2ea6a93d54a1475d984d5993ae87947db2e0eea0d4eacad12ff5facdd12af07e",
+    "out/sdk-artifacts.json": "bae73d406b777ae6daa7aa2f09effe568e69fc9aabc22ca4cb31a0f1ebe2bcbd"
+  }
+}

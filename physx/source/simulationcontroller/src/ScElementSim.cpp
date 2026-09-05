@@ -132,7 +132,7 @@ void Sc::ShapeManager::onElementDetach(ElementSim& element)
 }
 
 Sc::ElementSim::ElementSim(ActorSim& actor) :
-	mActor			(actor),
+	mActor			(&actor),
 	mInBroadPhase	(false),
 	mShapeArrayIndex(0xffffffff)
 {
@@ -141,7 +141,7 @@ Sc::ElementSim::ElementSim(ActorSim& actor) :
 	{
 		PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY, PX_FL,
 								"Sc::ElementSim::ElementSim failed to allocate pinned memory bounds array");
-		mActor.getScene().getCudaContextManager()->getCudaContext()->setAbortMode(true);
+		mActor->getScene().getCudaContextManager()->getCudaContext()->setAbortMode(true);
 		// executing onElementAttach below is safe, as initID always sets allocated the elementID successfully, 
 		// but might fail to expand the bounds array.
 	}
@@ -151,16 +151,25 @@ Sc::ElementSim::ElementSim(ActorSim& actor) :
 	onElementAttach(*this, actor);
 }
 
+void Sc::ElementSim::rebindActor(ActorSim& actor)
+{
+    PX_ASSERT(&actor.getScene() == &getScene());
+    PX_ASSERT(!getElemInteractions().getNext());
+    mActor->onElementDetach(*this);
+    mActor = &actor;
+    onElementAttach(*this, actor);
+}
+
 Sc::ElementSim::~ElementSim()
 {
 	PX_ASSERT(!mInBroadPhase);
 	releaseID();
-	mActor.onElementDetach(*this);
+	mActor->onElementDetach(*this);
 }
 
 void Sc::ElementSim::addToAABBMgr(PxReal contactDistance, Bp::FilterGroup::Enum group, Bp::ElementType::Enum type)
 {
-	const ActorCore& actorCore = mActor.getActorCore();
+	const ActorCore& actorCore = mActor->getActorCore();
 	const PxU32 aggregateID = actorCore.getAggregateID();
 	const PxU32 envID = actorCore.getEnvID();
 

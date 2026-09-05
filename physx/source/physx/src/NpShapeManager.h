@@ -73,6 +73,9 @@ public:
 	PX_FORCE_INLINE	NpShape* const*			getShapes()			const	{ return reinterpret_cast<NpShape*const*>(mShapes.getPtrs());	}
 					PxU32					getShapes(PxShape** buffer, PxU32 bufferSize, PxU32 startIndex=0) const;
 
+        // Internal ownership transaction boundary. Does not compute fracture,
+        // allocate bodies, fit motion, or expose a second simulation path.
+        static bool rebindShape(PxRigidActor& from, PxRigidActor& to, PxShape& shape, const PxTransform& shapeToActor);
 					bool					attachShape(NpShape& shape, PxRigidActor& actor);
 					bool					detachShape(NpShape& s, PxRigidActor& actor, bool wakeOnLostTouch);
 					void					detachAll(PxSceneQuerySystem* pxsq, const PxRigidActor& actor);

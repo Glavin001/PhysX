@@ -7688,6 +7688,14 @@ void PxgGpuNarrowphaseCore::waitAndResetCopyQueuesBp()
 	mGpuPBDMaterialManager.releaseIDs();
 }
 
+bool PxgGpuNarrowphaseCore::rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor)
+{
+    if (!mShapesMap->find(size_t(&shape))) return false;
+    mGpuShapesManager.registerShapeInstance(nodeIndex, index, actor);
+    if (mGpuShapesManager.mAllocFailed) mCudaContext->setAbortMode(true);
+    return !mGpuShapesManager.mAllocFailed;
+}
+
 void PxgGpuNarrowphaseCore::registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, const bool isFemCloth, PxActor* actor)
 {
 	const PxGeometryType::Enum type = shapeCore.mGeometry.getType();

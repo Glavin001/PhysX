@@ -578,6 +578,51 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_destruction_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_gpu_destruction COMMAND native_gpu_destruction_test)
 
+    add_executable(persistent_shape_owner_test tests/persistent_shape_owner_test.cpp physx_scene.cpp)
+    target_include_directories(persistent_shape_owner_test PRIVATE ${CUDAToolkit_INCLUDE_DIRS}
+        "${PHYSX_ROOT}/include"
+        "${PHYSX_ROOT}/source/common/include"
+        "${PHYSX_ROOT}/source/common/src"
+        "${PHYSX_ROOT}/source/physx/src"
+        "${PHYSX_ROOT}/source/physxgpu/include"
+        "${PHYSX_ROOT}/source/geomutils/include"
+        "${PHYSX_ROOT}/source/geomutils/src"
+        "${PHYSX_ROOT}/source/geomutils/src/contact"
+        "${PHYSX_ROOT}/source/geomutils/src/common"
+        "${PHYSX_ROOT}/source/geomutils/src/convex"
+        "${PHYSX_ROOT}/source/geomutils/src/distance"
+        "${PHYSX_ROOT}/source/geomutils/src/sweep"
+        "${PHYSX_ROOT}/source/geomutils/src/gjk"
+        "${PHYSX_ROOT}/source/geomutils/src/intersection"
+        "${PHYSX_ROOT}/source/geomutils/src/mesh"
+        "${PHYSX_ROOT}/source/geomutils/src/hf"
+        "${PHYSX_ROOT}/source/geomutils/src/pcm"
+        "${PHYSX_ROOT}/source/geomutils/src/ccd"
+        "${PHYSX_ROOT}/source/lowlevel/api/include"
+        "${PHYSX_ROOT}/source/lowlevel/software/include"
+        "${PHYSX_ROOT}/source/lowlevel/common/include/pipeline"
+        "${PHYSX_ROOT}/source/lowlevel/common/include/utils"
+        "${PHYSX_ROOT}/source/lowlevelaabb/include"
+        "${PHYSX_ROOT}/source/lowleveldynamics/include"
+        "${PHYSX_ROOT}/source/lowleveldynamics/shared"
+        "${PHYSX_ROOT}/source/simulationcontroller/include"
+        "${PHYSX_ROOT}/source/simulationcontroller/src"
+        "${PHYSX_ROOT}/source/scenequery/include"
+        "${PHYSX_ROOT}/source/physxmetadata/core/include"
+        "${PHYSX_ROOT}/source/immediatemode/include"
+        "${PHYSX_ROOT}/source/pvd/include"
+        "${PHYSX_ROOT}/source/gpucommon/include"
+        "${PHYSX_ROOT}/source/gpucommon/src/CUDA"
+        "${PHYSX_ROOT}/source/omnipvd"
+        "${PHYSX_ROOT}/pvdruntime/include"
+    )
+    target_compile_definitions(persistent_shape_owner_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_link_options(persistent_shape_owner_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(persistent_shape_owner_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
+    add_test(NAME physx_persistent_shape_owner COMMAND persistent_shape_owner_test)
+    add_test(NAME physx_persistent_shape_owner_overflow COMMAND persistent_shape_owner_test --overflow)
+    add_test(NAME physx_persistent_shape_owner_overflow_split COMMAND persistent_shape_owner_test --overflow-split)
+
     add_executable(gpu_device_input_test tests/gpu_device_input_test.cu)
     set_target_properties(gpu_device_input_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     target_link_libraries(gpu_device_input_test PRIVATE NvBlastExtStressGpu)

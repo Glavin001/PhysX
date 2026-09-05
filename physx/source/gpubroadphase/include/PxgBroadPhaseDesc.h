@@ -72,6 +72,9 @@ namespace physx
 		PxU32*					aabbMngr_removedHandleMap;				// PT: data coming from the AABB manager, creating all the coupling problems
 		PxU32*					aabbMngr_aggregatedBoundHandles;		// PT: data coming from the AABB manager, creating all the coupling problems
 
+        const PxU32* refilterHandleMap;
+        PxU32 refilterWordCount;
+
 		PxBounds3*				updateData_fpBounds;					// PT: copy of updateData buffer in device memory
 		PxReal*					updateData_contactDistances;			// PT: copy of updateData buffer in device memory
 		PxgIntegerAABB*			newIntegerBounds;						// PT: computed by translateAABBsLaunch kernel.
@@ -152,6 +155,12 @@ namespace physx
 
 		bool 					found_lost_pairs_overflow_flags;
 	};
+
+    PX_FORCE_INLINE PX_CUDA_CALLABLE bool needsRefilter(const PxgBroadPhaseDesc* desc, PxU32 handle)
+    {
+        const PxU32 word = handle >> 5;
+        return word < desc->refilterWordCount && (desc->refilterHandleMap[word] & (1u << (handle & 31)));
+    }
 
 	PX_FORCE_INLINE PX_CUDA_CALLABLE PxU32 createHandle(const PxU32 handle, const bool isStart, const bool isNew)
 	{

@@ -163,6 +163,9 @@ PxgAABBManager::PxgAABBManager(PxgCudaKernelWranglerManager* gpuKernelWrangler,
 	mAddedHandleBuf				(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mRemovedHandleBuf			(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mChangedAABBMgrHandlesBuf	(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
+    mRefilterHandleMap(allocDesc.hostAlloc, PxsHeapStats::eBROADPHASE),
+    mRefilterHandlesBuf(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
+    mRefilterPending(false),
 	mMaxFoundLostPairs			(config.foundLostAggregatePairsCapacity),
 	mMaxAggPairs				(config.totalAggregatePairsCapacity),
 	mFoundPairTask				(this),
@@ -422,8 +425,26 @@ bool PxgAABBManager::addBounds(BoundsIndex index, PxReal contactDistance, Filter
 	return true;
 }
 
+bool PxgAABBManager::refilterBounds(BoundsIndex index, FilterGroup::Enum group)
+{
+    // Aggregate pair persistence needs its own invalidation transaction. Keep
+    // the legacy reset path until that integration is available; do not create
+    // duplicate aggregate pairs while refreshing a neighboring single actor.
+    if (mNbAggregates || index >= mVolumeData.size() || !mVolumeData[index].isSingleActor()
+        || mGroups[index] == FilterGroup::eINVALID || group == FilterGroup::eINVALID)
+        return false;
+    mRefilterHandleMap.growAndSet(index);
+    mRefilterPending = true;
+    mGroups[index] = group;
+    mChangedHandleMap.growAndSet(index);
+    mPersistentStateChanged = true;
+    mGPUStateChanged = true;
+    return true;
+}
+
 bool PxgAABBManager::removeBounds(BoundsIndex index)
 {
+    mRefilterHandleMap.boundedReset(index);
 	// PT: TODO: shouldn't it be compared to mUsedSize?
 	PX_ASSERT(index < mVolumeData.size());
 
@@ -816,6 +837,11 @@ void PxgAABBManager::preBpUpdate_GPU()
 		Local::dmaBitmap(mCudaContext, bpStream, mRemovedHandleBuf, mRemovedHandleMap);
 	}
 
+    if (mRefilterPending)
+    {
+        Local::dmaBitmap(mCudaContext, bpStream, mRefilterHandlesBuf, mRefilterHandleMap);
+    }
+
 	//KS - skip pre broad phase 
 	if(stateChanged)
 	{
@@ -962,6 +988,8 @@ void PxgAABBManager::processFoundPairs()
 			PX_PROFILE_ZONE("PxgAABBManager::processFoundPairs - clear bitmaps", mContextID);
 			mAddedHandleMap.clear();
 			mRemovedHandleMap.clear();
+            if (mRefilterPending) mRefilterHandleMap.clear();
+            mRefilterPending = false;
 		}
 
 		{

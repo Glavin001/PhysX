@@ -60,7 +60,7 @@ namespace physx
 
 	struct PxgShapeSimData
 	{
-		PxgShapeSimData() : mShapeCore(NULL), mElementIndex_GPU(PX_INVALID_U32)
+		PxgShapeSimData() : mShapeCore(NULL), mElementIndex_GPU(PX_INVALID_U32), mQueued(false)
 		{
 		}
 
@@ -71,6 +71,7 @@ namespace physx
 
 		// ElementID - copy of ElementSim's getElementID()
 		PxU32			mElementIndex_GPU;	//	12	or	16	transform cache and bound index
+        bool mQueued;
 	};
 
 	class PxgShapeSimManager

@@ -65,7 +65,11 @@ void PxgShapeSimManager::addPxgShape(Sc::ShapeSimBase* shapeSimBase, const PxsSh
 
 	mShapeSimPtrs[index] = shapeSimBase;
 	
-	mNewShapeSims.pushBack(index);
+    if (!mShapeSims[index].mQueued)
+    {
+        mShapeSims[index].mQueued = true;
+        mNewShapeSims.pushBack(index);
+    }
 	mTotalNumShapes = PxMax(mTotalNumShapes, index+1);
 }
 
@@ -83,7 +87,11 @@ void PxgShapeSimManager::removePxgShape(PxU32 index)
 
 	mShapeSimPtrs[index] = NULL;
 
-	mNewShapeSims.pushBack(index);
+    if (!mShapeSims[index].mQueued)
+    {
+        mShapeSims[index].mQueued = true;
+        mNewShapeSims.pushBack(index);
+    }
 }
 
 namespace physx	// PT: only in physx namespace for the friend access to work
@@ -122,6 +130,19 @@ namespace physx	// PT: only in physx namespace for the friend access to work
 
 				const PxgShapeSimData& shapeLL = src[shapeIndex];
 
+                // Removal may follow a queued transfer and release the shape
+                // before upload. Never dereference the former geometry object.
+                if (shapeLL.mElementIndex_GPU == PX_INVALID_U32)
+                {
+                    shapeSim.mTransform = PxTransform(PxIdentity);
+                    shapeSim.mLocalBounds = PxBounds3(PxVec3(0), PxVec3(0));
+                    shapeSim.mElementIndex = shapeIndex;
+                    shapeSim.mBodySimIndex = PxNodeIndex(PX_INVALID_NODE);
+                    shapeSim.mShapeFlags = 0;
+                    shapeSim.mHullDataIndex = PX_INVALID_U32;
+                    shapeSim.mShapeType = 0;
+                    continue;
+                }
 				const PxsShapeCore* shapeCore = shapeLL.mShapeCore;
 
 				shapeSim.mTransform = shapeCore->getTransform();
@@ -216,6 +237,7 @@ void PxgShapeSimManager::gpuMemDmaUpShapeSim(PxCudaContext* cudaContext, CUstrea
 #endif
 	}
 
+    for (PxU32 i=0; i<mNewShapeSims.size(); ++i) mShapeSims[mNewShapeSims[i]].mQueued = false;
 	mNewShapeSims.clear();
 }
 

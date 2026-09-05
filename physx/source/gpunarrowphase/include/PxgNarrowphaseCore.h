@@ -619,6 +619,7 @@ namespace physx
 		PxU32 addHeightfield(const Gu::HeightFieldData& hf);
 		PxU32 getHeightfieldIdxByHostPtr(const Gu::HeightFieldData* hf);
 
+        bool rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor);
 		void registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, const bool isFemCloth, PxActor* actor);
 		void updateShapeMaterial(const PxsShapeCore& shapeCore);
 		PxU32 getShapeIndex(const PxsShapeCore& shapeCore);

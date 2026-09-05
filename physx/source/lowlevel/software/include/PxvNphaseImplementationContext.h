@@ -126,6 +126,7 @@ public:
 	virtual void						unregisterContactManager(PxsContactManager* cm) = 0;
 	virtual void						refreshContactManager(PxsContactManager* cm) = 0;
 
+    virtual bool rebindShapeInstance(const PxNodeIndex&, const PxsShapeCore&, PxU32, PxActor*) { return false; }
 	virtual void						registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, PxActor* actor, const bool isDeformableSurface = false) = 0;
 	virtual void						unregisterShape(const PxsShapeCore& shapeCore, const PxU32 transformCacheID, const bool isDeformableSurface = false) = 0;
 

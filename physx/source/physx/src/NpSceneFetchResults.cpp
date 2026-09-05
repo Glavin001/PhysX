@@ -193,7 +193,11 @@ void NpScene::fetchResultsPostContactCallbacks()
 
 bool NpScene::fetchResults(bool block, PxU32* errorState)
 {
-	NP_CHECK_CORRUPTION_AND_RETURN_VAL(true)
+#if PX_SUPPORT_GPU_PHYSX
+    if (errorState && mCudaContextManager && mScene.isUsingGpuDynamicsOrBp())
+        *errorState = mCudaContextManager->getCudaContext()->getLastError();
+#endif
+	NP_CHECK_CORRUPTION_AND_RETURN_VAL(false)
 
 	if(getSimulationStage() != Sc::SimulationStage::eADVANCE)
 		return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxScene::fetchResults: fetchResults() called illegally! It must be called after advance() or simulate()");
@@ -203,8 +207,12 @@ bool NpScene::fetchResults(bool block, PxU32* errorState)
 
 
 #if PX_SUPPORT_GPU_PHYSX
-	if (!checkSceneStateAndCudaErrors())
-		return true;
+    if (!checkSceneStateAndCudaErrors())
+    {
+        if (errorState && mCudaContextManager)
+            *errorState = mCudaContextManager->getCudaContext()->getLastError();
+        return false;
+    }
 #endif
 
 	PX_SIMD_GUARD
@@ -557,7 +565,9 @@ bool NpScene::fetchResults(bool block, PxU32* errorState)
 
 bool NpScene::fetchResultsStart(const PxContactPairHeader*& contactPairs, PxU32& nbContactPairs, bool block)
 {
-	NP_CHECK_CORRUPTION_AND_RETURN_VAL(true)
+    contactPairs = NULL;
+    nbContactPairs = 0;
+	NP_CHECK_CORRUPTION_AND_RETURN_VAL(false)
 
 	if (getSimulationStage() != Sc::SimulationStage::eADVANCE)
 		return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxScene::fetchResultsStart: fetchResultsStart() called illegally! It must be called after advance() or simulate()");
@@ -567,7 +577,7 @@ bool NpScene::fetchResultsStart(const PxContactPairHeader*& contactPairs, PxU32&
 
 #if PX_SUPPORT_GPU_PHYSX
 	if (!checkSceneStateAndCudaErrors())
-		return true;
+		return false;
 #endif
 
 	PX_SIMD_GUARD
@@ -653,6 +663,10 @@ void NpScene::processCallbacks(PxBaseTask* continuation)
 
 void NpScene::fetchResultsFinish(PxU32* errorState)
 {
+#if PX_SUPPORT_GPU_PHYSX
+    if (errorState && mCudaContextManager && mScene.isUsingGpuDynamicsOrBp())
+        *errorState = mCudaContextManager->getCudaContext()->getLastError();
+#endif
 	NP_CHECK_CORRUPTION_AND_RETURN
 
 	// AD: we already checked the cuda error state in fetchResultsStart, there is no GPU work going on in-between.

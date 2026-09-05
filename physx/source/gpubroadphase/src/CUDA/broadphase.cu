@@ -335,6 +335,12 @@ extern "C" __global__ void initializeSapBox1DLaunch(const PxgBroadPhaseDesc* bpD
 		PxgSapBox1D& sapBoxY = boxSapBox1DY[handleY];
 		PxgSapBox1D& sapBoxZ = boxSapBox1DZ[handleZ];
 
+        // Treat an existing volume whose ownership/filtering changed as new
+        // for overlap discovery. Sorted endpoints and element IDs stay intact.
+        if (needsRefilter(bpDesc, handleX)) bpDesc->boxHandles[0][0][i] |= 2u;
+        if (needsRefilter(bpDesc, handleY)) bpDesc->boxHandles[0][1][i] |= 2u;
+        if (needsRefilter(bpDesc, handleZ)) bpDesc->boxHandles[0][2][i] |= 2u;
+
 		sapBoxX.mMinMax[!isStartProjection(sortedHandleX)] = i;
 		sapBoxY.mMinMax[!isStartProjection(sortedHandleY)] = i;
 		sapBoxZ.mMinMax[!isStartProjection(sortedHandleZ)] = i;
@@ -1659,7 +1665,8 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 					const PxgIntegerAABB& otherAABB = aabbs0[otherHandle];
 					const PxgIntegerAABB& otherOldAABB = aabbs1[otherHandle];
 
-					if(aabb.intersects(otherAABB) && !oldAABB.intersects1D(otherOldAABB, axis))
+	                if (!needsRefilter(bpDesc, handle) && !needsRefilter(bpDesc, otherHandle)
+                    && aabb.intersects(otherAABB) && !oldAABB.intersects1D(otherOldAABB, axis))
 					{
 						//If this is a down sweep, this is a found pair. If this is an up sweep, this is a lost pair
 						if(!isSeparatedBeforeAxis(axis, oldAABB, otherOldAABB))
@@ -1911,6 +1918,13 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 
 extern "C" __global__ void clearNewFlagLaunch(const PxgBroadPhaseDesc* bpDesc)	// BP_CLEAR_NEWFLAG //###ONESHOT
 {
+    if (bpDesc->refilterWordCount)
+    {
+        const PxU32 count = 2u * (bpDesc->numPreviousHandles + bpDesc->numCreatedHandles - bpDesc->numRemovedHandles);
+        for (PxU32 i=threadIdx.x + blockDim.x*blockIdx.x; i<count; i+=blockDim.x*gridDim.x)
+            for (PxU32 axis=0; axis<3; ++axis) bpDesc->boxHandles[0][axis][i] &= ~2u;
+        return;
+    }
 	const PxU32 numCreatedHandleSize = bpDesc->numCreatedHandles;
 	
 	const PxU32* createdHandles = bpDesc->updateData_createdHandles;

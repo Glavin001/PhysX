@@ -89,10 +89,48 @@ void ShapeSimBase::onFilterDataChange()
 	setElementInteractionsDirty(*this, InteractionDirtyFlag::eFILTER_STATE, InteractionFlag::eFILTERABLE);
 }
 
+bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToActor)
+{
+    Scene& scene = getScene();
+    if (&owner.getScene() != &scene || !isInBroadPhase() || !owner.isDynamicRigid()
+        || owner.getActorType() != PxActorType::eRIGID_DYNAMIC) return false;
+    BodySim& body = static_cast<BodySim&>(owner);
+    const Bp::FilterGroup::Enum group = Bp::getFilterGroup(false, owner.getActorID(), body.isKinematic() && !body.hasForcedKinematicNotif());
+    if (!scene.getAABBManager()->refilterBounds(getElementID(), group)) return false;
+    PxvNphaseImplementationContext* np = scene.getLowLevelContext()->getNphaseImplementationContext();
+    PxsContactManagerOutputIterator outputs = np->getContactManagerOutputs();
+    scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
+    // ShapeSim, contact/transform index, geometry registration and shape refcount
+    // all persist. Only incompatible contact rows and ownership maps change.
+    if (!np->rebindShapeInstance(body.getNodeIndex(), getCore(), getElementID(), owner.getPxActor()))
+    {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Persistent shape owner update failed in GPU narrowphase");
+#if PX_SUPPORT_GPU_PHYSX
+        scene.getCudaContextManager()->getCudaContext()->setAbortMode(true);
+#endif
+        return false;
+    }
+    destroySqBounds();
+    rebindActor(owner);
+    mShapeCore->setTransform(shapeToActor);
+    scene.getSimulationController()->addPxgShape(this, getPxsShapeCore(), body.getNodeIndex(), getElementID());
+    UpdateCachedParams params(scene.getLowLevelContext()->getTransformCache(), scene.getBoundsArray());
+    updateCached(params, &scene.getAABBManager()->getChangedAABBMgActorHandleMap(), false, false);
+    if (body.isActive()) createSqBounds();
+    return true;
+}
+
 void ShapeSimBase::onResetFiltering()
 {
-	if (isInBroadPhase())
-		reinsertBroadPhase();
+    if (!isInBroadPhase()) return;
+    Scene& scene = getScene();
+    if (scene.getAABBManager()->refilterBounds(getElementID(), getBPGroup(*this)))
+    {
+        PxsContactManagerOutputIterator outputs = scene.getLowLevelContext()->getNphaseImplementationContext()->getContactManagerOutputs();
+        scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
+        return;
+    }
+    reinsertBroadPhase();
 }
 
 void ShapeSimBase::onRestOffsetChange()
@@ -240,7 +278,7 @@ void ShapeSimBase::initSubsystemsDependingOnElementID(PxU32 indexFrom)
 	//	if(scScene.getDirtyShapeSimMap().size() <= index)
 	//		scScene.getDirtyShapeSimMap().resize(PxMax(index+1, (scScene.getDirtyShapeSimMap().size()+1) * 2u));
 
-	ActorSim& owner = mActor;
+	ActorSim& owner = *mActor;
 
 	if (owner.isDynamicRigid() && static_cast<BodySim&>(owner).isActive())
 		createSqBounds();
@@ -248,7 +286,7 @@ void ShapeSimBase::initSubsystemsDependingOnElementID(PxU32 indexFrom)
 
 PxNodeIndex ShapeSimBase::getActorNodeIndex() const
 {
-	ActorSim& owner = mActor;
+	ActorSim& owner = *mActor;
 	return owner.getActorType() == PxActorType::eRIGID_STATIC ? PxNodeIndex(PX_INVALID_NODE) : static_cast<BodySim&>(owner).getNodeIndex();
 }
 

@@ -31,6 +31,7 @@
 #include "NpRigidDynamic.h"
 #include "NpArticulationLink.h"
 #include "ScBodySim.h"
+#include "ScShapeSim.h"
 #include "GuBounds.h"
 #include "NpAggregate.h"
 #include "CmTransformUtils.h"
@@ -172,6 +173,53 @@ static PX_INLINE void onShapeDetach(NpActor& ro, NpShape& shape, bool wakeOnLost
 
 	shape.setSceneIfExclusive(NULL);
 
+}
+
+bool NpShapeManager::rebindShape(PxRigidActor& from, PxRigidActor& to, PxShape& shape, const PxTransform& shapeToActor)
+{
+    if (&from == &to || from.getConcreteType() != PxConcreteType::eRIGID_DYNAMIC
+        || to.getConcreteType() != PxConcreteType::eRIGID_DYNAMIC || !shapeToActor.isValid()) return false;
+    NpRigidDynamic& source = static_cast<NpRigidDynamic&>(from);
+    NpRigidDynamic& target = static_cast<NpRigidDynamic&>(to);
+    NpShape& s = static_cast<NpShape&>(shape);
+    NpScene* scene = source.getNpScene();
+    if (!scene || scene != target.getNpScene() || scene->isAPIWriteForbidden()
+        || !(scene->getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+        || !s.isExclusiveFast() || s.mExclusiveShapeActor != &from
+        || source.getAggregate() || target.getAggregate()
+        || s.getFlagsFast().isSet(PxShapeFlag::eTRIGGER_SHAPE)) return false;
+    const PxGeometryType::Enum kind = s.getCore().getGeometryType();
+    if (kind != PxGeometryType::eBOX && kind != PxGeometryType::eSPHERE
+        && kind != PxGeometryType::eCAPSULE && kind != PxGeometryType::eCONVEXMESH) return false;
+    if (kind == PxGeometryType::eCONVEXMESH
+        && !s.getCore().getGeometryUnion().get<const PxConvexMeshGeometry>().convexMesh->isGpuCompatible()) return false;
+    NpShapeManager& a = source.getShapeManager();
+    NpShapeManager& b = target.getShapeManager();
+    if (a.mPruningStructure || b.mPruningStructure || a.isSqCompound() || b.isSqCompound()) return false;
+    Sc::ShapeSim* sim = s.getCore().getExclusiveSim();
+    Sc::BodySim* destination = target.getCore().getSim();
+    if (!sim || !destination || !sim->isInBroadPhase()
+        || scene->getBroadPhaseType() != PxBroadPhaseType::eGPU) return false;
+    const PxU32 index = s.getShapeManagerArrayIndex(a.mShapes);
+    if (index == PX_INVALID_U32) return false;
+    // Reserve the target compatibility slot before mutating simulation ownership.
+    PtrTableStorageManager& storage = NpFactory::getInstance().getPtrTableStorageManager();
+    const PxU32 targetIndex = b.mShapes.getCount();
+    b.mShapes.add(&s, storage);
+    if (!sim->rebindRigidOwner(*destination, shapeToActor))
+    {
+        b.mShapes.replaceWithLast(targetIndex, storage);
+        return false;
+    }
+    if (isSceneQuery(s)) scene->getSQAPI().removeSQShape(from, s);
+    void** ptrs = a.mShapes.getPtrs();
+    const PxU32 last = a.mShapes.getCount() - 1;
+    if (index != last) static_cast<NpShape*>(ptrs[last])->setShapeManagerArrayIndex(index);
+    a.mShapes.replaceWithLast(index, storage);
+    s.mExclusiveShapeActor = &to;
+    s.setShapeManagerArrayIndex(targetIndex);
+    if (isSceneQuery(s)) b.setupSceneQuery_(scene->getSQAPI(), target, to, s);
+    return true;
 }
 
 bool NpShapeManager::attachShape(NpShape& shape, PxRigidActor& actor)

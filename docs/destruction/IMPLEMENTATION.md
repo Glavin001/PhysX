@@ -3,15 +3,17 @@
 **The complete plan is not implemented or qualified yet.** The repository now
 contains a buildable reference SDK, a native scene GPU contact/stress/material stage, and
 GPU topology/motion transactions. Native steps now commit bond cuts that retain
-all chunk motion owners, with GPU-owned stress connectivity. True splits still
-need PhysX collision/body rebinding and internal correction; see
-[NATIVE_GPU_STRESS_TOPOLOGY.md](NATIVE_GPU_STRESS_TOPOLOGY.md).
+all chunk motion owners, with GPU-owned stress connectivity. An internal
+persistent collision-owner transfer now updates actual GPU collision bindings and CPU membership; see
+[PERSISTENT_GPU_COLLISION_OWNERSHIP.md](PERSISTENT_GPU_COLLISION_OWNERSHIP.md).
+Native true splits still need solver-body allocation, invocation of that boundary
+and internal correction.
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 41/46 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
+suite is 44/49 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
@@ -83,13 +85,21 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   triangle cuts preserve rigid ownership and analytic surviving-bond loads.
   Memcheck reports zero errors; full regression is 41/46 with known failures.
 
+- Added an internal persistent collision-owner transfer: stable simulation/shape
+  IDs and geometry registration, GPU overlap rediscovery for unchanged bounds,
+  contact-owner rebinding and CPU query membership. Rotated/offset-COM transfers,
+  repeated pending transfers, removal and explicit overflow tests pass. Native
+  material-driven invocation and solver-body allocation remain unfinished.
+
 ## Remaining completion gates
 
 - Complete the initial scene-attached `PxDestructionScene` beyond stress bindings:
   SDK-wide stable generation-bearing structure/chunk/cluster handles,
   removal/reinsertion and crush ancestry.
-- Engine-owned persistent collision geometry and GPU shape/cluster rebinding;
-  new fragment pair eligibility and contact/constraint cache invalidation.
+- Connect the internal persistent collision-owner transfer to native GPU topology
+  transactions, create solver bodies, and batch device ownership updates. Extend
+  new-pair eligibility and cache invalidation to aggregate scenes and complete
+  runtime geometry ownership; the between-step boundary is not the full path.
 - Complete material parity for merged/reduced bond groups, expose explicit
   chunk loads, and connect native GPU candidate clusters to collision ownership and
   full crush fragment/energy accounting. No predicted breakage is permitted.
