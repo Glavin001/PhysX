@@ -118,7 +118,7 @@
     },
     "native-device-contact-113664-sustained-20260906": {
       "path": "out/recordings/native-device-contact-113664-sustained-20260906",
-      "status": "running",
+      "status": "completed",
       "frames_target": 1800,
       "seconds_target": 30,
       "chunks": 113664,
@@ -136,7 +136,38 @@
         },
         "command": "out/destruction-sdk/reference/native_destruction_demo --grid 16 --waves 4 --seconds 30 --stress-iterations 8192 --profile-phases 1 --record-state 0 --output out/recordings/native-device-contact-113664-sustained-20260906",
         "recording_disabled_only": true
-      }
+      },
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 1800,
+        "seconds": 30,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "peak_clusters": 87506,
+        "projectiles": 1024,
+        "broken_bonds": 190334,
+        "corrections": 1398,
+        "recorded_state": false,
+        "correction_limit": 1,
+        "physics_ms_p50": 794.973,
+        "physics_ms_p95": 994.614,
+        "physics_ms_p99": 1109.01,
+        "physics_ms_max": 1349.69,
+        "missed_16_67ms": 1659,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "stress": {
+        "iteration_cap": 8192,
+        "tolerance": 1e-05,
+        "max_iterations": 831,
+        "all_1800_converged": true
+      },
+      "phase_summary": "out/recordings/native-device-contact-113664-sustained-20260906/phase-summary.json"
     }
   },
   "video": {
@@ -172,6 +203,7 @@
     "Complete correction still refilters and rebuilds contacts",
     "No isolated performance qualification or 60 Hz claim",
     "Full imported suite not rerun; existing fidelity gaps remain",
-    "8192-iteration sustained stress runs preserve tolerance but are not matched-setting comparisons against 2048-iteration captures"
+    "8192-iteration sustained stress runs preserve tolerance but are not matched-setting comparisons against 2048-iteration captures",
+    "Large sustained diagnostic shared GPU and CPU conditions; final portion overlapped a CPU static-library build"
   ]
 }

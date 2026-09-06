@@ -11,7 +11,8 @@ and GPU execution are separate completion requirements.
 | Broadphase candidate generation, supported narrowphase geometry and rigid-body solve | Existing GPU kernels | Keep on GPU |
 | Solved-impulse routing, stress/material evaluation, connectivity, cluster mass/inertia and correction motion | Our CUDA destruction runtime | Keep on GPU |
 | Contact-manager allocation, interaction registration and part of island bookkeeping | Existing PhysX CPU machinery | Device pair records and solver connectivity for the supported native path |
-| Private cluster actor/node reservation and shape ownership mirrors | Our bridge into existing CPU actor/shape machinery | GPU slot/ownership transactions; CPU mirrors only where observations require them |
+| Device shape motion-owner assignment | CUDA transaction consumes the compact fracture bindings; resident geometry is preserved | Remove the remaining CPU mirror/lifecycle dependency |
+| Private cluster actor/node reservation and shape ownership mirrors | Our bridge into existing CPU actor/shape machinery | GPU slot allocation; CPU mirrors only where observations require them |
 | Full contact invalidation/recreation after fracture | Our correction invokes the existing CPU collision lifecycle | Device validity checks, ownership resolution and changed-row rebuilding |
 | Correction metadata selection/readback | Previously all candidate clusters; now CUDA-selected affected owners | Eventually consume directly in the GPU ownership transaction |
 | Setup, commands, memory-capacity allocation, requested observations | CPU application/runtime control | Keep off the per-pair/per-chunk calculation path |
@@ -95,3 +96,33 @@ from persistent GPU shape instances and omit the corresponding per-pair CPU
 preparation tasks. Actual GPU contact generation consumes these descriptors.
 Pair creation/filtering, CPU interaction records and solver scheduling remain
 unfinished device-integration work; the input upload still crosses the host.
+
+## Resident shape ownership installation
+
+`installNativeCollisionOwners` now applies validated CUDA fracture bindings
+straight to `PxgShapeSim::mBodySimIndex` after checkpoint restore and new cluster
+body installation. It runs on the simulation stream, with the existing event
+ordering before corrected bounds refresh, narrowphase and solving. Geometry
+registration, local shape coordinates, flags and local geometry bounds remain
+resident and unchanged. The CPU compatibility update changes its owner index
+without queuing a complete `PxgNewShapeSim` upload or repeating geometry-bound
+calculation. Independently queued ordinary shape updates are preserved.
+
+The native transfer requires unchanged local shape coordinates. It rejects a
+mismatched local transform before changing that shape's ownership. Invalid GPU
+shape/owner identities are fail-stop invariant errors, not silently dropped
+shapes or an implemented recoverable transaction. Ordinary public shape transfer
+retains its existing geometry-upload path.
+
+The native impact regression observes the actual GPU owner and immutable shape
+fields after fracture. It also checks that the cumulative shape-upload count
+did not increase. Existing projectile momentum, gravity, force application,
+quiet-structure identity, query membership and one-correction assertions remain.
+See [qualification](qualification/native-device-owner-20260906.json) for the
+build, test and repeated-fracture results.
+
+This is a device ownership transaction with a remaining CPU compatibility
+bridge: CPU actor/shape registries, broadphase filter groups and contact records
+still change during splitting. The full contact rebuild remains. Removing that
+bridge requires GPU pair lifecycle and solver connectivity, not just the owner
+assignment now performed on CUDA.

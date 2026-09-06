@@ -70,6 +70,8 @@ public:
     virtual bool buildContactInputs(PxgContactManagerInput* inputs, PxU32 count,
         const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
 
+    // Install GPU-selected cluster ownership without re-uploading immutable geometry.
+    virtual bool installCollisionOwners(PxgShapeSim* shapes, PxU32 capacity, CUstream stream) = 0;
 };
 }
 #if defined(_WIN32)

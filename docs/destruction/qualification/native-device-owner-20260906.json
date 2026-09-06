@@ -1,0 +1,126 @@
+{
+  "scope": "Apply CUDA fracture ownership directly to persistent GPU collision shapes, preserving immutable geometry and skipping native shape re-upload",
+  "full_objective_complete": false,
+  "independent_sdk_build_install": {
+    "status": "passed",
+    "log": "out/native-device-owner-sdk-final-build.log"
+  },
+  "tests": {
+    "status": "passed",
+    "count": 15,
+    "native_count": 9,
+    "persistent_shape_owner_count": 6,
+    "log": "out/native-device-owner-final-tests.log",
+    "new_assertions": [
+      "No shape upload after native fracture in analytic impact",
+      "GPU shape owner matches committed fragment",
+      "Local transform, local geometry bounds, registration, type and flags remain identical"
+    ],
+    "preserved_checks": [
+      "Projectile 0 m/s intact versus 6 m/s fractured",
+      "Momentum continuity",
+      "Ordinary force and gravity applied once",
+      "At most one correction",
+      "Unchanged distant structure identity and motion",
+      "Query owner membership",
+      "Unsupported corrections and nonconverged stress rejected"
+    ]
+  },
+  "captures": {
+    "native-device-owner-113664-20260906": {
+      "path": "out/recordings/native-device-owner-113664-20260906",
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 180,
+        "seconds": 3,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "peak_clusters": 89920,
+        "projectiles": 252,
+        "broken_bonds": 185008,
+        "corrections": 56,
+        "recorded_state": false,
+        "correction_limit": 1,
+        "physics_ms_p50": 0.526883,
+        "physics_ms_p95": 623.475,
+        "physics_ms_p99": 711.341,
+        "physics_ms_max": 748.099,
+        "missed_16_67ms": 56,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "stress": {
+        "max_iterations": 170,
+        "iteration_cap": 2048,
+        "tolerance": 1e-05,
+        "all_converged": true
+      },
+      "build_provenance": {
+        "head": "e6fa5d61d710bfe4eb91c0f8147dae8007a3f7d2",
+        "sha256": {
+          "out/destruction-sdk/reference/native_destruction_demo": "d7404acc5052cd68a9690d7b26bb62ac09c7fb19f4e735ec0148bc12863432b3",
+          "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "b262874aa258962c9d7189c1dd829215c09b4859d03762ae7c4bf744bf1eb670",
+          "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "5a5910f6dc91e78b74a752552661f2141873df6074320aed0f9d8b01f33f0c10"
+        }
+      },
+      "source_patch": "out/recordings/native-device-owner-113664-20260906/source.patch",
+      "phase_summary": "out/recordings/native-device-owner-113664-20260906/phase-summary.json",
+      "build_note": "Pre-final empty-binding guard: final runtime also permits an empty owner batch with no shape buffer. This capture has nonempty bindings; source patch and original binary hashes retained."
+    },
+    "native-device-owner-sustained-20260906": {
+      "path": "out/recordings/native-device-owner-sustained-20260906",
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 1800,
+        "seconds": 30,
+        "buildings": 9,
+        "chunks": 3996,
+        "bonds": 8064,
+        "peak_clusters": 2994,
+        "projectiles": 36,
+        "broken_bonds": 6610,
+        "corrections": 251,
+        "recorded_state": false,
+        "correction_limit": 1,
+        "physics_ms_p50": 2.05676,
+        "physics_ms_p95": 13.2964,
+        "physics_ms_p99": 17.9186,
+        "physics_ms_max": 35.8663,
+        "missed_16_67ms": 26,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "stress": {
+        "max_iterations": 1729,
+        "iteration_cap": 8192,
+        "tolerance": 1e-05,
+        "all_converged": true
+      },
+      "build_provenance": {
+        "head": "e6fa5d61d710bfe4eb91c0f8147dae8007a3f7d2",
+        "sha256": {
+          "out/destruction-sdk/reference/native_destruction_demo": "d7404acc5052cd68a9690d7b26bb62ac09c7fb19f4e735ec0148bc12863432b3",
+          "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "99aeb73dc9b7a7ed62797a123fa6892f2793519b8d0d6df54865a5bae6271dde",
+          "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "5a5910f6dc91e78b74a752552661f2141873df6074320aed0f9d8b01f33f0c10"
+        }
+      },
+      "source_patch": "out/recordings/native-device-owner-sustained-20260906/source.patch",
+      "phase_summary": "out/recordings/native-device-owner-sustained-20260906/phase-summary.json"
+    }
+  },
+  "limitations": [
+    "CPU actor and shape registries still mirror ownership",
+    "CPU broadphase filter groups, contact invalidation/rebuild and solver partitioning remain",
+    "No selective resimulation; complete correction still restores ordinary participants",
+    "No isolated performance or strict 60 Hz qualification",
+    "Full imported test matrix and outstanding fidelity corrections remain incomplete"
+  ],
+  "prior_large_sustained": "docs/destruction/qualification/native-device-contact-20260906.json"
+}

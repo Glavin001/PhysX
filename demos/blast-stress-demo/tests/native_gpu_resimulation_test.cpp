@@ -3,6 +3,8 @@
 #include <PxDestructionScene.h>
 #include "NpScene.h"
 #include "PxgDestructionRuntime.h"
+#include "PxgSimulationController.h"
+#include "PxgSimulationCore.h"
 #include <vector>
 #include <foundation/PxBroadcast.h>
 #include <atomic>
@@ -65,6 +67,13 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     }
     scene.simulate(1.0f/60);require(scene.fetchResults(true),"warmup failed");events.advances=0;
     const auto identity=scene.getDirectGPUAPI().getShapeContactIndex(*shape);
+    auto& controller=*static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController());
+    auto& shapeManager=controller.getSimulationCore()->mPxgShapeSimManager;
+    const auto initialShapeUploads=shapeManager.getUploadedShapeCount();
+    PxgShapeSim originalShape;
+    {PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(&originalShape,
+        shapeManager.getShapeSimsDevicePtr()+identity*sizeof(PxgShapeSim),sizeof(originalShape)));}
+
     std::vector<PxDestructionStressChunk> chunks={{PxVec3(0,-1,0),0,0,0,PX_INVALID_U32},
         {PxVec3(0),2,1.0f/3,0,identity,1,0}};
     std::vector<PxDestructionChunkMassProperties> mass(2);mass[0].supported=1;mass[0].center[1]=-1;
@@ -125,6 +134,21 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
             require(status.normalContacts && status.brokenBonds,"fracture was not driven by actual solved contact impulses");
             auto* runtime=static_cast<PxgDestructionRuntime*>(destruction);
             require(runtime->correctionBodyCount()==2,"CPU owner bridge included unchanged clusters");
+            require(shapeManager.getUploadedShapeCount()==initialShapeUploads,
+                "native correction re-uploaded persistent chunk geometry");
+            PxgShapeSim resident;
+            {PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(&resident,
+                shapeManager.getShapeSimsDevicePtr()+identity*sizeof(PxgShapeSim),sizeof(resident)));}
+            auto* owner=shape->getActor()->is<PxRigidDynamic>();
+            require(owner && resident.mBodySimIndex.index()==owner->getGPUIndex(),
+                "GPU shape owner differs from the committed fragment");
+            require(resident.mTransform.p==originalShape.mTransform.p && resident.mTransform.q==originalShape.mTransform.q
+                && resident.mLocalBounds.minimum==originalShape.mLocalBounds.minimum
+                && resident.mLocalBounds.maximum==originalShape.mLocalBounds.maximum
+                && resident.mHullDataIndex==originalShape.mHullDataIndex
+                && resident.mShapeType==originalShape.mShapeType && resident.mShapeFlags==originalShape.mShapeFlags,
+                "native ownership update changed immutable collision data");
+
             for(unsigned i=0;i<quietCount;++i) {
                 const auto quietId=quiet[i]->getGPUIndex();
                 for(PxU32 j=0;j<runtime->correctionBodyCount();++j)

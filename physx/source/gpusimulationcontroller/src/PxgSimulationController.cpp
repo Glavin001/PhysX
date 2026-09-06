@@ -768,7 +768,10 @@ namespace physx
                 auto* acceleration=mSimulationCore->getRigidBodyAccelerationsDevice();
                 const auto capacity=mBodySimManager.mTotalNumBodies;const auto stream=mSimulationCore->getStream();
                 ok=mDestruction->restoreRigidState(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
-                    && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream);
+                    && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
+                    && mDestruction->installCollisionOwners(
+                        mSimulationCore->mPxgShapeSimManager.getMutableShapeSimsDeviceTypedPtr(),
+                        mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),stream);
                 if(ok) {
                     const auto* indices=mDestruction->correctionBodyIndices();
                     for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i) {

@@ -363,6 +363,18 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
     } else atomicAdd(&status->removed,1u);
     bindings[i]={i,shapeId,source,target};
 }
+// The native transaction preserves authored shape-to-actor coordinates. Only
+// the motion owner changes; geometry, local bounds and registration stay resident.
+__global__ void installNativeCollisionOwners(const PxDestructionCollisionBinding* bindings,
+    PxU32 count,PxgShapeSim* shapes,PxU32 capacity) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto b=bindings[i];
+    if(b.shape>=capacity || b.targetBody==PX_INVALID_U32) {asm volatile("trap;");return;}
+    auto& shape=shapes[b.shape];
+    if(shape.mBodySimIndex.isStaticBody() || shape.mBodySimIndex.isArticulation()
+        || shape.mBodySimIndex.index()!=b.sourceBody) {asm volatile("trap;");return;}
+    shape.mBodySimIndex=PxNodeIndex(b.targetBody);
+}
 struct HasCollisionBinding {
     __host__ __device__ bool operator()(const PxDestructionCollisionBinding& b) const {return b.shape!=PX_INVALID_U32;}
 };
@@ -959,6 +971,18 @@ public:
                 mCheckpointPrevious,bodies,previous,accelerations);
             check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
         }catch(...) {mFailed=true;return false;}
+    }
+    bool installCollisionOwners(PxgShapeSim* shapes,PxU32 capacity,CUstream coreStream) override {
+        if(mFailed || !mCorrectionEnabled || mHostStatus->error!=8u || !mHostCollisionPreparation.valid
+            || mHostCollisionPreparation.removed || !mHostCorrectionPreparation.valid || !coreStream
+            || (mHostCollisionPreparation.count && (!shapes || !capacity)))return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            check(cudaStreamWaitEvent(stream,mReady,0));
+            const PxU32 count=mHostCollisionPreparation.count;
+            if(count)installNativeCollisionOwners<<<(count+127)/128,128,0,stream>>>(mCompactCollisionBindings,count,shapes,capacity);
+            check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
+        }catch(...){mFailed=true;return false;}
     }
     bool correctionEnabled() const override { return mCorrectionEnabled; }
     PxU32 correctionBodyCount() const override { return PxU32(mHostCorrectionTargets.size()); }

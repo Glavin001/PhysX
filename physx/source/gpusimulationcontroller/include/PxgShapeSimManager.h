@@ -104,6 +104,9 @@ namespace physx
 		PX_FORCE_INLINE	const PxgShapeSim*				getShapeSimsDeviceTypedPtr()	const	{ return mShapeSimBuffer.getTypedPtr();		}
 		PX_FORCE_INLINE	Sc::ShapeSimBase**				getShapeSims()							{ return mShapeSimPtrs.begin();				}
 
+        PxgShapeSim* getMutableShapeSimsDeviceTypedPtr() { return mShapeSimBuffer.getTypedPtr(); }
+        PxU64 getUploadedShapeCount() const { return mUploadedShapeCount; }
+
 #if PXG_SC_DEBUG
 		void											validateCacheAndBounds(const PxBounds3* bounds, const PxsCachedTransform* cachedTransforms);
 #endif
@@ -120,6 +123,7 @@ namespace physx
 						PxgTypedCudaBuffer<PxgShapeSim>		mShapeSimBuffer;
 						PxgTypedCudaBuffer<PxgNewShapeSim>	mNewShapeSimBuffer;
 
+        PxU64 mUploadedShapeCount = 0;
 		friend class PxgCopyToShapeSimTask;
 	};
 }

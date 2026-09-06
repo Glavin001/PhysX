@@ -209,12 +209,12 @@ bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, P
     const PxU32 index = s.getShapeManagerArrayIndex(a.mShapes);
     if (index == PX_INVALID_U32) return false;
     // A retained owner still needs collision rows and COM-dependent caches rebuilt.
-    if (&from == &to) return sim->rebindRigidOwner(*destination, shapeToActor);
+    if (&from == &to) return sim->rebindRigidOwner(*destination, shapeToActor, nativeTransaction);
     // Reserve the target compatibility slot before mutating simulation ownership.
     PtrTableStorageManager& storage = NpFactory::getInstance().getPtrTableStorageManager();
     const PxU32 targetIndex = b.mShapes.getCount();
     b.mShapes.add(&s, storage);
-    if (!sim->rebindRigidOwner(*destination, shapeToActor))
+    if (!sim->rebindRigidOwner(*destination, shapeToActor, nativeTransaction))
     {
         b.mShapes.replaceWithLast(targetIndex, storage);
         return false;

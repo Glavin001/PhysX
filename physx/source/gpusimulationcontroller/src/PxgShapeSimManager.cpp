@@ -248,6 +248,7 @@ void PxgShapeSimManager::gpuMemDmaUpShapeSim(PxCudaContext* cudaContext, CUstrea
 		mNewShapeSimBuffer.allocate(nbNewShapes * sizeof(PxgNewShapeSim), PX_FL);
 		cudaContext->memcpyHtoDAsync(mNewShapeSimBuffer.getDevicePtr(), newShapeSimPool.begin(), sizeof(PxgNewShapeSim)* nbNewShapes, stream);
 
+        mUploadedShapeCount += nbNewShapes;
 		const PxgNewShapeSim* newShapeSimsBufferDeviceData = mNewShapeSimBuffer.getTypedPtr();
 		PxgShapeSim* shapeSimsBufferDeviceData = mShapeSimBuffer.getTypedPtr();
 

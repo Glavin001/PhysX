@@ -89,9 +89,13 @@ void ShapeSimBase::onFilterDataChange()
 	setElementInteractionsDirty(*this, InteractionDirtyFlag::eFILTER_STATE, InteractionFlag::eFILTERABLE);
 }
 
-bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToActor)
+bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToActor, bool deviceOwnerTransaction)
 {
     Scene& scene = getScene();
+    if(deviceOwnerTransaction) {
+        const PxTransform old = getPxsShapeCore()->getTransform();
+        if(old.p != shapeToActor.p || !(old.q == shapeToActor.q))return false;
+    }
     if (&owner.getScene() != &scene || !isInBroadPhase() || !owner.isDynamicRigid()
         || owner.getActorType() != PxActorType::eRIGID_DYNAMIC) return false;
     BodySim& body = static_cast<BodySim&>(owner);
@@ -128,7 +132,13 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     destroySqBounds();
     rebindActor(owner);
     mShapeCore->setTransform(shapeToActor);
-    scene.getSimulationController()->addPxgShape(this, getPxsShapeCore(), body.getNodeIndex(), getElementID());
+    // Native CUDA ownership installation preserves resident geometry and local
+    // coordinates. Keep the CPU compatibility owner current without queuing a
+    // complete shape upload. Any independently queued shape update stays queued.
+    if(deviceOwnerTransaction)
+        scene.getSimulationController()->setPxgShapeBodyNodeIndex(body.getNodeIndex(), getElementID());
+    else
+        scene.getSimulationController()->addPxgShape(this, getPxsShapeCore(), body.getNodeIndex(), getElementID());
     if(!gpuBounds)
     {
         // A later transfer to a not-yet-uploaded body cancels an earlier GPU
