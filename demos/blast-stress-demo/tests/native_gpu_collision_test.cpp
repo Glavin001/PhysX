@@ -5,6 +5,8 @@
 #include "NpShapeManager.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
+#include "PxgContext.h"
+#include "PxgSolverCore.h"
 #include "native_contact_graph_check.h"
 #include "PxgNphaseImplementationContext.h"
 #include "PxgNarrowphaseCore.h"
@@ -44,8 +46,8 @@ struct Fixture {
     PxDestructionStressDesc desc;
     PxDestructionScene* stage;
     unsigned mainCount;
-    Fixture(unsigned count,unsigned untouched,bool sleeping):
-        context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,sleeping,sleeping),
+    Fixture(unsigned count,unsigned untouched,bool sleeping,PxSolverType::Enum solver=PxSolverType::eTGS):
+        context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,sleeping,sleeping,solver),
         scene(context.scene()),cuda(*context.cudaContextManager()),
         core(*static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getSimulationCore()),mainCount(count) {
         const PxTransform origin(PxVec3(10,20,-5),PxQuat(.43f,PxVec3(0,0,1)));
@@ -105,6 +107,64 @@ struct Fixture {
         check(cuEventSynchronize(view.readyEvent));if(n)check(cuMemcpyDtoH(result.data(),CUdeviceptr(view.trialCollisionBindings),n*sizeof(result[0])));return result;
     }
 };
+// Compare the actual solver device buffers with an independent full snapshot
+// captured before solving, not the later (potentially split) native islands.
+void solverMetadata(PxSolverType::Enum solver,bool sleeping) {
+    Fixture f(1,1024,sleeping,solver);f.scene.setGravity(PxVec3(0));
+    f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
+    auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(f.scene).getScScene().getDynamicsContext());
+    gpu.captureSolverIslandMetadata(true);
+    unsigned comparisons=0;
+    const auto verify=[&](){
+        step(f.scene);
+        const auto& ids=gpu.getExpectedSolverIslandIds();
+        const auto& touches=gpu.getExpectedSolverStaticTouches();
+        require(!ids.empty() && !touches.empty(),"pre-solver metadata snapshot missing");
+        CUdeviceptr dIds=0,dTouches=0;gpu.getGpuSolverCore()->getSolverIslandMetadataPointers(dIds,dTouches);
+        std::vector<PxU32> actualIds(ids.size()),actualTouches(touches.size());
+        {PxScopedCudaLock lock(f.cuda);check(cuStreamSynchronize(gpu.getGpuSolverCore()->getStream()));
+            check(cuMemcpyDtoH(actualIds.data(),dIds,actualIds.size()*sizeof(PxU32)));
+            check(cuMemcpyDtoH(actualTouches.data(),dTouches,actualTouches.size()*sizeof(PxU32)));}
+        require(std::equal(actualIds.begin(),actualIds.end(),ids.begin()),"resident node-to-island metadata differs from native pre-solve snapshot");
+        require(std::equal(actualTouches.begin(),actualTouches.end(),touches.begin()),"resident static-touch metadata differs from native pre-solve snapshot");
+        ++comparisons;
+    };
+    const auto add=[&](float x){
+        auto* body=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(x,80,0)),PxSphereGeometry(.6f),f.context.material(),1);
+        require(body,"metadata dynamic creation failed");body->setMass(0);body->setMassSpaceInertiaTensor(PxVec3(0));f.scene.addActor(*body);return body;
+    };
+    auto* a=add(4500);auto* b=add(4501);verify();verify();
+    const auto quietBefore=gpu.getSolverIslandMetadataStats();
+    for(unsigned i=0;i<8;++i)verify();
+    const auto quietAfter=gpu.getSolverIslandMetadataStats();
+    require(quietAfter.quietPasses>=quietBefore.quietPasses+8 && quietAfter.hostToDeviceBytes==quietBefore.hostToDeviceBytes,
+        "unchanged solver metadata still uploads");
+    auto* floor=PxCreateStatic(f.context.physics(),PxTransform(PxVec3(4500,79,0)),PxBoxGeometry(3,.5f,3),f.context.material());
+    require(floor,"metadata support creation failed");f.scene.addActor(*floor);verify();verify();
+    const auto& touches=gpu.getExpectedSolverStaticTouches();
+    require(std::any_of(touches.begin(),touches.end(),[](PxU32 n){return n>0;}),"metadata fixture never exercises static support");
+    floor->release();verify();verify();
+    b->release();verify();verify();b=add(4501);verify();verify();
+    a->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);verify();verify();
+    a->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,false);verify();verify();
+    const auto sparse=gpu.getSolverIslandMetadataStats();
+    require(sparse.pageUploads>quietAfter.pageUploads,"contact lifecycle never exercised sparse solver metadata uploads");
+    const auto beforeGrowth=sparse.fullUploads;std::vector<PxRigidDynamic*> growth;
+    for(unsigned i=0;i<300;++i)growth.push_back(add(5000+3*float(i)));
+    verify();require(gpu.getSolverIslandMetadataStats().fullUploads>beforeGrowth,"metadata domain growth did not refresh complete buffers");
+    f.desc.gpuIslandRepair=false;f.configure();const auto referenceBefore=gpu.getSolverIslandMetadataStats().fullUploads;
+    verify();verify();require(gpu.getSolverIslandMetadataStats().fullUploads>=referenceBefore+2,"reference solver metadata did not use full upload");
+    f.desc.gpuIslandRepair=true;f.configure();verify();verify();
+    const auto result=gpu.getSolverIslandMetadataStats();
+    require(result.hostToDeviceBytes<result.fullEquivalentBytes,"resident metadata did not reduce uploaded bytes");
+    gpu.captureSolverIslandMetadata(false);f.stage->clearStress();
+    for(auto* body:growth)body->release();a->release();b->release();
+    require(f.context.healthy(),"solver metadata fixture GPU error");
+    std::printf("%s solver metadata (GPU sleeping %u): %u exact pre-solve comparisons; %llu full, %llu sparse, %llu quiet; %llu / %llu H2D bytes\n",
+        solver==PxSolverType::eTGS?"TGS":"PGS",unsigned(sleeping),comparisons,
+        (unsigned long long)result.fullUploads,(unsigned long long)result.pageUploads,(unsigned long long)result.quietPasses,
+        (unsigned long long)result.hostToDeviceBytes,(unsigned long long)result.fullEquivalentBytes);
+}
 void deviceContactInputs(bool enabled) {
     Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=enabled?1:0;f.configure();
     auto& sc=static_cast<NpScene&>(f.scene).getScScene();
@@ -516,6 +576,7 @@ void crushRemoval() {
 int main(int argc,char** argv){try{
     if(argc==2) {
         const std::string mode=argv[1];
+        if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
         if(mode=="--retained-registry"){gpuRetainedRegistryLifecycle();return 0;}
         if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}
         if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();return 0;}

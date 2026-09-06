@@ -1,5 +1,6 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #pragma once
+#include "PxvIslandMetadata.h"
 #include "PxDestructionScene.h"
 #include "PxContact.h"
 #include "PxgDestructionContactGraph.h"
@@ -97,3 +98,7 @@ public:
 #endif
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
 PxCreateDestructionRuntime(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+
+extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
+PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,
+    physx::PxU32* islandIds,physx::PxU32 nodes,physx::PxU32* staticTouches,physx::PxU32 islands,CUstream stream);

@@ -29,6 +29,7 @@
 #ifndef PXG_SOLVER_CORE_H
 #define PXG_SOLVER_CORE_H
 
+#include "PxvIslandMetadata.h"
 #include "CmPinnableArray.h"
 #include "foundation/PxUserAllocated.h"
 #include "PxgConstraint.h"
@@ -236,8 +237,9 @@ namespace physx
 				PxU32 nbDestroyedEdges,
 				const PxU32* npIndexArray, PxU32 npIndexArraySize,
 				PxU32 totalNumJoints,
-				const PxU32* islandIds, const PxU32* nodeInteractionCounts, PxU32 nbNodes, const PxU32* islandStaticTouchCount, PxU32 nbIslands) = 0;
+				const PxU32* islandIds, const PxU32* nodeInteractionCounts, PxU32 nbNodes, const PxU32* islandStaticTouchCount, PxU32 nbIslands, bool metadataPagesOnly, const PxvIslandMetadataPage* metadataPages, PxU32 metadataPageCount) = 0;
 
+        virtual void getSolverIslandMetadataPointers(CUdeviceptr& ids,CUdeviceptr& counts) const = 0;
 		virtual void gpuMemDmaUpBodyData(Cm::PinnableArray<PxgSolverBodyData>& solverBodyDataPool,
 			Cm::PinnableArray<PxgSolverTxIData>& solverTxIDataPool,
 			const PxU32 numSolverBodies,

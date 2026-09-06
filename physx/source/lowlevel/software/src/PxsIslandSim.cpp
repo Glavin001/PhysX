@@ -369,7 +369,7 @@ void IslandSim::addNode(bool isActive, bool isKinematic, Node::NodeType type, Px
 	if(isKinematic)
 		flags |= Node::eKINEMATIC;
 	node.mFlags = flags;
-	mIslandIds[handle] = IG_INVALID_ISLAND;
+	writeIslandId(handle) = IG_INVALID_ISLAND;
 	mFastRoute[handle].setIndices(PX_INVALID_NODE);
 	mHopCounts[handle] = 0;
 
@@ -392,8 +392,8 @@ void IslandSim::addNode(bool isActive, bool isKinematic, Node::NodeType type, Px
 		Island& island = mIslands[islandHandle];
 		island.mLastNode = island.mRootNode = nodeIndex;
 		island.mNodeCount[type] = 1;
-		mIslandIds[handle] = islandHandle;
-		mIslandStaticTouchCount[islandHandle] = 0;
+		writeIslandId(handle) = islandHandle;
+		writeIslandStaticTouchCount(islandHandle) = 0;
 	}
 
 	if(isActive)
@@ -891,14 +891,13 @@ void IslandSim::unwindRoute(PxU32 traversalIndex, PxNodeIndex lastNode, PxU32 ho
 	const TraversalState*  PX_RESTRICT visitedNodes = mVisitedNodes.begin();
 	PxU32* PX_RESTRICT hopCounts = mHopCounts.begin();
 	PxNodeIndex* PX_RESTRICT fastRoute = mFastRoute.begin();
-	IslandId* PX_RESTRICT islandIds = mIslandIds.begin();
 
 	do
 	{
 		const TraversalState& state = visitedNodes[currIndex];
 		const PxU32 stateIndex = state.mNodeIndex.index();
 		hopCounts[stateIndex] = hc++;
-		islandIds[stateIndex] = id;
+		writeIslandId(stateIndex) = id;
 		fastRoute[stateIndex] = lastNode;
 		currIndex = state.mPrevIndex;
 		lastNode = state.mNodeIndex;
@@ -1117,7 +1116,7 @@ IslandId IslandSim::addNodeToIsland(PxNodeIndex nodeIndex1, PxNodeIndex nodeInde
 			node.mPrevNode = island.mLastNode;
 			island.mLastNode = nodeIndex1;
 			island.mNodeCount[node.mType]++;
-			mIslandIds[index1] = islandId2;
+			writeIslandId(index1) = islandId2;
 			mHopCounts[index1] = mHopCounts[nodeIndex2.index()] + 1;
 			mFastRoute[index1] = nodeIndex2;
 
@@ -1148,7 +1147,7 @@ IslandId IslandSim::addNodeToIsland(PxNodeIndex nodeIndex1, PxNodeIndex nodeInde
 		node.mStaticTouchCount++; //Increment static touch counter on the body
 		//Island& island = mIslands[islandId2];
 		//island.mStaticTouchCount++; //Increment static touch counter on the island
-		mIslandStaticTouchCount[islandId2]++;
+		writeIslandStaticTouchCount(islandId2)++;
 	}
 	return islandId2;
 }
@@ -1361,7 +1360,7 @@ bool IslandSim::tryFastPath(PxNodeIndex startNode, PxNodeIndex targetNode, Islan
 
 		PX_ASSERT(mFastRoute[nodeIndex].index() == PX_INVALID_NODE || isPathTo(currentNode, mFastRoute[nodeIndex]));
 
-		mIslandIds[nodeIndex] = IG_INVALID_ISLAND;
+		writeIslandId(nodeIndex) = IG_INVALID_ISLAND;
 		mVisitedState.set(nodeIndex);
 
 		currentNode = mFastRoute[nodeIndex];
@@ -1371,7 +1370,7 @@ bool IslandSim::tryFastPath(PxNodeIndex startNode, PxNodeIndex targetNode, Islan
 	for(PxU32 a = currentVisitedNodes; a < mVisitedNodes.size(); ++a)
 	{
 		const TraversalState& state = mVisitedNodes[a];
-		mIslandIds[state.mNodeIndex.index()] = islandId;
+		writeIslandId(state.mNodeIndex.index()) = islandId;
 	}
 
 	if(!found)
@@ -1483,7 +1482,7 @@ bool IslandSim::findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandI
             mVisitedNodes.pushBack(TraversalState(startNode,0,PX_INVALID_NODE,0));
             for(PxU32 node=first;node!=PX_INVALID_NODE;node=mGpuComponentMembers[size_t(mGpuComponentCount)+node]) {
                 if(node!=startNode.index())mVisitedNodes.pushBack(TraversalState(PxNodeIndex(node),mVisitedNodes.size(),0,0));
-                mVisitedState.set(node);mIslandIds[node]=IG_INVALID_ISLAND;
+                mVisitedState.set(node);writeIslandId(node)=IG_INVALID_ISLAND;
             }
             mGpuSplit=true;++mGpuSplitCount;return false;
         }
@@ -1515,7 +1514,7 @@ bool IslandSim::findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandI
 		//These are per-node counts that indicate the expected number of hops from this node to the root node. These are lazily evaluated and updated
 		//as new edges are formed or when traversals occur to re-establish islands. As a result, they may be inaccurate but they still serve the purpose
 		//of guiding our search to minimize the chances of us doing an exhaustive search to find the root node.
-		mIslandIds[startNode.index()] = IG_INVALID_ISLAND;
+		writeIslandId(startNode.index()) = IG_INVALID_ISLAND;
 		TraversalState* startTraversal = mVisitedNodes.pushBack(TraversalState(startNode, mVisitedNodes.size(), PX_INVALID_NODE, 0));
 		mVisitedState.set(startNode.index());
 		QueueElement element(startTraversal, mHopCounts[startNode.index()]);
@@ -1573,7 +1572,7 @@ bool IslandSim::findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandI
 							mPriorityQueue.push(qe);
 							mVisitedState.set(nextIndexIndex);
 							PX_ASSERT(mIslandIds[nextIndexIndex] == islandId);
-							mIslandIds[nextIndexIndex] = IG_INVALID_ISLAND; //Flag as invalid island until we know whether we can find root or an island id.
+							writeIslandId(nextIndexIndex) = IG_INVALID_ISLAND; //Flag as invalid island until we know whether we can find root or an island id.
 						}
 					}
 				}
@@ -1638,7 +1637,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 							islandId = mIslandIds[index1];
 							node.mStaticTouchCount--;
 							//Island& island = mIslands[islandId];
-							mIslandStaticTouchCount[islandId]--;
+							writeIslandStaticTouchCount(islandId)--;
 							//island.mStaticTouchCount--;
 						}
 					}
@@ -1651,7 +1650,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 							islandId = mIslandIds[index2];
 							node.mStaticTouchCount--;
 							//Island& island = mIslands[islandId];
-							mIslandStaticTouchCount[islandId]--;
+							writeIslandStaticTouchCount(islandId)--;
 							//island.mStaticTouchCount--;
 						}
 					}
@@ -1753,7 +1752,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 							{
 								mHopCounts[stateIndex] = mHopCounts[mVisitedNodes[state.mPrevIndex].mNodeIndex.index()] + 1;
 								mFastRoute[stateIndex] = mVisitedNodes[state.mPrevIndex].mNodeIndex;
-								mIslandIds[stateIndex] = islandId;
+								writeIslandId(stateIndex) = islandId;
 							}
 						}
 					}
@@ -1836,7 +1835,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 						}
 
 						//oldIsland.mStaticTouchCount -= totalStaticTouchCount;
-						mIslandStaticTouchCount[islandId] -= totalStaticTouchCount;
+						writeIslandStaticTouchCount(islandId) -= totalStaticTouchCount;
 
 						for (PxU32 i = 0; i < Node::eTYPE_COUNT; ++i)
 						{
@@ -1869,7 +1868,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 
 						newIsland.mRootNode = dirtyNodeIndex;
 						mHopCounts[dirtyIndex] = 0;
-						mIslandIds[dirtyIndex] = newIslandHandle;
+						writeIslandId(dirtyIndex) = newIslandHandle;
 						//newIsland.mTotalSize = mVisitedNodes.size();
 
 						mNodes[dirtyIndex].mPrevNode.setIndices(PX_INVALID_NODE); //First node so doesn't have a preceding node
@@ -1889,7 +1888,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 							thisNode.mPrevNode = prevNodeIndex;
 							mNodes[prevNodeIndex.index()].mNextNode = index;
 							nodeCount[thisNode.mType]++;
-							mIslandIds[indexIndex] = newIslandHandle;
+							writeIslandId(indexIndex) = newIslandHandle;
 							mHopCounts[indexIndex] = mVisitedNodes[a].mDepth; //How many hops to root
                             // Component membership is not an adjacency tree.
                             // Invalidate routing hints so a later CPU fallback
@@ -1906,7 +1905,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 						mNodes[lastIndex.index()].mNextNode.setIndices(PX_INVALID_NODE);
 						newIsland.mLastNode = lastIndex;
 						//newIsland.mStaticTouchCount = totalStaticTouchCount;
-						mIslandStaticTouchCount[newIslandHandle] = totalStaticTouchCount;
+						writeIslandStaticTouchCount(newIslandHandle) = totalStaticTouchCount;
 
 						PX_ASSERT(mNodes[newIsland.mLastNode.index()].mNextNode.index() == PX_INVALID_NODE);
 
@@ -1980,7 +1979,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 
 				removeNodeFromIsland(island, nodeIndex);
 
-				mIslandIds[nodeIndex.index()] = IG_INVALID_ISLAND;
+				writeIslandId(nodeIndex.index()) = IG_INVALID_ISLAND;
 
 				PxU32 nodeCountTotal = 0;
 				for (PxU32 t = 0; t < Node::eTYPE_COUNT; ++t)
@@ -2000,7 +1999,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 						mActiveIslands.forceSize_Unsafe(mActiveIslands.size() - 1);
 						island.mActiveIndex = IG_INVALID_ISLAND;
 						//island.mStaticTouchCount -= node.mStaticTouchCount; //Remove the static touch count from the island
-						mIslandStaticTouchCount[islandId] -= node.mStaticTouchCount;
+						writeIslandStaticTouchCount(islandId) -= node.mStaticTouchCount;
 					}
 					mIslandAwake.reset(islandId);
 					island.mLastNode.setIndices(PX_INVALID_NODE);
@@ -2242,7 +2241,7 @@ void IslandSim::mergeIslandsInternal(Island& island0, Island& island1, IslandId 
 	while(islandNode.index() != PX_INVALID_NODE)
 	{
 		mHopCounts[islandNode.index()] += extraPath;
-		mIslandIds[islandNode.index()] = islandId0;
+		writeIslandId(islandNode.index()) = islandId0;
 
 		//mFastRoute[islandNode] = PX_INVALID_NODE;
 		
@@ -2268,7 +2267,7 @@ void IslandSim::mergeIslandsInternal(Island& island0, Island& island1, IslandId 
 
 	island0.mLastNode = island1.mLastNode;
 	//island0.mStaticTouchCount += island1.mStaticTouchCount;
-	mIslandStaticTouchCount[islandId0] += mIslandStaticTouchCount[islandId1];
+	writeIslandStaticTouchCount(islandId0) += mIslandStaticTouchCount[islandId1];
 
 	//Merge the edge list for the islands...
 	for(PxU32 a = 0; a < IG::Edge::eEDGE_TYPE_COUNT; ++a)
@@ -2283,7 +2282,7 @@ void IslandSim::mergeIslandsInternal(Island& island0, Island& island1, IslandId 
 	island1.mLastNode.setIndices(PX_INVALID_NODE);
 	island1.mRootNode.setIndices(PX_INVALID_NODE);
 	
-	mIslandStaticTouchCount[islandId1] = 0;
+	writeIslandStaticTouchCount(islandId1) = 0;
 	//island1.mStaticTouchCount = 0;
 	
 	//Remove from active island list
@@ -2340,7 +2339,7 @@ void IslandSim::setKinematic(PxNodeIndex nodeIndex)
 
 		Island& island = mIslands[islandId];
 
-		mIslandIds[nodeIndex.index()] = IG_INVALID_ISLAND;
+		writeIslandId(nodeIndex.index()) = IG_INVALID_ISLAND;
 
 		removeNodeFromIsland(island, nodeIndex);
 
@@ -2437,7 +2436,7 @@ void IslandSim::setKinematic(PxNodeIndex nodeIndex)
 			{
 				invalidateEdges(island.mEdges, Edge::EdgeType(a));
 
-				mIslandStaticTouchCount[islandId] = 0;
+				writeIslandStaticTouchCount(islandId) = 0;
 				//island.mStaticTouchCount = 0;
 			}
 
@@ -2542,8 +2541,8 @@ void IslandSim::setDynamic(PxNodeIndex nodeIndex)
 			island.mLastNode = island.mRootNode = nodeIndex;
 			PX_ASSERT(mNodes[nodeIndex.index()].mNextNode.index() == PX_INVALID_NODE);
 			island.mNodeCount[node.mType] = 1;
-			mIslandIds[nodeIndex.index()] = islandHandle;
-			mIslandStaticTouchCount[islandHandle] = 0;
+			writeIslandId(nodeIndex.index()) = islandHandle;
+			writeIslandStaticTouchCount(islandHandle) = 0;
 
 			if(node.isActive())
 			{

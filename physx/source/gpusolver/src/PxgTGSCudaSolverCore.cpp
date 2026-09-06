@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
+#include "PxgDestructionRuntime.h"
 #include "PxgTGSCudaSolverCore.h"
 #include "PxgCommonDefines.h"
 #include "PxgSolverConstraintDesc.h"
@@ -95,7 +96,8 @@ PxgTGSCudaSolverCore::PxgTGSCudaSolverCore(PxgCudaKernelWranglerManager* gpuKern
 	mBlocksThresholdStreamWriteIndex(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mThresholdStreamWriteable(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mIslandIds(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
-	mIslandStaticTouchCount(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER)
+	mIslandStaticTouchCount(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
+    mIslandMetadataPages(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER)
 {
 	mCudaContextManager->acquireContext();
 
@@ -311,7 +313,7 @@ void PxgTGSCudaSolverCore::gpuMemDMAUpContactData(PxgPinnedHostLinearMemoryAlloc
 	PxU32 nbPartitions, const PxU32* destroyedEdges, PxU32 nbDestroyedEdges,
 	const PxU32* npIndexArray, PxU32 npIndexArraySize,
 	PxU32 totalNumJoints,
-	const PxU32* islandIds, const PxU32* nodeInteractionCounts, PxU32 nbNodes, const PxU32* islandStaticTouchCount, PxU32 nbIslands)
+	const PxU32* islandIds, const PxU32* nodeInteractionCounts, PxU32 nbNodes, const PxU32* islandStaticTouchCount, PxU32 nbIslands, bool metadataPagesOnly, const PxvIslandMetadataPage* metadataPages, PxU32 metadataPageCount)
 {
 	PX_PROFILE_ZONE("PxgTGSCudaSolverCore.gpuMemDMAUpContactData", 0);
 	PX_UNUSED(compressedPatchStreamLowerPartSize);
@@ -367,8 +369,22 @@ void PxgTGSCudaSolverCore::gpuMemDMAUpContactData(PxgPinnedHostLinearMemoryAlloc
 	mCudaContext->memcpyHtoDAsync(mPartitionJointBatchCounts.getDevicePtr(), partitionJointBatchCounts, sizeof(PxU32) * nbPartitions, mStream);
 	mCudaContext->memcpyHtoDAsync(mPartitionArtiJointBatchCounts.getDevicePtr(), partitionArtiJointBatchCounts, sizeof(PxU32) * nbPartitions, mStream);
 	mCudaContext->memcpyHtoDAsync(mNpIndexArray.getDevicePtr(), npIndexArray, npIndexArraySize * sizeof(PxU32), mStream);
-	mCudaContext->memcpyHtoDAsync(mIslandIds.getDevicePtr(), islandIds, nbNodes * sizeof(PxU32), mStream);
-	mCudaContext->memcpyHtoDAsync(mIslandStaticTouchCount.getDevicePtr(), islandStaticTouchCount, sizeof(PxU32) * nbIslands, mStream);
+    if(metadataPagesOnly) {
+        if(metadataPageCount) {
+            mIslandMetadataPages.allocate(PxU64(metadataPageCount)*sizeof(PxvIslandMetadataPage),PX_FL);
+            mCudaContext->memcpyHtoDAsync(mIslandMetadataPages.getDevicePtr(),metadataPages,
+                PxU64(metadataPageCount)*sizeof(PxvIslandMetadataPage),mStream);
+            if(!PxApplyDestructionSolverIslandMetadata(mIslandMetadataPages.getTypedPtr(),metadataPageCount,
+                mIslandIds.getTypedPtr(),nbNodes,mIslandStaticTouchCount.getTypedPtr(),nbIslands,mStream)) {
+                mCudaContext->setAbortMode(true);
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"GPU solver island metadata update failed; simulation is incomplete.");
+                return;
+            }
+        }
+    } else {
+        mCudaContext->memcpyHtoDAsync(mIslandIds.getDevicePtr(),islandIds,nbNodes*sizeof(PxU32),mStream);
+        mCudaContext->memcpyHtoDAsync(mIslandStaticTouchCount.getDevicePtr(),islandStaticTouchCount,sizeof(PxU32)*nbIslands,mStream);
+    }
 	uploadNodeInteractionCounts(nodeInteractionCounts, nbNodes);
 
 	mCudaContext->memcpyHtoDAsync(mDestroyedEdgeIndices.getDevicePtr(), destroyedEdges, nbDestroyedEdges * sizeof(PxU32), mStream);

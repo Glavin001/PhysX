@@ -29,6 +29,7 @@
 #ifndef PXS_ISLAND_SIM_H
 #define PXS_ISLAND_SIM_H
 
+#include "PxvIslandMetadata.h"
 #include "foundation/PxAssert.h"
 #include "foundation/PxBitMap.h"
 #include "foundation/PxArray.h"
@@ -492,6 +493,15 @@ class IslandSim
 	HandleManager<IslandId>							mIslandHandles;								//! Handle manager for islands
 
 	// PT: these arrays are parallel, all indexed by PxNodeIndex::index()
+    PxBitMap mSolverIslandIdPages,mSolverStaticTouchPages;
+    PX_FORCE_INLINE IslandId& writeIslandId(PxU32 index) {
+        if(mGpuData)mSolverIslandIdPages.growAndSet(index>>PxvIslandMetadataPage::ePAGE_SHIFT);
+        return mIslandIds[index];
+    }
+    PX_FORCE_INLINE PxU32& writeIslandStaticTouchCount(PxU32 index) {
+        if(mGpuData)mSolverStaticTouchPages.growAndSet(index>>PxvIslandMetadataPage::ePAGE_SHIFT);
+        return mIslandStaticTouchCount[index];
+    }
 	PxArray<Node>									mNodes;										//! The nodes used in the constraint graph
 	PxArray<PxU32>									mActiveNodeIndex;							//! The active node index for each node
 	PxArray<PxU32>									mHopCounts;									//! The observed number of "hops" from a given node to its root node. May be inaccurate but used to accelerate searches.
@@ -645,6 +655,9 @@ public:
 	PX_FORCE_INLINE const PxU32*				getActiveNodeIndex()								const { return mActiveNodeIndex.begin();			}
 	//PX_FORCE_INLINE PxU32						getNbActiveNodeIndex()								const { return mActiveNodeIndex.size();				}
 	
+    const PxBitMap& getSolverIslandIdPages() const { return mSolverIslandIdPages; }
+    const PxBitMap& getSolverStaticTouchPages() const { return mSolverStaticTouchPages; }
+    void acknowledgeSolverIslandMetadata() { mSolverIslandIdPages.clear();mSolverStaticTouchPages.clear(); }
 	PX_FORCE_INLINE	PxU32						getNbIslands()				const { return mIslandStaticTouchCount.size(); }
 	PX_FORCE_INLINE	const PxU32*				getIslandStaticTouchCount()	const { return mIslandStaticTouchCount.begin(); }
 	PX_FORCE_INLINE PxU32						getIslandStaticTouchCount(const PxNodeIndex& nodeIndex) const

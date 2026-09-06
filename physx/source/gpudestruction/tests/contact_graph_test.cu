@@ -2,6 +2,7 @@
 #include <cuda_runtime.h>
 #include <cub/cub.cuh>
 #include "../src/PxgDestructionContactGraph.cuh"
+#include "../src/PxgSolverIslandMetadata.cuh"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -19,6 +20,32 @@ template<class T> struct Device {
     void put(const std::vector<T>& v){if(!v.empty())check(cudaMemcpy(p,v.data(),v.size()*sizeof(T),cudaMemcpyHostToDevice));}
     std::vector<T> get(size_t n){std::vector<T> v(n);if(n)check(cudaMemcpy(v.data(),p,n*sizeof(T),cudaMemcpyDeviceToHost));return v;}
 };
+void solverMetadataPages() {
+    // Non-multiple domains, untouched pages, and guards catch short tail and
+    // node/count address mixups. Reversed descriptors must have the same result.
+    constexpr PxU32 nodes=1031,islands=777,guard=0xfedcba98;
+    std::vector<PxU32> ids(nodes+2,guard),touches(islands+2,guard);
+    for(PxU32 i=0;i<nodes;++i)ids[i+1]=i*17;
+    for(PxU32 i=0;i<islands;++i)touches[i+1]=i%9;
+    Device<PxU32> dIds(ids.size()),dTouches(touches.size());dIds.put(ids);dTouches.put(touches);
+    for(PxU32 iteration=0;iteration<4;++iteration) {
+        std::vector<PxvIslandMetadataPage> pages;
+        for(PxU32 kind=0;kind<2;++kind)for(PxU32 page:{1u,kind==0?4u:3u}) {
+            PxvIslandMetadataPage p={};p.kind=kind;p.offset=page*256;
+            const PxU32 n=kind==0?nodes:islands;p.count=std::min(256u,n-p.offset);
+            auto& expected=kind==0?ids:touches;
+            for(PxU32 i=0;i<p.count;++i)expected[p.offset+i+1]=p.values[i]=100000*iteration+10000*kind+p.offset+i;
+            pages.push_back(p);
+        }
+        if(iteration&1)std::reverse(pages.begin(),pages.end());
+        Device<PxvIslandMetadataPage> dPages(pages.size());dPages.put(pages);
+        destructionSolverMetadata::applyPages<<<pages.size(),128>>>(dPages.p,PxU32(pages.size()),dIds.p+1,nodes,dTouches.p+1,islands);
+        check(cudaGetLastError());check(cudaDeviceSynchronize());
+        require(dIds.get(ids.size())==ids,"solver metadata scatter changed untouched node entries or guards");
+        require(dTouches.get(touches.size())==touches,"solver metadata scatter changed untouched static-touch entries or guards");
+    }
+    std::puts("GPU solver metadata pages: persistent updates, disjoint order, partial tails and guards passed");
+}
 struct Pair {PxU32 a,b;bool touch=true,kinematic=false,disabled=false;};
 // Independent serial flood fill, rather than another union-find implementation.
 std::vector<PxU32> reference(PxU32 n,const std::vector<Pair>& pairs,bool accurate) {
@@ -167,6 +194,7 @@ void retainedTransactions() {
 }
 
 int main(){try{
+    solverMetadataPages();
     retainedTransactions();
     run(0,{});run(100,{});
     // A native speculative edge can have no active narrowphase manager.

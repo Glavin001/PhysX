@@ -29,6 +29,7 @@
 #ifndef PXG_CONTEXT_H
 #define PXG_CONTEXT_H
 
+#include "PxvIslandMetadata.h"
 #include "DyContext.h"
 #include "PxgConstraintPartition.h"
 #include "PxgSolverBody.h"
@@ -332,6 +333,11 @@ namespace physx
 
         IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
 
+        PxvIslandMetadataStats getSolverIslandMetadataStats() const { return mSolverIslandMetadataStats; }
+        // Expensive independent full snapshot for qualification only; off by default.
+        void captureSolverIslandMetadata(bool enabled) { mCaptureSolverMetadata=enabled; }
+        const PxArray<PxU32>& getExpectedSolverIslandIds() const { return mExpectedSolverIslandIds; }
+        const PxArray<PxU32>& getExpectedSolverStaticTouches() const { return mExpectedSolverStaticTouches; }
 		PX_FORCE_INLINE PxgSolverCore* getGpuSolverCore() { return mGpuSolverCore;}
 
 		PX_FORCE_INLINE PxgArticulationCore* getArticulationCore() { return mGpuArticulationCore; }
@@ -547,6 +553,11 @@ namespace physx
 		Cm::PinnableArray<PxU32>				mIslandIds;
 		Cm::PinnableArray<PxU32>				mIslandStaticTouchCounts;
 
+        Cm::PinnableArray<PxvIslandMetadataPage> mSolverIslandMetadataPages;
+        PxvIslandMetadataStats mSolverIslandMetadataStats;
+        PxU32 mSolverMetadataNodes=0,mSolverMetadataIslands=0;
+        bool mSolverMetadataIncremental=false,mCaptureSolverMetadata=false;
+        PxArray<PxU32> mExpectedSolverIslandIds,mExpectedSolverStaticTouches;
 		//other joint type(not d6) cpu constraints
 		PxgConstraintBatchHeader*				mConstraintBatchHeaders;
 		PxgConstraintBatchHeader*				mArticConstraintBatchHeaders;

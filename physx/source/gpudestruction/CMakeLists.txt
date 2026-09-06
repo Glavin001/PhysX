@@ -29,7 +29,7 @@ if(BUILD_TESTING)
     add_executable(destruction_contact_graph_test tests/contact_graph_test.cu)
     target_link_libraries(destruction_contact_graph_test PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_contact_graph_test PRIVATE
-        ../gpunarrowphase/include ../gpusimulationcontroller/include ../lowlevel/software/include)
+        ../gpunarrowphase/include ../gpusimulationcontroller/include ../lowlevel/software/include ../lowlevel/api/include)
     set_target_properties(destruction_contact_graph_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     add_test(NAME destruction_gpu_contact_graph COMMAND destruction_contact_graph_test)
 endif()

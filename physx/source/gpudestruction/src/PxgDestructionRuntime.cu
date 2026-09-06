@@ -9,6 +9,7 @@
 #include "PxgShapeSim.h"
 #include "PxgContactManager.h"
 #include "PxgDestructionContactGraph.cuh"
+#include "PxgSolverIslandMetadata.cuh"
 #include "PxShape.h"
 #include "PxsRigidBody.h"
 #include "PxgDestructionBody.cuh"
@@ -1288,4 +1289,13 @@ public:
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
 PxCreateDestructionRuntime(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
+}
+
+extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
+PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,
+    physx::PxU32* islandIds,physx::PxU32 nodes,physx::PxU32* staticTouches,physx::PxU32 islands,CUstream stream) {
+    if(!count)return true;
+    if(!stream || !pages || (nodes && !islandIds) || (islands && !staticTouches))return false;
+    physx::destructionSolverMetadata::applyPages<<<count,128,0,reinterpret_cast<cudaStream_t>(stream)>>>(pages,count,islandIds,nodes,staticTouches,islands);
+    return cudaGetLastError()==cudaSuccess;
 }

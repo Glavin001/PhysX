@@ -378,6 +378,7 @@ namespace physx
 		mNodeIndicesStagingBuffer(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
 		mIslandIds(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
 		mIslandStaticTouchCounts(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
+        mSolverIslandMetadataPages(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
 		mIsTGS(isTGS),
 		mIsExternalForcesEveryTgsIterationEnabled(false),
 		mEnableDirectGPUAPI(sceneFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API),
@@ -2523,18 +2524,60 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 	npIndexArrayStagingBuffer.reserve(npIndexArrayIter.size());
 	npIndexArrayStagingBuffer.forceSize_Unsafe(npIndexArrayIter.size());
 
-	islandIds.forceSize_Unsafe(0);
-	islandIds.reserve(islandSim.getNbNodes());
-	islandIds.forceSize_Unsafe(islandSim.getNbNodes());
+    const PxU32 metadataNodes=islandSim.getNbNodes(),metadataIslands=islandSim.getNbIslands();
+    const bool incremental=getSimulationController()->usesGpuDestructionIslandRepair();
+    bool pagesOnly=incremental && mSolverMetadataIncremental
+        && metadataNodes==mSolverMetadataNodes && metadataIslands==mSolverMetadataIslands;
+    mSolverIslandMetadataPages.forceSize_Unsafe(0);
+    const PxU64 fullBytes=sizeof(PxU32)*(PxU64(metadataNodes)+metadataIslands);
+    if(pagesOnly) {
+        PxU64 pageCount=0;
+        const PxBitMap* maps[]={&islandSim.getSolverIslandIdPages(),&islandSim.getSolverStaticTouchPages()};
+        for(const auto* map:maps) {
+            PxBitMap::Iterator it(*map);
+            while(it.getNext()!=PxBitMap::Iterator::DONE)++pageCount;
+        }
+        // Choose the dense path before copying any page payload.
+        if(pageCount*sizeof(PxvIslandMetadataPage)>=fullBytes)pagesOnly=false;
+    }
+    if(pagesOnly) {
+        const auto collect=[&](const PxBitMap& changed,const PxU32* source,PxU32 size,PxU32 kind) {
+            PxBitMap::Iterator it(changed);PxU32 page;
+            while((page=it.getNext())!=PxBitMap::Iterator::DONE) {
+                const PxU64 offset=PxU64(page)*PxvIslandMetadataPage::ePAGE_SIZE;
+                if(offset>=size)continue; // No longer in the current native domain.
+                PxvIslandMetadataPage data={};data.kind=kind;data.offset=PxU32(offset);
+                data.count=PxMin(PxU32(PxvIslandMetadataPage::ePAGE_SIZE),size-data.offset);
+                PxMemCopy(data.values,source+data.offset,sizeof(PxU32)*data.count);
+                mSolverIslandMetadataPages.pushBack(data);
+            }
+        };
+        collect(islandSim.getSolverIslandIdPages(),islandSim.getIslandIds(),metadataNodes,0);
+        collect(islandSim.getSolverStaticTouchPages(),islandSim.getIslandStaticTouchCount(),metadataIslands,1);
+    }
+    if(!pagesOnly) {
+        islandIds.resize(metadataNodes);islandStaticTouchCounts.resize(metadataIslands);
+        PxMemCopy(islandIds.begin(),islandSim.getIslandIds(),sizeof(PxU32)*metadataNodes);
+        PxMemCopy(islandStaticTouchCounts.begin(),islandSim.getIslandStaticTouchCount(),sizeof(PxU32)*metadataIslands);
+        mSolverIslandMetadataPages.forceSize_Unsafe(0);
+    }
+    if(mCaptureSolverMetadata) {
+        mExpectedSolverIslandIds.resize(metadataNodes);mExpectedSolverStaticTouches.resize(metadataIslands);
+        PxMemCopy(mExpectedSolverIslandIds.begin(),islandSim.getIslandIds(),sizeof(PxU32)*metadataNodes);
+        PxMemCopy(mExpectedSolverStaticTouches.begin(),islandSim.getIslandStaticTouchCount(),sizeof(PxU32)*metadataIslands);
+    }
+    ++mSolverIslandMetadataStats.passes;
+    mSolverIslandMetadataStats.fullEquivalentBytes+=fullBytes;
+    if(pagesOnly) {
+        mSolverIslandMetadataStats.hostToDeviceBytes+=PxU64(mSolverIslandMetadataPages.size())*sizeof(PxvIslandMetadataPage);
+        mSolverIslandMetadataStats.pages+=mSolverIslandMetadataPages.size();
+        if(mSolverIslandMetadataPages.empty())++mSolverIslandMetadataStats.quietPasses;
+        else ++mSolverIslandMetadataStats.pageUploads;
+    } else {++mSolverIslandMetadataStats.fullUploads;mSolverIslandMetadataStats.hostToDeviceBytes+=fullBytes;}
+    mSolverMetadataIncremental=incremental;mSolverMetadataNodes=metadataNodes;mSolverMetadataIslands=metadataIslands;
 
-	islandStaticTouchCounts.forceSize_Unsafe(0);
-	islandStaticTouchCounts.reserve(islandSim.getNbIslands());
-	islandStaticTouchCounts.forceSize_Unsafe(islandSim.getNbIslands());
-
-	//npIndexArray might be changed in island gen while solver is running, so we need to double buffer it
-	PxMemCopy(npIndexArrayStagingBuffer.begin(), npIndexArrayIter.begin(), sizeof(PxU32) * npIndexArrayIter.size());
-	PxMemCopy(islandIds.begin(), islandSim.getIslandIds(), sizeof(PxU32) * islandSim.getNbNodes());
-	PxMemCopy(islandStaticTouchCounts.begin(), islandSim.getIslandStaticTouchCount(), sizeof(PxU32) * islandSim.getNbIslands());
+    // NP and metadata are staged at the same native pre-solver boundary as before.
+    PxMemCopy(npIndexArrayStagingBuffer.begin(),npIndexArrayIter.begin(),sizeof(PxU32)*npIndexArrayIter.size());
 
 	const Cm::PinnableArray<PxU32>& nodeInteractions = mIncrementalPartition.getNodeInteractionCountArray();
 
@@ -2551,7 +2594,9 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 		mIncrementalPartition.getDestroyedContactEdgeIndices().begin(), mIncrementalPartition.getDestroyedContactEdgeIndices().size(),
 		npIndexArrayStagingBuffer.begin(), npIndexArrayStagingBuffer.size(),
 		/*jointManager.mGpuJointData, jointManager.mGpuJointPrePrep, gpuJointSize,*/ mConstraintWriteBackPool.size(),
-		islandIds.begin(), nodeInteractions.begin(), islandIds.size(), islandStaticTouchCounts.begin(), islandStaticTouchCounts.size());
+		islandIds.begin(), nodeInteractions.begin(), metadataNodes, islandStaticTouchCounts.begin(), metadataIslands,
+        pagesOnly,mSolverIslandMetadataPages.begin(),mSolverIslandMetadataPages.size());
+    islandSim.acknowledgeSolverIslandMetadata();
 
 	mGpuSolverCore->releaseContext();
 

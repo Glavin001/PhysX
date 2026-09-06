@@ -466,3 +466,11 @@ Mean measured physics time was 55.25 ms, maximum 298.01 ms, or 30.17% of real ti
 This qualifies the lifecycle change at the tested scale, not a full GPU-owned
 island solver, large-scene memory safety, or an isolated performance improvement.
 The prior real-fracture sanitizer failure and unexplained native crash remain open.
+
+## Persistent solver consumer
+
+PGS and TGS now retain their native pre-solver island metadata on CUDA and apply
+changed pages on the solver stream. [GPU_SOLVER_METADATA.md](GPU_SOLVER_METADATA.md)
+describes ordering, independent pre-solve comparisons, transfer accounting and
+the remaining CPU producer. This does not remove the component observation bridge
+or substitute late graph labels for the solver's earlier input state.
