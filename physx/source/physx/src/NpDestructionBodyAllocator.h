@@ -66,6 +66,8 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         return body;
     }
 public:
+    bool supportsGpuIslandRepair() const override { return mScene.getScScene().canUseGpuDestructionIslandRepair(); }
+
     explicit NpDestructionBodyAllocator(NpScene& scene):mScene(scene) {}
     ~NpDestructionBodyAllocator() override {clear();}
     bool isValidSource(PxU32 body) const override {return source(body)!=NULL;}

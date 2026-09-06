@@ -4,6 +4,8 @@
 namespace physx {
 // Internal solver input transaction. Numeric values retain their native
 // pre-solver meaning; this is not a replacement connectivity algorithm.
+struct PxvPreSolveNode { PxU64 lifetime; PxU32 staticTouches,live; };
+struct PxvPreSolveEdge { PxU32 a,b; };
 struct PxvIslandMetadataPage {
     enum { ePAGE_SHIFT=8, ePAGE_SIZE=1<<ePAGE_SHIFT };
     PxU32 kind,offset,count; // kind 0: node -> native island; kind 1: static-touch counts

@@ -11,6 +11,8 @@ struct PxvDestructionBodyRequest {
 };
 class PxvDestructionBodyAllocator {
 public:
+    virtual bool supportsGpuIslandRepair() const { return false; }
+
     virtual bool isValidSource(PxU32 body) const = 0;
     virtual bool prepare(const PxvDestructionBodyRequest* requests,PxU32 count,PxU32* indices) = 0;
     // Host metadata bridge only: all decisions and body mass/motion were computed

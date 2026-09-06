@@ -85,6 +85,13 @@ public:
         PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream,
         const PxgDestructionRetainedEdge* retainedUpdates,PxU32 retainedUpdateCount,PxU32 retainedSlotCount) = 0;
     virtual PxgDestructionContactGraphView getContactGraphView() const = 0;
+    // Pre-solve components retain previous connectivity and merge new native
+    // edges. Outputs are ordered on the supplied solver stream.
+    virtual bool canBuildPreSolveIslands() const = 0;
+    virtual bool buildPreSolveIslands(const PxvPreSolveNode* nodes,PxU32 count,
+        const PxvPreSolveEdge* merges,PxU32 mergeCount,CUstream stream,
+        const PxU32*& labels,const PxU32*& staticTouches) = 0;
+
 
     // Install GPU-selected cluster ownership without re-uploading immutable geometry.
     virtual bool installCollisionOwners(PxgShapeSim* shapes, PxU32 capacity, CUstream stream) = 0;

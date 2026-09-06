@@ -2432,12 +2432,8 @@ void Sc::Scene::unregisterInteractions(PxBaseTask*)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void Sc::Scene::destroyManagers(PxBaseTask*)
+bool Sc::Scene::canUseGpuDestructionIslandRepair() const
 {
-	PX_PROFILE_ZONE("Sim.destroyManagers", mContextId);
-
-	mPostThirdPassIslandGenTask.setContinuation(mProcessLostContactsTask3.getContinuation());
-
     bool gpuRepair=mSimulationController->usesGpuDestructionIslandRepair()
         && (mPublicFlags & PxSceneFlag::eDISABLE_SLEEPING)
         && !(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
@@ -2450,6 +2446,16 @@ void Sc::Scene::destroyManagers(PxBaseTask*)
         PxBitMap::Iterator speculative(mSpeculativeCCDRigidBodyBitMap);
         gpuRepair=speculative.getNext()==PxBitMap::Iterator::DONE;
     }
+    return gpuRepair;
+}
+
+void Sc::Scene::destroyManagers(PxBaseTask*)
+{
+	PX_PROFILE_ZONE("Sim.destroyManagers", mContextId);
+
+	mPostThirdPassIslandGenTask.setContinuation(mProcessLostContactsTask3.getContinuation());
+
+    const bool gpuRepair=canUseGpuDestructionIslandRepair();
     if(!gpuRepair)mSimpleIslandManager->thirdPassIslandGen(&mPostThirdPassIslandGenTask);
 
 	PxU32 destroyedOverlapCount;

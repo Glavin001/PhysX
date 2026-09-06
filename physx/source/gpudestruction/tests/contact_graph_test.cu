@@ -3,6 +3,7 @@
 #include <cub/cub.cuh>
 #include "../src/PxgDestructionContactGraph.cuh"
 #include "../src/PxgSolverIslandMetadata.cuh"
+#include "../src/PxgPreSolveIslands.cuh"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -59,6 +60,41 @@ std::vector<PxU32> reference(PxU32 n,const std::vector<Pair>& pairs,bool accurat
         for(size_t i=0;i<queue.size();++i)for(PxU32 next:adj[queue[i]])if(labels[next]==PX_INVALID_NODE){labels[next]=root;queue.push_back(next);}
     }
     return labels;
+}
+void preSolveComponents() {
+    for(PxU32 n:{12u,100001u}) {
+        std::vector<PxvPreSolveNode> before(n),now(n);
+        std::vector<PxU32> previous(n);std::vector<PxvPreSolveEdge> merges;
+        for(PxU32 i=0;i<n;++i) {
+            previous[i]=(i/4)*4;before[i]={1,i%7,1};now[i]=before[i];
+            if(i%11==0)now[i].live=0;
+            if(i%13==0)now[i].lifetime=2; // reused label representatives must not bridge old components
+            if(i%17==0)before[i].live=0; // newly dynamic nodes have no inherited component
+            if(i+1<n && i%3==0)merges.push_back({i,i+1});
+        }
+        std::vector<Pair> expectedEdges;std::map<PxU32,PxU32> hubs;
+        for(PxU32 i=0;i<n;++i)if(now[i].live && before[i].live && now[i].lifetime==before[i].lifetime){
+            const auto result=hubs.emplace(previous[i],i);
+            if(!result.second)expectedEdges.push_back({result.first->second,i});
+        }
+        for(const auto& e:merges)if(now[e.a].live && now[e.b].live)expectedEdges.push_back({e.a,e.b});
+        auto expected=reference(n,expectedEdges,true);std::vector<PxU32> expectedCounts(n);
+        for(PxU32 i=0;i<n;++i)if(now[i].live)expectedCounts[expected[i]]+=now[i].staticTouches;else expected[i]=~PxU32(0);
+        Device<PxvPreSolveNode> dBefore(n),dNow(n);Device<PxvPreSolveEdge> dMerges(merges.size());
+        Device<PxU32> dPrevious(n),parents(2*n),labels(n),counts(n);
+        dBefore.put(before);dNow.put(now);dPrevious.put(previous);
+        for(unsigned trial=0;trial<3;++trial) {
+            std::reverse(merges.begin(),merges.end());dMerges.put(merges);
+            destructionPreSolve::initialize<<<(2*n+127)/128,128>>>(parents.p,2*n,counts.p,n);
+            destructionPreSolve::seed<<<(n+127)/128,128>>>(dNow.p,n,dBefore.p,n,dPrevious.p,n,parents.p,nullptr);
+            destructionPreSolve::connect<<<(merges.size()+127)/128,128>>>(dMerges.p,PxU32(merges.size()),dNow.p,n,parents.p);
+            destructionPreSolve::finish<<<(n+127)/128,128>>>(dNow.p,n,parents.p,labels.p,counts.p);
+            check(cudaGetLastError());check(cudaDeviceSynchronize());
+            require(labels.get(n)==expected,"pre-solve CUDA components differ from independent phase-preserving flood fill");
+            require(counts.get(n)==expectedCounts,"pre-solve CUDA static support reduction mismatch");
+        }
+    }
+    std::puts("CUDA pre-solve graph: 100001 nodes, previous components, new merges, deleted/prescribed nodes, lifetime reuse, exact static counts passed");
 }
 void verifyMemberLinks(const PxU32* labels,const std::vector<PxU32>& expected) {
     const PxU32 n=PxU32(expected.size());if(!n)return;
@@ -194,6 +230,7 @@ void retainedTransactions() {
 }
 
 int main(){try{
+    preSolveComponents();
     solverMetadataPages();
     retainedTransactions();
     run(0,{});run(100,{});

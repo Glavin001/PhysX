@@ -5,6 +5,7 @@
 #include "PxgNarrowphaseCore.h"
 #include "PxgDestructionRuntime.h"
 #include "PxgContext.h"
+#include "tests/native_pre_solve_check.h"
 #include "PxgSolverCore.h"
 #include "cudamanager/PxCudaContextManager.h"
 #include <algorithm>
@@ -38,6 +39,9 @@ inline void writeNativeGraphDiagnostics(physx::PxScene& scene,const std::string&
         <<"  \"peak_retained_edges\": "<<stats.peakRetainedEdges<<",\n"
         <<"  \"boundary_audits\": "<<a.getGpuComponentAudits()+s.getGpuComponentAudits()<<",\n"
         <<"  \"boundary_audit_failures\": "<<a.getGpuComponentAuditFailures()+s.getGpuComponentAuditFailures()<<",\n"
+        <<"  \"cuda_pre_solve_host_to_device_bytes\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveHostBytes()<<",\n"
+        <<"  \"cuda_pre_solve_passes\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolvePasses()<<",\n"
+        <<"  \"cuda_pre_solve_fallbacks\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveFallbacks()<<",\n"
         <<"  \"solver_metadata_passes\": "<<metadata.passes<<",\n"
         <<"  \"solver_metadata_full_uploads\": "<<metadata.fullUploads<<",\n"
         <<"  \"solver_metadata_page_uploads\": "<<metadata.pageUploads<<",\n"
@@ -60,6 +64,7 @@ inline void requireNativeGraphAudit(physx::PxScene& scene,const std::string& pat
     using namespace physx;
     auto& sc=static_cast<NpScene&>(scene).getScScene();
     auto& gpu=*static_cast<PxgGpuContext*>(sc.getDynamicsContext());
+    nativePreSolveTest::verify(gpu,*scene.getCudaContextManager());
     const auto& ids=gpu.getExpectedSolverIslandIds();const auto& touches=gpu.getExpectedSolverStaticTouches();
     std::vector<PxU32> actualIds(ids.size()),actualTouches(touches.size());
     CUdeviceptr dIds=0,dTouches=0;gpu.getGpuSolverCore()->getSolverIslandMetadataPointers(dIds,dTouches);

@@ -38,6 +38,7 @@
 #include "PxgArticulationCore.h"
 #include "PxgBodySimManager.h"
 #include "PxgSimulationController.h"
+#include "PxgDestructionRuntime.h"
 #include "PxgSoftBodyCore.h"
 #include "PxgFEMClothCore.h"
 #include "DyDeformableSurface.h"
@@ -379,6 +380,9 @@ namespace physx
 		mIslandIds(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
 		mIslandStaticTouchCounts(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
         mSolverIslandMetadataPages(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
+        mPreSolveNodes(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
+        mPreSolveMerges(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
+        mPreSolveSleepingDisabled(bool(sceneFlags & PxSceneFlag::eDISABLE_SLEEPING)),
 		mIsTGS(isTGS),
 		mIsExternalForcesEveryTgsIterationEnabled(false),
 		mEnableDirectGPUAPI(sceneFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API),
@@ -2596,6 +2600,33 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 		/*jointManager.mGpuJointData, jointManager.mGpuJointPrePrep, gpuJointSize,*/ mConstraintWriteBackPool.size(),
 		islandIds.begin(), nodeInteractions.begin(), metadataNodes, islandStaticTouchCounts.begin(), metadataIslands,
         pagesOnly,mSolverIslandMetadataPages.begin(),mSolverIslandMetadataPages.size());
+    mGpuSolverCore->setPreSolveIslands(0,0);
+    if(mCudaPreSolveIslands && incremental) {
+        auto* runtime=static_cast<PxgSimulationController*>(getSimulationController())->getNativeDestructionRuntime();
+        bool supported=runtime!=NULL && mPreSolveSleepingDisabled && runtime->canBuildPreSolveIslands();
+        mPreSolveNodes.resize(metadataNodes);
+        for(PxU32 i=0;i<metadataNodes;++i) {
+            const auto& node=islandSim.getNode(PxNodeIndex(i));
+            const bool live=islandSim.getIslandIds()[i]!=IG_INVALID_ISLAND && !node.isDeleted() && !node.isKinematic();
+            if(live && node.mType!=IG::Node::eRIGID_BODY_TYPE)supported=false;
+            mPreSolveNodes[i]={islandSim.getPreSolveLifetime(i),node.mStaticTouchCount,PxU32(live)};
+        }
+        // Keep unsupported sleeping/joint scenes on the qualified native path.
+        if(nbConstraints || islandSim.getNbActiveNodes(IG::Node::eARTICULATION_TYPE))supported=false;
+        const PxU32 *labels=NULL,*counts=NULL;
+        if(supported) {
+            const auto& merges=islandSim.getPreSolveMerges();mPreSolveMerges.resize(merges.size());
+            if(!merges.empty())PxMemCopy(mPreSolveMerges.begin(),merges.begin(),merges.size()*sizeof(PxvPreSolveEdge));
+            if(!runtime->buildPreSolveIslands(mPreSolveNodes.begin(),metadataNodes,mPreSolveMerges.begin(),mPreSolveMerges.size(),
+                mGpuSolverCore->getStream(),labels,counts)) {
+                getNarrowphaseCore()->mCudaContext->setAbortMode(true);
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"CUDA pre-solve island production failed; step incomplete.");
+            }
+        }
+        if(supported)mCudaPreSolveHostBytes+=PxU64(metadataNodes)*sizeof(PxvPreSolveNode)+(labels?PxU64(mPreSolveMerges.size())*sizeof(PxvPreSolveEdge):0);
+        if(labels){mGpuSolverCore->setPreSolveIslands(CUdeviceptr(labels),CUdeviceptr(counts));++mCudaPreSolvePasses;}
+        else ++mCudaPreSolveFallbacks;
+    }
     islandSim.acknowledgeSolverIslandMetadata();
 
 	mGpuSolverCore->releaseContext();

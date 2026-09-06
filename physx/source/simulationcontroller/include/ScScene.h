@@ -390,6 +390,7 @@ namespace Sc
 	PX_FORCE_INLINE	ArticulationCore* const*	getArticulations()			{ return mArticulations.getEntries();	}
 	
 	PX_FORCE_INLINE	PxU32						getNbConstraints()	const	{ return mConstraints.size();		}
+        bool canUseGpuDestructionIslandRepair() const;
 	PX_FORCE_INLINE	ConstraintCore*const*		getConstraints()	const	{ return mConstraints.getEntries();	}
 	PX_FORCE_INLINE	ConstraintCore*const*		getConstraints()			{ return mConstraints.getEntries();	}
 

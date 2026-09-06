@@ -68,3 +68,8 @@ alone is not a large-scale rubble solution. See
 `qualification/native-solver-metadata-20260906.json` for exact test, capture,
 transfer, timing and provenance evidence. The full SDK completion gates and
 previous unexplained native crash/real-fracture sanitizer failure remain open.
+
+A subsequent opt-in [CUDA pre-solve producer](GPU_PRE_SOLVE_ISLANDS.md) now
+computes phase-correct components and static-support reductions for direct solver
+consumption. The native metadata arrays remain available for its reference and
+audits; their CPU producer has not yet been removed.

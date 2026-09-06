@@ -30,6 +30,7 @@
 #define PXG_CONTEXT_H
 
 #include "PxvIslandMetadata.h"
+#include "PxsSimpleIslandManager.h"
 #include "DyContext.h"
 #include "PxgConstraintPartition.h"
 #include "PxgSolverBody.h"
@@ -333,6 +334,10 @@ namespace physx
 
         IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
 
+        void enableCudaPreSolveIslands(bool enabled) { mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled); }
+        PxU64 getCudaPreSolveHostBytes() const { return mCudaPreSolveHostBytes; }
+        PxU64 getCudaPreSolvePasses() const { return mCudaPreSolvePasses; }
+        PxU64 getCudaPreSolveFallbacks() const { return mCudaPreSolveFallbacks; }
         PxvIslandMetadataStats getSolverIslandMetadataStats() const { return mSolverIslandMetadataStats; }
         // Expensive independent full snapshot for qualification only; off by default.
         void captureSolverIslandMetadata(bool enabled) { mCaptureSolverMetadata=enabled; }
@@ -554,6 +559,12 @@ namespace physx
 		Cm::PinnableArray<PxU32>				mIslandStaticTouchCounts;
 
         Cm::PinnableArray<PxvIslandMetadataPage> mSolverIslandMetadataPages;
+        Cm::PinnableArray<PxvPreSolveNode> mPreSolveNodes;
+        Cm::PinnableArray<PxvPreSolveEdge> mPreSolveMerges;
+        bool mPreSolveSleepingDisabled;
+        bool mCudaPreSolveIslands=false;
+        PxU64 mCudaPreSolvePasses=0,mCudaPreSolveFallbacks=0,mCudaPreSolveHostBytes=0;
+
         PxvIslandMetadataStats mSolverIslandMetadataStats;
         PxU32 mSolverMetadataNodes=0,mSolverMetadataIslands=0;
         bool mSolverMetadataIncremental=false,mCaptureSolverMetadata=false;

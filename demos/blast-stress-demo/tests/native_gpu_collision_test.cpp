@@ -8,6 +8,7 @@
 #include "PxgContext.h"
 #include "PxgSolverCore.h"
 #include "native_contact_graph_check.h"
+#include "native_pre_solve_check.h"
 #include "PxgNphaseImplementationContext.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxsContactManager.h"
@@ -109,11 +110,11 @@ struct Fixture {
 };
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
-void solverMetadata(PxSolverType::Enum solver,bool sleeping) {
+void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false) {
     Fixture f(1,1024,sleeping,solver);f.scene.setGravity(PxVec3(0));
     f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(f.scene).getScScene().getDynamicsContext());
-    gpu.captureSolverIslandMetadata(true);
+    gpu.captureSolverIslandMetadata(true);gpu.enableCudaPreSolveIslands(producer);
     unsigned comparisons=0;
     const auto verify=[&](){
         step(f.scene);
@@ -127,13 +128,14 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping) {
             check(cuMemcpyDtoH(actualTouches.data(),dTouches,actualTouches.size()*sizeof(PxU32)));}
         require(std::equal(actualIds.begin(),actualIds.end(),ids.begin()),"resident node-to-island metadata differs from native pre-solve snapshot");
         require(std::equal(actualTouches.begin(),actualTouches.end(),touches.begin()),"resident static-touch metadata differs from native pre-solve snapshot");
-        ++comparisons;
+        nativePreSolveTest::verify(gpu,f.cuda);++comparisons;
     };
     const auto add=[&](float x){
         auto* body=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(x,80,0)),PxSphereGeometry(.6f),f.context.material(),1);
         require(body,"metadata dynamic creation failed");body->setMass(0);body->setMassSpaceInertiaTensor(PxVec3(0));f.scene.addActor(*body);return body;
     };
-    auto* a=add(4500);auto* b=add(4501);verify();verify();
+    auto* a=add(4500);auto* b=add(4501);
+    auto* c=producer?add(4502):nullptr;auto* d=producer?add(4503):nullptr;verify();verify();
     const auto quietBefore=gpu.getSolverIslandMetadataStats();
     for(unsigned i=0;i<8;++i)verify();
     const auto quietAfter=gpu.getSolverIslandMetadataStats();
@@ -147,6 +149,12 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping) {
     b->release();verify();verify();b=add(4501);verify();verify();
     a->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);verify();verify();
     a->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,false);verify();verify();
+    if(producer && !sleeping) {
+        const auto before=gpu.getCudaPreSolvePasses();
+        a->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD,true);verify();verify();
+        require(gpu.getCudaPreSolvePasses()==before,"speculative CCD bypassed native pre-solve fallback");
+        a->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD,false);verify();verify();
+    }
     const auto sparse=gpu.getSolverIslandMetadataStats();
     require(sparse.pageUploads>quietAfter.pageUploads,"contact lifecycle never exercised sparse solver metadata uploads");
     const auto beforeGrowth=sparse.fullUploads;std::vector<PxRigidDynamic*> growth;
@@ -157,8 +165,11 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping) {
     f.desc.gpuIslandRepair=true;f.configure();verify();verify();
     const auto result=gpu.getSolverIslandMetadataStats();
     require(result.hostToDeviceBytes<result.fullEquivalentBytes,"resident metadata did not reduce uploaded bytes");
+    if(producer && !sleeping)require(gpu.getCudaPreSolvePasses()>=15,"CUDA pre-solve producer was not actually consumed by the solver");
+    if(producer && sleeping)require(gpu.getCudaPreSolvePasses()==0 && gpu.getCudaPreSolveFallbacks()>0,"unsupported sleeping scene did not use native fallback");
+    std::printf("CUDA pre-solve producer: %llu passes, %llu fallbacks\n",(unsigned long long)gpu.getCudaPreSolvePasses(),(unsigned long long)gpu.getCudaPreSolveFallbacks());
     gpu.captureSolverIslandMetadata(false);f.stage->clearStress();
-    for(auto* body:growth)body->release();a->release();b->release();
+    for(auto* body:growth)body->release();a->release();b->release();if(c)c->release();if(d)d->release();
     require(f.context.healthy(),"solver metadata fixture GPU error");
     std::printf("%s solver metadata (GPU sleeping %u): %u exact pre-solve comparisons; %llu full, %llu sparse, %llu quiet; %llu / %llu H2D bytes\n",
         solver==PxSolverType::eTGS?"TGS":"PGS",unsigned(sleeping),comparisons,
@@ -576,6 +587,7 @@ void crushRemoval() {
 int main(int argc,char** argv){try{
     if(argc==2) {
         const std::string mode=argv[1];
+        if(mode=="--pre-solve-islands"){solverMetadata(PxSolverType::ePGS,false,true);solverMetadata(PxSolverType::eTGS,false,true);solverMetadata(PxSolverType::eTGS,true,true);return 0;}
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
         if(mode=="--retained-registry"){gpuRetainedRegistryLifecycle();return 0;}
         if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}

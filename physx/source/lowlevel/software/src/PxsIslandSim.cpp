@@ -369,6 +369,7 @@ void IslandSim::addNode(bool isActive, bool isKinematic, Node::NodeType type, Px
 	if(isKinematic)
 		flags |= Node::eKINEMATIC;
 	node.mFlags = flags;
+    if(mGpuData){mPreSolveLifetimes.resize(PxMax(handle+1,mPreSolveLifetimes.size()),0);++mPreSolveLifetimes[handle];}
 	writeIslandId(handle) = IG_INVALID_ISLAND;
 	mFastRoute[handle].setIndices(PX_INVALID_NODE);
 	mHopCounts[handle] = 0;
@@ -1219,6 +1220,9 @@ void IslandSim::processNewEdges()
 
 				const PxNodeIndex nodeIndex1 = mCpuData.mEdgeNodeIndices[2 * edgeIndex];
 				const PxNodeIndex nodeIndex2 = mCpuData.mEdgeNodeIndices[2 * edgeIndex+1];
+                if(mGpuData && mTrackPreSolveMerges && nodeIndex1.isValid() && nodeIndex2.isValid()
+                    && !mNodes[nodeIndex1.index()].isKinematic() && !mNodes[nodeIndex2.index()].isKinematic())
+                    mPreSolveMerges.pushBack({nodeIndex1.index(),nodeIndex2.index()});
 
 				const PxU32 index1 = nodeIndex1.index();
 				const PxU32 index2 = nodeIndex2.index();
@@ -2453,6 +2457,7 @@ void IslandSim::setKinematic(PxNodeIndex nodeIndex)
 
 void IslandSim::setDynamic(PxNodeIndex nodeIndex)
 {
+
 	//(1) Remove all edges involving this node from all islands they may be in
 	//(2) Mark all edges as "new" edges - let island gen re-process them!
 	//(3) Remove this node from the active kinematic list
@@ -2463,6 +2468,8 @@ void IslandSim::setDynamic(PxNodeIndex nodeIndex)
 
 	if(node.isKinematic())
 	{
+    if(mGpuData){mPreSolveLifetimes.resize(PxMax(nodeIndex.index()+1,mPreSolveLifetimes.size()),0);++mPreSolveLifetimes[nodeIndex.index()];}
+
 		//EdgeInstanceIndex edgeIndex = node.mFirstEdgeIndex;
 
 		EdgeInstanceIndex edgeId = node.mFirstEdgeIndex;

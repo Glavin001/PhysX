@@ -1803,8 +1803,8 @@ void PxgCudaSolverCore::integrateCoreParallel(const PxU32 offset, const PxU32 nb
 	PX_PROFILE_ZONE("GpuDynamics.Integrate", 0);
 
 	const CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::INTEGRATE_CORE_PARALLEL);
-	CUdeviceptr islandIds = mIslandIds.getDevicePtr();
-	CUdeviceptr islandStaticTouchCounts = mIslandStaticTouchCount.getDevicePtr();
+	CUdeviceptr islandIds = mPreSolveIslandIds ? mPreSolveIslandIds : mIslandIds.getDevicePtr();
+	CUdeviceptr islandStaticTouchCounts = mPreSolveStaticTouches ? mPreSolveStaticTouches : mIslandStaticTouchCount.getDevicePtr();
 	CUdeviceptr nodeIteractionCounts = mNodeInteractionCounts.getDevicePtr();
 
 	PxCudaKernelParam kernelParams[] =

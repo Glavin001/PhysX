@@ -306,6 +306,8 @@ namespace physx
 
 		PX_FORCE_INLINE void setGpuContactManagerOutputBase(PxsContactManagerOutput* gpuContactManagerOutputBase) { mGpuContactManagerOutputBase = reinterpret_cast<CUdeviceptr>(gpuContactManagerOutputBase); }
 
+        CUdeviceptr mPreSolveIslandIds=0,mPreSolveStaticTouches=0;
+        void setPreSolveIslands(CUdeviceptr ids,CUdeviceptr counts) { mPreSolveIslandIds=ids;mPreSolveStaticTouches=counts; }
 		PX_FORCE_INLINE CUstream getStream() { return mStream; } 
 
 		PX_FORCE_INLINE PxgDevicePointer<PxU32> getSolverBodyIndices() { return mSolverBodyIndices.getTypedDevicePtr(); }
