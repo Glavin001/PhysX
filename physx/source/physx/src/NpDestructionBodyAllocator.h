@@ -145,7 +145,14 @@ public:
             if(requests[i].supported)flags|=PxRigidBodyFlag::eKINEMATIC;
             else flags.clear(PxRigidBodyFlag::eKINEMATIC);
             core.setFlags(flags);
-            if(!requests[i].supported)core.getSim()->setActive(true);
+            if(!requests[i].supported) {
+                core.getSim()->setActive(true);
+                // Reservations begin with ready-for-sleep island flags. Installing
+                // moving GPU state must clear those flags as well as activate BodySim;
+                // otherwise contact separation can freeze a falling fragment even
+                // in an eDISABLE_SLEEPING scene. This changes scheduler metadata only.
+                core.getSim()->notifyNotReadyForSleeping();
+            }
         }
         for(PxU32 i=0;i<count;++i) {
             const auto b=bindings[i];auto* shape=shapes.find(b.shape)->second;

@@ -383,6 +383,12 @@ int main(){try {
     std::printf("native pair reuse: reference constructions=%llu reuse=%llu; 32 friction participants match over all 30 steps\n",
         (unsigned long long)rebuilt.constructedPairs,(unsigned long long)reused.constructedPairs);
     const auto repeatReference=repeatedImpacts(false),repeatReuse=repeatedImpacts(true);
+    // Once the first projectile/fragment contact separates, a falling fragment
+    // must keep integrating gravity. Inactive allocation flags used to freeze it.
+    for(unsigned frame=21;frame<60;++frame) {
+        const float dv=repeatReference.trajectory[frame*12+9].y-repeatReference.trajectory[(frame-1)*12+9].y;
+        require(std::abs(dv+9.81f/60)<2e-4f,"separated fragment stopped integrating gravity in a sleeping-disabled scene");
+    }
     require(repeatReference.fractureSteps==repeatReuse.fractureSteps && repeatReference.trajectory.size()==repeatReuse.trajectory.size(),"pair reuse changed repeated fracture decisions");
     for(unsigned i=0;i<repeatReference.trajectory.size();++i)require((repeatReference.trajectory[i]-repeatReuse.trajectory[i]).magnitude()<2e-4f,"pair reuse changed repeated-impact trajectory");
     std::printf("native repeated correction: matching fracture steps %u and %u; %zu trajectory samples match\n",repeatReference.fractureSteps[0],repeatReference.fractureSteps[1],repeatReference.trajectory.size());
