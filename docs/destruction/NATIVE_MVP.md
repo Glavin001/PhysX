@@ -228,3 +228,15 @@ Optional release-build phase reporting is now available with `--profile-phases 1
 See [native profiling](NATIVE_PROFILING.md) for verified large-scene phase costs,
 reproduction commands and timing limits. GPU kernel timings and selective
 correction optimization remain outstanding.
+
+## GPU-selected owner updates
+
+The correction bridge now consumes CUDA's compact affected-owner set instead
+of reading back and scanning every cluster. An impact with 128 unrelated
+structures updates only two affected CPU owners and preserves the analytic
+projectile response. Six native suites and the independent build/install pass.
+A 113,664-chunk diagnostic and a 30-second small-city convergence run complete;
+the latter required a higher iteration ceiling at unchanged tolerance. CPU
+contact lifecycle integration remains unfinished. See
+[GPU ownership and qualification](GPU_OWNERSHIP.md) for the inherited machinery,
+our bridge, failed 2,048-iteration run and remaining device-integration work.

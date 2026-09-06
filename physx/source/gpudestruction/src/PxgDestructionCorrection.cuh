@@ -76,6 +76,17 @@ __global__ void finishCorrectionPreparation(PxDestructionCorrectionPreparationSt
     correction->valid=!correction->error;
     if(correction->error)stage->error|=2048u;
 }
+// Reuse the validated, stable GPU correction work set for the temporary CPU
+// owner bridge. No physical fields cross this boundary, and no unchanged owner
+// is read back merely because another structure fractured.
+__global__ void gatherCorrectionOwnerMetadata(const PxDestructionCorrectionBody* corrections,PxU32 count,
+    const PxU32* candidateSlots,const PxvDestructionBodyRequest* candidates,
+    PxvDestructionBodyRequest* requests,PxU32* targets) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto correction=corrections[i];
+    requests[i]=candidates[candidateSlots[correction.body.cluster]];
+    targets[i]=correction.targetBody;
+}
 __global__ void installCorrectionBodyInputs(const PxDestructionCorrectionBody* inputs,PxU32 count,const PxgBodySim* checkpoint,
     const PxgBodySimVelocities* oldPrevious,PxgBodySim* bodies,PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;

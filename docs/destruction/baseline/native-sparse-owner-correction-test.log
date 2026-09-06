@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 50: physx_native_gpu_correction_bodies
+1/1 Test #50: physx_native_gpu_correction_bodies ...   Passed    3.49 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   3.49 sec

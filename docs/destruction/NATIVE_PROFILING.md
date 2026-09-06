@@ -98,3 +98,11 @@ summary. A duplicate-row negative check is rejected by the analyzer. Three
 native suites (allocation, resimulation and publication) pass with profiling off.
 Existing reference/fidelity failures and the intermittent bounds test remain
 open; the full suite was not repeated for this diagnostic change.
+
+## CPU ownership follow-up
+
+See [GPU ownership](GPU_OWNERSHIP.md) for the inherited CPU collision machinery,
+our compatibility bridge, and the GPU-compacted owner update. Optional
+`GpuDestruction.detail.*` events now cover allocation, interaction registration,
+island insertion and other CPU tasks during the corrected continuation. These
+intervals can overlap and must not be summed as independent elapsed phases.

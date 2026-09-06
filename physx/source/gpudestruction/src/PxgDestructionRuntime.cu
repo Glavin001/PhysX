@@ -380,6 +380,8 @@ class Runtime final : public PxgDestructionRuntime {
     PxU32* mReturnedBodyIndices{};
     void* mBodyRequestScratch{};size_t mBodyRequestScratchBytes{};
     PxU32* mTrialBodyIndices{};
+    PxvDestructionBodyRequest* mCorrectionOwnerRequests{};
+    PxU32* mCorrectionOwnerTargets{};
     PxDestructionBodyAllocationStatus* mBodyAllocation{};
     PxDestructionBodyAllocationStatus mHostBodyAllocation{};
     std::vector<PxU32> mHostReservedIndices;
@@ -427,6 +429,8 @@ public:
         cudaEventSynchronize(mReady); // also orders private installation on the scene stream
         mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;mRestoredCheckpointGeneration=0;
         mHostCorrectionTargets.clear();mCorrectionEnabled=false;
+        cudaFree(mCorrectionOwnerRequests);mCorrectionOwnerRequests=nullptr;
+        cudaFree(mCorrectionOwnerTargets);mCorrectionOwnerTargets=nullptr;
         cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
         cudaFree(mCorrectionPreparation);mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
@@ -588,6 +592,7 @@ public:
                 check(cub::DeviceSelect::If(nullptr,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
                     &mCollisionPreparation->count,d.chunkCount,HasCollisionBinding{},mStream));
                 check(cudaMalloc(&mCollisionScratch,mCollisionScratchBytes));
+                allocate(mCorrectionOwnerRequests,d.chunkCount);allocate(mCorrectionOwnerTargets,d.chunkCount);
                 allocate(mCorrectionBodies,d.chunkCount);allocate(mCompactCorrectionBodies,d.chunkCount);allocate(mCorrectionPreparation,1);
                 check(cudaMemset(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation)));
                 check(cub::DeviceSelect::If(nullptr,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
@@ -937,11 +942,22 @@ public:
         try {
             Context current(mContext);check(cudaEventSynchronize(mReady));
             std::vector<PxDestructionCollisionBinding> bindings(mHostCollisionPreparation.count);
-            std::vector<PxvDestructionBodyRequest> requests(mHostBodyPreparation->count);
-            mHostCorrectionTargets.resize(requests.size());
-            check(cudaMemcpy(bindings.data(),mCompactCollisionBindings,bindings.size()*sizeof(bindings[0]),cudaMemcpyDeviceToHost));
-            check(cudaMemcpy(requests.data(),mBodyRequests,requests.size()*sizeof(requests[0]),cudaMemcpyDeviceToHost));
-            check(cudaMemcpy(mHostCorrectionTargets.data(),mTrialBodyIndices,requests.size()*sizeof(PxU32),cudaMemcpyDeviceToHost));
+            // CUDA has already selected every retained/new owner whose source
+            // changed. Unchanged clusters need neither CPU ownership updates nor
+            // a physical-state readback. Full rigid checkpoint replay remains
+            // unchanged and still corrects ordinary interaction participants.
+            const PxU32 count=mHostCorrectionPreparation.count;
+            std::vector<PxvDestructionBodyRequest> requests(count);
+            mHostCorrectionTargets.resize(count);
+            if(count) gatherCorrectionOwnerMetadata<<<(count+127)/128,128,0,mStream>>>(
+                mCompactCorrectionBodies,count,mCandidateSlots,mBodyRequests,mCorrectionOwnerRequests,mCorrectionOwnerTargets);
+            check(cudaGetLastError());
+            if(!bindings.empty())check(cudaMemcpyAsync(bindings.data(),mCompactCollisionBindings,bindings.size()*sizeof(bindings[0]),cudaMemcpyDeviceToHost,mStream));
+            if(count) {
+                check(cudaMemcpyAsync(requests.data(),mCorrectionOwnerRequests,count*sizeof(requests[0]),cudaMemcpyDeviceToHost,mStream));
+                check(cudaMemcpyAsync(mHostCorrectionTargets.data(),mCorrectionOwnerTargets,count*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
+            }
+            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             return mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
         }catch(...){mFailed=true;return false;}
     }

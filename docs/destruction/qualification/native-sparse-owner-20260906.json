@@ -1,0 +1,234 @@
+{
+  "scope": "GPU-selected affected-owner metadata replaces all-cluster CPU correction readback",
+  "full_objective_complete": false,
+  "independent_sdk_build_install": "passed",
+  "targeted_tests": {
+    "passed": 6,
+    "names": [
+      "physx_native_gpu_body_allocation",
+      "physx_native_gpu_collision_preparation",
+      "physx_native_gpu_rigid_checkpoint",
+      "physx_native_gpu_correction_bodies",
+      "physx_native_gpu_resimulation",
+      "physx_native_gpu_publication"
+    ]
+  },
+  "regression_negative_control": {
+    "runtime": "previous installed library copied before SDK rebuild",
+    "expected_failure": "CPU owner bridge included unchanged clusters",
+    "log": "out/native-sparse-owner-reference-test.log"
+  },
+  "large_diagnostic": {
+    "backend": "native PhysX GPU task graph + resident CUDA destruction",
+    "status": "completed",
+    "frames": 180,
+    "seconds": 3,
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "peak_clusters": 89920,
+    "projectiles": 252,
+    "broken_bonds": 185008,
+    "corrections": 56,
+    "correction_limit": 1,
+    "physics_ms_p50": 0.556139,
+    "physics_ms_p95": 681.732,
+    "physics_ms_p99": 723.729,
+    "physics_ms_max": 836.086,
+    "missed_16_67ms": 56,
+    "stress_included_in_physics_time": true,
+    "isolated_performance_qualification": false,
+    "sleeping": false,
+    "crushing_material_enabled": false
+  },
+  "large_phases": {
+    "status": "validated-native-phase-capture",
+    "frames": 180,
+    "corrected_steps": 56,
+    "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
+    "profiling_overhead_in_simulation_time": true,
+    "nested_phase": "refilter is included in correctedCollisionSolve",
+    "unmeasured_interval": "ordinary trial, checkpoint, remaining PhysX work and callback overhead",
+    "phases": {
+      "acceptCorrection": {
+        "samples": 56,
+        "mean_ms": 0.38347417857142857,
+        "median_ms": 0.3822945,
+        "max_ms": 0.45523
+      },
+      "applyBindings": {
+        "samples": 56,
+        "mean_ms": 3.391517107142857,
+        "median_ms": 3.3748695,
+        "max_ms": 4.754922
+      },
+      "collisionBindings": {
+        "samples": 180,
+        "mean_ms": 0.023385872222222222,
+        "median_ms": 0.00013,
+        "max_ms": 0.397613
+      },
+      "correctedCollisionSolve": {
+        "samples": 56,
+        "mean_ms": 308.0698695178571,
+        "median_ms": 272.358426,
+        "max_ms": 779.397533
+      },
+      "correctionBodies": {
+        "samples": 180,
+        "mean_ms": 0.06246126666666667,
+        "median_ms": 0.00011,
+        "max_ms": 0.316631
+      },
+      "detail.islandInsertion": {
+        "samples": 56,
+        "mean_ms": 27.904534660714287,
+        "median_ms": 22.690398000000002,
+        "max_ms": 81.691825
+      },
+      "detail.postBroadPhase": {
+        "samples": 56,
+        "mean_ms": 3.232450607142857,
+        "median_ms": 2.868163,
+        "max_ms": 11.946176
+      },
+      "detail.postBroadPhaseStage2": {
+        "samples": 56,
+        "mean_ms": 1.3049395357142857,
+        "median_ms": 1.1682125,
+        "max_ms": 3.471024
+      },
+      "detail.postBroadPhaseStage3": {
+        "samples": 56,
+        "mean_ms": 0.0004211071428571429,
+        "median_ms": 0.0003855,
+        "max_ms": 0.001142
+      },
+      "detail.postNarrowPhase": {
+        "samples": 56,
+        "mean_ms": 17.88224619642857,
+        "median_ms": 17.7966305,
+        "max_ms": 45.190959
+      },
+      "detail.postSolver": {
+        "samples": 56,
+        "mean_ms": 0.0017977142857142857,
+        "median_ms": 0.001648,
+        "max_ms": 0.004358
+      },
+      "detail.preallocateContactManagers": {
+        "samples": 56,
+        "mean_ms": 20.608833357142856,
+        "median_ms": 19.267257999999998,
+        "max_ms": 53.3656
+      },
+      "detail.registerContactManagers": {
+        "samples": 56,
+        "mean_ms": 18.022838410714286,
+        "median_ms": 16.8554625,
+        "max_ms": 47.075178
+      },
+      "detail.registerInteractions": {
+        "samples": 56,
+        "mean_ms": 16.69205823214286,
+        "median_ms": 16.13698,
+        "max_ms": 39.483948
+      },
+      "detail.registerSceneInteractions": {
+        "samples": 56,
+        "mean_ms": 24.020371571428573,
+        "median_ms": 20.111279500000002,
+        "max_ms": 63.246848
+      },
+      "finishAndReserve": {
+        "samples": 180,
+        "mean_ms": 2.6909941944444444,
+        "median_ms": 0.21782200000000002,
+        "max_ms": 18.626505
+      },
+      "initializeReserved": {
+        "samples": 56,
+        "mean_ms": 0.11687480357142857,
+        "median_ms": 0.0579885,
+        "max_ms": 2.306979
+      },
+      "refilter": {
+        "samples": 56,
+        "mean_ms": 73.16824844642858,
+        "median_ms": 64.974804,
+        "max_ms": 152.821606
+      },
+      "restoreInstall": {
+        "samples": 56,
+        "mean_ms": 0.029648571428571427,
+        "median_ms": 0.027311,
+        "max_ms": 0.066985
+      },
+      "submit": {
+        "samples": 180,
+        "mean_ms": 0.28172756111111114,
+        "median_ms": 0.14575749999999998,
+        "max_ms": 2.347907
+      }
+    },
+    "corrected_step_mean_ms": {
+      "acceptCorrection": 0.38347417857142857,
+      "applyBindings": 3.391517107142857,
+      "collisionBindings": 0.07487508928571429,
+      "correctedCollisionSolve": 308.0698695178571,
+      "correctionBodies": 0.20055510714285715,
+      "finishAndReserve": 8.141854839285715,
+      "initializeReserved": 0.11687480357142857,
+      "refilter": 73.16824844642858,
+      "restoreInstall": 0.029648571428571427,
+      "submit": 0.5561779821428572
+    },
+    "corrected_pass_excluding_refilter_mean_ms": 234.90162107142856,
+    "unmeasured_interval_mean_ms": 9.773795216666668,
+    "isolated_performance_qualification": false
+  },
+  "sustained": {
+    "backend": "native PhysX GPU task graph + resident CUDA destruction",
+    "status": "completed",
+    "frames": 1800,
+    "seconds": 30,
+    "buildings": 9,
+    "chunks": 3996,
+    "bonds": 8064,
+    "peak_clusters": 2878,
+    "projectiles": 36,
+    "broken_bonds": 6475,
+    "corrections": 189,
+    "correction_limit": 1,
+    "physics_ms_p50": 2.08181,
+    "physics_ms_p95": 13.7529,
+    "physics_ms_p99": 18.5184,
+    "physics_ms_max": 48.2032,
+    "missed_16_67ms": 34,
+    "stress_included_in_physics_time": true,
+    "isolated_performance_qualification": false,
+    "sleeping": false,
+    "crushing_material_enabled": false
+  },
+  "sustained_stress": {
+    "iteration_cap": 8192,
+    "max_iterations": 2340,
+    "tolerance": 1e-05,
+    "all_1800_converged": true
+  },
+  "incomplete_run": {
+    "path": "out/recordings/native-sparse-owner-sustained-20260906",
+    "iteration_cap": 2048,
+    "first_incomplete_zero_based_step": 329,
+    "stage_error": 4136,
+    "result": "unconverged stress rejected; no completed summary; no tolerance relaxed"
+  },
+  "limitations": [
+    "CPU contact lifecycle and private actor/shape ownership bridge remain",
+    "Full correction still rebuilds contacts and restores all supported rigid bodies",
+    "Shared-machine diagnostic runs; no isolated speedup or 60 Hz qualification",
+    "Large diagnostic overlapped SDK build; do not treat as controlled benchmark",
+    "30-second convergence run uses a larger iteration cap and is not a matched-setting performance comparison",
+    "Full imported suite not rerun; existing fidelity/baseline failures remain open"
+  ]
+}

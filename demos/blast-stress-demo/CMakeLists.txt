@@ -678,7 +678,8 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     add_executable(native_gpu_resimulation_test tests/native_gpu_resimulation_test.cpp physx_scene.cpp)
     target_compile_definitions(native_gpu_resimulation_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
-    target_include_directories(native_gpu_resimulation_test PRIVATE ${PERSISTENT_OWNER_TEST_INCLUDES})
+    target_include_directories(native_gpu_resimulation_test PRIVATE ${PERSISTENT_OWNER_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/include")
     target_link_options(native_gpu_resimulation_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_gpu_resimulation_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
     add_test(NAME physx_native_gpu_resimulation COMMAND native_gpu_resimulation_test)

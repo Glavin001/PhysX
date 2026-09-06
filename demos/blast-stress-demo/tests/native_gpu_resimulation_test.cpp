@@ -2,6 +2,8 @@
 #include "../physx_scene.h"
 #include <PxDestructionScene.h>
 #include "NpScene.h"
+#include "PxgDestructionRuntime.h"
+#include <vector>
 #include <foundation/PxBroadcast.h>
 #include <atomic>
 #include <cuda.h>
@@ -31,7 +33,7 @@ struct Events:PxSimulationEventCallback {
     void onTrigger(PxTriggerPair*,PxU32)override{}
 };
 struct Result {float projectileVelocity;unsigned corrections,contacts;};
-Result impact(bool fracture,bool gravity=false,bool speculative=false) {
+Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned quietCount=0) {
     Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,true,true,false,false);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
@@ -52,17 +54,35 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false) {
     scene.addActor(*shot);
     auto* sentinel=physics.createRigidDynamic(PxTransform(PxVec3(-50,50,0)));
     sentinel->setLinearDamping(0);sentinel->setAngularDamping(0);scene.addActor(*sentinel);
+    std::vector<PxRigidDynamic*> quiet;
+    for(unsigned i=0;i<quietCount;++i) {
+        auto* owner=physics.createRigidDynamic(PxTransform(PxVec3(100+float(i)*3,50,0)));
+        owner->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
+        owner->setMass(2);owner->setMassSpaceInertiaTensor(PxVec3(1.0f/3));
+        auto* piece=physics.createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);
+        require(owner->attachShape(*piece),"quiet chunk setup failed");piece->release();
+        scene.addActor(*owner);quiet.push_back(owner);
+    }
     scene.simulate(1.0f/60);require(scene.fetchResults(true),"warmup failed");events.advances=0;
     const auto identity=scene.getDirectGPUAPI().getShapeContactIndex(*shape);
-    PxDestructionStressChunk chunks[2]={{PxVec3(0,-1,0),0,0,0,PX_INVALID_U32},
+    std::vector<PxDestructionStressChunk> chunks={{PxVec3(0,-1,0),0,0,0,PX_INVALID_U32},
         {PxVec3(0),2,1.0f/3,0,identity,1,0}};
-    PxDestructionChunkMassProperties mass[2]{};mass[0].supported=1;mass[0].center[1]=-1;
+    std::vector<PxDestructionChunkMassProperties> mass(2);mass[0].supported=1;mass[0].center[1]=-1;
     mass[1].mass=2;mass[1].inertia[0]=mass[1].inertia[1]=mass[1].inertia[2]=1.0/3;
-    PxDestructionStressCluster cluster{wall->getGPUIndex(),PxVec3(0)};
+    std::vector<PxDestructionStressCluster> clusters{{wall->getGPUIndex(),PxVec3(0)}};
+    std::vector<PxU32> quietIdentities;
+    for(unsigned i=0;i<quietCount;++i) {
+        PxShape* piece=nullptr;quiet[i]->getShapes(&piece,1);
+        const auto id=scene.getDirectGPUAPI().getShapeContactIndex(*piece);quietIdentities.push_back(id);
+        chunks.push_back({PxVec3(0),0,0,i+1,id,1,0});
+        PxDestructionChunkMassProperties properties{};properties.mass=2;properties.supported=1;
+        properties.inertia[0]=properties.inertia[1]=properties.inertia[2]=1.0/3;mass.push_back(properties);
+        clusters.push_back({quiet[i]->getGPUIndex(),PxVec3(0)});
+    }
     PxDestructionStressBond bond{0,1,PxVec3(0,-.5f,0),PxVec3(0,1,0),1,1,1};
     PxDestructionMaterial material;if(gravity){material.compressionElasticLimit=100;material.compressionFatalLimit=200;}if(!fracture){material.compressionElasticLimit=1e12f;material.compressionFatalLimit=2e12f;}
-    PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=2;desc.chunkMassProperties=mass;
-    desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=&bond;desc.bondCount=1;
+    PxDestructionStressDesc desc;desc.chunks=chunks.data();desc.chunkCount=PxU32(chunks.size());desc.chunkMassProperties=mass.data();
+    desc.clusters=clusters.data();desc.clusterCount=PxU32(clusters.size());desc.bonds=&bond;desc.bondCount=1;
     desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;
     auto* destruction=scene.getDestructionScene();require(destruction->configureStress(desc),"native correction configuration failed");
     CUdeviceptr index=0,value=0;
@@ -75,6 +95,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false) {
     auto cleanup=[&](){
         {PxScopedCudaLock lock(cuda);check(cuMemFree(index));check(cuMemFree(value));}
         require(destruction->clearStress(),"native accepted-fragment teardown failed");
+        for(auto* owner:quiet)owner->release();
         wall->release();shot->release();sentinel->release();shape->release();sphere->release();
         require(context.healthy(),"native impact GPU health failed");
     };
@@ -100,7 +121,19 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false) {
         require(status.correctionPasses<=1,"native step exceeded one correction");
         require(events.advances==before+1,"trial pass duplicated pose callback");
         corrections+=status.correctionPasses;contacts+=status.normalContacts;
-        if(status.correctionPasses)require(status.normalContacts && status.brokenBonds,"fracture was not driven by actual solved contact impulses");
+        if(status.correctionPasses) {
+            require(status.normalContacts && status.brokenBonds,"fracture was not driven by actual solved contact impulses");
+            auto* runtime=static_cast<PxgDestructionRuntime*>(destruction);
+            require(runtime->correctionBodyCount()==2,"CPU owner bridge included unchanged clusters");
+            for(unsigned i=0;i<quietCount;++i) {
+                const auto quietId=quiet[i]->getGPUIndex();
+                for(PxU32 j=0;j<runtime->correctionBodyCount();++j)
+                    require(runtime->correctionBodyIndices()[j]!=quietId,"quiet owner entered CPU correction work set");
+                PxShape* piece=nullptr;quiet[i]->getShapes(&piece,1);
+                require(piece->getActor()==quiet[i] && scene.getDirectGPUAPI().getShapeContactIndex(*piece)==quietIdentities[i],"quiet ownership changed during remote fracture");
+                require(velocity(*quiet[i]).magnitudeSquared()==0,"remote fracture moved a quiet supported cluster");
+            }
+        }
         require(scene.getDirectGPUAPI().getShapeContactIndex(*shape)==identity,"split recreated persistent chunk collision identity");
     }
     require(!speculative,"unsupported speculative CCD correction was silently accepted");
@@ -127,7 +160,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false) {
         require(scene.raycast(pose.p+PxVec3(0,2,0),PxVec3(0,-1,0),3,hit,PxHitFlag::eDEFAULT,PxQueryFilterData(),nullptr,cached?&cache:nullptr)
             && hit.hasBlock && hit.block.actor==fragment && hit.block.shape==shape,"accepted fragment query lookup lost its private owner");
     }
-    require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3,"query registration published a private fragment as a public actor");
+    require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3+quietCount,"query registration published a private fragment as a public actor");
     std::printf("native query ownership valid; largest impact allocation=%zu bytes\n",allocations.largest.load());
     cleanup();
     return {v.x,corrections,contacts};
@@ -165,4 +198,4 @@ void unconvergedStress() {
     std::puts("native convergence gate rejects exhausted stress budget; diagnostic reference remains selectable");
 }
 }
-int main(){try {unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try {unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

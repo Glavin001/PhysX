@@ -429,6 +429,8 @@ void Sc::Scene::unblockNarrowPhase(PxBaseTask*)
 
 void Sc::Scene::postBroadPhase(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.postBroadPhase",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_START_CROSSTHREAD("Basic.postBroadPhase", mContextId);
 
 	//Notify narrow phase that broad phase has completed
@@ -707,6 +709,8 @@ namespace
 
 void Sc::Scene::preallocateContactManagers(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.preallocateContactManagers",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	//Iterate over all filter tasks and work out how many pairs we need...
 	PxU32 totalCreatedPairs = 0;
 	PxU32 totalSuppressPairs = 0;
@@ -1010,6 +1014,8 @@ namespace
 
 void Sc::Scene::postBroadPhaseStage2(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.postBroadPhaseStage2",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	// PT: TODO: can we overlap this with something?
 	// - Wakes actors that lost touch if appropriate
 	processLostTouchPairs();
@@ -1143,6 +1149,8 @@ void Sc::Scene::postBroadPhaseStage2(PxBaseTask* continuation)
 // PT: islandInsertion / registerContactManagers / registerInteractions / registerSceneInteractions run in parallel
 void Sc::Scene::islandInsertion(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.islandInsertion",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.processNewOverlaps.islandInsertion", mContextId);
 
 	// PT: TODO: get rid of this one
@@ -1199,6 +1207,8 @@ void Sc::Scene::islandInsertion(PxBaseTask* /*continuation*/)
 // PT: islandInsertion / registerContactManagers / registerInteractions / registerSceneInteractions run in parallel
 void Sc::Scene::registerContactManagers(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.registerContactManagers",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.processNewOverlaps.registerCms", mContextId);
 
 	// PT: we sometimes iterate over this array in vain (all ptrs are unused). Would be better
@@ -1228,6 +1238,8 @@ void Sc::Scene::registerContactManagers(PxBaseTask* /*continuation*/)
 // PT: islandInsertion / registerContactManagers / registerInteractions / registerSceneInteractions run in parallel
 void Sc::Scene::registerInteractions(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.registerInteractions",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.processNewOverlaps.registerInteractions", mContextId);
 
 	PX_ASSERT(mPreallocatedShapeInteractions.size() || mPreallocatedInteractionMarkers.size());	// PT: otherwise we should have skipped the task entirely
@@ -1271,6 +1283,8 @@ void Sc::Scene::registerInteractions(PxBaseTask* /*continuation*/)
 // PT: islandInsertion / registerContactManagers / registerInteractions / registerSceneInteractions run in parallel
 void Sc::Scene::registerSceneInteractions(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.registerSceneInteractions",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.processNewOverlaps.registerInteractionsScene", mContextId);
 
 	PX_ASSERT(mPreallocatedShapeInteractions.size() || mPreallocatedInteractionMarkers.size());	// PT: otherwise we should have skipped the task entirely
@@ -1394,6 +1408,8 @@ void Sc::Scene::finishBroadPhaseStage2(PxU32 ccdPass)
 
 void Sc::Scene::postBroadPhaseStage3(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.postBroadPhaseStage3",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	finishBroadPhaseStage2(0);
 
 	PX_PROFILE_STOP_CROSSTHREAD("Basic.postBroadPhase", mContextId);
@@ -1559,6 +1575,8 @@ void Sc::Scene::releaseConstraints(bool endOfScene)
 
 void Sc::Scene::postNarrowPhase(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.postNarrowPhase",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	setCollisionPhaseToInactive();
 
 	mHasContactDistanceChanged = false;
@@ -2550,6 +2568,8 @@ void Sc::Scene::updateSimulationController(PxBaseTask* continuation)
 
 void Sc::Scene::postSolver(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mDestructionCorrectionInProgress?PxGetProfilerCallback():NULL,
+        "GpuDestruction.detail.postSolver",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sc::Scene::postSolver", mContextId);
 
 	PxcNpMemBlockPool& blockPool = mLLContext->getNpMemBlockPool();

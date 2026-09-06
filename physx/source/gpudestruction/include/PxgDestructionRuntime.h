@@ -26,6 +26,8 @@ public:
     virtual bool configured() const = 0;
     virtual bool correctionEnabled() const = 0;
     virtual bool applyCorrectionBindings() = 0;
+    // GPU-selected affected owners mirrored for CPU metadata updates. This is
+    // not the complete set of rigid bodies restored/re-solved during correction.
     virtual PxU32 correctionBodyCount() const = 0;
     virtual const PxU32* correctionBodyIndices() const = 0;
     virtual bool acceptCorrection(const PxgBodySim* bodies, CUstream stream) = 0;
