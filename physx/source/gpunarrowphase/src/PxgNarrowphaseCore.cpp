@@ -8247,8 +8247,13 @@ void PxgGpuNarrowphaseCore::registerContactManagerInternal(PxsContactManager* cm
 
 	if(input)
 		itInputs.pushBack(*input);
-	else
-		itInputs.insert();
+	else {
+        // Shape IDs are available when the CPU compatibility record is created.
+        // Native destruction resolves geometry refs from persistent GPU shape
+        // storage; the legacy path fills them in PrepareInputTask.
+        const PxgContactManagerInput pair={PX_INVALID_U32,PX_INVALID_U32,workUnit.mTransformCache0,workUnit.mTransformCache1};
+        itInputs.pushBack(pair);
+    }
 
 	itOutputs.pushBack(output);
 	itCms.pushBack(cm);
@@ -8510,6 +8515,23 @@ void PxgGpuNarrowphaseCore::preallocateNewBuffers(PxU32 nbNewPairs)
 
 }
 
+bool PxgGpuNarrowphaseCore::usesDeviceDestructionContactInputs(PxU32 bucket) const
+{
+    // Rigid geometry buckets, including primitive, convex, plane, mesh and HF.
+    // Deformable/particle paths retain their existing descriptor construction.
+    return bucket>=GPU_BUCKET_ID::eConvex && bucket<=GPU_BUCKET_ID::eConvexCoreTrimesh
+        && mGpuContext && mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs();
+}
+
+bool PxgGpuNarrowphaseCore::buildDestructionContactInputs(PxgGpuContactManagers& managers,PxU32 count)
+{
+    if(!usesDeviceDestructionContactInputs(managers.mBucketIndex))return true;
+    // Shape upload is ordered before broadphase/NP by the existing scene graph.
+    // This launch follows pair-ID upload on NP's stream and precedes contact gen.
+    return mGpuContext->getSimulationController()->buildDestructionContactInputs(
+        managers.mContactManagerInputData.getTypedPtr(),count,mStream);
+}
+
 template <typename Manifold>
 void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gpuManagers, PxgNewContactManagers& newManagers,
 	Manifold* emptyManifold)
@@ -8542,6 +8564,7 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gp
 	PinnableArray<PxsTorsionalFrictionData>& itTor = newManagers.mTorsionalProperties;
 	
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerInputData.getDevicePtr(), itInputs.begin(), sizeof(PxgContactManagerInput) * nbNewManagers, mStream);
+    if(!buildDestructionContactInputs(gpuManagers,nbNewManagers))return;
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerOutputData.getDevicePtr(), itOutputs.begin(), sizeof(PxsContactManagerOutput) * nbNewManagers, mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mCpuContactManagerMapping.getDevicePtr(), itCms.begin(), sizeof(PxsContactManager*) * nbNewManagers, mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mShapeInteractions.getDevicePtr(), itSI.begin(), sizeof(Sc::ShapeInteraction*) * nbNewManagers, mStream);
@@ -8599,6 +8622,7 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gp
 	PinnableArray<PxsTorsionalFrictionData>& itTor = newManagers.mTorsionalProperties;
 
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerInputData.getDevicePtr(), itInputs.begin(), sizeof(PxgContactManagerInput) * nbNewManagers, mStream);
+    if(!buildDestructionContactInputs(gpuManagers,nbNewManagers))return;
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerOutputData.getDevicePtr(), itOutputs.begin(), sizeof(PxsContactManagerOutput) * nbNewManagers, mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mCpuContactManagerMapping.getDevicePtr(), itCms.begin(), sizeof(PxsContactManager*) * nbNewManagers, mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mShapeInteractions.getDevicePtr(), itSI.begin(), sizeof(Sc::ShapeInteraction*) * nbNewManagers, mStream);
@@ -8682,7 +8706,8 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagersTasks(Cm::FlushPool& flush
 {
 	for (PxU32 i = GPU_BUCKET_ID::eConvex; i < GPU_BUCKET_ID::eCount; ++i)
 	{
-		prepareTempContactManagersInternal(mContactManagers[i]->mNewContactManagers, flushPool, continuation);
+		if(!usesDeviceDestructionContactInputs(i))
+			prepareTempContactManagersInternal(mContactManagers[i]->mNewContactManagers, flushPool, continuation);
 	}
 }
 
@@ -8763,7 +8788,7 @@ void PxgGpuNarrowphaseCore::removeLostPairsInternal(PinnableArray<PxU32>& remove
 
 #if GPU_NP_DEBUG
 
-bool validateInputPairs(PxgContactManagers& gpuConvexConvexManagers, PxgGpuContactManagers& gpuContactManagers, PxCudaContext* cudaContext)
+bool validateInputPairs(PxgContactManagers& gpuConvexConvexManagers, PxgGpuContactManagers& gpuContactManagers, PxCudaContext* cudaContext, PxgGpuNarrowphaseCore& core)
 {
 	PxU32 count = gpuConvexConvexManagers.mCpuContactManagerMapping.size();
 
@@ -8775,9 +8800,12 @@ bool validateInputPairs(PxgContactManagers& gpuConvexConvexManagers, PxgGpuConta
 
 	for (PxU32 i = 0; i < count; ++i)
 	{
-		if (tempInputArray[i].shapeRef0 != iter[i].shapeRef0)
+        // In native mode the host array intentionally contains only pair IDs.
+        // Validate geometry against the independent registration map instead.
+        const PxcNpWorkUnit& work = gpuConvexConvexManagers.mCpuContactManagerMapping[i]->getWorkUnit();
+		if (tempInputArray[i].shapeRef0 != core.getShapeIndex(*work.getShapeCore0()))
 			return false;
-		if (tempInputArray[i].shapeRef1 != iter[i].shapeRef1)
+		if (tempInputArray[i].shapeRef1 != core.getShapeIndex(*work.getShapeCore1()))
 			return false;
 		if (tempInputArray[i].transformCacheRef0 != iter[i].transformCacheRef0)
 			return false;

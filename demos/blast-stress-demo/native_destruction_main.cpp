@@ -28,9 +28,10 @@ struct Shot {PxRigidDynamic* actor;unsigned visual;};
 using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
-    unsigned grid=3,waves=4,stressIterations=2048;bool profilePhases=false;float seconds=30;std::string output;
+    unsigned grid=3,waves=4,stressIterations=2048;bool profilePhases=false,recordState=true;float seconds=30;std::string output;
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-phases"){require(std::string(value)=="0" || std::string(value)=="1","--profile-phases requires 0 or 1");profilePhases=std::string(value)=="1";}
+        else if(flag=="--record-state"){require(std::string(value)=="0" || std::string(value)=="1","--record-state requires 0 or 1");recordState=std::string(value)=="1";}
         else if(flag=="--grid")grid=std::stoul(value);else if(flag=="--waves")waves=std::stoul(value);
         else if(flag=="--stress-iterations")stressIterations=std::stoul(value);else if(flag=="--seconds")seconds=std::stof(value);else if(flag=="--output")output=value;
         else throw std::runtime_error("unknown option: "+flag);
@@ -82,8 +83,8 @@ int run(int argc,char** argv){
     auto* destruction=scene.getDestructionScene();require(destruction && destruction->configureStress(desc),"native destruction configuration failed");
     const PxVec3 center(float(grid-1)*8,4,float(grid-1)*8);std::array<Camera,4> cameras;
     for(unsigned i=0;i<4;++i){const float angle=float(i)*1.5707963f+.6f;cameras[i].eye=center+PxVec3(std::cos(angle)*float(grid)*24,float(grid)*13,std::sin(angle)*float(grid)*24);cameras[i].direction=(center-cameras[i].eye).getNormalized();}
-    StateWriter writer;require(writer.open(output+"/native.twstate",60,frames,960,540,buildings,seconds,0,cameras),"state output failed");
-    for(unsigned i=0;i<chunks.size();++i){VisualActor visual;visual.parameters=half;visual.part=chunks[i].building%4;require(writer.defineActor(i,visual),"chunk visual definition failed");}
+    StateWriter writer;if(recordState)require(writer.open(output+"/native.twstate",60,frames,960,540,buildings,seconds,0,cameras),"state output failed");
+    if(recordState)for(unsigned i=0;i<chunks.size();++i){VisualActor visual;visual.parameters=half;visual.part=chunks[i].building%4;require(writer.defineActor(i,visual),"chunk visual definition failed");}
     std::ofstream telemetry(output+"/native.frames.csv");
     telemetry<<"step,simulation_seconds,physics_step_ms,stress_solve_ms,frame_host_ms,bodies,awake_bodies,splits_total,contacts_total,resim_passes,correction_status,contacts_frame,projectiles_active,bonds_broken,stress_iterations,stress_converged,observation_ms\n";
     std::vector<Shot> shots;std::vector<PxU32> shotIds;std::vector<PxTransform> shotPoses;std::vector<VisualPose> poses;
@@ -103,7 +104,7 @@ int run(int argc,char** argv){
             require(shot && sphere && shot->attachShape(*sphere),"projectile creation failed");sphere->release();
             shot->setMass(20000);shot->setMassSpaceInertiaTensor(PxVec3(.4f*20000*.75f*.75f));shot->setLinearDamping(0);shot->setAngularDamping(0);shot->setLinearVelocity(speed);scene.addActor(*shot);
             const unsigned visualId=unsigned(chunks.size())+launched;VisualActor visual;visual.shape=VisualActor::Shape::Sphere;visual.parameters=PxVec3(.75f,0,0);visual.part=5;
-            require(writer.defineActor(visualId,visual),"projectile visual definition failed");shots.push_back({shot,visualId});++launched;
+            if(recordState)require(writer.defineActor(visualId,visual),"projectile visual definition failed");shots.push_back({shot,visualId});++launched;
         }
         phaseProfiler.begin(frame);
         const auto begin=Clock::now();scene.simulate(dt);PxU32 error=0;const bool complete=scene.fetchResults(true,&error);const double simulationMs=ms(begin);
@@ -128,20 +129,20 @@ int run(int argc,char** argv){
             const PxTransform pose(PxVec3(float(motion.origin[0]),float(motion.origin[1]),float(motion.origin[2])),PxQuat(float(motion.orientation[0]),float(motion.orientation[1]),float(motion.orientation[2]),float(motion.orientation[3])));
             require(pose.isValid(),"nonfinite committed cluster motion");poses.push_back({i,pose*PxTransform(chunks[i].position),false});}
         for(unsigned i=0;i<shots.size();++i){require(shotPoses[i].isValid(),"nonfinite projectile motion");poses.push_back({shots[i].visual,shotPoses[i],false});}
-        require(writer.writeFrame(frame,poses),"committed state capture failed");const double observationMs=ms(observation);
+        if(recordState)require(writer.writeFrame(frame,poses),"committed state capture failed");const double observationMs=ms(observation);
         peakClusters=std::max(peakClusters,topology.clusterCount);maxStep=std::max(maxStep,simulationMs);times.push_back(simulationMs);if(simulationMs>1000.0/60)++deadlines;
         // Stress time is included in physics_step_ms, not separately instrumented.
         // The recording uses the compact HUD, which only displays total times.
         telemetry<<frame<<','<<(frame+1)*dt<<','<<simulationMs<<",0,"<<ms(tick)<<','<<topology.clusterCount+shots.size()<<','<<topology.clusterCount+shots.size()<<','<<topology.clusterCount-buildings<<','<<totalContacts<<','<<status.correctionPasses<<",0,"<<status.normalContacts<<','<<shots.size()<<','<<status.brokenBonds<<','<<status.iterations<<','<<status.converged<<','<<observationMs<<'\n';
         if(frame%60==0){std::printf("native t=%.1f chunks=%zu bonds=%zu clusters=%u shots=%zu broken=%u corrections=%u step=%.2fms\n",time,chunks.size(),bonds.size(),topology.clusterCount,shots.size(),totalBroken,totalCorrections,simulationMs);std::fflush(stdout);}
     }
-    require(totalCorrections && totalBroken && peakClusters>buildings,"native bombardment did not demonstrate destruction");require(writer.finish(),"state stream finalization failed");
+    require(totalCorrections && totalBroken && peakClusters>buildings,"native bombardment did not demonstrate destruction");if(recordState)require(writer.finish(),"state stream finalization failed");
     std::sort(times.begin(),times.end());auto percentile=[&](double p){return times[std::min(times.size()-1,size_t(p*times.size()))];};
     {PxScopedCudaLock lock(cuda);check(cuMemFree(deviceIds));check(cuMemFree(devicePoses));}
     require(destruction->clearStress(),"native fragment cleanup failed");for(auto* parent:parents)parent->release();for(auto& shot:shots)shot.actor->release();for(auto& chunk:chunks)chunk.shape->release();
     require(context.healthy(),"native demo GPU health failed");
     std::ofstream manifest(output+"/native.summary.json");
-    manifest<<"{\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
+    manifest<<"{\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
     return 0;
 }
 }

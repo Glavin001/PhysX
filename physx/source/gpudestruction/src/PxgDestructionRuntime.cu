@@ -7,6 +7,7 @@
 #include <cuda.h>
 #include "PxgBodySim.h"
 #include "PxgShapeSim.h"
+#include "PxgContactManager.h"
 #include "PxShape.h"
 #include "PxsRigidBody.h"
 #include "PxgDestructionBody.cuh"
@@ -50,6 +51,24 @@ __global__ void requireNativeConvergence(PxDestructionStageStatus* status) {
     if(!status->converged)status->error|=4096u;
 }
 __global__ void finishNativeCorrection(PxDestructionStageStatus* status) {status->error&=~8u;status->correctionPasses=1;}
+// The descriptor's pair identities are persistent transform-cache/shape IDs.
+// Geometry registration is resolved on device, independently of cluster motion.
+__global__ void buildNativeContactInputs(PxgContactManagerInput* inputs,PxU32 count,
+    const PxgShapeSim* shapes,PxU32 capacity) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    auto input=inputs[i];
+    if(input.transformCacheRef0>=capacity || input.transformCacheRef1>=capacity) {
+        // An internal identity invariant failed. Stop this CUDA context rather
+        // than silently dropping a required pair or launching NP with bad IDs.
+        asm volatile("trap;");return;
+    }
+    input.shapeRef0=shapes[input.transformCacheRef0].mHullDataIndex;
+    input.shapeRef1=shapes[input.transformCacheRef1].mHullDataIndex;
+    if(input.shapeRef0==PX_INVALID_U32 || input.shapeRef1==PX_INVALID_U32) {
+        asm volatile("trap;");return;
+    }
+    inputs[i]=input;
+}
 struct Lookup { PxU32 contact, chunk; };
 __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
     PxU32 a=0,b=count;
@@ -418,6 +437,15 @@ public:
         check(cudaMallocHost(&mHostStatus,sizeof(*mHostStatus)));*mHostStatus={};
         check(cudaMemset(mStatus,0,sizeof(*mStatus)));
         check(cudaEventRecord(mReady,mStream));
+    }
+    bool buildContactInputs(PxgContactManagerInput* inputs,PxU32 count,
+        const PxgShapeSim* shapes,PxU32 shapeCapacity,CUstream stream) override {
+        if(mFailed || !mCorrectionEnabled || !stream || (count && (!inputs || !shapes || !shapeCapacity)))return false;
+        try {
+            Context current(mContext);
+            if(count)buildNativeContactInputs<<<(count+127)/128,128,0,reinterpret_cast<cudaStream_t>(stream)>>>(inputs,count,shapes,shapeCapacity);
+            check(cudaGetLastError());return true;
+        }catch(...){mFailed=true;return false;}
     }
     void release() override { delete this; }
     ~Runtime() override {

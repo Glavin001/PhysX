@@ -6,6 +6,7 @@
 namespace physx {
 struct PxgBodySim;
 struct PxgShapeSim;
+struct PxgContactManagerInput;
 struct PxgBodySimVelocities;
 struct PxgRigidBodyAcceleration;
 // Internal rigid-state portion of the correction checkpoint, captured after
@@ -64,6 +65,11 @@ public:
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 checkpointGeneration, CUstream stream) = 0;
 
     virtual void release() = 0;
+    // Resolve persistent shape IDs into GPU narrowphase descriptors on the
+    // caller's ordered NP stream. Pair allocation/filtering is still separate.
+    virtual bool buildContactInputs(PxgContactManagerInput* inputs, PxU32 count,
+        const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
+
 };
 }
 #if defined(_WIN32)

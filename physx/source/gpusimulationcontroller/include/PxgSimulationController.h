@@ -58,6 +58,7 @@ class PxProfilerCallback;
 	class PxsKernelWranglerManager;
 
 	class PxgDestructionRuntime;
+    struct PxgContactManagerInput;
 	class PxgSimulationCore;
 	class PxgParticleSystemCore;
 	class PxgPBDParticleSystemCore;
@@ -500,6 +501,9 @@ class PxProfilerCallback;
         virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*), PxvDestructionBodyAllocator* allocator) PX_OVERRIDE PX_FINAL;
         virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect) PX_OVERRIDE PX_FINAL;
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
+        bool usesDeviceDestructionContactInputs() const;
+        bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
+        PxU64 getDestructionContactInputCount() const { return mDestructionContactInputCount; }
 
 		virtual	bool	copyContactData(void* data, PxU32* numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent copyEvent) PX_OVERRIDE PX_FINAL;
 
@@ -771,6 +775,7 @@ class PxProfilerCallback;
 #if PX_SUPPORT_OMNI_PVD
 		PxsSimulationControllerOVDCallbacks*					mOvdCallbacks;
 #endif
+        PxU64 mDestructionContactInputCount = 0;
 		friend class PxgCopyToBodySimTask;
 		friend class PxgCopyToArticulationSimTask;
 		friend class PxgUpdateArticulationSimTask;

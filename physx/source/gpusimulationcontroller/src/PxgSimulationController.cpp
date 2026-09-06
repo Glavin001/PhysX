@@ -640,6 +640,25 @@ namespace physx
         return mDestruction;
     }
 
+    bool PxgSimulationController::usesDeviceDestructionContactInputs() const
+    {
+        return mDestruction && mDestruction->configured() && mDestruction->correctionEnabled();
+    }
+
+    bool PxgSimulationController::buildDestructionContactInputs(PxgContactManagerInput* inputs,PxU32 count,CUstream stream)
+    {
+        if(!usesDeviceDestructionContactInputs())return false;
+        const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+        const bool ok=mDestruction->buildContactInputs(inputs,count,shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),stream);
+        if(ok)mDestructionContactInputCount+=count;
+        else {
+            mDestructionError=1;
+            mCudaContextManager->getCudaContext()->setAbortMode(true);
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native GPU contact input construction failed; simulation is incomplete.");
+        }
+        return ok;
+    }
+
     bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect)
     {
         if(!mDestruction) return false;

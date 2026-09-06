@@ -240,3 +240,15 @@ the latter required a higher iteration ceiling at unchanged tolerance. CPU
 contact lifecycle integration remains unfinished. See
 [GPU ownership and qualification](GPU_OWNERSHIP.md) for the inherited machinery,
 our bridge, failed 2,048-iteration run and remaining device-integration work.
+
+
+## GPU contact-input follow-up
+
+Native rigid narrowphase now constructs geometry references on CUDA from
+persistent GPU shape IDs; its CPU descriptor-preparation tasks are skipped.
+Pair allocation, filtering, interaction registration and solver partitioning
+still use CPU machinery. See [GPU contact inputs](GPU_CONTACT_INPUTS.md) for
+validation, the new 30-second video, the large sustained-run command, and the
+`--record-state 0` option for retaining physical checks without raw playback
+output. [Qualification](qualification/native-device-contact-20260906.json)
+records six passing native suites and the completed captures.

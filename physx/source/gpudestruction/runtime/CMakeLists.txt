@@ -16,6 +16,7 @@ target_include_directories(PhysXDestructionGpuRuntime PRIVATE
     ${PHYSX_SOURCE_DIR}/lowlevel/api/include
     ${PHYSX_SOURCE_DIR}/common/include
     ${PHYSX_SOURCE_DIR}/common/src
+    ${PHYSX_SOURCE_DIR}/gpunarrowphase/include
     ${PHYSX_SOURCE_DIR}/gpusimulationcontroller/include
     ${PHYSX_SOURCE_DIR}/gpucommon/include
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stressgpu

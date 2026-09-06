@@ -102,6 +102,9 @@ namespace physx
 		{
 		}
 
+        // Native destruction keeps only pair identity authoritative here;
+        // geometry refs can be INVALID until resolved in the GPU input buffer.
+        // The ordinary path retains complete CPU-generated descriptors.
 		Cm::PinnableArray<PxgContactManagerInput>		mGpuInputContactManagers;
 		Cm::PinnableArray<PxsContactManager*>			mCpuContactManagerMapping;
 		Cm::PinnableArray<const Sc::ShapeInteraction*>	mShapeInteractions;
@@ -700,6 +703,9 @@ namespace physx
 		void prepareTempContactManagers(PxgGpuContactManagers& gpuManagers, PxgNewContactManagers& newManagers);
 
 		void removeLostPairsInternal(Cm::PinnableArray<PxU32>& removedIndices, PxgContactManagers& contactManagers);
+
+        bool usesDeviceDestructionContactInputs(PxU32 bucket) const;
+        bool buildDestructionContactInputs(PxgGpuContactManagers& managers,PxU32 count);
 
 		void prepareTempContactManagersInternal(PxgNewContactManagers& newManagers, Cm::FlushPool& flushPool, PxBaseTask* continuation);
 

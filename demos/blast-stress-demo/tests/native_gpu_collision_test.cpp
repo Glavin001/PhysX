@@ -5,6 +5,9 @@
 #include "NpShapeManager.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
+#include "PxgNphaseImplementationContext.h"
+#include "PxgNarrowphaseCore.h"
+#include "PxsContactManager.h"
 #include <PxDestructionScene.h>
 #include <cuda.h>
 #include <cstdio>
@@ -97,6 +100,76 @@ struct Fixture {
         check(cuEventSynchronize(view.readyEvent));if(n)check(cuMemcpyDtoH(result.data(),CUdeviceptr(view.trialCollisionBindings),n*sizeof(result[0])));return result;
     }
 };
+void deviceContactInputs(bool enabled) {
+    Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=enabled?1:0;f.configure();
+    auto& sc=static_cast<NpScene&>(f.scene).getScScene();
+    auto& controller=*static_cast<PxgSimulationController*>(sc.getSimulationController());
+    auto& np=*static_cast<PxgNphaseImplementationContext*>(sc.getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
+    const PxVec3 vertices[]={{-.5f,-.5f,-.5f},{.5f,-.5f,-.5f},{-.5f,.5f,-.5f},{.5f,.5f,-.5f},
+        {-.5f,-.5f,.5f},{.5f,-.5f,.5f},{-.5f,.5f,.5f},{.5f,.5f,.5f}};
+    PxConvexMeshDesc hull;hull.points.count=8;hull.points.stride=sizeof(PxVec3);hull.points.data=vertices;hull.flags=PxConvexFlag::eCOMPUTE_CONVEX;
+    auto params=f.context.cookingParams();params.buildGPUData=true;
+    auto* mesh=PxCreateConvexMesh(params,hull,f.context.physics().getPhysicsInsertionCallback());
+    require(mesh && mesh->isGpuCompatible(),"GPU convex fixture cooking failed");
+    PxShape* shared[]={f.context.physics().createShape(PxBoxGeometry(.5f,.5f,.5f),f.context.material(),false),
+        f.context.physics().createShape(PxSphereGeometry(.5f),f.context.material(),false),
+        f.context.physics().createShape(PxCapsuleGeometry(.5f,.25f),f.context.material(),false),
+        f.context.physics().createShape(PxConvexMeshGeometry(mesh),f.context.material(),false)};
+    for(auto* shape:shared)require(shape,"shared collision geometry creation failed");mesh->release();
+    auto* plane=PxCreatePlane(f.context.physics(),PxPlane(0,1,0,-39.6f),f.context.material());
+    require(plane,"contact-input plane fixture failed");f.scene.addActor(*plane);
+    std::vector<PxRigidDynamic*> actors;
+    auto add=[&](unsigned slot){
+        auto* body=f.context.physics().createRigidDynamic(PxTransform(PxVec3(200+float(slot/2)*3,40,float(slot%2)*.9f)));
+        body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,(slot%2)==0);
+        require(body->attachShape(*shared[(slot/2)%4]),"shared collision instance attachment failed");f.scene.addActor(*body);return body;
+    };
+    // Hundreds of instances share four geometry registrations, while each has a
+    // separate persistent transform ID. This also grows the GPU shape storage.
+    for(unsigned i=0;i<514;++i)actors.push_back(add(i));
+    PxU32 inspected=0,deviceOnly=0;
+    auto inspect=[&](){
+        PxScopedCudaLock lock(f.cuda);
+        for(PxU32 b=GPU_BUCKET_ID::eConvex;b<=GPU_BUCKET_ID::eConvexCoreTrimesh;++b) {
+            auto& host=np.getExistingContactManagers(GPU_BUCKET_ID::Enum(b));
+            auto& gpu=np.getExistingGpuContactManagers(GPU_BUCKET_ID::Enum(b));
+            const auto count=host.mCpuContactManagerMapping.size();if(!count)continue;
+            std::vector<PxgContactManagerInput> inputs(count);
+            check(cuMemcpyDtoH(inputs.data(),gpu.mContactManagerInputData.getDevicePtr(),count*sizeof(inputs[0])));
+            for(PxU32 i=0;i<count;++i) {
+                const auto& work=host.mCpuContactManagerMapping[i]->getWorkUnit();const auto input=inputs[i];
+                require(input.transformCacheRef0==work.mTransformCache0 && input.transformCacheRef1==work.mTransformCache1,"GPU narrowphase resolved the wrong persistent pair IDs");
+                const auto* a=np.mShapesMap->find(size_t(work.getShapeCore0()));
+                const auto* b=np.mShapesMap->find(size_t(work.getShapeCore1()));
+                require(a && b && input.shapeRef0==a->second.idx && input.shapeRef1==b->second.idx,"GPU narrowphase geometry differs from reference registration");
+                ++inspected;
+                if(host.mGpuInputContactManagers[i].shapeRef0==PX_INVALID_U32 && host.mGpuInputContactManagers[i].shapeRef1==PX_INVALID_U32)++deviceOnly;
+            }
+        }
+    };
+    step(f.scene);inspect();
+    const auto generated=controller.getDestructionContactInputCount();
+    require(inspected>=257,"shared-shape fixture did not create its required contact pairs");
+    require(enabled?(generated>=257 && deviceOnly>=257):(!generated && !deviceOnly),"native descriptor construction did not select the intended CPU/GPU path");
+    // Remove a sparse subset, then create replacements after deferred IDs have
+    // become reusable. Surviving GPU descriptors are compacted without a CPU
+    // geometry-ref mirror; replacements must resolve current registrations.
+    for(unsigned i=1;i<actors.size();i+=4){actors[i]->release();actors[i]=nullptr;}
+    step(f.scene);inspect();
+    for(unsigned i=1;i<actors.size();i+=4)actors[i]=add(i);
+    step(f.scene);inspect();
+    if(enabled)require(controller.getDestructionContactInputCount()>generated,"reinserted pairs missed GPU descriptor construction");
+    const auto beforeDisable=controller.getDestructionContactInputCount();
+    require(f.stage->clearStress(),"device contact path teardown failed");
+    // Switching back to ordinary PhysX preserves existing device descriptors
+    // and constructs newly created ones through the original CPU path.
+    actors[1]->release();actors[1]=nullptr;step(f.scene);actors[1]=add(1);step(f.scene);inspect();
+    require(controller.getDestructionContactInputCount()==beforeDisable,"disabled destruction still dispatched native contact construction");
+    for(auto* body:actors)body->release();plane->release();for(auto* shape:shared)shape->release();
+    require(f.context.healthy(),"GPU contact-input fixture failed");
+    std::printf("persistent GPU contact inputs enabled=%u inspected=%u generated=%llu: shared geometry, capacity growth, removal/reuse and disable transition passed\n",unsigned(enabled),inspected,(unsigned long long)beforeDisable);
+}
+
 void sparseAndGrowth(bool sleeping,unsigned count,unsigned quiet) {
     std::fprintf(stderr,"begin collision fixture: chunks=%u quiet=%u sleeping=%u\n",count,quiet,unsigned(sleeping));
     Fixture f(count,quiet,sleeping);f.configure();f.fracture();auto status=f.readStatus();
@@ -139,4 +212,4 @@ void crushRemoval() {
     require(crushed,"crush fixture did not exercise collision removal");require(f.context.healthy(),"crush collision preparation GPU failure");std::puts("native crush verdict includes every destroyed collision shape passed");
 }
 }
-int main(){try{sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{deviceContactInputs(false);deviceContactInputs(true);sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

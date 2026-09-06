@@ -87,3 +87,11 @@ averaged 73.17 ms. These are not controlled speedup measurements. A 30-second
 an 8,192-iteration ceiling completed all 1,800 steps at the same 1e-5 tolerance,
 using at most 2,340 iterations. Neither run changes the default iteration cap.
 Six focused native tests and the independent SDK build/install passed.
+
+## GPU narrowphase-input construction
+
+[Native contact inputs](GPU_CONTACT_INPUTS.md) now resolve geometry references
+from persistent GPU shape instances and omit the corresponding per-pair CPU
+preparation tasks. Actual GPU contact generation consumes these descriptors.
+Pair creation/filtering, CPU interaction records and solver scheduling remain
+unfinished device-integration work; the input upload still crosses the host.
