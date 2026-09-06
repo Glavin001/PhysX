@@ -2791,11 +2791,15 @@ namespace physx
         // Input velocities/forces are now resident. Preserve every rigid slot,
         // including ordinary participants, before the solver changes them. All
         // copies stay on the scene stream; no motion is read back to the host.
-        if(mDestruction && !mDestructionCorrecting && !mDestruction->captureRigidState(
-            mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
-            mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
-            mSimulationCore->getRigidBodyAccelerationsDevice(),nbTotalBodies,mSimulationCore->getStream()))
-            mDestructionError=1;
+        if(mDestruction && !mDestructionCorrecting)
+        {
+            PxProfileScoped checkpointProfile(PxGetProfilerCallback(),"GpuDestruction.checkpoint",false,0);
+            if(!mDestruction->captureRigidState(
+                mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),nbTotalBodies,mSimulationCore->getStream()))
+                mDestructionError=1;
+        }
 
 		//this is for kinematic bodies. Because for kinematic bodies, we still update the transform everyframe but we don't need to simulate(solve and integrate) so mHasBeenSimulated
 		//flag will be false, but we still need to reset the new bodies/shapes sim managers

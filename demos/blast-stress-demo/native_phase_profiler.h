@@ -1,5 +1,6 @@
 // Optional host-wall phase capture; never synchronizes a CUDA stream.
 #pragma once
+#include "native_gpu_activity.h"
 #include <foundation/PxFoundation.h>
 #include <foundation/PxProfiler.h>
 #include <atomic>
@@ -15,8 +16,8 @@
 namespace blast_demo {
 class NativePhaseProfiler final : public physx::PxProfilerCallback {
     using Clock=std::chrono::steady_clock;
-    struct Token {Clock::time_point start;const char* name;uint64_t context;unsigned step;bool detached;};
-    struct Row {std::string name;uint64_t context;unsigned step;bool detached;double ms;};
+    struct Token {Clock::time_point start;const char* name;uint64_t context;unsigned step;bool detached;uint64_t stamp,cpu;uint32_t tid;};
+    struct Row {std::string name;uint64_t context;unsigned step;bool detached;double ms;uint64_t start,end;uint32_t tid,endTid;double cpu;};
     struct DeviceRow {std::string name;uint64_t context;unsigned step;float ms;};
     std::ofstream mFile,mDeviceFile;
     std::vector<DeviceRow> mDeviceRows;
@@ -32,7 +33,7 @@ public:
         if(path.empty())return;
         if(PxGetProfilerCallback())throw std::runtime_error("phase capture requires an unused profiler callback");
         mFile.open(path);if(!mFile)throw std::runtime_error("cannot open phase capture");
-        mFile<<"step,phase,context,detached,host_wall_ms,accepted_step\n"<<std::setprecision(10);
+        mFile<<"step,phase,context,detached,host_wall_ms,accepted_step,start_ns,end_ns,thread,end_thread,thread_cpu_ms\n"<<std::setprecision(10);
         mDeviceFile.open(path+".device.csv");
         if(!mDeviceFile)throw std::runtime_error("cannot open CUDA stage capture");
         mDeviceFile<<"step,phase,context,cuda_elapsed_ms,accepted_step\n"<<std::setprecision(10);
@@ -44,16 +45,17 @@ public:
     void begin(unsigned step){mStep=step;}
     void* zoneStart(const char* name,bool detached,uint64_t context) override {
         if(std::strncmp(name,"GpuDestruction.",15)!=0 || mStep==~0u)return nullptr;
-        auto* token=new(std::nothrow) Token{Clock::now(),name,context,mStep.load(),detached};
+        auto* token=new(std::nothrow) Token{Clock::now(),name,context,mStep.load(),detached,nativeProfileTimestamp(),nativeThreadCpuNs(),nativeThreadId()};
         if(!token)mFailed=true;
         return token;
     }
     void zoneEnd(void* data,const char* name,bool detached,uint64_t context) override {
         if(!data)return;
         auto* token=static_cast<Token*>(data);
+        const auto end=nativeProfileTimestamp(),cpu=nativeThreadCpuNs();const auto tid=nativeThreadId();
         const double elapsed=std::chrono::duration<double,std::milli>(Clock::now()-token->start).count();
         if(token->name!=name || token->context!=context || token->detached!=detached)mFailed=true;
-        try {std::lock_guard<std::mutex> lock(mMutex);mRows.push_back({token->name,context,token->step,detached,elapsed});}
+        try {std::lock_guard<std::mutex> lock(mMutex);mRows.push_back({token->name,context,token->step,detached,elapsed,token->stamp,end,token->tid,tid,tid==token->tid?double(cpu-token->cpu)/1e6:-1.0});}
         catch(...){mFailed=true;}
         delete token;
     }
@@ -70,9 +72,9 @@ public:
 private:
     void writeRows(bool accepted) {
         std::lock_guard<std::mutex> lock(mMutex);
-        for(const auto& row:mRows)mFile<<row.step<<','<<row.name<<','<<row.context<<','<<row.detached<<','<<row.ms<<','<<accepted<<'\n';
+        for(const auto& row:mRows)mFile<<row.step<<','<<std::quoted(row.name)<<','<<row.context<<','<<row.detached<<','<<row.ms<<','<<accepted<<','<<row.start<<','<<row.end<<','<<row.tid<<','<<row.endTid<<','<<row.cpu<<'\n';
         mRows.clear();mFile.flush();
-        for(const auto& row:mDeviceRows)mDeviceFile<<row.step<<','<<row.name<<','<<row.context<<','<<row.ms<<','<<accepted<<'\n';
+        for(const auto& row:mDeviceRows)mDeviceFile<<row.step<<','<<std::quoted(row.name)<<','<<row.context<<','<<row.ms<<','<<accepted<<'\n';
         mDeviceRows.clear();mDeviceFile.flush();
     }
 };

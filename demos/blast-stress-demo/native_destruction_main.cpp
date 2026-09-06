@@ -31,9 +31,13 @@ struct Shot {PxRigidDynamic* actor;unsigned visual;};
 using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
-    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,videoPath,gpuCamera="overview";bool gpuRender=false;
+    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
-        if(flag=="--profile-phases"){require(std::string(value)=="0" || std::string(value)=="1","--profile-phases requires 0 or 1");profilePhases=std::string(value)=="1";}
+        if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
+        else if(flag=="--free-bodies")freeBodies=std::stoul(value);
+        else if(flag=="--workload")workload=value;
+        else if(flag=="--launch-seconds")launchSeconds=std::stof(value);
+        else if(flag=="--profile-phases"){require(std::string(value)=="0" || std::string(value)=="1","--profile-phases requires 0 or 1");profilePhases=std::string(value)=="1";}
         else if(flag=="--preserve-contact-pairs"){require(std::string(value)=="0" || std::string(value)=="1","--preserve-contact-pairs requires 0 or 1");preservePairs=std::string(value)=="1";}
         else if(flag=="--gpu-island-repair"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-island-repair requires 0 or 1");gpuIslandRepair=std::string(value)=="1";}
         else if(flag=="--gpu-pre-solve-islands"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-pre-solve-islands requires 0 or 1");preSolveIslands=std::string(value)=="1";}
@@ -52,6 +56,9 @@ int run(int argc,char** argv){
         else throw std::runtime_error("unknown option: "+flag);
     }
     require(grid && grid<=32 && waves && waves<=16 && stressIterations && stressIterations<=32768 && seconds>2 && seconds<=120 && !output.empty(),"use --output NEW_DIRECTORY [--grid 3 --waves 4 --seconds 30]");
+    require(workload=="idle" || workload=="single-impact" || workload=="bombardment","unknown workload");
+    require(freeBodies<=100000 && (!freeBodies || workload=="idle"),"--free-bodies supports up to 100000 separated bodies in idle workload");
+    require(launchSeconds==-1 || (std::isfinite(launchSeconds) && launchSeconds>=0),"invalid launch window");
     require(!std::filesystem::exists(output),"capture output already exists");std::filesystem::create_directories(output);
     const unsigned buildings=grid*grid,frames=unsigned(std::lround(seconds*60));const float dt=1.0f/60;
     const unsigned recordStride=60/recordFps,recordFrames=(frames+recordStride-1)/recordStride;
@@ -59,8 +66,9 @@ int run(int argc,char** argv){
     require(!recordState || !std::filesystem::exists(statePath) || std::filesystem::is_fifo(statePath),"state output already exists");
     const PxVec3 half(.48f);const float massPerChunk=1000*8*half.x*half.y*half.z;
     const float inertia=massPerChunk*(half.x*half.x+half.y*half.y)/3;
-    SceneCapacity capacity;capacity.maxBodies=buildings*512+buildings*waves;capacity.maxShapes=capacity.maxBodies;
+    SceneCapacity capacity;capacity.maxBodies=buildings*512+buildings*waves+freeBodies;capacity.maxShapes=capacity.maxBodies;
     capacity.maxContactPairs=std::max(65536u,capacity.maxShapes*16);
+    NativeGpuActivity gpuActivity(profileGpu?output:"");
     NativePhaseProfiler phaseProfiler(profilePhases?output+"/native.phases.csv":"");
     PhysXScene context(PhysicsMode::Gpu,true,capacity,nullptr,true,true,false,false);
     auto& physics=context.physics();auto& scene=context.scene();auto& cuda=*context.cudaContextManager();
@@ -96,6 +104,17 @@ int run(int argc,char** argv){
         center/=float(count);parent->setMass(massPerChunk*count);parent->setCMassLocalPose(PxTransform(center));
         scene.addActor(*parent);parents.push_back(parent);clusters.push_back({PX_INVALID_U32,center});
     }
+    // Profiling control: ordinary moving rigid bodies, separated in empty space.
+    // This changes the authored workload explicitly, never the destruction rules.
+    std::vector<PxRigidDynamic*> freeActors;
+    for(unsigned i=0;i<freeBodies;++i){
+        auto* actor=physics.createRigidDynamic(PxTransform(PxVec3(-100-float(i%320)*3,100,-100-float(i/320)*3)));
+        auto* shape=physics.createShape(PxBoxGeometry(half),context.material(),true);
+        require(actor && shape && actor->attachShape(*shape),"free body control allocation failed");shape->release();
+        actor->setMass(massPerChunk);actor->setMassSpaceInertiaTensor(PxVec3(inertia));
+        actor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY,true);actor->setLinearDamping(0);actor->setAngularDamping(0);
+        actor->setLinearVelocity(PxVec3(.1f,0,0));scene.addActor(*actor);freeActors.push_back(actor);
+    }
     scene.simulate(dt);require(scene.fetchResults(true),"native setup step failed");
     for(unsigned i=0;i<chunks.size();++i)nodes[i].contactIndex=scene.getDirectGPUAPI().getShapeContactIndex(*chunks[i].shape);
     for(unsigned i=0;i<parents.size();++i)clusters[i].body=parents[i]->getGPUIndex();
@@ -123,19 +142,21 @@ int run(int argc,char** argv){
     StateWriter writer;if(recordState)require(writer.open(statePath,recordFps,recordFrames,960,540,buildings,seconds,0,cameras),"state output failed");
     if(recordState)for(unsigned i=0;i<chunks.size();++i){VisualActor visual;visual.parameters=half;visual.part=chunks[i].building%4;require(writer.defineActor(i,visual),"chunk visual definition failed");}
     std::ofstream telemetry(output+"/native.frames.csv");
-    telemetry<<"step,simulation_seconds,physics_step_ms,stress_solve_ms,frame_host_ms,bodies,awake_bodies,splits_total,contacts_total,resim_passes,correction_status,contacts_frame,projectiles_active,bonds_broken,stress_iterations,stress_converged,observation_ms,gpu_render_submit_and_export_ms\n";
+    telemetry<<"step,simulation_seconds,physics_step_ms,stress_solve_ms,frame_host_ms,bodies,awake_bodies,splits_total,contacts_total,resim_passes,correction_status,contacts_frame,projectiles_active,bonds_broken,stress_iterations,stress_converged,observation_ms,gpu_render_submit_and_export_ms,logical_clusters,native_dynamic_bodies,native_kinematic_bodies,active_dynamic_bodies,active_kinematic_bodies,contact_pairs,contact_pairs_with_contacts,solver_rows,stress_active_nodes,stress_active_bonds,stress_islands,graph_d2h_bytes,pre_solve_pairs,simulation_start_ns,simulation_end_ns,process_cpu_ms\n";
     std::vector<Shot> shots;std::vector<PxU32> shotIds;std::vector<PxTransform> shotPoses;std::vector<VisualPose> poses;
     CUdeviceptr deviceIds=0,devicePoses=0;CUevent observationIdsReady=nullptr;
     if(observePoses){PxScopedCudaLock lock(cuda);check(cuEventCreate(&observationIdsReady,CU_EVENT_DISABLE_TIMING));check(cuMemAlloc(&deviceIds,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxU32)));check(cuMemAlloc(&devicePoses,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxTransform)));}
     unsigned launched=0,totalCorrections=0,totalBroken=0,peakClusters=buildings;unsigned long long totalContacts=0;
     std::vector<double> times;double maxStep=0,sumStep=0,sumRender=0,maxRender=0;unsigned deadlines=0;
-    const float launchWindow=std::max(1.0f,seconds-5);
+    const float launchWindow=launchSeconds>=0?launchSeconds:std::max(1.0f,seconds-5);
+    const unsigned plannedShots=workload=="idle"?0:workload=="single-impact"?1:buildings*waves;
+    uint64_t previousGraphBytes=0,previousPairs=0;
     float observedChunkTop=12.5f,maxMotionError=0;
     std::ofstream launches(output+"/native.launches.csv");
     launches<<"projectile,step,target_building,x,y,z,vx,vy,vz,chunk_ceiling\n";
     for(unsigned frame=0;frame<frames;++frame){
         const auto tick=Clock::now();const float time=frame*dt;
-        while(launched<buildings*waves && time>=launchWindow*float(launched)/float(buildings*waves)){
+        while(launched<plannedShots && time>=launchWindow*float(launched)/float(plannedShots)){
             const unsigned building=launched%buildings,wave=launched/buildings;const auto origin=origins[building];
             auto launch=nativeBombardmentLaunch(origin,wave,12.5f);
             // Explicit gameplay observation: CUDA checks committed chunks and
@@ -157,7 +178,9 @@ int run(int argc,char** argv){
             if(recordState)require(writer.defineActor(visualId,visual),"projectile visual definition failed");shots.push_back({shot,visualId});gpuConsumer.addProjectile(shot->getGPUIndex(),PxTransform(launch.position));++launched;
         }
         phaseProfiler.begin(frame);
+        const auto startNs=nativeProfileTimestamp(),startCpu=nativeProcessCpuNs();
         const auto begin=Clock::now();scene.simulate(dt);PxU32 error=0;const bool complete=scene.fetchResults(true,&error);const double simulationMs=ms(begin);
+        const auto endNs=nativeProfileTimestamp(),endCpu=nativeProcessCpuNs();
         if(auditIslands)requireNativeGraphAudit(scene,output+"/native.graph-diagnostics.json");
         const auto status=destruction->getLastStatus();
         if(!complete || error || status.error){std::fprintf(stderr,"INCOMPLETE native step %u: fetch=%u stage=%u broken=%u crushed=%u\n",frame,error,status.error,status.brokenBonds,status.crushedChunks);throw std::runtime_error("native demo correction incomplete");}
@@ -166,9 +189,10 @@ int run(int argc,char** argv){
         require(status.brokenBonds==0 || totalContacts+status.normalContacts>0,"authored building fractured before any actual impact");
         phaseProfiler.acceptedFrame();
         totalCorrections+=status.correctionPasses;totalBroken+=status.brokenBonds;totalContacts+=status.normalContacts;
-        const auto observation=Clock::now();const auto view=destruction->getDeviceView();PxDestructionTopologyStatus topology{};
+        const auto observation=Clock::now();const auto view=destruction->getDeviceView();PxDestructionTopologyStatus topology{};PxDestructionStressTopologyStatus stressTopology{};
         std::vector<PxU32> membership,slots;std::vector<PxDestructionClusterMotion> motions;
         {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.readyEvent));check(cuMemcpyDtoH(&topology,CUdeviceptr(view.acceptedTopology.status),sizeof(topology)));
+        check(cuMemcpyDtoH(&stressTopology,CUdeviceptr(view.stressTopology),sizeof(stressTopology)));
         }
         require(!topology.slotError,"incomplete GPU cluster slot allocation");
         gpuConsumer.update(scene.getDirectGPUAPI());
@@ -212,20 +236,26 @@ int run(int argc,char** argv){
         }
         if(recordState && frame%recordStride==0)require(writer.writeFrame(frame/recordStride,poses),"committed state capture failed");const double observationMs=ms(observation);
         peakClusters=std::max(peakClusters,topology.clusterCount);maxStep=std::max(maxStep,simulationMs);sumStep+=simulationMs;times.push_back(simulationMs);if(simulationMs>1000.0/60)++deadlines;
+        PxSimulationStatistics counts;scene.getSimulationStatistics(counts);
+        const auto graphStats=static_cast<PxgDestructionRuntime*>(destruction)->getContactGraphObservationStats();
+        const auto pairs=static_cast<PxgGpuContext*>(static_cast<NpScene&>(scene).getScScene().getDynamicsContext())->getCudaPreSolveContactPairs();
         // Stress time is included in physics_step_ms, not separately instrumented.
         // The recording uses the compact HUD, which only displays total times.
-        telemetry<<frame<<','<<(frame+1)*dt<<','<<simulationMs<<",0,"<<ms(tick)<<','<<topology.clusterCount+shots.size()<<','<<topology.clusterCount+shots.size()<<','<<topology.clusterCount-buildings<<','<<totalContacts<<','<<status.correctionPasses<<",0,"<<status.normalContacts<<','<<shots.size()<<','<<status.brokenBonds<<','<<status.iterations<<','<<status.converged<<','<<observationMs<<','<<renderMs<<'\n';
+        telemetry<<frame<<','<<(frame+1)*dt<<','<<simulationMs<<",0,"<<ms(tick)<<','<<counts.nbDynamicBodies+counts.nbKinematicBodies<<','<<counts.nbActiveDynamicBodies+counts.nbActiveKinematicBodies<<','<<topology.clusterCount-buildings<<','<<totalContacts<<','<<status.correctionPasses<<",0,"<<status.normalContacts<<','<<shots.size()<<','<<status.brokenBonds<<','<<status.iterations<<','<<status.converged<<','<<observationMs<<','<<renderMs<<','<<topology.clusterCount<<','<<counts.nbDynamicBodies<<','<<counts.nbKinematicBodies<<','<<counts.nbActiveDynamicBodies<<','<<counts.nbActiveKinematicBodies<<','<<counts.nbDiscreteContactPairsTotal<<','<<counts.nbDiscreteContactPairsWithContacts<<','<<counts.nbAxisSolverConstraints<<','<<stressTopology.activeNodeCount<<','<<stressTopology.activeBondCount<<','<<stressTopology.islandCount<<','<<graphStats.deviceToHostBytes-previousGraphBytes<<','<<pairs-previousPairs<<','<<startNs<<','<<endNs<<','<<double(endCpu-startCpu)/1e6<<'\n';
+        previousGraphBytes=graphStats.deviceToHostBytes;previousPairs=pairs;
         if(frame%60==0){std::printf("native t=%.1f chunks=%zu bonds=%zu clusters=%u shots=%zu broken=%u corrections=%u step=%.2fms\n",time,chunks.size(),bonds.size(),topology.clusterCount,shots.size(),totalBroken,totalCorrections,simulationMs);std::fflush(stdout);}
     }
-    require(totalCorrections && totalBroken && peakClusters>buildings,"native bombardment did not demonstrate destruction");if(recordState)require(writer.finish(),"state stream finalization failed");
+    if(workload=="idle")require(!totalCorrections && !totalBroken && peakClusters==buildings,"idle scene unexpectedly fractured");
+    else require(totalCorrections && totalBroken && peakClusters>buildings,"native bombardment did not demonstrate destruction");if(recordState)require(writer.finish(),"state stream finalization failed");
     gpuConsumer.finishVideo();
+    gpuActivity.finish();
     std::sort(times.begin(),times.end());auto percentile=[&](double p){return times[std::min(times.size()-1,size_t(p*times.size()))];};
     if(observePoses){PxScopedCudaLock lock(cuda);check(cuEventDestroy(observationIdsReady));check(cuMemFree(deviceIds));check(cuMemFree(devicePoses));}
     writeNativeGraphDiagnostics(scene,output+"/native.graph-diagnostics.json");
-    require(destruction->clearStress(),"native fragment cleanup failed");for(auto* parent:parents)parent->release();for(auto& shot:shots)shot.actor->release();for(auto& chunk:chunks)chunk.shape->release();
+    require(destruction->clearStress(),"native fragment cleanup failed");for(auto* parent:parents)parent->release();for(auto& shot:shots)shot.actor->release();for(auto& chunk:chunks)chunk.shape->release();for(auto* actor:freeActors)actor->release();
     require(context.healthy(),"native demo GPU health failed");
     std::ofstream manifest(output+"/native.summary.json");
-    manifest<<"{\n  \"physics_ms_min\": "<<times.front()<<",\n  \"physics_ms_mean\": "<<sumStep/frames<<",\n  \"simulation_realtime_fraction\": "<<seconds*1000/sumStep<<",\n  \"gpu_render_submit_and_export_ms_mean\": "<<(gpuConsumer.renderedFrames()?sumRender/gpuConsumer.renderedFrames():0)<<",\n  \"gpu_render_submit_and_export_ms_max\": "<<maxRender<<",\n  \"topology_stats_readback_bytes\": "<<frames*sizeof(PxDestructionTopologyStatus)<<",\n  \"gpu_rendered_frames\": "<<gpuConsumer.renderedFrames()<<",\n  \"gpu_renderer\": \""<<gpuConsumer.rendererName()<<"\",\n  \"consumer_pose_readback_bytes\": "<<poseReadbackBytes<<",\n  \"consumer_query_readback_bytes\": "<<gpuConsumer.queryReadbackBytes()<<",\n  \"export_pixel_readback_bytes\": "<<gpuConsumer.pixelReadbackBytes()<<",\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \"gpu-clear-aerial-ballistic-v3\",\n  \"island_boundary_audit_enabled\": "<<(auditIslands?"true":"false")<<",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"gpu_island_repair\": "<<(gpuIslandRepair?"true":"false")<<",\n  \"gpu_pre_solve_islands\": "<<(preSolveIslands?"true":"false")<<",\n  \"gpu_pre_solve_support\": "<<(preSolveSupport?"true":"false")<<",\n  \"gpu_pre_solve_contacts\": "<<(preSolveContacts?"true":"false")<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
+    manifest<<"{\n  \"workload\": \""<<workload<<"\",\n  \"profile_gpu\": "<<(profileGpu?"true":"false")<<",\n  \"free_bodies\": "<<freeBodies<<",\n  \"launch_seconds\": "<<launchWindow<<",\n  \"physics_ms_min\": "<<times.front()<<",\n  \"physics_ms_mean\": "<<sumStep/frames<<",\n  \"simulation_realtime_fraction\": "<<seconds*1000/sumStep<<",\n  \"gpu_render_submit_and_export_ms_mean\": "<<(gpuConsumer.renderedFrames()?sumRender/gpuConsumer.renderedFrames():0)<<",\n  \"gpu_render_submit_and_export_ms_max\": "<<maxRender<<",\n  \"stress_stats_readback_bytes\": "<<frames*sizeof(PxDestructionStressTopologyStatus)<<",\n  \"topology_stats_readback_bytes\": "<<frames*sizeof(PxDestructionTopologyStatus)<<",\n  \"gpu_rendered_frames\": "<<gpuConsumer.renderedFrames()<<",\n  \"gpu_renderer\": \""<<gpuConsumer.rendererName()<<"\",\n  \"consumer_pose_readback_bytes\": "<<poseReadbackBytes<<",\n  \"consumer_query_readback_bytes\": "<<gpuConsumer.queryReadbackBytes()<<",\n  \"export_pixel_readback_bytes\": "<<gpuConsumer.pixelReadbackBytes()<<",\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \"gpu-clear-aerial-ballistic-v3\",\n  \"island_boundary_audit_enabled\": "<<(auditIslands?"true":"false")<<",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"gpu_island_repair\": "<<(gpuIslandRepair?"true":"false")<<",\n  \"gpu_pre_solve_islands\": "<<(preSolveIslands?"true":"false")<<",\n  \"gpu_pre_solve_support\": "<<(preSolveSupport?"true":"false")<<",\n  \"gpu_pre_solve_contacts\": "<<(preSolveContacts?"true":"false")<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
     return 0;
 }
 }

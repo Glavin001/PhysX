@@ -494,6 +494,7 @@ public:
 	virtual void runInternal() PX_OVERRIDE
 	{
 		PX_PROFILE_ZONE("Sim.narrowPhase", mContext->getContextId());
+        PxProfileScoped nativeProfile(PxGetProfilerCallback(),"GpuDestruction.task.cpuNarrowPhase",false,mContext->getContextId());
 
 		PxcNpThreadContext* PX_RESTRICT threadContext = mContext->getNpThreadContext(); 
 	
