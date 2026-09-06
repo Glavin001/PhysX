@@ -1,0 +1,143 @@
+CASE normal-nested exit=0 completedIterations=256
+mode=nested reuse=0 iteration=254 passed
+mode=nested reuse=0 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+
+CASE normal-while exit=0 completedIterations=256
+mode=while reuse=0 iteration=254 passed
+mode=while reuse=0 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+
+CASE 2025-direct exit=0 completedIterations=256
+mode=direct reuse=0 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+========= ERROR SUMMARY: 0 errors
+
+CASE 2025-graph exit=0 completedIterations=256
+mode=graph reuse=0 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+========= ERROR SUMMARY: 0 errors
+
+CASE 2025-if exit=0 completedIterations=256
+mode=if reuse=0 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+========= ERROR SUMMARY: 0 errors
+
+CASE 2025-nested exit=99 completedIterations=33
+========= Invalid __global__ write of size 4 bytes
+=========     at writeValue(unsigned int *, bool)+0xb0 in main.cu:34
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x7ebf7b800000 is out of bounds
+=========     and is inside the nearest allocation at 0x7ebf7b800000 of size 4 bytes
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x79005] in cuda_graph_contexts
+=========         Host Frame: run(char const*, bool) [0xa098] in cuda_graph_contexts
+=========         Host Frame: main [0x9611] in cuda_graph_contexts
+=========
+valid output was not written
+========= Target application returned an error
+========= ERROR SUMMARY: 1 error
+
+CASE 2025-while exit=99 completedIterations=0
+========= Program hit cudaErrorIllegalAddress (error 700) due to "an illegal memory access was encountered" on CUDA API call to cudaStreamSynchronize.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: run(char const*, bool) [0xa0aa] in cuda_graph_contexts
+=========         Host Frame: main [0x9611] in cuda_graph_contexts
+=========
+cudaStreamSynchronize(stream): an illegal memory access was encountered (700)
+CUDA runtime operation failed
+========= Target application returned an error
+========= ERROR SUMMARY: 1 error
+
+CASE 2025-nested-reused exit=0 completedIterations=256
+mode=nested reuse=1 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+========= ERROR SUMMARY: 0 errors
+
+CASE 2025-intentional-fault exit=99 completedIterations=0
+========= Invalid __global__ write of size 4 bytes
+=========     at writeValue(unsigned int *, bool)+0xb0 in main.cu:34
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x75364b801000 is out of bounds
+=========     and is 4093 bytes after the nearest allocation at 0x75364b800000 of size 4 bytes
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x79005] in cuda_graph_contexts
+=========         Host Frame: run(char const*, bool) [0xa098] in cuda_graph_contexts
+=========         Host Frame: main [0x9611] in cuda_graph_contexts
+=========
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaStreamSynchronize.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: run(char const*, bool) [0xa0aa] in cuda_graph_contexts
+=========         Host Frame: main [0x9611] in cuda_graph_contexts
+=========
+cudaStreamSynchronize(stream): unspecified launch failure (719)
+CUDA runtime operation failed
+========= Target application returned an error
+========= ERROR SUMMARY: 2 errors
+
+CASE 2026-direct exit=0 completedIterations=256
+mode=direct reuse=0 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+========= ERROR SUMMARY: 0 errors
+
+CASE 2026-graph exit=0 completedIterations=256
+mode=graph reuse=0 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+========= ERROR SUMMARY: 0 errors
+
+CASE 2026-if exit=0 completedIterations=256
+mode=if reuse=0 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+========= ERROR SUMMARY: 0 errors
+
+CASE 2026-nested exit=99 completedIterations=32
+========= Invalid __global__ write of size 4 bytes
+=========     at writeValue(unsigned int *, bool)+0xb0 in main.cu:34
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Access to 0x7ba0a0400000 is out of bounds
+=========     and is inside the nearest allocation at 0x7ba0a0400000 of size 4 bytes
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x79005] in cuda_graph_contexts
+=========         Host Frame: run(char const*, bool) [0xa098] in cuda_graph_contexts
+=========         Host Frame: main [0x9611] in cuda_graph_contexts
+=========
+valid output was not written
+========= Target application returned an error
+========= ERROR SUMMARY: 1 error
+
+CASE 2026-while exit=99 completedIterations=0
+========= Program hit cudaErrorIllegalAddress (error 700) due to "an illegal memory access was encountered" on CUDA API call to cudaStreamSynchronize.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: run(char const*, bool) [0xa0aa] in cuda_graph_contexts
+=========         Host Frame: main [0x9611] in cuda_graph_contexts
+=========
+cudaStreamSynchronize(stream): an illegal memory access was encountered (700)
+CUDA runtime operation failed
+========= Target application returned an error
+========= ERROR SUMMARY: 1 error
+
+CASE 2026-nested-reused exit=0 completedIterations=256
+mode=nested reuse=1 iteration=255 passed
+PASS: 256 iterations, 768 checked writes
+========= ERROR SUMMARY: 0 errors
+
+CASE 2026-intentional-fault exit=99 completedIterations=0
+========= Invalid __global__ write of size 4 bytes
+=========     at writeValue(unsigned int *, bool)+0xb0 in main.cu:34
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Access to 0x7abda2401000 is out of bounds
+=========     and is 4093 bytes after the nearest allocation at 0x7abda2400000 of size 4 bytes
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x79005] in cuda_graph_contexts
+=========         Host Frame: run(char const*, bool) [0xa098] in cuda_graph_contexts
+=========         Host Frame: main [0x9611] in cuda_graph_contexts
+=========
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaStreamSynchronize.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: run(char const*, bool) [0xa0aa] in cuda_graph_contexts
+=========         Host Frame: main [0x9611] in cuda_graph_contexts
+=========
+cudaStreamSynchronize(stream): unspecified launch failure (719)
+CUDA runtime operation failed
+========= Target application returned an error
+========= ERROR SUMMARY: 2 errors

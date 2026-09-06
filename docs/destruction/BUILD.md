@@ -46,6 +46,11 @@ ctest --test-dir out/destruction-sdk --output-on-failure
 Current failures are recorded in `IMPLEMENTATION.md`; adding `--test` to the
 build command propagates their nonzero exit status. Nothing masks known failures.
 
+A standalone CUDA conditional-graph/context diagnostic isolates the current
+memory-checking failure without linking PhysX or Blast. Its separate build and
+control commands are in [CUDA_GRAPH_DIAGNOSTIC.md](CUDA_GRAPH_DIAGNOSTIC.md). It
+does not replace native memory qualification.
+
 The Rust CPU/Rapier interface continues to build without a PhysX/CUDA SDK:
 
 ```sh

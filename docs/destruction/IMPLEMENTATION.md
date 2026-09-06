@@ -30,8 +30,11 @@ The standalone reference demo and recording workflow are documented in
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
 suite is 53/58 passing (the same four earlier failures plus that single-resim gap). A repeated
 correction-body memory check now reports a stress-path CUDA address failure;
-the independently rebuilt previous revision reproduces it. The new collision
-memory checks pass, but full native memory qualification remains open; see
+the independently rebuilt previous revision reproduces it. A standalone CUDA
+conditional-graph diagnostic now reproduces memory-checking failures without
+PhysX or Blast; see [CUDA_GRAPH_DIAGNOSTIC.md](CUDA_GRAPH_DIAGNOSTIC.md). This does
+not clear the native failure. The new collision memory checks pass, but full
+native memory qualification remains open; see
 [NATIVE_GPU_REBOUND_BOUNDS.md](NATIVE_GPU_REBOUND_BOUNDS.md). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
