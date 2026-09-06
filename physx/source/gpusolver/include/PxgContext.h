@@ -334,9 +334,14 @@ namespace physx
 
         IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
 
-        void enableCudaPreSolveIslands(bool enabled) { if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled,!mCudaPreSolveContacts); }
+        void enableCudaPreSolveIslands(bool enabled) { if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled,!mCudaPreSolveContacts,!(mCudaPreSolveSupport && mCudaPreSolveContacts)); }
         void enableCudaPreSolveContacts(bool enabled) { if(enabled!=mCudaPreSolveContacts)mPreForceNodeSnapshot=true;mCudaPreSolveContacts=enabled;
-            mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!enabled); }
+            mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!enabled,!(mCudaPreSolveSupport && enabled)); }
+        void enableCudaPreSolveSupport(bool enabled) { if(enabled!=mCudaPreSolveSupport)mPreForceNodeSnapshot=true;mCudaPreSolveSupport=enabled;
+            mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!mCudaPreSolveContacts,!(enabled && mCudaPreSolveContacts)); }
+        bool preSolveNodesUseNativeSupport() const { return mPreSolveNodesUseNativeSupport; }
+        CUdeviceptr getPreSolveSupportDevicePointer() const { return mPreSolveSupportDevicePointer; }
+        PxU64 getCudaPreSolveSupportPasses() const { return mCudaPreSolveSupportPasses; }
         PxU64 getCudaPreSolveContactPasses() const { return mCudaPreSolveContactPasses; }
         PxU64 getCudaPreSolveContactPairs() const { return mCudaPreSolveContactPairs; }
         PxU64 getCudaPreSolveRetiredBytes() const { return mCudaPreSolveRetiredBytes; }
@@ -572,7 +577,9 @@ namespace physx
         Cm::PinnableArray<PxvPreSolveNodeUpdate> mPreSolveNodes;
         Cm::PinnableArray<PxvPreSolveEdge> mPreSolveMerges;
         Cm::PinnableArray<PxU32> mPreSolveRetired;
-        bool mCudaPreSolveContacts=false;
+        bool mCudaPreSolveContacts=false,mCudaPreSolveSupport=false,mPreSolveNodesUseNativeSupport=true;
+        CUdeviceptr mPreSolveSupportDevicePointer=0;
+        PxU64 mCudaPreSolveSupportPasses=0;
         PxU64 mCudaPreSolveContactPasses=0,mCudaPreSolveContactPairs=0,mCudaPreSolveRetiredBytes=0;
         bool mPreSolveSleepingDisabled;
         bool mCudaPreSolveIslands=false,mPreForceNodeSnapshot=true;

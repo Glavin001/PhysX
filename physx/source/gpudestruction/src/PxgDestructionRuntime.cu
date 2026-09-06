@@ -455,7 +455,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxgDestructionContactGraphStatus* mPreContactStatus{};
     bool mPreRosterValid=false;
     PxvPreSolveEdge* mPreMerges{};
-    PxU32 *mPreParents{},*mPreLabels{},*mPreTouches{};
+    PxU32 *mPreParents{},*mPreLabels{},*mPreTouches{},*mPreSupport{};
     PxU32 mPreCapacity{},mPrePreviousCount{},mPreMergeCapacity{},mPreParentCapacity{};
     cudaEvent_t mPreReady{};
     PxU64 mPreSourceGraphGeneration{};
@@ -501,6 +501,7 @@ public:
     }
     bool canBuildPreSolveIslands() const override { return mBodyAllocator && mBodyAllocator->supportsGpuIslandRepair(); }
     const PxvPreSolveNode* preSolveNodeView() const override { return mPreNodes; }
+    const PxU32* preSolveSupportView() const override { return mPreSupport; }
     bool preSolveNodeSnapshotRequired(PxU32 count) const override { return !mPreRosterValid || count>mPreCapacity; }
     bool buildPreSolveIslands(const PxvPreSolveNodeUpdate* updates,PxU32 updateCount,PxU32 count,bool fullSnapshot,
         const PxvPreSolveEdge* merges,PxU32 mergeCount,CUstream stream,
@@ -530,6 +531,7 @@ public:
                 cudaFree(mPrePrevious);mPrePrevious=nullptr;allocate(mPrePrevious,capacity);
                 cudaFree(mPreLabels);mPreLabels=nullptr;allocate(mPreLabels,capacity);
                 cudaFree(mPreTouches);mPreTouches=nullptr;allocate(mPreTouches,capacity);
+                cudaFree(mPreSupport);mPreSupport=nullptr;allocate(mPreSupport,capacity);
                 mPreCapacity=capacity;usable=false; // Explicit native fallback initializes new storage.
             }
             if(updateCount>mPreUpdateCapacity) {
@@ -569,12 +571,17 @@ public:
                 check(cudaMemcpyAsync(mPreUpdates,updates,size_t(updateCount)*sizeof(*updates),cudaMemcpyHostToDevice,cudaStream));
                 destructionPreSolve::updateNodes<<<(updateCount+127)/128,128,0,cudaStream>>>(mPreUpdates,updateCount,mPreNodes,count);
             }
+            const bool deriveSupport=contacts && contacts->deriveStaticSupport;
             if(usable && count) {
+                if(deriveSupport)check(cudaMemsetAsync(mPreSupport,0,size_t(count)*sizeof(PxU32),cudaStream));
                 if(mergeCount)check(cudaMemcpyAsync(mPreMerges,merges,size_t(mergeCount)*sizeof(*merges),cudaMemcpyHostToDevice,cudaStream));
                 destructionPreSolve::initialize<<<(parentCount+127)/128,128,0,cudaStream>>>(mPreParents,PxU32(parentCount),mPreTouches,count);
                 destructionPreSolve::seed<<<(count+127)/128,128,0,cudaStream>>>(mPreNodes,count,mPrePrevious,mPrePreviousCount,
                     mGraphView.accurateLabels,mGraphView.nodeCapacity,mPreParents,&mGraphView.status->error);
-                if(mergeCount)destructionPreSolve::connect<<<(mergeCount+127)/128,128,0,cudaStream>>>(mPreMerges,mergeCount,mPreNodes,count,mPreParents);
+                if(mergeCount) {
+                    if(deriveSupport)destructionPreSolve::connectSupportBridges<<<(mergeCount+127)/128,128,0,cudaStream>>>(mPreMerges,mergeCount,mPreNodes,count,mPreParents,mPreSupport);
+                    else destructionPreSolve::connect<<<(mergeCount+127)/128,128,0,cudaStream>>>(mPreMerges,mergeCount,mPreNodes,count,mPreParents);
+                }
                 if(contacts) {
                     check(cudaMemsetAsync(mPreContactStatus,0,sizeof(*mPreContactStatus),cudaStream));
                     if(contacts->retiredCount) {
@@ -583,10 +590,10 @@ public:
                         destructionContactGraph::retire<<<(contacts->retiredCount+127)/128,128,0,cudaStream>>>(mPreRetired,contacts->retiredCount,contacts->pairCount,mPreRetiredMask,mPreContactStatus);
                     }
                     if(contacts->pairCount)destructionPreSolve::connectContacts<<<(contacts->pairCount+127)/128,128,0,cudaStream>>>(*contacts,
-                        contacts->retiredCount?mPreRetiredMask:nullptr,mPreNodes,count,mPreParents,mPreContactStatus);
+                        contacts->retiredCount?mPreRetiredMask:nullptr,mPreNodes,count,mPreParents,mPreContactStatus,deriveSupport?mPreSupport:nullptr);
                     destructionPreSolve::requireValidContacts<<<1,1,0,cudaStream>>>(mPreContactStatus);
                 }
-                destructionPreSolve::finish<<<(count+127)/128,128,0,cudaStream>>>(mPreNodes,count,mPreParents,mPreLabels,mPreTouches);
+                destructionPreSolve::finish<<<(count+127)/128,128,0,cudaStream>>>(mPreNodes,count,mPreParents,mPreLabels,mPreTouches,deriveSupport?mPreSupport:nullptr);
                 labels=mPreLabels;staticTouches=mPreTouches;
             }
             if(count)check(cudaMemcpyAsync(mPrePrevious,mPreNodes,size_t(count)*sizeof(PxvPreSolveNode),cudaMemcpyDeviceToDevice,cudaStream));
@@ -792,7 +799,7 @@ public:
         cudaFree(mPreRetired);mPreRetired=nullptr;cudaFree(mPreRetiredMask);mPreRetiredMask=nullptr;
         cudaFree(mPreContactStatus);mPreContactStatus=nullptr;mPreRetiredCapacity=mPrePairCapacity=0;
         cudaFree(mPreMerges);mPreMerges=nullptr;cudaFree(mPreParents);mPreParents=nullptr;
-        cudaFree(mPreLabels);mPreLabels=nullptr;cudaFree(mPreTouches);mPreTouches=nullptr;
+        cudaFree(mPreLabels);mPreLabels=nullptr;cudaFree(mPreTouches);mPreTouches=nullptr;cudaFree(mPreSupport);mPreSupport=nullptr;
         mPreCapacity=mPrePreviousCount=mPreMergeCapacity=mPreParentCapacity=0;mPreSourceGraphGeneration=0;
         cudaEventSynchronize(mReady); // also orders private installation on the scene stream
         if(mGraphView.generation)cudaEventSynchronize(mGraphReady);

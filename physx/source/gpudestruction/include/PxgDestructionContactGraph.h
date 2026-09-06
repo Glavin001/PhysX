@@ -29,6 +29,7 @@ struct PxgDestructionPreSolveContacts {
     const PxgShapeSim* shapes=NULL;
     const PxU32* retired=NULL;
     PxU32 pairCount=0,shapeCapacity=0,retiredCount=0;
+    bool deriveStaticSupport=false;
 };
 struct PxgDestructionContactGraphObservationStats {
     // Lifetime counters; status bytes count even if incomplete input falls back.

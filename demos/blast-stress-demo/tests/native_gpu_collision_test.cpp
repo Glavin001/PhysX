@@ -110,11 +110,11 @@ struct Fixture {
 };
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
-void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,bool contacts=false) {
+void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,bool contacts=false,bool support=false) {
     Fixture f(1,1024,sleeping,solver);f.scene.setGravity(PxVec3(0));
     f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(f.scene).getScScene().getDynamicsContext());
-    gpu.captureSolverIslandMetadata(true);gpu.enableCudaPreSolveContacts(contacts);gpu.enableCudaPreSolveIslands(producer);
+    gpu.captureSolverIslandMetadata(true);gpu.enableCudaPreSolveSupport(support);gpu.enableCudaPreSolveContacts(contacts);gpu.enableCudaPreSolveIslands(producer);
     unsigned comparisons=0;bool previousGpu=false;
     const auto verify=[&](){
         const auto before=gpu.getSolverIslandMetadataStats();
@@ -143,7 +143,8 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,
             check(cuMemcpyDtoH(actualTouches.data(),dTouches,actualTouches.size()*sizeof(PxU32)));}
         if(!active)require(std::equal(actualIds.begin(),actualIds.end(),ids.begin()),"resident node-to-island metadata differs from native pre-solve snapshot");
         if(!active)require(std::equal(actualTouches.begin(),actualTouches.end(),touches.begin()),"resident static-touch metadata differs from native pre-solve snapshot");
-        nativePreSolveTest::verify(gpu,f.cuda);previousGpu=active;++comparisons;
+        try {nativePreSolveTest::verify(gpu,f.cuda);}catch(const std::exception& e){throw std::runtime_error("metadata comparison "+std::to_string(comparisons)+": "+e.what());}
+        previousGpu=active;++comparisons;
     };
     const auto add=[&](float x){
         auto* body=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(x,80,0)),PxSphereGeometry(.6f),f.context.material(),1);
@@ -173,10 +174,20 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,
         reject({{0,0,{1,0,0}}},true); // incomplete full snapshot
         verify(); // malformed host transactions leave the next ordinary step usable
     }
+    const auto beforeSupportUpdates=gpu.getCudaPreSolveNodeUpdates();
     auto* floor=PxCreateStatic(f.context.physics(),PxTransform(PxVec3(4500,79,0)),PxBoxGeometry(3,.5f,3),f.context.material());
     require(floor,"metadata support creation failed");f.scene.addActor(*floor);verify();verify();
+    if(support && !sleeping)require(gpu.getCudaPreSolveNodeUpdates()==beforeSupportUpdates,"GPU support change still uploaded native per-node support values");
     const auto& touches=gpu.getExpectedSolverStaticTouches();
     require(std::any_of(touches.begin(),touches.end(),[](PxU32 n){return n>0;}),"metadata fixture never exercises static support");
+    if(support && !sleeping) {
+        floor->setGlobalPose(PxTransform(PxVec3(4550,79,0)));verify();verify();
+        floor->setGlobalPose(PxTransform(PxVec3(4500,79,0)));verify();verify();
+        a->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);verify();verify();
+        a->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,false);verify();verify();
+        gpu.enableCudaPreSolveSupport(false);verify();verify();
+        gpu.enableCudaPreSolveSupport(true);verify();verify();
+    }
     floor->release();verify();verify();
     b->release();verify();verify();b=add(4501);verify();verify();
     a->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);verify();verify();
@@ -187,6 +198,7 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,
         require(gpu.getCudaPreSolvePasses()==before,"speculative CCD bypassed native pre-solve fallback");
         a->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD,false);verify();verify();
     }
+    if(support && !sleeping)require(gpu.getCudaPreSolveSupportPasses()>8,"fixture did not consume GPU support counts");
     if(contacts && !sleeping)require(gpu.getCudaPreSolveContactPasses()>8 && gpu.getCudaPreSolveContactPairs()>0,"fixture did not consume device pre-solve contacts");
     const auto sparse=gpu.getSolverIslandMetadataStats();
     if(!producer || sleeping)require(sparse.pageUploads>quietAfter.pageUploads,"contact lifecycle never exercised sparse solver metadata uploads");
@@ -627,6 +639,7 @@ int main(int argc,char** argv){try{
         if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();return 0;}
         if(mode=="--reference"){deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}
         if(std::strcmp(argv[1],"--pre-solve-contacts")==0){solverMetadata(PxSolverType::ePGS,false,true,true);solverMetadata(PxSolverType::eTGS,false,true,true);solverMetadata(PxSolverType::eTGS,true,true,true);return 0;}
+        if(std::strcmp(argv[1],"--pre-solve-support")==0){solverMetadata(PxSolverType::ePGS,false,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true);return 0;}
         throw std::runtime_error("unknown collision test mode");
     }
     require(argc==1,"collision test accepts at most one mode");deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

@@ -44,21 +44,38 @@ __global__ void connect(const PxvPreSolveEdge* edges,PxU32 count,const PxvPreSol
 // New touching GPU pairs merge the phase-preserved components. Static and
 // kinematic boundaries cannot connect independent dynamic components.
 __global__ void connectContacts(PxgDestructionPreSolveContacts view,const PxU32* retired,
-    const PxvPreSolveNode* nodes,PxU32 size,PxU32* parents,PxgDestructionContactGraphStatus* status) {
+    const PxvPreSolveNode* nodes,PxU32 size,PxU32* parents,PxgDestructionContactGraphStatus* status,PxU32* support=nullptr) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=view.pairCount)return;
     const auto edge=destructionContactGraph::decodeAt(i,view.inputs,view.identities,view.outputs,
         view.shapes,view.shapeCapacity,size,status,retired);
+    if(support && !(edge.flags&(PxgDestructionContactFlags::eRETIRED|PxgDestructionContactFlags::eDISABLE_RESPONSE|PxgDestructionContactFlags::eKINEMATIC_PAIR))
+        && (edge.touching || view.outputs[i].prevPatches)) {
+        // Count inserted static edges, not points or patches. Lost touch is
+        // removed later in the native task graph, so its prior patch remains
+        // evidence for this provisional phase only.
+        const PxU32 node=edge.node0==PX_INVALID_NODE?edge.node1:(edge.node1==PX_INVALID_NODE?edge.node0:PX_INVALID_NODE);
+        if(node<size && nodes[node].live)atomicAdd(support+node,1u);
+    }
     if(!edge.touching || (edge.flags&(PxgDestructionContactFlags::eRETIRED|PxgDestructionContactFlags::eDISABLE_RESPONSE|PxgDestructionContactFlags::eKINEMATIC_PAIR)))return;
     if(edge.node0<size && edge.node1<size && nodes[edge.node0].live && nodes[edge.node1].live)
         join(parents,edge.node0,edge.node1);
 }
+__global__ void connectSupportBridges(const PxvPreSolveEdge* edges,PxU32 count,const PxvPreSolveNode* nodes,PxU32 size,PxU32* parents,PxU32* support) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;const auto e=edges[i];
+    if((e.a!=PX_INVALID_NODE && e.a>=size) || (e.b!=PX_INVALID_NODE && e.b>=size)){__trap();return;}
+    if(e.a==PX_INVALID_NODE || e.b==PX_INVALID_NODE) {
+        const PxU32 node=e.a==PX_INVALID_NODE?e.b:e.a;
+        if(node<size && nodes[node].live)atomicAdd(support+node,1u);
+    } else if(nodes[e.a].live && nodes[e.b].live)join(parents,e.a,e.b);
+}
 __global__ void requireValidContacts(const PxgDestructionContactGraphStatus* status) {
     if(status->error)__trap();
 }
-__global__ void finish(const PxvPreSolveNode* nodes,PxU32 size,PxU32* parents,PxU32* labels,PxU32* counts) {
+__global__ void finish(const PxvPreSolveNode* nodes,PxU32 size,PxU32* parents,PxU32* labels,PxU32* counts,const PxU32* support=nullptr) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=size)return;
     if(!nodes[i].live){labels[i]=~PxU32(0);return;}
     const PxU32 r=root(parents,i);if(r>=size){__trap();return;}labels[i]=r;
-    if(nodes[i].staticTouches)atomicAdd(counts+r,nodes[i].staticTouches);
+    const PxU32 value=support?support[i]:nodes[i].staticTouches;
+    if(value)atomicAdd(counts+r,value);
 }
 }}

@@ -496,9 +496,10 @@ class IslandSim
     PxBitMap mSolverIslandIdPages,mSolverStaticTouchPages;
     PxArray<PxU64> mPreSolveLifetimes;
     PxArray<PxvPreSolveEdge> mPreSolveMerges;
-    bool mTrackPreSolveMerges=false,mRecordPreSolveMerges=true;
+    bool mTrackPreSolveMerges=false,mRecordPreSolveMerges=true,mRecordPreSolveSupport=true;
     PxBitMap mPreSolveNodeChanges;
     void markPreSolveNode(PxU32 index) { if(mTrackPreSolveMerges)mPreSolveNodeChanges.growAndSet(index); }
+    void markPreSolveSupport(PxU32 index) { if(mRecordPreSolveSupport)markPreSolveNode(index); }
 
     PX_FORCE_INLINE IslandId& writeIslandId(PxU32 index) {
         if(mGpuData)mSolverIslandIdPages.growAndSet(index>>PxvIslandMetadataPage::ePAGE_SHIFT);
@@ -663,7 +664,7 @@ public:
 	
     const PxBitMap& getSolverIslandIdPages() const { return mSolverIslandIdPages; }
     const PxBitMap& getSolverStaticTouchPages() const { return mSolverStaticTouchPages; }
-    void trackPreSolveMerges(bool enabled,bool record=true) { mRecordPreSolveMerges=record;mTrackPreSolveMerges=enabled;if(!enabled){mPreSolveMerges.clear();mPreSolveNodeChanges.clear();} }
+    void trackPreSolveMerges(bool enabled,bool record=true,bool support=true) { mRecordPreSolveSupport=support;mRecordPreSolveMerges=record;mTrackPreSolveMerges=enabled;if(!enabled){mPreSolveMerges.clear();mPreSolveNodeChanges.clear();} }
     const PxBitMap& getPreSolveNodeChanges() const { return mPreSolveNodeChanges; }
     void acknowledgePreSolveNodes() { mPreSolveNodeChanges.clear(); }
     PxU64 getPreSolveLifetime(PxU32 index) const { return index<mPreSolveLifetimes.size()?mPreSolveLifetimes[index]:0; }

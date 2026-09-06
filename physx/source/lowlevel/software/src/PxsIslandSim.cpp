@@ -1147,7 +1147,7 @@ IslandId IslandSim::addNodeToIsland(PxNodeIndex nodeIndex1, PxNodeIndex nodeInde
 		//A new touch with a static body...
 		Node& node = mNodes[nodeIndex2.index()];
 		node.mStaticTouchCount++; //Increment static touch counter on the body
-        markPreSolveNode(nodeIndex2.index());
+        markPreSolveSupport(nodeIndex2.index());
 		//Island& island = mIslands[islandId2];
 		//island.mStaticTouchCount++; //Increment static touch counter on the island
 		writeIslandStaticTouchCount(islandId2)++;
@@ -1642,7 +1642,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 						{
 							islandId = mIslandIds[index1];
 							node.mStaticTouchCount--;
-                            markPreSolveNode(index1);
+                            markPreSolveSupport(index1);
 							//Island& island = mIslands[islandId];
 							writeIslandStaticTouchCount(islandId)--;
 							//island.mStaticTouchCount--;
@@ -1656,7 +1656,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 						{
 							islandId = mIslandIds[index2];
 							node.mStaticTouchCount--;
-                            markPreSolveNode(index2);
+                            markPreSolveSupport(index2);
 							//Island& island = mIslands[islandId];
 							writeIslandStaticTouchCount(islandId)--;
 							//island.mStaticTouchCount--;

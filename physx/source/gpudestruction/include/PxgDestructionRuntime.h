@@ -89,6 +89,7 @@ public:
     // edges. Outputs are ordered on the supplied solver stream.
     virtual bool canBuildPreSolveIslands() const = 0;
     virtual const PxvPreSolveNode* preSolveNodeView() const = 0;
+    virtual const PxU32* preSolveSupportView() const = 0;
     virtual bool preSolveNodeSnapshotRequired(PxU32 count) const = 0;
     virtual bool buildPreSolveIslands(const PxvPreSolveNodeUpdate* updates,PxU32 updateCount,PxU32 count,bool fullSnapshot,
         const PxvPreSolveEdge* merges,PxU32 mergeCount,CUstream stream,

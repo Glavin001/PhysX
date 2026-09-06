@@ -8,6 +8,7 @@
 #include <vector>
 #include <map>
 #include <stdexcept>
+#include <string>
 namespace nativePreSolveTest {
 inline void verify(physx::PxgGpuContext& gpu,physx::PxCudaContextManager& cuda) {
     using namespace physx;auto* core=gpu.getGpuSolverCore();
@@ -18,8 +19,15 @@ inline void verify(physx::PxgGpuContext& gpu,physx::PxCudaContextManager& cuda) 
                 && cuMemcpyDtoH(actual.data(),gpu.getPreSolveNodeDevicePointer(),actual.size()*sizeof(actual[0]))!=CUDA_SUCCESS))
                 throw std::runtime_error("CUDA pre-solve node audit readback failed");}
         for(PxU32 i=0;i<actual.size();++i)if(actual[i].lifetime!=expected[i].lifetime || actual[i].live!=expected[i].live
-            || actual[i].staticTouches!=expected[i].staticTouches)
+            || actual[i].staticTouches!=(gpu.preSolveNodesUseNativeSupport()?expected[i].staticTouches:0u))
             throw std::runtime_error("persistent CUDA node record differs from full native pre-solve snapshot");
+    }
+    if(gpu.getPreSolveSupportDevicePointer()) {
+        const auto& expected=gpu.getExpectedPreSolveNodes();std::vector<PxU32> support(expected.size());
+        {PxScopedCudaLock lock(cuda);if(cuMemcpyDtoH(support.data(),gpu.getPreSolveSupportDevicePointer(),support.size()*sizeof(PxU32))!=CUDA_SUCCESS)
+            throw std::runtime_error("GPU-derived static-support audit readback failed");}
+        for(PxU32 i=0;i<expected.size();++i)if(expected[i].live && support[i]!=expected[i].staticTouches)
+            throw std::runtime_error("GPU static support differs at node "+std::to_string(i)+": actual "+std::to_string(support[i])+", expected "+std::to_string(expected[i].staticTouches));
     }
     if(!core->mPreSolveIslandIds)return;
     const auto& expectedIds=gpu.getExpectedSolverIslandIds();const auto& expectedTouches=gpu.getExpectedSolverStaticTouches();
@@ -37,7 +45,7 @@ inline void verify(physx::PxgGpuContext& gpu,physx::PxCudaContextManager& cuda) 
         const auto a=nativeToGpu.emplace(native,label),b=gpuToNative.emplace(label,native);
         if((!a.second && a.first->second!=label) || (!b.second && b.first->second!=native))
             throw std::runtime_error("CUDA pre-solve partition differs from native pre-solve partition");
-        if(touches[label]!=expectedTouches[native])throw std::runtime_error("CUDA pre-solve static count differs from native pre-solve count");
+        if(touches[label]!=expectedTouches[native])throw std::runtime_error("CUDA pre-solve static count differs at node "+std::to_string(i)+", GPU component "+std::to_string(label)+", native island "+std::to_string(native)+": actual "+std::to_string(touches[label])+", expected "+std::to_string(expectedTouches[native]));
     }
 }
 }

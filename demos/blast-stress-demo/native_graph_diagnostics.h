@@ -39,6 +39,7 @@ inline void writeNativeGraphDiagnostics(physx::PxScene& scene,const std::string&
         <<"  \"peak_retained_edges\": "<<stats.peakRetainedEdges<<",\n"
         <<"  \"boundary_audits\": "<<a.getGpuComponentAudits()+s.getGpuComponentAudits()<<",\n"
         <<"  \"boundary_audit_failures\": "<<a.getGpuComponentAuditFailures()+s.getGpuComponentAuditFailures()<<",\n"
+        <<"  \"cuda_pre_solve_support_passes\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveSupportPasses()<<",\n"
         <<"  \"cuda_pre_solve_contact_passes\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveContactPasses()<<",\n"
         <<"  \"cuda_pre_solve_contact_pairs\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveContactPairs()<<",\n"
         <<"  \"cuda_pre_solve_retired_host_bytes\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveRetiredBytes()<<",\n"

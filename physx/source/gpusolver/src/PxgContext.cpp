@@ -2531,13 +2531,13 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 
     const PxU32 metadataNodes=islandSim.getNbNodes(),metadataIslands=islandSim.getNbIslands();
     const bool incremental=getSimulationController()->usesGpuDestructionIslandRepair();
-    mGpuSolverCore->setPreSolveIslands(0,0);mPreSolveNodeDevicePointer=0;
+    mGpuSolverCore->setPreSolveIslands(0,0);mPreSolveNodeDevicePointer=0;mPreSolveSupportDevicePointer=0;mPreSolveNodesUseNativeSupport=true;
     if(mCudaPreSolveIslands && incremental) {
         auto* runtime=static_cast<PxgSimulationController*>(getSimulationController())->getNativeDestructionRuntime();
         bool supported=runtime!=NULL && mPreSolveSleepingDisabled && runtime->canBuildPreSolveIslands();
         // Keep unsupported sleeping/joint scenes on the qualified native path.
         if(nbConstraints || islandSim.getNbActiveNodes(IG::Node::eARTICULATION_TYPE))supported=false;
-        PxgDestructionPreSolveContacts contactView;
+        PxgDestructionPreSolveContacts contactView;contactView.deriveStaticSupport=mCudaPreSolveSupport;
         if(supported && mCudaPreSolveContacts) {
             PxArray<PxU32> retired;supported=getNarrowphaseCore()->getDestructionPreSolveContacts(contactView,retired);
             mPreSolveRetired.resize(retired.size());
@@ -2549,11 +2549,12 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
         const PxU32 *labels=NULL,*counts=NULL;
         if(supported) {
             const bool fullSnapshot=mPreForceNodeSnapshot || runtime->preSolveNodeSnapshotRequired(metadataNodes);
+            const bool nativeSupport=!(mCudaPreSolveSupport && mCudaPreSolveContacts);
             mPreSolveNodes.forceSize_Unsafe(0);
             const auto collectNode=[&](PxU32 i) {
                 const auto& node=islandSim.getNode(PxNodeIndex(i));
                 const bool live=islandSim.getIslandIds()[i]!=IG_INVALID_ISLAND && !node.isDeleted() && !node.isKinematic();
-                mPreSolveNodes.pushBack({i,0,{islandSim.getPreSolveLifetime(i),node.mStaticTouchCount,PxU32(live)}});
+                mPreSolveNodes.pushBack({i,0,{islandSim.getPreSolveLifetime(i),nativeSupport?node.mStaticTouchCount:0u,PxU32(live)}});
             };
             if(fullSnapshot)for(PxU32 i=0;i<metadataNodes;++i)collectNode(i);
             else {
@@ -2575,7 +2576,9 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
                     const auto& e=islandSim.getEdge(edge);
                     if(!e.isInserted() || e.isPendingDestroyed())continue;
                     const auto a=islandSim.mCpuData.getNodeIndex1(edge),b=islandSim.mCpuData.getNodeIndex2(edge);
-                    if(a.isValid() && b.isValid() && !islandSim.getNode(a).isKinematic() && !islandSim.getNode(b).isKinematic())
+                    const bool aDynamic=a.isValid() && !islandSim.getNode(a).isKinematic();
+                    const bool bDynamic=b.isValid() && !islandSim.getNode(b).isKinematic();
+                    if((aDynamic && bDynamic) || (mCudaPreSolveSupport && ((aDynamic && !b.isValid()) || (bDynamic && !a.isValid()))))
                         mPreSolveMerges.pushBack({a.index(),b.index()});
                 }
             } else {
@@ -2587,10 +2590,11 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
                 getNarrowphaseCore()->mCudaContext->setAbortMode(true);
                 PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"CUDA pre-solve island production failed; step incomplete.");
             } else {
-                islandSim.acknowledgePreSolveNodes();mPreForceNodeSnapshot=false;
+                islandSim.acknowledgePreSolveNodes();mPreForceNodeSnapshot=false;mPreSolveNodesUseNativeSupport=nativeSupport;
                 mPreSolveNodeDevicePointer=CUdeviceptr(runtime->preSolveNodeView());
                 if(labels && mCudaPreSolveContacts) {
                     ++mCudaPreSolveContactPasses;mCudaPreSolveContactPairs+=contactView.pairCount;
+                    if(mCudaPreSolveSupport) { ++mCudaPreSolveSupportPasses;mPreSolveSupportDevicePointer=CUdeviceptr(runtime->preSolveSupportView()); }
                     mCudaPreSolveRetiredBytes+=PxU64(contactView.retiredCount)*sizeof(PxU32);
                 }
                 const PxU64 mergeBytes=labels?PxU64(mPreSolveMerges.size())*sizeof(PxvPreSolveEdge):0;

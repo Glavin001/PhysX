@@ -150,6 +150,17 @@ void preSolveDeviceContacts() {
     require(status.get(1)[0].error==0,"direct pre-solve contact decoder rejected valid phase input");
     require(labels.get(n)==std::vector<PxU32>({0,0,0,3,4,3,6,~0u}),"GPU contacts lost prior connectivity or bridged an excluded contact");
     require(counts.get(n)==std::vector<PxU32>({3,0,0,0,0,0,0,0}),"GPU contact connectivity changed support reduction");
+    // A lost static edge with three prior patches still counts as one edge.
+    // Deliberately different native node counts cannot affect this GPU input.
+    outputs[8].statusFlag=PxsContactManagerStatusFlag::eHAS_NO_TOUCH;outputs[8].prevPatches=3;dOutputs.put(outputs);
+    Device<PxU32> support(n);support.put(std::vector<PxU32>(n,0));counts.put(std::vector<PxU32>(n,0));
+    Device<PxvPreSolveEdge> staticBridges(2);staticBridges.put({{PX_INVALID_NODE,5},{6,PX_INVALID_NODE}});
+    destructionPreSolve::connectContacts<<<1,128>>>(view,mask.p,dNodes.p,n,parents.p,status.p,support.p);
+    destructionPreSolve::connectSupportBridges<<<1,128>>>(staticBridges.p,2,dNodes.p,n,parents.p,support.p);
+    destructionPreSolve::finish<<<1,128>>>(dNodes.p,n,parents.p,labels.p,counts.p,support.p);
+    check(cudaGetLastError());check(cudaDeviceSynchronize());
+    require(support.get(n)==std::vector<PxU32>({0,0,0,1,1,1,1,0}),"GPU support must count current/prior static edges exactly once");
+    require(counts.get(n)==std::vector<PxU32>({0,0,0,2,1,0,1,0}),"solver reduction used native support instead of GPU-derived counts");
     ids[0].generation=0;dIds.put(ids);
     destructionPreSolve::connectContacts<<<1,128>>>(view,mask.p,dNodes.p,n,parents.p,status.p);
     check(cudaDeviceSynchronize());require(status.get(1)[0].error==PxgDestructionContactGraphStatus::eINVALID_IDENTITY,"invalid current contact identity was not reported");
