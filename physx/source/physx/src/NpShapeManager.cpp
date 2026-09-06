@@ -177,13 +177,19 @@ static PX_INLINE void onShapeDetach(NpActor& ro, NpShape& shape, bool wakeOnLost
 
 bool NpShapeManager::rebindShape(PxRigidActor& from, PxRigidActor& to, PxShape& shape, const PxTransform& shapeToActor)
 {
-    if (&from == &to || from.getConcreteType() != PxConcreteType::eRIGID_DYNAMIC
+    return rebindShapeInternal(from, to, shape, shapeToActor, false);
+}
+
+bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, PxShape& shape,
+    const PxTransform& shapeToActor, bool nativeTransaction)
+{
+    if ((!nativeTransaction && &from == &to) || from.getConcreteType() != PxConcreteType::eRIGID_DYNAMIC
         || to.getConcreteType() != PxConcreteType::eRIGID_DYNAMIC || !shapeToActor.isValid()) return false;
     NpRigidDynamic& source = static_cast<NpRigidDynamic&>(from);
     NpRigidDynamic& target = static_cast<NpRigidDynamic&>(to);
     NpShape& s = static_cast<NpShape&>(shape);
     NpScene* scene = source.getNpScene();
-    if (!scene || scene != target.getNpScene() || scene->isAPIWriteForbidden()
+    if (!scene || scene != target.getNpScene() || (!nativeTransaction && scene->isAPIWriteForbidden())
         || !(scene->getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
         || !s.isExclusiveFast() || s.mExclusiveShapeActor != &from
         || source.getAggregate() || target.getAggregate()
@@ -202,6 +208,8 @@ bool NpShapeManager::rebindShape(PxRigidActor& from, PxRigidActor& to, PxShape& 
         || scene->getBroadPhaseType() != PxBroadPhaseType::eGPU) return false;
     const PxU32 index = s.getShapeManagerArrayIndex(a.mShapes);
     if (index == PX_INVALID_U32) return false;
+    // A retained owner still needs collision rows and COM-dependent caches rebuilt.
+    if (&from == &to) return sim->rebindRigidOwner(*destination, shapeToActor);
     // Reserve the target compatibility slot before mutating simulation ownership.
     PtrTableStorageManager& storage = NpFactory::getInstance().getPtrTableStorageManager();
     const PxU32 targetIndex = b.mShapes.getCount();

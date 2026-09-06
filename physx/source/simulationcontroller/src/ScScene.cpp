@@ -650,6 +650,7 @@ Sc::Scene::Scene(const PxSceneDesc& desc, PxU64 contextID) :
 	mSecondPassNarrowPhase			(contextID, this, "ScScene.secondPassNarrowPhase"),
 	mPostNarrowPhase				(contextID, this, "ScScene.postNarrowPhase"),
 	mFinalizationPhase				(contextID, this, "ScScene.finalizationPhase"),
+    mDestructionFinalizationPhase(contextID, this, "ScScene.destructionFinalizationPhase"),
 	mUpdateCCDMultiPass				(contextID, this, "ScScene.updateCCDMultiPass"),
 	mAfterIntegration				(contextID, this, "ScScene.afterIntegration"),
 	mPostSolver						(contextID, this, "ScScene.postSolver"),

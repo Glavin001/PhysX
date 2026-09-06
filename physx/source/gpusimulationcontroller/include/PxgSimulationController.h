@@ -497,7 +497,7 @@ namespace physx
             return index < mBodySimManager.mBodies.size() && mBodySimManager.mBodies[index] == body;
         }
         virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*), PxvDestructionBodyAllocator* allocator) PX_OVERRIDE PX_FINAL;
-        virtual void advanceDestruction(PxReal dt, const PxVec3& gravity) PX_OVERRIDE PX_FINAL;
+        virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect) PX_OVERRIDE PX_FINAL;
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
 
 		virtual	bool	copyContactData(void* data, PxU32* numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent copyEvent) PX_OVERRIDE PX_FINAL;
@@ -744,6 +744,7 @@ namespace physx
 		PxgCudaKernelWranglerManager*							mGpuWranglerManager;
         PxgDestructionRuntime* mDestruction = NULL;
         PxU32 mDestructionError = 0;
+        bool mDestructionCorrecting = false;
 		PxCudaContextManager*									mCudaContextManager;
 		PxgAllocatorDesc										mAllocDesc;
 		PxgCudaBroadPhaseSap*									mBroadPhase;

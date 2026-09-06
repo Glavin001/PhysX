@@ -5,6 +5,7 @@
 #include "NpRigidDynamic.h"
 #include "NpScene.h"
 #include "ScBodySim.h"
+#include "ScShapeSim.h"
 #include "PxsSimpleIslandManager.h"
 #include "PxsSimulationController.h"
 #include "foundation/PxHashMap.h"
@@ -17,7 +18,8 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
     struct Entry {PxU32 cluster,source;NpRigidDynamic* body;};
     NpScene& mScene;
     PxArray<Entry> mBodies;
-    NpRigidDynamic* source(PxU32 id) const {
+    PxArray<Entry> mAcceptedBodies;
+    NpRigidDynamic* source(PxU32 id, bool allowReservation=false) const {
         const auto& islands=mScene.getScScene().getSimpleIslandManager()->getAccurateIslandSim();
         if(id>=islands.getNbNodes())return NULL;
         const auto& node=islands.getNode(PxNodeIndex(id));
@@ -29,12 +31,16 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         PxActor* actor=sim->getPxActor();
         if(!actor || actor->getConcreteType()!=PxConcreteType::eRIGID_DYNAMIC)return NULL;
         auto* body=static_cast<NpRigidDynamic*>(actor);
-        return body->getNpScene()==&mScene && body->getRigidActorSceneIndex()!=NP_UNUSED_BASE_INDEX?body:NULL;
+        if(body->getNpScene()!=&mScene)return NULL;
+        if(body->getRigidActorSceneIndex()!=NP_UNUSED_BASE_INDEX)return body;
+        for(const auto& entry:mAcceptedBodies)if(entry.body==body)return body;
+        if(allowReservation)for(const auto& entry:mBodies)if(entry.body==body)return body;
+        return NULL;
     }
     void discard(NpRigidDynamic& body) {
-        PX_ASSERT(body.getShapeManager().getNbShapes()==0);
         PxInlineArray<const Sc::ShapeCore*,64> shapes;
         mScene.getScScene().removeBody(body.getCore(),shapes,false);
+        body.getShapeManager().detachAll(&mScene.getSQAPI(), body);
         body.setNpScene(NULL);NpFactory::getInstance().releaseRigidDynamicToPool(body);
     }
     NpRigidDynamic* reserve(bool supported) {
@@ -90,7 +96,66 @@ public:
         for(PxU32 i=0;i<mBodies.size();++i)if(!kept[i])discard(*mBodies[i].body);
         mBodies.swap(next);return true;
     }
-    void clear() override {for(auto& entry:mBodies)discard(*entry.body);mBodies.clear();}
+    bool applyBindings(const PxDestructionCollisionBinding* bindings,PxU32 count,
+        const PxvDestructionBodyRequest* requests,const PxU32* targets,PxU32 bodies) override {
+        if(mBodies.size()>PX_MAX_U32-mAcceptedBodies.size())return false;
+        const PxU32 required=mAcceptedBodies.size()+mBodies.size();
+        mAcceptedBodies.reserve(required);
+        if(mAcceptedBodies.capacity()<required)return false;
+        // Validate the complete metadata batch before changing ownership. Shape
+        // identity lookup is built once per source, not once per migrating chunk.
+        PxHashMap<PxU32,NpRigidDynamic*> owners;
+        PxHashMap<PxU32,NpShape*> shapes;
+        PxHashMap<PxU32,PxU32> seen;
+        for(PxU32 i=0;i<bodies;++i) {
+            auto* parent=source(requests[i].sourceBody);
+            auto* target=source(targets[i],true);
+            if(!parent || !target || requests[i].supported>1)return false;
+            if(owners.insert(requests[i].sourceBody,parent)) {
+                const auto& manager=parent->getShapeManager();
+                if(parent->getAggregate() || manager.isSqCompound() || manager.getPruningStructure())return false;
+                for(PxU32 j=0;j<manager.getNbShapes();++j) {
+                    auto* shape=manager.getShapes()[j];auto* sim=shape->getCore().getExclusiveSim();
+                    if(sim)shapes.insert(sim->getElementID(),shape);
+                }
+            }
+        }
+        for(PxU32 i=0;i<count;++i) {
+            const auto b=bindings[i];const auto* found=shapes.find(b.shape);
+            auto* from=source(b.sourceBody);auto* to=source(b.targetBody,true);
+            if(!found || !from || !to || !seen.insert(b.shape,i))return false;
+            auto* shape=found->second;auto* sim=shape->getCore().getExclusiveSim();
+            if(shape->getActor()!=from || !shape->isExclusiveFast() || !sim || !sim->isInBroadPhase()
+                || shape->getFlagsFast().isSet(PxShapeFlag::eTRIGGER_SHAPE)
+                || to->getAggregate() || to->getShapeManager().isSqCompound()
+                || to->getShapeManager().getPruningStructure())return false;
+        }
+        // These are scheduler/type metadata changes. Authoritative mass, COM,
+        // velocities and applied forces are installed separately on the GPU.
+        for(PxU32 i=0;i<bodies;++i) {
+            auto* target=source(targets[i],true);auto& core=target->getCore();auto flags=core.getFlags();
+            if(requests[i].supported)flags|=PxRigidBodyFlag::eKINEMATIC;
+            else flags.clear(PxRigidBodyFlag::eKINEMATIC);
+            core.setFlags(flags);
+            if(!requests[i].supported)core.getSim()->setActive(true);
+        }
+        for(PxU32 i=0;i<count;++i) {
+            const auto b=bindings[i];auto* shape=shapes.find(b.shape)->second;
+            if(!NpShapeManager::rebindShapeInternal(*source(b.sourceBody),*source(b.targetBody,true),
+                *shape,shape->getLocalPoseFast(),true))return false;
+        }
+        return true;
+    }
+    void acceptReservations() override {
+        for(const auto& entry:mBodies)mAcceptedBodies.pushBack(entry);
+        mBodies.clear();
+    }
+    void discardReservations() override {for(auto& entry:mBodies)discard(*entry.body);mBodies.clear();}
+    void clear() override {
+        discardReservations();
+        for(auto& entry:mAcceptedBodies)discard(*entry.body);
+        mAcceptedBodies.clear();
+    }
     PxU32 size() const {return mBodies.size();}
     NpRigidDynamic* find(PxU32 cluster) const {
         for(const auto& entry:mBodies)if(entry.cluster==cluster)return entry.body;

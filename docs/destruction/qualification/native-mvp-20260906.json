@@ -1,0 +1,80 @@
+{
+  "scope": "native awake rigid-body impact and one internal correction proof",
+  "full_objective_complete": false,
+  "tests": {
+    "total": 60,
+    "passed": 55,
+    "known_failures": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ]
+  },
+  "capture": {
+    "backend": "native PhysX GPU task graph + resident CUDA destruction",
+    "status": "completed",
+    "frames": 1800,
+    "seconds": 30,
+    "buildings": 9,
+    "chunks": 3996,
+    "bonds": 8064,
+    "peak_clusters": 2989,
+    "projectiles": 36,
+    "broken_bonds": 6587,
+    "corrections": 250,
+    "correction_limit": 1,
+    "physics_ms_p50": 1.95079,
+    "physics_ms_p95": 16.2112,
+    "physics_ms_p99": 19.2619,
+    "physics_ms_max": 2126.78,
+    "missed_16_67ms": 72,
+    "stress_included_in_physics_time": true,
+    "isolated_performance_qualification": false,
+    "sleeping": false,
+    "crushing_material_enabled": false
+  },
+  "validation": {
+    "status": "passed-native-rigid-proof",
+    "frames": 1800,
+    "unconverged_stress_steps": 0,
+    "max_stress_iterations": 924,
+    "max_corrections_per_step": 1,
+    "total_corrections": 250,
+    "incomplete_steps": 0,
+    "physical_scope": "awake rigid bodies, stationary supports, bond fracture",
+    "full_sdk_qualification": false,
+    "video_decode_passed": true,
+    "video_sha256": "8b28fe4723dfac5ed98ce4b0f5edced8f92d7a30542756da95e0efa320f492f9",
+    "video_frames": 1800,
+    "video_seconds": 30,
+    "video_width": 1920,
+    "video_height": 1080
+  },
+  "artifacts": "out/recordings/native-mvp-20260906-d",
+  "impact": {
+    "intact_projectile_velocity": 0,
+    "fractured_projectile_velocity": 6,
+    "released_chunk_velocity": 6,
+    "projectile_mass": 2,
+    "released_chunk_mass": 2,
+    "initial_projectile_velocity": 12,
+    "corrections": 1,
+    "gravity_and_ordinary_force_once": true,
+    "speculative_ccd_rejection": true,
+    "unconverged_stress_rejection": true
+  },
+  "unsupported": [
+    "sleeping correction",
+    "joints",
+    "CCD/speculative CCD",
+    "articulations",
+    "moving kinematic targets",
+    "custom filter callbacks",
+    "deformables",
+    "crushing/removal correction",
+    "unapportioned loads on fractured sources"
+  ],
+  "performance_qualification": false
+}

@@ -29,6 +29,27 @@ struct Context {
 void check(cudaError_t e) { if(e!=cudaSuccess) throw std::runtime_error(cudaGetErrorString(e)); }
 template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T)*std::max<size_t>(n,1))); }
 #include "PxgDestructionMaterial.cuh"
+// Rebind compact runtime cluster slots entirely on device after acceptance.
+__global__ void acceptClusterBindings(PxDestructionTopologyDeviceView topology,
+    const PxU32* targets,PxDestructionStressCluster* clusters,PxU32* bodies) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=topology.status->clusterCount)return;
+    const auto mass=topology.clusters[topology.activeClusters[i]];
+    clusters[i]={targets[i],PxVec3(float(mass.center[0]),float(mass.center[1]),float(mass.center[2]))};bodies[i]=targets[i];
+}
+__global__ void acceptChunkBindings(PxDestructionTopologyDeviceView topology,
+    const PxU32* slots,PxDestructionStressChunk* chunks) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<topology.chunkCount && topology.activeChunks[i])chunks[i].cluster=slots[topology.chunkCluster[i]];
+}
+__global__ void observeNativeClusters(const PxDestructionStressCluster* clusters,PxU32 count,
+    const PxgBodySim* bodies,PxTransform* poses,PxVec3* angular) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto b=bodies[clusters[i].body];poses[i]=b.body2World.getTransform()*b.body2Actor_maxImpulseW.getTransform().getInverse();
+    angular[i]=PxVec3(b.angularVelocityXYZ_maxPenBiasW.x,b.angularVelocityXYZ_maxPenBiasW.y,b.angularVelocityXYZ_maxPenBiasW.z);
+}
+__global__ void requireNativeConvergence(PxDestructionStageStatus* status) {
+    if(!status->converged)status->error|=4096u;
+}
+__global__ void finishNativeCorrection(PxDestructionStageStatus* status) {status->error&=~8u;status->correctionPasses=1;}
 struct Lookup { PxU32 contact, chunk; };
 __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
     PxU32 a=0,b=count;
@@ -382,6 +403,8 @@ class Runtime final : public PxgDestructionRuntime {
     bool mCheckpointHasPrevious=false,mCheckpointHasAccelerations=false,mCheckpointValid=false;
     cudaEvent_t mCheckpointReady{};
     bool mPending=false; bool mFailed=false;
+    bool mCorrectionEnabled=false;
+    std::vector<PxU32> mHostCorrectionTargets;
 public:
     Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
         Context current(c);
@@ -403,6 +426,7 @@ public:
     void clear() {
         cudaEventSynchronize(mReady); // also orders private installation on the scene stream
         mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;mRestoredCheckpointGeneration=0;
+        mHostCorrectionTargets.clear();mCorrectionEnabled=false;
         cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
         cudaFree(mCorrectionPreparation);mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
@@ -440,6 +464,7 @@ public:
     bool configureStress(const PxDestructionStressDesc& d) override {
         if(!mWriteAllowed(mScene) || !d.chunks || (d.bondCount && !d.bonds) || !d.clusters
             || !d.chunkCount || !d.clusterCount || !d.maxIterations
+            || d.internalCorrectionLimit>1 || (d.internalCorrectionLimit && !d.chunkMassProperties)
             || !std::isfinite(d.tolerance) || d.tolerance<=0)return false;
         try {
         std::vector<PxDestructionMaterial> materials;
@@ -525,13 +550,13 @@ public:
             // work before releasing buffers even if the last stage failed.
             check(cudaEventSynchronize(mInput));check(cudaStreamSynchronize(mStream));
             if(mConsumer)check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(mConsumer)));
-            clear();mPending=false;mFailed=false;
+            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit==1;
             if(d.bondCount) {
                 mSolver=ExtStressGpuSolver::create(nodes.data(),d.chunkCount,bonds.data(),d.bondCount,NULL,0,mContext);
                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
             }
-            allocate(mChunks,d.chunkCount);allocate(mClusters,d.clusterCount);allocate(mBodies,d.clusterCount);
-            allocate(mPoses,d.clusterCount);allocate(mAngular,d.clusterCount);allocate(mMap,map.size());
+            allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));allocate(mBodies,std::max(d.chunkCount,d.clusterCount));
+            allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,map.size());
             allocate(mInputs,d.chunkCount);allocate(mSurface,d.chunkCount);
             check(cudaMemcpy(mChunks,d.chunks,sizeof(*mChunks)*d.chunkCount,cudaMemcpyHostToDevice));
             check(cudaMemcpy(mClusters,d.clusters,sizeof(*mClusters)*d.clusterCount,cudaMemcpyHostToDevice));
@@ -557,7 +582,7 @@ public:
                 mTopology=PxgDestructionTopologyTransaction::create(d.chunkMassProperties,d.chunkCount,topologyBonds.data(),d.bondCount);
                 if(!mTopology || (mSolver && !mSolver->enableDeviceTopology())){clear();return false;}
                 allocate(mTopologyAccept,1);
-                allocate(mAffectedClusters,d.clusterCount);allocate(mCandidateSlots,d.chunkCount);
+                allocate(mAffectedClusters,d.chunkCount);allocate(mCandidateSlots,d.chunkCount);
                 allocate(mCollisionBindings,d.chunkCount);allocate(mCompactCollisionBindings,d.chunkCount);allocate(mCollisionPreparation,1);
                 check(cudaMemset(mCollisionPreparation,0,sizeof(*mCollisionPreparation)));
                 check(cub::DeviceSelect::If(nullptr,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
@@ -578,7 +603,7 @@ public:
                     &mBodyPreparation->allocationRequests,d.chunkCount,NeedsBody{},mStream));
                 check(cudaMalloc(&mBodyRequestScratch,mBodyRequestScratchBytes));
                 mEditCapacity=d.chunkCount+d.bondCount;
-                allocate(mProvisionalMotion,d.clusterCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
+                allocate(mProvisionalMotion,d.chunkCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
             }
             mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.warmStart=d.warmStart;
             check(cudaMemset(mStatus,0,sizeof(*mStatus)));*mHostStatus={};
@@ -660,6 +685,7 @@ public:
             // Detached chunks still receive contact loads and may crush; a
             // graph without bonds has no stiffness solve to allocate or run.
             finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM);
+            if(mCorrectionEnabled)requireNativeConvergence<<<1,1,0,mStream>>>(mStatus);
             if(mMaterials) {
                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
                     dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus);
@@ -730,8 +756,8 @@ public:
                     // The local host index vector must outlive its upload.
                     check(cudaStreamSynchronize(mStream));
                 }
-            } else {allocation.error=1;mHostStatus->error|=256u;mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->clear();}
-        } else {if(mBodyAllocator)mBodyAllocator->clear();return;}
+            } else {allocation.error=1;mHostStatus->error|=256u;mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->discardReservations();}
+        } else {if(mBodyAllocator)mBodyAllocator->discardReservations();return;}
         check(cudaMemcpyAsync(mBodyAllocation,&allocation,sizeof(allocation),cudaMemcpyHostToDevice,mStream));
         check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
         check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
@@ -901,12 +927,62 @@ public:
             check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
         }catch(...) {mFailed=true;return false;}
     }
+    bool correctionEnabled() const override { return mCorrectionEnabled; }
+    PxU32 correctionBodyCount() const override { return PxU32(mHostCorrectionTargets.size()); }
+    const PxU32* correctionBodyIndices() const override { return mHostCorrectionTargets.data(); }
+    bool applyCorrectionBindings() override {
+        if(!mCorrectionEnabled || mFailed || mHostStatus->error!=8u || !mHostCollisionPreparation.valid
+            || !mHostCorrectionPreparation.valid || mHostCorrectionPreparation.loadedSources
+            || mHostCollisionPreparation.removed || !mBodyAllocator)return false;
+        try {
+            Context current(mContext);check(cudaEventSynchronize(mReady));
+            std::vector<PxDestructionCollisionBinding> bindings(mHostCollisionPreparation.count);
+            std::vector<PxvDestructionBodyRequest> requests(mHostBodyPreparation->count);
+            mHostCorrectionTargets.resize(requests.size());
+            check(cudaMemcpy(bindings.data(),mCompactCollisionBindings,bindings.size()*sizeof(bindings[0]),cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(requests.data(),mBodyRequests,requests.size()*sizeof(requests[0]),cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(mHostCorrectionTargets.data(),mTrialBodyIndices,requests.size()*sizeof(PxU32),cudaMemcpyDeviceToHost));
+            return mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
+        }catch(...){mFailed=true;return false;}
+    }
+    bool acceptCorrection(const PxgBodySim* bodies,CUstream coreStream) override {
+        if(mFailed || !mCorrectionEnabled || !bodies || !coreStream || mHostStatus->error!=8u)return false;
+        try {
+            Context current(mContext);
+            check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(coreStream)));
+            check(cudaStreamWaitEvent(mStream,mInput,0));
+            const PxU32 accept=1;check(cudaMemcpyAsync(mTopologyAccept,&accept,sizeof(accept),cudaMemcpyHostToDevice,mStream));
+            check(cudaEventRecord(mReady,mStream));
+            if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("corrected topology commit failed");
+            check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
+            mC=mHostBodyPreparation->count;
+            acceptClusterBindings<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mTrialBodyIndices,mClusters,mBodies);
+            acceptChunkBindings<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mCandidateSlots,mChunks);
+            observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodies,mPoses,mAngular);
+            finishNativeCorrection<<<1,1,0,mStream>>>(mStatus);
+            provisionalTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mChunks,mClusters,mPoses,bodies,mProvisionalMotion);
+            commitObservedTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mProvisionalMotion,mStatus);
+            if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus);
+            check(cudaEventRecord(mReady,mStream));
+            if(mSolver) {
+                const auto accepted=mTopology->accepted();
+                if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,mReady))
+                    throw std::runtime_error("corrected stress topology update failed");
+                const auto stress=mSolver->deviceView();check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
+                inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);
+            }
+            check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
+            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+            if(mHostStatus->error)return false;
+            mBodyAllocator->acceptReservations();return true;
+        }catch(...){mFailed=true;return false;}
+    }
     bool finish() override {
         try {Context current(mContext);if(mPending){check(cudaEventSynchronize(mReady));mPending=false;reserveBodySlots();}
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;
-            mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->clear();return false;}
+            mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->discardReservations();return false;}
     }
 };
 }}

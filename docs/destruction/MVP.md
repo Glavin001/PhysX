@@ -2,7 +2,8 @@
 
 The immediate deliverable is a working native impact simulation and recorded demo.
 A reusable public library, game integration and maximum-scale qualification follow
-this proof. The native split/correction path is not complete yet.
+this proof. The awake rigid-body native split/correction path now passes the
+impact proof and a 30-second multi-building run; see [NATIVE_MVP.md](NATIVE_MVP.md).
 
 ## End-to-end acceptance
 
@@ -44,12 +45,13 @@ not a prerequisite for the native proof and is not a claim of this MVP.
 - Keep simulation correctness and measured speed separate. A recording is not
   evidence of strict 60 Hz or of 100,000-chunk performance.
 
-## Work order
+## Work order and status
 
-1. Finish native ownership application and persistent fragment lifecycle.
-2. Connect the full supported-state rewind and one internal corrected solve.
-3. Commit topology/material/motion and expose accepted observations once.
-4. Pass the impact proof, then record the native demonstration.
+1. Implemented for the native rigid MVP: persistent ownership and fragment lifetime.
+2. Implemented for awake rigid scenes: GPU rewind and one internal corrected solve.
+3. Implemented: commit topology/material/motion and publish the accepted result once.
+4. Passed the impact proof and recorded the 30-second native demonstration.
+5. Remaining: broader correction coverage, fidelity qualification and scaling.
 
 Existing CUDA contact/stress/material, topology, mass/motion, allocation,
 checkpoint and collision-preparation tests establish components, not this complete

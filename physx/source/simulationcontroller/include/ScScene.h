@@ -911,6 +911,8 @@ namespace Sc
 					Cm::DelegateTask<Scene, &Scene::secondPassNarrowPhase>		mSecondPassNarrowPhase;
 					Cm::DelegateTask<Scene, &Scene::postNarrowPhase>			mPostNarrowPhase;
 					Cm::DelegateTask<Scene, &Scene::finalizationPhase>			mFinalizationPhase;
+                    Cm::DelegateTask<Scene, &Scene::finalizationPhase> mDestructionFinalizationPhase;
+                    bool mDestructionCorrectionInProgress = false;
 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;
 
 					//multi-pass ccd stuff

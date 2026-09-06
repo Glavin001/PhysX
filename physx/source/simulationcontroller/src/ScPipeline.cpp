@@ -1408,21 +1408,22 @@ void Sc::Scene::advanceStep(PxBaseTask* continuation)
 
 	if(mDt != 0.0f)
 	{
-		mFinalizationPhase.setContinuation(continuation);
+        auto& finalization=mDestructionCorrectionInProgress?mDestructionFinalizationPhase:mFinalizationPhase;
+		finalization.setContinuation(continuation);
 
 		// Chain: afterIntegration -> [CCD ->] [bodyAcceleration ->] finalizationPhase -> continuation
 		if(mBodyAccelerationTask)
-			mBodyAccelerationTask->setContinuation(*mTaskManager, &mFinalizationPhase);
+			mBodyAccelerationTask->setContinuation(*mTaskManager, &finalization);
 
 		if(mPublicFlags & PxSceneFlag::eENABLE_CCD)
 		{
-			mUpdateCCDMultiPass.setContinuation(mBodyAccelerationTask ? mBodyAccelerationTask : &mFinalizationPhase);
+			mUpdateCCDMultiPass.setContinuation(mBodyAccelerationTask ? mBodyAccelerationTask : &finalization);
 			mAfterIntegration.setContinuation(&mUpdateCCDMultiPass);
 			mUpdateCCDMultiPass.removeReference();
 		}
 		else
 		{
-			mAfterIntegration.setContinuation(mBodyAccelerationTask ? mBodyAccelerationTask : &mFinalizationPhase);
+			mAfterIntegration.setContinuation(mBodyAccelerationTask ? mBodyAccelerationTask : &finalization);
 		}
 
 		const bool useGpu = isUsingGpuDynamicsOrBp();
@@ -1452,7 +1453,7 @@ void Sc::Scene::advanceStep(PxBaseTask* continuation)
 		mPostNarrowPhase.setContinuation(&mIslandGen);
 		mSecondPassNarrowPhase.setContinuation(&mPostNarrowPhase);
 
-		mFinalizationPhase.removeReference();
+		finalization.removeReference();
 		if(mBodyAccelerationTask)
 			mBodyAccelerationTask->removeReference();
 		mAfterIntegration.removeReference();
@@ -2820,7 +2821,7 @@ void Sc::Scene::fireOnAdvanceCallback()
 	}
 }
 
-void Sc::Scene::finalizationPhase(PxBaseTask* /*continuation*/)
+void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
 {
 	PX_PROFILE_ZONE("Sim.sceneFinalization", mContextId);
 
@@ -2849,7 +2850,53 @@ void Sc::Scene::finalizationPhase(PxBaseTask* /*continuation*/)
 
     // The ordinary trial solve and integration have finished. Native stress
     // consumes solved impulses before the scene publishes its results.
-    mSimulationController->advanceDestruction(mDt, mGravity);
+    // First end-to-end rigid MVP excludes state whose rollback is not yet
+    // implemented. Rejection remains explicit when such a scene fractures.
+    bool canCorrect=(mPublicFlags & PxSceneFlag::eDISABLE_SLEEPING)
+        && !(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+        && !mArticulations.size() && !mConstraints.size() && !mFilterCallback;
+#if PX_SUPPORT_GPU_PHYSX
+    canCorrect=canCorrect && !mDeformableSurfaces.size() && !mDeformableVolumes.size() && !mParticleSystems.size();
+#endif
+    if(canCorrect) {
+        PxBitMap::Iterator speculative(mSpeculativeCCDRigidBodyBitMap);
+        canCorrect=speculative.getNext()==PxBitMap::Iterator::DONE;
+        for(PxU32 i=0;canCorrect && i<mActiveKinematicBodyCount;++i)
+            canCorrect=!mActiveBodies[i]->getHasValidKinematicTarget();
+    }
+    if(mSimulationController->advanceDestruction(mDt, mGravity, canCorrect)) {
+        // The full rigid checkpoint and new cluster inputs are installed. Drop
+        // trial reporting, invalidate contact rows/caches, refresh all dynamic
+        // bounds from GPU motion and rediscover newly eligible fragment pairs.
+        mNPhaseCore->clearContactReportStream();
+        mNPhaseCore->clearContactReportActorPairs(false);
+        mQueuedContactPairHeaders.clear();
+        mTriggerBufferAPI.clear();mTriggerBufferExtraData->clear();
+        clearBrokenConstraintBuffer();clearSleepWakeBodies();releaseConstraints(true);
+        Sc::ShapeSimBase** shapes=mSimulationController->getShapeSims();
+        const PxU32 count=mSimulationController->getNbShapes();
+        for(PxU32 i=0;i<count;++i)if(shapes[i] && shapes[i]->isInBroadPhase()) {
+            shapes[i]->onResetFiltering();
+            if(shapes[i]->getRbSim().isDynamicRigid()
+                && !mSimulationController->setGpuShapeBoundsRefresh(shapes[i]->getElementID(),true)) {
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native correction could not queue every required collision bound");
+#if PX_SUPPORT_GPU_PHYSX
+                getCudaContextManager()->getCudaContext()->setAbortMode(true);
+#endif
+                return; // incomplete step; never accept a truncated collision refresh
+            }
+        }
+        PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);
+        // Use a separate finalization task: this trial finalization is still
+        // running and must not have its continuation overwritten by the retry.
+        mDestructionCorrectionInProgress=true;
+        mAdvanceStep.setContinuation(continuation);
+        stepSetupCollide(&mAdvanceStep);
+        mCollideStep.setContinuation(&mAdvanceStep);
+        mAdvanceStep.removeReference();mCollideStep.removeReference();
+        return;
+    }
+    mDestructionCorrectionInProgress=false;
 
 	fireOnAdvanceCallback();  // placed here because it needs to be done after sleep check and after potential CCD passes
 

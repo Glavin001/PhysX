@@ -114,6 +114,9 @@ public:
 	PX_FORCE_INLINE	const Cm::PtrTable&		getShapeTable() const 		{	return mShapes; }
 	static PX_FORCE_INLINE size_t			getShapeTableOffset()		{	return PX_OFFSET_OF_RT(NpShapeManager, mShapes); }
 private:
+    friend class NpDestructionBodyAllocator;
+    static bool rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, PxShape& shape,
+        const PxTransform& shapeToActor, bool nativeTransaction);
 					Cm::PtrTable			mShapes;
 					Sq::PruningStructure*	mPruningStructure;  // Shape scene query data are pre-build in pruning structure
 //					NpCompoundId			mSqCompoundId;

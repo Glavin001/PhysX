@@ -635,13 +635,19 @@ namespace physx
         return mDestruction;
     }
 
-    void PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity)
+    bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect)
     {
-        if(!mDestruction) return;
+        if(!mDestruction) return false;
+        if(mDestructionCorrecting) {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            const bool accepted=!mCudaContextManager->getCudaContext()->isInAbortMode()
+                && mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
+            mDestructionCorrecting=false;mDestructionError=accepted?0:1;return false;
+        }
         if(!mDestruction->configured())
         {
             mDestructionError = mDestruction->finish() ? 0 : 1;
-            return;
+            return false;
         }
         PX_PROFILE_ZONE("GpuDestruction.contactStress", 0);
         const PxU32 pairs = mNpContext->getGpuNarrowphaseCore()->mTotalNumPairs;
@@ -699,10 +705,38 @@ namespace physx
             mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
             mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),mSimulationCore->getStream());
         if(ok) ok=mDestruction->prepareCorrectionBodies(mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
+        if(ok && !complete && mDestruction->correctionEnabled() && canCorrect) {
+            // The runtime validates command assignment and the whole metadata
+            // batch before changing owners. Physical data never crosses to CPU.
+            ok=mDestruction->applyCorrectionBindings();
+            if(ok) {
+                PxScopedCudaLock lock(*mCudaContextManager);
+                const auto checkpoint=mDestruction->rigidCheckpoint();
+                auto* bodies=mSimulationCore->getBodySimBufferDevicePtr().getPointer();
+                auto* previous=mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer();
+                auto* acceleration=mSimulationCore->getRigidBodyAccelerationsDevice();
+                const auto capacity=mBodySimManager.mTotalNumBodies;const auto stream=mSimulationCore->getStream();
+                ok=mDestruction->restoreRigidState(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
+                    && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream);
+                if(ok) {
+                    const auto* indices=mDestruction->correctionBodyIndices();
+                    for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i) {
+                        const PxU32 id=indices[i];auto& body=*static_cast<PxsRigidBody*>(mBodySimManager.mBodies[id]);
+                        body.mInternalFlags &= ~(PxsRigidBody::eFIRST_BODY_COPY_GPU | PxsRigidBody::eVELOCITY_COPY_GPU);
+                        body.mGpuHostDirty=0;mBodySimManager.mUpdatedMap.reset(id);
+                    }
+                    auto& pending=mBodySimManager.mNewOrUpdatedBodySims;PxU32 kept=0;
+                    for(PxU32 i=0;i<pending.size();++i)if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
+                    pending.forceSize_Unsafe(kept);
+                    mDestructionCorrecting=true;mDestructionError=1;return true;
+                }
+            }
+        }
         mDestructionError = ok && complete ? 0 : 1;
         if(mDestructionError)
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
                 "Native GPU destruction stage failed; this simulation step is incomplete.");
+        return false;
     }
 
 	bool PxgSimulationController::copyContactData(void* PX_RESTRICT data, PxU32* PX_RESTRICT numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent copyEvent)
@@ -2597,7 +2631,7 @@ namespace physx
         // Input velocities/forces are now resident. Preserve every rigid slot,
         // including ordinary participants, before the solver changes them. All
         // copies stay on the scene stream; no motion is read back to the host.
-        if(mDestruction && !mDestruction->captureRigidState(
+        if(mDestruction && !mDestructionCorrecting && !mDestruction->captureRigidState(
             mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
             mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
             mSimulationCore->getRigidBodyAccelerationsDevice(),nbTotalBodies,mSimulationCore->getStream()))

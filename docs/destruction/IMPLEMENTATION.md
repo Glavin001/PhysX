@@ -3,6 +3,14 @@
 **Immediate priority:** the native impact proof and recorded demo described in
 [MVP.md](MVP.md). Library polish and the full scaling campaign follow that proof.
 
+**The native rigid-body MVP now runs end to end.** See [NATIVE_MVP.md](NATIVE_MVP.md)
+for the impact proof, the 30-second nine-building recording, exact commands and
+supported-state restrictions. GPU contact loads, stress/material evaluation,
+connectivity, mass/motion and rigid checkpoint restoration now drive persistent
+shape transfer and one internal corrected collision/solver pass. The application
+calls the normal scene lifecycle once. Earlier preparation milestones below are
+historical; the diagnostic backend remains selectable with correction limit zero.
+
 **The complete plan is not implemented or qualified yet.** The repository now
 contains a buildable reference SDK, a native scene GPU contact/stress/material stage, and
 GPU topology/motion transactions. Native steps now commit bond cuts that retain
@@ -20,8 +28,8 @@ GPU persistent collision binding preparation now follows initialization; see
 [NATIVE_GPU_COLLISION_PREPARATION.md](NATIVE_GPU_COLLISION_PREPARATION.md).
 The pre-solve GPU rigid-state checkpoint is now captured automatically; see
 [NATIVE_GPU_RIGID_CHECKPOINT.md](NATIVE_GPU_RIGID_CHECKPOINT.md). Applying
-collision-owner transfers and the complete internal correction transaction
-remain unfinished. Pre-solve correction body records and private GPU installation
+collision-owner transfers and one full rigid correction are now connected in the
+experimental native MVP; broader scene-state rollback remains unfinished. Pre-solve correction body records and private GPU installation
 for retained/new bodies are implemented; see
 [NATIVE_GPU_CORRECTION_BODIES.md](NATIVE_GPU_CORRECTION_BODIES.md).
 Persistent owner transfers now refresh collision bounds from GPU body state;
@@ -30,8 +38,8 @@ see [NATIVE_GPU_REBOUND_BOUNDS.md](NATIVE_GPU_REBOUND_BOUNDS.md).
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
-comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 53/58 passing (the same four earlier failures plus that single-resim gap). A repeated
+comparison and the new, unresolved wall-crushing behavior gap. The full suite before the MVP extension was 53/58 passing; the MVP suite is
+55/60 passing (the same four earlier failures plus that single-resim gap). A repeated
 correction-body memory check now reports a stress-path CUDA address failure;
 the independently rebuilt previous revision reproduces it. A standalone CUDA
 conditional-graph diagnostic now reproduces memory-checking failures without

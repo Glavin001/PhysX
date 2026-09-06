@@ -1,17 +1,18 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 9
+#define PX_DESTRUCTION_SCENE_VERSION 10
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
 
 namespace physx {
 
-// Initial native stress-stage API. Collision ownership, fracture commit and
-// internal resimulation are still being migrated; configuring this graph does
-// not yet cause PhysX to split its actors. Existing geometry must remain alive
-// and attached until the graph is cleared/reconfigured, outside simulation.
+// Experimental native destruction API. internalCorrectionLimit=1 enables the
+// rigid MVP: GPU stress/material/connectivity, persistent collision ownership,
+// and one internal full rigid resimulation. Zero retains diagnostic preparation.
+// Configure only outside simulation. Geometry stays persistent through splits;
+// private fragment bodies are scene-owned and destroyed by clear/reconfiguration.
 // Resolved at configuration; negative tension/shear limits inherit compression.
 struct PxDestructionCrushProperties {
     PxReal capPressure=0, cohesion=0, frictionSlope=0;
@@ -68,6 +69,12 @@ struct PxDestructionStressDesc {
     // Optional full mass properties enable native candidate cluster creation.
     // Initial cluster bindings must match the bond graph's connected components.
     const PxDestructionChunkMassProperties* chunkMassProperties = NULL;
+    // Experimental internal rigid correction. 0 retains diagnostic preparation;
+    // 1 permits one intact trial plus one full supported-scene corrected solve.
+    // Current support: awake rigid scenes with stationary kinematics, no joints,
+    // articulations, CCD, custom filter callbacks or deformables. Crushing/removal
+    // and unapportioned force commands on fractured sources reject explicitly.
+    PxU32 internalCorrectionLimit = 0;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
@@ -85,10 +92,12 @@ struct PxDestructionStageStatus {
                  // 64: resident stress topology update, 128: solver-body preparation,
                  // 256: native body allocation, 512: native GPU body initialization,
                  // 1024: persistent collision binding preparation; 2048: correction body preparation
+                 // 4096: unconverged stress solve in enabled native correction mode
 
     PxU32 normalContacts, frictionAnchors;
     PxU32 iterations, converged;
     PxU32 bondCommands, brokenBonds, crushedChunks;
+    PxU32 correctionPasses;
 };
 struct PxDestructionStressTopologyStatus {
     PxU64 generation, solvedGeneration, rebuilds;
@@ -106,7 +115,7 @@ struct PxDestructionDeviceView {
     const PxReal* strainRates = NULL;
     // Candidate arrays require topologyTransaction->prepared. These describe
     // topology/motion candidates. Cuts preserving every chunk's motion owner
-    // can commit; native collision rebinding for splits remains unfinished.
+    // commit directly; supported splits commit after the enabled internal resim.
     // Accepted motion is initialized by the first successful native step.
     PxDestructionTopologyDeviceView acceptedTopology{};
     PxDestructionTopologyDeviceView trialTopology{};
@@ -118,7 +127,8 @@ struct PxDestructionDeviceView {
     const PxDestructionBodyPreparationStatus* bodyPreparation = NULL;
     // Reserved native nodes in candidate cluster order. Only use with valid
     // bodyAllocation; initialized == reserved permits physical GPU reads of
-    // new slots. Retained owners keep trial-step state. No actors are committed.
+    // new slots. With diagnostic correction limit zero, these stay provisional.
+    // Enabled correction restores inputs and makes accepted fragments scene-owned.
     const PxU32* trialBodyIndices = NULL;
     const PxDestructionBodyAllocationStatus* bodyAllocation = NULL;
     // GPU-prepared persistent shape edits for affected source clusters, in
@@ -135,15 +145,16 @@ struct PxDestructionDeviceView {
     CUevent readyEvent = NULL;
 };
 
-// Material verdicts changing collision ownership/geometry return an incomplete
-// step (error bit 8); their accepted material and cluster state stay unchanged.
-// Cycle cuts preserving all chunk owners commit natively and update resident
-// stress constraints. They require no motion correction because rigid motion,
-// mass and collision geometry are unchanged. General split correction is unfinished.
+// Without internal correction, membership-changing verdicts return error bit 8.
+// With limit 1, supported splits are applied internally and the complete rigid
+// scene is restored/resolved once before topology, material and motion acceptance.
+// Unsupported correction returns an incomplete step; it must not be treated as
+// accepted gameplay output. Cycle cuts preserving every owner commit directly.
 // Scene-owned. The native task graph advances the GPU stage once per ordinary
 // timestep; consumers never call a separate solve or replay function. CPU work
 // is asset setup, task submission, allocation growth and a small completion/error
-// observation. Graphs, contact loads and solved bond forces stay on the GPU.
+// observation. Native ownership transactions also update CPU collision/island
+// metadata from compact device records. Graphs, loads and forces stay on the GPU.
 class PxDestructionScene {
 public:
     virtual bool configureStress(const PxDestructionStressDesc& desc) = 0;

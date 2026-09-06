@@ -1,5 +1,9 @@
 # Standalone GPU destruction demo
 
+The new **native** end-to-end recording and reproduction commands are in
+[NATIVE_MVP.md](NATIVE_MVP.md). The commands below describe the retained external
+reference demo.
+
 The demo runs wholly inside this PhysX checkout. It uses the source-built PhysX
 GPU rigid-body pipeline and CUDA stress solver, with the **external reference's
 CPU load preparation, material/fracture processing and replay orchestration**.

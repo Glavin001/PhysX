@@ -24,6 +24,11 @@ struct PxgDestructionRigidCheckpointView {
 class PxgDestructionRuntime : public PxDestructionScene {
 public:
     virtual bool configured() const = 0;
+    virtual bool correctionEnabled() const = 0;
+    virtual bool applyCorrectionBindings() = 0;
+    virtual PxU32 correctionBodyCount() const = 0;
+    virtual const PxU32* correctionBodyIndices() const = 0;
+    virtual bool acceptCorrection(const PxgBodySim* bodies, CUstream stream) = 0;
     virtual bool captureRigidState(const PxgBodySim* bodies, const PxgBodySimVelocities* previous,
         const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream) = 0;
     virtual PxgDestructionRigidCheckpointView rigidCheckpoint() const = 0;
