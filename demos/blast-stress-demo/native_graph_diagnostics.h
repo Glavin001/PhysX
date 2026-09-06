@@ -17,7 +17,7 @@ inline void writeNativeGraphDiagnostics(physx::PxScene& scene,const std::string&
     auto* runtime=static_cast<PxgDestructionRuntime*>(scene.getDestructionScene());
     const auto stats=runtime->getContactGraphObservationStats();
     std::ofstream out(path);
-    out<<"{\n  \"scope\": \"contact graph only; excludes other physics and recording transfers\",\n"
+    out<<"{\n  \"scope\": \"simulation contact graph only; excludes diagnostic counter reads, other physics and recording transfers\",\n"
         <<"  \"graph_builds\": "<<np.getDestructionGraphBuildCount()<<",\n"
         <<"  \"same_pass_reuses\": "<<np.getDestructionGraphReuseCount()<<",\n"
         <<"  \"host_observations\": "<<stats.observations<<",\n"
@@ -27,6 +27,8 @@ inline void writeNativeGraphDiagnostics(physx::PxScene& scene,const std::string&
         <<"  \"gpu_splits\": "<<a.getGpuSplitCount()+s.getGpuSplitCount()<<",\n"
         <<"  \"retained_edges_uploaded\": "<<stats.retainedEdgesUploaded<<",\n"
         <<"  \"retained_host_to_device_bytes\": "<<stats.retainedHostToDeviceBytes<<",\n"
+        <<"  \"retained_delta_updates\": "<<stats.retainedDeltaUpdates<<",\n"
+        <<"  \"retained_slot_capacity\": "<<stats.retainedSlotCapacity<<",\n"
         <<"  \"peak_retained_edges\": "<<stats.peakRetainedEdges<<",\n"
         <<"  \"boundary_audits\": "<<a.getGpuComponentAudits()+s.getGpuComponentAudits()<<",\n"
         <<"  \"boundary_audit_failures\": "<<a.getGpuComponentAuditFailures()+s.getGpuComponentAuditFailures()<<",\n"

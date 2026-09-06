@@ -273,12 +273,10 @@ not bridge groups; invalid endpoints and unsupported edge kinds report explicit
 graph errors. These records belong to the published graph generation; raw native
 indices are not independently persistent public handles.
 
-The bridge adds one host bit per allocated native edge and 16 bytes of pinned and
-device capacity per retained edge. It currently uploads a retained-edge snapshot
-per graph build, rather than a CPU component graph or a scan of all active pairs.
-This is still CPU lifecycle staging. Replacing it with persistent GPU lifecycle
-deltas, together with the native compatibility registry and solver consumers,
-remains required for the final architecture. Lifecycle revisions invalidate
+The initial bridge added one host bit per allocated native edge and uploaded a
+16-byte retained-edge snapshot per graph build. The persistent lifecycle update
+below replaces that snapshot implementation. CPU compatibility registries and
+direct solver consumption still need their remaining integration. Lifecycle revisions invalidate
 same-pass graph reuse on manager transitions, contact state changes or kinematic
 changes, even if narrowphase pair/retirement counts did not change.
 
@@ -381,3 +379,90 @@ within its parent maintenance interval, and completed with zero boundary or
 motion-audit failures. Its exact results and build hashes are recorded in
 `qualification/native-island-audit-scopes-20260906.json`. No physics settings or
 assertion tolerances changed.
+
+## Persistent retained-contact lifecycle on CUDA
+
+Retained contact records now live in native-edge-indexed device slots between
+graph builds. A device bitmap identifies active slots. CUDA applies ordered
+insert/update/remove transactions, maintains live/peak counts, and consumes the
+active slots when computing accurate and speculative connectivity. It no longer
+requires the CPU to enumerate and upload every retained edge on each graph build.
+
+Native registration, manager release/recreation, touch changes and destruction
+mark an atomic changed-edge bitmap. Endpoint type changes coalesce a refresh of
+retained candidates once at the publication boundary. Commands have unique,
+sorted native edge indices and represent final state at that boundary. Edges
+awaiting insertion stay dirty for a later transaction. A new or reconfigured
+runtime imports the current set once; subsequent publications acknowledge the
+change bitmap only after successful submission. A publication receipt masks out
+coalesced removals for edges that were never device-resident. It tracks submitted
+membership, not components or another physics simulation. Same-pass reuse retains the
+existing native lifecycle revision check. CPU work here is command staging from
+the existing native lifecycle; edge state application, live membership and
+connectivity reside on CUDA.
+
+Private slot indices are scoped by the published graph generation, including
+removal/reuse and reconfiguration. They are not independent public lifetime
+handles. The graph's active mask must be tested before reading any slot, and
+`retainedSlotCount` describes the index domain, not live count. Producer-stream
+ordering and the graph-ready event protect commands, slots and the consuming
+stress/acceptance path. Slot growth preserves prior records/mask; allocation
+failure rejects the step. Invalid command framing is rejected on the host before
+acknowledging the change log. CUDA also validates the entire batch before any
+slot mutation; malformed/duplicate/out-of-range batches report explicit errors.
+
+Memory tradeoff: this first persistent registry allocates 16 bytes per reserved
+native edge slot plus one device bit per slot, including inactive holes. Three host
+bitmaps track retained/changed edges and acknowledged publication membership. Command staging uses 16 bytes per reserved
+delta on the host and device, and three device words track counts/validation.
+It replaces the smaller dense snapshot with stable addressable storage; this is
+not a claimed memory reduction. `retained_slot_capacity` makes the cost visible.
+Paged storage is a future optimization if measured native edge capacity warrants
+it; allocation failure must never truncate the registry.
+
+Diagnostics distinguish upsert records (`retained_edges_uploaded`), all commands
+including removals (`retained_delta_updates`), command H2D bytes, slot capacity
+and exact peak live edges. Explicit counter queries read eight diagnostic bytes;
+these are excluded from the simulation graph D2H counter, as its scope states.
+There is no per-step live-count readback. The existing CPU component observation
+bridge remains and must still be replaced by native GPU registry/solver consumers.
+
+### Solver integration ordering
+
+`PxgGpuContext::updatePostPartitioning()` stages island IDs/static-touch metadata
+for the CUDA solver before releasing the lost-contact tasks.
+`Sc::Scene::destroyManagers()` currently builds the accurate retained-edge graph
+after those tasks retire managers. Therefore, directly feeding this later graph
+to the earlier solver would change the phase of connectivity/static-boundary
+state used for integration. The next device registry work must preserve those
+phase boundaries, not wire a later snapshot into an earlier consumer or assume
+GPU solver islands already provide independent resimulation scheduling.
+
+### Persistent lifecycle qualification
+
+`qualification/native-retained-deltas-20260906.json` records the final build,
+25 passing focused tests, and zero memcheck errors for the graph kernels and
+native retained-registry fixture. The latter exercises unchanged/transient edges
+with zero uploads, deferred insertion, touch and kinematic changes, live-storage
+growth, removal/handle reuse, and runtime reset. Kernel tests compare successive
+transactions against an independent CPU flood fill and require complete
+state preservation when an out-of-range or unsorted/duplicate batch is rejected.
+Existing fracture decisions and trajectory tolerances were not loosened.
+
+The final 64-building run completed 600 steps with 28,416 chunks, 57,344 bonds,
+256 projectiles and 104 single-correction steps. All stress solves converged;
+1,242 boundary audits passed with zero registry fallback or motion-audit error.
+It submitted 7,593 upserts and 7,593 removals (242,976 H2D bytes). An initial delta
+implementation had uploaded 1,152,207 commands / 18,435,312 bytes because native
+manager churn produced removals for never-published edges. Publication receipts
+and pre-insertion filtering remove that unnecessary traffic. The initial capture
+is preserved; these chaotic runs are not a matched-workload speedup comparison.
+
+The final registry reserved 451,584 slots (7,281,804 device bytes for slot storage,
+active bits and count words, excluding update staging), with 3,836 peak live
+retained edges. Component observation still transferred 439,114,032 D2H bytes.
+Mean measured physics time was 55.25 ms, maximum 298.01 ms, or 30.17% of real time;
+499 of 600 steps missed 16.67 ms. Auditing/profiling were enabled on a shared GPU.
+This qualifies the lifecycle change at the tested scale, not a full GPU-owned
+island solver, large-scene memory safety, or an isolated performance improvement.
+The prior real-fracture sanitizer failure and unexplained native crash remain open.

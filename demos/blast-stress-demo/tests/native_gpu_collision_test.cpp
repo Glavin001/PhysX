@@ -372,6 +372,91 @@ void gpuGraphReuseAndQuietObservation() {
     std::puts("GPU graph reuse: one build per pass; quiet registry has zero sort/readback; late retirement and reconfiguration invalidate receipt");
 }
 
+void gpuRetainedRegistryLifecycle() {
+    Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
+    auto* runtime=static_cast<PxgDestructionRuntime*>(f.stage);
+    auto& islands=*static_cast<NpScene&>(f.scene).getScScene().getSimpleIslandManager();
+    islands.getAccurateIslandSim().setGpuComponentAudit(true);islands.getSpeculativeIslandSim().setGpuComponentAudit(true);
+    std::vector<PxRigidDynamic*> bodies;
+    for(unsigned i=0;i<3;++i) {
+        auto* body=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(450+10*float(i),80,0)),PxSphereGeometry(.5f),f.context.material(),1);
+        require(body,"retained registry body creation failed");body->setMass(0);body->setMassSpaceInertiaTensor(PxVec3(0));
+        f.scene.addActor(*body);bodies.push_back(body);
+    }
+    const auto verify=[&] {
+        step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);
+        require(!islands.getAccurateIslandSim().getGpuComponentAuditFailures()
+            && !islands.getSpeculativeIslandSim().getGpuComponentAuditFailures(),"retained lifecycle boundary audit failed");
+        const auto view=runtime->getContactGraphView();
+        std::vector<PxU32> mask((size_t(view.retainedSlotCount)+31)/32);
+        std::vector<PxgDestructionRetainedEdge> slots(view.retainedSlotCount);
+        {PxScopedCudaLock lock(f.cuda);check(cuEventSynchronize(view.readyEvent));
+            if(!mask.empty())check(cuMemcpyDtoH(mask.data(),CUdeviceptr(view.retainedActiveMask),mask.size()*sizeof(PxU32)));
+            if(!slots.empty())check(cuMemcpyDtoH(slots.data(),CUdeviceptr(view.retainedEdges),slots.size()*sizeof(slots[0])));}
+        const auto& spec=islands.getSpeculativeIslandSim();const auto& accurate=islands.getAccurateIslandSim();
+        for(PxU32 e=0;e<view.retainedSlotCount;++e) {
+            const bool live=islands.getRetainedContactMap().test(e) && e<spec.getNbEdges()
+                && spec.getEdge(e).isInserted() && !spec.getEdge(e).isPendingDestroyed();
+            require(bool(mask[e>>5]&(1u<<(e&31)))==live,"persistent retained registry lost or kept a native edge");
+            if(live) {
+                const auto a=spec.mCpuData.getNodeIndex1(e),b=spec.mCpuData.getNodeIndex2(e);
+                require(slots[e].edgeIndex==e && slots[e].node0==a.index() && slots[e].node1==b.index(),"retained handle reuse kept stale endpoints");
+                const bool touching=e<accurate.getNbEdges() && accurate.getEdge(e).isInserted() && !accurate.getEdge(e).isPendingDestroyed();
+                const bool kinematic=(a.isValid() && spec.getNode(a).isKinematic()) || (b.isValid() && spec.getNode(b).isKinematic());
+                require(bool(slots[e].flags&PxgDestructionRetainedEdge::eACCURATE)==touching
+                    && bool(slots[e].flags&PxgDestructionRetainedEdge::eKINEMATIC)==kinematic,"retained contact flags are stale");
+            }
+        }
+    };
+    // Exercise native managerless-edge lifecycle independently of geometric NP.
+    // The bodies are disjoint; these edges test registry semantics, not impacts.
+    const auto add=[&](unsigned a,unsigned b) {return islands.addContactManager(nullptr,
+        PxNodeIndex(bodies[a]->getGPUIndex()),PxNodeIndex(bodies[b]->getGPUIndex()),nullptr,IG::Edge::eCONTACT_MANAGER);};
+    verify();const auto transientBefore=runtime->getContactGraphObservationStats();
+    for(unsigned i=0;i<65;++i){const auto transient=add(0,1);islands.removeConnection(transient);}
+    verify();const auto transientAfter=runtime->getContactGraphObservationStats();
+    require(transientAfter.retainedDeltaUpdates==transientBefore.retainedDeltaUpdates
+        && transientAfter.retainedHostToDeviceBytes==transientBefore.retainedHostToDeviceBytes,
+        "unpublished transient retained edges generated removal uploads");
+    const auto edge=add(0,1);
+    // A publication before native insertion must defer the edge, not upload a
+    // removal or lose its later insertion. This exercises the boundary seam.
+    auto* controller=static_cast<NpScene&>(f.scene).getScScene().getSimulationController();
+    const auto deferredBefore=runtime->getContactGraphObservationStats();
+    const auto deferredGeneration=runtime->getContactGraphView().generation;
+    controller->prepareGpuDestructionIslandRepair(islands);
+    require(runtime->getContactGraphView().generation>deferredGeneration,"pre-insertion publication failed");
+    islands.getAccurateIslandSim().setGpuContactComponents(nullptr,nullptr,0);
+    islands.getSpeculativeIslandSim().setGpuContactComponents(nullptr,nullptr,0);
+    const auto deferredAfter=runtime->getContactGraphObservationStats();
+    require(deferredAfter.retainedDeltaUpdates==deferredBefore.retainedDeltaUpdates,"unpublished pending edge uploaded a removal");
+    verify();
+    auto before=runtime->getContactGraphObservationStats();
+    for(unsigned i=0;i<4;++i)verify();
+    auto after=runtime->getContactGraphObservationStats();
+    require(after.retainedDeltaUpdates==before.retainedDeltaUpdates && after.retainedHostToDeviceBytes==before.retainedHostToDeviceBytes,
+        "unchanged retained edges were uploaded again");
+    islands.setEdgeConnected(edge,IG::Edge::eCONTACT_MANAGER);verify();
+    islands.setEdgeDisconnected(edge);verify();
+    bodies[1]->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);verify();
+    bodies[1]->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,false);verify();
+    // Force slot growth while an earlier edge must remain resident.
+    const PxU32 capacity=runtime->getContactGraphObservationStats().retainedSlotCapacity;
+    std::vector<IG::EdgeIndex> extra;
+    for(unsigned i=0;i<capacity+65;++i)extra.push_back(add(1,2));
+    verify();require(runtime->getContactGraphObservationStats().retainedSlotCapacity>capacity,"retained registry did not grow");
+    for(auto e:extra)islands.removeConnection(e);islands.removeConnection(edge);verify();
+    const auto reused=add(0,2);require(reused==edge,"retained fixture did not reuse the removed native handle");verify();
+    // Coalesce state changes to the final verdict before one GPU transaction.
+    islands.setEdgeConnected(reused,IG::Edge::eCONTACT_MANAGER);islands.setEdgeDisconnected(reused);verify();
+    const auto generation=runtime->getContactGraphView().generation;f.configure();verify();
+    require(runtime->getContactGraphView().generation>generation,"retained reset reused a published graph generation");
+    islands.removeConnection(reused);verify();
+    require(f.stage->clearStress(),"retained registry cleanup failed");for(auto* body:bodies)body->release();
+    require(f.context.healthy(),"retained registry fixture GPU health failed");
+    std::puts("native retained registry: zero unchanged uploads, touch changes, kinematic changes, growth, removal/reuse and reset passed");
+}
+
 void gpuIslandSleepFallback() {
     Fixture f(1,0,true);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
     PxU64 previous=0;
@@ -431,6 +516,7 @@ void crushRemoval() {
 int main(int argc,char** argv){try{
     if(argc==2) {
         const std::string mode=argv[1];
+        if(mode=="--retained-registry"){gpuRetainedRegistryLifecycle();return 0;}
         if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}
         if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();return 0;}
         if(mode=="--reference"){deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}

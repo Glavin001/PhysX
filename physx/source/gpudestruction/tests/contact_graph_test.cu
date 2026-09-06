@@ -4,6 +4,8 @@
 #include "../src/PxgDestructionContactGraph.cuh"
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
+#include <map>
 #include <numeric>
 #include <random>
 #include <stdexcept>
@@ -109,7 +111,63 @@ void run(PxU32 n,const std::vector<Pair>& pairs,unsigned invalid=0,PxU32 omitted
         require(decoded[i].node0==pairs[i].a && decoded[i].node1==pairs[i].b,"GPU graph resolved wrong node ownership");
     }
 }
+void retainedTransactions() {
+    constexpr PxU32 n=8,capacity=97;
+    Device<PxgDestructionRetainedEdge> slots(capacity),updates(128);
+    Device<PxU32> active((capacity+31)/32),counts(3),accurate(n),speculative(n);
+    Device<PxgDestructionContactGraphStatus> status(1);
+    check(cudaMemset(slots.p,0,capacity*sizeof(PxgDestructionRetainedEdge)));
+    check(cudaMemset(active.p,0,((capacity+31)/32)*sizeof(PxU32)));check(cudaMemset(counts.p,0,3*sizeof(PxU32)));
+    std::map<PxU32,PxgDestructionRetainedEdge> expected;PxU32 peak=0;
+    const auto transaction=[&](std::vector<PxgDestructionRetainedEdge> batch,bool valid=true) {
+        updates.put(batch);
+        const auto oldSlots=slots.get(capacity);const auto oldActive=active.get((capacity+31)/32);
+        destructionContactGraph::initialize<<<1,128>>>(accurate.p,speculative.p,n,status.p,0);
+        check(cudaMemset(counts.p+2,0,sizeof(PxU32)));
+        if(!batch.empty()) {
+            destructionContactGraph::validateRetainedUpdates<<<1,128>>>(updates.p,PxU32(batch.size()),capacity,counts.p,status.p);
+            destructionContactGraph::applyRetainedUpdates<<<1,128>>>(updates.p,PxU32(batch.size()),slots.p,capacity,active.p,counts.p,status.p);
+            destructionContactGraph::finishRetainedUpdates<<<1,1>>>(counts.p);
+        }
+        destructionContactGraph::connectRetainedSlots<<<1,128>>>(slots.p,active.p,capacity,n,accurate.p,speculative.p,status.p);
+        destructionContactGraph::compress<<<1,128>>>(accurate.p,speculative.p,n);
+        check(cudaGetLastError());check(cudaDeviceSynchronize());
+        const auto result=status.get(1)[0];
+        require(result.error==(valid?0u:PxgDestructionContactGraphStatus::eINVALID_IDENTITY),"retained transaction error status mismatch");
+        if(valid) {
+            for(const auto& e:batch) {
+                if(e.flags&PxgDestructionRetainedEdge::eREMOVED)expected.erase(e.edgeIndex);
+                else expected[e.edgeIndex]=e;
+            }
+            peak=std::max(peak,PxU32(expected.size()));
+        } else {
+            const auto current=slots.get(capacity);
+            require(!std::memcmp(oldSlots.data(),current.data(),capacity*sizeof(current[0]))
+                && oldActive==active.get((capacity+31)/32),"invalid retained transaction partially changed resident state");
+        }
+        const auto c=counts.get(3);require(c[0]==expected.size() && c[1]==peak,"resident retained counts differ from complete transaction");
+        std::vector<Pair> pairs;
+        for(const auto& item:expected) {
+            const auto& e=item.second;pairs.push_back({e.node0,e.node1,bool(e.flags&PxgDestructionRetainedEdge::eACCURATE),bool(e.flags&PxgDestructionRetainedEdge::eKINEMATIC)});
+        }
+        require(accurate.get(n)==reference(n,pairs,true) && speculative.get(n)==reference(n,pairs,false),"retained delta connectivity differs from independent snapshot flood fill");
+    };
+    transaction({{0,0,1,1},{31,1,2,0},{32,2,3,1},{64,4,5,1},{96,6,7,1}});
+    transaction({}); // No upload/rebuild of the persistent edge data.
+    transaction({{31,1,2,1},{32,2,3,3}}); // Accurate change and kinematic boundary.
+    transaction({{0,0,0,8},{31,0,0,8},{96,0,0,8}});
+    transaction({{0,0,7,1},{31,3,4,0},{96,7,PX_INVALID_NODE,1}}); // Reused native slots, new endpoints.
+    transaction({{0,0,0,8},{31,0,0,8},{32,0,0,8},{64,0,0,8},{96,0,0,8}});
+    transaction({{31,0,0,8}}); // Idempotent removal, no count underflow.
+    transaction({{0,0,1,1},{96,6,7,1}});
+    transaction({{0,0,0,8},{97,0,1,1}},false); // Entire batch rejected before a valid-prefix deletion.
+    transaction({{0,0,0,8},{32,1,2,1},{0,0,4,1},{96,1,7,1}},false); // Nonadjacent duplicate/out-of-order key.
+    transaction({{0,0,0,8},{96,0,0,8}}); // Valid transaction after rejection.
+    std::puts("CUDA retained registry: persistence, bit boundaries, contact changes, removal/reuse, exact counts and atomic rejection passed");
+}
+
 int main(){try{
+    retainedTransactions();
     run(0,{});run(100,{});
     // A native speculative edge can have no active narrowphase manager.
     // Retained touch, no-touch, disabled response and prescribed boundaries

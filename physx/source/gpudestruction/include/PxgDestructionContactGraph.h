@@ -10,10 +10,10 @@ struct PxgDestructionContactFlags {
     enum { eARTICULATION = (1u<<3)|(1u<<4), eSOFT_BODY=1u<<7,
         eKINEMATIC_PAIR=1u<<11, eDISABLE_RESPONSE=1u<<12, eRETIRED=1u<<31 };
 };
-// Native contact edges without an active NP manager. Rebuilt from the native
-// lifecycle registry for this graph generation, not inferred from contact touch.
+// Native contact edges without an active NP manager. Stored persistently on
+// CUDA and updated at ordered lifecycle boundaries, not inferred from touch.
 struct PxgDestructionRetainedEdge {
-    enum { eACCURATE=1, eKINEMATIC=2, eUNSUPPORTED=4 };
+    enum { eACCURATE=1, eKINEMATIC=2, eUNSUPPORTED=4, eREMOVED=8 };
     PxU32 edgeIndex,node0,node1,flags;
 };
 struct PxgDestructionContactEdge {
@@ -23,7 +23,8 @@ struct PxgDestructionContactEdge {
 struct PxgDestructionContactGraphObservationStats {
     // Lifetime counters; status bytes count even if incomplete input falls back.
     PxU64 observations=0, sortedGraphs=0, deviceToHostBytes=0;
-    PxU64 retainedEdgesUploaded=0, retainedHostToDeviceBytes=0;
+    PxU64 retainedEdgesUploaded=0, retainedHostToDeviceBytes=0, retainedDeltaUpdates=0;
+    PxU32 retainedSlotCapacity=0;
     PxU32 peakRetainedEdges=0;
 };
 struct PxgDestructionContactGraphStatus {
@@ -53,6 +54,10 @@ struct PxgDestructionContactGraphView {
     PxU64 generation=0;
     CUevent readyEvent=NULL;
     const PxgDestructionRetainedEdge* retainedEdges=NULL;
-    PxU32 retainedEdgeCount=0;
+    // Native edge-indexed resident slots. Only mask bits identify valid rows;
+    // slot count is capacity, not the number of live edges. View generation
+    // scopes these private indices across removal/reuse and reconfiguration.
+    const PxU32* retainedActiveMask=NULL;
+    PxU32 retainedSlotCount=0;
 };
 }

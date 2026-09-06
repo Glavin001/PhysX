@@ -82,7 +82,7 @@ public:
     virtual bool buildContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
         const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxgShapeSim* shapes,
         PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream,
-        const PxgDestructionRetainedEdge* retainedEdges,PxU32 retainedEdgeCount) = 0;
+        const PxgDestructionRetainedEdge* retainedUpdates,PxU32 retainedUpdateCount,PxU32 retainedSlotCount) = 0;
     virtual PxgDestructionContactGraphView getContactGraphView() const = 0;
 
     // Install GPU-selected cluster ownership without re-uploading immutable geometry.

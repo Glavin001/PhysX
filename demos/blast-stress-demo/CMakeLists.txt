@@ -654,6 +654,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_options(native_gpu_collision_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_gpu_collision_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_gpu_collision_preparation COMMAND native_gpu_collision_test)
+    add_test(NAME physx_native_gpu_retained_registry COMMAND native_gpu_collision_test --retained-registry)
 
     add_executable(native_gpu_checkpoint_test tests/native_gpu_checkpoint_test.cpp physx_scene.cpp)
     target_include_directories(native_gpu_checkpoint_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES}

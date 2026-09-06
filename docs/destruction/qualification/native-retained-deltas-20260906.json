@@ -1,0 +1,362 @@
+{
+  "status": "persistent retained-contact CUDA lifecycle integrated and qualified in focused native tests; complete GPU island lifecycle still open",
+  "base_revision": "66f01f626a8bd64a483d4c8865d8d075cb0dbfe9",
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "3fd7bcd010a61ed119c059708eb3eed609ecc7ce9c14a0b4d1a4c3a2e53b07d6",
+    "demos/blast-stress-demo/native_graph_diagnostics.h": "00e5dde9ef0576f2a1ab62b68d1a2a550b9a6e9b7f5aa5d7f725df005635fad0",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "6626c6e19f3485ea1b588fc5088eae83e2c5c5752a47e52a516ef4afa9dcb1d4",
+    "physx/source/gpudestruction/include/PxgDestructionContactGraph.h": "c0e1b4d1804c17ba7e2b770ed49d6d28a0eb343b65801c6ea33ae20052027301",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "b91c4d9ee434c6e4588a20d6f7a2523e46fba8f393e20a47700098a76cea9fa6",
+    "physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh": "8bea6a01212a0e3fabec59bc657321bbc9c9b74a87abfeb8d75d24f76ca96a73",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "496b652e16d897d017baa9e0001d6797ee562884cdb1de5e1c23effe25f0450e",
+    "physx/source/gpudestruction/tests/contact_graph_test.cu": "f89b2a755bd2757e58af8823cadf3bcc2f7cfffa1689d20317fe9d3127596db8",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "84ee06a63c26a80bce3dafa51f3ab1d9242fb648399cc9dddb95b5d8c91c6707",
+    "physx/source/lowlevel/software/include/PxsSimpleIslandManager.h": "f3d6b20fdcac72250184b08f39b15bcb66633059694af23431b7968aeed2a1fa",
+    "physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp": "a9f47f0473450cca5ebf341778ed30a9544aa2c545561ae7f5e5a14c679750e3"
+  },
+  "changes": [
+    "Persistent native-edge-indexed CUDA slots and active bitmap replace repeated retained-edge snapshots",
+    "Coalesced native lifecycle commands; publication receipt removes never-resident deletions and preserves deferred insertions",
+    "CUDA validation rejects malformed batches before any slot mutation; frame validation rejects malformed host commands before acknowledgment",
+    "Growable GPU storage preserves masks/edges across allocation; graph generations scope handle reuse/reset",
+    "CUDA live/peak counts; new delta and slot-capacity diagnostics"
+  ],
+  "verification": {
+    "build_command": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+    "build_exit_code": 0,
+    "focused_tests_passed": 25,
+    "focused_test_seconds": 32.03,
+    "commands": [
+      {
+        "stage": "tests",
+        "command": [
+          "ctest",
+          "--test-dir",
+          "out/destruction-sdk",
+          "-R",
+          "^(physx_(native_gpu_|persistent_shape_owner|native_demo_projectile_launch)|destruction_gpu_contact_graph|blast_stress_physx_(cpu_contract|resim_penetration|resim_baseline|resim_snapshot|resim_punchthrough|resim_scoped_cascade)$)",
+          "--output-on-failure"
+        ],
+        "exit_code": 0,
+        "log": "out/native-retained-deltas-qualified-tests.log"
+      },
+      {
+        "stage": "kernel-memcheck",
+        "command": [
+          "/usr/local/cuda/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "99",
+          "out/destruction-sdk/topology/destruction_contact_graph_test"
+        ],
+        "exit_code": 0,
+        "log": "out/native-retained-deltas-qualified-kernel-memcheck.log"
+      },
+      {
+        "stage": "native-memcheck",
+        "command": [
+          "/usr/local/cuda/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "99",
+          "out/destruction-sdk/reference/native_gpu_collision_test",
+          "--retained-registry"
+        ],
+        "exit_code": 0,
+        "log": "out/native-retained-deltas-qualified-native-memcheck.log"
+      },
+      {
+        "stage": "capture",
+        "command": [
+          "python3",
+          "/tmp/run-native-retained-deltas-final.py"
+        ],
+        "exit_code": 0,
+        "log": "out/native-retained-deltas-qualified-capture.log"
+      }
+    ],
+    "cuda_memcheck_scope": "Graph kernels including transaction rejection, and native retained lifecycle fixture; does not clear earlier real-fracture asynchronous sanitizer failure",
+    "sanitizer_version": "NVIDIA (R) Compute Sanitizer\nCopyright (c) 2020-2025 NVIDIA Corporation\nVersion 2025.1.0.0 (build 35583870) (public-release)\n"
+  },
+  "capture": {
+    "summary": {
+      "backend": "native PhysX GPU task graph + resident CUDA destruction",
+      "status": "completed",
+      "frames": 600,
+      "seconds": 10,
+      "buildings": 64,
+      "chunks": 28416,
+      "bonds": 57344,
+      "peak_clusters": 24263,
+      "projectiles": 256,
+      "broken_bonds": 50055,
+      "corrections": 104,
+      "spawn_protocol": "clear-aerial-ballistic-v2",
+      "island_boundary_audit_enabled": true,
+      "motion_audit_enabled": true,
+      "max_motion_position_error": 0,
+      "record_fps": 60,
+      "gpu_island_repair": true,
+      "preserve_contact_pairs": true,
+      "recorded_state": false,
+      "correction_limit": 1,
+      "physics_ms_p50": 45.6369,
+      "physics_ms_p95": 158.114,
+      "physics_ms_p99": 238.28,
+      "physics_ms_max": 298.006,
+      "missed_16_67ms": 499,
+      "stress_included_in_physics_time": true,
+      "isolated_performance_qualification": false,
+      "sleeping": false,
+      "crushing_material_enabled": false
+    },
+    "graph": {
+      "scope": "simulation contact graph only; excludes diagnostic counter reads, other physics and recording transfers",
+      "graph_builds": 704,
+      "same_pass_reuses": 704,
+      "host_observations": 621,
+      "sorted_graphs": 1242,
+      "device_to_host_bytes": 439114032,
+      "gpu_connected_answers": 4136412,
+      "gpu_splits": 658952,
+      "retained_edges_uploaded": 7593,
+      "retained_host_to_device_bytes": 242976,
+      "retained_delta_updates": 15186,
+      "retained_slot_capacity": 451584,
+      "peak_retained_edges": 3836,
+      "boundary_audits": 1242,
+      "boundary_audit_failures": 0,
+      "registry_mismatch_fallbacks": 0
+    },
+    "process": {
+      "exit_code": 0,
+      "wall_seconds": 38.4879505247809,
+      "status": "completed"
+    },
+    "provenance": {
+      "base_revision": "66f01f626a8bd64a483d4c8865d8d075cb0dbfe9",
+      "source_sha256": {
+        "demos/blast-stress-demo/CMakeLists.txt": "3fd7bcd010a61ed119c059708eb3eed609ecc7ce9c14a0b4d1a4c3a2e53b07d6",
+        "demos/blast-stress-demo/native_graph_diagnostics.h": "00e5dde9ef0576f2a1ab62b68d1a2a550b9a6e9b7f5aa5d7f725df005635fad0",
+        "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "6626c6e19f3485ea1b588fc5088eae83e2c5c5752a47e52a516ef4afa9dcb1d4",
+        "physx/source/gpudestruction/include/PxgDestructionContactGraph.h": "c0e1b4d1804c17ba7e2b770ed49d6d28a0eb343b65801c6ea33ae20052027301",
+        "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "b91c4d9ee434c6e4588a20d6f7a2523e46fba8f393e20a47700098a76cea9fa6",
+        "physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh": "8bea6a01212a0e3fabec59bc657321bbc9c9b74a87abfeb8d75d24f76ca96a73",
+        "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "496b652e16d897d017baa9e0001d6797ee562884cdb1de5e1c23effe25f0450e",
+        "physx/source/gpudestruction/tests/contact_graph_test.cu": "f89b2a755bd2757e58af8823cadf3bcc2f7cfffa1689d20317fe9d3127596db8",
+        "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "84ee06a63c26a80bce3dafa51f3ab1d9242fb648399cc9dddb95b5d8c91c6707",
+        "physx/source/lowlevel/software/include/PxsSimpleIslandManager.h": "f3d6b20fdcac72250184b08f39b15bcb66633059694af23431b7968aeed2a1fa",
+        "physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp": "a9f47f0473450cca5ebf341778ed30a9544aa2c545561ae7f5e5a14c679750e3"
+      },
+      "libraries": {
+        "libPhysXDestructionGpuRuntime_64.so": "2fa3d6f45d789fcebfa77f98aa1b2fbac5be06e81e4b4add5830fba015f8d286",
+        "libPhysXGpuActivity_64.so": "50b3d26b8903f9336a94c6df474d6bbca0daf5a259ea246483951928bd4d06cd",
+        "libPVDRuntime_64.so": "7ced8c8e62fd6323cbb75910cf1a9cf29e2cfe5cfe1d053a8ad061a6bd4d1c2b",
+        "libPhysX_static_64.a": "2b8898fbc19667f2dba47e3898a42cfc6c9ca0ccc6ba391c110de7bce4ef74e6",
+        "libPhysXCommon_static_64.a": "989af41e4b457eda140c1a05feeb62bdd2a5a816790c923860776d666821f42b",
+        "libPhysXFoundation_static_64.a": "245eb8a7d46693f37a13639d7ddde4707bac0b6b8a2a8564cae7c40888217f7a",
+        "libPhysXExtensions_static_64.a": "cf0f5b0269efdb3b0c1bf26c8200d076aa97495194e320f10def1f39df1ee148",
+        "libPhysXPvdSDK_static_64.a": "5904d7f4e41dc89807e90d7a11bb8cdf2b1fd2b88a6ed82c040d0b0669fbc94c",
+        "libPhysXCooking_static_64.a": "8c919efa53e9ad97930c370c0757e706bcc7f12f0e0b801278ddcd33ec5826a6",
+        "libPhysXCharacterKinematic_static_64.a": "b8dd6238ef1b039717b47aeaf949202388089a15db57cbf86de6397efd4f771d",
+        "libPhysXVehicle_static_64.a": "1175dd5c09cca78bd8f19204e826b4cb3a6f1bda14b79b8ea0f4af8b51ef3075",
+        "libPhysXCudaContextManager_static_64.a": "222cf8e3d3a9b9236cec0fb9940a67b10eb4483c5bce924519eca72be4158cdb"
+      },
+      "command": [
+        "out/destruction-sdk/reference/native_destruction_demo",
+        "--grid",
+        "8",
+        "--waves",
+        "4",
+        "--seconds",
+        "10",
+        "--stress-iterations",
+        "8192",
+        "--profile-phases",
+        "1",
+        "--preserve-contact-pairs",
+        "1",
+        "--audit-motion",
+        "1",
+        "--audit-islands",
+        "1",
+        "--record-state",
+        "0",
+        "--gpu-island-repair",
+        "1",
+        "--output",
+        "/root/workspace/physx-2/out/recordings/native-retained-deltas-final-20260906"
+      ],
+      "isolated_performance_qualification": false,
+      "executable_sha256": "c30183a78d4fa2eec3fbc3ee4f89c99138cc3b4fd0a8e11f55bda6f5a928f454",
+      "libraries_verified_after_capture": true
+    },
+    "physics_timing": {
+      "samples": 600,
+      "min_ms": 0.618423,
+      "mean_ms": 55.24847394166667,
+      "max_ms": 298.006,
+      "p50_ms": 45.44825,
+      "p95_ms": 158.114,
+      "p99_ms": 238.28,
+      "total_wall_seconds": 33.149084365,
+      "effective_steps_per_second": 18.100047452094987,
+      "real_time_factor": 0.30166745753491647,
+      "missed_deadlines": 499,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "capture_tick_timing": {
+      "samples": 600,
+      "min_ms": 2.03678,
+      "mean_ms": 58.3222738,
+      "max_ms": 301.124,
+      "p50_ms": 48.53555,
+      "p95_ms": 161.29,
+      "p99_ms": 241.37,
+      "total_wall_seconds": 34.99336428,
+      "effective_steps_per_second": 17.146107907747588,
+      "real_time_factor": 0.2857684651291265,
+      "missed_deadlines": 506,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "all_steps_stress_converged": true,
+    "registry_slot_storage_bytes": 7281804
+  },
+  "limitations": [
+    "CPU native lifecycle still produces commands; CPU compatibility island maintenance and solver consumption remain",
+    "Graph component host observations still transferred 439114032 bytes in this run",
+    "Stable edge-indexed storage includes inactive holes; this capture used 7281804 bytes for slots, bitmap and count words, excluding command staging",
+    "Sleeping/joints/CCD unsupported eligibility unchanged; not a complete GPU solver-island implementation",
+    "One 64-building 10-second audited shared-GPU run, not repeated isolated performance qualification or a new full-size 113664-chunk result",
+    "Original native SIGSEGV and real-fracture asynchronous CUDA sanitizer causes remain open"
+  ],
+  "artifacts": [
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/build-provenance.json",
+      "sha256": "219b855c2fa4d0015f372aac158545d631237491351a42fa1079ce1ccc5f5881"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/gpu-memory.csv",
+      "sha256": "2cf8a9a483a04f5082b7c67611eede9b975412460e4622db9d7040accdf2487c"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/native.frames.csv",
+      "sha256": "6dc98d1634d867c9e0539e180ffd59029ad4919cb09728fb8ad6feb265b5b94c"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/native.graph-diagnostics.json",
+      "sha256": "acafa746697c1c3ece9fbdf6278e64442ddc23bd1522c4c27cc56a158f9f4666"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/native.launches.csv",
+      "sha256": "74d8ef77992a2b5e0d54c46c347ed66e64efa17ae915d8d0d5a130dacf26f0fe"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/native.phases.csv",
+      "sha256": "51098ce37936c4bd4f00ee07497f203b51bd7d2c9887f157fbfcfbc1ea724345"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/native.summary.json",
+      "sha256": "33942579d12edf27d3c72fcc7fd95c6220a04579d0d180d80c335018fcc737c5"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/phase-summary.json",
+      "sha256": "ca4e78510ae1eedea5686c331d94d7b4957b548db599ae20566bc5777b832367"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/process-result.json",
+      "sha256": "ae044f7fb7c0873f19c5389fd47eebf5e3f8c62b1974fc46a43f354b230af484"
+    },
+    {
+      "path": "out/recordings/native-retained-deltas-final-20260906/source-files.json",
+      "sha256": "605e6d50cc8a6698e002365031402e8d72ea236a93d31f4ce521c91d1117d6cb"
+    },
+    {
+      "path": "out/native-retained-deltas-qualified-rebuild.log",
+      "sha256": "34d58097ca0e3f09c7d0fa6677a97f77fa1893dddebe727c6179da324f21112d"
+    },
+    {
+      "path": "out/native-retained-deltas-qualified-tests.log",
+      "sha256": "7fa669b11b506ea9efb6d9fdda5a456fcd981956e46770bd6a7579e8eb9e8868"
+    },
+    {
+      "path": "out/native-retained-deltas-qualified-kernel-memcheck.log",
+      "sha256": "82dd20fc931242ddf81b804b6f34a27f42a365b7f2c7b9cf5bc2b8c15079a28f"
+    },
+    {
+      "path": "out/native-retained-deltas-qualified-native-memcheck.log",
+      "sha256": "442317b4c1902a49d817e2c493ead2c5a06b9bd24e0bc7848f26d5ff243cc16d"
+    },
+    {
+      "path": "out/native-retained-deltas-qualified-capture.log",
+      "sha256": "249223ebafcf1b896011a3e38f8dc2a7d287421bf76e52f560a36e6efc4e3d60"
+    }
+  ],
+  "initial_exploration": {
+    "directory": "out/recordings/native-retained-deltas-audited-20260906",
+    "graph": {
+      "scope": "simulation contact graph only; excludes diagnostic counter reads, other physics and recording transfers",
+      "graph_builds": 714,
+      "same_pass_reuses": 714,
+      "host_observations": 631,
+      "sorted_graphs": 1262,
+      "device_to_host_bytes": 446978192,
+      "gpu_connected_answers": 4053685,
+      "gpu_splits": 631260,
+      "retained_edges_uploaded": 7595,
+      "retained_host_to_device_bytes": 18435312,
+      "retained_delta_updates": 1152207,
+      "retained_slot_capacity": 451584,
+      "peak_retained_edges": 3836,
+      "boundary_audits": 1262,
+      "boundary_audit_failures": 0,
+      "registry_mismatch_fallbacks": 0
+    },
+    "finding": "Unpublished transient contacts generated unnecessary removals; publication receipt/filter added after this run",
+    "comparison_scope": "Observed traffic only; chaotic fracture histories differ, not a matched physical-workload speedup claim",
+    "artifacts": [
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/build-provenance.json",
+        "sha256": "e37d4d73dbf869d3204051054e5b98d439900956a22e5217e8f53dccb99c61cd"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/gpu-memory.csv",
+        "sha256": "729a771017827e70bb0e7abae63569dbeca33ab191299b1594827baf9db934ec"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/native.frames.csv",
+        "sha256": "4a4c369c24117d5a0ffac7e4c82ab37d34b0941b7a832c921b047a9f6674a8f4"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/native.graph-diagnostics.json",
+        "sha256": "74abfd08deb53730e43f10d43d3f321b780d5f383ea184a8b355ea65e439b7bb"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/native.launches.csv",
+        "sha256": "d75cfd2b7a14cbf355792c1358ad2476efc7aa5b91116a1aee76f6eb77574290"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/native.phases.csv",
+        "sha256": "c2158aceb5b7df20374c3c101e1803b3bfd139a0266c69954b5e03e26de731c3"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/native.summary.json",
+        "sha256": "5693c75822b3f027e82d0bc6d5cb2d996d2827a7d4174c10ac8cda9d6bba4b20"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/phase-summary.json",
+        "sha256": "2986b812d10e5c3573e49dda61d09b1a0822e00bb854526ea714dd1f786443c8"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/process-result.json",
+        "sha256": "b7f4f3a933d109b37c53b9fe0636be321351c2c32172ac47bb8db5c7c2dbc278"
+      },
+      {
+        "path": "out/recordings/native-retained-deltas-audited-20260906/source-files.json",
+        "sha256": "10a3996dd7e88fab77176ad5bafd0d675f8546926c9bbf03e15df4622ea57af9"
+      }
+    ]
+  }
+}

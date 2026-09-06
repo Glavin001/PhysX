@@ -155,7 +155,9 @@ EdgeIndex SimpleIslandManager::resizeEdgeArrays(EdgeIndex handle, bool flag)
 {
 	if(mConnectedMap.size() == handle)
 		mConnectedMap.resize(2 * (handle + 1));
-    if(mGPU && mRetainedContactMap.size()<=handle)mRetainedContactMap.resize(2*(handle+1));
+    if(mGPU && mRetainedContactMap.size()<=handle) {
+        mRetainedContactMap.resize(2*(handle+1));mRetainedContactChanges.resize(2*(handle+1));mRetainedContactPublished.resize(2*(handle+1));
+    }
     setRetainedContact(handle,flag && !mAuxCpuData.getContactManager(handle));
 
 	if(mGPU && mGpuData.mFirstPartitionEdges.capacity() == handle)
@@ -206,7 +208,9 @@ void SimpleIslandManager::preallocateContactManagers(PxU32 nb, EdgeIndex* handle
 	// PT: TODO: refactor with regular code
 	if(mConnectedMap.size() <= maxHandle)
 		mConnectedMap.resize(2 * (maxHandle + 1));
-    if(mGPU && mRetainedContactMap.size()<=maxHandle)mRetainedContactMap.resize(2*(maxHandle+1));
+    if(mGPU && mRetainedContactMap.size()<=maxHandle) {
+        mRetainedContactMap.resize(2*(maxHandle+1));mRetainedContactChanges.resize(2*(maxHandle+1));mRetainedContactPublished.resize(2*(maxHandle+1));
+    }
 
 	if(mGPU && mGpuData.mFirstPartitionEdges.capacity() <= maxHandle)
 		mGpuData.mFirstPartitionEdges.resize(2 * (maxHandle + 1));
@@ -406,7 +410,10 @@ void SimpleIslandManager::setEdgeConnected(EdgeIndex edgeIndex, Edge::EdgeType e
 	{
 		mAccurateIslandManager.addConnection(mCpuData.mEdgeNodeIndices[edgeIndex * 2], mCpuData.mEdgeNodeIndices[edgeIndex * 2 + 1], edgeType, edgeIndex);
 		mConnectedMap.set(edgeIndex);
-        if(mGPU)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
+        if(mGPU) {
+            if(isRetainedContact(edgeIndex))markRetainedContactChanged(edgeIndex);
+            mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
+        }
 	}
 }
 
@@ -417,7 +424,10 @@ void SimpleIslandManager::setEdgeDisconnected(EdgeIndex edgeIndex)
 		//PX_ASSERT(!mAccurateIslandManager.getEdge(edgeIndex).isInDirtyList());
 		mAccurateIslandManager.removeConnection(edgeIndex);
 		mConnectedMap.reset(edgeIndex);
-        if(mGPU)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
+        if(mGPU) {
+            if(isRetainedContact(edgeIndex))markRetainedContactChanged(edgeIndex);
+            mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
+        }
 	}
 }
 
@@ -449,12 +459,12 @@ void SimpleIslandManager::setKinematic(PxNodeIndex nodeIndex)
 { 
 	mAccurateIslandManager.setKinematic(nodeIndex); 
 	mSpeculativeIslandManager.setKinematic(nodeIndex);
-    if(mGPU)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
+    if(mGPU){mRetainedEndpointChanges.store(true,std::memory_order_relaxed);mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);}
 }
 
 void SimpleIslandManager::setDynamic(PxNodeIndex nodeIndex) 
 { 
 	mAccurateIslandManager.setDynamic(nodeIndex); 
 	mSpeculativeIslandManager.setDynamic(nodeIndex);
-    if(mGPU)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
+    if(mGPU){mRetainedEndpointChanges.store(true,std::memory_order_relaxed);mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);}
 }

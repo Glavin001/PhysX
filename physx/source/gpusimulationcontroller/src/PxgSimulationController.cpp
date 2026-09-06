@@ -696,27 +696,47 @@ namespace physx
         const auto& shapes=mSimulationCore->mPxgShapeSimManager;
         auto& islands=mDynamicContext->getIslandManager();
         const auto& spec=islands.getSpeculativeIslandSim();const auto& accurate=islands.getAccurateIslandSim();
-        PxArray<PxgDestructionRetainedEdge> retainedEdges;
-        PxBitMap::Iterator retainedIterator(islands.getRetainedContactMap());
+        // Initialize a new runtime from the current retained set. Subsequent
+        // transactions upload coalesced lifecycle deltas, including removals.
+        // CUDA owns persistent edge-indexed storage between graph builds.
+        const bool reset=!mDestruction->getContactGraphView().generation;
+        PxArray<PxgDestructionRetainedEdge> retainedUpdates;
+        PxArray<PxU32> deferred;
+        const auto& retainedMap=islands.getRetainedContactMap();
+        PxBitMap::Iterator retainedIterator(reset?retainedMap:islands.getRetainedContactChanges());
         PxU32 edgeIndex;
         while((edgeIndex=retainedIterator.getNext())!=PxBitMap::Iterator::DONE) {
-            if(edgeIndex>=spec.getNbEdges())continue;
-            const auto& edge=spec.getEdge(edgeIndex);
-            if(!edge.isInserted() || edge.isPendingDestroyed())continue;
-            const auto a=spec.mCpuData.getNodeIndex1(edgeIndex),b=spec.mCpuData.getNodeIndex2(edgeIndex);
-            PxU32 flags=0;
-            if(edgeIndex<accurate.getNbEdges() && accurate.getEdge(edgeIndex).isInserted()
-                && !accurate.getEdge(edgeIndex).isPendingDestroyed())flags|=PxgDestructionRetainedEdge::eACCURATE;
-            if(a.isArticulation() || b.isArticulation() || edge.mEdgeType!=IG::Edge::eCONTACT_MANAGER)
-                flags|=PxgDestructionRetainedEdge::eUNSUPPORTED;
-            const PxNodeIndex endpoints[2]={a,b};
-            for(const auto node:endpoints)if(node.isValid() && node.index()<spec.getNbNodes()
-                && spec.getNode(node).isKinematic())flags|=PxgDestructionRetainedEdge::eKINEMATIC;
-            retainedEdges.pushBack({edgeIndex,a.index(),b.index(),flags});
+            PxgDestructionRetainedEdge update={edgeIndex,PX_INVALID_NODE,PX_INVALID_NODE,PxgDestructionRetainedEdge::eREMOVED};
+            if(retainedMap.test(edgeIndex) && edgeIndex<spec.getNbEdges()) {
+                const auto& edge=spec.getEdge(edgeIndex);
+                if(!edge.isPendingDestroyed()) {
+                    if(!edge.isInserted())deferred.pushBack(edgeIndex);
+                    else {
+                        const auto a=spec.mCpuData.getNodeIndex1(edgeIndex),b=spec.mCpuData.getNodeIndex2(edgeIndex);
+                        PxU32 flags=0;
+                        if(edgeIndex<accurate.getNbEdges() && accurate.getEdge(edgeIndex).isInserted()
+                            && !accurate.getEdge(edgeIndex).isPendingDestroyed())flags|=PxgDestructionRetainedEdge::eACCURATE;
+                        if(a.isArticulation() || b.isArticulation() || edge.mEdgeType!=IG::Edge::eCONTACT_MANAGER)
+                            flags|=PxgDestructionRetainedEdge::eUNSUPPORTED;
+                        const PxNodeIndex endpoints[2]={a,b};
+                        for(const auto node:endpoints)if(node.isValid() && node.index()<spec.getNbNodes()
+                            && spec.getNode(node).isKinematic())flags|=PxgDestructionRetainedEdge::eKINEMATIC;
+                        update={edgeIndex,a.index(),b.index(),flags};
+                    }
+                }
+            }
+            if(!(update.flags&PxgDestructionRetainedEdge::eREMOVED)
+                || (!reset && islands.wasRetainedContactPublished(edgeIndex)))retainedUpdates.pushBack(update);
         }
         const bool ok=mDestruction->buildContactGraph(inputs,identities,outputs,count,omitted,
             shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),mBodySimManager.mBodies.size(),retired,retiredCount,stream,
-            retainedEdges.begin(),retainedEdges.size());
+            retainedUpdates.begin(),retainedUpdates.size(),islands.getNbEdgeHandles());
+        if(ok) {
+            if(reset)islands.resetRetainedContactReceipt();
+            for(PxU32 i=0;i<retainedUpdates.size();++i)
+                islands.acknowledgeRetainedContact(retainedUpdates[i].edgeIndex,!(retainedUpdates[i].flags&PxgDestructionRetainedEdge::eREMOVED));
+            islands.acknowledgeRetainedContactChanges(deferred);
+        }
         if(!ok) {
             mDestructionError=1;mCudaContextManager->getCudaContext()->setAbortMode(true);
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native GPU contact graph construction failed; simulation is incomplete.");
