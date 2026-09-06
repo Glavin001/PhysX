@@ -1,0 +1,173 @@
+{
+  "milestone": "Native GPU cluster body initialization",
+  "timestampUtc": "2026-09-06T00:49:25.640666+00:00",
+  "baseRevision": "40fa961eeba39f299bb633e80c26706d7a97eaf6",
+  "buildCommand": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05",
+  "regressionCommand": {
+    "command": [
+      "ctest",
+      "--test-dir",
+      "out/destruction-sdk",
+      "--output-on-failure",
+      "--output-junit",
+      "/root/workspace/physx-2/out/native-body-init-regression.xml"
+    ],
+    "returncode": 8
+  },
+  "regression": {
+    "tests": 52,
+    "passed": 47,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newFailures": [],
+    "existingAssertionsWeakened": false
+  },
+  "expandedTest": "physx_native_gpu_body_allocation",
+  "coverage": [
+    "Actual native GPU body pool initialized automatically after GPU fracture verdict and native allocation",
+    "256-child storage growth without truncation, retry ID reuse, removal/reinsertion and teardown",
+    "Sleeping enabled/disabled crossed with acceleration storage enabled/disabled",
+    "New supported and dynamic cluster slots preserve inverse mass/inertia semantics",
+    "Kinematic authored dynamic settings reside on GPU and reflect later CPU configuration edits",
+    "TGS and PGS moving fixtures: actual GPU COM/inertia/motion and analytic point-velocity continuity",
+    "GPU-only physical source setting inherited; retained parent inverse mass and COM unchanged",
+    "No initial acceleration spike; source trial acceleration accumulators not cloned into candidates",
+    "Post-growth public Direct GPU pose commands use refreshed storage descriptor",
+    "Private allocation sleep notification cannot zero GPU candidate motion during fetchResults",
+    "Private actors remain inactive, shapeless, unpublished and isolated from user deletion events"
+  ],
+  "memoryChecks": [
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_allocation_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-body-init-native_gpu_allocation_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "fd7dc5cbd5c3eff9b0ff89f533c41f419ac7c3bd54c387abef00cd32029e484b"
+    },
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_body_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-body-init-native_gpu_body_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "d7eb30cf23903f8d8b9a2ff4a70a90db37dd6655027409907a31bf4ef1e2a75d"
+    },
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_material_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-body-init-native_gpu_material_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "ae080a5a6f1b8c4976b4248720425e996b5bb84ac316c13e2a464e8742241b02"
+    }
+  ],
+  "installedConsumers": [
+    {
+      "command": [
+        "out/package-consumer/package_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    }
+  ],
+  "sourceSha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "e3b8fab5c07774901dea8321e2179077ce21c68f9d66bca69d718fba90fca4f5",
+    "demos/blast-stress-demo/physx_scene.cpp": "d191ceec7989f4d1eab34107b5b3b16c84ef3a12e46eb39be147ed4172e7f7ff",
+    "demos/blast-stress-demo/physx_scene.h": "c935580ce40f1450b9d1e52b3ffbb8db0693f529211c97237340e6a29650e763",
+    "demos/blast-stress-demo/tests/native_gpu_allocation_test.cpp": "a58d3030faa2ceab30f6bfcbfe2891d3bfe6dc00188edb52dd6cf9a5e2156308",
+    "physx/include/PxDestructionScene.h": "6e2c1d56badab21a8bce85124c6f999b5bd633fff0b2ba55e62ab6abb4a3be86",
+    "physx/include/PxDestructionTopologyTypes.h": "732bfc96dfa0aaa0e031973343f145b350e4a06af5f9db5fdb6ad4071c648eec",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "d5021c5ec9ac2eb1913c0556eefc23b36997b5668d29a6e57bbd4295ca3ae8a5",
+    "physx/source/gpudestruction/runtime/CMakeLists.txt": "2a41b5a36dfb3809e856b4c0d73d65a90e8f80cabd2fface2ed370dea379dca4",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "5b0c4bcf6a945f01346723c3a4f14e0b3396447940fa0e0608871040b553a672",
+    "physx/source/gpusimulationcontroller/include/PxgBodySim.h": "fb45fe6af578866562349afab8e7cc834b654eac47de68a472886a8ff4d6480d",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationCore.h": "68196adae3e3c44b7ff49a27f1f63945e17daa7fb21c8755b5af4f0a80f34dd2",
+    "physx/source/gpusimulationcontroller/src/CUDA/updateBodiesAndShapes.cu": "4d8a9da49ea7d20bffd9b7c1ab387b5724b630d34ca2b254ba36aed053e50250",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "628071d19ba4c78d954f68354189c31740a3be01099f28916045ac8366339737",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp": "693c008317b6d43549a7ca45dd9b1be0a1b77982f59fb86fbb205f687512ff94",
+    "physx/source/lowlevel/software/include/PxsRigidBody.h": "088ac410a0f5f9dd357b04226d69a3716a5a07eaacb755da96ed60f4a937d63f",
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "95284304afe3af043995e16a1dd172a28fe59934891f77a46b0ac705680fd2ee",
+    "physx/source/simulationcontroller/src/ScBodyCore.cpp": "b6b7f3ce5e2bf300134b080d5625e56a5ee2d3cb59b944f197d8ba141d1455b8",
+    "physx/source/simulationcontroller/src/ScBodySim.cpp": "7820020660a16d21e240a10cde7e49a11c1045e7a48a33078dbd6080e14be2f7"
+  },
+  "librarySha256": {
+    "libPhysXDestructionGpuRuntime_64.so": "93ba80e93e75c45e31444b0b1e07b618925e1450e73037099c266e5cc8251553",
+    "libPhysXGpuActivity_64.so": "db9ce30e775d93ae0bb43e9425f84b55bea2392c7025c72dfb067f6cacc68a40",
+    "libPhysX_static_64.a": "d1825e3b759347339c9fbdfef6789809a8c70bcdeafefb0c62d93ab9c9bed85d"
+  },
+  "logsSha256": {
+    "out/native-body-init-build.log": "0c6f015552da11996de6c759d03050ff962f350640844f5a30a617f36340d74d",
+    "out/native-body-init-regression.log": "fa640c4e0179597854ce343ec02678d70e58f6148e46ac6456303382ce57b82f",
+    "out/native-body-init-regression.xml": "537fd3644746e21dedee4bf27526ea2bc606b6c1c99e60d99c71733adb40d76e",
+    "out/native-body-init-test.log": "cc63caae7d806bf2b7193475fcc83a32ae13aabfd546c3ecb161812d5eae1c50",
+    "out/native-body-init-package-build.log": "0084f1aa255c6af70590d26148d27cb2a2288e3a1605422a8905a271e0684e65",
+    "out/native-body-init-package-consumers.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "layoutChange": {
+    "gpuBodyBytesBefore": 224,
+    "gpuBodyBytesAfter": 240,
+    "existingGpuFieldOffsetsPreserved": true,
+    "cpuLowLevelBodyAddedConfigurationBytes": 16,
+    "requiresNativeRebuild": true
+  },
+  "remaining": [
+    "Persistent shape transfer driven by native topology and GPU initialized/retained body state",
+    "Checkpoint and restore ordinary participants/joints, followed by one internal correction solve",
+    "Once-only damage/commands/energy and committed event/actor publication",
+    "CPU compatibility observations and commands for committed GPU-owned bodies",
+    "Complete grow/retry behavior for allocation failures",
+    "Full SDK interfaces, fidelity fixes, Rust/WASM/game integration and end-to-end qualification",
+    "Fully integrated standalone demo/video and isolated massive-scene performance campaign"
+  ],
+  "limitations": [
+    "Ownership-changing split still returns incomplete error 8 without destruction material/topology commit",
+    "Ordinary trial motion is not rewound yet",
+    "New private GPU slots have physical state; retained parent state has not been converted to fractured mass/COM",
+    "CPU candidate cores still contain placeholders and must not be uploaded during future collision transfer",
+    "No isolated performance, full-scene scale or 60 Hz claim"
+  ]
+}

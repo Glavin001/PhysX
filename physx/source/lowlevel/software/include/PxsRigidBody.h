@@ -32,6 +32,7 @@
 #include "PxvDynamics.h"
 #include "CmSpatialVector.h"
 #include "foundation/PxMutex.h"
+#include "foundation/PxVec4.h"
 #include "foundation/PxArray.h"
 
 namespace physx
@@ -81,6 +82,7 @@ class PxsRigidBody
 											mLastTransform	(core->body2World),
 											mInternalFlags	(0),
                                             mGpuHostDirty   (0),
+                                            mGpuDynamicLimitsDamping(core->maxLinearVelocitySq, core->maxAngularVelocitySq, core->linearDamping, core->angularDamping),
 											mCCD			(NULL),
 											mCore			(core),
 											mSleepLinVelAcc	(PxVec3(0.0f)),
@@ -143,7 +145,10 @@ class PxsRigidBody
 					PxTransform			mLastTransform;
 
 					PxU16				mInternalFlags;			// PT: PxsRigidBodyFlags
-					PxU16               mGpuHostDirty;          // Sparse CPU commands; layout unchanged
+					PxU16               mGpuHostDirty;          // Sparse CPU commands
+                    // Authored dynamic settings survive kinematic overrides.
+                    // Configuration data only; runtime motion remains on GPU.
+                    PxVec4              mGpuDynamicLimitsDamping;
 
 					PxsCCDBody*			mCCD;					// only valid during CCD	
 

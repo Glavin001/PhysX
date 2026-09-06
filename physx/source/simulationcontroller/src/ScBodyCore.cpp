@@ -40,7 +40,11 @@ static void gpu_updateBodySim(Sc::BodyCore& bodyCore)
 #if PX_SUPPORT_GPU_PHYSX
 	Sc::BodySim* bodySim = bodyCore.getSim();
 	if(bodySim)
-		bodySim->getScene().gpu_updateBodySim(*bodySim);
+    {
+        bodySim->getLowLevelBody().mGpuDynamicLimitsDamping = PxVec4(bodyCore.getMaxLinVelSq(),
+            bodyCore.getMaxAngVelSq(), bodyCore.getLinearDamping(), bodyCore.getAngularDamping());
+        bodySim->getScene().gpu_updateBodySim(*bodySim);
+    }
 #else
 	PX_UNUSED(bodyCore);
 #endif
@@ -290,6 +294,7 @@ void Sc::BodyCore::setLinearDamping(PxReal d)
 		PX_ASSERT(simStateData);
 		PX_ASSERT(simStateData->getKinematicData());
 		simStateData->getKinematicData()->backupLinearDamping = d;
+        gpu_updateBodySim(*this);
 	}
 }
 
@@ -323,6 +328,7 @@ void Sc::BodyCore::setAngularDamping(PxReal v)
 		PX_ASSERT(simStateData);
 		PX_ASSERT(simStateData->getKinematicData());
 		simStateData->getKinematicData()->backupAngularDamping = v;
+        gpu_updateBodySim(*this);
 	}
 }
 
@@ -356,6 +362,7 @@ void Sc::BodyCore::setMaxAngVelSq(PxReal v)
 		PX_ASSERT(simStateData);
 		PX_ASSERT(simStateData->getKinematicData());
 		simStateData->getKinematicData()->backupMaxAngVelSq = v;
+        gpu_updateBodySim(*this);
 	}
 }
 
@@ -389,6 +396,7 @@ void Sc::BodyCore::setMaxLinVelSq(PxReal v)
 		PX_ASSERT(simStateData);
 		PX_ASSERT(simStateData->getKinematicData());
 		simStateData->getKinematicData()->backupMaxLinVelSq = v;
+        gpu_updateBodySim(*this);
 	}
 }
 

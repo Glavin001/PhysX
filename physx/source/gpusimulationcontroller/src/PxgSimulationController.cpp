@@ -655,6 +655,41 @@ namespace physx
         // published. Only compact new-body allocation metadata and status leave
         // the GPU; no bond graph, contact loads or physical body state readback.
         const bool complete = mDestruction->finish();
+        if(ok && mDestruction->reservedBodyCount())
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+            if(!cuda->isInAbortMode())
+            {
+                mSimulationCore->reserveBodySimStorage(mBodySimManager.mTotalNumBodies, mSimulationCore->hasAccelerationBuffers());
+                // Direct GPU setters cache the body pool in a descriptor. Refresh
+                // it after growth so subsequent commands address the new pool.
+                mSimulationCore->gpuDmaUpdateData();
+            }
+            const bool initialized=mDestruction->initializeReservedBodies(
+                cuda->isInAbortMode()?NULL:mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
+            if(initialized)
+            {
+                const PxU32* indices=mDestruction->reservedBodyIndices();
+                for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)
+                {
+                    const PxU32 id=indices[i];
+                    auto& body=*static_cast<PxsRigidBody*>(mBodySimManager.mBodies[id]);
+                    body.mInternalFlags &= ~(PxsRigidBody::eFIRST_BODY_COPY_GPU | PxsRigidBody::eVELOCITY_COPY_GPU);
+                    body.mGpuHostDirty=0;
+                    mBodySimManager.mUpdatedMap.reset(id);
+                }
+                // One compaction, not a scan per child. Updates for ordinary
+                // actors remain queued and retain their map entries.
+                auto& pending=mBodySimManager.mNewOrUpdatedBodySims;PxU32 kept=0;
+                for(PxU32 i=0;i<pending.size();++i)
+                    if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
+                pending.forceSize_Unsafe(kept);
+            }
+            ok=ok && initialized;
+        }
         mDestructionError = ok && complete ? 0 : 1;
         if(mDestructionError)
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
@@ -1354,6 +1389,7 @@ namespace physx
 			//fill in body sim data
 			bodySim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex = make_float4(0.f, core->wakeCounter, core->sleepThreshold, reinterpret_cast<const PxReal&>(index.nodeIndex));
 			bodySim.articulationRemapId = index.remapIndex;
+            bodySim.dynamicLimitsDamping=make_float4(0.f);
 			bodySim.internalFlags = PxsRigidBody::eFIRST_BODY_COPY_GPU;
 			//Note: we can raise eFIRST_BODY_COPY_GPU here because this function only processes new articulations.
 			//We therefore know that every articulation encountered here is a new articulation.
@@ -2456,6 +2492,7 @@ namespace physx
 			bodySim.linearVelocityXYZ_inverseMassW = make_float4(reinterpret_cast<float3&>(bcLL.linearVelocity), bcLL.inverseMass);
 			bodySim.angularVelocityXYZ_maxPenBiasW = make_float4(reinterpret_cast<float3&>(bcLL.angularVelocity), bcLL.maxPenBias);
 			bodySim.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW = make_float4(bcLL.maxLinearVelocitySq, bcLL.maxAngularVelocitySq, bcLL.linearDamping, bcLL.angularDamping);
+            bodySim.dynamicLimitsDamping=make_float4(rbLL.mGpuDynamicLimitsDamping.x,rbLL.mGpuDynamicLimitsDamping.y,rbLL.mGpuDynamicLimitsDamping.z,rbLL.mGpuDynamicLimitsDamping.w);
 			bodySim.inverseInertiaXYZ_contactReportThresholdW = make_float4(reinterpret_cast<float3&>(bcLL.inverseInertia), bcLL.contactReportThreshold);
 			bodySim.body2World = PxAlignedTransform(bcLL.body2World.p.x, bcLL.body2World.p.y, bcLL.body2World.p.z,
 				PxAlignedQuat(bcLL.body2World.q.x, bcLL.body2World.q.y, bcLL.body2World.q.z, bcLL.body2World.q.w));

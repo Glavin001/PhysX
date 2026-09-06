@@ -59,7 +59,8 @@ public:
         bool disableSleeping = false,
         bool enableGpuSleeping = false,
         bool enableGpuHostAccess = false,
-        physx::PxSolverType::Enum solverType = physx::PxSolverType::eTGS);
+        physx::PxSolverType::Enum solverType = physx::PxSolverType::eTGS,
+        bool enableBodyAccelerations = false);
     ~PhysXScene();
 
     PhysXScene(const PhysXScene&) = delete;

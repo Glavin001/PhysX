@@ -85,8 +85,8 @@ extern "C" __global__ void updateBodiesLaunch(const PxgNewBodiesDesc* scDesc)
 
 	const PxU32 idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-	//each PxgBodySim has 224 bytes, so we need to use 16 threads to read one body. In fact,
-	//we just need to use 14 threads(each thread read one 16 bytes), however, we should use 16 threads because shfl is working in a warp
+	// Each PxgBodySim uses 15 uint4 lanes. Reserve a half-warp so shuffle
+	// groups still have a power-of-two width.
 	//for (PxU32 i = idx / 16; i < totalNbBodies; i += (blockDim.x * gridDim.x) / 16)
 	PxU32 mask_loop = FULL_MASK;
 	for (PxU32 i = idx / 16; (i < totalNbBodies) | ((mask_loop = __ballot_sync(mask_loop, i < totalNbBodies)) & 0); i += (blockDim.x * gridDim.x) / 16)
@@ -116,8 +116,8 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 
 	const PxU32 idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-	//each PxgBodySim has 224 bytes, so we need to use 16 threads to read one body. In fact,
-	//we just need to use 14 threads(each thread read one 16 bytes), however, we should use 16 threads because shfl is working in a warp
+	// Each PxgBodySim uses 15 uint4 lanes. Reserve a half-warp so shuffle
+	// groups still have a power-of-two width.
 	//for (PxU32 i = idx / 16; i < totalNbBodies; i += (blockDim.x * gridDim.x) / 16)
 	PxU32 mask_loop = FULL_MASK;
 	for(PxU32 i = idx / 16; (i < totalNbBodies) | ((mask_loop = __ballot_sync(mask_loop, i < totalNbBodies)) & 0);
@@ -222,6 +222,8 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 
 				__syncwarp(sync_mask);
 			}
+            else if(index == offsetof(PxgBodySim, dynamicLimitsDamping) / sizeof(uint4))
+                gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + index] = data;
 		}
 	}
 }

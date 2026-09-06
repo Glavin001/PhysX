@@ -1,5 +1,9 @@
 # Native cluster body reservations
 
+This document records the reservation milestone. Physical initialization is now
+implemented separately in [NATIVE_GPU_BODY_INITIALIZATION.md](NATIVE_GPU_BODY_INITIALIZATION.md);
+remaining split/correction limitations still apply.
+
 Actual native GPU fracture verdicts now reserve the additional PhysX BodySim and
 island-node slots inside scene finalization. This connects GPU candidate topology
 to scene-owned allocation. The slots are private, inactive and uncommitted: their

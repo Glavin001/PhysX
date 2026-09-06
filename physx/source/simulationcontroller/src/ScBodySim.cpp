@@ -182,6 +182,9 @@ bool BodySim::setupSimStateData(bool isKinematic)
 		PX_PLACEMENT_NEW(data, SimStateData(SimStateData::eKine));
 		Kinematic* kine = data->getKinematicData();
 		kine->targetValid = 0;
+        const auto& properties=getBodyCore().getCore();
+        mLLBody.mGpuDynamicLimitsDamping=PxVec4(properties.maxLinearVelocitySq,properties.maxAngularVelocitySq,
+            properties.linearDamping,properties.angularDamping);
 		simStateBackupAndClearBodyProperties(data, getBodyCore().getCore());
 	}
 	else

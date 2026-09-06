@@ -30,6 +30,7 @@
 #define	PXG_SIMULATION_CORE_H
 
 #include "PxgCudaBuffer.h"
+#include "PxgBodySim.h"
 #include "PxgSimulationCoreDesc.h"
 #include "PxgArticulationLink.h"
 #include "PxgArticulationBlockData.h"
@@ -71,18 +72,6 @@ namespace physx
 	class PxgBodySimManager;
 	class PxgGpuContext;
 	
-	// PdHC: GPU-compatible rigid body acceleration struct
-	// Aligned to 16 bytes for efficient GPU memory access
-	// Note: Two PxVec3s (2 x 12 bytes = 24 bytes), padded to 32 bytes for GPU alignment
-	PX_ALIGN_PREFIX(16)
-	struct PxgRigidBodyAcceleration
-	{
-		PxVec3	linear;
-		PxReal	_padLinear;		// Padding to align angular to 16 bytes
-		PxVec3	angular;
-		PxReal	_padAngular;	// Padding to maintain 32-byte struct size
-	}
-	PX_ALIGN_SUFFIX(16);
 
 	struct SoftBodyAttachmentAndFilterData
 	{
@@ -118,6 +107,8 @@ namespace physx
 			const bool useGpuBroadphase);
 
 		~PxgSimulationCore();
+
+		void reserveBodySimStorage(PxU32 nbTotalBodies, bool enableBodyAccelerations);
 
 		void gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityUpdate>& updatedBodySim,
 			Cm::PinnableArray<PxgBodySim>& newBodySim,
@@ -251,6 +242,7 @@ namespace physx
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySimVelocities>	getBodySimPrevVelocitiesBufferDevicePtr()	const	{ return mBodySimPreviousVelocitiesCudaBuffer.getTypedDevicePtr();	}
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySimVelocities>	getBodySimPrevVelocitiesBufferDeviceData()			{ return mBodySimPreviousVelocitiesCudaBuffer.getTypedDevicePtr();	}
 
+		PX_FORCE_INLINE PxgRigidBodyAcceleration* getRigidBodyAccelerationsDevice() { return mBodySimAccelerationsCudaBuffer.getTypedPtr(); }
 		PX_FORCE_INLINE PxgRigidBodyAcceleration* getRigidBodyAccelerations() { return mBodySimAccelerationsPinned.begin(); }
 		PX_FORCE_INLINE const PxgRigidBodyAcceleration* getRigidBodyAccelerations() const { return mBodySimAccelerationsPinned.begin(); }
 		PX_FORCE_INLINE PxU32 getNbRigidBodyAccelerations() const { return mBodySimAccelerationsPinned.size(); }

@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 6
+#define PX_DESTRUCTION_SCENE_VERSION 7
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -83,7 +83,7 @@ struct PxDestructionStageStatus {
     PxU32 error; // 1: contacts, 2: nonfinite, 4: runtime, 8: correction required,
                  // 16: unsupported articulation strain-rate input, 32: topology transaction,
                  // 64: resident stress topology update, 128: solver-body preparation,
-                 // 256: native body allocation
+                 // 256: native body allocation, 512: native GPU body initialization
 
     PxU32 normalContacts, frictionAnchors;
     PxU32 iterations, converged;
@@ -116,7 +116,8 @@ struct PxDestructionDeviceView {
     const PxDestructionClusterBodyState* trialBodies = NULL;
     const PxDestructionBodyPreparationStatus* bodyPreparation = NULL;
     // Reserved native nodes in candidate cluster order. Only use with valid
-    // bodyAllocation; these are not committed actors or initialized GPU bodies.
+    // bodyAllocation; initialized == reserved permits physical GPU reads of
+    // new slots. Retained owners keep trial-step state. No actors are committed.
     const PxU32* trialBodyIndices = NULL;
     const PxDestructionBodyAllocationStatus* bodyAllocation = NULL;
     const PxDestructionStressTopologyStatus* stressTopology = NULL;

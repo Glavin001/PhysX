@@ -634,6 +634,49 @@ void PxgSimulationCore::constructDescriptor(CUdeviceptr boundsd, CUdeviceptr cha
 	desc.mTotalUnfrozenShapes = 0;
 }
 
+// Also used at the native destruction boundary, after the trial GPU work completes.
+void PxgSimulationCore::reserveBodySimStorage(PxU32 nbTotalBodies, bool enableBodyAccelerations)
+{
+	//This will dma rigid body and articulation altogether
+	if (nbTotalBodies > mNbTotalBodySim)
+	{
+		{
+			const PxU64 oldCapacity = mBodySimCudaBuffer.getSize();
+			mBodySimCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies*sizeof(PxgBodySim), mCudaContext, mStream, PX_FL);
+
+			if (oldCapacity < mBodySimCudaBuffer.getSize())
+				mCudaContext->memsetD32Async(mBodySimCudaBuffer.getDevicePtr() + oldCapacity, 0xFFFFFFFF, (mBodySimCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
+		}
+
+		// PT: GPU acceleration buffers for acceleration getters
+		if(enableBodyAccelerations)
+		{
+			// PT: we may be allocating more than needed here, as this is only needed for rigid bodies
+			const PxU64 oldCapacity = mBodySimPreviousVelocitiesCudaBuffer.getSize();
+			mBodySimPreviousVelocitiesCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies*sizeof(PxgBodySimVelocities), mCudaContext, mStream, PX_FL);
+
+			// PT: initialize this buffer to zero to make sure the initial previous velocities are 0.0
+			if (oldCapacity < mBodySimPreviousVelocitiesCudaBuffer.getSize())
+				mCudaContext->memsetD32Async(mBodySimPreviousVelocitiesCudaBuffer.getDevicePtr() + oldCapacity, 0, (mBodySimPreviousVelocitiesCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
+
+			mBodySimAccelerationsCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies * sizeof(PxgRigidBodyAcceleration), mCudaContext, mStream, PX_FL);
+			if (mBodySimAccelerationsPinned.capacity() < nbTotalBodies)
+			{
+				mBodySimAccelerationsPinned.reserve(nbTotalBodies);
+				mBodySimAccelerationsPinned.forceSize_Unsafe(nbTotalBodies);
+			}
+		}
+		else
+		{
+			PX_ASSERT(getBodySimPrevVelocitiesBufferDevicePtr().mPtr == 0);
+			PX_ASSERT(getBodySimPrevVelocitiesBufferDeviceData().mPtr == 0);
+		}
+
+		mNbTotalBodySim = nbTotalBodies;
+	}
+
+}
+
 //new articulation and rigid bodies are both in newBodySimPool. We store the new rigid bodies first, then store new articulations
 //bodySimOffset is articulation start point
 void PxgSimulationCore::gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityUpdate>& updatedBodySimPool,
@@ -673,43 +716,7 @@ void PxgSimulationCore::gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityU
 	//nbNewLinks = nbNewJoints = nbNewJointData
 	const PxU32 nbNewLinks = newLinkPool.size();
 
-	//This will dma rigid body and articulation altogether
-	if (nbTotalBodies > mNbTotalBodySim)
-	{
-		{
-			const PxU64 oldCapacity = mBodySimCudaBuffer.getSize();
-			mBodySimCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies*sizeof(PxgBodySim), mCudaContext, mStream, PX_FL);
-
-			if (oldCapacity < mBodySimCudaBuffer.getSize())
-				mCudaContext->memsetD32Async(mBodySimCudaBuffer.getDevicePtr() + oldCapacity, 0xFFFFFFFF, (mBodySimCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
-		}
-
-		// PT: GPU acceleration buffers for acceleration getters
-		if(enableBodyAccelerations)
-		{
-			// PT: we may be allocating more than needed here, as this is only needed for rigid bodies
-			const PxU64 oldCapacity = mBodySimPreviousVelocitiesCudaBuffer.getSize();
-			mBodySimPreviousVelocitiesCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies*sizeof(PxgBodySimVelocities), mCudaContext, mStream, PX_FL);
-
-			// PT: initialize this buffer to zero to make sure the initial previous velocities are 0.0
-			if (oldCapacity < mBodySimPreviousVelocitiesCudaBuffer.getSize())
-				mCudaContext->memsetD32Async(mBodySimPreviousVelocitiesCudaBuffer.getDevicePtr() + oldCapacity, 0, (mBodySimPreviousVelocitiesCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
-
-			mBodySimAccelerationsCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies * sizeof(PxgRigidBodyAcceleration), mCudaContext, mStream, PX_FL);
-			if (mBodySimAccelerationsPinned.capacity() < nbTotalBodies)
-			{
-				mBodySimAccelerationsPinned.reserve(nbTotalBodies);
-				mBodySimAccelerationsPinned.forceSize_Unsafe(nbTotalBodies);
-			}
-		}
-		else
-		{
-			PX_ASSERT(getBodySimPrevVelocitiesBufferDevicePtr().mPtr == 0);
-			PX_ASSERT(getBodySimPrevVelocitiesBufferDeviceData().mPtr == 0);
-		}
-
-		mNbTotalBodySim = nbTotalBodies;
-	}
+	reserveBodySimStorage(nbTotalBodies, enableBodyAccelerations);
 
 	//This will dma articulation 
 	if (nbTotalArticulations > mNbTotalArticulations)

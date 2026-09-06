@@ -10,8 +10,10 @@ The native task now prepares principal-axis solver-body candidates on the GPU;
 see [NATIVE_GPU_CLUSTER_BODIES.md](NATIVE_GPU_CLUSTER_BODIES.md).
 Native true splits now reserve private BodySim/node slots automatically from
 GPU-compacted requests; see [NATIVE_GPU_BODY_ALLOCATION.md](NATIVE_GPU_BODY_ALLOCATION.md).
-GPU initialization of those reservations, collision-owner transfer and internal
-correction remain unfinished.
+The reserved slots now receive physical GPU state, including GPU-resident dynamic
+settings preserved through kinematic mode; see
+[NATIVE_GPU_BODY_INITIALIZATION.md](NATIVE_GPU_BODY_INITIALIZATION.md).
+Collision-owner transfer, retained-body updates and internal correction remain unfinished.
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
@@ -105,8 +107,13 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   slots from compact GPU-produced allocation requests. Unchanged owners retain
   their GPU bindings without host traversal. Retry reuse, 256-child growth,
   source validation, teardown and actor/deletion-event isolation pass with
-  sleeping enabled and disabled. Physical GPU slot initialization and correction
-  still remain before these bodies can be accepted.
+  sleeping enabled and disabled.
+
+- New private cluster slots now receive physical state in the actual GPU body
+  pool, with inherited settings, acceleration history and pending placeholder
+  uploads handled internally. Authored dynamic damping/limits survive kinematic
+  overrides in GPU storage. Retained owners stay unchanged; collision transfer
+  and correction still remain before these bodies can be accepted.
 
 ## Remaining completion gates
 
@@ -114,7 +121,7 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   SDK-wide stable generation-bearing structure/chunk/cluster handles,
   removal/reinsertion and crush ancestry.
 - Connect the internal persistent collision-owner transfer to native GPU topology
-  transactions, initialize reserved solver bodies on GPU, and batch device ownership updates. Extend
+  transactions, update retained solver bodies on GPU, and batch device ownership updates. Extend
   new-pair eligibility and cache invalidation to aggregate scenes and complete
   runtime geometry ownership; the between-step boundary is not the full path.
 - Complete material parity for merged/reduced bond groups, expose explicit

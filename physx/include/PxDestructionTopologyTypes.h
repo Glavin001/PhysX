@@ -42,11 +42,12 @@ struct PxDestructionBodyPreparationStatus {
     // Entire batch is usable only when valid != 0; errors never clamp physics.
 };
 // A GPU candidate-to-native-node mapping. These are private inactive BodySim
-// reservations; they do not yet have initialized physical GPU solver state.
-// Only valid batches can be used by the future correction initialization stage.
+// reservations. initialized counts only new slots with physical GPU state;
+// retained owners are unchanged until correction. Neither status commits actors.
 struct PxDestructionBodyAllocationStatus {
     std::uint64_t generation;
     std::uint32_t count, reserved, valid, error;
+    std::uint32_t initialized, initializationError; // 1 invalid mapping, 2 CUDA/storage failure
 };
 struct PxDestructionTopologyStatus {
     std::uint64_t generation;

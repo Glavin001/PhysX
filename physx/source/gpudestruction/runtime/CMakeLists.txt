@@ -13,6 +13,9 @@ add_library(PhysXDestructionGpuRuntime SHARED
 target_include_directories(PhysXDestructionGpuRuntime PRIVATE
     ../include ${PHYSX_ROOT_DIR}/include
     ${PHYSX_SOURCE_DIR}/lowlevel/software/include
+    ${PHYSX_SOURCE_DIR}/lowlevel/api/include
+    ${PHYSX_SOURCE_DIR}/common/include
+    ${PHYSX_SOURCE_DIR}/common/src
     ${PHYSX_SOURCE_DIR}/gpusimulationcontroller/include
     ${PHYSX_SOURCE_DIR}/gpucommon/include
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stressgpu

@@ -6,6 +6,7 @@
 #include <cub/cub.cuh>
 #include <cuda.h>
 #include "PxgBodySim.h"
+#include "PxsRigidBody.h"
 #include "PxgDestructionBody.cuh"
 #include "NvBlastExtStressMaterialFormula.h"
 #include <set>
@@ -224,6 +225,57 @@ __global__ void commitObservedTopologyMotion(PxDestructionTopologyDeviceView top
     if(!status->error && i<topology.status->clusterCount)topology.motions[i]=motion[i];
 }
 
+// Validate the complete reservation mapping before writing any native slot.
+__global__ void validateReservedBodies(const PxvDestructionBodyRequest* requests,const PxU32* indices,
+    PxU32 count,const PxDestructionClusterBodyState* candidates,PxU32 candidateCount,PxU32 capacity,
+    PxDestructionBodyAllocationStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto r=requests[i];
+    if(r.candidateSlot>=candidateCount || indices[i]>=capacity || r.sourceBody>=capacity
+        || !r.needsBody || indices[i]==r.sourceBody) {atomicOr(&status->initializationError,1u);return;}
+    const auto b=candidates[r.candidateSlot];
+    if(b.cluster!=r.cluster || b.sourceBody!=r.sourceBody || b.supported!=r.supported)
+        atomicOr(&status->initializationError,1u);
+}
+__global__ void initializeReservedBodiesKernel(const PxvDestructionBodyRequest* requests,const PxU32* indices,
+    PxU32 count,const PxDestructionClusterBodyState* candidates,PxgBodySim* bodies,
+    PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,PxDestructionBodyAllocationStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count || status->initializationError)return;
+    const auto candidate=candidates[requests[i].candidateSlot];const PxU32 id=indices[i];
+    auto b=bodies[candidate.sourceBody];
+    // Inherit physical settings from the authoritative GPU source, not the CPU
+    // allocation placeholder. No velocity/mass/inertia clamps or extra locks.
+    if(!candidate.supported)b.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW=b.dynamicLimitsDamping;
+    b.linearVelocityXYZ_inverseMassW=make_float4(candidate.linearVelocity[0],candidate.linearVelocity[1],candidate.linearVelocity[2],candidate.inverseMass);
+    b.angularVelocityXYZ_maxPenBiasW.x=candidate.angularVelocity[0];
+    b.angularVelocityXYZ_maxPenBiasW.y=candidate.angularVelocity[1];
+    b.angularVelocityXYZ_maxPenBiasW.z=candidate.angularVelocity[2];
+    b.inverseInertiaXYZ_contactReportThresholdW.x=candidate.inverseInertia[0];
+    b.inverseInertiaXYZ_contactReportThresholdW.y=candidate.inverseInertia[1];
+    b.inverseInertiaXYZ_contactReportThresholdW.z=candidate.inverseInertia[2];
+    b.body2World=PxAlignedTransform(candidate.bodyToWorldPosition[0],candidate.bodyToWorldPosition[1],candidate.bodyToWorldPosition[2],
+        PxAlignedQuat(candidate.bodyToWorldOrientation[0],candidate.bodyToWorldOrientation[1],candidate.bodyToWorldOrientation[2],candidate.bodyToWorldOrientation[3]));
+    const float maxImpulse=b.body2Actor_maxImpulseW.p.w;
+    b.body2Actor_maxImpulseW=PxAlignedTransform(candidate.bodyToActorPosition[0],candidate.bodyToActorPosition[1],candidate.bodyToActorPosition[2],
+        PxAlignedQuat(candidate.bodyToActorOrientation[0],candidate.bodyToActorOrientation[1],candidate.bodyToActorOrientation[2],candidate.bodyToActorOrientation[3]));
+    b.body2Actor_maxImpulseW.p.w=maxImpulse;
+    b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w=__uint_as_float(id);
+    b.sleepLinVelAccXYZ_freezeCountW=make_float4(0,0,0,0);
+    b.sleepAngVelAccXYZ_accelScaleW=make_float4(0,0,0,1);
+    b.internalFlags &= PxsRigidBody::eSPECULATIVE_CCD_GPU | PxsRigidBody::eENABLE_GYROSCOPIC_GPU | PxsRigidBody::eRETAIN_ACCELERATION_GPU;
+    // Trial commands already contributed to provisional motion. The later
+    // rewind transaction must restore/distribute commands exactly once; cloning
+    // the parent's acceleration accumulator here would duplicate them.
+    b.externalLinearAcceleration=make_float4(0,0,0,0);
+    b.externalAngularAcceleration=make_float4(0,0,0,0);
+    bodies[id]=b;
+    if(previous) {previous[id].linearVelocity=b.linearVelocityXYZ_inverseMassW;previous[id].angularVelocity=b.angularVelocityXYZ_maxPenBiasW;}
+    if(accelerations)accelerations[id]={};
+}
+__global__ void finishBodyInitialization(PxDestructionBodyAllocationStatus* allocation,PxDestructionStageStatus* status) {
+    if(allocation->initializationError)status->error|=512u;
+    else allocation->initialized=allocation->reserved;
+}
 class Runtime final : public PxgDestructionRuntime {
     CUcontext mContext; void* mScene; bool(*mWriteAllowed)(void*);
     cudaStream_t mStream{}; cudaEvent_t mInput{},mReady{}; CUevent mConsumer{};
@@ -251,6 +303,8 @@ class Runtime final : public PxgDestructionRuntime {
     void* mBodyRequestScratch{};size_t mBodyRequestScratchBytes{};
     PxU32* mTrialBodyIndices{};
     PxDestructionBodyAllocationStatus* mBodyAllocation{};
+    PxDestructionBodyAllocationStatus mHostBodyAllocation{};
+    std::vector<PxU32> mHostReservedIndices;
     PxgDestructionEdit* mTopologyEdits{};PxU32* mTopologyCount{};PxU32* mTopologyAccept{};PxU32 mEditCapacity{};
     bool mPending=false; bool mFailed=false;
 public:
@@ -271,6 +325,7 @@ public:
         cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaStreamDestroy(mStream);
     }
     void clear() {
+        mHostReservedIndices.clear();mHostBodyAllocation={};
         if(mBodyAllocator)mBodyAllocator->clear();
         cudaFree(mCompactBodyRequests);mCompactBodyRequests=nullptr;
         cudaFree(mReturnedBodyIndices);mReturnedBodyIndices=nullptr;
@@ -543,11 +598,13 @@ public:
         }catch(...){mFailed=true;return false;}
     }
     void reserveBodySlots() {
+        mHostReservedIndices.clear();mHostBodyAllocation={};
         if(!mTopology)return;
-        PxDestructionBodyAllocationStatus allocation{};
+        auto& allocation=mHostBodyAllocation;
         if(mHostStatus->error==8u && mHostBodyPreparation->valid) {
             const PxU32 count=mHostBodyPreparation->count,requested=mHostBodyPreparation->allocationRequests;
-            std::vector<PxvDestructionBodyRequest> requests(requested);std::vector<PxU32> indices(requested);
+            std::vector<PxvDestructionBodyRequest> requests(requested);mHostReservedIndices.resize(requested);
+            auto& indices=mHostReservedIndices;
             if(requested) {
                 // Stable device compaction: only NEW cluster allocation records
                 // cross to CPU, not unchanged cluster ownership or body states.
@@ -565,18 +622,51 @@ public:
                     // The local host index vector must outlive its upload.
                     check(cudaStreamSynchronize(mStream));
                 }
-            } else {allocation.error=1;mHostStatus->error|=256u;if(mBodyAllocator)mBodyAllocator->clear();}
+            } else {allocation.error=1;mHostStatus->error|=256u;mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->clear();}
         } else {if(mBodyAllocator)mBodyAllocator->clear();return;}
         check(cudaMemcpyAsync(mBodyAllocation,&allocation,sizeof(allocation),cudaMemcpyHostToDevice,mStream));
         check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
         check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+    }
+    PxU32 reservedBodyCount() const override {return PxU32(mHostReservedIndices.size());}
+    const PxU32* reservedBodyIndices() const override {return mHostReservedIndices.data();}
+    bool initializeReservedBodies(PxgBodySim* bodies,PxgBodySimVelocities* previous,
+        PxgRigidBodyAcceleration* accelerations,PxU32 capacity,CUstream coreStream) override {
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            const PxU32 count=reservedBodyCount();
+            if(!count)return true;
+            if(!bodies || !stream || !mHostBodyAllocation.valid || mHostStatus->error!=8u)
+                throw std::runtime_error("invalid native body initialization boundary");
+            // Storage growth is enqueued on this same PhysX stream. The ready
+            // event orders candidate construction and returned native IDs.
+            check(cudaStreamWaitEvent(stream,mReady,0));
+            validateReservedBodies<<<(count+127)/128,128,0,stream>>>(mCompactBodyRequests,mReturnedBodyIndices,
+                count,mTrialBodies,mHostBodyAllocation.count,capacity,mBodyAllocation);
+            initializeReservedBodiesKernel<<<(count+127)/128,128,0,stream>>>(mCompactBodyRequests,mReturnedBodyIndices,
+                count,mTrialBodies,bodies,previous,accelerations,mBodyAllocation);
+            finishBodyInitialization<<<1,1,0,stream>>>(mBodyAllocation,mStatus);
+            check(cudaGetLastError());
+            check(cudaMemcpyAsync(&mHostBodyAllocation,mBodyAllocation,sizeof(mHostBodyAllocation),cudaMemcpyDeviceToHost,stream));
+            check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,stream));
+            check(cudaEventRecord(mReady,stream));check(cudaEventSynchronize(mReady));
+            return !mHostBodyAllocation.initializationError && mHostBodyAllocation.initialized==count;
+        }catch(...) {
+            mHostStatus->error|=512u;mHostBodyAllocation.initializationError|=2u;mHostBodyAllocation.initialized=0;
+            try {Context current(mContext);
+                check(cudaMemcpyAsync(mBodyAllocation,&mHostBodyAllocation,sizeof(mHostBodyAllocation),cudaMemcpyHostToDevice,mStream));
+                check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
+                check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+            }catch(...){mFailed=true;}
+            return false;
+        }
     }
     bool finish() override {
         try {Context current(mContext);if(mPending){check(cudaEventSynchronize(mReady));mPending=false;reserveBodySlots();}
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;
-            if(mBodyAllocator)mBodyAllocator->clear();return false;}
+            mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->clear();return false;}
     }
 };
 }}

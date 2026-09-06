@@ -5,6 +5,8 @@
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
+struct PxgBodySimVelocities;
+struct PxgRigidBodyAcceleration;
 // Private bridge between PhysX's kernel-wrangler module and the runtime CUDA
 // stress module. Both share the scene's CUDA context; no physics API replay.
 class PxgDestructionRuntime : public PxDestructionScene {
@@ -20,6 +22,12 @@ public:
     virtual PxU32 clusterCount() const = 0;
     virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgBodySim* bodyStates) = 0;
     virtual bool finish() = 0;
+    // Compact CPU allocation IDs only; no physical state readback. Slots remain
+    // private/inactive until the correction transaction commits.
+    virtual PxU32 reservedBodyCount() const = 0;
+    virtual const PxU32* reservedBodyIndices() const = 0;
+    virtual bool initializeReservedBodies(PxgBodySim* bodies, PxgBodySimVelocities* previous,
+        PxgRigidBodyAcceleration* accelerations, PxU32 capacity, CUstream stream) = 0;
     virtual void release() = 0;
 };
 }

@@ -106,7 +106,8 @@ PhysXScene::PhysXScene(
     bool disableSleeping,
     bool enableGpuSleeping,
     bool enableGpuHostAccess,
-    physx::PxSolverType::Enum solverType)
+    physx::PxSolverType::Enum solverType,
+    bool enableBodyAccelerations)
     : m_mode(mode)
     , m_requireGpu(requireGpu)
     , m_directGpuApiRequested(enableDirectGpuApi)
@@ -175,6 +176,7 @@ PhysXScene::PhysXScene(
     desc.filterShader = contactFilter;
     desc.simulationEventCallback = events;
     desc.solverType = solverType;
+    if (enableBodyAccelerations) desc.flags |= physx::PxSceneFlag::eENABLE_BODY_ACCELERATIONS;
     desc.flags |= physx::PxSceneFlag::eENABLE_PCM;
     desc.flags |= physx::PxSceneFlag::eENABLE_STABILIZATION;
     if (disableSleeping)
