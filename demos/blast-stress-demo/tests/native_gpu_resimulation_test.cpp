@@ -111,15 +111,15 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;
     desc.preserveUnchangedContactPairs=reuse;
     auto* destruction=scene.getDestructionScene();require(destruction->configureStress(desc),"native correction configuration failed");
-    CUdeviceptr index=0,value=0;
-    {PxScopedCudaLock lock(cuda);check(cuMemAlloc(&index,sizeof(PxU32)));check(cuMemAlloc(&value,sizeof(PxTransform)));}
+    CUdeviceptr index=0,value=0;CUevent inputsReady=nullptr;
+    {PxScopedCudaLock lock(cuda);check(cuEventCreate(&inputsReady,CU_EVENT_DISABLE_TIMING));check(cuMemAlloc(&index,sizeof(PxU32)));check(cuMemAlloc(&value,sizeof(PxTransform)));}
     auto velocity=[&](PxRigidDynamic& body){
-        PxScopedCudaLock lock(cuda);const auto id=body.getGPUIndex();check(cuMemcpyHtoD(index,&id,sizeof(id)));
-        require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY,1),"native velocity observation failed");
+        PxScopedCudaLock lock(cuda);const auto id=body.getGPUIndex();check(cuMemcpyHtoD(index,&id,sizeof(id)));check(cuEventRecord(inputsReady,nullptr));
+        require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY,1,inputsReady),"native velocity observation failed");
         check(cuCtxSynchronize());PxVec3 out;check(cuMemcpyDtoH(&out,value,sizeof(out)));return out;
     };
     auto cleanup=[&](){
-        {PxScopedCudaLock lock(cuda);check(cuMemFree(index));check(cuMemFree(value));}
+        {PxScopedCudaLock lock(cuda);check(cuEventDestroy(inputsReady));check(cuMemFree(index));check(cuMemFree(value));}
         require(destruction->clearStress(),"native accepted-fragment teardown failed");
         for(auto* owner:quiet)owner->release();
         for(auto* body:contactBodies)body->release();if(contactFloor)contactFloor->release();
@@ -131,8 +131,8 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     for(unsigned frame=0;frame<30;++frame) {
         const auto before=events.advances;
         {PxScopedCudaLock lock(cuda);const auto id=sentinel->getGPUIndex();const PxVec3 force(1,0,0);
-            check(cuMemcpyHtoD(index,&id,sizeof(id)));check(cuMemcpyHtoD(value,&force,sizeof(force)));
-            require(scene.getDirectGPUAPI().setRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIWriteType::eFORCE,1),"ordinary force command failed");}
+            check(cuMemcpyHtoD(index,&id,sizeof(id)));check(cuMemcpyHtoD(value,&force,sizeof(force)));check(cuEventRecord(inputsReady,nullptr));
+            require(scene.getDirectGPUAPI().setRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIWriteType::eFORCE,1,inputsReady),"ordinary force command failed");}
         scene.simulate(1.0f/60);PxU32 error=0;const bool complete=scene.fetchResults(true,&error);
         const auto status=destruction->getLastStatus();
         std::printf("native impact fracture=%u frame=%u complete=%u error=%u stage=%u contacts=%u broken=%u corrections=%u\n",unsigned(fracture),frame,unsigned(complete),error,status.error,status.normalContacts,status.brokenBonds,status.correctionPasses);
@@ -148,8 +148,9 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         require(status.correctionPasses<=1,"native step exceeded one correction");
         require(events.advances==before+1,"trial pass duplicated pose callback");
         corrections+=status.correctionPasses;contacts+=status.normalContacts;
+        // Track the entire contact trajectory, including persistence after correction.
+        for(auto* body:contactBodies)contactMotion.push_back(velocity(*body));
         if(status.correctionPasses) {
-            for(auto* body:contactBodies)contactMotion.push_back(velocity(*body));
             require(status.normalContacts && status.brokenBonds,"fracture was not driven by actual solved contact impulses");
             auto* runtime=static_cast<PxgDestructionRuntime*>(destruction);
             require(runtime->correctionBodyCount()==2,"CPU owner bridge included unchanged clusters");
@@ -192,8 +193,8 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     // must use the actor/shape map, not grow a dense cache to the unused index.
     require(allocations.largest.load()<256u*1024u*1024u,"tiny native impact allocated an oversized actor query cache");
     PxTransform pose;
-    {PxScopedCudaLock lock(cuda);const auto id=fragment->getGPUIndex();check(cuMemcpyHtoD(index,&id,sizeof(id)));
-        require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,1),"fragment pose observation failed");
+    {PxScopedCudaLock lock(cuda);const auto id=fragment->getGPUIndex();check(cuMemcpyHtoD(index,&id,sizeof(id)));check(cuEventRecord(inputsReady,nullptr));
+        require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,1,inputsReady),"fragment pose observation failed");
         check(cuCtxSynchronize());check(cuMemcpyDtoH(&pose,value,sizeof(pose)));}
     // Explicit test observation: this checks query membership and lookup, not
     // automatic CPU pose freshness (outside the native awake-rigid MVP).
@@ -210,6 +211,68 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     cleanup();
     return {v.x,corrections,contacts,constructedPairs,contactMotion,reuseFallbacks};
 }
+struct RepeatedResult {std::vector<unsigned> fractureSteps;std::vector<PxVec3> trajectory;};
+RepeatedResult repeatedImpacts(bool reuse) {
+    Events events;blast_demo::SceneCapacity capacity;
+    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,true,true,false,false);
+    auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
+    std::vector<PxRigidDynamic*> walls,shots,ordinary;std::vector<PxShape*> shapes;
+    std::vector<PxDestructionStressChunk> chunks;
+    std::vector<PxDestructionChunkMassProperties> mass;
+    std::vector<PxDestructionStressBond> bonds;
+    for(unsigned i=0;i<2;++i) {
+        const PxVec3 origin(0,10,10*float(i));
+        auto* wall=PxCreateDynamic(physics,PxTransform(origin),PxBoxGeometry(.5f,.5f,.5f),context.material(),2);
+        require(wall,"repeat wall allocation failed");wall->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
+        wall->setLinearDamping(0);wall->setAngularDamping(0);scene.addActor(*wall);walls.push_back(wall);
+        PxShape* shape=nullptr;wall->getShapes(&shape,1);shape->acquireReference();shapes.push_back(shape);
+        auto* shot=PxCreateDynamic(physics,PxTransform(origin+PxVec3(-2-2*float(i),0,0)),PxSphereGeometry(.2f),context.material(),1);
+        require(shot,"repeat projectile allocation failed");shot->setMass(2);shot->setMassSpaceInertiaTensor(PxVec3(.032f));
+        shot->setLinearDamping(0);shot->setAngularDamping(0);shot->setLinearVelocity(PxVec3(12,0,0));scene.addActor(*shot);shots.push_back(shot);
+        chunks.push_back({PxVec3(0,-1,0),0,0,i,PX_INVALID_U32});
+        chunks.push_back({PxVec3(0),2,1.0f/3,i,PX_INVALID_U32,1,0});
+        PxDestructionChunkMassProperties support{},piece{};support.supported=1;support.center[1]=-1;
+        piece.mass=2;piece.inertia[0]=piece.inertia[1]=piece.inertia[2]=1.0/3;mass.push_back(support);mass.push_back(piece);
+        bonds.push_back({2*i,2*i+1,PxVec3(0,-.5f,0),PxVec3(0,1,0),1,1,1});
+    }
+    for(unsigned i=0;i<4;++i) {
+        auto* body=PxCreateDynamic(physics,PxTransform(PxVec3(100+3*float(i),.5f,0)),PxBoxGeometry(.5f,.5f,.5f),context.material(),2);
+        require(body,"repeat friction participant allocation failed");body->setLinearDamping(0);body->setAngularDamping(0);
+        body->setLinearVelocity(PxVec3(.5f,0,0));scene.addActor(*body);ordinary.push_back(body);
+    }
+    scene.simulate(1.0f/60);require(scene.fetchResults(true),"repeat warmup failed");
+    PxDestructionStressCluster clusters[2];
+    for(unsigned i=0;i<2;++i){chunks[2*i+1].contactIndex=scene.getDirectGPUAPI().getShapeContactIndex(*shapes[i]);clusters[i]={walls[i]->getGPUIndex(),PxVec3(0)};}
+    PxDestructionMaterial material;material.compressionElasticLimit=100;material.compressionFatalLimit=200;
+    PxDestructionStressDesc desc;desc.chunks=chunks.data();desc.chunkCount=4;desc.chunkMassProperties=mass.data();desc.clusters=clusters;desc.clusterCount=2;
+    desc.bonds=bonds.data();desc.bondCount=2;desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;
+    desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=reuse;
+    auto* destruction=scene.getDestructionScene();require(destruction->configureStress(desc),"repeat configuration failed");
+    CUdeviceptr ids=0,data=0;CUevent uploaded=nullptr;
+    {PxScopedCudaLock lock(cuda);check(cuMemAlloc(&ids,sizeof(PxU32)));check(cuMemAlloc(&data,sizeof(PxTransform)));check(cuEventCreate(&uploaded,CU_EVENT_DISABLE_TIMING));}
+    auto observe=[&](PxRigidDynamic* body,PxRigidDynamicGPUAPIReadType::Enum type){
+        PxScopedCudaLock lock(cuda);const auto id=body->getGPUIndex();check(cuMemcpyHtoD(ids,&id,sizeof(id)));check(cuEventRecord(uploaded,nullptr));
+        require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(data),reinterpret_cast<const PxU32*>(ids),type,1,uploaded),"repeat GPU observation failed");
+        check(cuCtxSynchronize());if(type==PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE){PxTransform pose;check(cuMemcpyDtoH(&pose,data,sizeof(pose)));return pose.p;}
+        PxVec3 out;check(cuMemcpyDtoH(&out,data,sizeof(out)));return out;
+    };
+    RepeatedResult result;
+    for(unsigned frame=0;frame<60;++frame) {
+        scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error) && !error,"repeat correction incomplete");
+        const auto status=destruction->getLastStatus();require(!status.error && status.converged && status.frame==frame+1 && status.correctionPasses<=1,"repeat stage invariant failed");
+        if(status.correctionPasses){require(status.normalContacts && status.brokenBonds==1,"repeat fracture lacks single actual impact verdict");result.fractureSteps.push_back(frame);}
+        for(auto* body:ordinary){result.trajectory.push_back(observe(body,PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE));result.trajectory.push_back(observe(body,PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));}
+        for(unsigned i=0;i<2;++i){result.trajectory.push_back(observe(shots[i],PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));result.trajectory.push_back(observe(shapes[i]->getActor()->is<PxRigidDynamic>(),PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));}
+    }
+    require(result.fractureSteps.size()==2 && result.fractureSteps[1]>result.fractureSteps[0],"fixture did not correct two separate timesteps");
+    for(unsigned i=0;i<2;++i){auto* fragment=shapes[i]->getActor()->is<PxRigidDynamic>();require(fragment && fragment!=walls[i],"repeat fragment ownership missing");
+        const auto a=observe(shots[i],PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY),b=observe(fragment,PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY);
+        require(std::abs(2*a.x+2*b.x-24)<.02f,"repeat correction changed projectile/fragment momentum");}
+    require(destruction->clearStress(),"repeat cleanup failed");for(auto* shape:shapes)shape->release();for(auto* body:walls)body->release();for(auto* body:shots)body->release();for(auto* body:ordinary)body->release();
+    {PxScopedCudaLock lock(cuda);check(cuEventDestroy(uploaded));check(cuMemFree(ids));check(cuMemFree(data));}
+    require(context.healthy(),"repeat GPU health failed");return result;
+}
+
 void unconvergedStress() {
     for(bool native:{false,true}) {
         blast_demo::SceneCapacity capacity;
@@ -247,7 +310,7 @@ int main(){try {
     const auto rebuilt=impact(true,true,false,0,false,32),reused=impact(true,true,false,0,true,32);
     require(std::abs(rebuilt.projectileVelocity-reused.projectileVelocity)<.02f && rebuilt.corrections==reused.corrections,
         "pair reuse changed controlled fracture/projectile response");
-    require(rebuilt.contactMotion.size()==32 && rebuilt.contactMotion.size()==reused.contactMotion.size(),
+    require(rebuilt.contactMotion.size()==32*30 && rebuilt.contactMotion.size()==reused.contactMotion.size(),
         "pair reuse fixture did not observe every ordinary contact participant");
     for(unsigned i=0;i<rebuilt.contactMotion.size();++i)
         require((rebuilt.contactMotion[i]-reused.contactMotion[i]).magnitude()<2e-4f,
@@ -258,6 +321,10 @@ int main(){try {
     require(fallback.reuseFallbacks==1 && fallback.constructedPairs==rebuilt.constructedPairs
         && std::abs(fallback.projectileVelocity-rebuilt.projectileVelocity)<.02f,
         "contact callback scene failed to use the complete correction fallback");
-    std::printf("native pair reuse: reference constructions=%llu reuse=%llu; 32 friction participants match\n",
+    std::printf("native pair reuse: reference constructions=%llu reuse=%llu; 32 friction participants match over all 30 steps\n",
         (unsigned long long)rebuilt.constructedPairs,(unsigned long long)reused.constructedPairs);
+    const auto repeatReference=repeatedImpacts(false),repeatReuse=repeatedImpacts(true);
+    require(repeatReference.fractureSteps==repeatReuse.fractureSteps && repeatReference.trajectory.size()==repeatReuse.trajectory.size(),"pair reuse changed repeated fracture decisions");
+    for(unsigned i=0;i<repeatReference.trajectory.size();++i)require((repeatReference.trajectory[i]-repeatReuse.trajectory[i]).magnitude()<2e-4f,"pair reuse changed repeated-impact trajectory");
+    std::printf("native repeated correction: matching fracture steps %u and %u; %zu trajectory samples match\n",repeatReference.fractureSteps[0],repeatReference.fractureSteps[1],repeatReference.trajectory.size());
     unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

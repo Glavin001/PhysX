@@ -33,9 +33,11 @@ new-pair allocation, filtering or solver partition construction GPU-owned.
 
 The first independent SDK build/install and nine native GPU suites passed.
 A controlled fixture compares the full rebuild with reuse while 32 ordinary
-bodies slide against a static floor during a remote fracture. All 32 corrected
-contact velocities match within the existing 2e-4 tolerance; projectile and
-fracture checks remain unchanged. Native pair constructions fall from 35 to 3,
+bodies slide against a static floor during a remote fracture. All 32 contact trajectories match over 30 steps within the existing 2e-4
+tolerance; projectile and fracture checks remain unchanged. A second fixture
+produces two independent impacts on steps 6 and 16. Both correction modes
+match those fracture decisions and all 720 sampled positions/velocities.
+Test GPU input/observation buffers use explicit upload-to-consumer events. Native pair constructions fall from 35 to 3,
 showing that unchanged ordinary contacts were retained.
 
 An instrumented complete-rebuild fallback handles CPU narrowphase pairs,
@@ -45,9 +47,34 @@ tests passed with this guard (out/native-aerial-fix-tests.log). The dormant
 contact-modification callback fixture verifies one fallback, full-reference
 pair constructions and projectile parity. Other guard branches still need
 dedicated event fixtures.
-Large/repeated-fracture and broader event qualification are also pending. Keep
-this option experimental until those checks establish its valid scope.
+Both 30-second aerial bombardments (3,996 and 113,664 chunks) completed with
+reuse enabled, converged stress, at most one correction per step and zero
+recorded-versus-physical chunk position error. These are shared-GPU diagnostic
+runs, not isolated benchmarks or complete fidelity qualification. The chaotic
+runs diverge in later topology and correction counts; controlled fixture parity
+must not be generalized to identical city trajectories.
+
+On the large diagnostic, mean corrected-collision time fell from approximately
+666 ms in the recorded reference to 51 ms with reuse, but mean total physics
+step time remained approximately 201 ms versus 200 ms. Time outside the measured
+destruction/correction phases increased from approximately 32 ms to 188 ms.
+This does **not** establish a total simulation speedup. Reuse remains opt-in
+while the slower ordinary pass and broader event behavior are investigated.
+
+`GpuDestruction.trialDetail.*` scopes now expose ordinary-pass task wall time
+alongside `GpuDestruction.detail.*` for the corrected pass, including island
+management, partitioning submission and lost-contact processing. These scopes
+may overlap or nest; they must not be added as independent simulation costs.
+See `qualification/native-pair-reuse-20260906.json` for the diagnostic results.
 
 `GpuDestruction.resetContactCaches` measures host cache-reset submission time,
 including any driver overhead. It is not a CUDA kernel timing. The phase
 analyzer includes this optional phase independently of the corrected solve.
+
+The completed 10-second denser city probe identifies CPU contact-island
+maintenance as an additional hotspot: accurate third-pass calls peak at
+824.84 ms and speculative third-pass calls at 599.73 ms. All 600 simulation
+steps converged with at most one correction and zero chunk-position audit
+error. This shorter launch schedule is a hotspot probe, not a speed comparison
+against the 30-second bombardment. See `GPU_CONTACT_GRAPH_NEXT.md` for the
+source-level integration seam and required correctness boundaries.

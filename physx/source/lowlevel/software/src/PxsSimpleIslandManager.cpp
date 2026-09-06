@@ -29,6 +29,7 @@
 #include "common/PxProfileZone.h"
 #include "PxsSimpleIslandManager.h"
 #include "foundation/PxSort.h"
+#include "foundation/PxProfiler.h"
 #include "PxsContactManager.h"
 #include "CmTask.h"
 #include "DyVArticulation.h"
@@ -44,6 +45,8 @@ ThirdPassTask::ThirdPassTask(PxU64 contextID, SimpleIslandManager& islandManager
 
 void ThirdPassTask::runInternal()
 {
+    PxProfileScoped destructionIslands(mIslandManager.mGPU?PxGetProfilerCallback():NULL,
+        &mIslandSim==&mIslandManager.getAccurateIslandSim()?"GpuDestruction.task.accurateIslandMaintenance":"GpuDestruction.task.speculativeIslandMaintenance",false,mContextID);
 	PX_PROFILE_ZONE("Basic.thirdPassIslandGen", mContextID);
 
 	mIslandSim.removeDestroyedEdges();

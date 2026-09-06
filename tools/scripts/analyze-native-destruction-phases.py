@@ -34,10 +34,10 @@ def analyze(directory):
         name = name[len(PREFIX):]
         require(0 <= step < len(frames), "phase has invalid step")
         require(row["accepted_step"] == "1", "phase belongs to an incomplete step")
-        require(name not in by_step[step], f"duplicate phase: {step}/{name}")
+        require(name.startswith("task.") or name not in by_step[step], f"duplicate phase: {step}/{name}")
         elapsed = float(row["host_wall_ms"])
         require(math.isfinite(elapsed) and elapsed >= 0, "invalid phase duration")
-        by_step[step][name] = elapsed
+        by_step[step][name] = by_step[step].get(name, 0) + elapsed
     corrected = []
     totals = collections.defaultdict(list)
     residuals = []
@@ -87,6 +87,7 @@ def analyze(directory):
         "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
         "profiling_overhead_in_simulation_time": True,
         "nested_phase": "refilter is included in correctedCollisionSolve",
+        "task_scope_totals": "task.* sums calls per step across trial/correction; task and detail scopes can overlap and are not additive simulation costs",
         "unmeasured_interval": "ordinary trial, checkpoint, remaining PhysX work and callback overhead",
         "phases": {name: {"samples": len(values), "mean_ms": statistics.mean(values),
                           "median_ms": statistics.median(values), "max_ms": max(values)}

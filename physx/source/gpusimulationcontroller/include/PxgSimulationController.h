@@ -502,7 +502,7 @@ class PxProfilerCallback;
         virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs) PX_OVERRIDE PX_FINAL;
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
         virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
-        bool usesDeviceDestructionContactInputs() const;
+        bool usesDeviceDestructionContactInputs() const override;
         bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
         PxU64 getDestructionContactInputCount() const { return mDestructionContactInputCount; }
         PxU64 getDestructionContactReuseFallbackCount() const { return mDestructionContactReuseFallbackCount; }

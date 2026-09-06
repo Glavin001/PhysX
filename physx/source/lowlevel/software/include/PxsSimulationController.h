@@ -308,6 +308,7 @@ namespace physx
         virtual bool advanceDestruction(PxReal, const PxVec3&, bool, bool) { return false; }
         virtual PxU32 getDestructionError() const { return 0; }
         virtual bool preservesDestructionContactPairs() const { return false; }
+        virtual bool usesDeviceDestructionContactInputs() const { return false; }
 
 		virtual	bool	copyContactData(void* /*data*/, PxU32* /*numContactPairs*/, const PxU32 /*maxContactPairs*/, CUevent /*startEvent*/, CUevent /*copyEvent*/) { return false; }
 
