@@ -1,6 +1,9 @@
 // End-to-end native impact: no external stress adapter and no application replay.
 #include "../physx_scene.h"
 #include <PxDestructionScene.h>
+#include "NpScene.h"
+#include <foundation/PxBroadcast.h>
+#include <atomic>
 #include <cuda.h>
 #include <cstdio>
 #include <cmath>
@@ -9,6 +12,15 @@ using namespace physx;
 namespace {
 void require(bool x,const char* why){if(!x)throw std::runtime_error(why);}
 void check(CUresult x){if(x!=CUDA_SUCCESS){const char* name=nullptr;cuGetErrorName(x,&name);std::fprintf(stderr,"CUDA %s\n",name?name:"");throw std::runtime_error("CUDA observation failed");}}
+struct AllocationAudit:PxAllocationListener {
+    std::atomic<size_t> largest{0};
+    AllocationAudit(){PxGetFoundation().registerAllocationListener(*this);}
+    ~AllocationAudit(){PxGetFoundation().deregisterAllocationListener(*this);}
+    void onAllocation(size_t size,const char*,const char*,int,void*)override {
+        auto previous=largest.load();while(size>previous && !largest.compare_exchange_weak(previous,size)){}
+    }
+    void onDeallocation(void*)override{}
+};
 struct Events:PxSimulationEventCallback {
     unsigned advances=0;
     void onAdvance(const PxRigidBody*const*,const PxTransform*,const PxU32)override{++advances;}
@@ -66,6 +78,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false) {
         wall->release();shot->release();sentinel->release();shape->release();sphere->release();
         require(context.healthy(),"native impact GPU health failed");
     };
+    AllocationAudit allocations;
     unsigned corrections=0,contacts=0;
     for(unsigned frame=0;frame<30;++frame) {
         const auto before=events.advances;
@@ -99,6 +112,23 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false) {
     const auto v=velocity(*shot),w=velocity(*fragment);require(v.isFinite() && w.isFinite(),"nonfinite accepted motion");
     if(fracture){require(corrections==1,"single bond did not produce exactly one correction");require(w.x>1 && v.x>1,"corrected projectile did not transfer motion to fragment");require(std::abs(2*v.x+2*w.x-24)<.02f,"native correction changed linear momentum");}
     else require(!corrections && contacts,"intact control missed the impact");
+    // A private fragment has no public actor-array index. Query registration
+    // must use the actor/shape map, not grow a dense cache to the unused index.
+    require(allocations.largest.load()<256u*1024u*1024u,"tiny native impact allocated an oversized actor query cache");
+    PxTransform pose;
+    {PxScopedCudaLock lock(cuda);const auto id=fragment->getGPUIndex();check(cuMemcpyHtoD(index,&id,sizeof(id)));
+        require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,1),"fragment pose observation failed");
+        check(cuCtxSynchronize());check(cuMemcpyDtoH(&pose,value,sizeof(pose)));}
+    // Explicit test observation: this checks query membership and lookup, not
+    // automatic CPU pose freshness (outside the native awake-rigid MVP).
+    static_cast<NpScene&>(scene).getSQAPI().updateSQShape(*fragment,*shape,pose*shape->getLocalPose());
+    for(bool cached:{false,true}) {
+        PxRaycastBuffer hit;PxQueryCache cache;cache.actor=fragment;cache.shape=shape;
+        require(scene.raycast(pose.p+PxVec3(0,2,0),PxVec3(0,-1,0),3,hit,PxHitFlag::eDEFAULT,PxQueryFilterData(),nullptr,cached?&cache:nullptr)
+            && hit.hasBlock && hit.block.actor==fragment && hit.block.shape==shape,"accepted fragment query lookup lost its private owner");
+    }
+    require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3,"query registration published a private fragment as a public actor");
+    std::printf("native query ownership valid; largest impact allocation=%zu bytes\n",allocations.largest.load());
     cleanup();
     return {v.x,corrections,contacts};
 }

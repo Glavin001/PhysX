@@ -49,6 +49,16 @@ using namespace Gu;
 
 PX_IMPLEMENT_OUTPUT_ERROR
 
+// Native destruction motion owners are private actors without a public scene
+// index. ActorShapeMap already supports these through its actor/shape hash map.
+// Its sentinel is 0xffffffff, not NpBase's 27-bit unused index; passing the latter
+// to the dense cache would allocate 268,435,456 cache entries (4 GiB on 64-bit).
+static PX_FORCE_INLINE PxU32 getQueryActorIndex(const NpActor& actor)
+{
+    const PxU32 index = actor.getBaseIndex();
+    return index == NP_UNUSED_BASE_INDEX ? PX_INVALID_INDEX : index;
+}
+
 static PX_FORCE_INLINE NpShape* getShapeFromPayload(const PrunerPayload& payload)
 {
 	return reinterpret_cast<NpShape*>(payload.data[0]);
@@ -93,8 +103,7 @@ PrunerHandle NpSqAdapter::findPrunerHandle(const PxQueryCache& cache, PrunerComp
 {
 	const NpActor& npActor = NpActor::getFromPxActor(*cache.actor);
 
-	const PxU32 actorIndex = npActor.getBaseIndex();
-	PX_ASSERT(actorIndex!=NP_UNUSED_BASE_INDEX);
+	const PxU32 actorIndex = getQueryActorIndex(npActor);
 
 	const ActorShapeData actorShapeData = mDatabase.find(actorIndex, &npActor, static_cast<NpShape*>(cache.shape));
 
@@ -171,7 +180,7 @@ namespace
 
 		virtual void	invoke(PxU32 nbRemoved, const PrunerPayload* removed)	PX_OVERRIDE PX_FINAL
 		{
-			PxU32 actorIndex = NP_UNUSED_BASE_INDEX;
+			PxU32 actorIndex = PX_INVALID_INDEX;
 			const NpActor* cachedActor = NULL;
 
 			while(nbRemoved--)
@@ -182,10 +191,9 @@ namespace
 
 				if(npActor!=cachedActor)
 				{
-					actorIndex = npActor->getBaseIndex();
+					actorIndex = getQueryActorIndex(*npActor);
 					cachedActor = npActor;
 				}
-				PX_ASSERT(actorIndex!=NP_UNUSED_BASE_INDEX);
 
 				bool status = mAdapter.mDatabase.remove(actorIndex, npActor, getShapeFromPayload(payload), NULL);
 				PX_ASSERT(status);
@@ -265,8 +273,7 @@ namespace
 
 			const PrunerData prunerData = SQ().addPrunerShape(payload, isDynamicActor(actor), pcid, bounds, transform, hasPruningStructure);
 
-			const PxU32 actorIndex = npActor.getBaseIndex();
-			PX_ASSERT(actorIndex!=NP_UNUSED_BASE_INDEX);
+			const PxU32 actorIndex = getQueryActorIndex(npActor);
 
 			mAdapter.mDatabase.add(actorIndex, &npActor, &npShape, createActorShapeData(prunerData, pcid));
 		}
@@ -276,8 +283,7 @@ namespace
 			const NpActor& npActor = NpActor::getFromPxActor(actor);
 			const NpShape& npShape = static_cast<const NpShape&>(shape);
 
-			const PxU32 actorIndex = npActor.getBaseIndex();
-			PX_ASSERT(actorIndex!=NP_UNUSED_BASE_INDEX);
+			const PxU32 actorIndex = getQueryActorIndex(npActor);
 
 			ActorShapeData actorShapeData;
 			mAdapter.mDatabase.remove(actorIndex, &npActor, &npShape, &actorShapeData);
@@ -293,8 +299,7 @@ namespace
 			const NpActor& npActor = NpActor::getFromPxActor(actor);
 			const NpShape& npShape = static_cast<const NpShape&>(shape);
 
-			const PxU32 actorIndex = npActor.getBaseIndex();
-			PX_ASSERT(actorIndex!=NP_UNUSED_BASE_INDEX);
+			const PxU32 actorIndex = getQueryActorIndex(npActor);
 
 			const ActorShapeData actorShapeData = mAdapter.mDatabase.find(actorIndex, &npActor, &npShape);
 
@@ -407,8 +412,7 @@ namespace
 			const NpActor& npActor = NpActor::getFromPxActor(actor);
 			const NpShape& npShape = static_cast<const NpShape&>(shape);
 
-			const PxU32 actorIndex = npActor.getBaseIndex();
-			PX_ASSERT(actorIndex!=NP_UNUSED_BASE_INDEX);
+			const PxU32 actorIndex = getQueryActorIndex(npActor);
 
 			const ActorShapeData actorShapeData = mAdapter.mDatabase.find(actorIndex, &npActor, &npShape);
 

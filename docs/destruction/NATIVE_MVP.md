@@ -109,8 +109,8 @@ separately; existing invalid mass/inertia assertions were not weakened.
 
 For the passing development run, simulation time (including embedded destruction)
 was p50 1.95 ms, p95 16.21 ms, p99 19.26 ms and worst 2,126.78 ms. There were
-72 steps above 16.67 ms, including the first fracture at step 136. The cost of
-that outlier has not yet been attributed. Observation/capture cost is recorded
+72 steps above 16.67 ms, including the first fracture at step 136. The first-fracture
+outlier was subsequently attributed and fixed; see the follow-up below. Observation/capture cost is recorded
 separately and is not part of the physics timing. This shared-GPU run is **not** a
 strict 60 Hz result, an isolated benchmark, whole-game timing, or evidence of
 100,000-chunk scaling.
@@ -120,3 +120,43 @@ result and exact failure names are recorded in the qualification JSON and test
 logs. Full native memory-check qualification also remains open as documented in
 `CUDA_GRAPH_DIAGNOSTIC.md`; this proof does not resolve that independent tool/runtime
 issue or replace the full SDK backlog.
+
+## First-fracture allocation fix
+
+The native owner shells have no public actor-array index. Their 27-bit unused
+index was passed to `Gu::ActorShapeMap`, whose uncached sentinel is 0xffffffff.
+The mismatch caused the first fragment query registration to allocate and zero
+268,435,456 cache entries: **4 GiB** on the tested 64-bit build. Noncompound query
+registration, lookup, update and removal now translate the private-owner index
+to the existing actor/shape hash-map path. Ordinary indexed actors and compound
+query indexing keep their existing paths. No physical settings or CUDA formulas
+changed. Temporary profiling code was removed.
+
+On the same 3-second, 9-building, 9-projectile diagnostic workload, first fracture
+at step 136 fell from 2,062.53 ms to 9.01 ms. The fixed run's worst step was
+15.22 ms. Both runs reached 1,877 clusters, 4,588 broken bonds and 27 corrected
+steps, with at most one correction per step. This is a development observation,
+not an isolated scaling benchmark. The native impact test now rejects an
+oversized single allocation, checks ordinary and cached fragment raycasts after
+explicit committed-pose observation, and verifies that query registration does
+not expose private fragments through the public actor list. Automatic CPU pose
+freshness remains outside this test's claim.
+
+The unchanged 30-second workload was rerun into
+`out/recordings/native-mvp-20260906-e`. All 1,800 steps completed with converged
+stress; 265 used one correction, none exceeded one. It reached 3,001 clusters
+and 6,607 broken bonds. The largest stress solve again used 924 iterations.
+Simulation timing was p50 2.73 ms, p95 21.34 ms, p99 24.75 ms, worst 38.16 ms,
+with 201 missed 16.67 ms deadlines. The two-second allocation stall is gone;
+the sustained workload is still not a strict 60 Hz result. These shared-GPU
+runs do not establish a general throughput improvement or bit-identical chaotic
+trajectories. Capture E records source/binary hashes, patch, state, CSV and
+validation alongside its summary. The linked D video remains a valid earlier
+end-to-end demonstration.
+
+The follow-up full suite passed 54/60: the same five reference failures plus one
+`physx_persistent_shape_owner_gpu_bounds` depenetration assertion. That unchanged
+bounds fixture then passed three consecutive isolated reruns. The intermittent
+failure is recorded, not marked resolved. The native resimulation regression
+passed. Exact results are in `qualification/native-query-index-20260906.json`
+and the corresponding baseline logs.
