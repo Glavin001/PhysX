@@ -1807,6 +1807,9 @@ void PxgGpuNarrowphaseCore::fetchNarrowPhaseResults(
 	)
 {
 	PX_PROFILE_ZONE("GpuNarrowPhase.fetchGpuNarrowPhaseResults", 0);
+    // Touch flags, pair layout and ownership belong to this new NP pass. A
+    // prior trial, corrected pass or simulation step must never be reused.
+    mDestructionGraphCachedGeneration=0;
 
 	PxU32 numTests = 0;
 	for (PxU32 i = GPU_BUCKET_ID::eConvex; i < GPU_BUCKET_ID::eCount; ++i)
@@ -8454,6 +8457,7 @@ void PxgGpuNarrowphaseCore::releaseContext()
 
 void PxgGpuNarrowphaseCore::removeLostPairsGpu(const PxU32 bucketID, const PxU16 stage5KernelID, const bool copyManifold)
 {
+    mDestructionGraphCachedGeneration=0;
 	removeLostPairsGpuInternal<PxgPairManagementData, PxgPersistentContactManifold>(mPairManagementData[bucketID],
 		mGpuPairManagementData.getDevicePtr(), mContactManagers[bucketID]->mContactManagers, mGpuContactManagers[bucketID]->mContactManagers, *mRemovedIndices[bucketID], mPairManagementBuffers,
 		stage5KernelID, copyManifold);
@@ -8462,6 +8466,7 @@ void PxgGpuNarrowphaseCore::removeLostPairsGpu(const PxU32 bucketID, const PxU16
 
 void PxgGpuNarrowphaseCore::appendContactManagersGpu(PxU32 nbExistingManagers, PxU32 nbNewManagers, PxgGpuContactManagers& gpuContactManagers, PxgGpuContactManagers& newGpuContactManagers, PxU32 manifoldSize)
 {
+    mDestructionGraphCachedGeneration=0;
 	if (nbNewManagers == 0)
 		return;
 
@@ -8539,8 +8544,12 @@ void PxgGpuNarrowphaseCore::preallocateNewBuffers(PxU32 nbNewPairs)
 
 }
 
-bool PxgGpuNarrowphaseCore::buildDestructionContactGraph()
+bool PxgGpuNarrowphaseCore::buildDestructionContactGraph(bool reuseSamePass)
 {
+    auto* controller=mGpuContext->getSimulationController();
+    const bool reusable=reuseSamePass && canReuseDestructionContactGraph(controller->getDestructionContactGraphGeneration(),mGpuContext->getIslandManager().getRetainedContactRevision());
+    if(reusable){++mDestructionGraphReuseCount;return true;}
+    mDestructionGraphCachedGeneration=0;
     PxU32 rigidPairs=0;
     PxArray<PxU32> retired;
     for(PxU32 i=GPU_BUCKET_ID::eConvex;i<=GPU_BUCKET_ID::eConvexCoreTrimesh;++i) {
@@ -8552,14 +8561,25 @@ bool PxgGpuNarrowphaseCore::buildDestructionContactGraph()
     // Late broadphase loss retires CPU interactions after NP output merge.
     // Regenerate only after those lifecycle deltas are available; do not let
     // deferred NP-buffer compaction retain dead edges in the committed graph.
-    return mGpuContext->getSimulationController()->buildDestructionContactGraph(
+    const bool ok=controller->buildDestructionContactGraph(
         merged.mContactManagerInputData.getTypedPtr(),merged.mContactGraphIdentities.getTypedPtr(),
         merged.mContactManagerOutputData.getTypedPtr(),rigidPairs,mTotalNumPairs+mDestructionGraphFallbackPairs-rigidPairs,
         retired.begin(),retired.size(),mSolverStream);
+    if(ok) {
+        mDestructionGraphCachedGeneration=controller->getDestructionContactGraphGeneration();
+        mDestructionGraphRetainedRevision=mGpuContext->getIslandManager().getRetainedContactRevision();
+        for(PxU32 i=GPU_BUCKET_ID::eConvex;i<GPU_BUCKET_ID::eCount;++i) {
+            mDestructionGraphRetiredCounts[i]=mRemovedIndices[i]->size();
+            mDestructionGraphPairCounts[i]=mContactManagers[i]->getNbPassTests();
+        }
+        if(mDestructionGraphCachedGeneration)++mDestructionGraphBuildCount;
+    }
+    return ok;
 }
 
 bool PxgGpuNarrowphaseCore::resetDestructionContactCaches()
 {
+    mDestructionGraphCachedGeneration=0;
     // Trial tasks have completed. Keep persistent pair storage and identities,
     // but regenerate geometric contacts from the restored motion. Removed pairs
     // can still occupy slots here; the normal NP compaction removes them later.
@@ -8898,6 +8918,7 @@ bool validateInputPairs(PxgContactManagers& gpuConvexConvexManagers, PxgGpuConta
 
 void PxgGpuNarrowphaseCore::removeLostPairs()
 {
+    mDestructionGraphCachedGeneration=0;
 	/*
 		This remove algorithm mirrors the behavior of the GPU reduce-and-remove algorithm.
 		The approach is as follows:
@@ -9086,6 +9107,7 @@ void PxgGpuNarrowphaseCore::adjustNpIndices(PxgNewContactManagers& newContactMan
 
 void PxgGpuNarrowphaseCore::appendContactManagers(PxsContactManagerOutput* /*cmOutputs*/, PxU32 /*nbFallbackPairs*/)
 {
+    mDestructionGraphCachedGeneration=0;
 	PX_PROFILE_ZONE("GpuNarrowPhase.appendContactManagers", 0);
 
 	PxScopedCudaLock lock(*mCudaContextManager);

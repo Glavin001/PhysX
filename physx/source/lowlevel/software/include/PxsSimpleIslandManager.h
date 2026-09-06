@@ -31,6 +31,7 @@
 
 #include "foundation/PxUserAllocated.h"
 #include "PxsIslandSim.h"
+#include <atomic>
 #include "CmTask.h"
 
 /*
@@ -162,6 +163,17 @@ class SimpleIslandManager : public PxUserAllocated
 	AuxCpuData		mAuxCpuData;
 
 	PxBitMap mConnectedMap;
+    // Contact edges may outlive their active narrowphase manager. Track those
+    // lifecycle entries without scanning every active contact for GPU export.
+    PxBitMap mRetainedContactMap;
+    std::atomic<PxU64> mRetainedContactRevision{0};
+    void setRetainedContact(EdgeIndex edge,bool retained) {
+        if(!mGPU)return;
+        PxI32* word=reinterpret_cast<PxI32*>(mRetainedContactMap.getWords()+(edge>>5));
+        const PxU32 mask=1u<<(edge&31);
+        const PxU32 previous=PxU32(retained?PxAtomicOr(word,PxI32(mask)):PxAtomicAnd(word,PxI32(~mask)));
+        if(bool(previous&mask)!=retained)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
+    }
 
 	// PT: TODO: figure out why we still need both
 	IslandSim mAccurateIslandManager;
@@ -177,6 +189,8 @@ class SimpleIslandManager : public PxUserAllocated
 	const bool mGPU;
 public:
 
+    const PxBitMap& getRetainedContactMap() const { return mRetainedContactMap; }
+    PxU64 getRetainedContactRevision() const { return mRetainedContactRevision.load(std::memory_order_relaxed); }
 	SimpleIslandManager(bool useEnhancedDeterminism, bool gpu, PxU64 contextID);
 	~SimpleIslandManager();
 

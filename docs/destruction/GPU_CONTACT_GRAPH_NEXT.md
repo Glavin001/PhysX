@@ -114,27 +114,40 @@ This is an actual connectivity consumer, no longer only a parallel graph check.
 
 For supported awake rigid scenes, `destroyManagers` retires late managers before
 preparing the CUDA graph and scheduling third-pass island tasks. The runtime uses
-CUB radix sorting of `(component ID, node ID)` keys to produce stable membership
-on the GPU, then observes labels and sorted members in persistent pinned memory.
-The existing CPU island registry requires this observation: 24 bytes per allocated
-node per preparation, plus the 8-byte status. Buffers grow with graph capacity;
-there is no per-pair readback or CPU component construction.
+CUB radix sorting of `(component ID, node ID)` keys followed by a CUDA kernel that
+produces component heads and node successors in stable node-ID order. The
+registry observes labels and these member links in persistent pinned memory.
+Component lookup is direct; CPU binary searches are removed. The two link arrays
+reuse the consumed input-key buffer, preserving the 8-byte-per-node membership
+allocation and transfer size.
+The existing CPU island registry observes only graphs with pending connectivity
+changes: 12 bytes per allocated node for each requested graph, plus one 8-byte
+status per observation. With both graphs clean, no sort or readback is performed.
+Pending destroyed edges count as changes before third-pass removal marks their
+nodes dirty. Buffers grow with graph capacity; there is no per-pair readback or
+CPU component construction.
 
 Equal labels eliminate the CPU path search. Different labels supply the exact
 component's member list to the existing PhysX split machinery, which maintains
 node/edge lists, island IDs, static-touch counts and activation bookkeeping.
-CPU validation checks member liveness, membership and visited state before any
+CPU validation checks member liveness, membership, strict ascending order and visited state before any
 mutation. A mismatch invalidates the complete borrowed observation for the rest
-of that third pass before falling back to CPU traversal. Labels and sorted membership are not an adjacency tree: split nodes'
+of that third pass before falling back to CPU traversal. Labels and ordered membership are not an adjacency tree: split nodes'
 fast-route hints are invalidated, allowing later CPU traversal to recover actual
 paths. Observed pointers are cleared after the one consuming third-pass task.
 
 Sleeping, joints, articulations, CCD/speculative CCD, custom filters/contact
 modification and deformables retain the CPU path. Incomplete GPU input also
 retains it; device/allocation failure remains an incomplete simulation, not a
-permission to omit physical work. The graph is still regenerated at finalization
-for the accepted diagnostic view; removing duplicate preparation is a remaining
-optimization requiring lifecycle validation.
+permission to omit physical work. Finalization reuses the graph prepared for the
+same narrowphase pass when its lifetime generation, per-bucket pair counts and
+retirement counts and the retained-edge lifecycle revision remain valid. A new narrowphase result, pair append/compaction,
+correction cache reset, runtime reconfiguration or changed retirement set
+invalidates reuse. Retirement lists are append-only between compactions; sorting
+them does not change the represented retirement set. The existing ready event
+and graph-to-stress dependency remain in force when a build is reused. Trial and
+corrected passes always receive distinct graphs; this does not reuse across
+simulation steps.
 
 Native tests now independently flood-fill the inserted CPU edges and compare
 both CUDA components and committed island partitions, even when CUDA drives the
@@ -213,3 +226,101 @@ The final combined CUDA memcheck run reported zero errors. An initial combined
 run reported an illegal address in stress topology initialization; isolated
 reference and GPU-repair fixtures and combined reruns were clean. Its cause is
 still unproven and the original failure log remains in the qualification record.
+
+### Graph reuse and selective observation
+
+The native demo now emits `native.graph-diagnostics.json` with graph build/reuse
+counts, host observation/sort counts, graph-only device-to-host bytes, GPU-driven
+connectedness answers/splits and registry mismatch fallbacks. These are scoped
+counters, not total engine transfer metrics. They are read after the timed loop.
+
+The repeated-impact fixture requires exactly 62 graph builds for 60 steps and
+two corrections, and 62 same-pass reuses when GPU island repair is enabled.
+Independent CPU edge flood fills, fracture decisions and trajectory tolerances
+remain unchanged. A quiet registry fixture requires zero sort/readback, while
+explicit one-graph observations check that the other graph is not returned or
+transferred. Late manager retirement and runtime reconfiguration reject the
+old reuse receipt. The 100,001-node / 201,998-pair CUDA test also compares the
+production member-link kernel against independent CPU grouping, including the
+reused key-buffer layout; malformed cyclic host membership triggers CPU fallback.
+
+`GpuDestruction.task.{accurate,speculative}Island.*` scopes now distinguish
+connection removal, edge-list removal, path/split work, destroyed edge/node
+cleanup, deactivation and dirty-list reset. These are nested inside the existing
+island-maintenance scopes and must not be added again to complete-step time.
+They will identify the remaining CPU registry work to move into device storage.
+Sleeping behavior has not been changed by this optimization.
+
+### Retained contact edges and independent boundary auditing
+
+A pre-mutation audit exposed a missing input in the active-manager-only graph.
+At step 82 of the 64-building capture, native speculative connectivity contained
+830 dynamic-to-dynamic contact edges without a narrowphase contact manager, in
+addition to 838 edges represented by active pairs. This occurs during fragment
+creation even with sleeping disabled. The GPU graph reported singleton fragments
+where native edges connected them. Merely disabling sleeping did not establish
+complete graph coverage. Failed captures remain under
+`out/recordings/native-boundary-audit-{gpu,detail,pairs,edges}-20260906`.
+
+`SimpleIslandManager` now tracks retained contact edges in a bitmap maintained by
+contact registration, manager creation/release, edge removal and handle reuse.
+Parallel registration uses atomic bit operations. Graph construction enumerates
+this bitmap, excluding removed/uninserted entries, and transfers their current
+endpoints and accurate/speculative state to persistent, growable CUDA storage.
+The CUDA union kernel combines these edges with resident narrowphase pairs before
+compression and deterministic member generation. Static/kinematic boundaries do
+not bridge groups; invalid endpoints and unsupported edge kinds report explicit
+graph errors. These records belong to the published graph generation; raw native
+indices are not independently persistent public handles.
+
+The bridge adds one host bit per allocated native edge and 16 bytes of pinned and
+device capacity per retained edge. It currently uploads a retained-edge snapshot
+per graph build, rather than a CPU component graph or a scan of all active pairs.
+This is still CPU lifecycle staging. Replacing it with persistent GPU lifecycle
+deltas, together with the native compatibility registry and solver consumers,
+remains required for the final architecture. Lifecycle revisions invalidate
+same-pass graph reuse on manager transitions, contact state changes or kinematic
+changes, even if narrowphase pair/retirement counts did not change.
+
+`--audit-islands 1` enables an expensive independent CPU flood fill from native
+inserted edges before GPU components can change island membership. It checks
+labels and complete ordered member chains, including incorrect equal labels.
+Failure clears the borrowed graph, records a sticky diagnostic and rejects the
+capture after fetch. It does not qualify a failed step or silently replace a
+failed audited run with CPU success. The option defaults off; enabling it adds
+CPU work inside measured simulation time. `native.graph-diagnostics.json`
+records audit failures and graph transfer counts separately.
+
+The real-fracture regression requires retained edges, at least one correction,
+zero boundary mismatches and zero motion-audit error. Existing repeated-impact
+parity tests now run the boundary audit as well, keeping all prior tolerances.
+Kernel tests separately cover retained touching/no-touch edges, disabled response,
+static/kinematic boundaries and removal on the next graph build.
+
+The first fixed 64-building run completed 600 steps with 1,234 boundary audits,
+zero mismatches/fallbacks and at most one correction per step. It uploaded 45,874
+retained-edge records across graph builds (733,984 bytes), with a peak snapshot
+of 3,836 retained edges. These are diagnostic shared-GPU results, not speedup or
+60 Hz qualification.
+
+An earlier `native-member-links-gpu-20260906` run exited with SIGSEGV after the
+last flushed accepted step 209. Five debugger and five crash-trace retries
+completed, and a partial CPU AddressSanitizer run wrote a 600-step completion
+manifest without an invalid-access report. No crash stack was captured. The
+retained-edge omission is now reproducible and fixed, but its causal relation to
+that original segfault has not been established. Preserve that failure as open;
+clean retries alone do not prove a fix. The prior CUDA stress-initialization
+sanitizer observation is also distinct and remains documented above.
+
+`qualification/native-retained-contact-20260906.json` records final source hashes,
+24 passing focused tests, the audited 64-building run and all unresolved failures.
+The graph-kernel and native island-repair CUDA memory checks reported zero errors.
+The real-fracture asynchronous sanitizer run failed at step 1, and an ordinary
+asynchronous retry failed at step 150, both with error 700 reported at
+`Runtime::finish()`'s completion wait and no device fault location. CPU-reference
+repair, `CUDA_LAUNCH_BLOCKING=1`, and `BLAST_GPU_GRAPH_UPDATE=0` comparisons each
+completed with zero sanitizer errors. This narrows the next investigation but
+establishes neither a CUDA graph-update bug nor a fix. Default optimization
+settings have not been changed to hide the failure. Broader qualification remains
+open. Old partial-ASan binaries predate the changed native class layout and must
+not be run against the current GPU libraries without rebuilding.

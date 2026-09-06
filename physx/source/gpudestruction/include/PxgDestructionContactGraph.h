@@ -10,9 +10,21 @@ struct PxgDestructionContactFlags {
     enum { eARTICULATION = (1u<<3)|(1u<<4), eSOFT_BODY=1u<<7,
         eKINEMATIC_PAIR=1u<<11, eDISABLE_RESPONSE=1u<<12, eRETIRED=1u<<31 };
 };
+// Native contact edges without an active NP manager. Rebuilt from the native
+// lifecycle registry for this graph generation, not inferred from contact touch.
+struct PxgDestructionRetainedEdge {
+    enum { eACCURATE=1, eKINEMATIC=2, eUNSUPPORTED=4 };
+    PxU32 edgeIndex,node0,node1,flags;
+};
 struct PxgDestructionContactEdge {
     PxgContactGraphIdentity identity;
     PxU32 node0, node1, flags, touching;
+};
+struct PxgDestructionContactGraphObservationStats {
+    // Lifetime counters; status bytes count even if incomplete input falls back.
+    PxU64 observations=0, sortedGraphs=0, deviceToHostBytes=0;
+    PxU64 retainedEdgesUploaded=0, retainedHostToDeviceBytes=0;
+    PxU32 peakRetainedEdges=0;
 };
 struct PxgDestructionContactGraphStatus {
     enum { eMISSING_PAIRS=1, eINVALID_IDENTITY=2, eUNSUPPORTED_ENDPOINT=4 };
@@ -40,5 +52,7 @@ struct PxgDestructionContactGraphView {
     PxU32 pairCount=0, shapeCapacity=0, nodeCapacity=0;
     PxU64 generation=0;
     CUevent readyEvent=NULL;
+    const PxgDestructionRetainedEdge* retainedEdges=NULL;
+    PxU32 retainedEdgeCount=0;
 };
 }

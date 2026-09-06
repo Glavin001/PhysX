@@ -330,6 +330,8 @@ namespace physx
 
 		virtual ~PxgGpuContext();
 
+        IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
+
 		PX_FORCE_INLINE PxgSolverCore* getGpuSolverCore() { return mGpuSolverCore;}
 
 		PX_FORCE_INLINE PxgArticulationCore* getArticulationCore() { return mGpuArticulationCore; }

@@ -287,11 +287,20 @@ RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false) {
         check(cuCtxSynchronize());if(type==PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE){PxTransform pose;check(cuMemcpyDtoH(&pose,data,sizeof(pose)));return pose.p;}
         PxVec3 out;check(cuMemcpyDtoH(&out,data,sizeof(out)));return out;
     };
-    RepeatedResult result;
+    auto& auditIslands=*static_cast<NpScene&>(scene).getScScene().getSimpleIslandManager();
+    auditIslands.getAccurateIslandSim().setGpuComponentAudit(gpuRepair);
+    auditIslands.getSpeculativeIslandSim().setGpuComponentAudit(gpuRepair);
+    RepeatedResult result;PxU64 graphGeneration=0;
+    auto& graphCore=*static_cast<PxgNphaseImplementationContext*>(static_cast<NpScene&>(scene).getScScene().getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
+    const PxU64 graphBuildsBefore=graphCore.getDestructionGraphBuildCount(),graphReusesBefore=graphCore.getDestructionGraphReuseCount();
     for(unsigned frame=0;frame<60;++frame) {
         scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error) && !error,"repeat correction incomplete");
         const auto status=destruction->getLastStatus();require(!status.error && status.converged && status.frame==frame+1 && status.correctionPasses<=1,"repeat stage invariant failed");
+        require(!auditIslands.getAccurateIslandSim().getGpuComponentAuditFailures()
+            && !auditIslands.getSpeculativeIslandSim().getGpuComponentAuditFailures(),"repeat pre-mutation graph audit failed");
         verifyAcceptedContactIdentities(scene,cuda);
+        const auto generation=static_cast<PxgDestructionRuntime*>(destruction)->getContactGraphView().generation;
+        require(generation==graphGeneration+1+status.correctionPasses,"contact graph rebuilt twice or reused across a trial/correction boundary");graphGeneration=generation;
         if(status.correctionPasses){require(status.normalContacts && status.brokenBonds==1,"repeat fracture lacks single actual impact verdict");result.fractureSteps.push_back(frame);}
         for(auto* body:ordinary){result.trajectory.push_back(observe(body,PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE));result.trajectory.push_back(observe(body,PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));}
         for(unsigned i=0;i<2;++i){result.trajectory.push_back(observe(shots[i],PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));result.trajectory.push_back(observe(shapes[i]->getActor()->is<PxRigidDynamic>(),PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));}
@@ -300,6 +309,8 @@ RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false) {
     for(unsigned i=0;i<2;++i){auto* fragment=shapes[i]->getActor()->is<PxRigidDynamic>();require(fragment && fragment!=walls[i],"repeat fragment ownership missing");
         const auto a=observe(shots[i],PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY),b=observe(fragment,PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY);
         require(std::abs(2*a.x+2*b.x-24)<.02f,"repeat correction changed projectile/fragment momentum");}
+    require(graphCore.getDestructionGraphBuildCount()-graphBuildsBefore==62,"repeat fixture did not build exactly one graph per NP pass");
+    require(graphCore.getDestructionGraphReuseCount()-graphReusesBefore==(gpuRepair?62u:0u),"same-pass graph reuse missing or active in reference mode");
     if(gpuRepair) {
         const auto& islands=*static_cast<NpScene&>(scene).getScScene().getSimpleIslandManager();
         const auto& a=islands.getAccurateIslandSim();const auto& s=islands.getSpeculativeIslandSim();

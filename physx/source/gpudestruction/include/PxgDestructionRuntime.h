@@ -29,10 +29,12 @@ public:
     virtual bool configured() const = 0;
     virtual bool correctionEnabled() const = 0;
     virtual bool gpuIslandRepairEnabled() const = 0;
-    // Ordered host observation for the existing CPU island registry. Keys are
-    // sorted (component << 32 | node); connectivity itself is computed on CUDA.
+    // Ordered host observation for the existing CPU island registry. Membership packs n heads followed by n successors, in node-ID order;
+    // connectivity and membership links are computed on CUDA.
     virtual bool observeContactComponents(const PxU32*& accurate, const PxU32*& speculative,
-        const PxU64*& accurateMembers, const PxU64*& speculativeMembers, PxU32& count) = 0;
+        const PxU32*& accurateMembers, const PxU32*& speculativeMembers, PxU32& count,
+        bool needAccurate, bool needSpeculative) = 0;
+    virtual PxgDestructionContactGraphObservationStats getContactGraphObservationStats() const = 0;
     virtual bool applyCorrectionBindings() = 0;
     // GPU-selected affected owners mirrored for CPU metadata updates. This is
     // not the complete set of rigid bodies restored/re-solved during correction.
@@ -79,7 +81,8 @@ public:
 
     virtual bool buildContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
         const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxgShapeSim* shapes,
-        PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream) = 0;
+        PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream,
+        const PxgDestructionRetainedEdge* retainedEdges,PxU32 retainedEdgeCount) = 0;
     virtual PxgDestructionContactGraphView getContactGraphView() const = 0;
 
     // Install GPU-selected cluster ownership without re-uploading immutable geometry.

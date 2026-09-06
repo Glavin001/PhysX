@@ -12,6 +12,7 @@
 #include <PxDestructionScene.h>
 #include <cuda.h>
 #include <cstdio>
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -273,17 +274,102 @@ void gpuIslandCycleAndFallback() {
     // An invalid borrowed membership snapshot must fall back before mutation,
     // and invalidate all subsequent GPU answers for this pass.
     const PxU32 domain=islands.getAccurateIslandSim().getNbNodes();
-    std::vector<PxU32> invalidLabels(domain);std::vector<PxU64> invalidMembers(domain,~PxU64(0));
+    std::vector<PxU32> invalidLabels(domain);std::vector<PxU32> invalidMembers(size_t(domain)*2,PX_INVALID_U32);
     for(PxU32 i=0;i<domain;++i)invalidLabels[i]=i;
     islands.getAccurateIslandSim().setGpuContactComponents(invalidLabels.data(),invalidMembers.data(),domain);
     islands.getSpeculativeIslandSim().setGpuContactComponents(invalidLabels.data(),invalidMembers.data(),domain);
     bodies[1]->release();bodies[1]=nullptr;verify();require(count()==before,"invalid GPU observation changed island connectivity");
     require(islands.getAccurateIslandSim().getGpuRepairFallbackCount()+islands.getSpeculativeIslandSim().getGpuRepairFallbackCount()>0,
         "invalid GPU membership failed to exercise CPU fallback");
+    add(1);verify();const auto fallbacks=islands.getAccurateIslandSim().getGpuRepairFallbackCount()+islands.getSpeculativeIslandSim().getGpuRepairFallbackCount();
+    for(PxU32 i=0;i<domain;++i){invalidMembers[i]=i;invalidMembers[size_t(domain)+i]=i;}
+    islands.getAccurateIslandSim().setGpuContactComponents(invalidLabels.data(),invalidMembers.data(),domain);
+    islands.getSpeculativeIslandSim().setGpuContactComponents(invalidLabels.data(),invalidMembers.data(),domain);
+    bodies[1]->release();bodies[1]=nullptr;verify();
+    require(count()==before && islands.getAccurateIslandSim().getGpuRepairFallbackCount()+islands.getSpeculativeIslandSim().getGpuRepairFallbackCount()>fallbacks,
+        "cyclic GPU membership was not rejected before mutation");
     add(1);verify();f.desc.gpuIslandRepair=true;f.configure();bodies[1]->release();bodies[1]=nullptr;verify();
     require(count()>before,"GPU island repair failed after handle reuse and CPU fallback");
     require(f.stage->clearStress(),"cycle cleanup failed");for(auto* body:bodies)if(body)body->release();
     require(f.context.healthy(),"cycle GPU health failed");std::puts("GPU island repair: cycle edge removal, split, handle reuse, CPU fallback and resume passed");
+}
+
+void gpuComponentBoundaryAudit() {
+    Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
+    std::vector<PxRigidDynamic*> bodies;
+    for(unsigned i=0;i<4;++i) {
+        auto* body=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(400+float(i/2)*10+float(i%2),80,0)),PxSphereGeometry(.6f),f.context.material(),1);
+        require(body,"audit body creation failed");body->setMass(0);body->setMassSpaceInertiaTensor(PxVec3(0));f.scene.addActor(*body);bodies.push_back(body);
+    }
+    step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);
+    auto& islands=*static_cast<NpScene&>(f.scene).getScScene().getSimpleIslandManager();
+    auto& sim=islands.getAccurateIslandSim();sim.setGpuComponentAudit(true);
+    islands.getSpeculativeIslandSim().setGpuComponentAudit(true);
+    const PxU32 *a=nullptr,*s=nullptr,*am=nullptr,*sm=nullptr;PxU32 n=0;
+    require(static_cast<PxgDestructionRuntime*>(f.stage)->observeContactComponents(a,s,am,sm,n,true,true),"audit observation failed");
+    sim.setGpuContactComponents(a,am,n);require(sim.auditGpuContactComponents(),"independent audit rejected valid graph");
+    // Wrong equal labels would bypass the ordinary split-only membership check.
+    std::vector<PxU32> labels(a,a+n),members(am,am+size_t(n)*2);
+    const PxU32 node=bodies[2]->getGPUIndex();labels[node]=labels[bodies[0]->getGPUIndex()];
+    const std::vector<IG::IslandId> oldIslands(sim.getIslandIds(),sim.getIslandIds()+sim.getNbNodes());
+    sim.setGpuContactComponents(labels.data(),members.data(),n);
+    require(!sim.auditGpuContactComponents(),"audit accepted falsely connected labels");
+    labels.assign(a,a+n);members[size_t(n)+node]=node;
+    sim.setGpuContactComponents(labels.data(),members.data(),n);
+    require(!sim.auditGpuContactComponents(),"audit accepted cyclic membership");
+    require(sim.getGpuComponentAuditFailures()==2 && std::equal(oldIslands.begin(),oldIslands.end(),sim.getIslandIds()),
+        "audit modified registry or lost diagnostic failures");
+    // The actual third-pass hook must audit fresh snapshots after removals.
+    const auto audits=sim.getGpuComponentAudits();bodies[0]->release();bodies[0]=nullptr;
+    step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);
+    require(sim.getGpuComponentAudits()>audits && sim.getGpuComponentAuditFailures()==2
+        && !islands.getSpeculativeIslandSim().getGpuComponentAuditFailures(),"third-pass boundary audit failed after edge removal");
+    require(f.stage->clearStress(),"audit cleanup failed");for(auto* body:bodies)if(body)body->release();
+    require(f.context.healthy(),"audit fixture GPU health failed");
+    std::puts("native boundary audit: independent edge flood fill, false equal labels, cyclic membership, pre-mutation rejection and removal passed");
+}
+
+void gpuGraphReuseAndQuietObservation() {
+    Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
+    auto* runtime=static_cast<PxgDestructionRuntime*>(f.stage);
+    auto& sc=static_cast<NpScene&>(f.scene).getScScene();
+    auto& np=*static_cast<PxgNphaseImplementationContext*>(sc.getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
+    const auto before=runtime->getContactGraphObservationStats();
+    const auto builds=np.getDestructionGraphBuildCount(),reuses=np.getDestructionGraphReuseCount();
+    PxU64 generation=0;
+    for(unsigned i=0;i<12;++i) {
+        step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);
+        const auto view=runtime->getContactGraphView();require(view.generation==generation+1,"quiet graph crossed pass boundaries or rebuilt twice");generation=view.generation;
+    }
+    const auto after=runtime->getContactGraphObservationStats();
+    require(after.observations==before.observations && after.sortedGraphs==before.sortedGraphs && after.deviceToHostBytes==before.deviceToHostBytes,
+        "quiet island registry still sorts or reads back GPU components");
+    require(np.getDestructionGraphBuildCount()==builds+12 && np.getDestructionGraphReuseCount()==reuses+12,"quiet graph did not reuse its single NP-pass build");
+    const PxU32 *accurate=nullptr,*speculative=nullptr;const PxU32 *am=nullptr,*sm=nullptr;PxU32 count=0;
+    const auto observeOne=[&](bool aNeeded,bool sNeeded){
+        PxScopedCudaLock lock(f.cuda);require(runtime->observeContactComponents(accurate,speculative,am,sm,count,aNeeded,sNeeded),"selective graph observation failed");
+        require(bool(accurate)==aNeeded && bool(am)==aNeeded && bool(speculative)==sNeeded && bool(sm)==sNeeded,"observation returned an unrequested graph");
+    };
+    observeOne(true,false);const auto one=runtime->getContactGraphObservationStats();const PxU32 domain=count;
+    require(one.sortedGraphs==after.sortedGraphs+1 && one.deviceToHostBytes==after.deviceToHostBytes+8+12ull*domain,"accurate-only observation sorted or transferred extra data");
+    observeOne(false,true);const auto two=runtime->getContactGraphObservationStats();
+    require(count==domain && two.sortedGraphs==one.sortedGraphs+1 && two.deviceToHostBytes==one.deviceToHostBytes+8+12ull*domain,"speculative-only observation sorted or transferred extra data");
+    observeOne(false,false);const auto none=runtime->getContactGraphObservationStats();
+    require(count==0 && none.observations==two.observations && none.deviceToHostBytes==two.deviceToHostBytes,"empty observation performed device work");
+    auto* a=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(350,80,0)),PxSphereGeometry(.6f),f.context.material(),1);
+    auto* b=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(351,80,0)),PxSphereGeometry(.6f),f.context.material(),1);
+    require(a && b,"reuse fixture body creation failed");for(auto* body:{a,b}){body->setMass(0);body->setMassSpaceInertiaTensor(PxVec3(0));f.scene.addActor(*body);}
+    step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);generation=runtime->getContactGraphView().generation;
+    require(np.canReuseDestructionContactGraph(generation,static_cast<NpScene&>(f.scene).getScScene().getSimpleIslandManager()->getRetainedContactRevision()),"unchanged graph receipt failed");
+    a->release();require(!np.canReuseDestructionContactGraph(generation,static_cast<NpScene&>(f.scene).getScScene().getSimpleIslandManager()->getRetainedContactRevision()),"late retirement accepted a stale graph receipt");
+    step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);
+    require(runtime->getContactGraphView().generation==generation+1,"retired graph was not rebuilt on the next pass");
+    // Reconfiguration clears the view without cycling lifetime generations.
+    generation=runtime->getContactGraphView().generation;f.configure();require(!runtime->getContactGraphView().generation,"clear retained a graph view");
+    require(!np.canReuseDestructionContactGraph(runtime->getContactGraphView().generation,static_cast<NpScene&>(f.scene).getScScene().getSimpleIslandManager()->getRetainedContactRevision()),"reconfiguration accepted a stale graph receipt");
+    step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);require(runtime->getContactGraphView().generation>generation,"reconfiguration did not regenerate graph");b->release();
+    require(f.stage->clearStress() && f.context.healthy(),"graph reuse fixture cleanup failed");
+    std::puts("GPU graph reuse: one build per pass; quiet registry has zero sort/readback; late retirement and reconfiguration invalidate receipt");
 }
 
 void gpuIslandSleepFallback() {
@@ -346,8 +432,8 @@ int main(int argc,char** argv){try{
     if(argc==2) {
         const std::string mode=argv[1];
         if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}
-        if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuIslandSleepFallback();return 0;}
+        if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();return 0;}
         if(mode=="--reference"){deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}
         throw std::runtime_error("unknown collision test mode");
     }
-    require(argc==1,"collision test accepts at most one mode");deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuIslandSleepFallback();sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+    require(argc==1,"collision test accepts at most one mode");deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

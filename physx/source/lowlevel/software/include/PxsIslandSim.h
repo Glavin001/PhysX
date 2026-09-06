@@ -56,6 +56,7 @@
 namespace physx
 {
 struct PartitionEdge;
+class PxProfilerCallback;
 
 namespace IG
 {
@@ -554,9 +555,22 @@ public:
 	~IslandSim() {}
     // Borrowed for one third-pass task only; this updates CPU compatibility
     // lists while CUDA supplies connectivity and deterministic membership.
-    void setGpuContactComponents(const PxU32* labels,const PxU64* members,PxU32 count) {
+    void setGpuContactComponents(const PxU32* labels,const PxU32* members,PxU32 count) {
         mGpuComponentLabels=labels;mGpuComponentMembers=members;mGpuComponentCount=count;
     }
+    bool hasPendingConnectivityChanges() const {
+        // removeDestroyedEdges() runs inside the third-pass task and can add
+        // dirty nodes. Account for pending removals as well as existing dirt.
+        if(!mDestroyedEdges.empty())return true;
+        PxBitMap::Iterator dirty(mDirtyMap);
+        return dirty.getNext()!=PxBitMap::Iterator::DONE;
+    }
+    // Expensive independent diagnostic, disabled in ordinary simulation.
+    // Runs before GPU components can mutate the compatibility island registry.
+    void setGpuComponentAudit(bool enabled) { mGpuComponentAudit=enabled; }
+    bool auditGpuContactComponents();
+    PxU64 getGpuComponentAudits() const { return mGpuComponentAudits; }
+    PxU64 getGpuComponentAuditFailures() const { return mGpuComponentAuditFailures; }
     PxU64 getGpuRouteCount() const { return mGpuRouteCount; }
     PxU64 getGpuSplitCount() const { return mGpuSplitCount; }
     PxU64 getGpuRepairFallbackCount() const { return mGpuRepairFallbackCount; }
@@ -673,7 +687,7 @@ public:
 
 	// PT: called by ThirdPassTask::runInternal. Made public to remove friendship, make the API clearer, and unit-testable.
 	void removeDestroyedEdges();	// PT: this is always followed by a call to processLostEdges(). Merge the two?
-	void processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, bool allowDeactivation, bool permitKinematicDeactivation, PxU32 dirtyNodeLimit);
+	void processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, bool allowDeactivation, bool permitKinematicDeactivation, PxU32 dirtyNodeLimit, PxProfilerCallback* profiler = NULL);
 
 private:
 	void wakeIslandsInternal(bool flag);
@@ -704,9 +718,11 @@ private:
 	bool tryFastPath(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId);
 
     const PxU32* mGpuComponentLabels = NULL;
-    const PxU64* mGpuComponentMembers = NULL;
+    const PxU32* mGpuComponentMembers = NULL;
     PxU32 mGpuComponentCount = 0;
     bool mGpuSplit = false;
+    bool mGpuComponentAudit = false;
+    PxU64 mGpuComponentAudits = 0, mGpuComponentAuditFailures = 0;
     PxU64 mGpuRouteCount = 0, mGpuSplitCount = 0, mGpuRepairFallbackCount = 0;
 	bool findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId);
 

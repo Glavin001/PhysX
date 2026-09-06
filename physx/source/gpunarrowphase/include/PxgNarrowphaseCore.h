@@ -317,6 +317,13 @@ namespace physx
 		PxU32												mTotalNumPairs;
 
         PxU32 mDestructionGraphFallbackPairs = 0;
+        // A receipt for one merged NP pass, consumed only at finalization.
+        // Registrations/retirements are serialized by existing NP lifecycle
+        // locks; retirement counts only grow until compaction invalidates this.
+        PxU64 mDestructionGraphCachedGeneration = 0, mDestructionGraphRetainedRevision = 0;
+        PxU64 mDestructionGraphBuildCount = 0, mDestructionGraphReuseCount = 0;
+        PxU32 mDestructionGraphRetiredCounts[GPU_BUCKET_ID::eCount] = {};
+        PxU32 mDestructionGraphPairCounts[GPU_BUCKET_ID::eCount] = {};
 		PxU64 mNextContactGraphGeneration = 1;
         Cm::PinnableArray<PxgPairManagementData>			mPairManagementData;
 		PxgCudaBuffer										mGpuPairManagementData;
@@ -592,7 +599,18 @@ namespace physx
 		Sc::ShapeInteraction** getGPUShapeInteractions() { return reinterpret_cast<Sc::ShapeInteraction**>(mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mShapeInteractions.getDevicePtr()); }
 
         bool resetDestructionContactCaches();
-        bool buildDestructionContactGraph();
+        bool buildDestructionContactGraph(bool reuseSamePass = false);
+        bool canReuseDestructionContactGraph(PxU64 generation,PxU64 retainedRevision) const {
+            if(!generation || generation!=mDestructionGraphCachedGeneration || retainedRevision!=mDestructionGraphRetainedRevision)return false;
+            // Retirement arrays are append-only until compaction invalidates
+            // the receipt. Include every bucket, not only the rigid prefix.
+            for(PxU32 i=GPU_BUCKET_ID::eConvex;i<GPU_BUCKET_ID::eCount;++i)
+                if(mDestructionGraphRetiredCounts[i]!=mRemovedIndices[i]->size()
+                    || mDestructionGraphPairCounts[i]!=mContactManagers[i]->getNbPassTests())return false;
+            return true;
+        }
+        PxU64 getDestructionGraphBuildCount() const { return mDestructionGraphBuildCount; }
+        PxU64 getDestructionGraphReuseCount() const { return mDestructionGraphReuseCount; }
 		PxgContactManagers& getExistingContactManagers(GPU_BUCKET_ID::Enum type) { return mContactManagers[type]->mContactManagers; }
 		PxgNewContactManagers& getNewContactManagers(GPU_BUCKET_ID::Enum type) { return mContactManagers[type]->mNewContactManagers; }
 

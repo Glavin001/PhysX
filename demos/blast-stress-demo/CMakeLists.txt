@@ -677,9 +677,14 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     add_executable(native_destruction_demo native_destruction_main.cpp physx_scene.cpp state_writer.cpp)
     target_compile_definitions(native_destruction_demo PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
-    target_include_directories(native_destruction_demo PRIVATE ${PHYSX_ROOT}/include)
+    target_include_directories(native_destruction_demo PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/include")
     target_link_options(native_destruction_demo PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_destruction_demo PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_test(NAME physx_native_gpu_retained_contact_graph COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_retained_contact_test.py $<TARGET_FILE:native_destruction_demo>)
+
 
     add_executable(native_gpu_resimulation_test tests/native_gpu_resimulation_test.cpp physx_scene.cpp)
     target_compile_definitions(native_gpu_resimulation_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)

@@ -68,9 +68,29 @@ __global__ void connect(const PxgContactManagerInput* inputs,const PxgContactGra
     unite(speculative,edge.node0,edge.node1);
     if(edge.touching && !(edge.flags&PxgDestructionContactFlags::eDISABLE_RESPONSE))unite(accurate,edge.node0,edge.node1);
 }
+__global__ void connectRetained(const PxgDestructionRetainedEdge* edges,PxU32 count,PxU32 n,
+    PxU32* accurate,PxU32* speculative,PxgDestructionContactGraphStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto e=edges[i];
+    if(e.flags&PxgDestructionRetainedEdge::eUNSUPPORTED){atomicOr(&status->error,PxgDestructionContactGraphStatus::eUNSUPPORTED_ENDPOINT);return;}
+    if((e.node0!=PX_INVALID_NODE && e.node0>=n) || (e.node1!=PX_INVALID_NODE && e.node1>=n)) {
+        atomicOr(&status->error,PxgDestructionContactGraphStatus::eINVALID_IDENTITY);return;
+    }
+    if(e.node0==PX_INVALID_NODE || e.node1==PX_INVALID_NODE || (e.flags&PxgDestructionRetainedEdge::eKINEMATIC))return;
+    unite(speculative,e.node0,e.node1);
+    if(e.flags&PxgDestructionRetainedEdge::eACCURATE)unite(accurate,e.node0,e.node1);
+}
 __global__ void componentKeys(const PxU32* labels,PxU64* keys,PxU32 n) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i<n)keys[i]=(PxU64(labels[i])<<32)|i;
+}
+// Sorted component keys become a deterministic member list. The first n words
+// store heads by minimum-node label; the next n store successors by node ID.
+__global__ void componentMembers(const PxU64* sorted,PxU32* members,PxU32 n) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;
+    const PxU32 label=PxU32(sorted[i]>>32),node=PxU32(sorted[i]);
+    if(i==0 || PxU32(sorted[i-1]>>32)!=label)members[label]=node;
+    members[size_t(n)+node]=(i+1<n && PxU32(sorted[i+1]>>32)==label)?PxU32(sorted[i+1]):PX_INVALID_NODE;
 }
 __global__ void compress(PxU32* accurate,PxU32* speculative,PxU32 n) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;

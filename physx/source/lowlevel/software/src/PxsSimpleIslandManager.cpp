@@ -49,9 +49,14 @@ void ThirdPassTask::runInternal()
         &mIslandSim==&mIslandManager.getAccurateIslandSim()?"GpuDestruction.task.accurateIslandMaintenance":"GpuDestruction.task.speculativeIslandMaintenance",false,mContextID);
 	PX_PROFILE_ZONE("Basic.thirdPassIslandGen", mContextID);
 
-	mIslandSim.removeDestroyedEdges();
+    {
+        PxProfileScoped detail(mIslandManager.mGPU?PxGetProfilerCallback():NULL,
+            &mIslandSim==&mIslandManager.getAccurateIslandSim()?"GpuDestruction.task.accurateIsland.removeDestroyedConnections":"GpuDestruction.task.speculativeIsland.removeDestroyedConnections",false,mContextID);
+        mIslandSim.removeDestroyedEdges();
+    }
+    mIslandSim.auditGpuContactComponents();
 	const bool allowDeactivation = true;
-	mIslandSim.processLostEdges(mIslandManager.mDestroyedNodes, allowDeactivation, allowDeactivation, mIslandManager.mMaxDirtyNodesPerFrame);
+	mIslandSim.processLostEdges(mIslandManager.mDestroyedNodes, allowDeactivation, allowDeactivation, mIslandManager.mMaxDirtyNodesPerFrame,mIslandManager.mGPU?PxGetProfilerCallback():NULL);
     mIslandSim.setGpuContactComponents(NULL,NULL,0);
 }
 
@@ -70,8 +75,10 @@ void PostThirdPassTask::runInternal()
 
 	mIslandManager.mDestroyedNodes.clear();
 
-	for (PxU32 a = 0; a < mIslandManager.mDestroyedEdges.size(); ++a)
+	for (PxU32 a = 0; a < mIslandManager.mDestroyedEdges.size(); ++a) {
+        mIslandManager.setRetainedContact(mIslandManager.mDestroyedEdges[a],false);
 		mIslandManager.mEdgeHandles.freeHandle(mIslandManager.mDestroyedEdges[a]);
+    }
 
 	mIslandManager.mDestroyedEdges.clear();
 
@@ -142,6 +149,8 @@ EdgeIndex SimpleIslandManager::resizeEdgeArrays(EdgeIndex handle, bool flag)
 {
 	if(mConnectedMap.size() == handle)
 		mConnectedMap.resize(2 * (handle + 1));
+    if(mGPU && mRetainedContactMap.size()<=handle)mRetainedContactMap.resize(2*(handle+1));
+    setRetainedContact(handle,flag && !mAuxCpuData.getContactManager(handle));
 
 	if(mGPU && mGpuData.mFirstPartitionEdges.capacity() == handle)
 		mGpuData.mFirstPartitionEdges.resize(2 * (handle + 1));
@@ -191,6 +200,7 @@ void SimpleIslandManager::preallocateContactManagers(PxU32 nb, EdgeIndex* handle
 	// PT: TODO: refactor with regular code
 	if(mConnectedMap.size() <= maxHandle)
 		mConnectedMap.resize(2 * (maxHandle + 1));
+    if(mGPU && mRetainedContactMap.size()<=maxHandle)mRetainedContactMap.resize(2*(maxHandle+1));
 
 	if(mGPU && mGpuData.mFirstPartitionEdges.capacity() <= maxHandle)
 		mGpuData.mFirstPartitionEdges.resize(2 * (maxHandle + 1));
@@ -220,6 +230,7 @@ bool SimpleIslandManager::addPreallocatedContactManager(EdgeIndex handle, PxsCon
 		PxAtomicAnd(reinterpret_cast<volatile PxI32*>(map), ~(1 << (handle & 31)));
 	}
 
+    setRetainedContact(handle,manager==NULL);
 	return status;
 }
 
@@ -269,6 +280,7 @@ void SimpleIslandManager::removeConnection(EdgeIndex edgeIndex)
 {
 	if(edgeIndex == IG_INVALID_EDGE)
 		return;
+    setRetainedContact(edgeIndex,false);
 	mDestroyedEdges.pushBack(edgeIndex);
 	mSpeculativeIslandManager.removeConnection(edgeIndex);
 	if(mConnectedMap.test(edgeIndex))
@@ -388,6 +400,7 @@ void SimpleIslandManager::setEdgeConnected(EdgeIndex edgeIndex, Edge::EdgeType e
 	{
 		mAccurateIslandManager.addConnection(mCpuData.mEdgeNodeIndices[edgeIndex * 2], mCpuData.mEdgeNodeIndices[edgeIndex * 2 + 1], edgeType, edgeIndex);
 		mConnectedMap.set(edgeIndex);
+        if(mGPU)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
 	}
 }
 
@@ -398,6 +411,7 @@ void SimpleIslandManager::setEdgeDisconnected(EdgeIndex edgeIndex)
 		//PX_ASSERT(!mAccurateIslandManager.getEdge(edgeIndex).isInDirtyList());
 		mAccurateIslandManager.removeConnection(edgeIndex);
 		mConnectedMap.reset(edgeIndex);
+        if(mGPU)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
 	}
 }
 
@@ -415,11 +429,13 @@ void SimpleIslandManager::setEdgeRigidCM(const EdgeIndex edgeIndex, PxsContactMa
 {
 	mAuxCpuData.mConstraintOrCm[edgeIndex] = cm;
 	cm->getWorkUnit().mEdgeIndex = edgeIndex;
+    setRetainedContact(edgeIndex,false);
 }
 
 void SimpleIslandManager::clearEdgeRigidCM(const EdgeIndex edgeIndex)
 {
 	mAuxCpuData.mConstraintOrCm[edgeIndex] = NULL;
+    setRetainedContact(edgeIndex,true);
 	deactivateEdge(edgeIndex);
 }
 
@@ -427,10 +443,12 @@ void SimpleIslandManager::setKinematic(PxNodeIndex nodeIndex)
 { 
 	mAccurateIslandManager.setKinematic(nodeIndex); 
 	mSpeculativeIslandManager.setKinematic(nodeIndex);
+    if(mGPU)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
 }
 
 void SimpleIslandManager::setDynamic(PxNodeIndex nodeIndex) 
 { 
 	mAccurateIslandManager.setDynamic(nodeIndex); 
 	mSpeculativeIslandManager.setDynamic(nodeIndex);
+    if(mGPU)mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
 }

@@ -645,6 +645,9 @@ namespace physx
         return mDestructionCorrecting && mDestructionPreservePairs;
     }
 
+    PxU64 PxgSimulationController::getDestructionContactGraphGeneration() const {
+        return usesDeviceDestructionContactInputs() ? mDestruction->getContactGraphView().generation : 0;
+    }
     bool PxgSimulationController::usesGpuDestructionIslandRepair() const {
         return usesDeviceDestructionContactInputs() && mDestruction->gpuIslandRepairEnabled();
     }
@@ -654,8 +657,10 @@ namespace physx
         islands.getAccurateIslandSim().setGpuContactComponents(NULL,NULL,0);
         islands.getSpeculativeIslandSim().setGpuContactComponents(NULL,NULL,0);
         if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph())return;
-        const PxU32 *accurate=NULL,*speculative=NULL;const PxU64 *aMembers=NULL,*sMembers=NULL;PxU32 count=0;
-        if(mDestruction->observeContactComponents(accurate,speculative,aMembers,sMembers,count)) {
+        const PxU32 *accurate=NULL,*speculative=NULL;const PxU32 *aMembers=NULL,*sMembers=NULL;PxU32 count=0;
+        const bool needAccurate=islands.getAccurateIslandSim().hasPendingConnectivityChanges();
+        const bool needSpeculative=islands.getSpeculativeIslandSim().hasPendingConnectivityChanges();
+        if(mDestruction->observeContactComponents(accurate,speculative,aMembers,sMembers,count,needAccurate,needSpeculative)) {
             islands.getAccurateIslandSim().setGpuContactComponents(accurate,aMembers,count);
             islands.getSpeculativeIslandSim().setGpuContactComponents(speculative,sMembers,count);
         }
@@ -689,8 +694,29 @@ namespace physx
         static_assert(PxU32(PxgDestructionContactFlags::eSOFT_BODY)==PxU32(PxcNpWorkUnitFlag::eSOFT_BODY),"GPU graph deformable flag ABI");
         if(!usesDeviceDestructionContactInputs())return true;
         const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+        auto& islands=mDynamicContext->getIslandManager();
+        const auto& spec=islands.getSpeculativeIslandSim();const auto& accurate=islands.getAccurateIslandSim();
+        PxArray<PxgDestructionRetainedEdge> retainedEdges;
+        PxBitMap::Iterator retainedIterator(islands.getRetainedContactMap());
+        PxU32 edgeIndex;
+        while((edgeIndex=retainedIterator.getNext())!=PxBitMap::Iterator::DONE) {
+            if(edgeIndex>=spec.getNbEdges())continue;
+            const auto& edge=spec.getEdge(edgeIndex);
+            if(!edge.isInserted() || edge.isPendingDestroyed())continue;
+            const auto a=spec.mCpuData.getNodeIndex1(edgeIndex),b=spec.mCpuData.getNodeIndex2(edgeIndex);
+            PxU32 flags=0;
+            if(edgeIndex<accurate.getNbEdges() && accurate.getEdge(edgeIndex).isInserted()
+                && !accurate.getEdge(edgeIndex).isPendingDestroyed())flags|=PxgDestructionRetainedEdge::eACCURATE;
+            if(a.isArticulation() || b.isArticulation() || edge.mEdgeType!=IG::Edge::eCONTACT_MANAGER)
+                flags|=PxgDestructionRetainedEdge::eUNSUPPORTED;
+            const PxNodeIndex endpoints[2]={a,b};
+            for(const auto node:endpoints)if(node.isValid() && node.index()<spec.getNbNodes()
+                && spec.getNode(node).isKinematic())flags|=PxgDestructionRetainedEdge::eKINEMATIC;
+            retainedEdges.pushBack({edgeIndex,a.index(),b.index(),flags});
+        }
         const bool ok=mDestruction->buildContactGraph(inputs,identities,outputs,count,omitted,
-            shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),mBodySimManager.mBodies.size(),retired,retiredCount,stream);
+            shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),mBodySimManager.mBodies.size(),retired,retiredCount,stream,
+            retainedEdges.begin(),retainedEdges.size());
         if(!ok) {
             mDestructionError=1;mCudaContextManager->getCudaContext()->setAbortMode(true);
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native GPU contact graph construction failed; simulation is incomplete.");
@@ -704,7 +730,7 @@ namespace physx
         if(usesDeviceDestructionContactInputs()) {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
             PxScopedCudaLock lock(*mCudaContextManager);
-            if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph())return false;
+            if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return false;
         }
         if(mDestructionCorrecting) {
             if(mDestructionCorrectionProfiler) {

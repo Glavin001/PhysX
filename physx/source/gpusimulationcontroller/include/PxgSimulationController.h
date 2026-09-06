@@ -505,6 +505,7 @@ class PxProfilerCallback;
         virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
         bool usesDeviceDestructionContactInputs() const override;
         bool usesGpuDestructionIslandRepair() const override;
+        PxU64 getDestructionContactGraphGeneration() const;
         void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) override;
         bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
         bool buildDestructionContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,

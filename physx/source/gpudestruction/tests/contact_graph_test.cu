@@ -1,5 +1,6 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include <cuda_runtime.h>
+#include <cub/cub.cuh>
 #include "../src/PxgDestructionContactGraph.cuh"
 #include <algorithm>
 #include <cstdio>
@@ -30,7 +31,23 @@ std::vector<PxU32> reference(PxU32 n,const std::vector<Pair>& pairs,bool accurat
     }
     return labels;
 }
-void run(PxU32 n,const std::vector<Pair>& pairs,unsigned invalid=0,PxU32 omitted=0,const std::vector<PxU32>& retired={}) {
+void verifyMemberLinks(const PxU32* labels,const std::vector<PxU32>& expected) {
+    const PxU32 n=PxU32(expected.size());if(!n)return;
+    Device<PxU64> input(n),sorted(n);size_t bytes=0;
+    check(cub::DeviceRadixSort::SortKeys(nullptr,bytes,input.p,sorted.p,n));Device<unsigned char> scratch(bytes);
+    destructionContactGraph::componentKeys<<<(n+127)/128,128>>>(labels,input.p,n);
+    check(cub::DeviceRadixSort::SortKeys(scratch.p,bytes,input.p,sorted.p,n));
+    auto* members=reinterpret_cast<PxU32*>(input.p);check(cudaMemset(members,0xff,size_t(n)*sizeof(PxU32)));
+    destructionContactGraph::componentMembers<<<(n+127)/128,128>>>(sorted.p,members,n);
+    check(cudaGetLastError());std::vector<PxU32> actual(size_t(n)*2),wanted(size_t(n)*2,PX_INVALID_NODE),last(n,PX_INVALID_NODE);
+    check(cudaMemcpy(actual.data(),members,actual.size()*sizeof(PxU32),cudaMemcpyDeviceToHost));
+    for(PxU32 node=0;node<n;++node) {
+        const PxU32 label=expected[node];if(last[label]==PX_INVALID_NODE)wanted[label]=node;
+        else wanted[size_t(n)+last[label]]=node;last[label]=node;
+    }
+    require(actual==wanted,"GPU membership heads/successors differ from independent stable component grouping");
+}
+void run(PxU32 n,const std::vector<Pair>& pairs,unsigned invalid=0,PxU32 omitted=0,const std::vector<PxU32>& retired={},const std::vector<Pair>& retained={}) {
     const PxU32 count=PxU32(pairs.size());
     std::vector<PxgShapeSim> shapes(n+1);for(PxU32 i=0;i<n;++i)shapes[i].mBodySimIndex=PxNodeIndex(i);
     shapes[n].mBodySimIndex=PxNodeIndex();
@@ -62,6 +79,14 @@ void run(PxU32 n,const std::vector<Pair>& pairs,unsigned invalid=0,PxU32 omitted
         destructionContactGraph::decode<<<(count+127)/128,128,0,stream>>>(dInputs.p,dIds.p,dOutputs.p,count,dShapes.p,n+1,n,edges.p,status.p,retired.empty()?nullptr:mask.p);
         destructionContactGraph::connect<<<(count+127)/128,128,0,stream>>>(dInputs.p,dIds.p,dOutputs.p,count,dShapes.p,n+1,n,status.p,retired.empty()?nullptr:mask.p,accurate.p,speculative.p);
     }
+    std::vector<PxgDestructionRetainedEdge> retainedEdges;
+    for(PxU32 i=0;i<retained.size();++i) {
+        const auto& p=retained[i];retainedEdges.push_back({i,p.a,p.b,
+            (p.touch && !p.disabled?PxgDestructionRetainedEdge::eACCURATE:0u)|(p.kinematic?PxgDestructionRetainedEdge::eKINEMATIC:0u)});
+    }
+    Device<PxgDestructionRetainedEdge> dRetained(retainedEdges.size());dRetained.put(retainedEdges);
+    if(!retainedEdges.empty())destructionContactGraph::connectRetained<<<(retainedEdges.size()+127)/128,128,0,stream>>>(
+        dRetained.p,PxU32(retainedEdges.size()),n,accurate.p,speculative.p,status.p);
     if(n)destructionContactGraph::compress<<<(n+127)/128,128,0,stream>>>(accurate.p,speculative.p,n);
     check(cudaGetLastError());check(cudaStreamSynchronize(stream));check(cudaStreamDestroy(stream));
     const auto result=status.get(1)[0];
@@ -72,8 +97,10 @@ void run(PxU32 n,const std::vector<Pair>& pairs,unsigned invalid=0,PxU32 omitted
     if(invalid || invalidRetirement)return;
     std::vector<Pair> live;
     for(PxU32 i=0;i<count;++i)if(std::find(retired.begin(),retired.end(),i)==retired.end())live.push_back(pairs[i]);
+    live.insert(live.end(),retained.begin(),retained.end());
     require(accurate.get(n)==reference(n,live,true),"accurate graph differs from flood fill");
     require(speculative.get(n)==reference(n,live,false),"speculative graph differs from flood fill");
+    verifyMemberLinks(accurate.p,reference(n,live,true));verifyMemberLinks(speculative.p,reference(n,live,false));
     const auto decoded=edges.get(count);for(PxU32 i=0;i<count;++i){
         require(decoded[i].identity.generation==ids[i].generation && decoded[i].identity.edgeIndex==i,"GPU graph lost pair lifetime identity");
         if(std::find(retired.begin(),retired.end(),i)!=retired.end()) {
@@ -84,6 +111,14 @@ void run(PxU32 n,const std::vector<Pair>& pairs,unsigned invalid=0,PxU32 omitted
 }
 int main(){try{
     run(0,{});run(100,{});
+    // A native speculative edge can have no active narrowphase manager.
+    // Retained touch, no-touch, disabled response and prescribed boundaries
+    // must preserve their different accurate/speculative connectivity.
+    const std::vector<Pair> retained={{1,2,false},{3,4,true},{4,5,true,false,true},{0,6,true,true},{5,6,true,true},{0,PX_INVALID_NODE}};
+    run(8,{{0,1},{2,3},{5,7}},0,0,{},retained);
+    run(8,{},0,0,{},retained);
+    run(8,{{0,1},{2,3},{5,7}}); // removed snapshot cannot retain old links
+
     // Untouched broadphase bridge, disabled-response bridge, cycles, common
     // static/kinematic boundaries and isolated bodies have distinct semantics.
     const std::vector<Pair> small={{0,1},{1,2},{2,0},{2,3,false},{3,4,true,false,true},{4,5},

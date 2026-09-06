@@ -450,7 +450,10 @@ class Runtime final : public PxgDestructionRuntime {
     bool mCorrectionEnabled=false, mGpuIslandRepair=false;
     PxU32 *mGraphHostAccurate{}, *mGraphHostSpeculative{};
     PxU64 *mGraphKeys{}, *mGraphSortedKeys{}, *mGraphHostAccurateMembers{}, *mGraphHostSpeculativeMembers{};
+    PxgDestructionRetainedEdge *mGraphRetainedEdges{},*mGraphHostRetainedEdges{};
+    PxU32 mGraphRetainedEdgeCapacity{};
     PxU32 mGraphObservationCapacity{};
+    PxgDestructionContactGraphObservationStats mGraphObservationStats{};
     void* mGraphSortScratch{};
     size_t mGraphSortScratchBytes{};
     std::vector<PxU32> mHostCorrectionTargets;
@@ -478,9 +481,10 @@ public:
     }
     bool buildContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
         const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxgShapeSim* shapes,
-        PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream) override {
+        PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream,
+        const PxgDestructionRetainedEdge* retainedEdges,PxU32 retainedEdgeCount) override {
         if(mFailed || !mCorrectionEnabled || !stream || mGraphGeneration==~PxU64(0))return false;
-        if((count && (!inputs || !identities || !outputs || !shapes)) || (retiredCount && !retired))return false;
+        if((count && (!inputs || !identities || !outputs || !shapes)) || (retiredCount && !retired) || (retainedEdgeCount && !retainedEdges))return false;
         try {
             Context current(mContext);
             // Storage grows explicitly, never truncates. Prior producer work
@@ -514,6 +518,17 @@ public:
                 }
                 std::copy(retired,retired+retiredCount,mGraphHostRetired);
             }
+            if(retainedEdgeCount) {
+                if(mGraphView.generation)check(cudaEventSynchronize(mGraphReady));
+                if(retainedEdgeCount>mGraphRetainedEdgeCapacity) {
+                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(retainedEdgeCount,2ull*mGraphRetainedEdgeCapacity)));
+                    check(cudaFree(mGraphRetainedEdges));mGraphRetainedEdges=nullptr;allocate(mGraphRetainedEdges,capacity);
+                    check(cudaFreeHost(mGraphHostRetainedEdges));mGraphHostRetainedEdges=nullptr;
+                    check(cudaMallocHost(&mGraphHostRetainedEdges,size_t(capacity)*sizeof(PxgDestructionRetainedEdge)));
+                    mGraphRetainedEdgeCapacity=capacity;
+                }
+                std::copy(retainedEdges,retainedEdges+retainedEdgeCount,mGraphHostRetainedEdges);
+            }
             if(!mGraphStatus)allocate(mGraphStatus,1);
             const auto cudaStream=reinterpret_cast<cudaStream_t>(stream);
             destructionContactGraph::initialize<<<(std::max(nodeCapacity,1u)+127)/128,128,0,cudaStream>>>(mGraphAccurate,mGraphSpeculative,nodeCapacity,mGraphStatus,omitted);
@@ -525,26 +540,37 @@ public:
             if(count) {
                 destructionContactGraph::connect<<<(count+127)/128,128,0,cudaStream>>>(inputs,identities,outputs,count,shapes,shapeCapacity,nodeCapacity,mGraphStatus,retiredCount?mGraphRetiredMask:nullptr,mGraphAccurate,mGraphSpeculative);
             }
+            if(retainedEdgeCount) {
+                check(cudaMemcpyAsync(mGraphRetainedEdges,mGraphHostRetainedEdges,size_t(retainedEdgeCount)*sizeof(PxgDestructionRetainedEdge),cudaMemcpyHostToDevice,cudaStream));
+                mGraphObservationStats.retainedEdgesUploaded+=retainedEdgeCount;
+                mGraphObservationStats.retainedHostToDeviceBytes+=PxU64(retainedEdgeCount)*sizeof(PxgDestructionRetainedEdge);
+                mGraphObservationStats.peakRetainedEdges=std::max(mGraphObservationStats.peakRetainedEdges,retainedEdgeCount);
+                destructionContactGraph::connectRetained<<<(retainedEdgeCount+127)/128,128,0,cudaStream>>>(mGraphRetainedEdges,retainedEdgeCount,nodeCapacity,mGraphAccurate,mGraphSpeculative,mGraphStatus);
+            }
             if(nodeCapacity)destructionContactGraph::compress<<<(nodeCapacity+127)/128,128,0,cudaStream>>>(mGraphAccurate,mGraphSpeculative,nodeCapacity);
             check(cudaGetLastError());check(cudaEventRecord(mGraphReady,cudaStream));
             // Stress completion/acceptance gates subsequent ownership changes
             // and the next NP pass. Include graph reads in that dependency,
             // rather than relying on this small kernel usually finishing first.
             check(cudaStreamWaitEvent(mStream,mGraphReady,0));
-            mGraphView={inputs,identities,outputs,shapes,retiredCount?mGraphRetiredMask:nullptr,mGraphAccurate,mGraphSpeculative,mGraphStatus,count,shapeCapacity,nodeCapacity,++mGraphGeneration,mGraphReady};
+            mGraphView={inputs,identities,outputs,shapes,retiredCount?mGraphRetiredMask:nullptr,mGraphAccurate,mGraphSpeculative,mGraphStatus,count,shapeCapacity,nodeCapacity,++mGraphGeneration,mGraphReady,mGraphRetainedEdges,retainedEdgeCount};
             return true;
         }catch(...){mFailed=true;mGraphView={};return false;}
     }
     PxgDestructionContactGraphView getContactGraphView() const override { return mGraphView; }
     bool gpuIslandRepairEnabled() const override { return mGpuIslandRepair; }
+    PxgDestructionContactGraphObservationStats getContactGraphObservationStats() const override { return mGraphObservationStats; }
     bool observeContactComponents(const PxU32*& accurate,const PxU32*& speculative,
-        const PxU64*& accurateMembers,const PxU64*& speculativeMembers,PxU32& count) override {
+        const PxU32*& accurateMembers,const PxU32*& speculativeMembers,PxU32& count,
+        bool needAccurate,bool needSpeculative) override {
         accurate=speculative=nullptr;accurateMembers=speculativeMembers=nullptr;count=0;
         if(mFailed || !mGraphView.generation)return false;
+        if(!needAccurate && !needSpeculative)return true;
         try {
             Context current(mContext);check(cudaEventSynchronize(mGraphReady));
             PxgDestructionContactGraphStatus status{};
             check(cudaMemcpy(&status,mGraphStatus,sizeof(status),cudaMemcpyDeviceToHost));
+            ++mGraphObservationStats.observations;mGraphObservationStats.deviceToHostBytes+=sizeof(status);
             if(status.error || status.omittedPairs)return false;
             const PxU32 n=mGraphView.nodeCapacity;if(!n)return false;
             if(n>mGraphObservationCapacity) {
@@ -567,17 +593,27 @@ public:
                 check(cudaMalloc(&mGraphSortScratch,bytes));mGraphSortScratchBytes=bytes;
             }
             for(PxU32 graph=0;graph<2;++graph) {
+                if(graph?!needSpeculative:!needAccurate)continue;
                 const auto* labels=graph?mGraphSpeculative:mGraphAccurate;
                 auto* hostLabels=graph?mGraphHostSpeculative:mGraphHostAccurate;
                 auto* hostMembers=graph?mGraphHostSpeculativeMembers:mGraphHostAccurateMembers;
                 destructionContactGraph::componentKeys<<<(n+127)/128,128,0,mStream>>>(labels,mGraphKeys,n);
                 check(cub::DeviceRadixSort::SortKeys(mGraphSortScratch,mGraphSortScratchBytes,mGraphKeys,mGraphSortedKeys,n,0,64,mStream));
+                // Sorting has consumed the input keys. Reuse their 8*n-byte
+                // allocation for heads/successors instead of another buffer.
+                auto* members=reinterpret_cast<PxU32*>(mGraphKeys);
+                check(cudaMemsetAsync(members,0xff,size_t(n)*sizeof(PxU32),mStream));
+                destructionContactGraph::componentMembers<<<(n+127)/128,128,0,mStream>>>(mGraphSortedKeys,members,n);
+                check(cudaGetLastError());
                 check(cudaMemcpyAsync(hostLabels,labels,size_t(n)*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
-                check(cudaMemcpyAsync(hostMembers,mGraphSortedKeys,size_t(n)*sizeof(PxU64),cudaMemcpyDeviceToHost,mStream));
+                check(cudaMemcpyAsync(hostMembers,members,size_t(n)*2*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
             }
             check(cudaStreamSynchronize(mStream));
-            accurate=mGraphHostAccurate;speculative=mGraphHostSpeculative;
-            accurateMembers=mGraphHostAccurateMembers;speculativeMembers=mGraphHostSpeculativeMembers;count=n;return true;
+            const PxU32 graphs=PxU32(needAccurate)+PxU32(needSpeculative);
+            mGraphObservationStats.sortedGraphs+=graphs;
+            mGraphObservationStats.deviceToHostBytes+=PxU64(graphs)*n*(sizeof(PxU32)+sizeof(PxU64));
+            accurate=needAccurate?mGraphHostAccurate:nullptr;speculative=needSpeculative?mGraphHostSpeculative:nullptr;
+            accurateMembers=needAccurate?reinterpret_cast<PxU32*>(mGraphHostAccurateMembers):nullptr;speculativeMembers=needSpeculative?reinterpret_cast<PxU32*>(mGraphHostSpeculativeMembers):nullptr;count=n;return true;
         }catch(...){mFailed=true;return false;}
     }
     void release() override { delete this; }
@@ -595,6 +631,8 @@ public:
         cudaFree(mGraphSpeculative);mGraphSpeculative=nullptr;cudaFree(mGraphStatus);mGraphStatus=nullptr;
         mGraphView={};mGraphPairCapacity=0;mGraphNodeCapacity=0;
         mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;mRestoredCheckpointGeneration=0;
+        cudaFree(mGraphRetainedEdges);mGraphRetainedEdges=nullptr;
+        cudaFreeHost(mGraphHostRetainedEdges);mGraphHostRetainedEdges=nullptr;mGraphRetainedEdgeCapacity=0;
         cudaFree(mGraphKeys);mGraphKeys=nullptr;cudaFree(mGraphSortedKeys);mGraphSortedKeys=nullptr;
         cudaFree(mGraphSortScratch);mGraphSortScratch=nullptr;mGraphSortScratchBytes=0;
         cudaFreeHost(mGraphHostAccurate);mGraphHostAccurate=nullptr;

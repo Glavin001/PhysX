@@ -30,6 +30,7 @@
 #include "foundation/PxSort.h"
 #include "foundation/PxUtilities.h"
 #include "common/PxProfileZone.h"
+#include <cstdio>
 
 using namespace physx;
 using namespace IG;
@@ -1386,6 +1387,76 @@ bool IslandSim::tryFastPath(PxNodeIndex startNode, PxNodeIndex targetNode, Islan
 	return found;
 }
 
+bool IslandSim::auditGpuContactComponents()
+{
+    if(!mGpuComponentAudit || !mGpuComponentLabels)return true;
+    ++mGpuComponentAudits;
+    const auto fail=[&](const char* why,PxU32 node) {
+        std::fprintf(stderr,"GPU island boundary audit: %s graph=%s node=%u\n",
+            why,mGpuData?"accurate":"speculative",node);
+        ++mGpuComponentAuditFailures;
+        // Preserve a usable registry for diagnostics; never consume a known
+        // incorrect graph. The capture checks this sticky failure after fetch.
+        setGpuContactComponents(NULL,NULL,0);return false;
+    };
+    if(!mGpuComponentMembers)return fail("missing member storage",PX_INVALID_NODE);
+    const PxU32 n=mNodes.size();
+    const auto dynamic=[&](PxU32 i) { return i<n && !mNodes[i].isDeleted()
+        && !mNodes[i].isKinematic() && mIslandIds[i]!=IG_INVALID_ISLAND; };
+    // Build an independent adjacency from native inserted edges, not GPU pair
+    // inputs, GPU labels or existing island partitions. Pending deletions no
+    // longer contribute to the connectivity consumed by this third pass.
+    PxArray<PxArray<PxU32> > adjacency;adjacency.resize(n);
+    for(PxU32 e=0;e<mEdges.size();++e) {
+        const Edge& edge=mEdges[e];if(!edge.isInserted() || edge.isPendingDestroyed())continue;
+        if(size_t(e)*2+1>=mCpuData.mEdgeNodeIndices.size())return fail("missing edge endpoints",e);
+        const PxU32 a=mCpuData.mEdgeNodeIndices[2*e].index(),b=mCpuData.mEdgeNodeIndices[2*e+1].index();
+        if(dynamic(a) && dynamic(b)){adjacency[a].pushBack(b);adjacency[b].pushBack(a);}
+    }
+    PxArray<PxU32> expected;expected.resize(n,PX_INVALID_NODE);
+    PxArray<PxU32> queue;
+    for(PxU32 root=0;root<n;++root)if(dynamic(root) && expected[root]==PX_INVALID_NODE) {
+        queue.clear();queue.pushBack(root);expected[root]=root;
+        for(PxU32 j=0;j<queue.size();++j) {
+            const PxArray<PxU32>& neighbors=adjacency[queue[j]];
+            for(PxU32 k=0;k<neighbors.size();++k)if(expected[neighbors[k]]==PX_INVALID_NODE) {
+                expected[neighbors[k]]=root;queue.pushBack(neighbors[k]);
+            }
+        }
+    }
+    // Validate labels and the complete sorted member chain, including the
+    // case of equal but wrong labels (which bypasses findRoute's split checks).
+    PxArray<PxU32> last;last.resize(n,PX_INVALID_NODE);
+    for(PxU32 node=0;node<n;++node)if(dynamic(node)) {
+        const PxU32 root=expected[node];
+        if(node>=mGpuComponentCount || mGpuComponentLabels[node]!=root) {
+            const PxU32 gpu=node<mGpuComponentCount?mGpuComponentLabels[node]:PX_INVALID_NODE;
+            std::fprintf(stderr,"GPU island audit partition: node=%u expected=%u gpu=%u native_island=%u domain=%u nodes=%u\n",
+                node,root,gpu,mIslandIds[node],mGpuComponentCount,n);
+            PxU32 printed=0;
+            for(PxU32 e=0;e<mEdges.size() && printed<32;++e) {
+                const Edge& edge=mEdges[e];if(!edge.isInserted() || edge.isPendingDestroyed())continue;
+                const PxU32 a=mCpuData.mEdgeNodeIndices[2*e].index(),b=mCpuData.mEdgeNodeIndices[2*e+1].index();
+                if(dynamic(a) && dynamic(b) && (expected[a]==root || expected[b]==root)) {
+                    std::fprintf(stderr,"GPU island audit edge: edge=%u nodes=%u,%u labels=%u,%u expected=%u,%u\n",
+                        e,a,b,a<mGpuComponentCount?mGpuComponentLabels[a]:PX_INVALID_NODE,
+                        b<mGpuComponentCount?mGpuComponentLabels[b]:PX_INVALID_NODE,expected[a],expected[b]);++printed;
+                }
+            }
+            return fail("component differs from native edge flood fill",node);
+        }
+        if(last[root]==PX_INVALID_NODE) {
+            if(mGpuComponentMembers[root]!=node)return fail("incorrect component head",node);
+        } else if(mGpuComponentMembers[size_t(mGpuComponentCount)+last[root]]!=node)
+            return fail("incorrect member successor",node);
+        last[root]=node;
+    }
+    for(PxU32 root=0;root<n;++root)if(last[root]!=PX_INVALID_NODE
+        && mGpuComponentMembers[size_t(mGpuComponentCount)+last[root]]!=PX_INVALID_NODE)
+        return fail("unterminated member chain",last[root]);
+    return true;
+}
+
 bool IslandSim::findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId)
 {
     mGpuSplit=false;
@@ -1394,22 +1465,23 @@ bool IslandSim::findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandI
         if(component==mGpuComponentLabels[targetNode.index()]) {
             ++mGpuRouteCount;return true; // exact connectedness, no CPU path search
         }
-        // CUDA radix sorting provides stable component membership. Validate the
-        // host registry before changing it, then reuse PhysX's split bookkeeping.
-        PxU32 lo=0,hi=mGpuComponentCount;
-        const PxU64 key=PxU64(component)<<32;
-        while(lo<hi){const PxU32 mid=lo+(hi-lo)/2;if(mGpuComponentMembers[mid]<key)lo=mid+1;else hi=mid;}
-        const PxU32 begin=lo;bool valid=true,foundStart=false;
-        for(;lo<mGpuComponentCount && PxU32(mGpuComponentMembers[lo]>>32)==component;++lo) {
-            const PxU32 node=PxU32(mGpuComponentMembers[lo]);
-            if(node>=mNodes.size() || mNodes[node].isDeleted() || mNodes[node].isKinematic()
+        // CUDA supplies a direct component head and sorted successors. No
+        // CPU binary search or component grouping is needed. Validate before
+        // mutating the compatibility registry, including strict order/cycles.
+        bool valid=component<mGpuComponentCount,foundStart=false;
+        const PxU32 first=valid?mGpuComponentMembers[component]:PX_INVALID_NODE;
+        PxU32 previous=PX_INVALID_NODE;
+        for(PxU32 node=first;node!=PX_INVALID_NODE;) {
+            if(node>=mGpuComponentCount || node>=mNodes.size()
+                || (previous!=PX_INVALID_NODE && node<=previous)
+                || mGpuComponentLabels[node]!=component || mNodes[node].isDeleted() || mNodes[node].isKinematic()
                 || mIslandIds[node]!=islandId || mVisitedState.test(node)){valid=false;break;}
-            foundStart|=node==startNode.index();
+            foundStart|=node==startNode.index();previous=node;
+            node=mGpuComponentMembers[size_t(mGpuComponentCount)+node];
         }
         if(valid && foundStart) {
             mVisitedNodes.pushBack(TraversalState(startNode,0,PX_INVALID_NODE,0));
-            for(PxU32 i=begin;i<lo;++i) {
-                const PxU32 node=PxU32(mGpuComponentMembers[i]);
+            for(PxU32 node=first;node!=PX_INVALID_NODE;node=mGpuComponentMembers[size_t(mGpuComponentCount)+node]) {
                 if(node!=startNode.index())mVisitedNodes.pushBack(TraversalState(PxNodeIndex(node),mVisitedNodes.size(),0,0));
                 mVisitedState.set(node);mIslandIds[node]=IG_INVALID_ISLAND;
             }
@@ -1515,7 +1587,7 @@ bool IslandSim::findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandI
 	}
 }
 
-void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, bool allowDeactivation, bool permitKinematicDeactivation, PxU32 dirtyNodeLimit)
+void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, bool allowDeactivation, bool permitKinematicDeactivation, PxU32 dirtyNodeLimit, PxProfilerCallback* profiler)
 {
 	PX_UNUSED(dirtyNodeLimit);
 	PX_PROFILE_ZONE("Basic.processLostEdges", mContextId);
@@ -1536,6 +1608,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 	PX_UNUSED(nbDestroyedEdges);
 	{
 		PX_PROFILE_ZONE("Basic.removeEdgesFromIslands", mContextId);
+        PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.removeEdgesFromIslands":"GpuDestruction.task.speculativeIsland.removeEdgesFromIslands",false,mContextId);
 		for (PxU32 a = 0; a < mDestroyedEdges.size(); ++a)
 		{
 			const EdgeIndex lostIndex = mDestroyedEdges[a];
@@ -1599,6 +1672,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 	if (allowDeactivation)
 	{
 		PX_PROFILE_ZONE("Basic.findPathsAndBreakIslands", mContextId);
+        PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.findPathsAndBreakIslands":"GpuDestruction.task.speculativeIsland.findPathsAndBreakIslands",false,mContextId);
 
 		//KS - process only this many dirty nodes, deferring future dirty nodes to subsequent frames. 
 		//This means that it may take several frames for broken edges to trigger islands to completely break but this is better
@@ -1860,6 +1934,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 
 	{
 		PX_PROFILE_ZONE("Basic.clearDestroyedEdges", mContextId);
+        PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.clearDestroyedEdges":"GpuDestruction.task.speculativeIsland.clearDestroyedEdges",false,mContextId);
 		//Now process the lost edges...
 		for (PxU32 a = 0; a < mDestroyedEdges.size(); ++a)
 		{
@@ -1892,6 +1967,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 
 	{
 		PX_PROFILE_ZONE("Basic.clearDestroyedNodes", mContextId);
+        PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.clearDestroyedNodes":"GpuDestruction.task.speculativeIsland.clearDestroyedNodes",false,mContextId);
 
 		for (PxU32 a = 0; a < destroyedNodes.size(); ++a)
 		{
@@ -1961,6 +2037,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 	if (allowDeactivation)
 	{
 		PX_PROFILE_ZONE("Basic.deactivation", mContextId);
+        PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.deactivation":"GpuDestruction.task.speculativeIsland.deactivation",false,mContextId);
 		for (PxU32 a = 0; a < mActiveIslands.size(); a++)
 		{
 			const IslandId islandId = mActiveIslands[a];
@@ -2046,6 +2123,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 
 	{
 		PX_PROFILE_ZONE("Basic.resetDirtyEdges", mContextId);
+        PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.resetDirtyEdges":"GpuDestruction.task.speculativeIsland.resetDirtyEdges",false,mContextId);
 		for (PxU32 i = 0; i < Edge::eEDGE_TYPE_COUNT; ++i)
 		{
 			for (PxU32 a = 0; a < mDirtyEdges[i].size(); ++a)
