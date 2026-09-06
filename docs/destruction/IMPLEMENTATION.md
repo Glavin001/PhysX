@@ -17,14 +17,16 @@ GPU persistent collision binding preparation now follows initialization; see
 [NATIVE_GPU_COLLISION_PREPARATION.md](NATIVE_GPU_COLLISION_PREPARATION.md).
 The pre-solve GPU rigid-state checkpoint is now captured automatically; see
 [NATIVE_GPU_RIGID_CHECKPOINT.md](NATIVE_GPU_RIGID_CHECKPOINT.md). Applying
-collision-owner transfers, retained-body updates and the complete internal
-correction transaction remain unfinished.
+collision-owner transfers and the complete internal correction transaction
+remain unfinished. Pre-solve correction body records and private GPU installation
+for retained/new bodies are implemented; see
+[NATIVE_GPU_CORRECTION_BODIES.md](NATIVE_GPU_CORRECTION_BODIES.md).
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 49/54 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
+suite is 50/55 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
@@ -131,13 +133,20 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   ordinary bodies, consumed force inputs and optional acceleration history;
   full island/contact/constraint restoration and the single resim remain open.
 
+- Native GPU correction inputs now combine the chosen fracture mass/geometry
+  with pre-solve checkpoint motion. A private installation kernel updates
+  retained and new GPU body slots after restore, preserving point velocities and
+  inertia. Its complete scene transaction and unresolved source command
+  assignment remain unfinished.
+
 ## Remaining completion gates
 
 - Complete the initial scene-attached `PxDestructionScene` beyond stress bindings:
   SDK-wide stable generation-bearing structure/chunk/cluster handles,
   removal/reinsertion and crush ancestry.
 - Connect the internal persistent collision-owner transfer to native GPU topology
-  transactions, update retained solver bodies on GPU, and batch device ownership updates. Extend
+  transactions, invoke retained/new solver-body installation inside correction,
+  and batch device ownership updates. Extend
   new-pair eligibility and cache invalidation to aggregate scenes and complete
   runtime geometry ownership; the between-step boundary is not the full path.
 - Complete material parity for merged/reduced bond groups, expose explicit

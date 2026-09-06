@@ -693,6 +693,7 @@ namespace physx
         if(ok) ok=mDestruction->prepareCollisionBindings(
             mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
             mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),mSimulationCore->getStream());
+        if(ok) ok=mDestruction->prepareCorrectionBodies(mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
         mDestructionError = ok && complete ? 0 : 1;
         if(mDestructionError)
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,

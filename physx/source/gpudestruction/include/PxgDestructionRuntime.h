@@ -49,6 +49,13 @@ public:
     virtual bool initializeReservedBodies(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, CUstream stream) = 0;
     virtual bool prepareCollisionBindings(const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
+    virtual bool prepareCorrectionBodies(PxU32 bodyCapacity, CUstream stream) = 0;
+    // Body installation after rigid restore. Island/collision ownership and
+    // accepted events remain separate. Unresolved source commands reject before
+    // mutation; they must never be cloned indiscriminately onto fragments.
+    virtual bool installCorrectionBodies(PxgBodySim* bodies, PxgBodySimVelocities* previous,
+        PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 checkpointGeneration, CUstream stream) = 0;
+
     virtual void release() = 0;
 };
 }

@@ -62,6 +62,20 @@ struct PxDestructionCollisionPreparationStatus {
     // 8 unsupported collision geometry/flags, 16 CUDA failure.
     // No physical shape ownership is changed by preparing this batch.
 };
+// Fractured solver-body inputs rewound to the saved pre-solve state. Geometry
+// and mass come from the actual trial verdict; motion comes from its checkpoint.
+struct PxDestructionCorrectionBody {
+    PxDestructionClusterBodyState body;
+    std::uint32_t targetBody;
+};
+struct PxDestructionCorrectionPreparationStatus {
+    std::uint64_t generation, checkpointGeneration;
+    std::uint32_t count, loadedSources, valid, error;
+    // error: 1 missing/invalid checkpoint source, 2 native mapping,
+    // 4 invalid/unrepresentable motion, 8 nonfinite input load, 16 CUDA failure.
+    // loadedSources counts affected source bodies with unapportioned external
+    // accelerations. Those commands cannot be cloned onto every fragment.
+};
 struct PxDestructionTopologyStatus {
     std::uint64_t generation;
     std::uint32_t clusterCount, invalidEdit, changed;

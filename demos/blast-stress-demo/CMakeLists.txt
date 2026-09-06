@@ -659,6 +659,14 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_checkpoint_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_gpu_rigid_checkpoint COMMAND native_gpu_checkpoint_test)
 
+    add_executable(native_gpu_correction_body_test tests/native_gpu_correction_body_test.cpp physx_scene.cpp)
+    get_target_property(NATIVE_CHECKPOINT_TEST_INCLUDES native_gpu_checkpoint_test INCLUDE_DIRECTORIES)
+    target_include_directories(native_gpu_correction_body_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+    target_compile_definitions(native_gpu_correction_body_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_link_options(native_gpu_correction_body_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_gpu_correction_body_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
+    add_test(NAME physx_native_gpu_correction_bodies COMMAND native_gpu_correction_body_test)
+
 
     add_executable(gpu_device_input_test tests/gpu_device_input_test.cu)
     set_target_properties(gpu_device_input_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")

@@ -243,12 +243,8 @@ __global__ void validateReservedBodies(const PxvDestructionBodyRequest* requests
     if(b.cluster!=r.cluster || b.sourceBody!=r.sourceBody || b.supported!=r.supported)
         atomicOr(&status->initializationError,1u);
 }
-__global__ void initializeReservedBodiesKernel(const PxvDestructionBodyRequest* requests,const PxU32* indices,
-    PxU32 count,const PxDestructionClusterBodyState* candidates,PxgBodySim* bodies,
-    PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,PxDestructionBodyAllocationStatus* status) {
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count || status->initializationError)return;
-    const auto candidate=candidates[requests[i].candidateSlot];const PxU32 id=indices[i];
-    auto b=bodies[candidate.sourceBody];
+__device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& candidate,const PxgBodySim& source,PxU32 id) {
+    auto b=source;
     // Inherit physical settings from the authoritative GPU source, not the CPU
     // allocation placeholder. No velocity/mass/inertia clamps or extra locks.
     if(!candidate.supported)b.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW=b.dynamicLimitsDamping;
@@ -274,6 +270,14 @@ __global__ void initializeReservedBodiesKernel(const PxvDestructionBodyRequest* 
     // the parent's acceleration accumulator here would duplicate them.
     b.externalLinearAcceleration=make_float4(0,0,0,0);
     b.externalAngularAcceleration=make_float4(0,0,0,0);
+    return b;
+}
+__global__ void initializeReservedBodiesKernel(const PxvDestructionBodyRequest* requests,const PxU32* indices,
+    PxU32 count,const PxDestructionClusterBodyState* candidates,PxgBodySim* bodies,
+    PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,PxDestructionBodyAllocationStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count || status->initializationError)return;
+    const auto candidate=candidates[requests[i].candidateSlot];const PxU32 id=indices[i];
+    const auto b=nativeCandidateState(candidate,bodies[candidate.sourceBody],id);
     bodies[id]=b;
     if(previous) {previous[id].linearVelocity=b.linearVelocityXYZ_inverseMassW;previous[id].angularVelocity=b.angularVelocityXYZ_maxPenBiasW;}
     if(accelerations)accelerations[id]={};
@@ -328,6 +332,7 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
     collision->valid=!collision->error;
     if(collision->error)stage->error|=1024u;
 }
+#include "PxgDestructionCorrection.cuh"
 class Runtime final : public PxgDestructionRuntime {
     CUcontext mContext; void* mScene; bool(*mWriteAllowed)(void*);
     cudaStream_t mStream{}; cudaEvent_t mInput{},mReady{}; CUevent mConsumer{};
@@ -363,6 +368,12 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionCollisionPreparationStatus mHostCollisionPreparation{};
     void* mCollisionScratch{};size_t mCollisionScratchBytes{};
     PxgDestructionEdit* mTopologyEdits{};PxU32* mTopologyCount{};PxU32* mTopologyAccept{};PxU32 mEditCapacity{};
+    PxDestructionCorrectionBody *mCorrectionBodies{},*mCompactCorrectionBodies{};
+    PxDestructionCorrectionPreparationStatus* mCorrectionPreparation{};
+    PxDestructionCorrectionPreparationStatus mHostCorrectionPreparation{};
+    void* mCorrectionScratch{};size_t mCorrectionScratchBytes{};
+    PxU32 mCorrectionBodyCapacity{};
+    PxU64 mRestoredCheckpointGeneration{};
     PxgBodySim* mCheckpointBodies{};
     PxgBodySimVelocities* mCheckpointPrevious{};
     PxgRigidBodyAcceleration* mCheckpointAccelerations{};
@@ -390,6 +401,10 @@ public:
         cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
+        cudaEventSynchronize(mReady); // also orders private installation on the scene stream
+        mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;mRestoredCheckpointGeneration=0;
+        cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
+        cudaFree(mCorrectionPreparation);mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
         mCheckpointValid=false;mCheckpointCount=0;mCheckpointCapacity=0;
         mCheckpointHasPrevious=mCheckpointHasAccelerations=false;
@@ -548,6 +563,11 @@ public:
                 check(cub::DeviceSelect::If(nullptr,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
                     &mCollisionPreparation->count,d.chunkCount,HasCollisionBinding{},mStream));
                 check(cudaMalloc(&mCollisionScratch,mCollisionScratchBytes));
+                allocate(mCorrectionBodies,d.chunkCount);allocate(mCompactCorrectionBodies,d.chunkCount);allocate(mCorrectionPreparation,1);
+                check(cudaMemset(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation)));
+                check(cub::DeviceSelect::If(nullptr,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
+                    &mCorrectionPreparation->count,d.chunkCount,HasCorrectionBody{},mStream));
+                check(cudaMalloc(&mCorrectionScratch,mCorrectionScratchBytes));
                 allocate(mTrialBodies,d.chunkCount);allocate(mBodyPreparation,1);
                 check(cudaMemset(mBodyPreparation,0,sizeof(*mBodyPreparation)));
                 check(cudaMallocHost(&mHostBodyPreparation,sizeof(*mHostBodyPreparation)));*mHostBodyPreparation={};
@@ -590,6 +610,7 @@ public:
             v.trialBodies=mTrialBodies;v.bodyPreparation=mBodyPreparation;
             v.trialBodyIndices=mTrialBodyIndices;v.bodyAllocation=mBodyAllocation;
             v.trialCollisionBindings=mCompactCollisionBindings;v.collisionPreparation=mCollisionPreparation;
+            v.correctionBodies=mCompactCorrectionBodies;v.correctionPreparation=mCorrectionPreparation;
             v.acceptedTopology=mTopology->accepted();v.trialTopology=mTopology->trial();v.topologyTransaction=mTopology->status();
             v.acceptedTopology.readyEvent=v.trialTopology.readyEvent=mReady;
         }
@@ -605,6 +626,8 @@ public:
             check(cudaMemsetAsync(mCount,0,sizeof(*mCount),mStream));
             startFrame<<<1,1,0,mStream>>>(mStatus);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
+            mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;
+            if(mCorrectionPreparation)check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),mStream));
             if(mCollisionPreparation) {
                 check(cudaMemsetAsync(mCollisionPreparation,0,sizeof(*mCollisionPreparation),mStream));
                 check(cudaMemsetAsync(mAffectedClusters,0,mC*sizeof(PxU32),mStream));
@@ -721,7 +744,7 @@ public:
             if(mFailed || !bodies || !count || !stream || mCheckpointGeneration==std::numeric_limits<PxU64>::max())
                 throw std::runtime_error("invalid rigid checkpoint boundary");
             if(mCheckpointValid)check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
-            mCheckpointValid=false;
+            mCheckpointValid=false;mRestoredCheckpointGeneration=0;
             if(count>mCheckpointCapacity || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations) {
                 // Grow only at the ordered pre-solve boundary. Allocation failure
                 // cannot truncate the checkpoint or mutate accepted body state.
@@ -767,7 +790,7 @@ public:
             check(cudaMemcpyAsync(bodies,mCheckpointBodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
             if(previous)check(cudaMemcpyAsync(previous,mCheckpointPrevious,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
             if(accelerations)check(cudaMemcpyAsync(accelerations,mCheckpointAccelerations,size_t(mCheckpointCount)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
-            check(cudaEventRecord(mCheckpointReady,stream));return true;
+            check(cudaEventRecord(mCheckpointReady,stream));mRestoredCheckpointGeneration=generation;return true;
         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
     }
     PxU32 reservedBodyCount() const override {return PxU32(mHostReservedIndices.size());}
@@ -832,6 +855,51 @@ public:
             }catch(...){mFailed=true;}
             return false;
         }
+    }
+    bool prepareCorrectionBodies(PxU32 bodyCapacity,CUstream coreStream) override {
+        if(!mTopology || mHostStatus->error!=8u || !mHostCollisionPreparation.valid)return true;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            if(!mCheckpointValid || !stream)throw std::runtime_error("missing correction input checkpoint");
+            check(cudaStreamWaitEvent(stream,mReady,0));check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+            check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),stream));
+            prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,stream>>>(mTrialBodies,mTrialBodyIndices,mN,mTopology->trial(),mChunks,
+                mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCorrectionBodies,mCorrectionPreparation);
+            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCorrectionPreparation);
+            check(cudaGetLastError());
+            check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
+                &mCorrectionPreparation->count,mN,HasCorrectionBody{},stream));
+            finishCorrectionPreparation<<<1,1,0,stream>>>(mCorrectionPreparation,mCollisionPreparation,mCheckpointGeneration,mStatus);
+            check(cudaGetLastError());
+            check(cudaMemcpyAsync(&mHostCorrectionPreparation,mCorrectionPreparation,sizeof(mHostCorrectionPreparation),cudaMemcpyDeviceToHost,stream));
+            check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,stream));
+            check(cudaEventRecord(mReady,stream));check(cudaEventSynchronize(mReady));mCorrectionBodyCapacity=bodyCapacity;
+            return mHostCorrectionPreparation.valid!=0;
+        }catch(...) {
+            mHostStatus->error|=2048u;mHostCorrectionPreparation.valid=0;mHostCorrectionPreparation.error|=16u;
+            try {Context current(mContext);
+                check(cudaMemcpyAsync(mCorrectionPreparation,&mHostCorrectionPreparation,sizeof(mHostCorrectionPreparation),cudaMemcpyHostToDevice,mStream));
+                check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
+                check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+            }catch(...){mFailed=true;}
+            return false;
+        }
+    }
+    bool installCorrectionBodies(PxgBodySim* bodies,PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,
+        PxU32 capacity,PxU64 checkpointGeneration,CUstream coreStream) override {
+        if(mFailed || !mCheckpointValid || !mHostCorrectionPreparation.valid || mHostCorrectionPreparation.loadedSources
+            || mHostStatus->error!=8u || !bodies || !coreStream || capacity<mCorrectionBodyCapacity
+            || checkpointGeneration!=mCheckpointGeneration || checkpointGeneration!=mHostCorrectionPreparation.checkpointGeneration
+            || mRestoredCheckpointGeneration!=checkpointGeneration
+            || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations)return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            check(cudaStreamWaitEvent(stream,mReady,0));check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+            const PxU32 count=mHostCorrectionPreparation.count;
+            if(count)installCorrectionBodyInputs<<<(count+127)/128,128,0,stream>>>(mCompactCorrectionBodies,count,mCheckpointBodies,
+                mCheckpointPrevious,bodies,previous,accelerations);
+            check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
+        }catch(...) {mFailed=true;return false;}
     }
     bool finish() override {
         try {Context current(mContext);if(mPending){check(cudaEventSynchronize(mReady));mPending=false;reserveBodySlots();}

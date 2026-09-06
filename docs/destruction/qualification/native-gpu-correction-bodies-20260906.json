@@ -1,0 +1,161 @@
+{
+  "milestone": "Native GPU pre-solve fracture correction bodies",
+  "timestampUtc": "2026-09-06T01:50:22.391798+00:00",
+  "baseRevision": "e178b5c8c7491b0e2865027c07633110403d7c5d",
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05",
+  "buildCommand": {
+    "command": [
+      "python3",
+      "tools/scripts/build-destruction-sdk.py",
+      "--jobs",
+      "4"
+    ],
+    "returncode": 0
+  },
+  "regressionCommand": {
+    "command": [
+      "ctest",
+      "--test-dir",
+      "out/destruction-sdk",
+      "--output-on-failure",
+      "--output-junit",
+      "/root/workspace/physx-2/out/native-correction-body-regression.xml"
+    ],
+    "returncode": 8
+  },
+  "regression": {
+    "tests": 55,
+    "passed": 50,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newFailures": [],
+    "existingAssertionsWeakened": false
+  },
+  "newTest": "physx_native_gpu_correction_bodies",
+  "memoryChecks": [
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_correction_body_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-correction-body-native_gpu_correction_body_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "16caee291fb621a81b9bfe32949ffcc9b38e9c54cb8019f723dbb20bfcb2b739"
+    },
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_allocation_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-correction-body-native_gpu_allocation_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "5a4160de09fa4d9ed0029779fed3e9262b912fc9352703d2ed51b585f1f39e74"
+    },
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_checkpoint_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-correction-body-native_gpu_checkpoint_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "3572b942bec29ed764ffbd4af98621260b682422bcfba26bfa6056e6de13e305"
+    }
+  ],
+  "installedConsumers": [
+    {
+      "command": [
+        "out/package-consumer/package_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    }
+  ],
+  "sourceSha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "e7663b98872611c5e2812db06af98107829e3565471d646a80e0105ff2db3093",
+    "physx/include/PxDestructionScene.h": "a6b38b991371738d6f8d7102c34fc0b48bf104a485a0da1fb71e5b614a5cada8",
+    "physx/include/PxDestructionTopologyTypes.h": "e693526c4360049dda6d4148b9fea45ee9090377d01c730171dcc9050fa96adb",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "ea91615dc6f13c32ea50123f33ec15e31cc5ee44e41fc9bd8fce51c83c544a7c",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "b4b0fdc8f6ef0f87d6433c10b0b2845c3d648919d4342fe077ab387d216dd70f",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "722b769ddeb184285d289b81eea9c187ba6d242fae7879793ab0566011bf6243",
+    "physx/source/gpudestruction/src/PxgDestructionCorrection.cuh": "b7edeb876d2ca76b985a7cfc921069c4b588f1bd5d22fcd82429f1bc8136f0e1",
+    "demos/blast-stress-demo/tests/native_gpu_correction_body_test.cpp": "787aa750c1272b61dfc0b5b5d0a4970c5c056304bf24260e7d1f1760310109af"
+  },
+  "librarySha256": {
+    "libPhysXDestructionGpuRuntime_64.so": "4a6ecbe1903ce26890ae5f15e50dd9f84db9a7c2c2005721aac89b130a609c16",
+    "libPhysXGpuActivity_64.so": "722128cd6c15f124527c1803787e16cf6dca979d3544080924dd3662e9feb895",
+    "libPhysX_static_64.a": "b04d4bcd7978921d4b69675e596ad372d8492a4812439d174befeceb7d001c73"
+  },
+  "logsSha256": {
+    "out/native-correction-body-build.log": "757bb60951c78b2832a33ff2042b707777defc3c4866474072ef447c18635f80",
+    "out/native-correction-body-regression.log": "0d8e57124db3028ec6294d30bbb2f8742bb85f9bb6f3e0a9959ef4554a191dc2",
+    "out/native-correction-body-regression.xml": "33ea8594fc687b98f8a3c344b669d194816c6cf5f9bdff6ba3680b3c89f5b790",
+    "out/native-correction-body-package-build.log": "14a2f609c1a659a23d7db7c7c91905be1b937d2feffbd0c3d3d2dd1590f49707",
+    "out/native-correction-body-package-consumers.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "coverage": [
+    "Actual native GPU centrifugal fracture with persistent shapes, unequal masses, anisotropic rotated inertia and offset COM",
+    "Automatic native correction preparation uses saved pre-solve body input, not trial motion",
+    "Reuse of validated principal inertia without repeated diagonalization; stable affected cluster compaction",
+    "Stored-COM point-velocity continuity and analytic linear/angular momentum checks",
+    "Private GPU body installation updates both retained and newly allocated native body slots",
+    "History reconciles to new COM while ordinary bodies and unaffected structures remain as restored",
+    "TGS/PGS crossed with sleeping and optional acceleration tracking enabled/disabled: eight modes",
+    "Unresolved external source commands reject installation before body mutation; ordinary commands remain preserved",
+    "Missing restore, stale checkpoint generation and insufficient body capacity reject installation",
+    "Nonfinite checkpoint rejects the whole correction preparation without accepted physics/material/topology mutation",
+    "Accepted topology, shape membership, actor publication and material damage remain unchanged by private body installation"
+  ],
+  "publicInterface": {
+    "sceneVersion": 9,
+    "correctionRecordBytes": 128,
+    "preparationStatusBytes": 32,
+    "requiresRebuild": true
+  },
+  "limitations": [
+    "Normal scene advancement prepares correction inputs but does not invoke private body installation or resimulation yet",
+    "GPU shape ownership, CPU/island state, constraint/contact bookkeeping and committed-only events remain required for the complete transaction",
+    "Unresolved source force/torque commands are preserved in checkpoint storage and reject private installation; post-split chunk command assignment remains unfinished",
+    "Native ownership-changing fracture still returns incomplete error 8; ordinary trial motion is not automatically rewound",
+    "Full scene correction, capacity/lifecycle APIs, fidelity fixes, Rust/WASM/game qualification and integrated demo/video remain unfinished",
+    "No isolated full-scene scaling or 60 Hz claim"
+  ]
+}
