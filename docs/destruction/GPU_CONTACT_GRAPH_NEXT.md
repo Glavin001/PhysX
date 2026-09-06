@@ -25,10 +25,31 @@ The qualification JSON records the completed diagnostic runs and their scope.
 `PxgContactManagerInput` currently contains shape/transform-cache references,
 not island-edge handles. Resident `PxgShapeSim::mBodySimIndex` already resolves
 the current motion owner. CPU `PxcNpWorkUnit::mEdgeIndex` identifies the existing
-island edge. A GPU graph needs an explicit, generation-safe association between
-these identities through contact-manager creation, removal, compaction and
-shape-owner changes. Reusing authored bond connectivity as contact connectivity
-would be incorrect.
+island edge. `PxgContactGraphIdentity` now carries that edge index and a
+scene-local 64-bit contact-manager lifetime generation alongside each resident
+pair. The companion follows both CPU and GPU removal/compaction, append, buffer
+growth, and the merged narrowphase solver buffers. Registration allocates the
+generation under the existing lock; edge indices are captured later, after
+parallel island insertion has completed. Removed or refiltered managers receive
+new generations, including when slots or shape IDs are reused. Generation zero
+marks unavailable metadata in the CPU-narrowphase suffix; a future graph consumer
+must handle that suffix or explicitly fall back. Generation exhaustion aborts
+rather than cycling back into valid identities.
+
+These are private narrowphase buffers, ordered on its input and solver streams;
+they are not an externally synchronized public device view. Tests explicitly
+wait for both producers before observing them. The companion currently costs
+16 bytes per allocated pair on both CPU and GPU, plus existing bucket/merged
+buffer duplication. It does not add separately solved chunk motion.
+
+Tests check CPU/GPU edge association, unique lifetimes, unchanged generations
+through sparse removal/growth, new generations after reinsertion/refiltering,
+mixed rigid geometry buckets, and destruction disable transitions. Native
+resimulation tests also verify identities after every accepted trial/correction,
+including repeated impacts and both full rebuild and pair-retention paths.
+This is prerequisite identity plumbing: it does not move island traversal to
+CUDA, establish body-handle generations, or qualify a performance improvement.
+Reusing authored bond connectivity as contact connectivity would be incorrect.
 
 The next implementation should consume resident pair ownership and touch state
 on CUDA, build accurate and speculative contact components, and replace the CPU

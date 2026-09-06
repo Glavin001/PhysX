@@ -94,7 +94,8 @@ namespace physx
 	struct PxgContactManagers : public PxsContactManagerBase
 	{
 		PxgContactManagers(const PxU32 bucketId, Cm::VirtualAllocatorCallback& hostAlloc) : PxsContactManagerBase(bucketId), 
-			mGpuInputContactManagers(hostAlloc, PxsHeapStats::eNARROWPHASE), 
+			mGpuInputContactManagers(hostAlloc, PxsHeapStats::eNARROWPHASE),
+            mContactGraphIdentities(hostAlloc, PxsHeapStats::eNARROWPHASE),
 			mCpuContactManagerMapping(hostAlloc, PxsHeapStats::eNARROWPHASE),
 			mShapeInteractions(hostAlloc, PxsHeapStats::eNARROWPHASE),
 			mRestDistances(hostAlloc, PxsHeapStats::eNARROWPHASE),
@@ -106,6 +107,7 @@ namespace physx
         // geometry refs can be INVALID until resolved in the GPU input buffer.
         // The ordinary path retains complete CPU-generated descriptors.
 		Cm::PinnableArray<PxgContactManagerInput>		mGpuInputContactManagers;
+        Cm::PinnableArray<PxgContactGraphIdentity> mContactGraphIdentities;
 		Cm::PinnableArray<PxsContactManager*>			mCpuContactManagerMapping;
 		Cm::PinnableArray<const Sc::ShapeInteraction*>	mShapeInteractions;
 		Cm::PinnableArray<PxReal>						mRestDistances;
@@ -114,6 +116,7 @@ namespace physx
 		void clear()
 		{
 			mGpuInputContactManagers.forceSize_Unsafe(0);
+            mContactGraphIdentities.forceSize_Unsafe(0);
 			mCpuContactManagerMapping.forceSize_Unsafe(0);
 			mShapeInteractions.forceSize_Unsafe(0);
 			mRestDistances.forceSize_Unsafe(0);
@@ -123,6 +126,7 @@ namespace physx
 		void preallocateNewBuffers(PxU32 nbToPreallocate)
 		{
 			mGpuInputContactManagers.reserve(nbToPreallocate);
+            mContactGraphIdentities.reserve(nbToPreallocate);
 			mCpuContactManagerMapping.reserve(nbToPreallocate);
 			mShapeInteractions.reserve(nbToPreallocate);
 			mRestDistances.reserve(nbToPreallocate);
@@ -158,6 +162,7 @@ namespace physx
 	struct PxgGpuContactManagers
 	{
 		PxgTypedCudaBuffer<PxgContactManagerInput>    mContactManagerInputData;
+        PxgTypedCudaBuffer<PxgContactGraphIdentity> mContactGraphIdentities;
 		PxgTypedCudaBuffer<PxsContactManagerOutput>   mContactManagerOutputData;
 		PxgCudaBuffer                                 mPersistentContactManifolds;
 
@@ -174,7 +179,8 @@ namespace physx
 		const PxU32                                   mBucketIndex;
 		
 		PxgGpuContactManagers(const PxU32 bucketIndex, PxgAllocatorDesc& allocDesc) :
-			mContactManagerInputData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE), 
+			mContactManagerInputData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+            mContactGraphIdentities(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 			mContactManagerOutputData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 			mPersistentContactManifolds(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE), 
 			mTempRunsumArray(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE), 
@@ -310,7 +316,8 @@ namespace physx
 		PxU32												mTotalLostFoundPatches;
 		PxU32												mTotalNumPairs;
 
-		Cm::PinnableArray<PxgPairManagementData>			mPairManagementData;
+		PxU64 mNextContactGraphGeneration = 1;
+        Cm::PinnableArray<PxgPairManagementData>			mPairManagementData;
 		PxgCudaBuffer										mGpuPairManagementData;
 	
 
@@ -683,7 +690,7 @@ namespace physx
 
 	private:
 
-		void adjustNpIndices(PxgNewContactManagers& newContactManagers, Cm::PinnableArray<PxgContactManagerInput>& itMainInputs,
+		void adjustNpIndices(PxgNewContactManagers& newContactManagers, Cm::PinnableArray<PxgContactGraphIdentity>& identities, Cm::PinnableArray<PxgContactManagerInput>& itMainInputs,
 			Cm::PinnableArray<PxsContactManager*>& itCms, Cm::PinnableArray<const Sc::ShapeInteraction*>& itSIs,
 			Cm::PinnableArray<PxReal>& itR, Cm::PinnableArray<PxsTorsionalFrictionData>& itTor,
 			Cm::PinnableArray<PxgContactManagerInput>& itNewInputs,

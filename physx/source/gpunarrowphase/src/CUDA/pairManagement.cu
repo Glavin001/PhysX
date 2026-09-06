@@ -87,6 +87,7 @@ extern "C" __global__ void removeContactManagers_Stage5(const PxgPairManagementD
 		if((threadIdx.x&15) == 0)
 		{
 			inputData[dstIndex] = inputData[srcIndex];
+            pairData->mContactGraphIdentities[dstIndex] = pairData->mContactGraphIdentities[srcIndex];
 			outputData[dstIndex] = outputData[srcIndex];
 			cms[dstIndex] = cms[srcIndex];
 			sis[dstIndex] = sis[srcIndex];
@@ -129,6 +130,7 @@ extern "C" __global__ void removeContactManagers_Stage5_CvxTri(const PxgPairMana
 		if(threadIdx.x == 0)
 		{
 			inputData[dstIndex] = inputData[srcIndex];
+            pairData->mContactGraphIdentities[dstIndex] = pairData->mContactGraphIdentities[srcIndex];
 			outputData[dstIndex] = outputData[srcIndex];
 			cms[dstIndex] = cms[srcIndex];
 			sis[dstIndex] = sis[srcIndex];

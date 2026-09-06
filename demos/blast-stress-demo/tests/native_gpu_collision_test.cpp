@@ -14,6 +14,8 @@
 #include <cstring>
 #include <stdexcept>
 #include <vector>
+#include <map>
+#include <set>
 using namespace physx;
 namespace {
 void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
@@ -127,17 +129,50 @@ void deviceContactInputs(bool enabled) {
     // Hundreds of instances share four geometry registrations, while each has a
     // separate persistent transform ID. This also grows the GPU shape storage.
     for(unsigned i=0;i<514;++i)actors.push_back(add(i));
-    PxU32 inspected=0,deviceOnly=0;
-    auto inspect=[&](){
+    PxU32 inspected=0,deviceOnly=0,stableIdentities=0,newIdentities=0;
+    using PairKey=std::pair<PxU32,PxU32>;
+    std::map<PairKey,PxU64> previous;
+    std::set<PxU64> observedGenerations;
+
+    auto inspect=[&](bool refreshed=false){
         PxScopedCudaLock lock(f.cuda);
+        // Diagnostic observations wait for both producers; do not rely on
+        // legacy-default-stream ordering with PhysX nonblocking streams.
+        check(cuStreamSynchronize(np.mStream));
+        check(cuStreamSynchronize(np.mSolverStream));
+        std::map<PairKey,PxU64> current;
+        std::set<PxU64> currentGenerations;
+        PxU32 mergedOffset=0;
+        auto& merged=np.getExistingGpuContactManagers(GPU_BUCKET_ID::eConvex);
         for(PxU32 b=GPU_BUCKET_ID::eConvex;b<=GPU_BUCKET_ID::eConvexCoreTrimesh;++b) {
             auto& host=np.getExistingContactManagers(GPU_BUCKET_ID::Enum(b));
             auto& gpu=np.getExistingGpuContactManagers(GPU_BUCKET_ID::Enum(b));
             const auto count=host.mCpuContactManagerMapping.size();if(!count)continue;
             std::vector<PxgContactManagerInput> inputs(count);
             check(cuMemcpyDtoH(inputs.data(),gpu.mContactManagerInputData.getDevicePtr(),count*sizeof(inputs[0])));
+            std::vector<PxgContactGraphIdentity> identities(count),mergedIdentities(count);
+            require(host.mContactGraphIdentities.size()==count,"CPU contact identity count mismatch");
+            check(cuMemcpyDtoH(identities.data(),gpu.mContactGraphIdentities.getDevicePtr(),count*sizeof(identities[0])));
+            check(cuMemcpyDtoH(mergedIdentities.data(),merged.mContactGraphIdentities.getDevicePtr()+mergedOffset*sizeof(identities[0]),count*sizeof(identities[0])));
+            require(!std::memcmp(identities.data(),mergedIdentities.data(),count*sizeof(identities[0])),"flattened GPU contact identities misaligned with buckets");
+            mergedOffset+=count;
             for(PxU32 i=0;i<count;++i) {
                 const auto& work=host.mCpuContactManagerMapping[i]->getWorkUnit();const auto input=inputs[i];
+                const auto& identity=identities[i];
+                require(identity.generation && identity.edgeIndex!=PX_INVALID_U32 && identity.edgeIndex==work.mEdgeIndex,"GPU contact identity has stale or missing island edge");
+                require(!std::memcmp(&identity,&host.mContactGraphIdentities[i],sizeof(identity)),"CPU/GPU pair identity compaction diverged");
+                require(currentGenerations.insert(identity.generation).second,"live GPU contact generations are not unique");
+                const PairKey key(work.mTransformCache0,work.mTransformCache1);
+                require(current.emplace(key,identity.generation).second,"duplicate persistent contact pair");
+                const auto old=previous.find(key);
+                if(old!=previous.end() && !refreshed) {
+                    require(old->second==identity.generation,"surviving contact identity changed during compaction/growth");
+                    ++stableIdentities;
+                } else {
+                    if(old!=previous.end())require(old->second!=identity.generation,"refilter retained a retired contact lifetime");
+                    require(observedGenerations.insert(identity.generation).second,"removed GPU contact generation was recycled");
+                    ++newIdentities;
+                }
                 require(input.transformCacheRef0==work.mTransformCache0 && input.transformCacheRef1==work.mTransformCache1,"GPU narrowphase resolved the wrong persistent pair IDs");
                 const auto* a=np.mShapesMap->find(size_t(work.getShapeCore0()));
                 const auto* b=np.mShapesMap->find(size_t(work.getShapeCore1()));
@@ -146,6 +181,7 @@ void deviceContactInputs(bool enabled) {
                 if(host.mGpuInputContactManagers[i].shapeRef0==PX_INVALID_U32 && host.mGpuInputContactManagers[i].shapeRef1==PX_INVALID_U32)++deviceOnly;
             }
         }
+        previous=std::move(current);
     };
     step(f.scene);inspect();
     const auto generated=controller.getDestructionContactInputCount();
@@ -159,12 +195,20 @@ void deviceContactInputs(bool enabled) {
     for(unsigned i=1;i<actors.size();i+=4)actors[i]=add(i);
     step(f.scene);inspect();
     if(enabled)require(controller.getDestructionContactInputCount()>generated,"reinserted pairs missed GPU descriptor construction");
+    // Refiltering deliberately destroys/recreates these contact lifetimes,
+    // even when shape and island-edge indices happen to remain unchanged.
+    const auto beforeRefresh=newIdentities;
+    for(auto* body:actors)f.scene.resetFiltering(*body);
+    step(f.scene);inspect(true);
+    require(newIdentities>beforeRefresh,"refilter did not exercise contact lifetime replacement");
     const auto beforeDisable=controller.getDestructionContactInputCount();
     require(f.stage->clearStress(),"device contact path teardown failed");
     // Switching back to ordinary PhysX preserves existing device descriptors
     // and constructs newly created ones through the original CPU path.
-    actors[1]->release();actors[1]=nullptr;step(f.scene);actors[1]=add(1);step(f.scene);inspect();
+    actors[1]->release();actors[1]=nullptr;step(f.scene);inspect();actors[1]=add(1);step(f.scene);inspect();
     require(controller.getDestructionContactInputCount()==beforeDisable,"disabled destruction still dispatched native contact construction");
+    require(stableIdentities>=257 && newIdentities>257,"contact lifetime fixture missed persistence or replacement coverage");
+    std::printf("GPU pair identities: %u surviving observations, %u new lifetimes; bucket merge and CPU/GPU compaction agree\n",stableIdentities,newIdentities);
     for(auto* body:actors)body->release();plane->release();for(auto* shape:shared)shape->release();
     require(f.context.healthy(),"GPU contact-input fixture failed");
     std::printf("persistent GPU contact inputs enabled=%u inspected=%u generated=%llu: shared geometry, capacity growth, removal/reuse and disable transition passed\n",unsigned(enabled),inspected,(unsigned long long)beforeDisable);

@@ -5,6 +5,10 @@
 #include "PxgDestructionRuntime.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
+#include "PxgNphaseImplementationContext.h"
+#include "PxgNarrowphaseCore.h"
+#include "PxsContactManager.h"
+#include <set>
 #include <vector>
 #include <foundation/PxBroadcast.h>
 #include <atomic>
@@ -16,6 +20,30 @@ using namespace physx;
 namespace {
 void require(bool x,const char* why){if(!x)throw std::runtime_error(why);}
 void check(CUresult x){if(x!=CUDA_SUCCESS){const char* name=nullptr;cuGetErrorName(x,&name);std::fprintf(stderr,"CUDA %s\n",name?name:"");throw std::runtime_error("CUDA observation failed");}}
+// Observe accepted contact identities after internal correction. This covers
+// both full contact recreation and opt-in retention of unaffected managers.
+void verifyAcceptedContactIdentities(PxScene& scene,PxCudaContextManager& cuda) {
+    auto& sc=static_cast<NpScene&>(scene).getScScene();
+    auto& np=*static_cast<PxgNphaseImplementationContext*>(sc.getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
+    PxScopedCudaLock lock(cuda);
+    check(cuStreamSynchronize(np.mStream));check(cuStreamSynchronize(np.mSolverStream));
+    std::set<PxU64> live;
+    for(PxU32 b=GPU_BUCKET_ID::eConvex;b<=GPU_BUCKET_ID::eConvexCoreTrimesh;++b) {
+        auto& host=np.getExistingContactManagers(GPU_BUCKET_ID::Enum(b));
+        auto& gpu=np.getExistingGpuContactManagers(GPU_BUCKET_ID::Enum(b));
+        const PxU32 count=host.mCpuContactManagerMapping.size();if(!count)continue;
+        std::vector<PxgContactGraphIdentity> ids(count);
+        check(cuMemcpyDtoH(ids.data(),gpu.mContactGraphIdentities.getDevicePtr(),count*sizeof(ids[0])));
+        require(host.mContactGraphIdentities.size()==count,"accepted contact identity count mismatch");
+        for(PxU32 i=0;i<count;++i) {
+            const auto& id=ids[i];const auto& cpu=host.mContactGraphIdentities[i];
+            require(id.generation && id.edgeIndex!=PX_INVALID_U32 && id.edgeIndex==host.mCpuContactManagerMapping[i]->getWorkUnit().mEdgeIndex,
+                "correction left an invalid GPU contact graph edge");
+            require(id.generation==cpu.generation && id.edgeIndex==cpu.edgeIndex && live.insert(id.generation).second,
+                "correction left stale or duplicated GPU contact identities");
+        }
+    }
+}
 struct AllocationAudit:PxAllocationListener {
     std::atomic<size_t> largest{0};
     AllocationAudit(){PxGetFoundation().registerAllocationListener(*this);}
@@ -143,6 +171,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
             cleanup();std::puts("native correction explicitly rejects unsupported speculative CCD before split application");return {0,0,contacts};
         }
         require(complete && !error && !status.error,"native impact did not accept its correction");
+        verifyAcceptedContactIdentities(scene,cuda);
         require(status.converged,"native impact accepted unconverged stress");
         require(status.frame==frame+1,"correction counted as a second timestep");
         require(status.correctionPasses<=1,"native step exceeded one correction");
@@ -260,6 +289,7 @@ RepeatedResult repeatedImpacts(bool reuse) {
     for(unsigned frame=0;frame<60;++frame) {
         scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error) && !error,"repeat correction incomplete");
         const auto status=destruction->getLastStatus();require(!status.error && status.converged && status.frame==frame+1 && status.correctionPasses<=1,"repeat stage invariant failed");
+        verifyAcceptedContactIdentities(scene,cuda);
         if(status.correctionPasses){require(status.normalContacts && status.brokenBonds==1,"repeat fracture lacks single actual impact verdict");result.fractureSteps.push_back(frame);}
         for(auto* body:ordinary){result.trajectory.push_back(observe(body,PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE));result.trajectory.push_back(observe(body,PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));}
         for(unsigned i=0;i<2;++i){result.trajectory.push_back(observe(shots[i],PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));result.trajectory.push_back(observe(shapes[i]->getActor()->is<PxRigidDynamic>(),PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY));}

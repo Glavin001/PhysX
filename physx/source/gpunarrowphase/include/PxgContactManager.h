@@ -33,6 +33,14 @@
 
 namespace physx
 {
+    // Contact-manager lifetime identity, independent of its current bucket slot.
+    // Generation zero denotes unavailable metadata (e.g. CPU fallback contacts).
+    struct PxgContactGraphIdentity {
+        PxU32 edgeIndex;
+        PxU32 reserved;
+        PxU64 generation;
+    };
+
 	struct PX_ALIGN_PREFIX(16) PxgContactManagerInput
 	{
 		//Body refs are not needed here. World-space transforms are computed using transforCacheRefs instead!
