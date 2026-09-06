@@ -2349,6 +2349,12 @@ void IslandSim::setKinematic(PxNodeIndex nodeIndex)
 
 		Island& island = mIslands[islandId];
 
+        // Prescribed motion no longer contributes static edges to the dynamic
+        // island. Clear its local count as well: switching back to dynamic
+        // reinserts those edges and must not count the previous lifetime twice.
+        writeIslandStaticTouchCount(islandId) -= node.mStaticTouchCount;
+        node.mStaticTouchCount = 0;
+
 		writeIslandId(nodeIndex.index()) = IG_INVALID_ISLAND;
 
 		removeNodeFromIsland(island, nodeIndex);

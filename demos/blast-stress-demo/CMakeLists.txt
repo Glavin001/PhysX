@@ -659,6 +659,13 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_gpu_pre_solve_islands COMMAND native_gpu_collision_test --pre-solve-islands)
     add_test(NAME physx_native_gpu_pre_solve_contacts COMMAND native_gpu_collision_test --pre-solve-contacts)
 
+    add_executable(native_kinematic_support_test tests/native_kinematic_support_test.cpp physx_scene.cpp)
+    target_include_directories(native_kinematic_support_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES})
+    target_compile_definitions(native_kinematic_support_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_link_options(native_kinematic_support_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_kinematic_support_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
+    add_test(NAME physx_native_gpu_kinematic_support COMMAND native_kinematic_support_test)
+
     add_executable(native_gpu_checkpoint_test tests/native_gpu_checkpoint_test.cpp physx_scene.cpp)
     target_include_directories(native_gpu_checkpoint_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES}
         "${PHYSX_ROOT}/source/gpudestruction/include")
