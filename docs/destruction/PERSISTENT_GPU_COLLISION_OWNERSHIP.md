@@ -3,6 +3,8 @@
 This document records the original transfer boundary. Native GPU allocation,
 body initialization and [collision binding preparation](NATIVE_GPU_COLLISION_PREPARATION.md)
 now precede it; application inside the correction transaction remains unfinished.
+GPU-authoritative bounds after transfer are now corrected; see
+[NATIVE_GPU_REBOUND_BOUNDS.md](NATIVE_GPU_REBOUND_BOUNDS.md).
 
 PhysX now has an internal operation that transfers an exclusive shape between
 existing rigid bodies without destroying its `ShapeSim`, cooked geometry

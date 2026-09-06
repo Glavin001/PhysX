@@ -35,6 +35,7 @@
 KERNEL_DEF(MERGE_AABBMGR_HANDLES, "mergeChangedAABBMgrHandlesLaunch")
 KERNEL_DEF(UPDATE_BODY_EXTERNAL_VELOCITIES, "updateBodyExternalVelocitiesLaunch")
 KERNEL_DEF(UPDATE_SHAPES, "updateShapesLaunch")
+KERNEL_DEF(REFRESH_REBOUND_SHAPE_BOUNDS, "refreshReboundShapeBounds")
 KERNEL_DEF(UPDATE_BODIES, "updateBodiesLaunch")
 KERNEL_DEF(UPDATE_BODIES_DIRECT_API, "updateBodiesLaunchDirectAPI")
 KERNEL_DEF(NEW_ARTICULATIONS, "newArticulationsLaunch")

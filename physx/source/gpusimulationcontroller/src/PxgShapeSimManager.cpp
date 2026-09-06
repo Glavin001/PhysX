@@ -45,6 +45,7 @@ using namespace physx;
 PxgShapeSimManager::PxgShapeSimManager(PxgAllocatorDesc& allocDesc) :
 	mTotalNumShapes		(0),
 	mNbTotalShapeSim	(0),
+	mGpuBoundsRefresh(allocDesc.hostAlloc, PxsHeapStats::eSIMULATION),
 	mPxgShapeSimPool	(allocDesc.hostAlloc, PxsHeapStats::eSIMULATION),
 	mShapeSimBuffer		(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mNewShapeSimBuffer	(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION)
@@ -82,6 +83,7 @@ void PxgShapeSimManager::setPxgShapeBodyNodeIndex(PxNodeIndex nodeIndex, PxU32 i
 
 void PxgShapeSimManager::removePxgShape(PxU32 index)
 {
+	mShapeSims[index].mGpuBoundsRefresh = false;
 	mShapeSims[index].mBodySimIndex_GPU = PxNodeIndex(PX_INVALID_NODE);
 	mShapeSims[index].mElementIndex_GPU = PX_INVALID_U32;
 
@@ -92,6 +94,36 @@ void PxgShapeSimManager::removePxgShape(PxU32 index)
         mShapeSims[index].mQueued = true;
         mNewShapeSims.pushBack(index);
     }
+}
+
+bool PxgShapeSimManager::setGpuBoundsRefresh(PxU32 index, bool enabled)
+{
+    if(index >= mShapeSims.size() || mShapeSims[index].mElementIndex_GPU == PX_INVALID_U32)
+        return false;
+    PxgShapeSimData& shape = mShapeSims[index];
+    if(enabled && !shape.mGpuBoundsRefresh && !mGpuBoundsRefresh.pushBack(index))
+        return false;
+    shape.mGpuBoundsRefresh = enabled;
+    return true;
+}
+
+Cm::PinnableArray<PxU32>& PxgShapeSimManager::prepareGpuBoundsRefresh()
+{
+    PxU32 count = 0;
+    for(PxU32 i = 0; i < mGpuBoundsRefresh.size(); ++i)
+    {
+        const PxU32 index = mGpuBoundsRefresh[i];
+        PxgShapeSimData& shape = mShapeSims[index];
+        if(shape.mGpuBoundsRefresh)
+        {
+            mGpuBoundsRefresh[count++] = index;
+            // Clearing here also deduplicates an index removed and reused
+            // between simulation steps. Removal cancels its earlier request.
+            shape.mGpuBoundsRefresh = false;
+        }
+    }
+    mGpuBoundsRefresh.forceSize_Unsafe(count);
+    return mGpuBoundsRefresh;
 }
 
 namespace physx	// PT: only in physx namespace for the friend access to work

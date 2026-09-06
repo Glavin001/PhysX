@@ -21,12 +21,18 @@ collision-owner transfers and the complete internal correction transaction
 remain unfinished. Pre-solve correction body records and private GPU installation
 for retained/new bodies are implemented; see
 [NATIVE_GPU_CORRECTION_BODIES.md](NATIVE_GPU_CORRECTION_BODIES.md).
+Persistent owner transfers now refresh collision bounds from GPU body state;
+see [NATIVE_GPU_REBOUND_BOUNDS.md](NATIVE_GPU_REBOUND_BOUNDS.md).
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 50/55 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
+suite is 53/58 passing (the same four earlier failures plus that single-resim gap). A repeated
+correction-body memory check now reports a stress-path CUDA address failure;
+the independently rebuilt previous revision reproduces it. The new collision
+memory checks pass, but full native memory qualification remains open; see
+[NATIVE_GPU_REBOUND_BOUNDS.md](NATIVE_GPU_REBOUND_BOUNDS.md). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
@@ -138,6 +144,12 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   retained and new GPU body slots after restore, preserving point velocities and
   inertia. Its complete scene transaction and unresolved source command
   assignment remain unfinished.
+
+- Persistent collision transfer now refreshes shape bounds from actual GPU
+  body/COM state before collision detection, avoiding stale CPU pose uploads.
+  GPU-only translations/rotations, all supported geometry types, fresh-body
+  cancellation, 257-transfer growth and simultaneous collision-storage growth
+  pass. The native material transaction still does not invoke this boundary.
 
 ## Remaining completion gates
 

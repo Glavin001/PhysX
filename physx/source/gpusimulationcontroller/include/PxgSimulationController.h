@@ -331,6 +331,7 @@ namespace physx
 
 		virtual ~PxgSimulationController();
 
+        virtual bool setGpuShapeBoundsRefresh(PxU32 index, bool enabled) PX_OVERRIDE;
 		virtual void addPxgShape(Sc::ShapeSimBase* shapeSimBase, const PxsShapeCore* shapeCore, PxNodeIndex nodeIndex, PxU32 index)	PX_OVERRIDE;
 		virtual void setPxgShapeBodyNodeIndex(PxNodeIndex nodeIndex, PxU32 index)	PX_OVERRIDE;
 		virtual void removePxgShape(PxU32 index)	PX_OVERRIDE;

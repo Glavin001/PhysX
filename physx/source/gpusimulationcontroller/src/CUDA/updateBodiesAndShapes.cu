@@ -1167,6 +1167,25 @@ extern "C" __global__ void getRigidDynamicAngularAcceleration(
 	}
 }
 
+// Persistent shape IDs and cooked geometry survive ownership changes. Motion
+// stays authoritative in the GPU body pool, including private native clusters.
+extern "C" __global__ void refreshReboundShapeBounds(
+    const PxU32* PX_RESTRICT indices, PxU32 count,
+    const PxgShapeSim* PX_RESTRICT shapes, const PxgBodySim* PX_RESTRICT bodies,
+    PxsCachedTransform* PX_RESTRICT transforms, PxBounds3* PX_RESTRICT bounds,
+    PxgShape* PX_RESTRICT geometry)
+{
+    const PxU32 i = blockIdx.x * blockDim.x + threadIdx.x;
+    if(i >= count) return;
+    const PxU32 index = indices[i];
+    const PxgShapeSim& shape = shapes[index];
+    assert(!shape.mBodySimIndex.isStaticBody() && !shape.mBodySimIndex.isArticulation());
+    const PxgBodySim& body = bodies[shape.mBodySimIndex.index()];
+    const PxTransform pose = getAbsPose(body.body2World.getTransform(), shape.mTransform,
+        body.body2Actor_maxImpulseW.getTransform());
+    updateCacheAndBound(pose, shape, index, transforms, bounds, geometry, true);
+}
+
 extern "C" __global__ void setRigidDynamicGlobalPose(
 	const PxTransform* PX_RESTRICT data,
 	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,

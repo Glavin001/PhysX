@@ -120,6 +120,8 @@ namespace physx
 					PxsSimulationController(PxsSimulationControllerCallback* callback, PxIntBool gpu) : mCallback(callback), mGPU(gpu)	{}
 		virtual		~PxsSimulationController(){}
 
+        // Refresh persistent rebound geometry from authoritative GPU motion.
+        virtual bool setGpuShapeBoundsRefresh(PxU32 /*index*/, bool enabled) { return !enabled; }
 		virtual void addPxgShape(Sc::ShapeSimBase* /*shapeSimBase*/, const PxsShapeCore* /*shapeCore*/, PxNodeIndex /*nodeIndex*/, PxU32 /*index*/){}
 		virtual void setPxgShapeBodyNodeIndex(PxNodeIndex /*nodeIndex*/, PxU32 /*index*/) {}
 		virtual void removePxgShape(PxU32 /*index*/){}

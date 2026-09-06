@@ -222,6 +222,19 @@ void Sc::Scene::updateDirtyShapes(PxBaseTask* continuation)
 		{
 			hasDirtyShapes = true;
 			changedMap.growAndSet(index);
+            const BodySim* body = shapeSim->getBodySim();
+            if(isDirectGPUAPIInitialized() && body
+                && (body->getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16)))
+            {
+                // Only explicit pending host pose commands own these CPU
+                // transforms. Stage their sparse GPU bounds updates here:
+                // the worker path deliberately bypasses change tracking.
+                // This also supersedes a GPU refresh queued by an earlier
+                // ownership transfer in the same command interval.
+                mSimulationController->setGpuShapeBoundsRefresh(index, false);
+                shapeSim->updateCached_NotThreadSafe(task->mParams, &changedMap, false, false);
+                continue;
+            }
 			task->mShapes[nbDirtyShapes++] = shapeSim;
 
 			// PT: consider better load balancing?

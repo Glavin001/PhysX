@@ -8,6 +8,8 @@ and does not yet commit fractures or perform internal correction.
 
 Linux prerequisites: CMake >= 3.24, a C++ compiler, CUDA toolkit, NVIDIA driver.
 The current qualification target is the RTX 4090 (CUDA architecture 89).
+The Linux x86-64 build entrypoint explicitly sets `PX_OUTPUT_ARCH=x86` so
+required `_64` library names are reproducible without a pre-existing CMake cache.
 
 ```sh
 python3 tools/scripts/build-destruction-sdk.py --jobs 6 --cuda-architectures 89

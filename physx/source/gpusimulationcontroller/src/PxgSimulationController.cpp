@@ -265,6 +265,11 @@ namespace physx
 		mCudaContextManager->release();
 	}
 
+    bool PxgSimulationController::setGpuShapeBoundsRefresh(PxU32 index, bool enabled)
+    {
+        return mSimulationCore->mPxgShapeSimManager.setGpuBoundsRefresh(index, enabled);
+    }
+
 	void PxgSimulationController::addPxgShape(Sc::ShapeSimBase* shapeSimBase, const PxsShapeCore* shapeCore, PxNodeIndex nodeIndex, PxU32 index)
 	{
 		mSimulationCore->mPxgShapeSimManager.addPxgShape(shapeSimBase, shapeCore, nodeIndex, index);
@@ -883,7 +888,8 @@ namespace physx
 
 		// we are in Pxg-land, so GPU NP and dynamics is implied. Upload to GPU if dirty.
 		// The bounds array is shared by NP and BP, and at this point we are before NP and BP.
-		if (!isDirectApiInitialized || hasShapeInstanceChanged)
+		if (!isDirectApiInitialized || hasShapeInstanceChanged
+            || static_cast<PxgBoundsArray&>(aabbManager.getBoundsArray()).getNumberOfChanges())
 			updateBoundsAndTransformCache(aabbManager, npStream, mNpContext->getContext().getTransformCache(), npCore->getTransformCache());
 			
 		mNpContext->updateNarrowPhaseShape();
@@ -895,6 +901,14 @@ namespace physx
 			//run in np stream
 			npCore->computeRigidsToShapes();
 		}
+
+        if (isDirectApiInitialized && !mSimulationCore->refreshReboundShapeBounds(npStream))
+        {
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                "Failed to refresh persistent shape bounds from GPU motion");
+            mCudaContextManager->getCudaContext()->setAbortMode(true);
+            return;
+        }
 
 		if (isDirectApiInitialized)
 		{

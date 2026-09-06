@@ -37,7 +37,7 @@ def main():
         f'-DCMAKE_CXX_COMPILER={args.cxx}', f'-DCMAKE_CUDA_COMPILER={args.cuda}',
         f'-DPHYSX_ROOT_DIR={sdk}', f'-DPX_OUTPUT_LIB_DIR={sdk}', f'-DPX_OUTPUT_BIN_DIR={sdk}',
         f'-DCMAKE_INSTALL_PREFIX={out / "install"}', '-DTARGET_BUILD_PLATFORM=linux',
-        '-DNV_FORCE_64BIT_SUFFIX=TRUE', '-DPX_GENERATE_STATIC_LIBRARIES=TRUE',
+        '-DNV_FORCE_64BIT_SUFFIX=TRUE', '-DPX_OUTPUT_ARCH=x86', '-DPX_GENERATE_STATIC_LIBRARIES=TRUE',
         '-DPX_GENERATE_GPU_PROJECTS=TRUE', f'-DPX_DESTRUCTION_CUDA_ARCHITECTURES={args.cuda_architectures}', '-DPX_BUILDPVDRUNTIME=TRUE', '-DPX_BUILDSNIPPETS=FALSE')
     run('cmake', '--build', out / 'sdk-release', '--target', *TARGETS, f'-j{args.jobs}')
     run('cmake', '-S', ROOT / 'destruction', '-B', out / 'destruction-sdk',

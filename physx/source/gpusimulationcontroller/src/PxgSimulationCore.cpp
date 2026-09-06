@@ -342,6 +342,7 @@ PxgSimulationCore::PxgSimulationCore(PxgCudaKernelWranglerManager* gpuKernelWran
 	mActivateBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mDeactivateBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mUpdatedDirectBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mReboundShapeIndices(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mBodySimCudaBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mBodySimPreviousVelocitiesCudaBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mBodySimAccelerationsCudaBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
@@ -3212,6 +3213,40 @@ bool PxgSimulationCore::getD6JointData(void* data, const PxD6JointGPUIndex* gpuI
 	}
 
 	return success;
+}
+
+bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream)
+{
+    Cm::PinnableArray<PxU32>& indices = mPxgShapeSimManager.prepareGpuBoundsRefresh();
+    const PxU32 count = indices.size();
+    if(!count) return true;
+
+    // Shape metadata was uploaded on the simulation stream. Geometry/cache
+    // allocation and merges precede this call on NP's stream. Read only the
+    // current GPU pointers, without changing the Direct GPU API descriptor.
+    if(mCudaContext->eventRecord(mDmaEvent, mStream) != CUDA_SUCCESS
+        || mCudaContext->streamWaitEvent(npStream, mDmaEvent, 0) != CUDA_SUCCESS)
+        return false;
+    mReboundShapeIndices.allocate(PxU64(count) * sizeof(PxU32), PX_FL);
+    if(!mReboundShapeIndices.getDevicePtr()) return false;
+    const CUdeviceptr ids = mReboundShapeIndices.getDevicePtr();
+    if(mCudaContext->memcpyHtoDAsync(ids, indices.begin(), PxU64(count) * sizeof(PxU32), npStream) != CUDA_SUCCESS)
+        return false;
+    const PxgShapeSim* shapes = mPxgShapeSimManager.getShapeSimsDeviceTypedPtr();
+    const PxgBodySim* bodies = getBodySimBufferDeviceData().getPointer();
+    const CUdeviceptr transforms = mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr();
+    const CUdeviceptr bounds = getBoundArrayBuffer()->getDevicePtr();
+    const CUdeviceptr geometry = mGpuContext->mGpuNpCore->mGpuShapesManager.mGpuShapesBuffer.getDevicePtr();
+    PxCudaKernelParam params[] = { PX_CUDA_KERNEL_PARAM(ids), PX_CUDA_KERNEL_PARAM(count),
+        PX_CUDA_KERNEL_PARAM(shapes), PX_CUDA_KERNEL_PARAM(bodies), PX_CUDA_KERNEL_PARAM(transforms),
+        PX_CUDA_KERNEL_PARAM(bounds), PX_CUDA_KERNEL_PARAM(geometry) };
+    const CUfunction kernel = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::REFRESH_REBOUND_SHAPE_BOUNDS);
+    const CUresult result = mCudaContext->launchKernel(kernel, (count + 255) / 256, 1, 1, 256, 1, 1,
+        0, npStream, params, sizeof(params), 0, PX_FL);
+    // Refiltering already marked these persistent IDs in the BP changed map.
+    // Keep pinned storage alive until fetch completes, just like shape uploads.
+    indices.clear();
+    return result == CUDA_SUCCESS;
 }
 
 void PxgSimulationCore::gpuDmaUpdateData()

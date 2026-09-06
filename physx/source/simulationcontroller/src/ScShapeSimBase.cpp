@@ -97,6 +97,21 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     BodySim& body = static_cast<BodySim&>(owner);
     const Bp::FilterGroup::Enum group = Bp::getFilterGroup(false, owner.getActorID(), body.isKinematic() && !body.hasForcedKinematicNotif());
     if (!scene.getAABBManager()->refilterBounds(getElementID(), group)) return false;
+    // Fresh public bodies have not reached the GPU yet. Native destruction
+    // candidates initialized in the GPU pool have already cleared FIRST_COPY.
+    const bool gpuBounds = scene.isDirectGPUAPIInitialized()
+        && !(body.getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU)
+        && !(body.getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16));
+    if(gpuBounds && !scene.getSimulationController()->setGpuShapeBoundsRefresh(getElementID(), true))
+    {
+        // Refiltering has already changed BP bookkeeping. Do not let a failed
+        // allocation turn this into an accepted step with mismatched owners.
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Failed to queue GPU shape bounds refresh");
+#if PX_SUPPORT_GPU_PHYSX
+        scene.getCudaContextManager()->getCudaContext()->setAbortMode(true);
+#endif
+        return false;
+    }
     PxvNphaseImplementationContext* np = scene.getLowLevelContext()->getNphaseImplementationContext();
     PxsContactManagerOutputIterator outputs = np->getContactManagerOutputs();
     scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
@@ -114,8 +129,14 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     rebindActor(owner);
     mShapeCore->setTransform(shapeToActor);
     scene.getSimulationController()->addPxgShape(this, getPxsShapeCore(), body.getNodeIndex(), getElementID());
-    UpdateCachedParams params(scene.getLowLevelContext()->getTransformCache(), scene.getBoundsArray());
-    updateCached(params, &scene.getAABBManager()->getChangedAABBMgActorHandleMap(), false, false);
+    if(!gpuBounds)
+    {
+        // A later transfer to a not-yet-uploaded body cancels an earlier GPU
+        // request. An explicit pending host pose also takes precedence.
+        scene.getSimulationController()->setGpuShapeBoundsRefresh(getElementID(), false);
+        UpdateCachedParams params(scene.getLowLevelContext()->getTransformCache(), scene.getBoundsArray());
+        updateCached(params, &scene.getAABBManager()->getChangedAABBMgActorHandleMap(), false, false);
+    }
     if (body.isActive()) createSqBounds();
     return true;
 }
