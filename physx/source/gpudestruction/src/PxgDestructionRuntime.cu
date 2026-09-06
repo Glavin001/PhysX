@@ -35,10 +35,10 @@ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T
 #include "PxgDestructionMaterial.cuh"
 // Rebind compact runtime cluster slots entirely on device after acceptance.
 __global__ void acceptClusterBindings(PxDestructionTopologyDeviceView topology,
-    const PxU32* targets,PxDestructionStressCluster* clusters,PxU32* bodies) {
+    const PxU32* targets,PxDestructionStressCluster* clusters) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=topology.status->clusterCount)return;
     const auto mass=topology.clusters[topology.activeClusters[i]];
-    clusters[i]={targets[i],PxVec3(float(mass.center[0]),float(mass.center[1]),float(mass.center[2]))};bodies[i]=targets[i];
+    clusters[i]={targets[i],PxVec3(float(mass.center[0]),float(mass.center[1]),float(mass.center[2]))};
 }
 __global__ void acceptChunkBindings(PxDestructionTopologyDeviceView topology,
     const PxU32* slots,PxDestructionStressChunk* chunks) {
@@ -415,7 +415,7 @@ class Runtime final : public PxgDestructionRuntime {
     cudaStream_t mStream{}; cudaEvent_t mInput{},mReady{}; CUevent mConsumer{};
     ExtStressGpuSolver* mSolver{}; ExtStressGpuSolveParams mParams;
     PxDestructionStressChunk* mChunks{}; PxDestructionStressCluster* mClusters{};
-    PxRigidDynamicGPUIndex* mBodies{}; PxTransform* mPoses{}; PxVec3* mAngular{};
+    PxTransform* mPoses{}; PxVec3* mAngular{};
     Lookup* mMap{}; PxU32 mMapCount{},mN{},mM{},mC{},mCapacity{};
     PxGpuContactPair* mPairs{}; PxU32* mCount{};
     PxDestructionVectorPair* mInputs{}; PxDestructionSurfaceLoad* mSurface{};
@@ -877,7 +877,7 @@ public:
         cudaFree(mTopologyAccept);mTopologyAccept=nullptr;
         if(mSolver)mSolver->release();mSolver=nullptr;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
-        cudaFree(mBodies);mBodies=nullptr;cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
+        cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
         cudaFree(mMap);mMap=nullptr;cudaFree(mInputs);mInputs=nullptr;cudaFree(mSurface);mSurface=nullptr;
         cudaFree(mMaterials);mMaterials=nullptr;cudaFree(mBonds);mBonds=nullptr;
         cudaFree(mHealth);mHealth=nullptr;cudaFree(mRates);mRates=nullptr;
@@ -914,11 +914,9 @@ public:
         std::vector<float> health(d.bondCount);
         std::vector<ExtStressGpuNode> nodes(d.chunkCount);
         std::vector<ExtStressGpuBond> bonds(d.bondCount);std::vector<Lookup> map;
-        std::vector<PxRigidDynamicGPUIndex> bodies(d.clusterCount);
         for(PxU32 i=0;i<d.clusterCount;++i) {
             if(d.clusters[i].body==PX_INVALID_U32 || !d.clusters[i].centerOfMass.isFinite()
                 || !mBodyAllocator || !mBodyAllocator->isValidSource(d.clusters[i].body))return false;
-            bodies[i]=d.clusters[i].body;
         }
         for(PxU32 i=0;i<d.chunkCount;++i) {
             const auto c=d.chunks[i];
@@ -948,7 +946,7 @@ public:
         if(d.chunkMassProperties) {
             if(size_t(d.chunkCount)+d.bondCount>size_t(std::numeric_limits<int>::max()))return false;
             std::set<PxU32> boundBodies;
-            for(PxU32 body:bodies)if(!boundBodies.insert(body).second)return false;
+            for(PxU32 i=0;i<d.clusterCount;++i)if(!boundBodies.insert(d.clusters[i].body).second)return false;
             topologyBonds.resize(d.bondCount);
             std::vector<PxU32> parent(d.chunkCount),owner(d.chunkCount,PX_INVALID_U32),clusterRoot(d.clusterCount,PX_INVALID_U32);
             for(PxU32 i=0;i<d.chunkCount;++i)parent[i]=i;
@@ -980,12 +978,11 @@ public:
                 mSolver=ExtStressGpuSolver::create(nodes.data(),d.chunkCount,bonds.data(),d.bondCount,NULL,0,mContext);
                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
             }
-            allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));allocate(mBodies,std::max(d.chunkCount,d.clusterCount));
+            allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));
             allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,map.size());
             allocate(mInputs,d.chunkCount);allocate(mSurface,d.chunkCount);
             check(cudaMemcpy(mChunks,d.chunks,sizeof(*mChunks)*d.chunkCount,cudaMemcpyHostToDevice));
             check(cudaMemcpy(mClusters,d.clusters,sizeof(*mClusters)*d.clusterCount,cudaMemcpyHostToDevice));
-            check(cudaMemcpy(mBodies,bodies.data(),sizeof(*mBodies)*d.clusterCount,cudaMemcpyHostToDevice));
             if(!map.empty())check(cudaMemcpy(mMap,map.data(),sizeof(*mMap)*map.size(),cudaMemcpyHostToDevice));
             mN=d.chunkCount;mM=d.bondCount;mC=d.clusterCount;mMapCount=PxU32(map.size());
             if(d.materialCount) {
@@ -1089,13 +1086,16 @@ public:
     PxGpuContactPair* contactPairs() const override {return mPairs;}
     PxU32* contactCount() const override {return mCount;}
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
-    PxTransform* poses() const override {return mPoses;}
-    PxVec3* angularVelocities() const override {return mAngular;}
-    const PxRigidDynamicGPUIndex* bodyIndices() const override {return mBodies;}
-    PxU32 clusterCount() const override {return mC;}
-    bool advance(PxReal dt,const PxVec3& gravity,const PxgBodySim* bodyStates) override {
-        try {Context current(mContext);if(!configured() || dt<=0)return false;
+    bool advance(PxReal dt,const PxVec3& gravity,const PxgBodySim* bodyStates,CUstream producerStream) override {
+        try {Context current(mContext);if(!configured() || dt<=0 || !bodyStates || !producerStream)return false;
+            // Join contact extraction and the native body's last writer before
+            // reading either. Recording the existing input event on the body
+            // producer preserves the previous API-gather ordering without
+            // those kernels or a CPU completion wait.
+            check(cudaStreamWaitEvent(producerStream,mInput,0));
+            check(cudaEventRecord(mInput,producerStream));
             check(cudaStreamWaitEvent(mStream,mInput,0));stageMarker(0);
+            observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
             if(mCapacity)routeContacts<<<(mCapacity+127)/128,128,0,mStream>>>(mPairs,mCount,mCapacity,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
             check(cudaEventRecord(mReady,mStream));
@@ -1425,7 +1425,7 @@ public:
             if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("corrected topology commit failed");
             check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
             mC=mHostBodyPreparation->count;
-            acceptClusterBindings<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mTrialBodyIndices,mClusters,mBodies);
+            acceptClusterBindings<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mTrialBodyIndices,mClusters);
             acceptChunkBindings<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mCandidateSlots,mChunks);
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodies,mPoses,mAngular);
             finishNativeCorrection<<<1,1,0,mStream>>>(mStatus);

@@ -58,11 +58,10 @@ public:
     virtual PxGpuContactPair* contactPairs() const = 0;
     virtual PxU32* contactCount() const = 0;
     virtual CUevent inputEvent() const = 0;
-    virtual PxTransform* poses() const = 0;
-    virtual PxVec3* angularVelocities() const = 0;
-    virtual const PxRigidDynamicGPUIndex* bodyIndices() const = 0;
-    virtual PxU32 clusterCount() const = 0;
-    virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgBodySim* bodyStates) = 0;
+    // The producer stream owns the native body pool. Runtime orders its reads
+    // after this stream and contact extraction; no Direct GPU API gather or
+    // second body-index binding is needed inside the simulation.
+    virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgBodySim* bodyStates, CUstream producerStream) = 0;
     virtual bool finish() = 0;
     // Compact CPU allocation IDs only; no physical state readback. Slots remain
     // private/inactive until the correction transaction commits.

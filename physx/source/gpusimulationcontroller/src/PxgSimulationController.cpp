@@ -780,13 +780,8 @@ namespace physx
         CUevent ready = mDestruction->inputEvent();
         if(ok && pairs)
             ok = copyContactData(mDestruction->contactPairs(), mDestruction->contactCount(), pairs, ready, ready);
-        if(ok)
-            ok = getRigidDynamicData(mDestruction->poses(), mDestruction->bodyIndices(),
-                PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE, mDestruction->clusterCount(), ready, ready);
-        if(ok)
-            ok = getRigidDynamicData(mDestruction->angularVelocities(), mDestruction->bodyIndices(),
-                PxRigidDynamicGPUAPIReadType::eANGULAR_VELOCITY, mDestruction->clusterCount(), ready, ready);
-        if(ok) ok = mDestruction->advance(dt, gravity, mSimulationCore->getBodySimBufferDevicePtr().getPointer());
+        if(ok) ok = mDestruction->advance(dt, gravity,
+            mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
         }
         // Complete before contact buffers can be recycled or the scene is
         // published. Only compact new-body allocation metadata and status leave
