@@ -10,7 +10,18 @@
 #include <stdexcept>
 namespace nativePreSolveTest {
 inline void verify(physx::PxgGpuContext& gpu,physx::PxCudaContextManager& cuda) {
-    using namespace physx;auto* core=gpu.getGpuSolverCore();if(!core->mPreSolveIslandIds)return;
+    using namespace physx;auto* core=gpu.getGpuSolverCore();
+    if(gpu.getPreSolveNodeDevicePointer()) {
+        const auto& expected=gpu.getExpectedPreSolveNodes();std::vector<PxvPreSolveNode> actual(expected.size());
+        {PxScopedCudaLock lock(cuda);
+            if(cuStreamSynchronize(core->getStream())!=CUDA_SUCCESS || (!actual.empty()
+                && cuMemcpyDtoH(actual.data(),gpu.getPreSolveNodeDevicePointer(),actual.size()*sizeof(actual[0]))!=CUDA_SUCCESS))
+                throw std::runtime_error("CUDA pre-solve node audit readback failed");}
+        for(PxU32 i=0;i<actual.size();++i)if(actual[i].lifetime!=expected[i].lifetime || actual[i].live!=expected[i].live
+            || actual[i].staticTouches!=expected[i].staticTouches)
+            throw std::runtime_error("persistent CUDA node record differs from full native pre-solve snapshot");
+    }
+    if(!core->mPreSolveIslandIds)return;
     const auto& expectedIds=gpu.getExpectedSolverIslandIds();const auto& expectedTouches=gpu.getExpectedSolverStaticTouches();
     std::vector<PxU32> labels(expectedIds.size()),touches(expectedIds.size());
     {PxScopedCudaLock lock(cuda);

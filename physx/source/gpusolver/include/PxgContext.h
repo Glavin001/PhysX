@@ -334,7 +334,12 @@ namespace physx
 
         IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
 
-        void enableCudaPreSolveIslands(bool enabled) { mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled); }
+        void enableCudaPreSolveIslands(bool enabled) { if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled); }
+        CUdeviceptr getPreSolveNodeDevicePointer() const { return mPreSolveNodeDevicePointer; }
+        const PxArray<PxvPreSolveNode>& getExpectedPreSolveNodes() const { return mExpectedPreSolveNodes; }
+        PxU64 getCudaPreSolveFullHostBytes() const { return mCudaPreSolveFullHostBytes; }
+        PxU64 getCudaPreSolveNodeUpdates() const { return mCudaPreSolveNodeUpdates; }
+        PxU64 getCudaPreSolveFullSnapshots() const { return mCudaPreSolveFullSnapshots; }
         PxU64 getCudaPreSolveHostBytes() const { return mCudaPreSolveHostBytes; }
         PxU64 getCudaPreSolvePasses() const { return mCudaPreSolvePasses; }
         PxU64 getCudaPreSolveFallbacks() const { return mCudaPreSolveFallbacks; }
@@ -559,16 +564,19 @@ namespace physx
 		Cm::PinnableArray<PxU32>				mIslandStaticTouchCounts;
 
         Cm::PinnableArray<PxvIslandMetadataPage> mSolverIslandMetadataPages;
-        Cm::PinnableArray<PxvPreSolveNode> mPreSolveNodes;
+        Cm::PinnableArray<PxvPreSolveNodeUpdate> mPreSolveNodes;
         Cm::PinnableArray<PxvPreSolveEdge> mPreSolveMerges;
         bool mPreSolveSleepingDisabled;
-        bool mCudaPreSolveIslands=false;
+        bool mCudaPreSolveIslands=false,mPreForceNodeSnapshot=true;
         PxU64 mCudaPreSolvePasses=0,mCudaPreSolveFallbacks=0,mCudaPreSolveHostBytes=0;
+        PxU64 mCudaPreSolveFullHostBytes=0,mCudaPreSolveNodeUpdates=0,mCudaPreSolveFullSnapshots=0;
 
         PxvIslandMetadataStats mSolverIslandMetadataStats;
         PxU32 mSolverMetadataNodes=0,mSolverMetadataIslands=0;
         bool mSolverMetadataIncremental=false,mCaptureSolverMetadata=false;
         PxArray<PxU32> mExpectedSolverIslandIds,mExpectedSolverStaticTouches;
+        PxArray<PxvPreSolveNode> mExpectedPreSolveNodes;
+        CUdeviceptr mPreSolveNodeDevicePointer=0;
 		//other joint type(not d6) cpu constraints
 		PxgConstraintBatchHeader*				mConstraintBatchHeaders;
 		PxgConstraintBatchHeader*				mArticConstraintBatchHeaders;

@@ -39,9 +39,13 @@ inline void writeNativeGraphDiagnostics(physx::PxScene& scene,const std::string&
         <<"  \"peak_retained_edges\": "<<stats.peakRetainedEdges<<",\n"
         <<"  \"boundary_audits\": "<<a.getGpuComponentAudits()+s.getGpuComponentAudits()<<",\n"
         <<"  \"boundary_audit_failures\": "<<a.getGpuComponentAuditFailures()+s.getGpuComponentAuditFailures()<<",\n"
+        <<"  \"cuda_pre_solve_full_host_equivalent_bytes\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveFullHostBytes()<<",\n"
+        <<"  \"cuda_pre_solve_node_updates\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveNodeUpdates()<<",\n"
+        <<"  \"cuda_pre_solve_node_full_snapshots\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveFullSnapshots()<<",\n"
         <<"  \"cuda_pre_solve_host_to_device_bytes\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveHostBytes()<<",\n"
         <<"  \"cuda_pre_solve_passes\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolvePasses()<<",\n"
         <<"  \"cuda_pre_solve_fallbacks\": "<<static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getCudaPreSolveFallbacks()<<",\n"
+        <<"  \"solver_metadata_gpu_produced_passes\": "<<metadata.gpuProducedPasses<<",\n"
         <<"  \"solver_metadata_passes\": "<<metadata.passes<<",\n"
         <<"  \"solver_metadata_full_uploads\": "<<metadata.fullUploads<<",\n"
         <<"  \"solver_metadata_page_uploads\": "<<metadata.pageUploads<<",\n"
@@ -65,18 +69,19 @@ inline void requireNativeGraphAudit(physx::PxScene& scene,const std::string& pat
     auto& sc=static_cast<NpScene&>(scene).getScScene();
     auto& gpu=*static_cast<PxgGpuContext*>(sc.getDynamicsContext());
     nativePreSolveTest::verify(gpu,*scene.getCudaContextManager());
+    const bool gpuProduced=gpu.getGpuSolverCore()->mPreSolveIslandIds!=0;
     const auto& ids=gpu.getExpectedSolverIslandIds();const auto& touches=gpu.getExpectedSolverStaticTouches();
     std::vector<PxU32> actualIds(ids.size()),actualTouches(touches.size());
     CUdeviceptr dIds=0,dTouches=0;gpu.getGpuSolverCore()->getSolverIslandMetadataPointers(dIds,dTouches);
-    {
+    if(!gpuProduced) {
         PxScopedCudaLock lock(*scene.getCudaContextManager());
         if(cuStreamSynchronize(gpu.getGpuSolverCore()->getStream())!=CUDA_SUCCESS
             || (!ids.empty() && cuMemcpyDtoH(actualIds.data(),dIds,ids.size()*sizeof(PxU32))!=CUDA_SUCCESS)
             || (!touches.empty() && cuMemcpyDtoH(actualTouches.data(),dTouches,touches.size()*sizeof(PxU32))!=CUDA_SUCCESS))
             throw std::runtime_error("native solver metadata audit readback failed");
     }
-    if(!std::equal(actualIds.begin(),actualIds.end(),ids.begin())
-        || !std::equal(actualTouches.begin(),actualTouches.end(),touches.begin()))
+    if(!gpuProduced && (!std::equal(actualIds.begin(),actualIds.end(),ids.begin())
+        || !std::equal(actualTouches.begin(),actualTouches.end(),touches.begin())))
         throw std::runtime_error("native solver metadata differs from independent pre-solve snapshot");
     auto& islands=*static_cast<physx::NpScene&>(scene).getScScene().getSimpleIslandManager();
     if(islands.getAccurateIslandSim().getGpuComponentAuditFailures()

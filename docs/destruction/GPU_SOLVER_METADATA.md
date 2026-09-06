@@ -73,3 +73,8 @@ A subsequent opt-in [CUDA pre-solve producer](GPU_PRE_SOLVE_ISLANDS.md) now
 computes phase-correct components and static-support reductions for direct solver
 consumption. The native metadata arrays remain available for its reference and
 audits; their CPU producer has not yet been removed.
+
+CUDA-produced passes now bypass native metadata staging and upload; the first
+native fallback refreshes complete buffers. See
+[GPU_PRE_SOLVE_NODE_TRANSACTIONS.md](GPU_PRE_SOLVE_NODE_TRANSACTIONS.md) for current
+node transactions, bypass counters and independent selected-input audits.

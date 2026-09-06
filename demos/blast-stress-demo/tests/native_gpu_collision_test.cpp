@@ -115,20 +115,35 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false)
     f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(f.scene).getScScene().getDynamicsContext());
     gpu.captureSolverIslandMetadata(true);gpu.enableCudaPreSolveIslands(producer);
-    unsigned comparisons=0;
+    unsigned comparisons=0;bool previousGpu=false;
     const auto verify=[&](){
+        const auto before=gpu.getSolverIslandMetadataStats();
+        // Poison an unused legacy count. It must remain untouched on CUDA
+        // passes, and a native fallback must replace it with the real snapshot.
+        CUdeviceptr poisonIds=0,poisonCounts=0;
+        gpu.getGpuSolverCore()->getSolverIslandMetadataPointers(poisonIds,poisonCounts);
+        if(previousGpu && poisonCounts){PxScopedCudaLock lock(f.cuda);check(cuMemsetD32(poisonCounts,0xabcdef01,1));}
         step(f.scene);
+        const bool active=gpu.getGpuSolverCore()->mPreSolveIslandIds!=0;
+        const auto after=gpu.getSolverIslandMetadataStats();
+        if(active) {
+            require(after.hostToDeviceBytes==before.hostToDeviceBytes && after.gpuProducedPasses==before.gpuProducedPasses+1,
+                "CUDA-produced step still uploads native metadata");
+            if(previousGpu && poisonCounts){PxU32 value=0;PxScopedCudaLock lock(f.cuda);check(cuMemcpyDtoH(&value,poisonCounts,sizeof(value)));
+                require(value==0xabcdef01,"CUDA-produced step overwrote unused native metadata");}
+        } else if(previousGpu)require(after.fullUploads==before.fullUploads+1,"native fallback did not refresh the full snapshot");
+
         const auto& ids=gpu.getExpectedSolverIslandIds();
         const auto& touches=gpu.getExpectedSolverStaticTouches();
         require(!ids.empty() && !touches.empty(),"pre-solver metadata snapshot missing");
         CUdeviceptr dIds=0,dTouches=0;gpu.getGpuSolverCore()->getSolverIslandMetadataPointers(dIds,dTouches);
         std::vector<PxU32> actualIds(ids.size()),actualTouches(touches.size());
-        {PxScopedCudaLock lock(f.cuda);check(cuStreamSynchronize(gpu.getGpuSolverCore()->getStream()));
+        if(!active){PxScopedCudaLock lock(f.cuda);check(cuStreamSynchronize(gpu.getGpuSolverCore()->getStream()));
             check(cuMemcpyDtoH(actualIds.data(),dIds,actualIds.size()*sizeof(PxU32)));
             check(cuMemcpyDtoH(actualTouches.data(),dTouches,actualTouches.size()*sizeof(PxU32)));}
-        require(std::equal(actualIds.begin(),actualIds.end(),ids.begin()),"resident node-to-island metadata differs from native pre-solve snapshot");
-        require(std::equal(actualTouches.begin(),actualTouches.end(),touches.begin()),"resident static-touch metadata differs from native pre-solve snapshot");
-        nativePreSolveTest::verify(gpu,f.cuda);++comparisons;
+        if(!active)require(std::equal(actualIds.begin(),actualIds.end(),ids.begin()),"resident node-to-island metadata differs from native pre-solve snapshot");
+        if(!active)require(std::equal(actualTouches.begin(),actualTouches.end(),touches.begin()),"resident static-touch metadata differs from native pre-solve snapshot");
+        nativePreSolveTest::verify(gpu,f.cuda);previousGpu=active;++comparisons;
     };
     const auto add=[&](float x){
         auto* body=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(x,80,0)),PxSphereGeometry(.6f),f.context.material(),1);
@@ -136,11 +151,28 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false)
     };
     auto* a=add(4500);auto* b=add(4501);
     auto* c=producer?add(4502):nullptr;auto* d=producer?add(4503):nullptr;verify();verify();
-    const auto quietBefore=gpu.getSolverIslandMetadataStats();
+    const auto quietBefore=gpu.getSolverIslandMetadataStats();const auto nodeBytesBefore=gpu.getCudaPreSolveHostBytes();
     for(unsigned i=0;i<8;++i)verify();
     const auto quietAfter=gpu.getSolverIslandMetadataStats();
-    require(quietAfter.quietPasses>=quietBefore.quietPasses+8 && quietAfter.hostToDeviceBytes==quietBefore.hostToDeviceBytes,
+    require((producer && !sleeping?quietAfter.gpuProducedPasses>=quietBefore.gpuProducedPasses+8:quietAfter.quietPasses>=quietBefore.quietPasses+8) && quietAfter.hostToDeviceBytes==quietBefore.hostToDeviceBytes,
         "unchanged solver metadata still uploads");
+    if(producer && !sleeping)require(gpu.getCudaPreSolveHostBytes()==nodeBytesBefore,"quiet CUDA roster still uploads node/merge records");
+    if(producer && !sleeping) {
+        auto* runtime=static_cast<PxgDestructionRuntime*>(f.stage);
+        const PxU32 domain=PxU32(gpu.getExpectedPreSolveNodes().size());
+        const auto reject=[&](std::vector<PxvPreSolveNodeUpdate> updates,bool full=false){
+            const PxU32 *labels=nullptr,*counts=nullptr;
+            require(!runtime->buildPreSolveIslands(updates.data(),PxU32(updates.size()),domain,full,nullptr,0,
+                gpu.getGpuSolverCore()->getStream(),labels,counts),"invalid node transaction was accepted");
+            require(!labels && !counts,"rejected transaction published solver outputs");
+            nativePreSolveTest::verify(gpu,f.cuda);
+        };
+        reject({{0,0,{1,0,0}},{0,0,{2,1,1}}}); // duplicate commands: no partial mutation
+        reject({{domain,0,{1,0,0}}});
+        reject({{0,0,{0,1,1}}}); // live node without a lifetime
+        reject({{0,0,{1,0,0}}},true); // incomplete full snapshot
+        verify(); // malformed host transactions leave the next ordinary step usable
+    }
     auto* floor=PxCreateStatic(f.context.physics(),PxTransform(PxVec3(4500,79,0)),PxBoxGeometry(3,.5f,3),f.context.material());
     require(floor,"metadata support creation failed");f.scene.addActor(*floor);verify();verify();
     const auto& touches=gpu.getExpectedSolverStaticTouches();
@@ -156,7 +188,7 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false)
         a->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD,false);verify();verify();
     }
     const auto sparse=gpu.getSolverIslandMetadataStats();
-    require(sparse.pageUploads>quietAfter.pageUploads,"contact lifecycle never exercised sparse solver metadata uploads");
+    if(!producer || sleeping)require(sparse.pageUploads>quietAfter.pageUploads,"contact lifecycle never exercised sparse solver metadata uploads");
     const auto beforeGrowth=sparse.fullUploads;std::vector<PxRigidDynamic*> growth;
     for(unsigned i=0;i<300;++i)growth.push_back(add(5000+3*float(i)));
     verify();require(gpu.getSolverIslandMetadataStats().fullUploads>beforeGrowth,"metadata domain growth did not refresh complete buffers");

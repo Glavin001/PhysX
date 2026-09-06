@@ -370,6 +370,7 @@ void IslandSim::addNode(bool isActive, bool isKinematic, Node::NodeType type, Px
 		flags |= Node::eKINEMATIC;
 	node.mFlags = flags;
     if(mGpuData){mPreSolveLifetimes.resize(PxMax(handle+1,mPreSolveLifetimes.size()),0);++mPreSolveLifetimes[handle];}
+    markPreSolveNode(handle);
 	writeIslandId(handle) = IG_INVALID_ISLAND;
 	mFastRoute[handle].setIndices(PX_INVALID_NODE);
 	mHopCounts[handle] = 0;
@@ -1146,6 +1147,7 @@ IslandId IslandSim::addNodeToIsland(PxNodeIndex nodeIndex1, PxNodeIndex nodeInde
 		//A new touch with a static body...
 		Node& node = mNodes[nodeIndex2.index()];
 		node.mStaticTouchCount++; //Increment static touch counter on the body
+        markPreSolveNode(nodeIndex2.index());
 		//Island& island = mIslands[islandId2];
 		//island.mStaticTouchCount++; //Increment static touch counter on the island
 		writeIslandStaticTouchCount(islandId2)++;
@@ -1640,6 +1642,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 						{
 							islandId = mIslandIds[index1];
 							node.mStaticTouchCount--;
+                            markPreSolveNode(index1);
 							//Island& island = mIslands[islandId];
 							writeIslandStaticTouchCount(islandId)--;
 							//island.mStaticTouchCount--;
@@ -1653,6 +1656,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 						{
 							islandId = mIslandIds[index2];
 							node.mStaticTouchCount--;
+                            markPreSolveNode(index2);
 							//Island& island = mIslands[islandId];
 							writeIslandStaticTouchCount(islandId)--;
 							//island.mStaticTouchCount--;
@@ -2030,6 +2034,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 
 			//node.reset();
 			node.mFlags |= Node::eDELETED;
+            markPreSolveNode(nodeIndex.index());
 		}
 	}
 	//Now we need to produce the list of active edges and nodes!!!
@@ -2331,6 +2336,7 @@ void IslandSim::setKinematic(PxNodeIndex nodeIndex)
 
 	if(!node.isKinematic())
 	{
+        markPreSolveNode(nodeIndex.index());
 		//Transition from dynamic to kinematic:
 		//(1) Remove this node from the island
 		//(2) Remove this node from the active node list
@@ -2469,6 +2475,7 @@ void IslandSim::setDynamic(PxNodeIndex nodeIndex)
 	if(node.isKinematic())
 	{
     if(mGpuData){mPreSolveLifetimes.resize(PxMax(nodeIndex.index()+1,mPreSolveLifetimes.size()),0);++mPreSolveLifetimes[nodeIndex.index()];}
+        markPreSolveNode(nodeIndex.index());
 
 		//EdgeInstanceIndex edgeIndex = node.mFirstEdgeIndex;
 

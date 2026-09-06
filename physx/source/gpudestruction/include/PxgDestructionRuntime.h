@@ -88,7 +88,9 @@ public:
     // Pre-solve components retain previous connectivity and merge new native
     // edges. Outputs are ordered on the supplied solver stream.
     virtual bool canBuildPreSolveIslands() const = 0;
-    virtual bool buildPreSolveIslands(const PxvPreSolveNode* nodes,PxU32 count,
+    virtual const PxvPreSolveNode* preSolveNodeView() const = 0;
+    virtual bool preSolveNodeSnapshotRequired(PxU32 count) const = 0;
+    virtual bool buildPreSolveIslands(const PxvPreSolveNodeUpdate* updates,PxU32 updateCount,PxU32 count,bool fullSnapshot,
         const PxvPreSolveEdge* merges,PxU32 mergeCount,CUstream stream,
         const PxU32*& labels,const PxU32*& staticTouches) = 0;
 

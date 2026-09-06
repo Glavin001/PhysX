@@ -339,8 +339,12 @@ void PxgTGSCudaSolverCore::gpuMemDMAUpContactData(PxgPinnedHostLinearMemoryAlloc
 
 	mNpIndexArray.allocate(sizeof(PxU32) * npIndexArraySize, PX_FL);
 
+    // CUDA-produced inputs have their own resident storage. Native fallback
+    // allocates and uploads a complete current snapshot before consuming it.
+    if(!mPreSolveIslandIds) {
 	mIslandIds.allocate(nbNodes * sizeof(PxU32), PX_FL);
 	mIslandStaticTouchCount.allocate(nbIslands * sizeof(PxU32), PX_FL);
+    }
 	allocateNodeInteractionCounts(nbNodes);
 
 	mTotalContactManagers = totalContactManagers;

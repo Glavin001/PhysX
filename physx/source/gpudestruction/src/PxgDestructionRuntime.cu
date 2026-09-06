@@ -448,6 +448,9 @@ class Runtime final : public PxgDestructionRuntime {
     PxgDestructionContactGraphView mGraphView{};
     PxU64 mGraphGeneration{};
     PxvPreSolveNode *mPreNodes{},*mPrePrevious{};
+    PxvPreSolveNodeUpdate* mPreUpdates{};
+    PxU32 mPreUpdateCapacity{};
+    bool mPreRosterValid=false;
     PxvPreSolveEdge* mPreMerges{};
     PxU32 *mPreParents{},*mPreLabels{},*mPreTouches{};
     PxU32 mPreCapacity{},mPrePreviousCount{},mPreMergeCapacity{},mPreParentCapacity{};
@@ -494,11 +497,18 @@ public:
         }catch(...){mFailed=true;return false;}
     }
     bool canBuildPreSolveIslands() const override { return mBodyAllocator && mBodyAllocator->supportsGpuIslandRepair(); }
-    bool buildPreSolveIslands(const PxvPreSolveNode* nodes,PxU32 count,
+    const PxvPreSolveNode* preSolveNodeView() const override { return mPreNodes; }
+    bool preSolveNodeSnapshotRequired(PxU32 count) const override { return !mPreRosterValid || count>mPreCapacity; }
+    bool buildPreSolveIslands(const PxvPreSolveNodeUpdate* updates,PxU32 updateCount,PxU32 count,bool fullSnapshot,
         const PxvPreSolveEdge* merges,PxU32 mergeCount,CUstream stream,
         const PxU32*& labels,const PxU32*& staticTouches) override {
         labels=nullptr;staticTouches=nullptr;
-        if(mFailed || !stream || (count && !nodes) || (mergeCount && !merges))return false;
+        if(mFailed || !stream || (updateCount && !updates) || (mergeCount && !merges))return false;
+        if((preSolveNodeSnapshotRequired(count) && !fullSnapshot) || (fullSnapshot && updateCount!=count))return false;
+        for(PxU32 i=0;i<updateCount;++i)
+            if(updates[i].index>=count || (i && updates[i-1].index>=updates[i].index)
+                || updates[i].value.live>1 || (updates[i].value.live && !updates[i].value.lifetime)
+                || (fullSnapshot && updates[i].index!=i))return false;
         try {
             Context current(mContext);const auto cudaStream=reinterpret_cast<cudaStream_t>(stream);
             check(cudaStreamWaitEvent(cudaStream,mPreReady,0));
@@ -514,17 +524,30 @@ public:
                 cudaFree(mPreTouches);mPreTouches=nullptr;allocate(mPreTouches,capacity);
                 mPreCapacity=capacity;usable=false; // Explicit native fallback initializes new storage.
             }
+            if(updateCount>mPreUpdateCapacity) {
+                check(cudaEventSynchronize(mPreReady));cudaFree(mPreUpdates);mPreUpdates=nullptr;
+                const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(updateCount,2ull*mPreUpdateCapacity)));
+                allocate(mPreUpdates,capacity);mPreUpdateCapacity=capacity;
+            }
             if(mergeCount>mPreMergeCapacity) {
                 check(cudaEventSynchronize(mPreReady));cudaFree(mPreMerges);mPreMerges=nullptr;
-                allocate(mPreMerges,mergeCount);mPreMergeCapacity=mergeCount;
+                const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(mergeCount,2ull*mPreMergeCapacity)));
+                allocate(mPreMerges,capacity);mPreMergeCapacity=capacity;
             }
             const PxU64 parentCount=PxU64(count)+mGraphView.nodeCapacity;
             if(parentCount>~PxU32(0))throw std::runtime_error("pre-solve island domain overflow");
             if(parentCount>mPreParentCapacity){
                 check(cudaEventSynchronize(mPreReady));cudaFree(mPreParents);mPreParents=nullptr;
-                allocate(mPreParents,size_t(parentCount));mPreParentCapacity=PxU32(parentCount);
+                const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(parentCount,2ull*mPreParentCapacity)));
+                allocate(mPreParents,capacity);mPreParentCapacity=capacity;
             }
-            if(count)check(cudaMemcpyAsync(mPreNodes,nodes,size_t(count)*sizeof(*nodes),cudaMemcpyHostToDevice,cudaStream));
+            // Native node domains can grow across unused handle holes. Those
+            // holes must start inactive even when the allocation already fits.
+            if(count>mPrePreviousCount)check(cudaMemsetAsync(mPreNodes+mPrePreviousCount,0,size_t(count-mPrePreviousCount)*sizeof(PxvPreSolveNode),cudaStream));
+            if(updateCount) {
+                check(cudaMemcpyAsync(mPreUpdates,updates,size_t(updateCount)*sizeof(*updates),cudaMemcpyHostToDevice,cudaStream));
+                destructionPreSolve::updateNodes<<<(updateCount+127)/128,128,0,cudaStream>>>(mPreUpdates,updateCount,mPreNodes,count);
+            }
             if(usable && count) {
                 if(mergeCount)check(cudaMemcpyAsync(mPreMerges,merges,size_t(mergeCount)*sizeof(*merges),cudaMemcpyHostToDevice,cudaStream));
                 destructionPreSolve::initialize<<<(parentCount+127)/128,128,0,cudaStream>>>(mPreParents,PxU32(parentCount),mPreTouches,count);
@@ -534,8 +557,8 @@ public:
                 destructionPreSolve::finish<<<(count+127)/128,128,0,cudaStream>>>(mPreNodes,count,mPreParents,mPreLabels,mPreTouches);
                 labels=mPreLabels;staticTouches=mPreTouches;
             }
-            if(count)check(cudaMemcpyAsync(mPrePrevious,mPreNodes,size_t(count)*sizeof(*nodes),cudaMemcpyDeviceToDevice,cudaStream));
-            check(cudaGetLastError());check(cudaEventRecord(mPreReady,cudaStream));mPrePreviousCount=count;mPreSourceGraphGeneration=mGraphView.generation;
+            if(count)check(cudaMemcpyAsync(mPrePrevious,mPreNodes,size_t(count)*sizeof(PxvPreSolveNode),cudaMemcpyDeviceToDevice,cudaStream));
+            check(cudaGetLastError());check(cudaEventRecord(mPreReady,cudaStream));mPrePreviousCount=count;mPreSourceGraphGeneration=mGraphView.generation;mPreRosterValid=true;
             return true;
         }catch(...){mFailed=true;labels=nullptr;staticTouches=nullptr;return false;}
     }
@@ -733,6 +756,7 @@ public:
     void clear() {
         cudaEventSynchronize(mPreReady);
         cudaFree(mPreNodes);mPreNodes=nullptr;cudaFree(mPrePrevious);mPrePrevious=nullptr;
+        cudaFree(mPreUpdates);mPreUpdates=nullptr;mPreUpdateCapacity=0;mPreRosterValid=false;
         cudaFree(mPreMerges);mPreMerges=nullptr;cudaFree(mPreParents);mPreParents=nullptr;
         cudaFree(mPreLabels);mPreLabels=nullptr;cudaFree(mPreTouches);mPreTouches=nullptr;
         mPreCapacity=mPrePreviousCount=mPreMergeCapacity=mPreParentCapacity=0;mPreSourceGraphGeneration=0;

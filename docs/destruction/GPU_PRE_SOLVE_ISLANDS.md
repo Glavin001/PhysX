@@ -50,15 +50,11 @@ operations. The merge journal is enabled only for this producer. Pinned node and
 merge staging lives until the solver stream has consumed it. Source staging,
 recorded commands and the CPU island registry remain CPU work in this prototype.
 
-The current implementation uploads a full 16-byte record per native node and
-8 bytes per submitted merge; it also copies the node records device-to-device to
-retain lifetimes for the next phase. Native island metadata is still maintained
-and uploaded for the selectable reference and independent comparisons. The
-existing component-to-CPU compatibility bridge also remains. This duplication
-makes the prototype more expensive and is not a claimed speedup. The next
-migration must remove full node staging and redundant native solver uploads,
-and replace the compatibility consumer with device registry operations while
-preserving the same phase semantics.
+[Persistent node transactions and native metadata bypass](GPU_PRE_SOLVE_NODE_TRANSACTIONS.md)
+now replace the original full-node upload and redundant native metadata transfer.
+CPU node lifecycle/static counters and the compatibility registry still remain.
+The capture results below describe the original full-snapshot implementation at
+its recorded revision; consult the newer qualification for current traffic.
 
 `native.graph-diagnostics.json` reports actual CUDA producer passes, fallback
 passes and node/merge H2D payload bytes separately from legacy solver metadata
@@ -72,8 +68,8 @@ interface.
 partition equivalence and per-live-node static-touch counts with the CUDA arrays
 after each accepted step. Native island IDs and minimum-node CUDA labels are
 different identifiers; the audit requires a bijection between their partitions,
-then exact integer counts. It separately retains the existing exact legacy-array
-comparison. Intermediate trial outputs are not independently read back.
+then exact integer counts. On native fallback it retains the exact legacy-array comparison; on CUDA-produced
+passes it independently compares every resident node record with native state. Intermediate trial outputs are not independently read back.
 
 The native fixture drives both PGS and TGS through static support changes,
 chain disconnection, body reuse, dynamic/kinematic transitions, capacity growth,
@@ -91,8 +87,8 @@ remain open.
 
 ## Next producer migration boundaries
 
-1. Replace full node records with persistent lifetime/liveness storage and changed
-   node transactions. Retain generation checks across body removal/reinsertion
+1. Persistent node transactions are implemented; see the successor document.
+   Continue moving lifecycle input generation into GPU topology transactions. Retain generation checks across body removal/reinsertion
    and kinematic transitions; inverse mass alone cannot identify prescribed
    motion. Native actor commands may remain CPU bookkeeping, while GPU-created
    clusters should update device membership in their topology transaction.
@@ -103,8 +99,8 @@ remain open.
    The existing late retained-edge publication cannot simply be moved earlier.
    Compare these new device inputs against native per-node counts and lifecycle
    evidence before replacing the currently staged inputs.
-3. Bypass native island metadata uploads when the CUDA producer supplies the
-   integration inputs. Reinitialize those buffers when entering native fallback;
+3. Native island metadata upload bypass is implemented; see the successor
+   document. Reinitialize those buffers when entering native fallback;
    stale arrays must not become an implicit fallback. Keep the native full
    snapshots as explicit diagnostics, not mandatory production transfers.
 4. Move compatibility registry maintenance and its consumers onto device state.
@@ -112,9 +108,14 @@ remain open.
    it would be incorrect. Preserve joint/sleep/fallback semantics and independently
    qualify each consumer before retiring its host mirror.
 
-These are remaining implementation requirements, not completed optimizations.
+Items 1 and 3 have implemented transfer changes; their remaining producer and
+registry migration work is still required. Items 2 and 4 remain open.
 
-## Qualified captures
+## Original producer qualification
+
+These measurements precede persistent node transactions and native metadata
+bypass. See [the successor qualification](GPU_PRE_SOLVE_NODE_TRANSACTIONS.md)
+for those changes.
 
 The final build passed all 27 focused native/CPU-reference tests and both focused
 CUDA memchecks. The native producer fixtures exercised 22 CUDA-produced passes

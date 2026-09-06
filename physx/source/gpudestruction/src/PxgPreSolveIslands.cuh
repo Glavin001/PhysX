@@ -2,6 +2,13 @@
 #pragma once
 #include "PxvIslandMetadata.h"
 namespace physx { namespace destructionPreSolve {
+__global__ void updateNodes(const PxvPreSolveNodeUpdate* updates,PxU32 count,PxvPreSolveNode* nodes,PxU32 size) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto update=updates[i];
+    if(update.index>=size || update.value.live>1 || (update.value.live && !update.value.lifetime)){__trap();return;}
+    nodes[update.index]=update.value;
+}
+
 __device__ PxU32 root(PxU32* parents,PxU32 i) {
     PxU32 p=atomicAdd(parents+i,0u);
     while(p!=i){const PxU32 next=atomicAdd(parents+p,0u);atomicMin(parents+i,next);i=p;p=next;}

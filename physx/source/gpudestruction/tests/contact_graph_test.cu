@@ -61,6 +61,24 @@ std::vector<PxU32> reference(PxU32 n,const std::vector<Pair>& pairs,bool accurat
     }
     return labels;
 }
+void preSolveNodeTransactions() {
+    const PxU32 n=1031;std::vector<PxvPreSolveNode> expected(n);
+    for(PxU32 i=0;i<n;++i)expected[i]={100+i,i%5,1};
+    Device<PxvPreSolveNode> nodes(n);nodes.put(expected);
+    for(PxU32 pass=0;pass<4;++pass) {
+        std::vector<PxvPreSolveNodeUpdate> updates;
+        for(PxU32 i:{0u,31u,32u,255u,256u,1024u,1030u}) {
+            const PxvPreSolveNode value={1000+pass*100+i,pass*17+i%11,(pass+i)%2};
+            updates.push_back({i,0,value});expected[i]=value;
+        }
+        Device<PxvPreSolveNodeUpdate> input(updates.size());input.put(updates);
+        destructionPreSolve::updateNodes<<<1,128>>>(input.p,PxU32(updates.size()),nodes.p,n);
+        check(cudaGetLastError());check(cudaDeviceSynchronize());const auto actual=nodes.get(n);
+        for(PxU32 i=0;i<n;++i)require(actual[i].lifetime==expected[i].lifetime && actual[i].live==expected[i].live
+            && actual[i].staticTouches==expected[i].staticTouches,"CUDA node transaction changed untouched records or lost an update");
+    }
+    std::puts("CUDA node transactions: sparse persistence, lifetime/live/support changes and boundary indices passed");
+}
 void preSolveComponents() {
     for(PxU32 n:{12u,100001u}) {
         std::vector<PxvPreSolveNode> before(n),now(n);
@@ -230,6 +248,7 @@ void retainedTransactions() {
 }
 
 int main(){try{
+    preSolveNodeTransactions();
     preSolveComponents();
     solverMetadataPages();
     retainedTransactions();

@@ -2530,11 +2530,54 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 
     const PxU32 metadataNodes=islandSim.getNbNodes(),metadataIslands=islandSim.getNbIslands();
     const bool incremental=getSimulationController()->usesGpuDestructionIslandRepair();
+    mGpuSolverCore->setPreSolveIslands(0,0);mPreSolveNodeDevicePointer=0;
+    if(mCudaPreSolveIslands && incremental) {
+        auto* runtime=static_cast<PxgSimulationController*>(getSimulationController())->getNativeDestructionRuntime();
+        bool supported=runtime!=NULL && mPreSolveSleepingDisabled && runtime->canBuildPreSolveIslands();
+        // Keep unsupported sleeping/joint scenes on the qualified native path.
+        if(nbConstraints || islandSim.getNbActiveNodes(IG::Node::eARTICULATION_TYPE))supported=false;
+        const PxU32 *labels=NULL,*counts=NULL;
+        if(supported) {
+            const bool fullSnapshot=mPreForceNodeSnapshot || runtime->preSolveNodeSnapshotRequired(metadataNodes);
+            mPreSolveNodes.forceSize_Unsafe(0);
+            const auto collectNode=[&](PxU32 i) {
+                const auto& node=islandSim.getNode(PxNodeIndex(i));
+                const bool live=islandSim.getIslandIds()[i]!=IG_INVALID_ISLAND && !node.isDeleted() && !node.isKinematic();
+                mPreSolveNodes.pushBack({i,0,{islandSim.getPreSolveLifetime(i),node.mStaticTouchCount,PxU32(live)}});
+            };
+            if(fullSnapshot)for(PxU32 i=0;i<metadataNodes;++i)collectNode(i);
+            else {
+                PxBitMap::Iterator it(islandSim.getPreSolveNodeChanges());PxU32 i;
+                while((i=it.getNext())!=PxBitMap::Iterator::DONE) {
+                    // Invalid internal indices are passed to framing validation,
+                    // which fails the step instead of omitting a required update.
+                    if(i>=metadataNodes)mPreSolveNodes.pushBack({i,0,{0,0,0}});else collectNode(i);
+                }
+            }
+            const auto& merges=islandSim.getPreSolveMerges();mPreSolveMerges.resize(merges.size());
+            if(!merges.empty())PxMemCopy(mPreSolveMerges.begin(),merges.begin(),merges.size()*sizeof(PxvPreSolveEdge));
+            if(!runtime->buildPreSolveIslands(mPreSolveNodes.begin(),mPreSolveNodes.size(),metadataNodes,fullSnapshot,mPreSolveMerges.begin(),mPreSolveMerges.size(),
+                mGpuSolverCore->getStream(),labels,counts)) {
+                getNarrowphaseCore()->mCudaContext->setAbortMode(true);
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"CUDA pre-solve island production failed; step incomplete.");
+            } else {
+                islandSim.acknowledgePreSolveNodes();mPreForceNodeSnapshot=false;
+                mPreSolveNodeDevicePointer=CUdeviceptr(runtime->preSolveNodeView());
+                const PxU64 mergeBytes=labels?PxU64(mPreSolveMerges.size())*sizeof(PxvPreSolveEdge):0;
+                mCudaPreSolveHostBytes+=PxU64(mPreSolveNodes.size())*sizeof(PxvPreSolveNodeUpdate)+mergeBytes;
+                mCudaPreSolveFullHostBytes+=PxU64(metadataNodes)*sizeof(PxvPreSolveNode)+mergeBytes;
+                mCudaPreSolveNodeUpdates+=mPreSolveNodes.size();if(fullSnapshot)++mCudaPreSolveFullSnapshots;
+            }
+        }
+        if(labels){mGpuSolverCore->setPreSolveIslands(CUdeviceptr(labels),CUdeviceptr(counts));++mCudaPreSolvePasses;}
+        else ++mCudaPreSolveFallbacks;
+    }
+    const bool gpuProduced=mGpuSolverCore->mPreSolveIslandIds!=0;
     bool pagesOnly=incremental && mSolverMetadataIncremental
         && metadataNodes==mSolverMetadataNodes && metadataIslands==mSolverMetadataIslands;
     mSolverIslandMetadataPages.forceSize_Unsafe(0);
     const PxU64 fullBytes=sizeof(PxU32)*(PxU64(metadataNodes)+metadataIslands);
-    if(pagesOnly) {
+    if(!gpuProduced && pagesOnly) {
         PxU64 pageCount=0;
         const PxBitMap* maps[]={&islandSim.getSolverIslandIdPages(),&islandSim.getSolverStaticTouchPages()};
         for(const auto* map:maps) {
@@ -2544,7 +2587,7 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
         // Choose the dense path before copying any page payload.
         if(pageCount*sizeof(PxvIslandMetadataPage)>=fullBytes)pagesOnly=false;
     }
-    if(pagesOnly) {
+    if(!gpuProduced && pagesOnly) {
         const auto collect=[&](const PxBitMap& changed,const PxU32* source,PxU32 size,PxU32 kind) {
             PxBitMap::Iterator it(changed);PxU32 page;
             while((page=it.getNext())!=PxBitMap::Iterator::DONE) {
@@ -2559,26 +2602,37 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
         collect(islandSim.getSolverIslandIdPages(),islandSim.getIslandIds(),metadataNodes,0);
         collect(islandSim.getSolverStaticTouchPages(),islandSim.getIslandStaticTouchCount(),metadataIslands,1);
     }
-    if(!pagesOnly) {
+    if(!gpuProduced && !pagesOnly) {
         islandIds.resize(metadataNodes);islandStaticTouchCounts.resize(metadataIslands);
         PxMemCopy(islandIds.begin(),islandSim.getIslandIds(),sizeof(PxU32)*metadataNodes);
         PxMemCopy(islandStaticTouchCounts.begin(),islandSim.getIslandStaticTouchCount(),sizeof(PxU32)*metadataIslands);
         mSolverIslandMetadataPages.forceSize_Unsafe(0);
     }
     if(mCaptureSolverMetadata) {
+        if(mPreSolveNodeDevicePointer) {
+            mExpectedPreSolveNodes.resize(metadataNodes);
+            for(PxU32 i=0;i<metadataNodes;++i) {
+                const auto& node=islandSim.getNode(PxNodeIndex(i));
+                const bool live=islandSim.getIslandIds()[i]!=IG_INVALID_ISLAND && !node.isDeleted() && !node.isKinematic();
+                mExpectedPreSolveNodes[i]={islandSim.getPreSolveLifetime(i),node.mStaticTouchCount,PxU32(live)};
+            }
+        }
         mExpectedSolverIslandIds.resize(metadataNodes);mExpectedSolverStaticTouches.resize(metadataIslands);
         PxMemCopy(mExpectedSolverIslandIds.begin(),islandSim.getIslandIds(),sizeof(PxU32)*metadataNodes);
         PxMemCopy(mExpectedSolverStaticTouches.begin(),islandSim.getIslandStaticTouchCount(),sizeof(PxU32)*metadataIslands);
     }
     ++mSolverIslandMetadataStats.passes;
     mSolverIslandMetadataStats.fullEquivalentBytes+=fullBytes;
-    if(pagesOnly) {
+    if(gpuProduced)++mSolverIslandMetadataStats.gpuProducedPasses;
+    else if(pagesOnly) {
         mSolverIslandMetadataStats.hostToDeviceBytes+=PxU64(mSolverIslandMetadataPages.size())*sizeof(PxvIslandMetadataPage);
         mSolverIslandMetadataStats.pages+=mSolverIslandMetadataPages.size();
         if(mSolverIslandMetadataPages.empty())++mSolverIslandMetadataStats.quietPasses;
         else ++mSolverIslandMetadataStats.pageUploads;
     } else {++mSolverIslandMetadataStats.fullUploads;mSolverIslandMetadataStats.hostToDeviceBytes+=fullBytes;}
-    mSolverMetadataIncremental=incremental;mSolverMetadataNodes=metadataNodes;mSolverMetadataIslands=metadataIslands;
+    // Native buffers may be stale (or smaller) after any CUDA-produced pass.
+    // The first fallback must refresh the complete native domain before use.
+    mSolverMetadataIncremental=incremental && !gpuProduced;mSolverMetadataNodes=metadataNodes;mSolverMetadataIslands=metadataIslands;
 
     // NP and metadata are staged at the same native pre-solver boundary as before.
     PxMemCopy(npIndexArrayStagingBuffer.begin(),npIndexArrayIter.begin(),sizeof(PxU32)*npIndexArrayIter.size());
@@ -2599,34 +2653,7 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 		npIndexArrayStagingBuffer.begin(), npIndexArrayStagingBuffer.size(),
 		/*jointManager.mGpuJointData, jointManager.mGpuJointPrePrep, gpuJointSize,*/ mConstraintWriteBackPool.size(),
 		islandIds.begin(), nodeInteractions.begin(), metadataNodes, islandStaticTouchCounts.begin(), metadataIslands,
-        pagesOnly,mSolverIslandMetadataPages.begin(),mSolverIslandMetadataPages.size());
-    mGpuSolverCore->setPreSolveIslands(0,0);
-    if(mCudaPreSolveIslands && incremental) {
-        auto* runtime=static_cast<PxgSimulationController*>(getSimulationController())->getNativeDestructionRuntime();
-        bool supported=runtime!=NULL && mPreSolveSleepingDisabled && runtime->canBuildPreSolveIslands();
-        mPreSolveNodes.resize(metadataNodes);
-        for(PxU32 i=0;i<metadataNodes;++i) {
-            const auto& node=islandSim.getNode(PxNodeIndex(i));
-            const bool live=islandSim.getIslandIds()[i]!=IG_INVALID_ISLAND && !node.isDeleted() && !node.isKinematic();
-            if(live && node.mType!=IG::Node::eRIGID_BODY_TYPE)supported=false;
-            mPreSolveNodes[i]={islandSim.getPreSolveLifetime(i),node.mStaticTouchCount,PxU32(live)};
-        }
-        // Keep unsupported sleeping/joint scenes on the qualified native path.
-        if(nbConstraints || islandSim.getNbActiveNodes(IG::Node::eARTICULATION_TYPE))supported=false;
-        const PxU32 *labels=NULL,*counts=NULL;
-        if(supported) {
-            const auto& merges=islandSim.getPreSolveMerges();mPreSolveMerges.resize(merges.size());
-            if(!merges.empty())PxMemCopy(mPreSolveMerges.begin(),merges.begin(),merges.size()*sizeof(PxvPreSolveEdge));
-            if(!runtime->buildPreSolveIslands(mPreSolveNodes.begin(),metadataNodes,mPreSolveMerges.begin(),mPreSolveMerges.size(),
-                mGpuSolverCore->getStream(),labels,counts)) {
-                getNarrowphaseCore()->mCudaContext->setAbortMode(true);
-                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"CUDA pre-solve island production failed; step incomplete.");
-            }
-        }
-        if(supported)mCudaPreSolveHostBytes+=PxU64(metadataNodes)*sizeof(PxvPreSolveNode)+(labels?PxU64(mPreSolveMerges.size())*sizeof(PxvPreSolveEdge):0);
-        if(labels){mGpuSolverCore->setPreSolveIslands(CUdeviceptr(labels),CUdeviceptr(counts));++mCudaPreSolvePasses;}
-        else ++mCudaPreSolveFallbacks;
-    }
+        pagesOnly || gpuProduced,mSolverIslandMetadataPages.begin(),mSolverIslandMetadataPages.size());
     islandSim.acknowledgeSolverIslandMetadata();
 
 	mGpuSolverCore->releaseContext();
