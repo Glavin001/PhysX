@@ -659,6 +659,8 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_gpu_pre_solve_islands COMMAND native_gpu_collision_test --pre-solve-islands)
     add_test(NAME physx_native_gpu_pre_solve_contacts COMMAND native_gpu_collision_test --pre-solve-contacts)
     add_test(NAME physx_native_gpu_pre_solve_support COMMAND native_gpu_collision_test --pre-solve-support)
+    add_test(NAME physx_native_gpu_connectivity_owner COMMAND native_gpu_collision_test --connectivity-owner)
+
 
     add_executable(native_kinematic_support_test tests/native_kinematic_support_test.cpp physx_scene.cpp)
     target_include_directories(native_kinematic_support_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES})
@@ -723,6 +725,8 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_options(native_destruction_demo PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_destruction_demo PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_test(NAME physx_native_gpu_connectivity_fracture COMMAND ${Python3_EXECUTABLE}
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/native_connectivity_fracture_test.py" $<TARGET_FILE:native_destruction_demo>)
     add_test(NAME physx_native_profile_accounting COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/../../tools/scripts/test-native-gpu-profile.py)
     add_test(NAME physx_native_gpu_consumer COMMAND ${Python3_EXECUTABLE}
@@ -732,7 +736,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_gpu_consumer_test.py $<TARGET_FILE:native_destruction_demo> --render)
     endif()
     add_test(NAME physx_native_gpu_retained_contact_graph COMMAND ${Python3_EXECUTABLE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_retained_contact_test.py $<TARGET_FILE:native_destruction_demo>)
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_retained_contact_test.py $<TARGET_FILE:native_destruction_demo> $<TARGET_FILE:native_gpu_resimulation_test>)
 
 
     add_executable(native_gpu_resimulation_test tests/native_gpu_resimulation_test.cpp physx_scene.cpp)

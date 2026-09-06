@@ -244,7 +244,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     return {v.x,corrections,contacts,constructedPairs,contactMotion,reuseFallbacks};
 }
 struct RepeatedResult {std::vector<unsigned> fractureSteps;std::vector<PxVec3> trajectory;};
-RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=false,bool contacts=false,bool support=false) {
+RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=false,bool contacts=false,bool support=false,bool ownership=false,bool retainedFixture=false) {
     Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,true,true,false,false);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
@@ -289,10 +289,14 @@ RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=fal
         PxVec3 out;check(cuMemcpyDtoH(&out,data,sizeof(out)));return out;
     };
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(scene).getScScene().getDynamicsContext());
-    gpu.enableCudaPreSolveSupport(support);gpu.enableCudaPreSolveContacts(contacts);gpu.enableCudaPreSolveIslands(preSolve);gpu.captureSolverIslandMetadata(preSolve);
+    gpu.enableCudaPreSolveSupport(support);gpu.enableCudaPreSolveContacts(contacts);gpu.enableCudaPreSolveIslands(preSolve);gpu.captureSolverIslandMetadata(preSolve);gpu.enableDeviceConnectivityOwnership(ownership);
     auto& auditIslands=*static_cast<NpScene&>(scene).getScScene().getSimpleIslandManager();
     auditIslands.getAccurateIslandSim().setGpuComponentAudit(gpuRepair);
     auditIslands.getSpeculativeIslandSim().setGpuComponentAudit(gpuRepair);
+    // Deterministic managerless speculative edge alongside real impacts.
+    // Do not depend on erroneous fragment sleeping to create this lifecycle case.
+    const auto retainedEdge=retainedFixture?auditIslands.addContactManager(nullptr,
+        PxNodeIndex(ordinary[0]->getGPUIndex()),PxNodeIndex(ordinary[1]->getGPUIndex()),nullptr,IG::Edge::eCONTACT_MANAGER):IG_INVALID_EDGE;
     RepeatedResult result;PxU64 graphGeneration=0;
     auto& graphCore=*static_cast<PxgNphaseImplementationContext*>(static_cast<NpScene&>(scene).getScScene().getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
     const PxU64 graphBuildsBefore=graphCore.getDestructionGraphBuildCount(),graphReusesBefore=graphCore.getDestructionGraphReuseCount();
@@ -314,7 +318,7 @@ RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=fal
         require(std::abs(2*a.x+2*b.x-24)<.02f,"repeat correction changed projectile/fragment momentum");}
     require(graphCore.getDestructionGraphBuildCount()-graphBuildsBefore==62,"repeat fixture did not build exactly one graph per NP pass");
     require(graphCore.getDestructionGraphReuseCount()-graphReusesBefore==(gpuRepair?62u:0u),"same-pass graph reuse missing or active in reference mode");
-    if(gpuRepair) {
+    if(gpuRepair && !ownership) {
         const auto& islands=*static_cast<NpScene&>(scene).getScScene().getSimpleIslandManager();
         const auto& a=islands.getAccurateIslandSim();const auto& s=islands.getSpeculativeIslandSim();
         std::printf("GPU island repair repeated impact: routes=%llu splits=%llu fallbacks=%llu\n",
@@ -324,9 +328,15 @@ RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=fal
         require(a.getGpuRouteCount()+s.getGpuRouteCount()+a.getGpuSplitCount()+s.getGpuSplitCount()>0,"GPU island repair never consumed the CUDA partitions");
         require(a.getGpuRepairFallbackCount()+s.getGpuRepairFallbackCount()==0,"supported fixture fell back to CPU routing");
     }
+    if(ownership)require(gpu.getIslandManager().mDeviceConnectivityPasses>50,"repeated impacts did not use device connectivity ownership");
     if(support)require(gpu.getCudaPreSolveSupportPasses()>50,"repeated impacts did not use GPU support producer");
     if(contacts)require(gpu.getCudaPreSolveContactPasses()>50,"repeated impacts did not use GPU contact producer");
     if(preSolve)require(gpu.getCudaPreSolvePasses()>50,"repeated-impact fixture did not consume CUDA-produced solver state");
+    if(retainedFixture) {
+        const auto stats=static_cast<PxgDestructionRuntime*>(destruction)->getContactGraphObservationStats();
+        require(stats.peakRetainedEdges>0 && stats.retainedEdgesUploaded>0,"real fracture did not exercise the retained-edge fixture");
+        auditIslands.removeConnection(retainedEdge);
+    }
     require(destruction->clearStress(),"repeat cleanup failed");for(auto* shape:shapes)shape->release();for(auto* body:walls)body->release();for(auto* body:shots)body->release();for(auto* body:ordinary)body->release();
     {PxScopedCudaLock lock(cuda);check(cuEventDestroy(uploaded));check(cuMemFree(ids));check(cuMemFree(data));}
     require(context.healthy(),"repeat GPU health failed");return result;
@@ -365,7 +375,12 @@ void unconvergedStress() {
     std::puts("native convergence gate rejects exhausted stress budget; diagnostic reference remains selectable");
 }
 }
-int main(){try {
+int main(int argc,char** argv){try {
+    if(argc==2 && std::string(argv[1])=="--retained-fracture") {
+        repeatedImpacts(true,true,true,true,true,true,true);
+        std::puts("Real fracture with deterministic retained speculative edges and exact graph audits passed");return 0;
+    }
+    require(argc==1,"unknown resimulation test option");
     const auto rebuilt=impact(true,true,false,0,false,32),reused=impact(true,true,false,0,true,32);
     require(std::abs(rebuilt.projectileVelocity-reused.projectileVelocity)<.02f && rebuilt.corrections==reused.corrections,
         "pair reuse changed controlled fracture/projectile response");
@@ -404,5 +419,13 @@ int main(){try {
     const auto repeatSupport=repeatedImpacts(true,true,true,true,true);
     require(repeatSupport.fractureSteps==repeatReuse.fractureSteps && repeatSupport.trajectory.size()==repeatReuse.trajectory.size(),"CUDA pre-solve producer changed fracture decisions");
     for(unsigned i=0;i<repeatSupport.trajectory.size();++i)require((repeatSupport.trajectory[i]-repeatReuse.trajectory[i]).magnitude()<2e-4f,"CUDA pre-solve producer changed repeated-impact trajectory");
+    const auto repeatOwner=repeatedImpacts(true,true,true,true,true,true);
+    require(repeatOwner.fractureSteps==repeatReuse.fractureSteps && repeatOwner.trajectory.size()==repeatReuse.trajectory.size(),"device connectivity ownership changed fracture decisions");
+    for(unsigned i=0;i<repeatOwner.trajectory.size();++i) {
+        const auto a=repeatOwner.trajectory[i],b=repeatReuse.trajectory[i];
+        if((a-b).magnitude()>=2e-4f)std::fprintf(stderr,"ownership trajectory step=%u sample=%u GPU=(%g,%g,%g) reference=(%g,%g,%g) error=%g\n",i/12,i%12,a.x,a.y,a.z,b.x,b.y,b.z,(a-b).magnitude());
+        require((a-b).magnitude()<2e-4f,"device connectivity ownership changed repeated-impact trajectory");
+    }
+    std::printf("Device connectivity ownership: reference fracture decisions and %zu trajectory samples match\n",repeatOwner.trajectory.size());
     std::printf("CUDA pre-solve producer: reference fracture decisions and %zu trajectory samples match\n",repeatProducer.trajectory.size());
     unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

@@ -656,10 +656,16 @@ namespace physx
         PxScopedCudaLock lock(*mCudaContextManager);
         islands.getAccurateIslandSim().setGpuContactComponents(NULL,NULL,0);
         islands.getSpeculativeIslandSim().setGpuContactComponents(NULL,NULL,0);
-        if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph())return;
+        if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph()){islands.restoreHostConnectivity();return;}
         const PxU32 *accurate=NULL,*speculative=NULL;const PxU32 *aMembers=NULL,*sMembers=NULL;PxU32 count=0;
-        const bool needAccurate=islands.getAccurateIslandSim().hasPendingConnectivityChanges();
-        const bool needSpeculative=islands.getSpeculativeIslandSim().hasPendingConnectivityChanges();
+        const bool owned=mDynamicContext->deviceConnectivityOwnershipReady();
+        if(!owned)islands.restoreHostConnectivity();
+        islands.setDeviceConnectivityOwned(owned);
+        const bool needAccurate=islands.getAccurateIslandSim().gpuComponentAuditEnabled()
+            || (!owned && islands.getAccurateIslandSim().hasPendingConnectivityChanges());
+        const bool needSpeculative=islands.getSpeculativeIslandSim().gpuComponentAuditEnabled()
+            || (!owned && islands.getSpeculativeIslandSim().hasPendingConnectivityChanges());
+        if(!needAccurate && !needSpeculative)return;
         if(mDestruction->observeContactComponents(accurate,speculative,aMembers,sMembers,count,needAccurate,needSpeculative)) {
             islands.getAccurateIslandSim().setGpuContactComponents(accurate,aMembers,count);
             islands.getSpeculativeIslandSim().setGpuContactComponents(speculative,sMembers,count);

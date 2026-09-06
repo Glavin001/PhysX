@@ -1,0 +1,58 @@
+{
+  "fidelity_fix_revision": "6a3ac3f9",
+  "selected_native_checks": 38,
+  "regression_result": "37/38 passed in the complete run; retained-contact test command was corrected and that test passed on focused rerun. All 38 selected checks now pass.",
+  "controlled_parity": {
+    "trajectory_samples": 720,
+    "position_velocity_tolerance": 0.0002,
+    "matching_fracture_steps": [
+      6,
+      16
+    ],
+    "analytic_gravity_check": "fragment vertical velocity changes by -9.81/60 after contact separation"
+  },
+  "cuda_memcheck": {
+    "scene": "444 chunks / 896 bonds, six seconds, ownership + graph and motion audits",
+    "errors": 0,
+    "correction_limit": 1
+  },
+  "timing_analysis_unit_checks": 7,
+  "campaign_runs": 30,
+  "campaign_incomplete_runs": 0,
+  "traced_runs": 10,
+  "traced_capture_drops": 0,
+  "accepted_campaign_steps": 21600,
+  "qualification_limits": [
+    "12 seconds/run, first 60 steps excluded",
+    "one traced + two untraced trials per mode/workload",
+    "not full five-trial/60-second or whole-game qualification",
+    "GPU-owned sleeping not covered; sleeping fallback tested",
+    "single-impact g16 has a different realized-work repeat; not an attributable speedup"
+  ],
+  "logs": {
+    "out/connectivity-owner-regression4.log": {
+      "sha256": "f2a76234684d83145ed47ec49d97938ea84ed52bd4664516dfa3c32876379ec0",
+      "path": "/root/workspace/physx-2/out/connectivity-owner-regression4.log"
+    },
+    "out/connectivity-retained-final.log": {
+      "sha256": "dcb701cc1468d1eb276d6d917d6f727e5b49cdb092834693746b9daf89dd8211",
+      "path": "/root/workspace/physx-2/out/connectivity-retained-final.log"
+    },
+    "out/connectivity-owner-memcheck-fixed.log": {
+      "sha256": "bbcbf43a6f3c06b64d8a953849eb5d63fe7e5c05d7dd58f03fd5ab77b0d62a08",
+      "path": "/root/workspace/physx-2/out/connectivity-owner-memcheck-fixed.log"
+    },
+    "out/connectivity-accounting-final.log": {
+      "sha256": "fe836cbecd3b6b4f70bec51b58d30c3e45ad72ae7fb3cb63421a0f7337e651ae",
+      "path": "/root/workspace/physx-2/out/connectivity-accounting-final.log"
+    },
+    "out/connectivity-parity3.log": {
+      "sha256": "042320b8552f953305bde296d68a462668bb6f84fd35dee736182a8145b27115",
+      "path": "/root/workspace/physx-2/out/connectivity-parity3.log"
+    }
+  },
+  "reports": [
+    "qualification/connectivity-comparison-20260906.md",
+    "qualification/connectivity-comparison-20260906.json"
+  ]
+}

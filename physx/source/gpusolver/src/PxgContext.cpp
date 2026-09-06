@@ -2154,6 +2154,11 @@ void PxgGpuPrePrepTask::runInternal()
 	mContext.cpuJointPrePrepTask(mCont);
 }
 
+bool PxgGpuContext::deviceConnectivityOwnershipReady() const
+{
+    return deviceConnectivityOwnershipRequested() && mGpuSolverCore->mPreSolveIslandIds!=0;
+}
+
 void PxgGpuContext::updateBodyCore(PxBaseTask* continuation)
 {
 	mPostSolveTask.setContinuation(continuation);
@@ -2529,7 +2534,7 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 	npIndexArrayStagingBuffer.reserve(npIndexArrayIter.size());
 	npIndexArrayStagingBuffer.forceSize_Unsafe(npIndexArrayIter.size());
 
-    const PxU32 metadataNodes=islandSim.getNbNodes(),metadataIslands=islandSim.getNbIslands();
+    const PxU32 metadataNodes=islandSim.getNbNodes();PxU32 metadataIslands=islandSim.getNbIslands();
     const bool incremental=getSimulationController()->usesGpuDestructionIslandRepair();
     mGpuSolverCore->setPreSolveIslands(0,0);mPreSolveNodeDevicePointer=0;mPreSolveSupportDevicePointer=0;mPreSolveNodesUseNativeSupport=true;
     if(mCudaPreSolveIslands && incremental) {
@@ -2607,6 +2612,10 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
         else ++mCudaPreSolveFallbacks;
     }
     const bool gpuProduced=mGpuSolverCore->mPreSolveIslandIds!=0;
+    if(!gpuProduced && mIslandManager.deviceConnectivityOwned()) {
+        mIslandManager.restoreHostConnectivity();metadataIslands=islandSim.getNbIslands();
+        mSolverMetadataIncremental=false;
+    }
     bool pagesOnly=incremental && mSolverMetadataIncremental
         && metadataNodes==mSolverMetadataNodes && metadataIslands==mSolverMetadataIslands;
     mSolverIslandMetadataPages.forceSize_Unsafe(0);
@@ -2651,9 +2660,11 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
                 mExpectedPreSolveNodes[i]={islandSim.getPreSolveLifetime(i),node.mStaticTouchCount,PxU32(live)};
             }
         }
-        mExpectedSolverIslandIds.resize(metadataNodes);mExpectedSolverStaticTouches.resize(metadataIslands);
-        PxMemCopy(mExpectedSolverIslandIds.begin(),islandSim.getIslandIds(),sizeof(PxU32)*metadataNodes);
-        PxMemCopy(mExpectedSolverStaticTouches.begin(),islandSim.getIslandStaticTouchCount(),sizeof(PxU32)*metadataIslands);
+        if(!islandSim.buildIndependentPreSolveAudit(mExpectedSolverIslandIds,mExpectedSolverStaticTouches)) {
+            mExpectedSolverIslandIds.resize(metadataNodes);mExpectedSolverStaticTouches.resize(metadataIslands);
+            PxMemCopy(mExpectedSolverIslandIds.begin(),islandSim.getIslandIds(),sizeof(PxU32)*metadataNodes);
+            PxMemCopy(mExpectedSolverStaticTouches.begin(),islandSim.getIslandStaticTouchCount(),sizeof(PxU32)*metadataIslands);
+        }
     }
     ++mSolverIslandMetadataStats.passes;
     mSolverIslandMetadataStats.fullEquivalentBytes+=fullBytes;

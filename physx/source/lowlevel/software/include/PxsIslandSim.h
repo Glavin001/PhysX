@@ -586,6 +586,15 @@ public:
     // Runs before GPU components can mutate the compatibility island registry.
     void setGpuComponentAudit(bool enabled) { mGpuComponentAudit=enabled; }
     bool auditGpuContactComponents();
+    bool gpuComponentAuditEnabled() const { return mGpuComponentAudit; }
+    void setDeviceConnectivityOwned(bool value) { mDeviceConnectivityOwned=value; }
+    bool deviceConnectivityOwned() const { return mDeviceConnectivityOwned; }
+    // The GPU library is loaded separately from the statically linked host.
+    // Dispatch these host-only operations through callbacks installed by its constructor.
+    void restoreHostConnectivity() { mRestoreHostConnectivity(*this); }
+    bool buildIndependentPreSolveAudit(PxArray<PxU32>& labels,PxArray<PxU32>& touches) const {
+        return mBuildIndependentPreSolveAudit(*this,labels,touches);
+    }
     PxU64 getGpuComponentAudits() const { return mGpuComponentAudits; }
     PxU64 getGpuComponentAuditFailures() const { return mGpuComponentAuditFailures; }
     PxU64 getGpuRouteCount() const { return mGpuRouteCount; }
@@ -747,6 +756,15 @@ private:
     PxU32 mGpuComponentCount = 0;
     bool mGpuSplit = false;
     bool mGpuComponentAudit = false;
+    bool mDeviceConnectivityOwned = false;
+    void (*mRestoreHostConnectivity)(IslandSim&);
+    bool (*mBuildIndependentPreSolveAudit)(const IslandSim&,PxArray<PxU32>&,PxArray<PxU32>&);
+    void restoreHostConnectivityImpl();
+    void rebuildHostConnectivity(PxU32 dirtyNodeLimit,PxProfilerCallback* profiler);
+    bool buildIndependentPreSolveAuditImpl(PxArray<PxU32>&,PxArray<PxU32>&) const;
+    // Diagnostic-only independent previous-phase topology; never a simulation input.
+    PxArray<PxU32> mAuditPreviousLabels;
+    PxArray<PxU64> mAuditPreviousLifetimes;
     PxU64 mGpuComponentAudits = 0, mGpuComponentAuditFailures = 0;
     PxU64 mGpuRouteCount = 0, mGpuSplitCount = 0, mGpuRepairFallbackCount = 0;
 	bool findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId);

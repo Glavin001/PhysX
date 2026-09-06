@@ -106,6 +106,10 @@ void Sc::Scene::stepSetupCollide(PxBaseTask* continuation)
 
 void Sc::Scene::simulate(PxReal timeStep, PxBaseTask* continuation)
 {
+    if(mSimpleIslandManager->deviceConnectivityOwned() && !canUseGpuDestructionIslandRepair())
+    {
+        mSimpleIslandManager->restoreHostConnectivity();
+    }
 	if(timeStep != 0.0f)
 	{
 		setElapsedTime(timeStep);

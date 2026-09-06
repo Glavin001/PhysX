@@ -22,7 +22,10 @@ try:
     assert summary["corrections"] > 0 and summary["correction_limit"] == 1
     assert summary["max_motion_position_error"] == 0
     assert summary["island_boundary_audit_enabled"]
-    assert graph["peak_retained_edges"] > 0 and graph["retained_edges_uploaded"] > 0
+    # Falling fragments no longer falsely sleep when contacts separate. Exercise
+    # managerless edges deterministically during real fracture in the native fixture;
+    # it asserts nonzero retained edges/uploads and independently audits each step.
+    subprocess.run([sys.argv[2], "--retained-fracture"], check=True)
     assert graph["boundary_audits"] > 0 and graph["boundary_audit_failures"] == 0
 except Exception:
     print((work / "run.log").read_text())

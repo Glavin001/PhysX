@@ -1528,6 +1528,10 @@ void Sc::Scene::advance(PxReal timeStep, PxBaseTask* continuation)
 
 void Sc::Scene::collide(PxReal timeStep, PxBaseTask* continuation)
 {
+    if(mSimpleIslandManager->deviceConnectivityOwned() && !canUseGpuDestructionIslandRepair())
+    {
+        mSimpleIslandManager->restoreHostConnectivity();
+    }
 	mDt = timeStep;
 
 	stepSetupCollide(continuation);

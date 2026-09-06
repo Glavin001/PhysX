@@ -110,11 +110,15 @@ struct Fixture {
 };
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
-void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,bool contacts=false,bool support=false) {
+void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,bool contacts=false,bool support=false,bool ownership=false) {
     Fixture f(1,1024,sleeping,solver);f.scene.setGravity(PxVec3(0));
     f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(f.scene).getScScene().getDynamicsContext());
     gpu.captureSolverIslandMetadata(true);gpu.enableCudaPreSolveSupport(support);gpu.enableCudaPreSolveContacts(contacts);gpu.enableCudaPreSolveIslands(producer);
+    gpu.enableDeviceConnectivityOwnership(ownership);
+    auto& islands=gpu.getIslandManager();
+    islands.getAccurateIslandSim().setGpuComponentAudit(ownership);
+    islands.getSpeculativeIslandSim().setGpuComponentAudit(ownership);
     unsigned comparisons=0;bool previousGpu=false;
     const auto verify=[&](){
         const auto before=gpu.getSolverIslandMetadataStats();
@@ -144,6 +148,9 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,
         if(!active)require(std::equal(actualIds.begin(),actualIds.end(),ids.begin()),"resident node-to-island metadata differs from native pre-solve snapshot");
         if(!active)require(std::equal(actualTouches.begin(),actualTouches.end(),touches.begin()),"resident static-touch metadata differs from native pre-solve snapshot");
         try {nativePreSolveTest::verify(gpu,f.cuda);}catch(const std::exception& e){throw std::runtime_error("metadata comparison "+std::to_string(comparisons)+": "+e.what());}
+        require(!islands.getAccurateIslandSim().getGpuComponentAuditFailures()
+            && !islands.getSpeculativeIslandSim().getGpuComponentAuditFailures(),"independent component audit failed");
+        require(!islands.deviceConnectivityOwned() || active,"CPU connectivity bypassed without GPU solver metadata");
         previousGpu=active;++comparisons;
     };
     const auto add=[&](float x){
@@ -213,6 +220,14 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,
     if(producer && !sleeping)require(gpu.getCudaPreSolvePasses()>=15,"CUDA pre-solve producer was not actually consumed by the solver");
     if(producer && sleeping)require(gpu.getCudaPreSolvePasses()==0 && gpu.getCudaPreSolveFallbacks()>0,"unsupported sleeping scene did not use native fallback");
     std::printf("CUDA pre-solve producer: %llu passes, %llu fallbacks\n",(unsigned long long)gpu.getCudaPreSolvePasses(),(unsigned long long)gpu.getCudaPreSolveFallbacks());
+    if(ownership && !sleeping) {
+        require(islands.mDeviceConnectivityPasses>8,"device connectivity ownership was never exercised");
+        require(islands.mHostConnectivityRestores>0,"native fallback never restored connectivity");
+        gpu.enableDeviceConnectivityOwnership(false);verify();verify();
+        require(!islands.deviceConnectivityOwned(),"explicit ownership disable failed");
+        gpu.enableDeviceConnectivityOwnership(true);verify();verify();
+    }
+    if(ownership && sleeping)require(!islands.mDeviceConnectivityPasses,"sleeping bypassed CPU connectivity");
     gpu.captureSolverIslandMetadata(false);f.stage->clearStress();
     for(auto* body:growth)body->release();a->release();b->release();if(c)c->release();if(d)d->release();
     require(f.context.healthy(),"solver metadata fixture GPU error");
@@ -632,6 +647,7 @@ void crushRemoval() {
 int main(int argc,char** argv){try{
     if(argc==2) {
         const std::string mode=argv[1];
+        if(mode=="--connectivity-owner"){solverMetadata(PxSolverType::ePGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true,true);return 0;}
         if(mode=="--pre-solve-islands"){solverMetadata(PxSolverType::ePGS,false,true);solverMetadata(PxSolverType::eTGS,false,true);solverMetadata(PxSolverType::eTGS,true,true);return 0;}
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
         if(mode=="--retained-registry"){gpuRetainedRegistryLifecycle();return 0;}

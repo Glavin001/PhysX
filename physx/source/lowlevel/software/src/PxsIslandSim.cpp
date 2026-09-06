@@ -315,6 +315,10 @@ IslandSim::IslandSim(const CPUExternalData& cpuData, GPUExternalData* gpuData, P
 	mGpuData				(gpuData),
 	mContextId				(contextID)
 {
+    mRestoreHostConnectivity=[](IslandSim& sim){sim.restoreHostConnectivityImpl();};
+    mBuildIndependentPreSolveAudit=[](const IslandSim& sim,PxArray<PxU32>& labels,PxArray<PxU32>& touches){
+        return sim.buildIndependentPreSolveAuditImpl(labels,touches);
+    };
 	for (PxU32 i = 0; i < Edge::eEDGE_TYPE_COUNT; ++i)
 	{
 		mInitialActiveNodeCount[i] = 0;
@@ -1459,6 +1463,56 @@ bool IslandSim::auditGpuContactComponents()
     for(PxU32 root=0;root<n;++root)if(last[root]!=PX_INVALID_NODE
         && mGpuComponentMembers[size_t(mGpuComponentCount)+last[root]]!=PX_INVALID_NODE)
         return fail("unterminated member chain",last[root]);
+    // Preserve an independently constructed previous-phase partition for the
+    // next pre-solver audit. GPU labels are not copied into the oracle.
+    if(mGpuData) {
+        mAuditPreviousLabels=expected;mAuditPreviousLifetimes.resize(n);
+        for(PxU32 i=0;i<n;++i)mAuditPreviousLifetimes[i]=getPreSolveLifetime(i);
+    }
+    return true;
+}
+
+void IslandSim::restoreHostConnectivityImpl()
+{
+    if(!mDeviceConnectivityOwned)return;
+    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.restoreHostConnectivity",false,mContextId);
+    mDeviceConnectivityOwned=false;setGpuContactComponents(NULL,NULL,0);
+    // CPU edge and node lifetimes have continued to be maintained. Complete
+    // every deferred split before a native metadata consumer can see this cache.
+    // Deferred removals and handle reuse invalidate the old routing witnesses.
+    for(PxU32 i=0;i<mNodes.size();++i) {
+        mFastRoute[i]=PxNodeIndex(PX_INVALID_NODE);mHopCounts[i]=0;
+        if(!mNodes[i].isDeleted() && !mNodes[i].isKinematic() && mIslandIds[i]!=IG_INVALID_ISLAND) {
+            mNodes[i].markDirty();mDirtyMap.growAndSet(i);
+        }
+    }
+    // Restore only the partition cache. This can run after solver partitioning;
+    // replaying retirement/deactivation/resetDirtyEdges here would consume the
+    // pending lifecycle queues a second time and invalidate solver-body maps.
+    rebuildHostConnectivity(0xffffffffu,PxGetProfilerCallback());
+}
+
+bool IslandSim::buildIndependentPreSolveAuditImpl(PxArray<PxU32>& labels,PxArray<PxU32>& touches) const
+{
+    if(!mDeviceConnectivityOwned)return false;
+    const PxU32 n=mNodes.size(),previous=mAuditPreviousLabels.size();
+    if(!mGpuComponentAudit || !previous)return false;
+    // Virtual hubs retain previous connections for surviving node lifetimes;
+    // current inserted edges then add the new pre-solve connections. This is
+    // the native deferred-removal phase, not a flood fill of final contacts.
+    PxArray<PxU32> parents;parents.resize(n+previous);
+    for(PxU32 i=0;i<parents.size();++i)parents[i]=i;
+    const auto live=[&](PxU32 i){return i<n && !mNodes[i].isDeleted() && !mNodes[i].isKinematic() && mIslandIds[i]!=IG_INVALID_ISLAND;};
+    const auto root=[&](PxU32 i){while(parents[i]!=i){parents[i]=parents[parents[i]];i=parents[i];}return i;};
+    const auto join=[&](PxU32 a,PxU32 b){a=root(a);b=root(b);if(a!=b)parents[PxMax(a,b)]=PxMin(a,b);};
+    for(PxU32 i=0;i<n && i<previous;++i)if(live(i) && mAuditPreviousLabels[i]<previous
+        && mAuditPreviousLifetimes[i]==getPreSolveLifetime(i))join(i,n+mAuditPreviousLabels[i]);
+    for(PxU32 e=0;e<mEdges.size();++e)if(mEdges[e].isInserted() && !mEdges[e].isPendingDestroyed()) {
+        const PxU32 a=mCpuData.mEdgeNodeIndices[2*e].index(),b=mCpuData.mEdgeNodeIndices[2*e+1].index();
+        if(live(a) && live(b))join(a,b);
+    }
+    labels.resize(n);touches.resize(n);PxMemZero(touches.begin(),n*sizeof(PxU32));
+    for(PxU32 i=0;i<n;++i){labels[i]=live(i)?root(i):IG_INVALID_ISLAND;if(live(i))touches[labels[i]]+=mNodes[i].mStaticTouchCount;}
     return true;
 }
 
@@ -1592,92 +1646,13 @@ bool IslandSim::findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandI
 	}
 }
 
-void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, bool allowDeactivation, bool permitKinematicDeactivation, PxU32 dirtyNodeLimit, PxProfilerCallback* profiler)
+void IslandSim::rebuildHostConnectivity(PxU32 dirtyNodeLimit,PxProfilerCallback* profiler)
 {
-	PX_UNUSED(dirtyNodeLimit);
-	PX_PROFILE_ZONE("Basic.processLostEdges", mContextId);
-	//At this point, all nodes and edges are activated. 
+    PX_UNUSED(dirtyNodeLimit);
+    mVisitedState.resizeAndClear(mNodes.size());
+    mPriorityQueue.reserve(1024);mVisitedNodes.reserve(mNodes.size());
+    for(PxU32 i=0;i<Edge::eEDGE_TYPE_COUNT;++i)mIslandSplitEdges[i].reserve(1024);
 
-	//Bit map for visited
-	mVisitedState.resizeAndClear(mNodes.size());
-
-	//Reserve space on priority queue for at least 1024 nodes. It will resize if more memory is required during traversal.
-	mPriorityQueue.reserve(1024);
-
-	for (PxU32 i = 0; i < Edge::eEDGE_TYPE_COUNT; ++i)
-		mIslandSplitEdges[i].reserve(1024);
-	
-	mVisitedNodes.reserve(mNodes.size()); //Make sure we have enough space for all nodes!
-
-	const PxU32 nbDestroyedEdges = mDestroyedEdges.size();
-	PX_UNUSED(nbDestroyedEdges);
-	{
-		PX_PROFILE_ZONE("Basic.removeEdgesFromIslands", mContextId);
-        PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.removeEdgesFromIslands":"GpuDestruction.task.speculativeIsland.removeEdgesFromIslands",false,mContextId);
-		for (PxU32 a = 0; a < mDestroyedEdges.size(); ++a)
-		{
-			const EdgeIndex lostIndex = mDestroyedEdges[a];
-			Edge& lostEdge = mEdges[lostIndex];
-
-			if (lostEdge.isPendingDestroyed() && !lostEdge.isInDirtyList())
-			{
-				//Process this edge...
-				if (!lostEdge.isReportOnlyDestroy() && lostEdge.isInserted())
-				{
-					const PxU32 index1 = mCpuData.mEdgeNodeIndices[mDestroyedEdges[a] * 2].index();
-					const PxU32 index2 = mCpuData.mEdgeNodeIndices[mDestroyedEdges[a] * 2 + 1].index();
-
-					IslandId islandId = IG_INVALID_ISLAND;
-					if (index1 != PX_INVALID_NODE && index2 != PX_INVALID_NODE)
-					{
-						PX_ASSERT(mIslandIds[index1] == IG_INVALID_ISLAND || mIslandIds[index2] == IG_INVALID_ISLAND ||
-							mIslandIds[index1] == mIslandIds[index2]);
-						islandId = mIslandIds[index1] != IG_INVALID_ISLAND ? mIslandIds[index1] : mIslandIds[index2];
-					}
-					else if (index1 != PX_INVALID_NODE)
-					{
-						PX_ASSERT(index2 == PX_INVALID_NODE);
-						Node& node = mNodes[index1];
-						if (!node.isKinematic())
-						{
-							islandId = mIslandIds[index1];
-							node.mStaticTouchCount--;
-                            markPreSolveSupport(index1);
-							//Island& island = mIslands[islandId];
-							writeIslandStaticTouchCount(islandId)--;
-							//island.mStaticTouchCount--;
-						}
-					}
-					else if (index2 != PX_INVALID_NODE)
-					{
-						PX_ASSERT(index1 == PX_INVALID_NODE);
-						Node& node = mNodes[index2];
-						if (!node.isKinematic())
-						{
-							islandId = mIslandIds[index2];
-							node.mStaticTouchCount--;
-                            markPreSolveSupport(index2);
-							//Island& island = mIslands[islandId];
-							writeIslandStaticTouchCount(islandId)--;
-							//island.mStaticTouchCount--;
-						}
-					}
-
-					if (islandId != IG_INVALID_ISLAND)
-					{
-						//We need to remove this edge from the island
-						Island& island = mIslands[islandId];
-						removeEdgeFromIsland(mEdges, island.mEdges, lostIndex);
-					}
-				}
-
-				lostEdge.clearInserted();
-			}
-		}
-	}
-
-	if (allowDeactivation)
-	{
 		PX_PROFILE_ZONE("Basic.findPathsAndBreakIslands", mContextId);
         PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.findPathsAndBreakIslands":"GpuDestruction.task.speculativeIsland.findPathsAndBreakIslands",false,mContextId);
 
@@ -1937,7 +1912,85 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 #endif
 
 		//mDirtyNodes.forceSize_Unsafe(0);
+}
+
+void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, bool allowDeactivation, bool permitKinematicDeactivation, PxU32 dirtyNodeLimit, PxProfilerCallback* profiler)
+{
+	PX_UNUSED(dirtyNodeLimit);
+	PX_PROFILE_ZONE("Basic.processLostEdges", mContextId);
+	//At this point, all nodes and edges are activated.
+
+	const PxU32 nbDestroyedEdges = mDestroyedEdges.size();
+	PX_UNUSED(nbDestroyedEdges);
+	{
+		PX_PROFILE_ZONE("Basic.removeEdgesFromIslands", mContextId);
+        PxProfileScoped detail(profiler,mGpuData?"GpuDestruction.task.accurateIsland.removeEdgesFromIslands":"GpuDestruction.task.speculativeIsland.removeEdgesFromIslands",false,mContextId);
+		for (PxU32 a = 0; a < mDestroyedEdges.size(); ++a)
+		{
+			const EdgeIndex lostIndex = mDestroyedEdges[a];
+			Edge& lostEdge = mEdges[lostIndex];
+
+			if (lostEdge.isPendingDestroyed() && !lostEdge.isInDirtyList())
+			{
+				//Process this edge...
+				if (!lostEdge.isReportOnlyDestroy() && lostEdge.isInserted())
+				{
+					const PxU32 index1 = mCpuData.mEdgeNodeIndices[mDestroyedEdges[a] * 2].index();
+					const PxU32 index2 = mCpuData.mEdgeNodeIndices[mDestroyedEdges[a] * 2 + 1].index();
+
+					IslandId islandId = IG_INVALID_ISLAND;
+					if (index1 != PX_INVALID_NODE && index2 != PX_INVALID_NODE)
+					{
+						PX_ASSERT(mIslandIds[index1] == IG_INVALID_ISLAND || mIslandIds[index2] == IG_INVALID_ISLAND ||
+							mIslandIds[index1] == mIslandIds[index2]);
+						islandId = mIslandIds[index1] != IG_INVALID_ISLAND ? mIslandIds[index1] : mIslandIds[index2];
+					}
+					else if (index1 != PX_INVALID_NODE)
+					{
+						PX_ASSERT(index2 == PX_INVALID_NODE);
+						Node& node = mNodes[index1];
+						if (!node.isKinematic())
+						{
+							islandId = mIslandIds[index1];
+							node.mStaticTouchCount--;
+                            markPreSolveSupport(index1);
+							//Island& island = mIslands[islandId];
+							writeIslandStaticTouchCount(islandId)--;
+							//island.mStaticTouchCount--;
+						}
+					}
+					else if (index2 != PX_INVALID_NODE)
+					{
+						PX_ASSERT(index1 == PX_INVALID_NODE);
+						Node& node = mNodes[index2];
+						if (!node.isKinematic())
+						{
+							islandId = mIslandIds[index2];
+							node.mStaticTouchCount--;
+                            markPreSolveSupport(index2);
+							//Island& island = mIslands[islandId];
+							writeIslandStaticTouchCount(islandId)--;
+							//island.mStaticTouchCount--;
+						}
+					}
+
+					if (islandId != IG_INVALID_ISLAND)
+					{
+						//We need to remove this edge from the island
+						Island& island = mIslands[islandId];
+						removeEdgeFromIsland(mEdges, island.mEdges, lostIndex);
+					}
+				}
+
+				lostEdge.clearInserted();
+			}
+		}
 	}
+
+    if(allowDeactivation && !mDeviceConnectivityOwned)
+    {
+        rebuildHostConnectivity(dirtyNodeLimit,profiler);
+    }
 
 	{
 		PX_PROFILE_ZONE("Basic.clearDestroyedEdges", mContextId);

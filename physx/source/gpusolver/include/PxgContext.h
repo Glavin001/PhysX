@@ -334,10 +334,13 @@ namespace physx
 
         IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
 
-        void enableCudaPreSolveIslands(bool enabled) { if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled,!mCudaPreSolveContacts,!(mCudaPreSolveSupport && mCudaPreSolveContacts)); }
-        void enableCudaPreSolveContacts(bool enabled) { if(enabled!=mCudaPreSolveContacts)mPreForceNodeSnapshot=true;mCudaPreSolveContacts=enabled;
+        void enableDeviceConnectivityOwnership(bool enabled) { mIslandManager.requestDeviceConnectivity(enabled); }
+        bool deviceConnectivityOwnershipRequested() const { return mIslandManager.deviceConnectivityRequested() && mCudaPreSolveIslands && mCudaPreSolveContacts && mCudaPreSolveSupport && mPreSolveSleepingDisabled; }
+        bool deviceConnectivityOwnershipReady() const;
+        void enableCudaPreSolveIslands(bool enabled) { if(!enabled)mIslandManager.restoreHostConnectivity(); if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled,!mCudaPreSolveContacts,!(mCudaPreSolveSupport && mCudaPreSolveContacts)); }
+        void enableCudaPreSolveContacts(bool enabled) { if(!enabled)mIslandManager.restoreHostConnectivity(); if(enabled!=mCudaPreSolveContacts)mPreForceNodeSnapshot=true;mCudaPreSolveContacts=enabled;
             mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!enabled,!(mCudaPreSolveSupport && enabled)); }
-        void enableCudaPreSolveSupport(bool enabled) { if(enabled!=mCudaPreSolveSupport)mPreForceNodeSnapshot=true;mCudaPreSolveSupport=enabled;
+        void enableCudaPreSolveSupport(bool enabled) { if(!enabled)mIslandManager.restoreHostConnectivity(); if(enabled!=mCudaPreSolveSupport)mPreForceNodeSnapshot=true;mCudaPreSolveSupport=enabled;
             mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!mCudaPreSolveContacts,!(enabled && mCudaPreSolveContacts)); }
         bool preSolveNodesUseNativeSupport() const { return mPreSolveNodesUseNativeSupport; }
         CUdeviceptr getPreSolveSupportDevicePointer() const { return mPreSolveSupportDevicePointer; }

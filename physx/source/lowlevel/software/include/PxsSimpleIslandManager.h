@@ -204,6 +204,21 @@ class SimpleIslandManager : public PxUserAllocated
 	const bool mGPU;
 public:
 
+    bool mDeviceConnectivityRequested = false;
+    PxU64 mDeviceConnectivityPasses = 0, mHostConnectivityRestores = 0;
+    void requestDeviceConnectivity(bool value) { if(!value)restoreHostConnectivity();mDeviceConnectivityRequested=value; }
+    bool deviceConnectivityRequested() const { return mDeviceConnectivityRequested; }
+    bool deviceConnectivityOwned() const { return mAccurateIslandManager.deviceConnectivityOwned(); }
+    void setDeviceConnectivityOwned(bool value) {
+        if(value)++mDeviceConnectivityPasses;
+        mAccurateIslandManager.setDeviceConnectivityOwned(value);
+        mSpeculativeIslandManager.setDeviceConnectivityOwned(value);
+    }
+    void restoreHostConnectivity() {
+        if(!deviceConnectivityOwned())return;
+        ++mHostConnectivityRestores;
+        mAccurateIslandManager.restoreHostConnectivity();mSpeculativeIslandManager.restoreHostConnectivity();
+    }
     const PxBitMap& getRetainedContactMap() const { return mRetainedContactMap; }
     // Called only at the completed native lifecycle boundary, after parallel
     // contact registration. Coalesce endpoint changes once per transaction.

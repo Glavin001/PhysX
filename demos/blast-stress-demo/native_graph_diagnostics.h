@@ -25,6 +25,8 @@ inline void writeNativeGraphDiagnostics(physx::PxScene& scene,const std::string&
     const auto metadata=static_cast<PxgGpuContext*>(sc.getDynamicsContext())->getSolverIslandMetadataStats();
     std::ofstream out(path);
     out<<"{\n  \"scope\": \"contact graph and pre-solver island metadata submissions (including correction); excludes diagnostic reads, other physics and recording transfers\",\n"
+        <<"  \"device_connectivity_passes\": "<<islands.mDeviceConnectivityPasses<<",\n"
+        <<"  \"host_connectivity_restores\": "<<islands.mHostConnectivityRestores<<",\n"
         <<"  \"graph_builds\": "<<np.getDestructionGraphBuildCount()<<",\n"
         <<"  \"same_pass_reuses\": "<<np.getDestructionGraphReuseCount()<<",\n"
         <<"  \"host_observations\": "<<stats.observations<<",\n"

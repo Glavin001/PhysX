@@ -70,7 +70,9 @@ inline void verify(PxScene& scene,PxCudaContextManager& cuda) {
             for(size_t j=0;j<queue.size();++j)for(PxU32 next:adjacency[queue[j]])
                 if(labels[next]==PX_INVALID_U32){labels[next]=i;queue.push_back(next);}
             const PxU32 island=sim.getIslandIds()[i];
-            require(islandRoots.emplace(island,i).second,"CPU island contains disconnected components");
+            // Device ownership deliberately keeps a coarse CPU compatibility
+            // partition. GPU components still must match the independent flood fill exactly.
+            if(!sim.deviceConnectivityOwned())require(islandRoots.emplace(island,i).second,"CPU island contains disconnected components");
             for(PxU32 node:queue) {
                 require(node<gpu.size() && gpu[node]==i,"CUDA components differ from independent CPU edge flood fill");
                 require(sim.getIslandIds()[node]==island,"connected CPU edges span separate islands");
@@ -94,9 +96,9 @@ inline void verify(PxScene& scene,PxCudaContextManager& cuda) {
             if(!node.isValid() || cpuAccurate.getNode(node).isKinematic())continue;
             const auto i=node.index();require(i<view.nodeCapacity,"GPU graph node capacity misses live body");
             const auto ca=cpuAccurate.getIslandIds()[i],cs=cpuSpeculative.getIslandIds()[i];
-            require(associate(accurateToGpu,ca,accurate[i]) && associate(accurateToCpu,accurate[i],ca),
+            require((cpuAccurate.deviceConnectivityOwned() || associate(accurateToGpu,ca,accurate[i])) && associate(accurateToCpu,accurate[i],ca),
                 "GPU accurate components disagree with PhysX CPU islands");
-            require(associate(speculativeToGpu,cs,speculative[i]) && associate(speculativeToCpu,speculative[i],cs),
+            require((cpuSpeculative.deviceConnectivityOwned() || associate(speculativeToGpu,cs,speculative[i])) && associate(speculativeToCpu,speculative[i],cs),
                 "GPU speculative components disagree with PhysX CPU islands");
         }
     }
