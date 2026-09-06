@@ -36,10 +36,17 @@ struct PxDestructionClusterBodyState {
 };
 struct PxDestructionBodyPreparationStatus {
     std::uint64_t generation;
-    std::uint32_t count, valid, error;
+    std::uint32_t count, valid, error, allocationRequests;
     // error bits: 1 invalid mass, 2 invalid/nonconverged inertia,
     // 4 invalid motion, 8 not representable as a PhysX float body.
     // Entire batch is usable only when valid != 0; errors never clamp physics.
+};
+// A GPU candidate-to-native-node mapping. These are private inactive BodySim
+// reservations; they do not yet have initialized physical GPU solver state.
+// Only valid batches can be used by the future correction initialization stage.
+struct PxDestructionBodyAllocationStatus {
+    std::uint64_t generation;
+    std::uint32_t count, reserved, valid, error;
 };
 struct PxDestructionTopologyStatus {
     std::uint64_t generation;

@@ -2,6 +2,7 @@
 #pragma once
 #include "PxDestructionScene.h"
 #include "PxContact.h"
+#include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
 // Private bridge between PhysX's kernel-wrangler module and the runtime CUDA
@@ -28,4 +29,4 @@ public:
 #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
 #endif
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntime(CUcontext context, void* scene, bool (*writeAllowed)(void*));
+PxCreateDestructionRuntime(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);

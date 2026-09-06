@@ -492,7 +492,10 @@ namespace physx
 		virtual	bool	computeArticulationData(void* data, const PxArticulationGPUIndex* gpuIndices, PxArticulationGPUAPIComputeType::Enum operation, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;
 
 		virtual bool 	evaluateSDFDistances(PxVec4* localGradientAndSDFConcatenated, const PxShapeGPUIndex* shapeIndices, const PxVec4* localSamplePointsConcatenated, const PxU32* samplePointCountPerShape, PxU32 nbElements, PxU32 maxPointCount, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;
-        virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*)) PX_OVERRIDE PX_FINAL;
+        virtual bool isRigidBodyRegistered(PxU32 index, const PxsRigidBody* body) const PX_OVERRIDE PX_FINAL {
+            return index < mBodySimManager.mBodies.size() && mBodySimManager.mBodies[index] == body;
+        }
+        virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*), PxvDestructionBodyAllocator* allocator) PX_OVERRIDE PX_FINAL;
         virtual void advanceDestruction(PxReal dt, const PxVec3& gravity) PX_OVERRIDE PX_FINAL;
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
 

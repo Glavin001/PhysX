@@ -623,10 +623,10 @@ namespace physx
 		return artiCore->computeArticulationData(data, gpuIndices, operation, nbElements, mMaxLinks, mMaxDofs, startEvent, finishEvent);
 	}
 
-    PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*))
+    PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction)
-            mDestruction = PxCreateDestructionRuntime(mCudaContextManager->getContext(), scene, gate);
+            mDestruction = PxCreateDestructionRuntime(mCudaContextManager->getContext(), scene, gate, allocator);
         return mDestruction;
     }
 
@@ -652,7 +652,8 @@ namespace physx
                 PxRigidDynamicGPUAPIReadType::eANGULAR_VELOCITY, mDestruction->clusterCount(), ready, ready);
         if(ok) ok = mDestruction->advance(dt, gravity, mSimulationCore->getBodySimBufferDevicePtr().getPointer());
         // Complete before contact buffers can be recycled or the scene is
-        // published. No node, bond, or contact arrays are read back to the CPU.
+        // published. Only compact new-body allocation metadata and status leave
+        // the GPU; no bond graph, contact loads or physical body state readback.
         const bool complete = mDestruction->finish();
         mDestructionError = ok && complete ? 0 : 1;
         if(mDestructionError)

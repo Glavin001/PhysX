@@ -12,6 +12,7 @@ add_library(PhysXDestructionGpuRuntime SHARED
     ${DESTRUCTION_REPO_ROOT}/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu)
 target_include_directories(PhysXDestructionGpuRuntime PRIVATE
     ../include ${PHYSX_ROOT_DIR}/include
+    ${PHYSX_SOURCE_DIR}/lowlevel/software/include
     ${PHYSX_SOURCE_DIR}/gpusimulationcontroller/include
     ${PHYSX_SOURCE_DIR}/gpucommon/include
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stressgpu

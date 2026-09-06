@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "NpScene.h"
+#include "NpDestructionBodyAllocator.h"
 #include "NpRigidStatic.h"
 #include "NpRigidDynamic.h"
 #include "NpArticulationReducedCoordinate.h"
@@ -233,6 +234,7 @@ NpScene::NpScene(const PxSceneDesc& desc, NpPhysics& physics) :
 
 NpScene::~NpScene()
 {
+    if(mDestructionBodyAllocator)mDestructionBodyAllocator->clear();
 #if PX_SUPPORT_OMNI_PVD
 	OMNI_PVD_WRITE_SCOPE_BEGIN(pvdWriter, pvdRegData)
 	OMNI_PVD_DESTROY_EXPLICIT(pvdWriter, pvdRegData, OMNI_PVD_CONTEXT_HANDLE, PxGpuDynamicsMemoryConfig, this->mGpuDynamicsConfig)
@@ -284,6 +286,7 @@ NpScene::~NpScene()
 	mScenePvdClient.releasePvdInstance();
 #endif
 	mScene.release();
+    PX_DELETE(mDestructionBodyAllocator);
 
 #if PX_SUPPORT_GPU_PHYSX
 	PX_DELETE(mDirectGPUAPI);
@@ -3829,9 +3832,20 @@ PxDestructionScene* NpScene::getDestructionScene()
     if(isAPIWriteForbidden() || !(mScene.getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
         || (mScene.getFlags() & PxSceneFlag::eENABLE_CCD))
         return NULL;
+    if(!mDestructionBodyAllocator)mDestructionBodyAllocator=PX_NEW(NpDestructionBodyAllocator)(*this);
+    if(!mDestructionBodyAllocator)return NULL;
     return mScene.getSimulationController()->getDestructionScene(this, [](void* scene) {
         return !static_cast<NpScene*>(scene)->isAPIWriteForbidden();
-    });
+    }, mDestructionBodyAllocator);
+}
+
+NpRigidDynamic* NpScene::getDestructionBodyCandidate(PxU32 cluster) const
+{
+    return mDestructionBodyAllocator?mDestructionBodyAllocator->find(cluster):NULL;
+}
+PxU32 NpScene::getNbDestructionBodyCandidates() const
+{
+    return mDestructionBodyAllocator?mDestructionBodyAllocator->size():0;
 }
 
 PxDirectGPUAPI& NpScene::getDirectGPUAPI()

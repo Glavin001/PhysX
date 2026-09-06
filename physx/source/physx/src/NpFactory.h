@@ -140,6 +140,9 @@ public:
 
 				// Rigid dynamic
 				PxRigidDynamic*							createRigidDynamic(const PxTransform& pose);
+                // Private transaction shell; register with addRigidDynamic only
+                // on commit. Pool release does not emit user deletion events.
+                NpRigidDynamic* createDestructionRigidDynamic();
 				void									addRigidDynamic(PxRigidDynamic*, bool lock=true);
 				void									releaseRigidDynamicToPool(NpRigidDynamic&);
 				// The rigid dynamics the factory tracks, regardless of scene membership. Used by the

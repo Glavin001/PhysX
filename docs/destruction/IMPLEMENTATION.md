@@ -8,14 +8,16 @@ persistent collision-owner transfer now updates actual GPU collision bindings an
 [PERSISTENT_GPU_COLLISION_OWNERSHIP.md](PERSISTENT_GPU_COLLISION_OWNERSHIP.md).
 The native task now prepares principal-axis solver-body candidates on the GPU;
 see [NATIVE_GPU_CLUSTER_BODIES.md](NATIVE_GPU_CLUSTER_BODIES.md).
-Native true splits still need solver-body allocation, invocation of that boundary
-and internal correction.
+Native true splits now reserve private BodySim/node slots automatically from
+GPU-compacted requests; see [NATIVE_GPU_BODY_ALLOCATION.md](NATIVE_GPU_BODY_ALLOCATION.md).
+GPU initialization of those reservations, collision-owner transfer and internal
+correction remain unfinished.
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 46/51 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
+suite is 47/52 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
@@ -99,13 +101,20 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   reject without material/topology commit. Analytic GPU and real PhysX GPU
   force/torque response tests pass; native allocation/correction is still open.
 
+- Native ownership-changing verdicts now reserve private inactive BodySim/node
+  slots from compact GPU-produced allocation requests. Unchanged owners retain
+  their GPU bindings without host traversal. Retry reuse, 256-child growth,
+  source validation, teardown and actor/deletion-event isolation pass with
+  sleeping enabled and disabled. Physical GPU slot initialization and correction
+  still remain before these bodies can be accepted.
+
 ## Remaining completion gates
 
 - Complete the initial scene-attached `PxDestructionScene` beyond stress bindings:
   SDK-wide stable generation-bearing structure/chunk/cluster handles,
   removal/reinsertion and crush ancestry.
 - Connect the internal persistent collision-owner transfer to native GPU topology
-  transactions, create solver bodies, and batch device ownership updates. Extend
+  transactions, initialize reserved solver bodies on GPU, and batch device ownership updates. Extend
   new-pair eligibility and cache invalidation to aggregate scenes and complete
   runtime geometry ownership; the between-step boundary is not the full path.
 - Complete material parity for merged/reduced bond groups, expose explicit

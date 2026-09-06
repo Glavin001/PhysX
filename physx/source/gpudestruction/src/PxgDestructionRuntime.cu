@@ -3,6 +3,7 @@
 #include "PxgDestructionTopology.h"
 #include "NvBlastExtStressGpu.h"
 #include <cuda_runtime.h>
+#include <cub/cub.cuh>
 #include <cuda.h>
 #include "PxgBodySim.h"
 #include "PxgDestructionBody.cuh"
@@ -193,12 +194,23 @@ __global__ void beginBodyPreparation(const PxDestructionTopologyTransactionStatu
 }
 __global__ void prepareCandidateBodies(PxDestructionTopologyDeviceView topology,
     const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
-    PxDestructionClusterBodyState* bodies,PxDestructionBodyPreparationStatus* status) {
+    PxDestructionClusterBodyState* bodies,PxDestructionBodyPreparationStatus* status,
+    PxDestructionTopologyDeviceView accepted,PxvDestructionBodyRequest* requests,PxU32* bodyIndices) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=status->count)return;
     const PxU32 root=topology.activeClusters[i];PxDestructionClusterBodyState body;
     const PxU32 error=destructionBody::prepare(topology.clusters[root],topology.motions[i],body);
     body.cluster=root;body.sourceBody=clusters[chunks[root].cluster].body;bodies[i]=body;
+    const PxU32 needsBody=accepted.activeChunks[root] && accepted.chunkCluster[root]==root?0u:1u;
+    requests[i]={root,body.sourceBody,body.supported,needsBody,i};
+    bodyIndices[i]=needsBody?PX_INVALID_U32:body.sourceBody;
+    if(needsBody)atomicAdd(&status->allocationRequests,1u);
     if(error)atomicOr(&status->error,error);
+}
+struct NeedsBody {
+    __host__ __device__ bool operator()(const PxvDestructionBodyRequest& request) const {return request.needsBody!=0;}
+};
+__global__ void bindReservedBodySlots(const PxvDestructionBodyRequest* requests,const PxU32* newIndices,PxU32 count,PxU32* indices) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<count)indices[requests[i].candidateSlot]=newIndices[i];
 }
 __global__ void finishBodyPreparation(const PxDestructionTopologyTransactionStatus* transaction,
     PxDestructionBodyPreparationStatus* status,PxDestructionStageStatus* stage) {
@@ -231,10 +243,18 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionClusterMotion* mProvisionalMotion{};
     PxDestructionClusterBodyState* mTrialBodies{};
     PxDestructionBodyPreparationStatus* mBodyPreparation{};
+    PxDestructionBodyPreparationStatus* mHostBodyPreparation{};
+    PxvDestructionBodyAllocator* mBodyAllocator{};
+    PxvDestructionBodyRequest* mBodyRequests{};
+    PxvDestructionBodyRequest* mCompactBodyRequests{};
+    PxU32* mReturnedBodyIndices{};
+    void* mBodyRequestScratch{};size_t mBodyRequestScratchBytes{};
+    PxU32* mTrialBodyIndices{};
+    PxDestructionBodyAllocationStatus* mBodyAllocation{};
     PxgDestructionEdit* mTopologyEdits{};PxU32* mTopologyCount{};PxU32* mTopologyAccept{};PxU32 mEditCapacity{};
     bool mPending=false; bool mFailed=false;
 public:
-    Runtime(CUcontext c,void* scene,bool(*gate)(void*)) : mContext(c),mScene(scene),mWriteAllowed(gate) {
+    Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
         Context current(c);
         check(cudaStreamCreateWithFlags(&mStream,cudaStreamNonBlocking));
         check(cudaEventCreateWithFlags(&mInput,cudaEventDisableTiming));
@@ -251,6 +271,12 @@ public:
         cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaStreamDestroy(mStream);
     }
     void clear() {
+        if(mBodyAllocator)mBodyAllocator->clear();
+        cudaFree(mCompactBodyRequests);mCompactBodyRequests=nullptr;
+        cudaFree(mReturnedBodyIndices);mReturnedBodyIndices=nullptr;
+        cudaFree(mBodyRequestScratch);mBodyRequestScratch=nullptr;mBodyRequestScratchBytes=0;
+        cudaFree(mBodyRequests);mBodyRequests=nullptr;cudaFree(mTrialBodyIndices);mTrialBodyIndices=nullptr;
+        cudaFree(mBodyAllocation);mBodyAllocation=nullptr;cudaFreeHost(mHostBodyPreparation);mHostBodyPreparation=nullptr;
         if(mTopology)mTopology->release();mTopology=nullptr;
         cudaFree(mProvisionalMotion);mProvisionalMotion=nullptr;
         cudaFree(mTrialBodies);mTrialBodies=nullptr;cudaFree(mBodyPreparation);mBodyPreparation=nullptr;
@@ -296,7 +322,8 @@ public:
         std::vector<ExtStressGpuBond> bonds(d.bondCount);std::vector<Lookup> map;
         std::vector<PxRigidDynamicGPUIndex> bodies(d.clusterCount);
         for(PxU32 i=0;i<d.clusterCount;++i) {
-            if(d.clusters[i].body==PX_INVALID_U32 || !d.clusters[i].centerOfMass.isFinite())return false;
+            if(d.clusters[i].body==PX_INVALID_U32 || !d.clusters[i].centerOfMass.isFinite()
+                || !mBodyAllocator || !mBodyAllocator->isValidSource(d.clusters[i].body))return false;
             bodies[i]=d.clusters[i].body;
         }
         for(PxU32 i=0;i<d.chunkCount;++i) {
@@ -388,6 +415,13 @@ public:
                 allocate(mTopologyAccept,1);
                 allocate(mTrialBodies,d.chunkCount);allocate(mBodyPreparation,1);
                 check(cudaMemset(mBodyPreparation,0,sizeof(*mBodyPreparation)));
+                check(cudaMallocHost(&mHostBodyPreparation,sizeof(*mHostBodyPreparation)));*mHostBodyPreparation={};
+                allocate(mBodyRequests,d.chunkCount);allocate(mTrialBodyIndices,d.chunkCount);allocate(mBodyAllocation,1);
+                check(cudaMemset(mBodyAllocation,0,sizeof(*mBodyAllocation)));
+                allocate(mCompactBodyRequests,d.chunkCount);allocate(mReturnedBodyIndices,d.chunkCount);
+                check(cub::DeviceSelect::If(nullptr,mBodyRequestScratchBytes,mBodyRequests,mCompactBodyRequests,
+                    &mBodyPreparation->allocationRequests,d.chunkCount,NeedsBody{},mStream));
+                check(cudaMalloc(&mBodyRequestScratch,mBodyRequestScratchBytes));
                 mEditCapacity=d.chunkCount+d.bondCount;
                 allocate(mProvisionalMotion,d.clusterCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
             }
@@ -419,6 +453,7 @@ public:
         }
         if(mTopology) {
             v.trialBodies=mTrialBodies;v.bodyPreparation=mBodyPreparation;
+            v.trialBodyIndices=mTrialBodyIndices;v.bodyAllocation=mBodyAllocation;
             v.acceptedTopology=mTopology->accepted();v.trialTopology=mTopology->trial();v.topologyTransaction=mTopology->status();
             v.acceptedTopology.readyEvent=v.trialTopology.readyEvent=mReady;
         }
@@ -433,6 +468,7 @@ public:
                 allocate(fresh,n);cudaFree(mPairs);mPairs=fresh;mCapacity=n;}
             check(cudaMemsetAsync(mCount,0,sizeof(*mCount),mStream));
             startFrame<<<1,1,0,mStream>>>(mStatus);
+            if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             check(cudaEventRecord(mInput,mStream));return true;
         }catch(...){mFailed=true;return false;}
     }
@@ -479,7 +515,7 @@ public:
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
                 inspectTopologyTransaction<<<1,1,0,mStream>>>(mTopology->status(),mStatus);
                 beginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation);
-                prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation);
+                prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation,mTopology->accepted(),mBodyRequests,mTrialBodyIndices);
                 finishBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus);
                 beginUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopology->status(),mStatus,mTopologyAccept);
                 checkUnchangedMotionCommit<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept);
@@ -501,19 +537,50 @@ public:
             }
             if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus);
             check(cudaGetLastError());
+            if(mBodyPreparation)check(cudaMemcpyAsync(mHostBodyPreparation,mBodyPreparation,sizeof(*mBodyPreparation),cudaMemcpyDeviceToHost,mStream));
             check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));mPending=true;return true;
         }catch(...){mFailed=true;return false;}
     }
+    void reserveBodySlots() {
+        if(!mTopology)return;
+        PxDestructionBodyAllocationStatus allocation{};
+        if(mHostStatus->error==8u && mHostBodyPreparation->valid) {
+            const PxU32 count=mHostBodyPreparation->count,requested=mHostBodyPreparation->allocationRequests;
+            std::vector<PxvDestructionBodyRequest> requests(requested);std::vector<PxU32> indices(requested);
+            if(requested) {
+                // Stable device compaction: only NEW cluster allocation records
+                // cross to CPU, not unchanged cluster ownership or body states.
+                check(cub::DeviceSelect::If(mBodyRequestScratch,mBodyRequestScratchBytes,mBodyRequests,mCompactBodyRequests,
+                    &mBodyPreparation->allocationRequests,count,NeedsBody{},mStream));
+                check(cudaMemcpyAsync(requests.data(),mCompactBodyRequests,requested*sizeof(*mBodyRequests),cudaMemcpyDeviceToHost,mStream));
+                check(cudaStreamSynchronize(mStream));
+            }
+            allocation.count=count;allocation.generation=mHostBodyPreparation->generation;
+            if(mBodyAllocator && mBodyAllocator->prepare(requests.data(),requested,indices.data())) {
+                allocation.valid=1;allocation.reserved=requested;
+                if(requested) {
+                    check(cudaMemcpyAsync(mReturnedBodyIndices,indices.data(),requested*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));
+                    bindReservedBodySlots<<<(requested+127)/128,128,0,mStream>>>(mCompactBodyRequests,mReturnedBodyIndices,requested,mTrialBodyIndices);
+                    // The local host index vector must outlive its upload.
+                    check(cudaStreamSynchronize(mStream));
+                }
+            } else {allocation.error=1;mHostStatus->error|=256u;if(mBodyAllocator)mBodyAllocator->clear();}
+        } else {if(mBodyAllocator)mBodyAllocator->clear();return;}
+        check(cudaMemcpyAsync(mBodyAllocation,&allocation,sizeof(allocation),cudaMemcpyHostToDevice,mStream));
+        check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
+        check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+    }
     bool finish() override {
-        try {Context current(mContext);if(mPending){check(cudaEventSynchronize(mReady));mPending=false;}
+        try {Context current(mContext);if(mPending){check(cudaEventSynchronize(mReady));mPending=false;reserveBodySlots();}
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
-        }catch(...){mFailed=true;mHostStatus->error|=4u;return false;}
+        }catch(...){mFailed=true;mHostStatus->error|=4u;
+            if(mBodyAllocator)mBodyAllocator->clear();return false;}
     }
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntime(CUcontext c,void* scene,bool(*gate)(void*)) {
-    try {return new physx::Runtime(c,scene,gate);}catch(...){return nullptr;}
+PxCreateDestructionRuntime(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+    try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }

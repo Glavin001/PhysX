@@ -81,6 +81,7 @@ class NpAggregate;
 class NpObjectFactory;
 class NpRigidStatic;
 class NpRigidDynamic;
+class NpDestructionBodyAllocator;
 class NpConstraint;
 class NpArticulationLink;
 class NpArticulationJointReducedCoordinate;
@@ -350,6 +351,9 @@ class NpScene : public NpSceneAccessor, public PxUserAllocated
 
 	virtual 		PxDirectGPUAPI&					getDirectGPUAPI()	PX_OVERRIDE	PX_FINAL;
     virtual PxDestructionScene* getDestructionScene() PX_OVERRIDE PX_FINAL;
+    // Internal transaction reservations, not committed public actors.
+    NpRigidDynamic* getDestructionBodyCandidate(PxU32 cluster) const;
+    PxU32 getNbDestructionBodyCandidates() const;
 
 	// NpSceneAccessor
 	virtual			PxsSimulationController*		getSimulationController()	PX_OVERRIDE PX_FINAL;
@@ -823,6 +827,7 @@ private:
 #endif
 
 					NpPhysics&					mPhysics;
+    NpDestructionBodyAllocator* mDestructionBodyAllocator = NULL;
 					const char*				    mName;
 };
 

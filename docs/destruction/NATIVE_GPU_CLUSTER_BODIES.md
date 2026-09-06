@@ -104,3 +104,11 @@ Verified: **46/51 native tests pass**, with the same five known failures; all
 three GPU memory checks report zero errors and four installed CPU/GPU consumer
 runs pass. Exact commands, outcomes and source/library/log hashes are in
 [native-gpu-cluster-bodies-20260905.json](qualification/native-gpu-cluster-bodies-20260905.json).
+
+## Native allocation follow-up
+
+The subsequent native stage now reserves private BodySim/node slots automatically
+from compact GPU allocation metadata; see
+[NATIVE_GPU_BODY_ALLOCATION.md](NATIVE_GPU_BODY_ALLOCATION.md). The physical
+GPU-state initialization, collision transfer and one internal resimulation are
+still required before those reservations can become accepted cluster bodies.
