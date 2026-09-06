@@ -550,9 +550,11 @@ namespace Sc
 
 		PX_FORCE_INLINE	const BroadphaseManager&	getBroadphaseManager()				const	{ return mBroadphaseManager;			}
 		PX_FORCE_INLINE	BroadphaseManager&			getBroadphaseManager()						{ return mBroadphaseManager;			}
+        // Trial notifications are not accepted results while native correction is incomplete.
+        bool isSimulationResultAccepted() const;
 		PX_FORCE_INLINE	bool						fireOutOfBoundsCallbacks()
 													{
-														return mBroadphaseManager.fireOutOfBoundsCallbacks(mAABBManager, *mElementIDPool, mContextId);
+														return isSimulationResultAccepted() && mBroadphaseManager.fireOutOfBoundsCallbacks(mAABBManager, *mElementIDPool, mContextId);
 													}
 		// Collision filtering
 						void						setFilterShaderData(const void* data, PxU32 dataSize);

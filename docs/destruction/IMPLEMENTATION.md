@@ -1,5 +1,8 @@
 # First-class GPU destruction implementation
 
+**Immediate priority:** the native impact proof and recorded demo described in
+[MVP.md](MVP.md). Library polish and the full scaling campaign follow that proof.
+
 **The complete plan is not implemented or qualified yet.** The repository now
 contains a buildable reference SDK, a native scene GPU contact/stress/material stage, and
 GPU topology/motion transactions. Native steps now commit bond cuts that retain
@@ -77,6 +80,13 @@ with the four failures at that milestone unchanged. The quiet-load recurrence co
 is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
 
 ## Completed and verified work
+
+- Incomplete native trials now withhold pose, contact, trigger, wake/sleep and
+  joint-break notifications. Provisional joint-break verdicts no longer destroy
+  constraints. CPU/GPU accepted controls and synchronous/split-fetch rejection
+  controls pass; the targeted collision-preparation, correction-body and
+  publication CTest run passes 3/3. This gates callbacks; it does not implement
+  full motion, scene-query or filter-callback rollback.
 
 - Cloned fork main at `4f2103c3a9052906296defb12166753450ef787c`; created both branches.
 - Imported source changes and fixtures with hashes, preserving upstream changes.

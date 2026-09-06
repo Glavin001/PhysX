@@ -2786,7 +2786,7 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 
 void Sc::Scene::fireOnAdvanceCallback()
 {
-	if(!mSimulationEventCallback)
+	if(!mSimulationEventCallback || !isSimulationResultAccepted())
 		return;
 
 	const PxU32 nbPosePreviews = mPosePreviewBodies.size();
@@ -2853,7 +2853,9 @@ void Sc::Scene::finalizationPhase(PxBaseTask* /*continuation*/)
 
 	fireOnAdvanceCallback();  // placed here because it needs to be done after sleep check and after potential CCD passes
 
-	checkConstraintBreakage(); // Performs breakage tests on breakable constraints
+    // A trial constraint verdict must not destroy a joint before correction.
+    if (isSimulationResultAccepted())
+	    checkConstraintBreakage(); // Performs breakage tests on breakable constraints
 
 	PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);
 

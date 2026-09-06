@@ -1861,6 +1861,11 @@ void Sc::Scene::deallocateConstraintBlock(void* ptr, PxU32 size)
 		PX_FREE(ptr);
 }
 
+bool Sc::Scene::isSimulationResultAccepted() const
+{
+    return mSimulationController->getDestructionError() == 0;
+}
+
 void Sc::Scene::postReportsCleanup()
 {
 	mElementIDPool->processPendingReleases();
@@ -1949,12 +1954,13 @@ void Sc::Scene::finalizeContactStreamAndCreateHeader(PxContactPairHeader& header
 
 const PxArray<PxContactPairHeader>& Sc::Scene::getQueuedContactPairHeaders()
 {
+    mQueuedContactPairHeaders.clear();
+    if (!isSimulationResultAccepted()) return mQueuedContactPairHeaders;
 	const PxU32 removedShapeTestMask = PxU32(ContactStreamManagerFlag::eTEST_FOR_REMOVED_SHAPES);
 
 	ActorPairReport*const* actorPairs = mNPhaseCore->getContactReportActorPairs();
 	PxU32 nbActorPairs = mNPhaseCore->getNbContactReportActorPairs();
 	mQueuedContactPairHeaders.reserve(nbActorPairs);
-	mQueuedContactPairHeaders.clear();
 
 	for (PxU32 i = 0; i < nbActorPairs; i++)
 	{
@@ -1984,7 +1990,7 @@ Threading: called in the context of the user thread, but only after the physics 
 */
 void Sc::Scene::fireQueuedContactCallbacks()
 {
-	if(mSimulationEventCallback)
+	if(mSimulationEventCallback && isSimulationResultAccepted())
 	{
 		const PxU32 removedShapeTestMask = PxU32(ContactStreamManagerFlag::eTEST_FOR_REMOVED_SHAPES);
 
@@ -2043,7 +2049,7 @@ void Sc::Scene::fireTriggerCallbacks()
 		//
 		const bool hasRemovedShapes = mElementIDPool->getDeletedIDCount() > 0;
 
-		if(mSimulationEventCallback)
+		if(mSimulationEventCallback && isSimulationResultAccepted())
 		{
 			if (hasRemovedShapes)
 			{
@@ -2149,7 +2155,7 @@ void Sc::Scene::fireCallbacksPostSync()
 	const PxU32 maxGpuSizeNeeded = gpu_cleanUpSleepAndWokenBodies();
 #endif
 
-	if(mSimulationEventCallback || mOnSleepingStateChanged)
+	if((mSimulationEventCallback || mOnSleepingStateChanged) && isSimulationResultAccepted())
 	{
 		// allocate temporary data
 		const PxU32 nbSleep = mSleepBodies.size();

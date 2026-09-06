@@ -111,7 +111,7 @@ void Sc::Scene::checkConstraintBreakage()
 
 void Sc::Scene::fireBrokenConstraintCallbacks()
 {
-	if(!mSimulationEventCallback)
+	if(!mSimulationEventCallback || !isSimulationResultAccepted())
 		return;
 
 	const PxU32 count = mBrokenConstraints.size();

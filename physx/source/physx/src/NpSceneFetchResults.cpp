@@ -591,7 +591,7 @@ bool NpScene::fetchResultsStart(const PxContactPairHeader*& contactPairs, PxU32&
 
 	const PxArray<PxContactPairHeader>& pairs = mScene.getQueuedContactPairHeaders();
 	nbContactPairs = pairs.size();
-	contactPairs = pairs.begin();
+	contactPairs = nbContactPairs ? pairs.begin() : NULL;
 
 	mBetweenFetchResults = true;
 	return true;
