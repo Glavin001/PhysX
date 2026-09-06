@@ -1,0 +1,141 @@
+{
+  "status": "consumer-qualified-native-engine-incomplete",
+  "scope": "GPU consumer and optional observations; this large capture predates the following direct native body-input refactor",
+  "capture": "out/recordings/native-gpu-resident-consumer-large-20260906",
+  "capture_exit_code": 0,
+  "summary": {
+    "physics_ms_min": 1.03336,
+    "physics_ms_mean": 183.424,
+    "simulation_realtime_fraction": 0.0908641,
+    "gpu_render_submit_and_export_ms_mean": 1.30895,
+    "gpu_render_submit_and_export_ms_max": 34.1104,
+    "topology_stats_readback_bytes": 43200,
+    "gpu_rendered_frames": 1800,
+    "gpu_renderer": "NVIDIA GeForce RTX 4090/PCIe/SSE2",
+    "consumer_pose_readback_bytes": 0,
+    "consumer_query_readback_bytes": 4104,
+    "export_pixel_readback_bytes": 2799360000,
+    "backend": "native PhysX GPU task graph + resident CUDA destruction",
+    "status": "completed",
+    "frames": 1800,
+    "seconds": 30,
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "peak_clusters": 97116,
+    "projectiles": 1024,
+    "broken_bonds": 200284,
+    "corrections": 368,
+    "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+    "island_boundary_audit_enabled": false,
+    "motion_audit_enabled": false,
+    "max_motion_position_error": 0,
+    "record_fps": 60,
+    "gpu_island_repair": true,
+    "gpu_pre_solve_islands": true,
+    "gpu_pre_solve_support": true,
+    "gpu_pre_solve_contacts": true,
+    "preserve_contact_pairs": true,
+    "recorded_state": false,
+    "correction_limit": 1,
+    "physics_ms_p50": 118.658,
+    "physics_ms_p95": 605.224,
+    "physics_ms_p99": 1047.45,
+    "physics_ms_max": 1474.74,
+    "missed_16_67ms": 1697,
+    "stress_included_in_physics_time": true,
+    "isolated_performance_qualification": false,
+    "sleeping": false,
+    "crushing_material_enabled": false
+  },
+  "contact_graph": {
+    "scope": "contact graph and pre-solver island metadata submissions (including correction); excludes diagnostic reads, other physics and recording transfers",
+    "graph_builds": 2168,
+    "same_pass_reuses": 2168,
+    "host_observations": 2085,
+    "sorted_graphs": 4170,
+    "device_to_host_bytes": 5612461488,
+    "gpu_connected_answers": 35511030,
+    "gpu_splits": 3406943,
+    "retained_edges_uploaded": 15269,
+    "retained_host_to_device_bytes": 488608,
+    "retained_delta_updates": 30538,
+    "retained_slot_capacity": 1806336,
+    "peak_retained_edges": 2878,
+    "boundary_audits": 0,
+    "boundary_audit_failures": 0,
+    "cuda_pre_solve_support_passes": 2158,
+    "cuda_pre_solve_contact_passes": 2158,
+    "cuda_pre_solve_contact_pairs": 869843295,
+    "cuda_pre_solve_retired_host_bytes": 0,
+    "cuda_pre_solve_full_host_equivalent_bytes": 2735731184,
+    "cuda_pre_solve_node_updates": 227714,
+    "cuda_pre_solve_node_full_snapshots": 10,
+    "cuda_pre_solve_host_to_device_bytes": 5465136,
+    "cuda_pre_solve_passes": 2158,
+    "cuda_pre_solve_fallbacks": 10,
+    "solver_metadata_gpu_produced_passes": 2158,
+    "solver_metadata_passes": 2168,
+    "solver_metadata_full_uploads": 10,
+    "solver_metadata_page_uploads": 0,
+    "solver_metadata_quiet_passes": 0,
+    "solver_metadata_host_to_device_bytes": 622032,
+    "solver_metadata_full_equivalent_bytes": 834557016,
+    "solver_metadata_pages": 0,
+    "registry_mismatch_fallbacks": 0
+  },
+  "video": {
+    "programs": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 960,
+        "height": 540,
+        "nb_frames": "1800"
+      }
+    ],
+    "format": {
+      "duration": "30.000000"
+    }
+  },
+  "build_provenance": {
+    "parent_revision": "ac2a91de4964a691dc63776f3e714a2c373f7259",
+    "artifacts": {
+      "out/destruction-sdk/reference/native_destruction_demo": "7e133ea2016efa2cc0a5eca8b65d872867e7cdf307670141e4334827579500b3",
+      "out/destruction-sdk/reference/libnative_gpu_visuals.so": "c2bd1593e1368b5a40750a236087ef2f311b3368af52381cc5e7ae3dcd31bf00",
+      "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "5abc7da4813320bc4f49aa58027ad023de728a64ff49288d871ccceb13c6fcd9",
+      "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "5f94c0a8417a04cc21ee1e5d6cd1fa813df2d24e563f8f8c8ea2cc5bad697c6e"
+    },
+    "sources": {
+      "demos/blast-stress-demo/native_destruction_main.cpp": "1dc4e3caee0863f1c2f9123675c48a11dc9f0b005809c9b2ca78f8516a97a856",
+      "demos/blast-stress-demo/native_gpu_consumer.cpp": "531e1b62140dd1719265871e37d2dfa393d28ec9efb1a36af2e0e2d93f0f5245",
+      "demos/blast-stress-demo/native_gpu_visuals.cu": "c4faca79230b6387aa2b7614131283022d9d7ee0c2b33c07e1bbdc0c275e65e7",
+      "demos/blast-stress-demo/native_gpu_visuals.h": "b65b9e267a213a958ac5f3c0ed943ff7ff3dc9a55a1ca91da42f4e674cb6020c",
+      "demos/blast-stress-demo/native_gpu_consumer.h": "9a413027e009b98c85e84459bd7e4f53f4a13f315c7df8dc65f0293f93f68b75",
+      "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "e4ff2e71040742f3a0fe5c2f2d7b58a2a15c47e41df9bee64a10ad8c5397a27f",
+      "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "a9498dd9eb35d79f6ec25de1fd8143e0f5030f794d5d982ed58bf702727347db",
+      "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "bc5dfa3efc9fd43a6d9f79abb003ce5c50f0ce2f98b3ccf365ed9d07194dbf86"
+    },
+    "note": "Captured before native body-input integration edits. Libraries will not be rebuilt until recording exits."
+  },
+  "artifact_sha256": {
+    "out/gpu-consumer-final-build.log": "81ec584aa2b1af5cebb2d5ce4980ca2f98797c556529533573f79f7301af8820",
+    "out/gpu-consumer-final-tests.log": "001607476ee93ac9972ca06f61bd466300719d27ff78b4799868fe74db194a2c",
+    "out/gpu-consumer-final-memcheck.log": "637eead3c74f00cf07e16eca3ce0a9972e5c7a65e78682c5a0d49d71f2629ebf",
+    "out/gpu-consumer-analysis-tests.log": "b6a161abed43b9a0dba9259cd451b39b20b10425ac13cc14786554c0e6fac7f1",
+    "out/native-gpu-resident-consumer-large-20260906.mp4": "fdbf97c9e1cdd0392ce9177642ab5f6f3b399df266f971d12f253cba5ac6da6d",
+    "out/native-gpu-resident-consumer-large-timing-v2-20260906.mp4": "0435a92cda1e2b45e0ea193a088060f1914c503780f4e3dcec81b2dcdb455cce"
+  },
+  "tests": {
+    "focused_native": 35,
+    "focused_failures": 0,
+    "consumer_memcheck_exit_code": 0,
+    "consumer_memcheck_errors": 0
+  },
+  "remaining": [
+    "Native CPU body/shape/contact/island lifecycle bridge",
+    "Sleeping-safe correction",
+    "Native conditional graph memory qualification",
+    "Isolated performance qualification"
+  ]
+}

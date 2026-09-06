@@ -54,7 +54,7 @@ python3 tools/scripts/build-destruction-sdk.py --jobs 4
 ctest --test-dir out/destruction-sdk -R '^physx_native_gpu_resimulation$' --output-on-failure
 out/destruction-sdk/reference/native_destruction_demo \
   --grid 3 --waves 4 --seconds 30 --stress-iterations 2048 \
-  --output out/recordings/native-proof-new
+  --record-state 1 --output out/recordings/native-proof-new
 ```
 
 The output directory must not exist. The demo creates homogeneous brittle block
@@ -71,7 +71,7 @@ Build the existing offline renderer if needed:
 cargo build --release --locked --manifest-path demos/blast-stress-demo/recorder/Cargo.toml
 demos/blast-stress-demo/recorder/target/release/blast-mini-city-recorder render \
   --state out/recordings/native-proof-new/native.twstate \
-  --output out/recordings/native-proof-new/native-physx-gpu-destruction.mp4 \
+  --record-state 1 --output out/recordings/native-proof-new/native-physx-gpu-destruction.mp4 \
   --camera 0 --compact-hud --ground-y 0 \
   --title 'NATIVE PHYSX GPU + CUDA DESTRUCTION | 3996 CHUNKS | 1 RESIM LIMIT'
 ```
@@ -209,10 +209,10 @@ into a fresh output directory:
 ```sh
 out/destruction-sdk/reference/native_destruction_demo \
   --grid 16 --waves 1 --seconds 3 --stress-iterations 2048 \
-  --output out/recordings/native-scale-new
+  --record-state 1 --output out/recordings/native-scale-new
 demos/blast-stress-demo/recorder/target/release/blast-mini-city-recorder render \
   --state out/recordings/native-scale-new/native.twstate \
-  --output out/recordings/native-scale-new/overview.mp4 \
+  --record-state 1 --output out/recordings/native-scale-new/overview.mp4 \
   --camera 0 --compact-hud --ground-y 0 \
   --focus-center 120 4 120 --focus-radius 130 --camera-margin 0.05 \
   --title 'NATIVE PHYSX GPU + CUDA | 113664 CHUNKS | 1 RESIM | OFFLINE PLAYBACK'

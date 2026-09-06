@@ -4,7 +4,8 @@ This checkout builds the PhysX GPU engine, imported destruction reference SDK,
 new GPU topology/motion primitives, and a native scene GPU stress stage. The
 engine-integrated destruction backend is still under implementation; the initial
 `PxDestructionScene` stress API is described in [NATIVE_GPU_STRESS.md](NATIVE_GPU_STRESS.md)
-and does not yet commit fractures or perform internal correction.
+and has since gained one internal rigid correction; current support and
+remaining restrictions are documented in [NATIVE_MVP.md](NATIVE_MVP.md).
 
 Linux prerequisites: CMake >= 3.24, a C++ compiler, CUDA toolkit, NVIDIA driver.
 The current qualification target is the RTX 4090 (CUDA architecture 89).
@@ -84,3 +85,7 @@ The standalone demo/video pipeline is documented in [DEMO.md](DEMO.md).
 `python3 tools/scripts/record-destruction-demo.py --build` builds the SDK and
 recorder, runs the GPU captures with strict checks, and writes a local MP4 plus
 reproducibility evidence. It never starts or modifies a game service.
+
+The direct CUDA/OpenGL demo consumer is built with `--gpu-renderer`. Its
+[GPU rendering instructions](GPU_RENDER_CONSUMER.md) cover event ordering,
+optional CPU observations and measured-timing video annotation.

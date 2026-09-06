@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--cc', default='clang')
     parser.add_argument('--cxx', default='clang++')
     parser.add_argument('--test', action='store_true')
+    parser.add_argument('--gpu-renderer', action='store_true', help='Require EGL/OpenGL and build the direct CUDA graphics demo consumer')
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error('--jobs must be positive')
@@ -44,6 +45,7 @@ def main():
         '-DCMAKE_BUILD_TYPE=Release', f'-DCMAKE_CXX_COMPILER={args.cxx}',
         f'-DCMAKE_CUDA_COMPILER={args.cuda}', f'-DPHYSX_ROOT={sdk}',
         '-DBLAST_ENABLE_CUDA_STRESS=ON', f'-DCMAKE_CUDA_ARCHITECTURES={args.cuda_architectures}',
+        f'-DNATIVE_GPU_EGL_RENDERER={"ON" if args.gpu_renderer else "OFF"}',
         f'-DCMAKE_INSTALL_PREFIX={out / "install"}')
     run('cmake', '--build', out / 'destruction-sdk', f'-j{args.jobs}')
     run('cmake', '--install', out / 'destruction-sdk')

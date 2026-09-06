@@ -687,13 +687,39 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_include_directories(native_bombardment_test PRIVATE ${PHYSX_ROOT}/include)
     add_test(NAME physx_native_demo_projectile_launch COMMAND native_bombardment_test)
 
-    add_executable(native_destruction_demo native_destruction_main.cpp physx_scene.cpp state_writer.cpp)
+    # A separate CUDA DSO keeps application kernels out of PhysX's private
+    # kernel-wrangler registration. This is a device consumer, not a solver.
+    add_library(native_gpu_visuals SHARED native_gpu_visuals.cu)
+    target_include_directories(native_gpu_visuals PUBLIC ${PHYSX_ROOT}/include ${CUDAToolkit_INCLUDE_DIRS})
+    target_compile_definitions(native_gpu_visuals PUBLIC NDEBUG)
+    target_link_libraries(native_gpu_visuals PRIVATE CUDA::cudart)
+    set_target_properties(native_gpu_visuals PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    target_compile_options(native_gpu_visuals PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+    add_executable(native_gpu_visuals_test tests/native_gpu_visuals_test.cpp)
+    target_link_libraries(native_gpu_visuals_test PRIVATE native_gpu_visuals CUDA::cuda_driver)
+    add_test(NAME physx_native_gpu_visual_consumer COMMAND native_gpu_visuals_test)
+    option(NATIVE_GPU_EGL_RENDERER "Enable the optional CUDA/OpenGL native demo renderer" OFF)
+    if(NATIVE_GPU_EGL_RENDERER)
+        find_package(OpenGL REQUIRED COMPONENTS OpenGL EGL)
+    endif()
+    add_executable(native_destruction_demo native_destruction_main.cpp native_gpu_consumer.cpp physx_scene.cpp state_writer.cpp)
+    target_link_libraries(native_destruction_demo PRIVATE native_gpu_visuals)
+    if(NATIVE_GPU_EGL_RENDERER)
+        target_compile_definitions(native_destruction_demo PRIVATE NATIVE_GPU_EGL)
+        target_link_libraries(native_destruction_demo PRIVATE OpenGL::OpenGL OpenGL::EGL)
+    endif()
     target_compile_definitions(native_destruction_demo PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_destruction_demo PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES}
         "${PHYSX_ROOT}/source/gpudestruction/include")
     target_link_options(native_destruction_demo PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_destruction_demo PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_test(NAME physx_native_gpu_consumer COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_gpu_consumer_test.py $<TARGET_FILE:native_destruction_demo>)
+    if(NATIVE_GPU_EGL_RENDERER)
+        add_test(NAME physx_native_gpu_renderer COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_gpu_consumer_test.py $<TARGET_FILE:native_destruction_demo> --render)
+    endif()
     add_test(NAME physx_native_gpu_retained_contact_graph COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_retained_contact_test.py $<TARGET_FILE:native_destruction_demo>)
 

@@ -6,6 +6,7 @@
 #include "native_bombardment.h"
 #include "native_phase_profiler.h"
 #include "native_graph_diagnostics.h"
+#include "native_gpu_consumer.h"
 #include <PxDestructionScene.h>
 #include <cuda.h>
 #include <algorithm>
@@ -30,7 +31,7 @@ struct Shot {PxRigidDynamic* actor;unsigned visual;};
 using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
-    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60;bool profilePhases=false,recordState=true,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath;
+    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,videoPath,gpuCamera="overview";bool gpuRender=false;
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-phases"){require(std::string(value)=="0" || std::string(value)=="1","--profile-phases requires 0 or 1");profilePhases=std::string(value)=="1";}
         else if(flag=="--preserve-contact-pairs"){require(std::string(value)=="0" || std::string(value)=="1","--preserve-contact-pairs requires 0 or 1");preservePairs=std::string(value)=="1";}
@@ -41,6 +42,9 @@ int run(int argc,char** argv){
         else if(flag=="--audit-islands"){require(std::string(value)=="0" || std::string(value)=="1","--audit-islands requires 0 or 1");auditIslands=std::string(value)=="1";}
         else if(flag=="--audit-motion"){require(std::string(value)=="0" || std::string(value)=="1","--audit-motion requires 0 or 1");auditMotion=std::string(value)=="1";}
         else if(flag=="--record-fps"){recordFps=std::stoul(value);require(recordFps==30 || recordFps==60,"--record-fps requires 30 or 60");}
+        else if(flag=="--gpu-render"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-render requires 0 or 1");gpuRender=std::string(value)=="1";}
+        else if(flag=="--gpu-video")videoPath=value;
+        else if(flag=="--gpu-camera"){gpuCamera=value;require(gpuCamera=="close" || gpuCamera=="overview","--gpu-camera requires close or overview");}
         else if(flag=="--state-path")statePath=value;
         else if(flag=="--record-state"){require(std::string(value)=="0" || std::string(value)=="1","--record-state requires 0 or 1");recordState=std::string(value)=="1";}
         else if(flag=="--grid")grid=std::stoul(value);else if(flag=="--waves")waves=std::stoul(value);
@@ -103,15 +107,28 @@ int run(int argc,char** argv){
     auto* destruction=scene.getDestructionScene();require(destruction && destruction->configureStress(desc),"native destruction configuration failed");
     const PxVec3 center(float(grid-1)*8,4,float(grid-1)*8);std::array<Camera,4> cameras;
     for(unsigned i=0;i<4;++i){const float angle=float(i)*1.5707963f+.6f;cameras[i].eye=center+PxVec3(std::cos(angle)*float(grid)*24,float(grid)*13,std::sin(angle)*float(grid)*24);cameras[i].direction=(center-cameras[i].eye).getNormalized();}
+    require(videoPath.empty() || gpuRender,"--gpu-video requires --gpu-render 1");
+    require(videoPath.empty() || !std::filesystem::exists(videoPath),"GPU video already exists");
+    std::vector<NativeGpuVisual> gpuVisuals;gpuVisuals.reserve(chunks.size());
+    for(const auto& chunk:chunks)gpuVisuals.push_back({chunk.position,half,chunk.building%4});
+    NativeGpuConsumer gpuConsumer(cuda,*destruction,gpuVisuals,buildings*waves);
+    Camera gpuView=cameras[0];
+    if(gpuCamera=="close"){
+        const PxVec3 focus(grid==1?0:8,5,grid==1?0:8);
+        gpuView.eye=focus+PxVec3(29,21,-39);gpuView.direction=(focus-gpuView.eye).getNormalized();
+    }
+    if(gpuRender)gpuConsumer.enableRenderer(960,540,gpuView,videoPath,recordFps);
+    const bool observePoses=recordState || auditMotion;
+    unsigned long long poseReadbackBytes=0;
     StateWriter writer;if(recordState)require(writer.open(statePath,recordFps,recordFrames,960,540,buildings,seconds,0,cameras),"state output failed");
     if(recordState)for(unsigned i=0;i<chunks.size();++i){VisualActor visual;visual.parameters=half;visual.part=chunks[i].building%4;require(writer.defineActor(i,visual),"chunk visual definition failed");}
     std::ofstream telemetry(output+"/native.frames.csv");
-    telemetry<<"step,simulation_seconds,physics_step_ms,stress_solve_ms,frame_host_ms,bodies,awake_bodies,splits_total,contacts_total,resim_passes,correction_status,contacts_frame,projectiles_active,bonds_broken,stress_iterations,stress_converged,observation_ms\n";
+    telemetry<<"step,simulation_seconds,physics_step_ms,stress_solve_ms,frame_host_ms,bodies,awake_bodies,splits_total,contacts_total,resim_passes,correction_status,contacts_frame,projectiles_active,bonds_broken,stress_iterations,stress_converged,observation_ms,gpu_render_submit_and_export_ms\n";
     std::vector<Shot> shots;std::vector<PxU32> shotIds;std::vector<PxTransform> shotPoses;std::vector<VisualPose> poses;
     CUdeviceptr deviceIds=0,devicePoses=0;CUevent observationIdsReady=nullptr;
-    {PxScopedCudaLock lock(cuda);check(cuEventCreate(&observationIdsReady,CU_EVENT_DISABLE_TIMING));check(cuMemAlloc(&deviceIds,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxU32)));check(cuMemAlloc(&devicePoses,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxTransform)));}
+    if(observePoses){PxScopedCudaLock lock(cuda);check(cuEventCreate(&observationIdsReady,CU_EVENT_DISABLE_TIMING));check(cuMemAlloc(&deviceIds,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxU32)));check(cuMemAlloc(&devicePoses,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxTransform)));}
     unsigned launched=0,totalCorrections=0,totalBroken=0,peakClusters=buildings;unsigned long long totalContacts=0;
-    std::vector<double> times;double maxStep=0;unsigned deadlines=0;
+    std::vector<double> times;double maxStep=0,sumStep=0,sumRender=0,maxRender=0;unsigned deadlines=0;
     const float launchWindow=std::max(1.0f,seconds-5);
     float observedChunkTop=12.5f,maxMotionError=0;
     std::ofstream launches(output+"/native.launches.csv");
@@ -121,18 +138,14 @@ int run(int argc,char** argv){
         while(launched<buildings*waves && time>=launchWindow*float(launched)/float(buildings*waves)){
             const unsigned building=launched%buildings,wave=launched/buildings;const auto origin=origins[building];
             auto launch=nativeBombardmentLaunch(origin,wave,12.5f);
-            // These are explicit CPU observations for demo input placement, not
-            // a replacement for GPU collision solving. Start above the authored
-            // skyline, then check the actual debris near the launch position.
-            // Distant airborne rubble must not raise every shot or its energy.
-            for(unsigned attempts=0;;++attempts) {
-                bool clear=true;
-                for(unsigned i=0;i<chunks.size() && i<poses.size();++i)
-                    if((launch.position-poses[i].pose.p).magnitudeSquared()<1.75f*1.75f){clear=false;break;}
-                for(const auto& pose:shotPoses)
-                    if((launch.position-pose.p).magnitudeSquared()<1.75f*1.75f){clear=false;break;}
-                if(clear)break;
-                require(attempts<=2*(chunks.size()+shotPoses.size()),"could not find a clear projectile launch");raiseNativeBombardmentLaunch(launch);
+            // Explicit gameplay observation: CUDA checks committed chunks and
+            // projectiles and returns one clearance height. Pose arrays are
+            // optional recording/audit output and never drive launch commands.
+            const float clearHeight=gpuConsumer.launchHeight(launch.position,.75f);
+            if(launch.position.y<clearHeight){
+                launch.position.y+=2*std::ceil((clearHeight-launch.position.y)/2);
+                launch.velocity=(launch.target-launch.position)/1.5f;launch.velocity.y+=.5f*9.81f*1.5f;
+                require(launch.position.isFinite() && launch.velocity.isFinite(),"unrepresentable projectile command");
             }
             require(launch.position.y-.75f>12.5f,"projectile spawn overlaps authored skyline");
             const PxVec3 speed=launch.velocity;
@@ -141,7 +154,7 @@ int run(int argc,char** argv){
             require(shot && sphere && shot->attachShape(*sphere),"projectile creation failed");sphere->release();
             shot->setMass(20000);shot->setMassSpaceInertiaTensor(PxVec3(.4f*20000*.75f*.75f));shot->setLinearDamping(0);shot->setAngularDamping(0);shot->setLinearVelocity(speed);scene.addActor(*shot);
             const unsigned visualId=unsigned(chunks.size())+launched;VisualActor visual;visual.shape=VisualActor::Shape::Sphere;visual.parameters=PxVec3(.75f,0,0);visual.part=5;
-            if(recordState)require(writer.defineActor(visualId,visual),"projectile visual definition failed");shots.push_back({shot,visualId});shotPoses.push_back(PxTransform(launch.position));++launched;
+            if(recordState)require(writer.defineActor(visualId,visual),"projectile visual definition failed");shots.push_back({shot,visualId});gpuConsumer.addProjectile(shot->getGPUIndex(),PxTransform(launch.position));++launched;
         }
         phaseProfiler.begin(frame);
         const auto begin=Clock::now();scene.simulate(dt);PxU32 error=0;const bool complete=scene.fetchResults(true,&error);const double simulationMs=ms(begin);
@@ -156,50 +169,63 @@ int run(int argc,char** argv){
         const auto observation=Clock::now();const auto view=destruction->getDeviceView();PxDestructionTopologyStatus topology{};
         std::vector<PxU32> membership,slots;std::vector<PxDestructionClusterMotion> motions;
         {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.readyEvent));check(cuMemcpyDtoH(&topology,CUdeviceptr(view.acceptedTopology.status),sizeof(topology)));
+        }
+        require(!topology.slotError,"incomplete GPU cluster slot allocation");
+        gpuConsumer.update(scene.getDirectGPUAPI());
+        const auto renderStart=Clock::now();
+        if(gpuRender && frame%recordStride==0)gpuConsumer.render();
+        const double renderMs=gpuRender && frame%recordStride==0?ms(renderStart):0;
+        sumRender+=renderMs;maxRender=std::max(maxRender,renderMs);
+        if(observePoses){
+          {PxScopedCudaLock lock(cuda);
             read(membership,view.acceptedTopology.chunkCluster,chunks.size());read(slots,view.acceptedTopology.clusterSlots,chunks.size());read(motions,view.acceptedTopology.motions,view.acceptedTopology.slotCapacity);
             shotIds.clear();for(const auto& shot:shots)shotIds.push_back(shot.actor->getGPUIndex());shotPoses.resize(shots.size());
             if(!shots.empty()){check(cuMemcpyHtoD(deviceIds,shotIds.data(),shotIds.size()*sizeof(PxU32)));check(cuEventRecord(observationIdsReady,nullptr));
                 require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(shots.size()),observationIdsReady),"projectile observation failed");
                 check(cuCtxSynchronize());check(cuMemcpyDtoH(shotPoses.data(),devicePoses,shotPoses.size()*sizeof(PxTransform)));}}
-        require(!topology.slotError,"incomplete GPU cluster slot allocation");
         poses.clear();poses.reserve(chunks.size()+shots.size());observedChunkTop=0;
         for(unsigned i=0;i<chunks.size();++i){require(membership[i]<slots.size() && slots[membership[i]]<motions.size(),"invalid committed chunk membership");const auto& motion=motions[slots[membership[i]]];
             const PxTransform pose(PxVec3(float(motion.origin[0]),float(motion.origin[1]),float(motion.origin[2])),PxQuat(float(motion.orientation[0]),float(motion.orientation[1]),float(motion.orientation[2]),float(motion.orientation[3])));
             require(pose.isValid(),"nonfinite committed cluster motion");const auto chunkPose=pose*PxTransform(chunks[i].position);
             observedChunkTop=std::max(observedChunkTop,chunkPose.p.y+half.magnitude());poses.push_back({i,chunkPose,false});}
         for(unsigned i=0;i<shots.size();++i){require(shotPoses[i].isValid(),"nonfinite projectile motion");poses.push_back({shots[i].visual,shotPoses[i],false});}
+          poseReadbackBytes+=chunks.size()*2*sizeof(PxU32)+view.acceptedTopology.slotCapacity*sizeof(PxDestructionClusterMotion)+shots.size()*sizeof(PxTransform);
+        }
         if(auditMotion) {
             std::vector<PxU32> owners;std::vector<PxTransform> physical(chunks.size());owners.reserve(chunks.size());
             for(const auto& chunk:chunks){const auto* owner=chunk.shape->getActor()->is<PxRigidDynamic>();require(owner,"chunk has no rigid owner");owners.push_back(owner->getGPUIndex());}
             {PxScopedCudaLock lock(cuda);check(cuMemcpyHtoD(deviceIds,owners.data(),owners.size()*sizeof(PxU32)));check(cuEventRecord(observationIdsReady,nullptr));
                 require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(owners.size()),observationIdsReady),"physical chunk pose audit failed");
-                check(cuCtxSynchronize());check(cuMemcpyDtoH(physical.data(),devicePoses,physical.size()*sizeof(PxTransform)));}
+                check(cuCtxSynchronize());check(cuMemcpyDtoH(physical.data(),devicePoses,physical.size()*sizeof(PxTransform)));poseReadbackBytes+=physical.size()*sizeof(PxTransform);}
             for(unsigned i=0;i<chunks.size();++i){const auto actual=physical[i]*chunks[i].shape->getLocalPose();
                 const float error=(actual.p-poses[i].pose.p).magnitude();maxMotionError=std::max(maxMotionError,error);
                 // Compare orientation independently of floating-point quaternion norm drift.
                 const float orientationDot=std::abs(actual.q.getNormalized().dot(poses[i].pose.q.getNormalized()));
                 if(!(error<1e-3f && orientationDot>1-1e-5f)) {
                     PxU32 expected=PX_INVALID_U32;PxDestructionClusterBodyState candidate{};
-                    {PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(&expected,CUdeviceptr(view.trialBodyIndices+slots[membership[i]]),sizeof(expected)));check(cuMemcpyDtoH(&candidate,CUdeviceptr(view.trialBodies+slots[membership[i]]),sizeof(candidate)));}
+                    {PxScopedCudaLock lock(cuda);std::vector<PxU32> roots;read(roots,view.acceptedTopology.activeClusters,topology.clusterCount);
+                        const auto found=std::lower_bound(roots.begin(),roots.end(),membership[i]);require(found!=roots.end() && *found==membership[i],"audit root missing");
+                        const size_t packed=size_t(found-roots.begin());check(cuMemcpyDtoH(&expected,CUdeviceptr(view.trialBodyIndices+packed),sizeof(expected)));check(cuMemcpyDtoH(&candidate,CUdeviceptr(view.trialBodies+packed),sizeof(candidate)));}
                     std::fprintf(stderr,"motion audit expected_body=%u supported=%u source=%u correction=%u cpu_flags=%u\n",expected,candidate.supported,candidate.sourceBody,status.correctionPasses,unsigned(chunks[i].shape->getActor()->is<PxRigidDynamic>()->getRigidBodyFlags()));
                     std::fprintf(stderr,"motion audit step=%u chunk=%u cluster=%u body=%u position_error=%.9g orientation_dot=%.9g actual=(%.9g,%.9g,%.9g) recorded=(%.9g,%.9g,%.9g)\n",frame,i,membership[i],owners[i],error,orientationDot,actual.p.x,actual.p.y,actual.p.z,poses[i].pose.p.x,poses[i].pose.p.y,poses[i].pose.p.z);}
                 require(error<1e-3f && orientationDot>1-1e-5f,"rendered chunk motion disagrees with physical GPU shape");}
         }
         if(recordState && frame%recordStride==0)require(writer.writeFrame(frame/recordStride,poses),"committed state capture failed");const double observationMs=ms(observation);
-        peakClusters=std::max(peakClusters,topology.clusterCount);maxStep=std::max(maxStep,simulationMs);times.push_back(simulationMs);if(simulationMs>1000.0/60)++deadlines;
+        peakClusters=std::max(peakClusters,topology.clusterCount);maxStep=std::max(maxStep,simulationMs);sumStep+=simulationMs;times.push_back(simulationMs);if(simulationMs>1000.0/60)++deadlines;
         // Stress time is included in physics_step_ms, not separately instrumented.
         // The recording uses the compact HUD, which only displays total times.
-        telemetry<<frame<<','<<(frame+1)*dt<<','<<simulationMs<<",0,"<<ms(tick)<<','<<topology.clusterCount+shots.size()<<','<<topology.clusterCount+shots.size()<<','<<topology.clusterCount-buildings<<','<<totalContacts<<','<<status.correctionPasses<<",0,"<<status.normalContacts<<','<<shots.size()<<','<<status.brokenBonds<<','<<status.iterations<<','<<status.converged<<','<<observationMs<<'\n';
+        telemetry<<frame<<','<<(frame+1)*dt<<','<<simulationMs<<",0,"<<ms(tick)<<','<<topology.clusterCount+shots.size()<<','<<topology.clusterCount+shots.size()<<','<<topology.clusterCount-buildings<<','<<totalContacts<<','<<status.correctionPasses<<",0,"<<status.normalContacts<<','<<shots.size()<<','<<status.brokenBonds<<','<<status.iterations<<','<<status.converged<<','<<observationMs<<','<<renderMs<<'\n';
         if(frame%60==0){std::printf("native t=%.1f chunks=%zu bonds=%zu clusters=%u shots=%zu broken=%u corrections=%u step=%.2fms\n",time,chunks.size(),bonds.size(),topology.clusterCount,shots.size(),totalBroken,totalCorrections,simulationMs);std::fflush(stdout);}
     }
     require(totalCorrections && totalBroken && peakClusters>buildings,"native bombardment did not demonstrate destruction");if(recordState)require(writer.finish(),"state stream finalization failed");
+    gpuConsumer.finishVideo();
     std::sort(times.begin(),times.end());auto percentile=[&](double p){return times[std::min(times.size()-1,size_t(p*times.size()))];};
-    {PxScopedCudaLock lock(cuda);check(cuEventDestroy(observationIdsReady));check(cuMemFree(deviceIds));check(cuMemFree(devicePoses));}
+    if(observePoses){PxScopedCudaLock lock(cuda);check(cuEventDestroy(observationIdsReady));check(cuMemFree(deviceIds));check(cuMemFree(devicePoses));}
     writeNativeGraphDiagnostics(scene,output+"/native.graph-diagnostics.json");
     require(destruction->clearStress(),"native fragment cleanup failed");for(auto* parent:parents)parent->release();for(auto& shot:shots)shot.actor->release();for(auto& chunk:chunks)chunk.shape->release();
     require(context.healthy(),"native demo GPU health failed");
     std::ofstream manifest(output+"/native.summary.json");
-    manifest<<"{\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \"clear-aerial-ballistic-v2\",\n  \"island_boundary_audit_enabled\": "<<(auditIslands?"true":"false")<<",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"gpu_island_repair\": "<<(gpuIslandRepair?"true":"false")<<",\n  \"gpu_pre_solve_islands\": "<<(preSolveIslands?"true":"false")<<",\n  \"gpu_pre_solve_support\": "<<(preSolveSupport?"true":"false")<<",\n  \"gpu_pre_solve_contacts\": "<<(preSolveContacts?"true":"false")<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
+    manifest<<"{\n  \"physics_ms_min\": "<<times.front()<<",\n  \"physics_ms_mean\": "<<sumStep/frames<<",\n  \"simulation_realtime_fraction\": "<<seconds*1000/sumStep<<",\n  \"gpu_render_submit_and_export_ms_mean\": "<<(gpuConsumer.renderedFrames()?sumRender/gpuConsumer.renderedFrames():0)<<",\n  \"gpu_render_submit_and_export_ms_max\": "<<maxRender<<",\n  \"topology_stats_readback_bytes\": "<<frames*sizeof(PxDestructionTopologyStatus)<<",\n  \"gpu_rendered_frames\": "<<gpuConsumer.renderedFrames()<<",\n  \"gpu_renderer\": \""<<gpuConsumer.rendererName()<<"\",\n  \"consumer_pose_readback_bytes\": "<<poseReadbackBytes<<",\n  \"consumer_query_readback_bytes\": "<<gpuConsumer.queryReadbackBytes()<<",\n  \"export_pixel_readback_bytes\": "<<gpuConsumer.pixelReadbackBytes()<<",\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \"gpu-clear-aerial-ballistic-v3\",\n  \"island_boundary_audit_enabled\": "<<(auditIslands?"true":"false")<<",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"gpu_island_repair\": "<<(gpuIslandRepair?"true":"false")<<",\n  \"gpu_pre_solve_islands\": "<<(preSolveIslands?"true":"false")<<",\n  \"gpu_pre_solve_support\": "<<(preSolveSupport?"true":"false")<<",\n  \"gpu_pre_solve_contacts\": "<<(preSolveContacts?"true":"false")<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
     return 0;
 }
 }

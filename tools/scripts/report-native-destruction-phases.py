@@ -21,7 +21,7 @@ def report(capture):
     lines = [
         '# Native destruction timing report', '',
         f'Capture: `{capture}`. {count:,} accepted steps; {result["corrected_steps"]:,} steps used one resimulation.', '',
-        'These are host-wall timings including GPU waits, measured with profiling and audits on a shared GPU. '
+        'These are host-wall timings including GPU waits, measured with profiling on a shared GPU. Audit settings are recorded in `native.summary.json`. '
         'They are not isolated CUDA kernel timings or a whole-game performance qualification.', '',
         '| Complete step | Minimum ms | Average ms | Maximum ms | p95 ms |',
         '| --- | ---: | ---: | ---: | ---: |',

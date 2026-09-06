@@ -105,10 +105,11 @@ out/destruction-sdk/reference/native_destruction_demo \
   --output out/recordings/native-device-contact-113664-sustained-20260906
 ```
 
-`--record-state 0` disables only raw playback file output. Simulation settings,
-GPU readbacks, topology membership checks, finite motion checks, projectile
-observations and per-step telemetry remain enabled. The default is `1`. A
-completed summary records the choice in `recorded_state`. The larger run subsequently completed all 1,800 steps and 1,024 projectile
+For the historical capture below, `--record-state 0` disabled only file output
+and still performed CPU pose observations. The current demo defaults to `0` and
+omits those observations unless recording or motion auditing is requested; see
+[GPU_RENDER_CONSUMER.md](GPU_RENDER_CONSUMER.md). A completed summary records
+the mode and transfer counts. The larger run subsequently completed all 1,800 steps and 1,024 projectile
 launches with converged stress and at most one correction per step. It reached
 87,506 clusters, broke 190,334 bonds and corrected 1,398 steps. Median simulation
 time was 794.973 ms and worst time 1,349.69 ms: this is sustained correctness

@@ -123,7 +123,9 @@ def analyze(directory):
         "physics_timing": timing("physics_step_ms"),
         "cuda_stages": cuda_stages(directory, len(frames)),
         "capture_tick_timing": timing("frame_host_ms"),
-        "capture_tick_scope": "physics, input placement, explicit GPU observations/audit and recording I/O; excludes setup and offline rendering",
+        "capture_tick_scope": ("physics, input placement, explicit GPU observations/audit, GPU graphics submission and pixel export; excludes setup and later video annotation"
+                               if summary.get("gpu_rendered_frames", 0) else
+                               "physics, input placement, explicit GPU observations/audit and recording I/O; excludes setup and offline rendering"),
         "frames": len(frames),
         "corrected_steps": len(corrected),
         "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
