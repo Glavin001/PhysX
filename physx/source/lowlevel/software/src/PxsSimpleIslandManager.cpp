@@ -52,6 +52,7 @@ void ThirdPassTask::runInternal()
 	mIslandSim.removeDestroyedEdges();
 	const bool allowDeactivation = true;
 	mIslandSim.processLostEdges(mIslandManager.mDestroyedNodes, allowDeactivation, allowDeactivation, mIslandManager.mMaxDirtyNodesPerFrame);
+    mIslandSim.setGpuContactComponents(NULL,NULL,0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

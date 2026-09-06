@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include <map>
 #include <set>
@@ -217,8 +218,8 @@ void deviceContactInputs(bool enabled) {
     std::printf("persistent GPU contact inputs enabled=%u inspected=%u generated=%llu: shared geometry, capacity growth, removal/reuse and disable transition passed\n",unsigned(enabled),inspected,(unsigned long long)beforeDisable);
 }
 
-void contactComponentPartitions() {
-    Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.configure();
+void contactComponentPartitions(bool gpuRepair) {
+    Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=gpuRepair;f.configure();
     std::vector<PxRigidDynamic*> bodies;
     auto* floor=PxCreatePlane(f.context.physics(),PxPlane(0,1,0,-59.6f),f.context.material());
     require(floor,"component floor creation failed");f.scene.addActor(*floor);
@@ -247,6 +248,56 @@ void contactComponentPartitions() {
     for(auto* body:bodies)if(body)body->release();beam->release();floor->release();
     require(f.context.healthy(),"component fixture GPU health failed");
     std::puts("native GPU contact components match CPU islands: 8 dynamic groups, shared static/kinematic boundaries, infinite-mass dynamics and removal");
+}
+
+void gpuIslandCycleAndFallback() {
+    Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
+    std::vector<PxRigidDynamic*> bodies(4);
+    const PxVec3 points[]={PxVec3(300,80,0),PxVec3(301,80,0),PxVec3(301,80,1),PxVec3(300,80,1)};
+    const auto add=[&](unsigned i){
+        bodies[i]=PxCreateDynamic(f.context.physics(),PxTransform(points[i]),PxSphereGeometry(.6f),f.context.material(),1);
+        require(bodies[i],"cycle body creation failed");bodies[i]->setMass(0);bodies[i]->setMassSpaceInertiaTensor(PxVec3(0));f.scene.addActor(*bodies[i]);
+    };
+    for(unsigned i=0;i<4;++i)add(i);
+    auto& islands=*static_cast<NpScene&>(f.scene).getScScene().getSimpleIslandManager();
+    const auto count=[&](){return islands.getAccurateIslandSim().getGpuRouteCount()+islands.getSpeculativeIslandSim().getGpuRouteCount()
+        +islands.getAccurateIslandSim().getGpuSplitCount()+islands.getSpeculativeIslandSim().getGpuSplitCount();};
+    const auto verify=[&](){step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);};
+    verify();bodies[3]->release();bodies[3]=nullptr;verify();
+    require(islands.getAccurateIslandSim().getGpuRouteCount()+islands.getSpeculativeIslandSim().getGpuRouteCount()>0,"cycle removal never used CUDA connectedness");
+    bodies[1]->release();bodies[1]=nullptr;verify();
+    require(islands.getAccurateIslandSim().getGpuSplitCount()+islands.getSpeculativeIslandSim().getGpuSplitCount()>0,"cycle disconnection never used CUDA membership");
+    // Reinsert reclaimed handles and then switch to CPU repair. Routing hints
+    // invalidated by the GPU split must still support ordinary CPU traversal.
+    add(1);verify();f.desc.gpuIslandRepair=false;f.configure();const auto before=count();
+    // An invalid borrowed membership snapshot must fall back before mutation,
+    // and invalidate all subsequent GPU answers for this pass.
+    const PxU32 domain=islands.getAccurateIslandSim().getNbNodes();
+    std::vector<PxU32> invalidLabels(domain);std::vector<PxU64> invalidMembers(domain,~PxU64(0));
+    for(PxU32 i=0;i<domain;++i)invalidLabels[i]=i;
+    islands.getAccurateIslandSim().setGpuContactComponents(invalidLabels.data(),invalidMembers.data(),domain);
+    islands.getSpeculativeIslandSim().setGpuContactComponents(invalidLabels.data(),invalidMembers.data(),domain);
+    bodies[1]->release();bodies[1]=nullptr;verify();require(count()==before,"invalid GPU observation changed island connectivity");
+    require(islands.getAccurateIslandSim().getGpuRepairFallbackCount()+islands.getSpeculativeIslandSim().getGpuRepairFallbackCount()>0,
+        "invalid GPU membership failed to exercise CPU fallback");
+    add(1);verify();f.desc.gpuIslandRepair=true;f.configure();bodies[1]->release();bodies[1]=nullptr;verify();
+    require(count()>before,"GPU island repair failed after handle reuse and CPU fallback");
+    require(f.stage->clearStress(),"cycle cleanup failed");for(auto* body:bodies)if(body)body->release();
+    require(f.context.healthy(),"cycle GPU health failed");std::puts("GPU island repair: cycle edge removal, split, handle reuse, CPU fallback and resume passed");
+}
+
+void gpuIslandSleepFallback() {
+    Fixture f(1,0,true);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
+    PxU64 previous=0;
+    for(unsigned i=0;i<8;++i) {
+        step(f.scene);const auto graph=static_cast<PxgDestructionRuntime*>(f.stage)->getContactGraphView();
+        require(graph.generation==previous+1,"sleeping scene entered early GPU island repair instead of fallback");previous=graph.generation;
+    }
+    auto& islands=*static_cast<NpScene&>(f.scene).getScScene().getSimpleIslandManager();
+    require(!islands.getAccurateIslandSim().getGpuRouteCount() && !islands.getAccurateIslandSim().getGpuSplitCount()
+        && !islands.getSpeculativeIslandSim().getGpuRouteCount() && !islands.getSpeculativeIslandSim().getGpuSplitCount(),"sleeping graph was treated as complete GPU input");
+    require(f.stage->clearStress() && f.context.healthy(),"sleep fallback cleanup failed");
+    std::puts("GPU island repair: sleeping registry retains CPU fallback passed");
 }
 
 void sparseAndGrowth(bool sleeping,unsigned count,unsigned quiet) {
@@ -291,4 +342,12 @@ void crushRemoval() {
     require(crushed,"crush fixture did not exercise collision removal");require(f.context.healthy(),"crush collision preparation GPU failure");std::puts("native crush verdict includes every destroyed collision shape passed");
 }
 }
-int main(){try{deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions();sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(int argc,char** argv){try{
+    if(argc==2) {
+        const std::string mode=argv[1];
+        if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}
+        if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuIslandSleepFallback();return 0;}
+        if(mode=="--reference"){deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}
+        throw std::runtime_error("unknown collision test mode");
+    }
+    require(argc==1,"collision test accepts at most one mode");deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuIslandSleepFallback();sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

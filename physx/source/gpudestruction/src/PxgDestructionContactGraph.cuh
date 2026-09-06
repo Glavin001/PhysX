@@ -68,6 +68,10 @@ __global__ void connect(const PxgContactManagerInput* inputs,const PxgContactGra
     unite(speculative,edge.node0,edge.node1);
     if(edge.touching && !(edge.flags&PxgDestructionContactFlags::eDISABLE_RESPONSE))unite(accurate,edge.node0,edge.node1);
 }
+__global__ void componentKeys(const PxU32* labels,PxU64* keys,PxU32 n) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<n)keys[i]=(PxU64(labels[i])<<32)|i;
+}
 __global__ void compress(PxU32* accurate,PxU32* speculative,PxU32 n) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;
     atomicExch(accurate+i,root(accurate,i));atomicExch(speculative+i,root(speculative,i));

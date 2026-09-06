@@ -79,6 +79,9 @@ struct PxDestructionStressDesc {
     // Retain unchanged owners' pair registrations, clear GPU manifold/friction
     // caches and regenerate collision/constraint data. False is the reference.
     bool preserveUnchangedContactPairs = false;
+    // Use CUDA contact components for awake rigid island repair. Unsupported
+    // graph state retains the original CPU traversal. False is the reference.
+    bool gpuIslandRepair = false;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;

@@ -2438,7 +2438,19 @@ void Sc::Scene::destroyManagers(PxBaseTask*)
 
 	mPostThirdPassIslandGenTask.setContinuation(mProcessLostContactsTask3.getContinuation());
 
-	mSimpleIslandManager->thirdPassIslandGen(&mPostThirdPassIslandGenTask);
+    bool gpuRepair=mSimulationController->usesGpuDestructionIslandRepair()
+        && (mPublicFlags & PxSceneFlag::eDISABLE_SLEEPING)
+        && !(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+        && !mArticulations.size() && !mConstraints.size() && !mFilterCallback
+        && !getContactModifyCallback();
+#if PX_SUPPORT_GPU_PHYSX
+    gpuRepair=gpuRepair && !mDeformableSurfaces.size() && !mDeformableVolumes.size() && !mParticleSystems.size();
+#endif
+    if(gpuRepair) {
+        PxBitMap::Iterator speculative(mSpeculativeCCDRigidBodyBitMap);
+        gpuRepair=speculative.getNext()==PxBitMap::Iterator::DONE;
+    }
+    if(!gpuRepair)mSimpleIslandManager->thirdPassIslandGen(&mPostThirdPassIslandGenTask);
 
 	PxU32 destroyedOverlapCount;
 	const AABBOverlap* PX_RESTRICT p = mAABBManager->getDestroyedOverlaps(ElementType::eSHAPE, destroyedOverlapCount);
@@ -2457,6 +2469,10 @@ void Sc::Scene::destroyManagers(PxBaseTask*)
 		}
 		p++;
 	}
+    if(gpuRepair) {
+        mSimulationController->prepareGpuDestructionIslandRepair(*mSimpleIslandManager);
+        mSimpleIslandManager->thirdPassIslandGen(&mPostThirdPassIslandGenTask);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

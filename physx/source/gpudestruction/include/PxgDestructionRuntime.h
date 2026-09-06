@@ -28,6 +28,11 @@ class PxgDestructionRuntime : public PxDestructionScene {
 public:
     virtual bool configured() const = 0;
     virtual bool correctionEnabled() const = 0;
+    virtual bool gpuIslandRepairEnabled() const = 0;
+    // Ordered host observation for the existing CPU island registry. Keys are
+    // sorted (component << 32 | node); connectivity itself is computed on CUDA.
+    virtual bool observeContactComponents(const PxU32*& accurate, const PxU32*& speculative,
+        const PxU64*& accurateMembers, const PxU64*& speculativeMembers, PxU32& count) = 0;
     virtual bool applyCorrectionBindings() = 0;
     // GPU-selected affected owners mirrored for CPU metadata updates. This is
     // not the complete set of rigid bodies restored/re-solved during correction.

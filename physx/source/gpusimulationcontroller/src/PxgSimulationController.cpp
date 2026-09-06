@@ -645,6 +645,22 @@ namespace physx
         return mDestructionCorrecting && mDestructionPreservePairs;
     }
 
+    bool PxgSimulationController::usesGpuDestructionIslandRepair() const {
+        return usesDeviceDestructionContactInputs() && mDestruction->gpuIslandRepairEnabled();
+    }
+    void PxgSimulationController::prepareGpuDestructionIslandRepair(IG::SimpleIslandManager& islands) {
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair",false,PxU64(reinterpret_cast<size_t>(this)));
+        PxScopedCudaLock lock(*mCudaContextManager);
+        islands.getAccurateIslandSim().setGpuContactComponents(NULL,NULL,0);
+        islands.getSpeculativeIslandSim().setGpuContactComponents(NULL,NULL,0);
+        if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph())return;
+        const PxU32 *accurate=NULL,*speculative=NULL;const PxU64 *aMembers=NULL,*sMembers=NULL;PxU32 count=0;
+        if(mDestruction->observeContactComponents(accurate,speculative,aMembers,sMembers,count)) {
+            islands.getAccurateIslandSim().setGpuContactComponents(accurate,aMembers,count);
+            islands.getSpeculativeIslandSim().setGpuContactComponents(speculative,sMembers,count);
+        }
+    }
+
     bool PxgSimulationController::usesDeviceDestructionContactInputs() const
     {
         return mDestruction && mDestruction->configured() && mDestruction->correctionEnabled();

@@ -51,6 +51,33 @@ inline void verify(PxScene& scene,PxCudaContextManager& cuda) {
     require(offset==view.pairCount && retired==expectedRetired,"GPU graph dropped or retained the wrong contact rows");
     auto& manager=*sc.getSimpleIslandManager();
     const auto& cpuAccurate=manager.getAccurateIslandSim();const auto& cpuSpeculative=manager.getSpeculativeIslandSim();
+    // Independent CPU flood fill over the actual inserted island edges. This
+    // does not trust island IDs or CUDA labels to decide connectivity, including
+    // when CUDA is now the producer of the island partition under test.
+    const auto floodCheck=[&](const IG::IslandSim& sim,const std::vector<PxU32>& gpu) {
+        const PxU32 n=sim.getNbNodes();std::vector<std::vector<PxU32>> adjacency(n);
+        const auto dynamic=[&](PxU32 i){return i<n && !sim.getNode(PxNodeIndex(i)).isDeleted()
+            && !sim.getNode(PxNodeIndex(i)).isKinematic() && sim.getIslandIds()[i]!=IG_INVALID_ISLAND;};
+        for(PxU32 e=0;e<sim.getNbEdges();++e) {
+            const auto& edge=sim.getEdge(e);if(!edge.isInserted() || edge.isPendingDestroyed())continue;
+            const PxU32 a=sim.mCpuData.mEdgeNodeIndices[2*e].index(),b=sim.mCpuData.mEdgeNodeIndices[2*e+1].index();
+            if(dynamic(a) && dynamic(b)){adjacency[a].push_back(b);adjacency[b].push_back(a);}
+        }
+        std::vector<PxU32> labels(n,PX_INVALID_U32),queue;
+        std::map<PxU32,PxU32> islandRoots;
+        for(PxU32 i=0;i<n;++i)if(dynamic(i) && labels[i]==PX_INVALID_U32) {
+            queue.clear();queue.push_back(i);labels[i]=i;
+            for(size_t j=0;j<queue.size();++j)for(PxU32 next:adjacency[queue[j]])
+                if(labels[next]==PX_INVALID_U32){labels[next]=i;queue.push_back(next);}
+            const PxU32 island=sim.getIslandIds()[i];
+            require(islandRoots.emplace(island,i).second,"CPU island contains disconnected components");
+            for(PxU32 node:queue) {
+                require(node<gpu.size() && gpu[node]==i,"CUDA components differ from independent CPU edge flood fill");
+                require(sim.getIslandIds()[node]==island,"connected CPU edges span separate islands");
+            }
+        }
+    };
+    floodCheck(cpuAccurate,accurate);floodCheck(cpuSpeculative,speculative);
     std::map<PxU32,PxU32> accurateToGpu,accurateToCpu,speculativeToGpu,speculativeToCpu;
     const auto associate=[](std::map<PxU32,PxU32>& map,PxU32 from,PxU32 to){
         const auto result=map.emplace(from,to);return result.second || result.first->second==to;

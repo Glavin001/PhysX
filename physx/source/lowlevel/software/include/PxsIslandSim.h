@@ -552,6 +552,14 @@ public:
 
 	IslandSim(const CPUExternalData& cpuData, GPUExternalData* gpuData, PxU64 contextID);
 	~IslandSim() {}
+    // Borrowed for one third-pass task only; this updates CPU compatibility
+    // lists while CUDA supplies connectivity and deterministic membership.
+    void setGpuContactComponents(const PxU32* labels,const PxU64* members,PxU32 count) {
+        mGpuComponentLabels=labels;mGpuComponentMembers=members;mGpuComponentCount=count;
+    }
+    PxU64 getGpuRouteCount() const { return mGpuRouteCount; }
+    PxU64 getGpuSplitCount() const { return mGpuSplitCount; }
+    PxU64 getGpuRepairFallbackCount() const { return mGpuRepairFallbackCount; }
 
 	void addNode(bool isActive, bool isKinematic, Node::NodeType type, PxNodeIndex nodeIndex, void* object);
 
@@ -695,6 +703,11 @@ private:
 #endif
 	bool tryFastPath(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId);
 
+    const PxU32* mGpuComponentLabels = NULL;
+    const PxU64* mGpuComponentMembers = NULL;
+    PxU32 mGpuComponentCount = 0;
+    bool mGpuSplit = false;
+    PxU64 mGpuRouteCount = 0, mGpuSplitCount = 0, mGpuRepairFallbackCount = 0;
 	bool findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId);
 
 #if PX_DEBUG

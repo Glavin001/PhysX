@@ -447,7 +447,12 @@ class Runtime final : public PxgDestructionRuntime {
     PxU64 mGraphGeneration{};
     cudaEvent_t mGraphReady{};
     bool mPending=false; bool mFailed=false;
-    bool mCorrectionEnabled=false;
+    bool mCorrectionEnabled=false, mGpuIslandRepair=false;
+    PxU32 *mGraphHostAccurate{}, *mGraphHostSpeculative{};
+    PxU64 *mGraphKeys{}, *mGraphSortedKeys{}, *mGraphHostAccurateMembers{}, *mGraphHostSpeculativeMembers{};
+    PxU32 mGraphObservationCapacity{};
+    void* mGraphSortScratch{};
+    size_t mGraphSortScratchBytes{};
     std::vector<PxU32> mHostCorrectionTargets;
 public:
     Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
@@ -531,6 +536,50 @@ public:
         }catch(...){mFailed=true;mGraphView={};return false;}
     }
     PxgDestructionContactGraphView getContactGraphView() const override { return mGraphView; }
+    bool gpuIslandRepairEnabled() const override { return mGpuIslandRepair; }
+    bool observeContactComponents(const PxU32*& accurate,const PxU32*& speculative,
+        const PxU64*& accurateMembers,const PxU64*& speculativeMembers,PxU32& count) override {
+        accurate=speculative=nullptr;accurateMembers=speculativeMembers=nullptr;count=0;
+        if(mFailed || !mGraphView.generation)return false;
+        try {
+            Context current(mContext);check(cudaEventSynchronize(mGraphReady));
+            PxgDestructionContactGraphStatus status{};
+            check(cudaMemcpy(&status,mGraphStatus,sizeof(status),cudaMemcpyDeviceToHost));
+            if(status.error || status.omittedPairs)return false;
+            const PxU32 n=mGraphView.nodeCapacity;if(!n)return false;
+            if(n>mGraphObservationCapacity) {
+                const PxU32 capacity=mGraphNodeCapacity;
+                check(cudaFree(mGraphKeys));mGraphKeys=nullptr;allocate(mGraphKeys,capacity);
+                check(cudaFree(mGraphSortedKeys));mGraphSortedKeys=nullptr;allocate(mGraphSortedKeys,capacity);
+                check(cudaFreeHost(mGraphHostAccurate));mGraphHostAccurate=nullptr;
+                check(cudaFreeHost(mGraphHostSpeculative));mGraphHostSpeculative=nullptr;
+                check(cudaFreeHost(mGraphHostAccurateMembers));mGraphHostAccurateMembers=nullptr;
+                check(cudaFreeHost(mGraphHostSpeculativeMembers));mGraphHostSpeculativeMembers=nullptr;
+                check(cudaMallocHost(&mGraphHostAccurate,size_t(capacity)*sizeof(PxU32)));
+                check(cudaMallocHost(&mGraphHostSpeculative,size_t(capacity)*sizeof(PxU32)));
+                check(cudaMallocHost(&mGraphHostAccurateMembers,size_t(capacity)*sizeof(PxU64)));
+                check(cudaMallocHost(&mGraphHostSpeculativeMembers,size_t(capacity)*sizeof(PxU64)));
+                mGraphObservationCapacity=capacity;
+            }
+            size_t bytes=0;check(cub::DeviceRadixSort::SortKeys(nullptr,bytes,mGraphKeys,mGraphSortedKeys,n,0,64,mStream));
+            if(bytes>mGraphSortScratchBytes) {
+                check(cudaFree(mGraphSortScratch));mGraphSortScratch=nullptr;
+                check(cudaMalloc(&mGraphSortScratch,bytes));mGraphSortScratchBytes=bytes;
+            }
+            for(PxU32 graph=0;graph<2;++graph) {
+                const auto* labels=graph?mGraphSpeculative:mGraphAccurate;
+                auto* hostLabels=graph?mGraphHostSpeculative:mGraphHostAccurate;
+                auto* hostMembers=graph?mGraphHostSpeculativeMembers:mGraphHostAccurateMembers;
+                destructionContactGraph::componentKeys<<<(n+127)/128,128,0,mStream>>>(labels,mGraphKeys,n);
+                check(cub::DeviceRadixSort::SortKeys(mGraphSortScratch,mGraphSortScratchBytes,mGraphKeys,mGraphSortedKeys,n,0,64,mStream));
+                check(cudaMemcpyAsync(hostLabels,labels,size_t(n)*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
+                check(cudaMemcpyAsync(hostMembers,mGraphSortedKeys,size_t(n)*sizeof(PxU64),cudaMemcpyDeviceToHost,mStream));
+            }
+            check(cudaStreamSynchronize(mStream));
+            accurate=mGraphHostAccurate;speculative=mGraphHostSpeculative;
+            accurateMembers=mGraphHostAccurateMembers;speculativeMembers=mGraphHostSpeculativeMembers;count=n;return true;
+        }catch(...){mFailed=true;return false;}
+    }
     void release() override { delete this; }
     ~Runtime() override {
         Context current(mContext); cudaStreamSynchronize(mStream);clear();
@@ -546,6 +595,13 @@ public:
         cudaFree(mGraphSpeculative);mGraphSpeculative=nullptr;cudaFree(mGraphStatus);mGraphStatus=nullptr;
         mGraphView={};mGraphPairCapacity=0;mGraphNodeCapacity=0;
         mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;mRestoredCheckpointGeneration=0;
+        cudaFree(mGraphKeys);mGraphKeys=nullptr;cudaFree(mGraphSortedKeys);mGraphSortedKeys=nullptr;
+        cudaFree(mGraphSortScratch);mGraphSortScratch=nullptr;mGraphSortScratchBytes=0;
+        cudaFreeHost(mGraphHostAccurate);mGraphHostAccurate=nullptr;
+        cudaFreeHost(mGraphHostSpeculative);mGraphHostSpeculative=nullptr;
+        cudaFreeHost(mGraphHostAccurateMembers);mGraphHostAccurateMembers=nullptr;
+        cudaFreeHost(mGraphHostSpeculativeMembers);mGraphHostSpeculativeMembers=nullptr;
+        mGraphObservationCapacity=0;mGpuIslandRepair=false;
         mHostCorrectionTargets.clear();mCorrectionEnabled=false;
         cudaFree(mCorrectionOwnerRequests);mCorrectionOwnerRequests=nullptr;
         cudaFree(mCorrectionOwnerTargets);mCorrectionOwnerTargets=nullptr;
@@ -672,7 +728,7 @@ public:
             // work before releasing buffers even if the last stage failed.
             check(cudaEventSynchronize(mInput));check(cudaStreamSynchronize(mStream));
             if(mConsumer)check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(mConsumer)));
-            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit==1;mPreserveContactPairs=d.preserveUnchangedContactPairs;
+            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit==1;mPreserveContactPairs=d.preserveUnchangedContactPairs;mGpuIslandRepair=d.gpuIslandRepair;
             if(d.bondCount) {
                 mSolver=ExtStressGpuSolver::create(nodes.data(),d.chunkCount,bonds.data(),d.bondCount,NULL,0,mContext);
                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}

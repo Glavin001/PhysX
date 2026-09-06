@@ -243,7 +243,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     return {v.x,corrections,contacts,constructedPairs,contactMotion,reuseFallbacks};
 }
 struct RepeatedResult {std::vector<unsigned> fractureSteps;std::vector<PxVec3> trajectory;};
-RepeatedResult repeatedImpacts(bool reuse) {
+RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false) {
     Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,true,true,false,false);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
@@ -277,7 +277,7 @@ RepeatedResult repeatedImpacts(bool reuse) {
     PxDestructionMaterial material;material.compressionElasticLimit=100;material.compressionFatalLimit=200;
     PxDestructionStressDesc desc;desc.chunks=chunks.data();desc.chunkCount=4;desc.chunkMassProperties=mass.data();desc.clusters=clusters;desc.clusterCount=2;
     desc.bonds=bonds.data();desc.bondCount=2;desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;
-    desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=reuse;
+    desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=reuse;desc.gpuIslandRepair=gpuRepair;
     auto* destruction=scene.getDestructionScene();require(destruction->configureStress(desc),"repeat configuration failed");
     CUdeviceptr ids=0,data=0;CUevent uploaded=nullptr;
     {PxScopedCudaLock lock(cuda);check(cuMemAlloc(&ids,sizeof(PxU32)));check(cuMemAlloc(&data,sizeof(PxTransform)));check(cuEventCreate(&uploaded,CU_EVENT_DISABLE_TIMING));}
@@ -300,6 +300,16 @@ RepeatedResult repeatedImpacts(bool reuse) {
     for(unsigned i=0;i<2;++i){auto* fragment=shapes[i]->getActor()->is<PxRigidDynamic>();require(fragment && fragment!=walls[i],"repeat fragment ownership missing");
         const auto a=observe(shots[i],PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY),b=observe(fragment,PxRigidDynamicGPUAPIReadType::eLINEAR_VELOCITY);
         require(std::abs(2*a.x+2*b.x-24)<.02f,"repeat correction changed projectile/fragment momentum");}
+    if(gpuRepair) {
+        const auto& islands=*static_cast<NpScene&>(scene).getScScene().getSimpleIslandManager();
+        const auto& a=islands.getAccurateIslandSim();const auto& s=islands.getSpeculativeIslandSim();
+        std::printf("GPU island repair repeated impact: routes=%llu splits=%llu fallbacks=%llu\n",
+            (unsigned long long)(a.getGpuRouteCount()+s.getGpuRouteCount()),
+            (unsigned long long)(a.getGpuSplitCount()+s.getGpuSplitCount()),
+            (unsigned long long)(a.getGpuRepairFallbackCount()+s.getGpuRepairFallbackCount()));
+        require(a.getGpuRouteCount()+s.getGpuRouteCount()+a.getGpuSplitCount()+s.getGpuSplitCount()>0,"GPU island repair never consumed the CUDA partitions");
+        require(a.getGpuRepairFallbackCount()+s.getGpuRepairFallbackCount()==0,"supported fixture fell back to CPU routing");
+    }
     require(destruction->clearStress(),"repeat cleanup failed");for(auto* shape:shapes)shape->release();for(auto* body:walls)body->release();for(auto* body:shots)body->release();for(auto* body:ordinary)body->release();
     {PxScopedCudaLock lock(cuda);check(cuEventDestroy(uploaded));check(cuMemFree(ids));check(cuMemFree(data));}
     require(context.healthy(),"repeat GPU health failed");return result;
@@ -359,4 +369,7 @@ int main(){try {
     require(repeatReference.fractureSteps==repeatReuse.fractureSteps && repeatReference.trajectory.size()==repeatReuse.trajectory.size(),"pair reuse changed repeated fracture decisions");
     for(unsigned i=0;i<repeatReference.trajectory.size();++i)require((repeatReference.trajectory[i]-repeatReuse.trajectory[i]).magnitude()<2e-4f,"pair reuse changed repeated-impact trajectory");
     std::printf("native repeated correction: matching fracture steps %u and %u; %zu trajectory samples match\n",repeatReference.fractureSteps[0],repeatReference.fractureSteps[1],repeatReference.trajectory.size());
+    const auto repeatGpu=repeatedImpacts(true,true);
+    require(repeatGpu.fractureSteps==repeatReuse.fractureSteps && repeatGpu.trajectory.size()==repeatReuse.trajectory.size(),"GPU island repair changed fracture decisions");
+    for(unsigned i=0;i<repeatGpu.trajectory.size();++i)require((repeatGpu.trajectory[i]-repeatReuse.trajectory[i]).magnitude()<2e-4f,"GPU island repair changed repeated-impact trajectory");
     unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

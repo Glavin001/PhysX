@@ -1,0 +1,209 @@
+{
+  "status": "opt-in CUDA island repair implemented; full SDK and performance qualification remain open",
+  "base_revision": "bfe889075394a52cd977fc3728c350711fd6e6bd",
+  "final_source_sha256": {
+    "demos/blast-stress-demo/native_destruction_main.cpp": "97e32086c3b4f00db71373de51491a9560d381cb600c24d38842ddcebf950736",
+    "demos/blast-stress-demo/tests/native_contact_graph_check.h": "431c8af23a10f5290234920d82f30660175dd0bb9c25aab7c0ea5a040145bf6f",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "a36cf524ee1097d6fd952dda136e476c732000bf3a5f101926ece46b59176e5a",
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "edc30b26fbd26d60995fafe7be8f5bbff044141f87e93713e4a3a7a27db95036",
+    "physx/include/PxDestructionScene.h": "e20a0b07e9844d0896f3ba5aa2166414f40d85ce0f4b774847aca42ca995eb7b",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "ff258e12e956cbaf23fb0ab1a80c00c6045f4cf11349294a64bd99b334d73f7f",
+    "physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh": "1ce21124dcc8aa8e675166deb1b6b66ecbe017f7c55c654259666e0617640a6c",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "8a1ed1eb181c6a18566e81bee937a928cca608d19a1f7c266bc2660bcc08b366",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationController.h": "4163e83cd937ad5b91a4f810df04ce595622132d21fb7497cd9298fbdec7c439",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "35161d84664d4dc3222cff805f5cfa09081c4c1c6f2c6d889f796caa85fbe13e",
+    "physx/source/lowlevel/software/include/PxsIslandSim.h": "bda5fb17390aa3bffde5aefd7efd5000e20726a3e03aea41c3d97b932c06ae42",
+    "physx/source/lowlevel/software/include/PxsSimulationController.h": "ccedf0bc0d3947a7887a717e1e785883fef8cad6dd6396333912b26bc7b1e752",
+    "physx/source/lowlevel/software/src/PxsIslandSim.cpp": "c029c1c3a36173d7f6773fe4395ab006f78df8ecdf452c5d3cb4ded210cf4732",
+    "physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp": "0b24f8110a5e32df07eae2bb30c5c1fb2e561a560d34bff4082ced1c0aea8dda",
+    "physx/source/simulationcontroller/src/ScPipeline.cpp": "427c7060e0d30f116a4bc084d9501dc96de83106e79c358e495a23e186d8a558"
+  },
+  "verification": {
+    "build_command": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+    "tests_passed": 23,
+    "test_scope": "17 native/persistent-owner/projectile/contact-graph tests plus 6 CPU reference contract/resimulation tests",
+    "final_combined_cuda_memcheck_errors": 0,
+    "artifacts": [
+      {
+        "path": "out/native-gpu-island-repair-verified-build.log",
+        "sha256": "c75f5fed9443bea2d3c89b0127f4be8e34f93b0ddeba879275005556892333e1"
+      },
+      {
+        "path": "out/native-gpu-island-repair-verified-tests.log",
+        "sha256": "b7dfb5104dc2108196ee8b31577c5025ef12cdc596adab33956206c133097048"
+      },
+      {
+        "path": "out/native-gpu-island-repair-verified-memcheck.log",
+        "sha256": "c0ed64909eff6fc35673b2e5640904c6bb31e22b9d78fa4eb1f2ef84f6201f17"
+      }
+    ],
+    "independent_checks": [
+      "CPU flood fill of inserted edges independently checks CUDA components and committed islands",
+      "connected cycle removal; split; reused handles; CPU fallback and GPU resume",
+      "invalid membership rejected before mutation; entire observation invalidated",
+      "sleeping scene declines early GPU repair",
+      "repeated corrected impacts: same fracture steps and 720 trajectory samples within existing tolerance; 4 GPU splits and 0 fallback"
+    ]
+  },
+  "large_capture": {
+    "summary": {
+      "backend": "native PhysX GPU task graph + resident CUDA destruction",
+      "status": "completed",
+      "frames": 1800,
+      "seconds": 30,
+      "buildings": 256,
+      "chunks": 113664,
+      "bonds": 229376,
+      "peak_clusters": 97095,
+      "projectiles": 1024,
+      "broken_bonds": 200263,
+      "corrections": 376,
+      "spawn_protocol": "clear-aerial-ballistic-v2",
+      "motion_audit_enabled": true,
+      "max_motion_position_error": 0,
+      "record_fps": 60,
+      "gpu_island_repair": true,
+      "preserve_contact_pairs": true,
+      "recorded_state": false,
+      "correction_limit": 1,
+      "physics_ms_p50": 113.371,
+      "physics_ms_p95": 888.466,
+      "physics_ms_p99": 1222.98,
+      "physics_ms_max": 1807.1,
+      "missed_16_67ms": 1696,
+      "stress_included_in_physics_time": true,
+      "isolated_performance_qualification": false,
+      "sleeping": false,
+      "crushing_material_enabled": false
+    },
+    "physics_timing": {
+      "samples": 1800,
+      "min_ms": 1.00841,
+      "mean_ms": 195.69610398333333,
+      "max_ms": 1807.1,
+      "p50_ms": 113.3665,
+      "p95_ms": 888.466,
+      "p99_ms": 1222.98,
+      "total_wall_seconds": 352.25298717,
+      "effective_steps_per_second": 5.109963763433768,
+      "real_time_factor": 0.08516606272389614,
+      "missed_deadlines": 1696,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "capture_tick_timing": {
+      "samples": 1800,
+      "min_ms": 7.10796,
+      "mean_ms": 207.1760044388889,
+      "max_ms": 1818.63,
+      "p50_ms": 125.6185,
+      "p95_ms": 902.608,
+      "p99_ms": 1233.74,
+      "total_wall_seconds": 372.91680799,
+      "effective_steps_per_second": 4.826813813252064,
+      "real_time_factor": 0.08044689688753442,
+      "missed_deadlines": 1714,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "process": {
+      "exit_code": 0,
+      "wall_seconds": 376.5960332020186,
+      "status": "completed"
+    },
+    "sampled_total_gpu_memory_peak_mib": 19366,
+    "cpu_task_scopes": {
+      "task.accurateIslandMaintenance": {
+        "samples": 1800,
+        "mean_ms": 23.78151002222222,
+        "median_ms": 12.099394499999999,
+        "max_ms": 318.066763
+      },
+      "task.prepareIslandRepair": {
+        "samples": 1800,
+        "mean_ms": 2.260790105,
+        "median_ms": 1.952021,
+        "max_ms": 11.00629
+      },
+      "task.speculativeIslandMaintenance": {
+        "samples": 1800,
+        "mean_ms": 22.798038115,
+        "median_ms": 10.9110875,
+        "max_ms": 270.168884
+      }
+    },
+    "artifacts": [
+      {
+        "path": "out/recordings/native-gpu-island-repair-large-20260906/native.summary.json",
+        "sha256": "19674641663fcd6628185caa1ce50a97e44a877a0df68f8ed1ec858a87781e8d"
+      },
+      {
+        "path": "out/recordings/native-gpu-island-repair-large-20260906/phase-summary.json",
+        "sha256": "ac6d6bbf7d85b8eb0e16268d6e438f68ba64dc67cd20c9fa91cd7f41360d3637"
+      },
+      {
+        "path": "out/recordings/native-gpu-island-repair-large-20260906/native.frames.csv",
+        "sha256": "894d812c1f86bc4b87b33ed51949a64da37937d07c6d6949bc14a61efbe64844"
+      },
+      {
+        "path": "out/recordings/native-gpu-island-repair-large-20260906/native.phases.csv",
+        "sha256": "d2b3e40e9271ecda12116ee597793d68f1658fdab981c081d6f7419f7d264833"
+      },
+      {
+        "path": "out/recordings/native-gpu-island-repair-large-20260906/gpu-memory.csv",
+        "sha256": "a2e4b473070d7192f15f36a1a3d73a4bd9936fe9f35d2af8486828f9b6de29bb"
+      },
+      {
+        "path": "out/recordings/native-gpu-island-repair-large-20260906/build-provenance.json",
+        "sha256": "4b133b71ee50e0a97dfeb9f4c552d9d6c629258bfde509895714b44f31eb5fe1"
+      },
+      {
+        "path": "out/recordings/native-gpu-island-repair-large-20260906/source-files.json",
+        "sha256": "e3d78c0d2ea64fb3ec364f29a5f927319eb02e2318ea810d1fb991cfa8e8b0fd"
+      }
+    ],
+    "source_note": "Capture preceded the final change that invalidates the remaining borrowed observation on a registry mismatch and its injected-invalid-membership regression test. Original source contents and library hashes are archived. Final changes passed the 23-test suite and combined memcheck."
+  },
+  "performance_limits": [
+    "Shared RTX 4090; another developer GPU process remained running; no services stopped",
+    "One 30-second run, not five isolated 60-second trials",
+    "Earlier large reference mean 198.84 ms and current 195.70 ms do not establish a reliable speedup; trajectories and collision counts diverge in collapse",
+    "Exploratory 7104-chunk runs averaged 5.02 ms reference and 5.48 ms GPU repair; those intermediate-code single trials also do not qualify performance",
+    "CPU task scopes overlap and must not be summed as independent wall time",
+    "No new video/state archive was recorded for this timing-only capture"
+  ],
+  "unresolved_sanitizer_observation": {
+    "description": "First combined memcheck reported cudaErrorIllegalAddress at ExtStressGpuSolverImpl::enableDeviceTopology during a later sparse fixture. Cause is unproven; subsequent isolated sparse/reference/GPU-repair runs and combined reruns were clean. Do not claim the first failure was fixed or attribute it to the tool without evidence.",
+    "initial_failure": {
+      "path": "out/native-gpu-island-repair-memcheck.log",
+      "sha256": "2a938cde68dbe704a93bbdc54b171642cf68d59a8bbf0aa67bf34e0faa219fdf"
+    },
+    "subsequent_clean_logs": [
+      {
+        "path": "out/native-gpu-island-repair-sparse-memcheck.log",
+        "sha256": "e6a34c9d4d27a59f67601effe16e51f8ee6d8f16ac783a510fa8b0be2b019985"
+      },
+      {
+        "path": "out/native-gpu-island-repair-reference-memcheck.log",
+        "sha256": "7ae97f113f485e31a0ce26586842243b11d62642ff6771510f71ce3d1c9fe232"
+      },
+      {
+        "path": "out/native-gpu-island-repair-targeted-memcheck.log",
+        "sha256": "69733f3f4e4b5dbe88b0e9baa76b5e95c7089ca6957d205902aa017ee1b5c37d"
+      },
+      {
+        "path": "out/native-gpu-island-repair-combined-memcheck-retry.log",
+        "sha256": "c0ed64909eff6fc35673b2e5640904c6bb31e22b9d78fa4eb1f2ef84f6201f17"
+      },
+      {
+        "path": "out/native-gpu-island-repair-verified-memcheck.log",
+        "sha256": "c0ed64909eff6fc35673b2e5640904c6bb31e22b9d78fa4eb1f2ef84f6201f17"
+      }
+    ]
+  },
+  "remaining": [
+    "Default remains CPU reference; enable via PxDestructionStressDesc::gpuIslandRepair or --gpu-island-repair 1",
+    "CPU node/edge list maintenance and solver preparation remain; pinned membership observation transfers 24 bytes per allocated node per preparation",
+    "Sleeping, joints, articulations, CCD and unsupported graph state require persistent GPU lifecycle integration",
+    "Finalization still rebuilds the diagnostic contact graph; remove duplicate work only after validating buffer and retirement lifetime",
+    "Earlier full SDK/Rust/WASM/game/fidelity/performance completion gates remain unproven"
+  ]
+}

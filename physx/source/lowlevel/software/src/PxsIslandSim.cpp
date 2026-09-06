@@ -1388,6 +1388,39 @@ bool IslandSim::tryFastPath(PxNodeIndex startNode, PxNodeIndex targetNode, Islan
 
 bool IslandSim::findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId)
 {
+    mGpuSplit=false;
+    if(mGpuComponentLabels && startNode.index()<mGpuComponentCount && targetNode.index()<mGpuComponentCount) {
+        const PxU32 component=mGpuComponentLabels[startNode.index()];
+        if(component==mGpuComponentLabels[targetNode.index()]) {
+            ++mGpuRouteCount;return true; // exact connectedness, no CPU path search
+        }
+        // CUDA radix sorting provides stable component membership. Validate the
+        // host registry before changing it, then reuse PhysX's split bookkeeping.
+        PxU32 lo=0,hi=mGpuComponentCount;
+        const PxU64 key=PxU64(component)<<32;
+        while(lo<hi){const PxU32 mid=lo+(hi-lo)/2;if(mGpuComponentMembers[mid]<key)lo=mid+1;else hi=mid;}
+        const PxU32 begin=lo;bool valid=true,foundStart=false;
+        for(;lo<mGpuComponentCount && PxU32(mGpuComponentMembers[lo]>>32)==component;++lo) {
+            const PxU32 node=PxU32(mGpuComponentMembers[lo]);
+            if(node>=mNodes.size() || mNodes[node].isDeleted() || mNodes[node].isKinematic()
+                || mIslandIds[node]!=islandId || mVisitedState.test(node)){valid=false;break;}
+            foundStart|=node==startNode.index();
+        }
+        if(valid && foundStart) {
+            mVisitedNodes.pushBack(TraversalState(startNode,0,PX_INVALID_NODE,0));
+            for(PxU32 i=begin;i<lo;++i) {
+                const PxU32 node=PxU32(mGpuComponentMembers[i]);
+                if(node!=startNode.index())mVisitedNodes.pushBack(TraversalState(PxNodeIndex(node),mVisitedNodes.size(),0,0));
+                mVisitedState.set(node);mIslandIds[node]=IG_INVALID_ISLAND;
+            }
+            mGpuSplit=true;++mGpuSplitCount;return false;
+        }
+        ++mGpuRepairFallbackCount;
+        // A registry mismatch invalidates this observation for the remainder
+        // of the pass; do not mix later GPU answers with repaired CPU state.
+        setGpuContactComponents(NULL,NULL,0);
+    }
+
 	//Firstly, traverse the fast path and tag up witnesses. TryFastPath can fail. In that case, no witnesses are left but this node is permitted to report
 	//that it is still part of the island. Whichever node lost its fast path will be tagged as dirty and will be responsible for recovering the fast path
 	//and tagging up the visited nodes
@@ -1784,7 +1817,11 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 							nodeCount[thisNode.mType]++;
 							mIslandIds[indexIndex] = newIslandHandle;
 							mHopCounts[indexIndex] = mVisitedNodes[a].mDepth; //How many hops to root
-							mFastRoute[indexIndex] = mVisitedNodes[mVisitedNodes[a].mPrevIndex].mNodeIndex;
+                            // Component membership is not an adjacency tree.
+                            // Invalidate routing hints so a later CPU fallback
+                            // searches real edges instead of inventing a path.
+                            mFastRoute[indexIndex] = mGpuSplit ? PxNodeIndex(PX_INVALID_NODE)
+                                : mVisitedNodes[mVisitedNodes[a].mPrevIndex].mNodeIndex;
 						}
 
 						for (PxU32 i = 0; i < Node::eTYPE_COUNT; ++i)

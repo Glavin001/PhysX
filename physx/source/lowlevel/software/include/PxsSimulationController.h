@@ -68,6 +68,7 @@ namespace physx
 	namespace IG
 	{
 		class IslandSim;
+        class SimpleIslandManager;
 	}
 
 	namespace Sc
@@ -309,6 +310,8 @@ namespace physx
         virtual PxU32 getDestructionError() const { return 0; }
         virtual bool preservesDestructionContactPairs() const { return false; }
         virtual bool usesDeviceDestructionContactInputs() const { return false; }
+        virtual bool usesGpuDestructionIslandRepair() const { return false; }
+        virtual void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) {}
 
 		virtual	bool	copyContactData(void* /*data*/, PxU32* /*numContactPairs*/, const PxU32 /*maxContactPairs*/, CUevent /*startEvent*/, CUevent /*copyEvent*/) { return false; }
 

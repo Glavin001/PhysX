@@ -105,22 +105,60 @@ tests compare GPU partitions with PhysX's actual accurate/speculative islands,
 check CPU interaction ownership, and cover shared boundaries, infinite-mass
 nonkinematic dynamics, growth/removal, disable transitions and repeated fracture.
 
+## CUDA-driven island repair (opt-in)
+
+`PxDestructionStressDesc::gpuIslandRepair` now lets CUDA components drive
+`IslandSim::findRoute` during the third pass. The native demo exposes
+`--gpu-island-repair 0|1`; false keeps the original CPU traversal as the reference.
+This is an actual connectivity consumer, no longer only a parallel graph check.
+
+For supported awake rigid scenes, `destroyManagers` retires late managers before
+preparing the CUDA graph and scheduling third-pass island tasks. The runtime uses
+CUB radix sorting of `(component ID, node ID)` keys to produce stable membership
+on the GPU, then observes labels and sorted members in persistent pinned memory.
+The existing CPU island registry requires this observation: 24 bytes per allocated
+node per preparation, plus the 8-byte status. Buffers grow with graph capacity;
+there is no per-pair readback or CPU component construction.
+
+Equal labels eliminate the CPU path search. Different labels supply the exact
+component's member list to the existing PhysX split machinery, which maintains
+node/edge lists, island IDs, static-touch counts and activation bookkeeping.
+CPU validation checks member liveness, membership and visited state before any
+mutation. A mismatch invalidates the complete borrowed observation for the rest
+of that third pass before falling back to CPU traversal. Labels and sorted membership are not an adjacency tree: split nodes'
+fast-route hints are invalidated, allowing later CPU traversal to recover actual
+paths. Observed pointers are cleared after the one consuming third-pass task.
+
+Sleeping, joints, articulations, CCD/speculative CCD, custom filters/contact
+modification and deformables retain the CPU path. Incomplete GPU input also
+retains it; device/allocation failure remains an incomplete simulation, not a
+permission to omit physical work. The graph is still regenerated at finalization
+for the accepted diagnostic view; removing duplicate preparation is a remaining
+optimization requiring lifecycle validation.
+
+Native tests now independently flood-fill the inserted CPU edges and compare
+both CUDA components and committed island partitions, even when CUDA drives the
+latter. Coverage includes connected cycle removal, splits, handle reuse,
+GPU-to-CPU switching and resume, invalid observation fallback, sleeping fallback, static/kinematic boundaries,
+and repeated corrected impacts. The controlled repeated-impact fixture uses
+four GPU-driven splits with zero fallback and preserves the reference's fracture
+steps and all 720 trajectory samples within the existing tolerance.
+
 ## Remaining integration
 
-CPU island traversal is still authoritative and still runs. The CUDA components
-currently provide a verified parallel calculation, not a completed replacement
-or a proven speedup. The next change must place graph preparation after required
-retirements but before `thirdPassIslandGen`, then apply the GPU partitions through
-the island/solver lifecycle while preserving node/edge lists, static touch counts,
-activation/deactivation queues and fallback state. Labels alone do not provide a
-valid adjacent-edge routing tree for the CPU `mFastRoute` cache.
+The GPU now computes and supplies connectivity for the opt-in supported path.
+CPU compatibility-list maintenance, island insertion and solver preparation
+remain. This is not an entirely GPU-owned solver-island lifecycle or a proven
+end-to-end speedup. The next integration must move those registry operations to
+persistent device storage and consume it directly in scheduling, rather than
+keeping a host observation in the final architecture.
 
 Sleeping interactions can retain island edges after releasing their active
 contact managers. Their connectivity must be represented persistently before
 extending this awake-rigid graph to sleeping islands. Joints and other noncontact
 edges also need representation before this is a complete solver-island graph.
-CPU compatibility registries must reflect the committed result. A shadow GPU
-graph is an intermediate parity check, not completion or a second simulation.
+CPU compatibility registries must reflect the committed result. The original CPU traversal remains selectable as the reference; neither path
+constitutes completion of the full GPU island lifecycle.
 
 Required boundaries include ordinary rigid bodies, private destruction clusters,
 and prescribed static/kinematic bodies without connecting an entire world
@@ -152,3 +190,26 @@ the successful 30-second schedule peaked near 18.3 GB in the same sampling schem
 These include another process and are not isolated memory or timing measurements.
 The final allocator diagnostics now include the requesting source file and line
 so subsequent allocation failures can be tied to the responsible buffer.
+
+### GPU-driven repair results
+
+`qualification/native-gpu-island-repair-20260906.json` records the opt-in consumer,
+23 passing final tests (including six CPU reference contract/resimulation tests)
+and the completed large capture. The 113,664-chunk / 229,376-bond run completed
+1,800 steps with at most one correction each, converged stress and zero motion
+audit error. Mean physics time was 195.70 ms (8.52% of real time), with a 1,807.10 ms
+maximum and 1,696 missed 16.67 ms deadlines. Shared total GPU memory peaked at
+19,366 MiB in two-second samples. No real-time qualification or reliable speedup
+is established by this single shared-GPU run.
+
+Accurate/speculative CPU island task scopes averaged 23.78/22.80 ms per accepted
+step, and GPU preparation's host scope averaged 2.26 ms. These scopes overlap;
+do not add them as independent costs. The earlier reference capture averaged
+198.84 ms overall. Controlled fixtures preserve their trajectories and fracture
+steps; collapse trajectories differ, so repeated matched trials remain required.
+The smaller exploratory run was slower with GPU repair (5.48 versus 5.02 ms).
+
+The final combined CUDA memcheck run reported zero errors. An initial combined
+run reported an illegal address in stress topology initialization; isolated
+reference and GPU-repair fixtures and combined reruns were clean. Its cause is
+still unproven and the original failure log remains in the qualification record.
