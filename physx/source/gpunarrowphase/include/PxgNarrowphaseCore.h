@@ -91,6 +91,7 @@ namespace physx
 	}
 
 
+    struct PxgDestructionPreSolveContacts;
 	struct PxgContactManagers : public PxsContactManagerBase
 	{
 		PxgContactManagers(const PxU32 bucketId, Cm::VirtualAllocatorCallback& hostAlloc) : PxsContactManagerBase(bucketId), 
@@ -598,6 +599,7 @@ namespace physx
 
 		Sc::ShapeInteraction** getGPUShapeInteractions() { return reinterpret_cast<Sc::ShapeInteraction**>(mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mShapeInteractions.getDevicePtr()); }
 
+        bool getDestructionPreSolveContacts(PxgDestructionPreSolveContacts& view,PxArray<PxU32>& retired);
         bool resetDestructionContactCaches();
         bool buildDestructionContactGraph(bool reuseSamePass = false);
         bool canReuseDestructionContactGraph(PxU64 generation,PxU64 retainedRevision) const {

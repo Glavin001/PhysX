@@ -112,3 +112,11 @@ test, memory-check and real-fracture evidence. Removing the compatibility regist
 and component readback, moving contact lifecycle input generation to CUDA, and
 qualifying the full SDK remain open. Earlier unexplained crash/real-fracture
 sanitizer failures are not closed by focused passing tests.
+
+## Direct contact producer
+
+[GPU_PRE_SOLVE_CONTACT_INPUTS.md](GPU_PRE_SOLVE_CONTACT_INPUTS.md) describes the
+subsequent opt-in path that consumes narrowphase contact records directly on
+CUDA and disables the native dynamic merge journal. Local support counters and
+managerless-edge inputs remain CPU-produced. The measurements above precede
+that change.

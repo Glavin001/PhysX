@@ -1222,7 +1222,7 @@ void IslandSim::processNewEdges()
 
 				const PxNodeIndex nodeIndex1 = mCpuData.mEdgeNodeIndices[2 * edgeIndex];
 				const PxNodeIndex nodeIndex2 = mCpuData.mEdgeNodeIndices[2 * edgeIndex+1];
-                if(mGpuData && mTrackPreSolveMerges && nodeIndex1.isValid() && nodeIndex2.isValid()
+                if(mGpuData && mTrackPreSolveMerges && mRecordPreSolveMerges && nodeIndex1.isValid() && nodeIndex2.isValid()
                     && !mNodes[nodeIndex1.index()].isKinematic() && !mNodes[nodeIndex2.index()].isKinematic())
                     mPreSolveMerges.pushBack({nodeIndex1.index(),nodeIndex2.index()});
 

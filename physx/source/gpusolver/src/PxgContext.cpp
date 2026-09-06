@@ -382,6 +382,7 @@ namespace physx
         mSolverIslandMetadataPages(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
         mPreSolveNodes(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
         mPreSolveMerges(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
+        mPreSolveRetired(allocDesc.hostAlloc, PxsHeapStats::eSOLVER),
         mPreSolveSleepingDisabled(bool(sceneFlags & PxSceneFlag::eDISABLE_SLEEPING)),
 		mIsTGS(isTGS),
 		mIsExternalForcesEveryTgsIterationEnabled(false),
@@ -2536,6 +2537,15 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
         bool supported=runtime!=NULL && mPreSolveSleepingDisabled && runtime->canBuildPreSolveIslands();
         // Keep unsupported sleeping/joint scenes on the qualified native path.
         if(nbConstraints || islandSim.getNbActiveNodes(IG::Node::eARTICULATION_TYPE))supported=false;
+        PxgDestructionPreSolveContacts contactView;
+        if(supported && mCudaPreSolveContacts) {
+            PxArray<PxU32> retired;supported=getNarrowphaseCore()->getDestructionPreSolveContacts(contactView,retired);
+            mPreSolveRetired.resize(retired.size());
+            if(!retired.empty())PxMemCopy(mPreSolveRetired.begin(),retired.begin(),retired.size()*sizeof(PxU32));
+            contactView.retired=mPreSolveRetired.begin();contactView.retiredCount=mPreSolveRetired.size();
+            const auto& shapes=getSimulationCore()->mPxgShapeSimManager;
+            contactView.shapes=shapes.getShapeSimsDeviceTypedPtr();contactView.shapeCapacity=shapes.getNbTotalShapeSims();
+        }
         const PxU32 *labels=NULL,*counts=NULL;
         if(supported) {
             const bool fullSnapshot=mPreForceNodeSnapshot || runtime->preSolveNodeSnapshotRequired(metadataNodes);
@@ -2554,15 +2564,35 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
                     if(i>=metadataNodes)mPreSolveNodes.pushBack({i,0,{0,0,0}});else collectNode(i);
                 }
             }
-            const auto& merges=islandSim.getPreSolveMerges();mPreSolveMerges.resize(merges.size());
-            if(!merges.empty())PxMemCopy(mPreSolveMerges.begin(),merges.begin(),merges.size()*sizeof(PxvPreSolveEdge));
+            mPreSolveMerges.forceSize_Unsafe(0);
+            if(mCudaPreSolveContacts) {
+                // Managerless accurate edges have no NP row. Preserve their
+                // current pre-solve connectivity explicitly until their input
+                // lifecycle is also device-owned. Do not reuse late receipts.
+                PxBitMap::Iterator it(mIslandManager.getRetainedContactMap());PxU32 edge;
+                while((edge=it.getNext())!=PxBitMap::Iterator::DONE) {
+                    if(edge>=islandSim.getNbEdges())continue;
+                    const auto& e=islandSim.getEdge(edge);
+                    if(!e.isInserted() || e.isPendingDestroyed())continue;
+                    const auto a=islandSim.mCpuData.getNodeIndex1(edge),b=islandSim.mCpuData.getNodeIndex2(edge);
+                    if(a.isValid() && b.isValid() && !islandSim.getNode(a).isKinematic() && !islandSim.getNode(b).isKinematic())
+                        mPreSolveMerges.pushBack({a.index(),b.index()});
+                }
+            } else {
+                const auto& merges=islandSim.getPreSolveMerges();mPreSolveMerges.resize(merges.size());
+                if(!merges.empty())PxMemCopy(mPreSolveMerges.begin(),merges.begin(),merges.size()*sizeof(PxvPreSolveEdge));
+            }
             if(!runtime->buildPreSolveIslands(mPreSolveNodes.begin(),mPreSolveNodes.size(),metadataNodes,fullSnapshot,mPreSolveMerges.begin(),mPreSolveMerges.size(),
-                mGpuSolverCore->getStream(),labels,counts)) {
+                mGpuSolverCore->getStream(),labels,counts,mCudaPreSolveContacts?&contactView:NULL)) {
                 getNarrowphaseCore()->mCudaContext->setAbortMode(true);
                 PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"CUDA pre-solve island production failed; step incomplete.");
             } else {
                 islandSim.acknowledgePreSolveNodes();mPreForceNodeSnapshot=false;
                 mPreSolveNodeDevicePointer=CUdeviceptr(runtime->preSolveNodeView());
+                if(labels && mCudaPreSolveContacts) {
+                    ++mCudaPreSolveContactPasses;mCudaPreSolveContactPairs+=contactView.pairCount;
+                    mCudaPreSolveRetiredBytes+=PxU64(contactView.retiredCount)*sizeof(PxU32);
+                }
                 const PxU64 mergeBytes=labels?PxU64(mPreSolveMerges.size())*sizeof(PxvPreSolveEdge):0;
                 mCudaPreSolveHostBytes+=PxU64(mPreSolveNodes.size())*sizeof(PxvPreSolveNodeUpdate)+mergeBytes;
                 mCudaPreSolveFullHostBytes+=PxU64(metadataNodes)*sizeof(PxvPreSolveNode)+mergeBytes;

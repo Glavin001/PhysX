@@ -20,6 +20,16 @@ struct PxgDestructionContactEdge {
     PxgContactGraphIdentity identity;
     PxU32 node0, node1, flags, touching;
 };
+// Borrowed current-pass NP buffers. Retirements are pinned host lifecycle
+// indices, consumed on the solver stream before geometry is dereferenced.
+struct PxgDestructionPreSolveContacts {
+    const PxgContactManagerInput* inputs=NULL;
+    const PxgContactGraphIdentity* identities=NULL;
+    const PxsContactManagerOutput* outputs=NULL;
+    const PxgShapeSim* shapes=NULL;
+    const PxU32* retired=NULL;
+    PxU32 pairCount=0,shapeCapacity=0,retiredCount=0;
+};
 struct PxgDestructionContactGraphObservationStats {
     // Lifetime counters; status bytes count even if incomplete input falls back.
     PxU64 observations=0, sortedGraphs=0, deviceToHostBytes=0;

@@ -92,7 +92,8 @@ public:
     virtual bool preSolveNodeSnapshotRequired(PxU32 count) const = 0;
     virtual bool buildPreSolveIslands(const PxvPreSolveNodeUpdate* updates,PxU32 updateCount,PxU32 count,bool fullSnapshot,
         const PxvPreSolveEdge* merges,PxU32 mergeCount,CUstream stream,
-        const PxU32*& labels,const PxU32*& staticTouches) = 0;
+        const PxU32*& labels,const PxU32*& staticTouches,
+        const PxgDestructionPreSolveContacts* contacts=NULL) = 0;
 
 
     // Install GPU-selected cluster ownership without re-uploading immutable geometry.

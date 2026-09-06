@@ -496,7 +496,7 @@ class IslandSim
     PxBitMap mSolverIslandIdPages,mSolverStaticTouchPages;
     PxArray<PxU64> mPreSolveLifetimes;
     PxArray<PxvPreSolveEdge> mPreSolveMerges;
-    bool mTrackPreSolveMerges=false;
+    bool mTrackPreSolveMerges=false,mRecordPreSolveMerges=true;
     PxBitMap mPreSolveNodeChanges;
     void markPreSolveNode(PxU32 index) { if(mTrackPreSolveMerges)mPreSolveNodeChanges.growAndSet(index); }
 
@@ -663,7 +663,7 @@ public:
 	
     const PxBitMap& getSolverIslandIdPages() const { return mSolverIslandIdPages; }
     const PxBitMap& getSolverStaticTouchPages() const { return mSolverStaticTouchPages; }
-    void trackPreSolveMerges(bool enabled) { mTrackPreSolveMerges=enabled;if(!enabled){mPreSolveMerges.clear();mPreSolveNodeChanges.clear();} }
+    void trackPreSolveMerges(bool enabled,bool record=true) { mRecordPreSolveMerges=record;mTrackPreSolveMerges=enabled;if(!enabled){mPreSolveMerges.clear();mPreSolveNodeChanges.clear();} }
     const PxBitMap& getPreSolveNodeChanges() const { return mPreSolveNodeChanges; }
     void acknowledgePreSolveNodes() { mPreSolveNodeChanges.clear(); }
     PxU64 getPreSolveLifetime(PxU32 index) const { return index<mPreSolveLifetimes.size()?mPreSolveLifetimes[index]:0; }

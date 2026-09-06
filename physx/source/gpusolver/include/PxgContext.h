@@ -334,7 +334,12 @@ namespace physx
 
         IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
 
-        void enableCudaPreSolveIslands(bool enabled) { if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled); }
+        void enableCudaPreSolveIslands(bool enabled) { if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled,!mCudaPreSolveContacts); }
+        void enableCudaPreSolveContacts(bool enabled) { if(enabled!=mCudaPreSolveContacts)mPreForceNodeSnapshot=true;mCudaPreSolveContacts=enabled;
+            mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!enabled); }
+        PxU64 getCudaPreSolveContactPasses() const { return mCudaPreSolveContactPasses; }
+        PxU64 getCudaPreSolveContactPairs() const { return mCudaPreSolveContactPairs; }
+        PxU64 getCudaPreSolveRetiredBytes() const { return mCudaPreSolveRetiredBytes; }
         CUdeviceptr getPreSolveNodeDevicePointer() const { return mPreSolveNodeDevicePointer; }
         const PxArray<PxvPreSolveNode>& getExpectedPreSolveNodes() const { return mExpectedPreSolveNodes; }
         PxU64 getCudaPreSolveFullHostBytes() const { return mCudaPreSolveFullHostBytes; }
@@ -566,6 +571,9 @@ namespace physx
         Cm::PinnableArray<PxvIslandMetadataPage> mSolverIslandMetadataPages;
         Cm::PinnableArray<PxvPreSolveNodeUpdate> mPreSolveNodes;
         Cm::PinnableArray<PxvPreSolveEdge> mPreSolveMerges;
+        Cm::PinnableArray<PxU32> mPreSolveRetired;
+        bool mCudaPreSolveContacts=false;
+        PxU64 mCudaPreSolveContactPasses=0,mCudaPreSolveContactPairs=0,mCudaPreSolveRetiredBytes=0;
         bool mPreSolveSleepingDisabled;
         bool mCudaPreSolveIslands=false,mPreForceNodeSnapshot=true;
         PxU64 mCudaPreSolvePasses=0,mCudaPreSolveFallbacks=0,mCudaPreSolveHostBytes=0;

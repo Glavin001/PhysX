@@ -110,11 +110,11 @@ struct Fixture {
 };
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
-void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false) {
+void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,bool contacts=false) {
     Fixture f(1,1024,sleeping,solver);f.scene.setGravity(PxVec3(0));
     f.desc.internalCorrectionLimit=1;f.desc.gpuIslandRepair=true;f.configure();
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(f.scene).getScScene().getDynamicsContext());
-    gpu.captureSolverIslandMetadata(true);gpu.enableCudaPreSolveIslands(producer);
+    gpu.captureSolverIslandMetadata(true);gpu.enableCudaPreSolveContacts(contacts);gpu.enableCudaPreSolveIslands(producer);
     unsigned comparisons=0;bool previousGpu=false;
     const auto verify=[&](){
         const auto before=gpu.getSolverIslandMetadataStats();
@@ -187,6 +187,7 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false)
         require(gpu.getCudaPreSolvePasses()==before,"speculative CCD bypassed native pre-solve fallback");
         a->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD,false);verify();verify();
     }
+    if(contacts && !sleeping)require(gpu.getCudaPreSolveContactPasses()>8 && gpu.getCudaPreSolveContactPairs()>0,"fixture did not consume device pre-solve contacts");
     const auto sparse=gpu.getSolverIslandMetadataStats();
     if(!producer || sleeping)require(sparse.pageUploads>quietAfter.pageUploads,"contact lifecycle never exercised sparse solver metadata uploads");
     const auto beforeGrowth=sparse.fullUploads;std::vector<PxRigidDynamic*> growth;
@@ -625,6 +626,7 @@ int main(int argc,char** argv){try{
         if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}
         if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();return 0;}
         if(mode=="--reference"){deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}
+        if(std::strcmp(argv[1],"--pre-solve-contacts")==0){solverMetadata(PxSolverType::ePGS,false,true,true);solverMetadata(PxSolverType::eTGS,false,true,true);solverMetadata(PxSolverType::eTGS,true,true,true);return 0;}
         throw std::runtime_error("unknown collision test mode");
     }
     require(argc==1,"collision test accepts at most one mode");deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

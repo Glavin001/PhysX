@@ -244,7 +244,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     return {v.x,corrections,contacts,constructedPairs,contactMotion,reuseFallbacks};
 }
 struct RepeatedResult {std::vector<unsigned> fractureSteps;std::vector<PxVec3> trajectory;};
-RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=false) {
+RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=false,bool contacts=false) {
     Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,true,true,false,false);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
@@ -289,7 +289,7 @@ RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=fal
         PxVec3 out;check(cuMemcpyDtoH(&out,data,sizeof(out)));return out;
     };
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(scene).getScScene().getDynamicsContext());
-    gpu.enableCudaPreSolveIslands(preSolve);gpu.captureSolverIslandMetadata(preSolve);
+    gpu.enableCudaPreSolveContacts(contacts);gpu.enableCudaPreSolveIslands(preSolve);gpu.captureSolverIslandMetadata(preSolve);
     auto& auditIslands=*static_cast<NpScene&>(scene).getScScene().getSimpleIslandManager();
     auditIslands.getAccurateIslandSim().setGpuComponentAudit(gpuRepair);
     auditIslands.getSpeculativeIslandSim().setGpuComponentAudit(gpuRepair);
@@ -324,6 +324,7 @@ RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=fal
         require(a.getGpuRouteCount()+s.getGpuRouteCount()+a.getGpuSplitCount()+s.getGpuSplitCount()>0,"GPU island repair never consumed the CUDA partitions");
         require(a.getGpuRepairFallbackCount()+s.getGpuRepairFallbackCount()==0,"supported fixture fell back to CPU routing");
     }
+    if(contacts)require(gpu.getCudaPreSolveContactPasses()>50,"repeated impacts did not use GPU contact producer");
     if(preSolve)require(gpu.getCudaPreSolvePasses()>50,"repeated-impact fixture did not consume CUDA-produced solver state");
     require(destruction->clearStress(),"repeat cleanup failed");for(auto* shape:shapes)shape->release();for(auto* body:walls)body->release();for(auto* body:shots)body->release();for(auto* body:ordinary)body->release();
     {PxScopedCudaLock lock(cuda);check(cuEventDestroy(uploaded));check(cuMemFree(ids));check(cuMemFree(data));}
@@ -390,5 +391,8 @@ int main(){try {
     const auto repeatProducer=repeatedImpacts(true,true,true);
     require(repeatProducer.fractureSteps==repeatReuse.fractureSteps && repeatProducer.trajectory.size()==repeatReuse.trajectory.size(),"CUDA pre-solve producer changed fracture decisions");
     for(unsigned i=0;i<repeatProducer.trajectory.size();++i)require((repeatProducer.trajectory[i]-repeatReuse.trajectory[i]).magnitude()<2e-4f,"CUDA pre-solve producer changed repeated-impact trajectory");
+    const auto repeatContacts=repeatedImpacts(true,true,true,true);
+    require(repeatContacts.fractureSteps==repeatReuse.fractureSteps && repeatContacts.trajectory.size()==repeatReuse.trajectory.size(),"CUDA pre-solve producer changed fracture decisions");
+    for(unsigned i=0;i<repeatContacts.trajectory.size();++i)require((repeatContacts.trajectory[i]-repeatReuse.trajectory[i]).magnitude()<2e-4f,"CUDA pre-solve producer changed repeated-impact trajectory");
     std::printf("CUDA pre-solve producer: reference fracture decisions and %zu trajectory samples match\n",repeatProducer.trajectory.size());
     unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

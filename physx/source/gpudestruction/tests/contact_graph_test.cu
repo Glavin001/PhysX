@@ -114,6 +114,47 @@ void preSolveComponents() {
     }
     std::puts("CUDA pre-solve graph: 100001 nodes, previous components, new merges, deleted/prescribed nodes, lifetime reuse, exact static counts passed");
 }
+void preSolveDeviceContacts() {
+    constexpr PxU32 n=8;
+    const std::vector<Pair> pairs={{0,1},{1,2,false},{2,3,false},{3,4,true,false,true},
+        {4,5,true,true},{5,6},{6,7},{n,3},{n,4}};
+    std::vector<PxgShapeSim> shapes(n+1);for(PxU32 i=0;i<n;++i)shapes[i].mBodySimIndex=PxNodeIndex(i);
+    shapes[n].mBodySimIndex=PxNodeIndex();
+    std::vector<PxvPreSolveNode> nodes(n,{1,0,1});nodes[0].staticTouches=1;nodes[2].staticTouches=2;nodes[7].live=0;
+    std::vector<PxU32> previous={0,1,1,3,4,5,6,7};
+    std::vector<PxgContactManagerInput> inputs(pairs.size());std::vector<PxgContactGraphIdentity> ids(pairs.size());
+    std::vector<PxsContactManagerOutput> outputs(pairs.size());
+    for(PxU32 i=0;i<pairs.size();++i) {
+        const auto p=pairs[i];inputs[i]={0,0,p.a,p.b};ids[i]={i,0,1};
+        outputs[i].statusFlag=p.touch?PxsContactManagerStatusFlag::eHAS_TOUCH:PxsContactManagerStatusFlag::eHAS_NO_TOUCH;
+        outputs[i].flags=(p.kinematic?PxgDestructionContactFlags::eKINEMATIC_PAIR:0)|(p.disabled?PxgDestructionContactFlags::eDISABLE_RESPONSE:0);
+    }
+    inputs[5].transformCacheRef0=~0u; // retirement must prevent invalid geometry access
+    Device<PxgShapeSim> dShapes(shapes.size());dShapes.put(shapes);
+    Device<PxgContactManagerInput> dInputs(inputs.size());dInputs.put(inputs);
+    Device<PxgContactGraphIdentity> dIds(ids.size());dIds.put(ids);
+    Device<PxsContactManagerOutput> dOutputs(outputs.size());dOutputs.put(outputs);
+    Device<PxvPreSolveNode> dNodes(n);dNodes.put(nodes);Device<PxU32> dPrevious(n);dPrevious.put(previous);
+    Device<PxU32> parents(2*n),labels(n),counts(n),mask(1);mask.put({1u<<5});
+    Device<PxvPreSolveEdge> retained(1);retained.put({{3,5}});
+    Device<PxgDestructionContactGraphStatus> status(1);status.put({{0,0}});
+    PxgDestructionPreSolveContacts view;view.inputs=dInputs.p;view.identities=dIds.p;view.outputs=dOutputs.p;
+    view.shapes=dShapes.p;view.shapeCapacity=n+1;view.pairCount=PxU32(pairs.size());
+    destructionPreSolve::initialize<<<1,128>>>(parents.p,2*n,counts.p,n);
+    destructionPreSolve::seed<<<1,128>>>(dNodes.p,n,dNodes.p,n,dPrevious.p,n,parents.p,nullptr);
+    destructionPreSolve::connect<<<1,128>>>(retained.p,1,dNodes.p,n,parents.p);
+    destructionPreSolve::connectContacts<<<1,128>>>(view,mask.p,dNodes.p,n,parents.p,status.p);
+    destructionPreSolve::requireValidContacts<<<1,1>>>(status.p);
+    destructionPreSolve::finish<<<1,128>>>(dNodes.p,n,parents.p,labels.p,counts.p);
+    check(cudaGetLastError());check(cudaDeviceSynchronize());
+    require(status.get(1)[0].error==0,"direct pre-solve contact decoder rejected valid phase input");
+    require(labels.get(n)==std::vector<PxU32>({0,0,0,3,4,3,6,~0u}),"GPU contacts lost prior connectivity or bridged an excluded contact");
+    require(counts.get(n)==std::vector<PxU32>({3,0,0,0,0,0,0,0}),"GPU contact connectivity changed support reduction");
+    ids[0].generation=0;dIds.put(ids);
+    destructionPreSolve::connectContacts<<<1,128>>>(view,mask.p,dNodes.p,n,parents.p,status.p);
+    check(cudaDeviceSynchronize());require(status.get(1)[0].error==PxgDestructionContactGraphStatus::eINVALID_IDENTITY,"invalid current contact identity was not reported");
+    std::puts("CUDA pre-solve contacts: prior lost connection, current touch, managerless edge, retired invalid geometry, static/kinematic/disabled/deleted exclusions passed");
+}
 void verifyMemberLinks(const PxU32* labels,const std::vector<PxU32>& expected) {
     const PxU32 n=PxU32(expected.size());if(!n)return;
     Device<PxU64> input(n),sorted(n);size_t bytes=0;
@@ -249,6 +290,7 @@ void retainedTransactions() {
 
 int main(){try{
     preSolveNodeTransactions();
+    preSolveDeviceContacts();
     preSolveComponents();
     solverMetadataPages();
     retainedTransactions();

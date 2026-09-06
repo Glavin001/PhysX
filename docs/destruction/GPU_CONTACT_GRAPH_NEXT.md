@@ -474,3 +474,9 @@ changed pages on the solver stream. [GPU_SOLVER_METADATA.md](GPU_SOLVER_METADATA
 describes ordering, independent pre-solve comparisons, transfer accounting and
 the remaining CPU producer. This does not remove the component observation bridge
 or substitute late graph labels for the solver's earlier input state.
+
+The subsequent [direct pre-solve contact producer](GPU_PRE_SOLVE_CONTACT_INPUTS.md)
+reads the current narrowphase buffers at the earlier solver boundary. It preserves
+previous component connectivity while adding current touching pairs, and retains
+explicit managerless inputs. GPU production of static-support counts and removal
+of the compatibility observation bridge remain open.

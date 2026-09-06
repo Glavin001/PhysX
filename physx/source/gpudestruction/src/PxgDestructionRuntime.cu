@@ -450,6 +450,9 @@ class Runtime final : public PxgDestructionRuntime {
     PxvPreSolveNode *mPreNodes{},*mPrePrevious{};
     PxvPreSolveNodeUpdate* mPreUpdates{};
     PxU32 mPreUpdateCapacity{};
+    PxU32 *mPreRetired{},*mPreRetiredMask{};
+    PxU32 mPreRetiredCapacity{},mPrePairCapacity{};
+    PxgDestructionContactGraphStatus* mPreContactStatus{};
     bool mPreRosterValid=false;
     PxvPreSolveEdge* mPreMerges{};
     PxU32 *mPreParents{},*mPreLabels{},*mPreTouches{};
@@ -501,9 +504,14 @@ public:
     bool preSolveNodeSnapshotRequired(PxU32 count) const override { return !mPreRosterValid || count>mPreCapacity; }
     bool buildPreSolveIslands(const PxvPreSolveNodeUpdate* updates,PxU32 updateCount,PxU32 count,bool fullSnapshot,
         const PxvPreSolveEdge* merges,PxU32 mergeCount,CUstream stream,
-        const PxU32*& labels,const PxU32*& staticTouches) override {
+        const PxU32*& labels,const PxU32*& staticTouches,const PxgDestructionPreSolveContacts* contacts=nullptr) override {
         labels=nullptr;staticTouches=nullptr;
         if(mFailed || !stream || (updateCount && !updates) || (mergeCount && !merges))return false;
+        if(contacts) {
+            if((contacts->pairCount && (!contacts->inputs || !contacts->identities || !contacts->outputs || !contacts->shapes))
+                || (contacts->retiredCount && !contacts->retired))return false;
+            for(PxU32 i=0;i<contacts->retiredCount;++i)if(contacts->retired[i]>=contacts->pairCount)return false;
+        }
         if((preSolveNodeSnapshotRequired(count) && !fullSnapshot) || (fullSnapshot && updateCount!=count))return false;
         for(PxU32 i=0;i<updateCount;++i)
             if(updates[i].index>=count || (i && updates[i-1].index>=updates[i].index)
@@ -541,6 +549,19 @@ public:
                 const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(parentCount,2ull*mPreParentCapacity)));
                 allocate(mPreParents,capacity);mPreParentCapacity=capacity;
             }
+            if(contacts) {
+                if(contacts->retiredCount>mPreRetiredCapacity) {
+                    check(cudaEventSynchronize(mPreReady));cudaFree(mPreRetired);mPreRetired=nullptr;
+                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(contacts->retiredCount,2ull*mPreRetiredCapacity)));
+                    allocate(mPreRetired,capacity);mPreRetiredCapacity=capacity;
+                }
+                if(contacts->pairCount>mPrePairCapacity) {
+                    check(cudaEventSynchronize(mPreReady));cudaFree(mPreRetiredMask);mPreRetiredMask=nullptr;
+                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(contacts->pairCount,2ull*mPrePairCapacity)));
+                    allocate(mPreRetiredMask,(size_t(capacity)+31)/32);mPrePairCapacity=capacity;
+                }
+                if(!mPreContactStatus)allocate(mPreContactStatus,1);
+            }
             // Native node domains can grow across unused handle holes. Those
             // holes must start inactive even when the allocation already fits.
             if(count>mPrePreviousCount)check(cudaMemsetAsync(mPreNodes+mPrePreviousCount,0,size_t(count-mPrePreviousCount)*sizeof(PxvPreSolveNode),cudaStream));
@@ -554,6 +575,17 @@ public:
                 destructionPreSolve::seed<<<(count+127)/128,128,0,cudaStream>>>(mPreNodes,count,mPrePrevious,mPrePreviousCount,
                     mGraphView.accurateLabels,mGraphView.nodeCapacity,mPreParents,&mGraphView.status->error);
                 if(mergeCount)destructionPreSolve::connect<<<(mergeCount+127)/128,128,0,cudaStream>>>(mPreMerges,mergeCount,mPreNodes,count,mPreParents);
+                if(contacts) {
+                    check(cudaMemsetAsync(mPreContactStatus,0,sizeof(*mPreContactStatus),cudaStream));
+                    if(contacts->retiredCount) {
+                        check(cudaMemsetAsync(mPreRetiredMask,0,((size_t(contacts->pairCount)+31)/32)*sizeof(PxU32),cudaStream));
+                        check(cudaMemcpyAsync(mPreRetired,contacts->retired,size_t(contacts->retiredCount)*sizeof(PxU32),cudaMemcpyHostToDevice,cudaStream));
+                        destructionContactGraph::retire<<<(contacts->retiredCount+127)/128,128,0,cudaStream>>>(mPreRetired,contacts->retiredCount,contacts->pairCount,mPreRetiredMask,mPreContactStatus);
+                    }
+                    if(contacts->pairCount)destructionPreSolve::connectContacts<<<(contacts->pairCount+127)/128,128,0,cudaStream>>>(*contacts,
+                        contacts->retiredCount?mPreRetiredMask:nullptr,mPreNodes,count,mPreParents,mPreContactStatus);
+                    destructionPreSolve::requireValidContacts<<<1,1,0,cudaStream>>>(mPreContactStatus);
+                }
                 destructionPreSolve::finish<<<(count+127)/128,128,0,cudaStream>>>(mPreNodes,count,mPreParents,mPreLabels,mPreTouches);
                 labels=mPreLabels;staticTouches=mPreTouches;
             }
@@ -757,6 +789,8 @@ public:
         cudaEventSynchronize(mPreReady);
         cudaFree(mPreNodes);mPreNodes=nullptr;cudaFree(mPrePrevious);mPrePrevious=nullptr;
         cudaFree(mPreUpdates);mPreUpdates=nullptr;mPreUpdateCapacity=0;mPreRosterValid=false;
+        cudaFree(mPreRetired);mPreRetired=nullptr;cudaFree(mPreRetiredMask);mPreRetiredMask=nullptr;
+        cudaFree(mPreContactStatus);mPreContactStatus=nullptr;mPreRetiredCapacity=mPrePairCapacity=0;
         cudaFree(mPreMerges);mPreMerges=nullptr;cudaFree(mPreParents);mPreParents=nullptr;
         cudaFree(mPreLabels);mPreLabels=nullptr;cudaFree(mPreTouches);mPreTouches=nullptr;
         mPreCapacity=mPrePreviousCount=mPreMergeCapacity=mPreParentCapacity=0;mPreSourceGraphGeneration=0;

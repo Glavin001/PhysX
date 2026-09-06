@@ -66,6 +66,7 @@
 
 #include "convexNpCommon.h"
 #include "PxgNarrowphaseCore.h"
+#include "PxgDestructionContactGraph.h"
 #include "PxgKernelWrangler.h"
 #include "PxgKernelIndices.h"
 #include "PxgContactsDebug.h"
@@ -8542,6 +8543,21 @@ void PxgGpuNarrowphaseCore::preallocateNewBuffers(PxU32 nbNewPairs)
 		mContactManagers[i]->mNewContactManagers.preallocateNewBuffers(nbNewPairs);
 	}
 
+}
+
+bool PxgGpuNarrowphaseCore::getDestructionPreSolveContacts(PxgDestructionPreSolveContacts& view,PxArray<PxU32>& retired)
+{
+    PxU32 pairs=0;retired.clear();
+    for(PxU32 i=GPU_BUCKET_ID::eConvex;i<=GPU_BUCKET_ID::eConvexCoreTrimesh;++i) {
+        for(PxU32 j=0;j<mRemovedIndices[i]->size();++j)retired.pushBack(pairs+(*mRemovedIndices[i])[j]);
+        pairs+=mContactManagers[i]->getNbPassTests();
+    }
+    if(pairs!=mTotalNumPairs+mDestructionGraphFallbackPairs)return false;
+    const auto& merged=mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers;
+    view.inputs=merged.mContactManagerInputData.getTypedPtr();
+    view.identities=merged.mContactGraphIdentities.getTypedPtr();
+    view.outputs=merged.mContactManagerOutputData.getTypedPtr();view.pairCount=pairs;
+    return true;
 }
 
 bool PxgGpuNarrowphaseCore::buildDestructionContactGraph(bool reuseSamePass)

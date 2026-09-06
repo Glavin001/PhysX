@@ -92,7 +92,9 @@ remain open.
    and kinematic transitions; inverse mass alone cannot identify prescribed
    motion. Native actor commands may remain CPU bookkeeping, while GPU-created
    clusters should update device membership in their topology transaction.
-2. Generate merge and static-boundary inputs from the narrowphase's resident
+2. Direct GPU merge inputs are implemented as an opt-in path; see
+   [GPU_PRE_SOLVE_CONTACT_INPUTS.md](GPU_PRE_SOLVE_CONTACT_INPUTS.md). Generation
+   of static-boundary inputs remains open. Use the narrowphase's resident
    contact state at the pre-solver boundary. Counting contact points is incorrect:
    native static counts count inserted static edges. Current retired managers and
    retained managerless edges must both be represented at this earlier boundary.
@@ -109,7 +111,8 @@ remain open.
    qualify each consumer before retiring its host mirror.
 
 Items 1 and 3 have implemented transfer changes; their remaining producer and
-registry migration work is still required. Items 2 and 4 remain open.
+registry migration work is still required. Item 2 still needs GPU static counts
+and managerless lifecycle input generation; item 4 remains open.
 
 ## Original producer qualification
 

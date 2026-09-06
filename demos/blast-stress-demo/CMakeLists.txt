@@ -657,6 +657,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_gpu_retained_registry COMMAND native_gpu_collision_test --retained-registry)
     add_test(NAME physx_native_gpu_solver_metadata COMMAND native_gpu_collision_test --solver-metadata)
     add_test(NAME physx_native_gpu_pre_solve_islands COMMAND native_gpu_collision_test --pre-solve-islands)
+    add_test(NAME physx_native_gpu_pre_solve_contacts COMMAND native_gpu_collision_test --pre-solve-contacts)
 
     add_executable(native_gpu_checkpoint_test tests/native_gpu_checkpoint_test.cpp physx_scene.cpp)
     target_include_directories(native_gpu_checkpoint_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES}
