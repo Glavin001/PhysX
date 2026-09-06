@@ -2,11 +2,13 @@
 #pragma once
 #include "PxDestructionScene.h"
 #include "PxContact.h"
+#include "PxgDestructionContactGraph.h"
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
 struct PxgShapeSim;
 struct PxgContactManagerInput;
+struct PxsContactManagerOutput;
 struct PxgBodySimVelocities;
 struct PxgRigidBodyAcceleration;
 // Internal rigid-state portion of the correction checkpoint, captured after
@@ -69,6 +71,11 @@ public:
     // caller's ordered NP stream. Pair allocation/filtering is still separate.
     virtual bool buildContactInputs(PxgContactManagerInput* inputs, PxU32 count,
         const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
+
+    virtual bool buildContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+        const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxgShapeSim* shapes,
+        PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream) = 0;
+    virtual PxgDestructionContactGraphView getContactGraphView() const = 0;
 
     // Install GPU-selected cluster ownership without re-uploading immutable geometry.
     virtual bool installCollisionOwners(PxgShapeSim* shapes, PxU32 capacity, CUstream stream) = 0;

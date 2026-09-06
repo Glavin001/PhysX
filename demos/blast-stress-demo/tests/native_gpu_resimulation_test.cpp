@@ -5,6 +5,7 @@
 #include "PxgDestructionRuntime.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
+#include "native_contact_graph_check.h"
 #include "PxgNphaseImplementationContext.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxsContactManager.h"
@@ -23,6 +24,7 @@ void check(CUresult x){if(x!=CUDA_SUCCESS){const char* name=nullptr;cuGetErrorNa
 // Observe accepted contact identities after internal correction. This covers
 // both full contact recreation and opt-in retention of unaffected managers.
 void verifyAcceptedContactIdentities(PxScene& scene,PxCudaContextManager& cuda) {
+    nativeGraphTest::verify(scene,cuda);
     auto& sc=static_cast<NpScene&>(scene).getScScene();
     auto& np=*static_cast<PxgNphaseImplementationContext*>(sc.getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
     PxScopedCudaLock lock(cuda);

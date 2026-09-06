@@ -664,9 +664,32 @@ namespace physx
         return ok;
     }
 
+    bool PxgSimulationController::buildDestructionContactGraph(const PxgContactManagerInput* inputs,
+        const PxgContactGraphIdentity* identities,const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream)
+    {
+        static_assert(PxU32(PxgDestructionContactFlags::eKINEMATIC_PAIR)==PxU32(PxcNpWorkUnitFlag::eHAS_KINEMATIC_ACTOR),"GPU graph kinematic flag ABI");
+        static_assert(PxU32(PxgDestructionContactFlags::eDISABLE_RESPONSE)==PxU32(PxcNpWorkUnitFlag::eDISABLE_RESPONSE),"GPU graph response flag ABI");
+        static_assert(PxU32(PxgDestructionContactFlags::eARTICULATION)==PxU32(PxcNpWorkUnitFlag::eARTICULATION_BODY0|PxcNpWorkUnitFlag::eARTICULATION_BODY1),"GPU graph articulation flag ABI");
+        static_assert(PxU32(PxgDestructionContactFlags::eSOFT_BODY)==PxU32(PxcNpWorkUnitFlag::eSOFT_BODY),"GPU graph deformable flag ABI");
+        if(!usesDeviceDestructionContactInputs())return true;
+        const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+        const bool ok=mDestruction->buildContactGraph(inputs,identities,outputs,count,omitted,
+            shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),mBodySimManager.mBodies.size(),retired,retiredCount,stream);
+        if(!ok) {
+            mDestructionError=1;mCudaContextManager->getCudaContext()->setAbortMode(true);
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native GPU contact graph construction failed; simulation is incomplete.");
+        }
+        return ok;
+    }
+
     bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs)
     {
         if(!mDestruction) return false;
+        if(usesDeviceDestructionContactInputs()) {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
+            PxScopedCudaLock lock(*mCudaContextManager);
+            if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph())return false;
+        }
         if(mDestructionCorrecting) {
             if(mDestructionCorrectionProfiler) {
                 mDestructionCorrectionProfiler->zoneEnd(mDestructionCorrectionProfileData,

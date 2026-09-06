@@ -8,6 +8,7 @@
 #include "PxgBodySim.h"
 #include "PxgShapeSim.h"
 #include "PxgContactManager.h"
+#include "PxgDestructionContactGraph.cuh"
 #include "PxShape.h"
 #include "PxsRigidBody.h"
 #include "PxgDestructionBody.cuh"
@@ -436,6 +437,15 @@ class Runtime final : public PxgDestructionRuntime {
     PxU64 mCheckpointGeneration{};
     bool mCheckpointHasPrevious=false,mCheckpointHasAccelerations=false,mCheckpointValid=false;
     cudaEvent_t mCheckpointReady{};
+    PxU32* mGraphRetiredMask{};
+    PxU32 *mGraphRetired{},*mGraphHostRetired{};
+    PxU32 mGraphRetiredCapacity{};
+    PxU32 *mGraphAccurate{},*mGraphSpeculative{};
+    PxgDestructionContactGraphStatus* mGraphStatus{};
+    PxU32 mGraphPairCapacity{},mGraphNodeCapacity{};
+    PxgDestructionContactGraphView mGraphView{};
+    PxU64 mGraphGeneration{};
+    cudaEvent_t mGraphReady{};
     bool mPending=false; bool mFailed=false;
     bool mCorrectionEnabled=false;
     std::vector<PxU32> mHostCorrectionTargets;
@@ -446,6 +456,7 @@ public:
         check(cudaEventCreateWithFlags(&mInput,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mReady,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mCheckpointReady,cudaEventDisableTiming));
+        check(cudaEventCreateWithFlags(&mGraphReady,cudaEventDisableTiming));
         allocate(mCount,1); allocate(mStatus,1);
         check(cudaMallocHost(&mHostStatus,sizeof(*mHostStatus)));*mHostStatus={};
         check(cudaMemset(mStatus,0,sizeof(*mStatus)));
@@ -460,14 +471,80 @@ public:
             check(cudaGetLastError());return true;
         }catch(...){mFailed=true;return false;}
     }
+    bool buildContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+        const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxgShapeSim* shapes,
+        PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream) override {
+        if(mFailed || !mCorrectionEnabled || !stream || mGraphGeneration==~PxU64(0))return false;
+        if((count && (!inputs || !identities || !outputs || !shapes)) || (retiredCount && !retired))return false;
+        try {
+            Context current(mContext);
+            // Storage grows explicitly, never truncates. Prior producer work
+            // must finish before reallocating a published snapshot's buffers.
+            if(count>mGraphPairCapacity || nodeCapacity>mGraphNodeCapacity) {
+                if(mGraphView.generation)check(cudaEventSynchronize(mGraphReady));
+                if(count>mGraphPairCapacity) {
+                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(count,2ull*mGraphPairCapacity)));
+                    check(cudaFree(mGraphRetiredMask));mGraphRetiredMask=nullptr;
+                    allocate(mGraphRetiredMask,(size_t(capacity)+31)/32);
+                    mGraphPairCapacity=capacity;
+                }
+                if(nodeCapacity>mGraphNodeCapacity) {
+                    // Keep ownership of successful allocations on later failure.
+                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(nodeCapacity,2ull*mGraphNodeCapacity)));
+                    check(cudaFree(mGraphAccurate));mGraphAccurate=nullptr;allocate(mGraphAccurate,capacity);
+                    check(cudaFree(mGraphSpeculative));mGraphSpeculative=nullptr;allocate(mGraphSpeculative,capacity);
+                    mGraphNodeCapacity=capacity;
+                }
+            }
+            if(retiredCount) {
+                // Upload only existing lifecycle deltas, never body motion or
+                // a CPU-computed component graph. Retain pinned staging until
+                // the ordered producer has consumed it.
+                if(mGraphView.generation)check(cudaEventSynchronize(mGraphReady));
+                if(retiredCount>mGraphRetiredCapacity) {
+                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(retiredCount,2ull*mGraphRetiredCapacity)));
+                    check(cudaFree(mGraphRetired));mGraphRetired=nullptr;allocate(mGraphRetired,capacity);
+                    check(cudaFreeHost(mGraphHostRetired));mGraphHostRetired=nullptr;
+                    check(cudaMallocHost(&mGraphHostRetired,size_t(capacity)*sizeof(PxU32)));mGraphRetiredCapacity=capacity;
+                }
+                std::copy(retired,retired+retiredCount,mGraphHostRetired);
+            }
+            if(!mGraphStatus)allocate(mGraphStatus,1);
+            const auto cudaStream=reinterpret_cast<cudaStream_t>(stream);
+            destructionContactGraph::initialize<<<(std::max(nodeCapacity,1u)+127)/128,128,0,cudaStream>>>(mGraphAccurate,mGraphSpeculative,nodeCapacity,mGraphStatus,omitted);
+            if(retiredCount) {
+                if(count)check(cudaMemsetAsync(mGraphRetiredMask,0,((size_t(count)+31)/32)*sizeof(PxU32),cudaStream));
+                check(cudaMemcpyAsync(mGraphRetired,mGraphHostRetired,size_t(retiredCount)*sizeof(PxU32),cudaMemcpyHostToDevice,cudaStream));
+                destructionContactGraph::retire<<<(retiredCount+127)/128,128,0,cudaStream>>>(mGraphRetired,retiredCount,count,mGraphRetiredMask,mGraphStatus);
+            }
+            if(count) {
+                destructionContactGraph::connect<<<(count+127)/128,128,0,cudaStream>>>(inputs,identities,outputs,count,shapes,shapeCapacity,nodeCapacity,mGraphStatus,retiredCount?mGraphRetiredMask:nullptr,mGraphAccurate,mGraphSpeculative);
+            }
+            if(nodeCapacity)destructionContactGraph::compress<<<(nodeCapacity+127)/128,128,0,cudaStream>>>(mGraphAccurate,mGraphSpeculative,nodeCapacity);
+            check(cudaGetLastError());check(cudaEventRecord(mGraphReady,cudaStream));
+            // Stress completion/acceptance gates subsequent ownership changes
+            // and the next NP pass. Include graph reads in that dependency,
+            // rather than relying on this small kernel usually finishing first.
+            check(cudaStreamWaitEvent(mStream,mGraphReady,0));
+            mGraphView={inputs,identities,outputs,shapes,retiredCount?mGraphRetiredMask:nullptr,mGraphAccurate,mGraphSpeculative,mGraphStatus,count,shapeCapacity,nodeCapacity,++mGraphGeneration,mGraphReady};
+            return true;
+        }catch(...){mFailed=true;mGraphView={};return false;}
+    }
+    PxgDestructionContactGraphView getContactGraphView() const override { return mGraphView; }
     void release() override { delete this; }
     ~Runtime() override {
         Context current(mContext); cudaStreamSynchronize(mStream);clear();
         cudaFree(mCount);cudaFree(mStatus);cudaFree(mPairs);cudaFreeHost(mHostStatus);
-        cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
+        cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
         cudaEventSynchronize(mReady); // also orders private installation on the scene stream
+        if(mGraphView.generation)cudaEventSynchronize(mGraphReady);
+        cudaFree(mGraphRetiredMask);mGraphRetiredMask=nullptr;cudaFree(mGraphRetired);mGraphRetired=nullptr;
+        cudaFreeHost(mGraphHostRetired);mGraphHostRetired=nullptr;mGraphRetiredCapacity=0;
+        cudaFree(mGraphAccurate);mGraphAccurate=nullptr;
+        cudaFree(mGraphSpeculative);mGraphSpeculative=nullptr;cudaFree(mGraphStatus);mGraphStatus=nullptr;
+        mGraphView={};mGraphPairCapacity=0;mGraphNodeCapacity=0;
         mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;mRestoredCheckpointGeneration=0;
         mHostCorrectionTargets.clear();mCorrectionEnabled=false;
         cudaFree(mCorrectionOwnerRequests);mCorrectionOwnerRequests=nullptr;

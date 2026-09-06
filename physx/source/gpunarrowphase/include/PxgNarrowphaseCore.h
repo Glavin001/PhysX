@@ -316,6 +316,7 @@ namespace physx
 		PxU32												mTotalLostFoundPatches;
 		PxU32												mTotalNumPairs;
 
+        PxU32 mDestructionGraphFallbackPairs = 0;
 		PxU64 mNextContactGraphGeneration = 1;
         Cm::PinnableArray<PxgPairManagementData>			mPairManagementData;
 		PxgCudaBuffer										mGpuPairManagementData;
@@ -591,6 +592,7 @@ namespace physx
 		Sc::ShapeInteraction** getGPUShapeInteractions() { return reinterpret_cast<Sc::ShapeInteraction**>(mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mShapeInteractions.getDevicePtr()); }
 
         bool resetDestructionContactCaches();
+        bool buildDestructionContactGraph();
 		PxgContactManagers& getExistingContactManagers(GPU_BUCKET_ID::Enum type) { return mContactManagers[type]->mContactManagers; }
 		PxgNewContactManagers& getNewContactManagers(GPU_BUCKET_ID::Enum type) { return mContactManagers[type]->mNewContactManagers; }
 

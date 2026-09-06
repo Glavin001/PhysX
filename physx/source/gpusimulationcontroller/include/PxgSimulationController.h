@@ -59,6 +59,7 @@ class PxProfilerCallback;
 
 	class PxgDestructionRuntime;
     struct PxgContactManagerInput;
+    struct PxgContactGraphIdentity;
 	class PxgSimulationCore;
 	class PxgParticleSystemCore;
 	class PxgPBDParticleSystemCore;
@@ -504,6 +505,8 @@ class PxProfilerCallback;
         virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
         bool usesDeviceDestructionContactInputs() const override;
         bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
+        bool buildDestructionContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+            const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream);
         PxU64 getDestructionContactInputCount() const { return mDestructionContactInputCount; }
         PxU64 getDestructionContactReuseFallbackCount() const { return mDestructionContactReuseFallbackCount; }
 

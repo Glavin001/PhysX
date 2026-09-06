@@ -5,6 +5,7 @@
 #include "NpShapeManager.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
+#include "native_contact_graph_check.h"
 #include "PxgNphaseImplementationContext.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxsContactManager.h"
@@ -135,6 +136,8 @@ void deviceContactInputs(bool enabled) {
     std::set<PxU64> observedGenerations;
 
     auto inspect=[&](bool refreshed=false){
+        if(static_cast<PxgDestructionRuntime*>(f.stage)->correctionEnabled())nativeGraphTest::verify(f.scene,f.cuda);
+        else require(!static_cast<PxgDestructionRuntime*>(f.stage)->getContactGraphView().generation,"disabled destruction exposes a stale contact graph");
         PxScopedCudaLock lock(f.cuda);
         // Diagnostic observations wait for both producers; do not rely on
         // legacy-default-stream ordering with PhysX nonblocking streams.
@@ -214,6 +217,38 @@ void deviceContactInputs(bool enabled) {
     std::printf("persistent GPU contact inputs enabled=%u inspected=%u generated=%llu: shared geometry, capacity growth, removal/reuse and disable transition passed\n",unsigned(enabled),inspected,(unsigned long long)beforeDisable);
 }
 
+void contactComponentPartitions() {
+    Fixture f(1,0,false);f.scene.setGravity(PxVec3(0));f.desc.internalCorrectionLimit=1;f.configure();
+    std::vector<PxRigidDynamic*> bodies;
+    auto* floor=PxCreatePlane(f.context.physics(),PxPlane(0,1,0,-59.6f),f.context.material());
+    require(floor,"component floor creation failed");f.scene.addActor(*floor);
+    auto* beam=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(235,61,0)),PxBoxGeometry(40,.5f,1),f.context.material(),1);
+    require(beam,"component kinematic creation failed");beam->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);f.scene.addActor(*beam);
+    for(unsigned group=0;group<8;++group)for(unsigned i=0;i<4;++i) {
+        auto* body=PxCreateDynamic(f.context.physics(),PxTransform(PxVec3(200+10*float(group)+.8f*i,60,0)),PxBoxGeometry(.5f,.5f,.5f),f.context.material(),1);
+        require(body,"component dynamic creation failed");
+        // Infinite translational mass is not itself a kinematic flag.
+        if(i==1)body->setMass(0);
+        f.scene.addActor(*body);bodies.push_back(body);
+    }
+    PxU64 generation=0;
+    for(unsigned frame=0;frame<12;++frame) {
+        if(frame==4){bodies[2]->release();bodies[2]=nullptr;}
+        step(f.scene);nativeGraphTest::verify(f.scene,f.cuda);
+        const auto view=static_cast<PxgDestructionRuntime*>(f.stage)->getContactGraphView();
+        require(view.generation>generation,"native graph did not refresh its generation");generation=view.generation;
+        PxScopedCudaLock lock(f.cuda);check(cuEventSynchronize(view.readyEvent));
+        std::vector<PxU32> labels(view.nodeCapacity);check(cuMemcpyDtoH(labels.data(),CUdeviceptr(view.speculativeLabels),labels.size()*sizeof(PxU32)));
+        std::set<PxU32> groups;
+        for(unsigned group=0;group<8;++group)groups.insert(labels[bodies[4*group]->getGPUIndex()]);
+        require(groups.size()==8,"shared ground or kinematic beam joined independent dynamic groups");
+    }
+    require(f.stage->clearStress(),"component stage teardown failed");
+    for(auto* body:bodies)if(body)body->release();beam->release();floor->release();
+    require(f.context.healthy(),"component fixture GPU health failed");
+    std::puts("native GPU contact components match CPU islands: 8 dynamic groups, shared static/kinematic boundaries, infinite-mass dynamics and removal");
+}
+
 void sparseAndGrowth(bool sleeping,unsigned count,unsigned quiet) {
     std::fprintf(stderr,"begin collision fixture: chunks=%u quiet=%u sleeping=%u\n",count,quiet,unsigned(sleeping));
     Fixture f(count,quiet,sleeping);f.configure();f.fracture();auto status=f.readStatus();
@@ -256,4 +291,4 @@ void crushRemoval() {
     require(crushed,"crush fixture did not exercise collision removal");require(f.context.healthy(),"crush collision preparation GPU failure");std::puts("native crush verdict includes every destroyed collision shape passed");
 }
 }
-int main(){try{deviceContactInputs(false);deviceContactInputs(true);sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions();sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

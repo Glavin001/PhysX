@@ -2181,6 +2181,8 @@ void PxgGpuNarrowphaseCore::fetchNarrowPhaseResults(
 		}
 	}
 	
+    mDestructionGraphFallbackPairs=nbFallbackPairs;
+
 	// finally we copy the GPU contact stream data to the CPU.
 	if (!mGpuContext->getEnableDirectGPUAPI() || mGpuContext->getSimulationController()->getEnableOVDCollisionReadback())
 	{
@@ -8535,6 +8537,25 @@ void PxgGpuNarrowphaseCore::preallocateNewBuffers(PxU32 nbNewPairs)
 		mContactManagers[i]->mNewContactManagers.preallocateNewBuffers(nbNewPairs);
 	}
 
+}
+
+bool PxgGpuNarrowphaseCore::buildDestructionContactGraph()
+{
+    PxU32 rigidPairs=0;
+    PxArray<PxU32> retired;
+    for(PxU32 i=GPU_BUCKET_ID::eConvex;i<=GPU_BUCKET_ID::eConvexCoreTrimesh;++i) {
+        for(PxU32 j=0;j<mRemovedIndices[i]->size();++j)
+            retired.pushBack(rigidPairs+(*mRemovedIndices[i])[j]);
+        rigidPairs+=mContactManagers[i]->getNbPassTests();
+    }
+    const auto& merged=mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers;
+    // Late broadphase loss retires CPU interactions after NP output merge.
+    // Regenerate only after those lifecycle deltas are available; do not let
+    // deferred NP-buffer compaction retain dead edges in the committed graph.
+    return mGpuContext->getSimulationController()->buildDestructionContactGraph(
+        merged.mContactManagerInputData.getTypedPtr(),merged.mContactGraphIdentities.getTypedPtr(),
+        merged.mContactManagerOutputData.getTypedPtr(),rigidPairs,mTotalNumPairs+mDestructionGraphFallbackPairs-rigidPairs,
+        retired.begin(),retired.size(),mSolverStream);
 }
 
 bool PxgGpuNarrowphaseCore::resetDestructionContactCaches()

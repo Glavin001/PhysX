@@ -648,7 +648,8 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     add_executable(native_gpu_collision_test tests/native_gpu_collision_test.cpp physx_scene.cpp)
     get_target_property(NATIVE_COLLISION_TEST_INCLUDES native_gpu_allocation_test INCLUDE_DIRECTORIES)
-    target_include_directories(native_gpu_collision_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES})
+    target_include_directories(native_gpu_collision_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/include")
     target_compile_definitions(native_gpu_collision_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_link_options(native_gpu_collision_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_gpu_collision_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
