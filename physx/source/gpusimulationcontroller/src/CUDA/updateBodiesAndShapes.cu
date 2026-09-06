@@ -133,6 +133,18 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 		// preist: note that we copy this flag to persistent GPU memory on first transfer, but that is no problem
 		// because we only check the update data flag here which will be reset on CPU
 		const bool firstTransfer = internalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU;
+        // Scheduler updates contain CPU reservation placeholders for native
+        // fragments. They are not commands to replace device mass properties.
+        PxU32 residentFlags=0;
+        if(!firstTransfer && index==PXG_BODY_SIM_FLAGS_IND)
+            residentFlags=gBodySimPool[bodyIndex*PXG_BODY_SIM_UINT4_SIZE+index].y;
+        residentFlags=__shfl_sync(mask_loop,residentFlags,PXG_BODY_SIM_FLAGS_IND,16);
+        const bool residentMass=residentFlags & PxsRigidBody::eDESTRUCTION_MASS_GPU;
+        const bool preserveMass=residentMass && !(internalFlags & PxsRigidBody::eHOST_MASS_COPY_GPU);
+        const bool preserveInertia=residentMass && !(internalFlags & PxsRigidBody::eHOST_INERTIA_COPY_GPU);
+        const bool preserveCom=residentMass && !(internalFlags & PxsRigidBody::eHOST_COM_COPY_GPU);
+        if(index==PXG_BODY_SIM_FLAGS_IND && residentMass)data.y|=PxsRigidBody::eDESTRUCTION_MASS_GPU;
+
         const bool copyVel = internalFlags & PxsRigidBody::eVELOCITY_COPY_GPU;
         const bool copyPose = internalFlags & PxsRigidBody::eHOST_POSE_COPY_GPU;
         const bool copyLinear = copyVel || (internalFlags & PxsRigidBody::eHOST_LINEAR_COPY_GPU);
@@ -191,7 +203,18 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
                 // ordering merely because the lanes belong to one warp.
                 __syncwarp(sync_mask);
 
-				// load the new stuff no matter what
+				// Preserve independently owned components while accepting explicit
+                // host setters and scheduler/configuration metadata normally.
+                const auto old=gBodySimPool[bodyIndex*PXG_BODY_SIM_UINT4_SIZE+index];
+                if(index==0 && preserveMass)data.w=old.w;
+                if(index==offsetof(PxgBodySim,inverseInertiaXYZ_contactReportThresholdW)/sizeof(uint4) && preserveInertia)
+                    {data.x=old.x;data.y=old.y;data.z=old.z;}
+                // PxAlignedTransform stores quaternion before translation.
+                if(index==PXG_BODY_SIM_BODY2ACTOR_IND && preserveCom)data=old;
+                if(index==PXG_BODY_SIM_BODY2ACTOR_IND+1 && preserveCom)
+                    {data.x=old.x;data.y=old.y;data.z=old.z;}
+
+                // load the new stuff no matter what
 				// keep linear and angular velocity intact, but copy inverseMass and pen bias:
 				if(index < PXG_BODY_SIM_MAX_LIN_VEL_IND && ((index == 0 && !copyLinear) || (index == 1 && !copyAngular)))
 				{

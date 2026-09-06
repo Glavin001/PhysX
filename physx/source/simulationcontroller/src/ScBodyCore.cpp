@@ -156,6 +156,7 @@ void Sc::BodyCore::setBody2Actor(const PxTransform& p)
 	PX_ASSERT(p.p.isFinite());
 	PX_ASSERT(p.q.isFinite());
 
+	markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_COM_COPY_GPU);
 	mCore.setBody2Actor(p);
 
 	gpu_updateBodySim(*this);
@@ -216,6 +217,7 @@ PxReal Sc::BodyCore::getInverseMass() const
 
 void Sc::BodyCore::setInverseMass(PxReal m)
 {
+    markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_MASS_COPY_GPU);
 	BodySim* sim = getSim();
 	if (!sim || (!(getFlags() & PxRigidBodyFlag::eKINEMATIC)))
 	{
@@ -249,6 +251,7 @@ const PxVec3& Sc::BodyCore::getInverseInertia() const
 
 void Sc::BodyCore::setInverseInertia(const PxVec3& i)
 {
+    markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_INERTIA_COPY_GPU);
 	BodySim* sim = getSim();
 	if (!sim || (!(getFlags() & PxRigidBodyFlag::eKINEMATIC)))
 	{

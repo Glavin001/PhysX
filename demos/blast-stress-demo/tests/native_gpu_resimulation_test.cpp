@@ -69,17 +69,20 @@ struct NoContactModification:PxContactModifyCallback {
     void onContactModify(PxContactModifyPair* const,PxU32)override{}
 };
 struct Result {float projectileVelocity;unsigned corrections,contacts;PxU64 constructedPairs=0;std::vector<PxVec3> contactMotion;PxU64 reuseFallbacks=0;};
-Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned quietCount=0,bool reuse=false,unsigned contactCount=0,bool forceReportingFallback=false) {
+Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned quietCount=0,bool reuse=false,unsigned contactCount=0,bool forceReportingFallback=false,bool massFrameWake=false) {
     NoContactModification modify;Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,true,true,false,false);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
     if(forceReportingFallback)scene.setContactModifyCallback(&modify);
     scene.setGravity(gravity?PxVec3(0,-9.81f,0):PxVec3(0));
-    auto* wall=physics.createRigidDynamic(PxTransform(PxVec3(0,5,0)));
+    const PxVec3 authoredOffset=massFrameWake?PxVec3(3,8,-2):PxVec3(0);
+    auto* wall=physics.createRigidDynamic(PxTransform(PxVec3(0,5,0)-authoredOffset));
     wall->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
     wall->setMass(2);wall->setMassSpaceInertiaTensor(PxVec3(1.0f/3));
     wall->setLinearDamping(0);wall->setAngularDamping(0);
     auto* shape=physics.createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);
+    shape->setLocalPose(PxTransform(authoredOffset));
+    wall->setCMassLocalPose(PxTransform(authoredOffset));
     require(wall->attachShape(*shape),"wall shape attachment failed");scene.addActor(*wall);
     auto* shot=physics.createRigidDynamic(PxTransform(PxVec3(-2,5,0)));
     auto* sphere=physics.createShape(PxSphereGeometry(.2f),context.material(),true);
@@ -135,7 +138,12 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         properties.inertia[0]=properties.inertia[1]=properties.inertia[2]=1.0/3;mass.push_back(properties);
         clusters.push_back({quiet[i]->getGPUIndex(),PxVec3(0)});
     }
-    PxDestructionStressBond bond{0,1,PxVec3(0,-.5f,0),PxVec3(0,1,0),1,1,1};
+    if(massFrameWake) {
+        mass[1].inertia[1]=.5;mass[1].inertia[2]=.2; // exercises a nonidentity principal frame
+        for(unsigned i=0;i<2;++i) {chunks[i].position+=authoredOffset;for(unsigned k=0;k<3;++k)mass[i].center[k]+=authoredOffset[k];}
+        clusters[0].centerOfMass=authoredOffset;
+    }
+    PxDestructionStressBond bond{0,1,authoredOffset+PxVec3(0,-.5f,0),PxVec3(0,1,0),1,1,1};
     PxDestructionMaterial material;if(gravity){material.compressionElasticLimit=100;material.compressionFatalLimit=200;}if(!fracture){material.compressionElasticLimit=1e12f;material.compressionFatalLimit=2e12f;}
     PxDestructionStressDesc desc;desc.chunks=chunks.data();desc.chunkCount=PxU32(chunks.size());desc.chunkMassProperties=mass.data();
     desc.clusters=clusters.data();desc.clusterCount=PxU32(clusters.size());desc.bonds=&bond;desc.bondCount=1;
@@ -210,6 +218,20 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
                 require(velocity(*quiet[i]).magnitudeSquared()==0,"remote fracture moved a quiet supported cluster");
             }
         }
+        if(massFrameWake && corrections) {
+            auto* owner=shape->getActor()->is<PxRigidDynamic>();PxgBodySim body;
+            {PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(&body,
+                CUdeviceptr(controller.getSimulationCore()->getBodySimBufferDevicePtr().getPointer()+owner->getGPUIndex()),sizeof(body)));}
+            const auto local=body.body2Actor_maxImpulseW.getTransform();
+            require(local.isValid() && body.body2World.getTransform().isValid(),"scheduler upload corrupted principal-frame orientation");
+            require((local.p-authoredOffset).magnitude()<1e-5f,"scheduler upload replaced resident fragment COM with CPU placeholder");
+            require(std::abs(body.linearVelocityXYZ_inverseMassW.w-.5f)<1e-5f,"scheduler upload replaced resident fragment mass");
+            const auto inertia=body.inverseInertiaXYZ_contactReportThresholdW;
+            require(std::abs(inertia.x-5)<1e-5f && std::abs(inertia.y-3)<1e-5f && std::abs(inertia.z-2)<1e-5f,
+                "scheduler upload replaced resident fragment inertia");
+            // Force a metadata upload without changing physical mass or motion.
+            if(frame==15)owner->setWakeCounter(.8f);
+        }
         require(scene.getDirectGPUAPI().getShapeContactIndex(*shape)==identity,"split recreated persistent chunk collision identity");
     }
     require(!speculative,"unsupported speculative CCD correction was silently accepted");
@@ -233,7 +255,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     static_cast<NpScene&>(scene).getSQAPI().updateSQShape(*fragment,*shape,pose*shape->getLocalPose());
     for(bool cached:{false,true}) {
         PxRaycastBuffer hit;PxQueryCache cache;cache.actor=fragment;cache.shape=shape;
-        require(scene.raycast(pose.p+PxVec3(0,2,0),PxVec3(0,-1,0),3,hit,PxHitFlag::eDEFAULT,PxQueryFilterData(),nullptr,cached?&cache:nullptr)
+        require(scene.raycast((pose*shape->getLocalPose()).p+PxVec3(0,2,0),PxVec3(0,-1,0),3,hit,PxHitFlag::eDEFAULT,PxQueryFilterData(),nullptr,cached?&cache:nullptr)
             && hit.hasBlock && hit.block.actor==fragment && hit.block.shape==shape,"accepted fragment query lookup lost its private owner");
     }
     require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3+quietCount+contactCount,"query registration published a private fragment as a public actor");
@@ -397,6 +419,7 @@ int main(int argc,char** argv){try {
         "contact callback scene failed to use the complete correction fallback");
     std::printf("native pair reuse: reference constructions=%llu reuse=%llu; 32 friction participants match over all 30 steps\n",
         (unsigned long long)rebuilt.constructedPairs,(unsigned long long)reused.constructedPairs);
+    impact(true,true,false,0,true,0,false,true);
     const auto repeatReference=repeatedImpacts(false),repeatReuse=repeatedImpacts(true);
     // Once the first projectile/fragment contact separates, a falling fragment
     // must keep integrating gravity. Inactive allocation flags used to freeze it.

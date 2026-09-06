@@ -308,6 +308,7 @@ __device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& 
     b.sleepLinVelAccXYZ_freezeCountW=make_float4(0,0,0,0);
     b.sleepAngVelAccXYZ_accelScaleW=make_float4(0,0,0,1);
     b.internalFlags &= PxsRigidBody::eSPECULATIVE_CCD_GPU | PxsRigidBody::eENABLE_GYROSCOPIC_GPU | PxsRigidBody::eRETAIN_ACCELERATION_GPU;
+    b.internalFlags |= PxsRigidBody::eDESTRUCTION_MASS_GPU;
     // Trial commands already contributed to provisional motion. The later
     // rewind transaction must restore/distribute commands exactly once; cloning
     // the parent's acceleration accumulator here would duplicate them.

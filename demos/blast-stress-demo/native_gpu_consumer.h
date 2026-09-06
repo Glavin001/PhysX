@@ -15,7 +15,8 @@ public:
     void update(physx::PxDirectGPUAPI& api);
     // Optional OpenGL consumer. Simulation requires no EGL or pixel readback.
     void enableRenderer(unsigned width,unsigned height,const Camera& camera,const std::string& video,unsigned fps);
-    void render();
+    // Explicit diagnostics only: observe the exact CUDA-written GL instances.
+    void render(std::vector<NativeGpuInstance>* observed=nullptr);
     void finishVideo();
     const std::string& rendererName() const;
     unsigned renderedFrames() const;

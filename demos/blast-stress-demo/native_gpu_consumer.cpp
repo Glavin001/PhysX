@@ -159,7 +159,7 @@ void main(){float light=.3+.7*max(0.0,dot(normalize(n),normalize(vec3(-.5,1,.35)
     }
 #endif
 }
-void NativeGpuConsumer::render(){
+void NativeGpuConsumer::render(std::vector<NativeGpuInstance>* observed){
 #ifndef NATIVE_GPU_EGL
     throw std::runtime_error("GPU renderer unavailable");
 #else
@@ -168,6 +168,11 @@ void NativeGpuConsumer::render(){
     check(cuGraphicsMapResources(1,&m->resource,m->stream));CUdeviceptr mapped;size_t bytes;
     try{check(cuGraphicsResourceGetMappedPointer(&mapped,&bytes,m->resource));require(bytes>=(size_t(m->chunkCount)+m->shotCount)*sizeof(NativeGpuInstance),"mapped render capacity exhausted");
         writeNativeGpuInstances(m->view,reinterpret_cast<const NativeGpuVisual*>(m->visuals),reinterpret_cast<const PxTransform*>(m->poses),m->shotCount,reinterpret_cast<NativeGpuInstance*>(mapped),reinterpret_cast<NativeGpuVisualStatus*>(m->status),m->stream);
+        if(observed) {
+            observed->resize(size_t(m->chunkCount)+m->shotCount);
+            check(cuMemcpyDtoHAsync(observed->data(),mapped,observed->size()*sizeof(NativeGpuInstance),m->stream));
+            check(cuStreamSynchronize(m->stream));
+        }
         m->publish();check(cuGraphicsUnmapResources(1,&m->resource,m->stream));
     }catch(...){cuGraphicsUnmapResources(1,&m->resource,m->stream);throw;}
     // CUDA unmap orders GL consumption. No CPU wait or state observation is
