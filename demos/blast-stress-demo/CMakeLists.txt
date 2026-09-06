@@ -670,6 +670,10 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_correction_body_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_gpu_correction_bodies COMMAND native_gpu_correction_body_test)
 
+    add_executable(native_bombardment_test tests/native_bombardment_test.cpp)
+    target_include_directories(native_bombardment_test PRIVATE ${PHYSX_ROOT}/include)
+    add_test(NAME physx_native_demo_projectile_launch COMMAND native_bombardment_test)
+
     add_executable(native_destruction_demo native_destruction_main.cpp physx_scene.cpp state_writer.cpp)
     target_compile_definitions(native_destruction_demo PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_destruction_demo PRIVATE ${PHYSX_ROOT}/include)

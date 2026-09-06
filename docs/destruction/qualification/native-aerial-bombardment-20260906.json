@@ -1,0 +1,111 @@
+{
+  "status": "native bombardment simulation and 30-second video verified",
+  "capture": "out/recordings/native-aerial-final-20260906",
+  "summary": {
+    "backend": "native PhysX GPU task graph + resident CUDA destruction",
+    "status": "completed",
+    "frames": 1800,
+    "seconds": 30,
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "peak_clusters": 97081,
+    "projectiles": 1024,
+    "broken_bonds": 200249,
+    "corrections": 446,
+    "spawn_protocol": "clear-aerial-ballistic-v2",
+    "motion_audit_enabled": true,
+    "max_motion_position_error": 0,
+    "record_fps": 30,
+    "preserve_contact_pairs": false,
+    "recorded_state": true,
+    "correction_limit": 1,
+    "physics_ms_p50": 38.8133,
+    "physics_ms_p95": 1093.55,
+    "physics_ms_p99": 1216.25,
+    "physics_ms_max": 1407.87,
+    "missed_16_67ms": 1694,
+    "stress_included_in_physics_time": true,
+    "isolated_performance_qualification": false,
+    "sleeping": false,
+    "crushing_material_enabled": false
+  },
+  "physics_timing": {
+    "samples": 1800,
+    "min_ms": 1.01499,
+    "mean_ms": 200.16829288888889,
+    "max_ms": 1407.87,
+    "p50_ms": 38.81045,
+    "p95_ms": 1093.55,
+    "p99_ms": 1216.25,
+    "total_wall_seconds": 360.3029272,
+    "effective_steps_per_second": 4.995796215113292,
+    "real_time_factor": 0.0832632702518882,
+    "missed_deadlines": 1694,
+    "fixed_step_ms": 16.666666666666668
+  },
+  "capture_tick_timing": {
+    "samples": 1800,
+    "min_ms": 7.59295,
+    "mean_ms": 251.48118798888888,
+    "max_ms": 1510.04,
+    "p50_ms": 130.687,
+    "p95_ms": 1169.55,
+    "p99_ms": 1289.01,
+    "total_wall_seconds": 452.66613838,
+    "effective_steps_per_second": 3.9764405759216577,
+    "real_time_factor": 0.0662740095986943,
+    "missed_deadlines": 1717,
+    "fixed_step_ms": 16.666666666666668
+  },
+  "tests": {
+    "focused_native_and_ownership": "16/16 passed; out/native-aerial-fix-tests.log",
+    "timing_overlay": "1/1 passed; out/native-timing-overlay-tests.log",
+    "launch_regression": "960/1024 old launches overlap neighboring wall boxes; 3072 safe aerial trajectories passed"
+  },
+  "scope": "Recorded native rigid destruction proof, not full SDK qualification or isolated performance campaign",
+  "observation_fix": "CUDA event orders pageable ID uploads before Direct GPU API reads",
+  "contact_pair_reuse": false,
+  "fidelity_changes": "Demo launch geometry/trajectory changed. No material or solver tolerance changes. Incoming collision can physically drive fragments inward.",
+  "video": {
+    "programs": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "30/1",
+        "nb_frames": "900"
+      }
+    ],
+    "format": {
+      "duration": "30.000000",
+      "size": "59308655"
+    },
+    "sha256": "fdac8276528b08afc0ccfa699598aee57e9dee43bdd69d1f68b07938256e98b6",
+    "full_decode_verified": true,
+    "render_command": [
+      "demos/blast-stress-demo/recorder/target/release/blast-mini-city-recorder",
+      "render",
+      "--state",
+      "/tmp/native-aerial-final-playback-20260906.fifo",
+      "--output",
+      "out/recordings/native-aerial-final-20260906/large-bombardment-closeup.mp4",
+      "--camera",
+      "2",
+      "--compact-hud",
+      "--ground-y",
+      "0",
+      "--focus-center",
+      "8",
+      "8",
+      "-8",
+      "--focus-radius",
+      "14",
+      "--frame-telemetry",
+      "out/recordings/native-aerial-final-20260906/native.frames.csv",
+      "--title",
+      "PHYSX GPU | 113,664 CHUNKS | 229,376 BONDS | 1 RESIM LIMIT | SHARED GPU"
+    ]
+  }
+}

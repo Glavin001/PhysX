@@ -3,6 +3,7 @@
 // for recording. It performs no stress solve, topology change or motion replay.
 #include "physx_scene.h"
 #include "state_writer.h"
+#include "native_bombardment.h"
 #include "native_phase_profiler.h"
 #include <PxDestructionScene.h>
 #include <cuda.h>
@@ -28,9 +29,13 @@ struct Shot {PxRigidDynamic* actor;unsigned visual;};
 using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
-    unsigned grid=3,waves=4,stressIterations=2048;bool profilePhases=false,recordState=true;float seconds=30;std::string output;
+    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60;bool profilePhases=false,recordState=true,preservePairs=false,auditMotion=false;float seconds=30;std::string output,statePath;
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-phases"){require(std::string(value)=="0" || std::string(value)=="1","--profile-phases requires 0 or 1");profilePhases=std::string(value)=="1";}
+        else if(flag=="--preserve-contact-pairs"){require(std::string(value)=="0" || std::string(value)=="1","--preserve-contact-pairs requires 0 or 1");preservePairs=std::string(value)=="1";}
+        else if(flag=="--audit-motion"){require(std::string(value)=="0" || std::string(value)=="1","--audit-motion requires 0 or 1");auditMotion=std::string(value)=="1";}
+        else if(flag=="--record-fps"){recordFps=std::stoul(value);require(recordFps==30 || recordFps==60,"--record-fps requires 30 or 60");}
+        else if(flag=="--state-path")statePath=value;
         else if(flag=="--record-state"){require(std::string(value)=="0" || std::string(value)=="1","--record-state requires 0 or 1");recordState=std::string(value)=="1";}
         else if(flag=="--grid")grid=std::stoul(value);else if(flag=="--waves")waves=std::stoul(value);
         else if(flag=="--stress-iterations")stressIterations=std::stoul(value);else if(flag=="--seconds")seconds=std::stof(value);else if(flag=="--output")output=value;
@@ -39,6 +44,9 @@ int run(int argc,char** argv){
     require(grid && grid<=32 && waves && waves<=16 && stressIterations && stressIterations<=32768 && seconds>2 && seconds<=120 && !output.empty(),"use --output NEW_DIRECTORY [--grid 3 --waves 4 --seconds 30]");
     require(!std::filesystem::exists(output),"capture output already exists");std::filesystem::create_directories(output);
     const unsigned buildings=grid*grid,frames=unsigned(std::lround(seconds*60));const float dt=1.0f/60;
+    const unsigned recordStride=60/recordFps,recordFrames=(frames+recordStride-1)/recordStride;
+    if(statePath.empty())statePath=output+"/native.twstate";
+    require(!recordState || !std::filesystem::exists(statePath) || std::filesystem::is_fifo(statePath),"state output already exists");
     const PxVec3 half(.48f);const float massPerChunk=1000*8*half.x*half.y*half.z;
     const float inertia=massPerChunk*(half.x*half.x+half.y*half.y)/3;
     SceneCapacity capacity;capacity.maxBodies=buildings*512+buildings*waves;capacity.maxShapes=capacity.maxBodies;
@@ -79,32 +87,49 @@ int run(int argc,char** argv){
     material.tensionElasticLimit=30000;material.tensionFatalLimit=60000;material.shearElasticLimit=80000;material.shearFatalLimit=160000;
     PxDestructionStressDesc desc;desc.chunks=nodes.data();desc.chunkCount=unsigned(nodes.size());desc.chunkMassProperties=properties.data();
     desc.clusters=clusters.data();desc.clusterCount=unsigned(clusters.size());desc.bonds=bonds.data();desc.bondCount=unsigned(bonds.size());
-    desc.materials=&material;desc.materialCount=1;desc.maxIterations=stressIterations;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;
+    desc.materials=&material;desc.materialCount=1;desc.maxIterations=stressIterations;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=preservePairs;
     auto* destruction=scene.getDestructionScene();require(destruction && destruction->configureStress(desc),"native destruction configuration failed");
     const PxVec3 center(float(grid-1)*8,4,float(grid-1)*8);std::array<Camera,4> cameras;
     for(unsigned i=0;i<4;++i){const float angle=float(i)*1.5707963f+.6f;cameras[i].eye=center+PxVec3(std::cos(angle)*float(grid)*24,float(grid)*13,std::sin(angle)*float(grid)*24);cameras[i].direction=(center-cameras[i].eye).getNormalized();}
-    StateWriter writer;if(recordState)require(writer.open(output+"/native.twstate",60,frames,960,540,buildings,seconds,0,cameras),"state output failed");
+    StateWriter writer;if(recordState)require(writer.open(statePath,recordFps,recordFrames,960,540,buildings,seconds,0,cameras),"state output failed");
     if(recordState)for(unsigned i=0;i<chunks.size();++i){VisualActor visual;visual.parameters=half;visual.part=chunks[i].building%4;require(writer.defineActor(i,visual),"chunk visual definition failed");}
     std::ofstream telemetry(output+"/native.frames.csv");
     telemetry<<"step,simulation_seconds,physics_step_ms,stress_solve_ms,frame_host_ms,bodies,awake_bodies,splits_total,contacts_total,resim_passes,correction_status,contacts_frame,projectiles_active,bonds_broken,stress_iterations,stress_converged,observation_ms\n";
     std::vector<Shot> shots;std::vector<PxU32> shotIds;std::vector<PxTransform> shotPoses;std::vector<VisualPose> poses;
-    CUdeviceptr deviceIds=0,devicePoses=0;
-    {PxScopedCudaLock lock(cuda);check(cuMemAlloc(&deviceIds,buildings*waves*sizeof(PxU32)));check(cuMemAlloc(&devicePoses,buildings*waves*sizeof(PxTransform)));}
+    CUdeviceptr deviceIds=0,devicePoses=0;CUevent observationIdsReady=nullptr;
+    {PxScopedCudaLock lock(cuda);check(cuEventCreate(&observationIdsReady,CU_EVENT_DISABLE_TIMING));check(cuMemAlloc(&deviceIds,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxU32)));check(cuMemAlloc(&devicePoses,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxTransform)));}
     unsigned launched=0,totalCorrections=0,totalBroken=0,peakClusters=buildings;unsigned long long totalContacts=0;
     std::vector<double> times;double maxStep=0;unsigned deadlines=0;
-    const float launchWindow=std::max(1.0f,seconds-7);
+    const float launchWindow=std::max(1.0f,seconds-5);
+    float observedChunkTop=12.5f,maxMotionError=0;
+    std::ofstream launches(output+"/native.launches.csv");
+    launches<<"projectile,step,target_building,x,y,z,vx,vy,vz,chunk_ceiling\n";
     for(unsigned frame=0;frame<frames;++frame){
         const auto tick=Clock::now();const float time=frame*dt;
-        while(launched<buildings*waves && time>=2+launchWindow*float(launched)/float(buildings*waves)){
+        while(launched<buildings*waves && time>=launchWindow*float(launched)/float(buildings*waves)){
             const unsigned building=launched%buildings,wave=launched/buildings;const auto origin=origins[building];
-            const float height=wave%2?8.5f:3.5f;
-            const PxVec3 displacement=wave%2?PxVec3(-13,height,0):PxVec3(0,height,-13);
-            const PxVec3 speed=wave%2?PxVec3(32,0,0):PxVec3(0,0,32);
-            auto* shot=physics.createRigidDynamic(PxTransform(origin+displacement));auto* sphere=physics.createShape(PxSphereGeometry(.75f),context.material(),true);
+            auto launch=nativeBombardmentLaunch(origin,wave,12.5f);
+            // These are explicit CPU observations for demo input placement, not
+            // a replacement for GPU collision solving. Start above the authored
+            // skyline, then check the actual debris near the launch position.
+            // Distant airborne rubble must not raise every shot or its energy.
+            for(unsigned attempts=0;;++attempts) {
+                bool clear=true;
+                for(unsigned i=0;i<chunks.size() && i<poses.size();++i)
+                    if((launch.position-poses[i].pose.p).magnitudeSquared()<1.75f*1.75f){clear=false;break;}
+                for(const auto& pose:shotPoses)
+                    if((launch.position-pose.p).magnitudeSquared()<1.75f*1.75f){clear=false;break;}
+                if(clear)break;
+                require(attempts<=2*(chunks.size()+shotPoses.size()),"could not find a clear projectile launch");raiseNativeBombardmentLaunch(launch);
+            }
+            require(launch.position.y-.75f>12.5f,"projectile spawn overlaps authored skyline");
+            const PxVec3 speed=launch.velocity;
+            launches<<launched<<','<<frame<<','<<building<<','<<launch.position.x<<','<<launch.position.y<<','<<launch.position.z<<','<<speed.x<<','<<speed.y<<','<<speed.z<<','<<observedChunkTop<<'\n';
+            auto* shot=physics.createRigidDynamic(PxTransform(launch.position));auto* sphere=physics.createShape(PxSphereGeometry(.75f),context.material(),true);
             require(shot && sphere && shot->attachShape(*sphere),"projectile creation failed");sphere->release();
             shot->setMass(20000);shot->setMassSpaceInertiaTensor(PxVec3(.4f*20000*.75f*.75f));shot->setLinearDamping(0);shot->setAngularDamping(0);shot->setLinearVelocity(speed);scene.addActor(*shot);
             const unsigned visualId=unsigned(chunks.size())+launched;VisualActor visual;visual.shape=VisualActor::Shape::Sphere;visual.parameters=PxVec3(.75f,0,0);visual.part=5;
-            if(recordState)require(writer.defineActor(visualId,visual),"projectile visual definition failed");shots.push_back({shot,visualId});++launched;
+            if(recordState)require(writer.defineActor(visualId,visual),"projectile visual definition failed");shots.push_back({shot,visualId});shotPoses.push_back(PxTransform(launch.position));++launched;
         }
         phaseProfiler.begin(frame);
         const auto begin=Clock::now();scene.simulate(dt);PxU32 error=0;const bool complete=scene.fetchResults(true,&error);const double simulationMs=ms(begin);
@@ -112,7 +137,7 @@ int run(int argc,char** argv){
         if(!complete || error || status.error){std::fprintf(stderr,"INCOMPLETE native step %u: fetch=%u stage=%u broken=%u crushed=%u\n",frame,error,status.error,status.brokenBonds,status.crushedChunks);throw std::runtime_error("native demo correction incomplete");}
         require(status.converged,"native demo accepted an unconverged stress solve");
         require(status.correctionPasses<=1,"native demo exceeded one internal correction");require(status.frame==frame+1,"native demo duplicated timestep");
-        require(time>=2 || !status.brokenBonds,"authored building fractured before bombardment");
+        require(status.brokenBonds==0 || totalContacts+status.normalContacts>0,"authored building fractured before any actual impact");
         phaseProfiler.acceptedFrame();
         totalCorrections+=status.correctionPasses;totalBroken+=status.brokenBonds;totalContacts+=status.normalContacts;
         const auto observation=Clock::now();const auto view=destruction->getDeviceView();PxDestructionTopologyStatus topology{};
@@ -120,16 +145,34 @@ int run(int argc,char** argv){
         {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.readyEvent));check(cuMemcpyDtoH(&topology,CUdeviceptr(view.acceptedTopology.status),sizeof(topology)));
             read(membership,view.acceptedTopology.chunkCluster,chunks.size());read(roots,view.acceptedTopology.activeClusters,topology.clusterCount);read(motions,view.acceptedTopology.motions,topology.clusterCount);
             shotIds.clear();for(const auto& shot:shots)shotIds.push_back(shot.actor->getGPUIndex());shotPoses.resize(shots.size());
-            if(!shots.empty()){check(cuMemcpyHtoD(deviceIds,shotIds.data(),shotIds.size()*sizeof(PxU32)));
-                require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(shots.size())),"projectile observation failed");
+            if(!shots.empty()){check(cuMemcpyHtoD(deviceIds,shotIds.data(),shotIds.size()*sizeof(PxU32)));check(cuEventRecord(observationIdsReady,nullptr));
+                require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(shots.size()),observationIdsReady),"projectile observation failed");
                 check(cuCtxSynchronize());check(cuMemcpyDtoH(shotPoses.data(),devicePoses,shotPoses.size()*sizeof(PxTransform)));}}
         std::vector<PxU32> slots(chunks.size(),PX_INVALID_U32);for(unsigned i=0;i<roots.size();++i)slots[roots[i]]=i;
-        poses.clear();poses.reserve(chunks.size()+shots.size());
+        poses.clear();poses.reserve(chunks.size()+shots.size());observedChunkTop=0;
         for(unsigned i=0;i<chunks.size();++i){require(membership[i]<slots.size() && slots[membership[i]]<motions.size(),"invalid committed chunk membership");const auto& motion=motions[slots[membership[i]]];
             const PxTransform pose(PxVec3(float(motion.origin[0]),float(motion.origin[1]),float(motion.origin[2])),PxQuat(float(motion.orientation[0]),float(motion.orientation[1]),float(motion.orientation[2]),float(motion.orientation[3])));
-            require(pose.isValid(),"nonfinite committed cluster motion");poses.push_back({i,pose*PxTransform(chunks[i].position),false});}
+            require(pose.isValid(),"nonfinite committed cluster motion");const auto chunkPose=pose*PxTransform(chunks[i].position);
+            observedChunkTop=std::max(observedChunkTop,chunkPose.p.y+half.magnitude());poses.push_back({i,chunkPose,false});}
         for(unsigned i=0;i<shots.size();++i){require(shotPoses[i].isValid(),"nonfinite projectile motion");poses.push_back({shots[i].visual,shotPoses[i],false});}
-        if(recordState)require(writer.writeFrame(frame,poses),"committed state capture failed");const double observationMs=ms(observation);
+        if(auditMotion) {
+            std::vector<PxU32> owners;std::vector<PxTransform> physical(chunks.size());owners.reserve(chunks.size());
+            for(const auto& chunk:chunks){const auto* owner=chunk.shape->getActor()->is<PxRigidDynamic>();require(owner,"chunk has no rigid owner");owners.push_back(owner->getGPUIndex());}
+            {PxScopedCudaLock lock(cuda);check(cuMemcpyHtoD(deviceIds,owners.data(),owners.size()*sizeof(PxU32)));check(cuEventRecord(observationIdsReady,nullptr));
+                require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(owners.size()),observationIdsReady),"physical chunk pose audit failed");
+                check(cuCtxSynchronize());check(cuMemcpyDtoH(physical.data(),devicePoses,physical.size()*sizeof(PxTransform)));}
+            for(unsigned i=0;i<chunks.size();++i){const auto actual=physical[i]*chunks[i].shape->getLocalPose();
+                const float error=(actual.p-poses[i].pose.p).magnitude();maxMotionError=std::max(maxMotionError,error);
+                // Compare orientation independently of floating-point quaternion norm drift.
+                const float orientationDot=std::abs(actual.q.getNormalized().dot(poses[i].pose.q.getNormalized()));
+                if(!(error<1e-3f && orientationDot>1-1e-5f)) {
+                    PxU32 expected=PX_INVALID_U32;PxDestructionClusterBodyState candidate{};
+                    {PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(&expected,CUdeviceptr(view.trialBodyIndices+slots[membership[i]]),sizeof(expected)));check(cuMemcpyDtoH(&candidate,CUdeviceptr(view.trialBodies+slots[membership[i]]),sizeof(candidate)));}
+                    std::fprintf(stderr,"motion audit expected_body=%u supported=%u source=%u correction=%u cpu_flags=%u\n",expected,candidate.supported,candidate.sourceBody,status.correctionPasses,unsigned(chunks[i].shape->getActor()->is<PxRigidDynamic>()->getRigidBodyFlags()));
+                    std::fprintf(stderr,"motion audit step=%u chunk=%u cluster=%u body=%u position_error=%.9g orientation_dot=%.9g actual=(%.9g,%.9g,%.9g) recorded=(%.9g,%.9g,%.9g)\n",frame,i,membership[i],owners[i],error,orientationDot,actual.p.x,actual.p.y,actual.p.z,poses[i].pose.p.x,poses[i].pose.p.y,poses[i].pose.p.z);}
+                require(error<1e-3f && orientationDot>1-1e-5f,"rendered chunk motion disagrees with physical GPU shape");}
+        }
+        if(recordState && frame%recordStride==0)require(writer.writeFrame(frame/recordStride,poses),"committed state capture failed");const double observationMs=ms(observation);
         peakClusters=std::max(peakClusters,topology.clusterCount);maxStep=std::max(maxStep,simulationMs);times.push_back(simulationMs);if(simulationMs>1000.0/60)++deadlines;
         // Stress time is included in physics_step_ms, not separately instrumented.
         // The recording uses the compact HUD, which only displays total times.
@@ -138,11 +181,11 @@ int run(int argc,char** argv){
     }
     require(totalCorrections && totalBroken && peakClusters>buildings,"native bombardment did not demonstrate destruction");if(recordState)require(writer.finish(),"state stream finalization failed");
     std::sort(times.begin(),times.end());auto percentile=[&](double p){return times[std::min(times.size()-1,size_t(p*times.size()))];};
-    {PxScopedCudaLock lock(cuda);check(cuMemFree(deviceIds));check(cuMemFree(devicePoses));}
+    {PxScopedCudaLock lock(cuda);check(cuEventDestroy(observationIdsReady));check(cuMemFree(deviceIds));check(cuMemFree(devicePoses));}
     require(destruction->clearStress(),"native fragment cleanup failed");for(auto* parent:parents)parent->release();for(auto& shot:shots)shot.actor->release();for(auto& chunk:chunks)chunk.shape->release();
     require(context.healthy(),"native demo GPU health failed");
     std::ofstream manifest(output+"/native.summary.json");
-    manifest<<"{\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
+    manifest<<"{\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \"clear-aerial-ballistic-v2\",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
     return 0;
 }
 }

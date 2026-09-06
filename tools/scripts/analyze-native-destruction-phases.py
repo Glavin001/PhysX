@@ -12,7 +12,7 @@ PREFIX = "GpuDestruction."
 ALWAYS = {"submit", "finishAndReserve", "collisionBindings", "correctionBodies"}
 CORRECTION = {"applyBindings", "restoreInstall", "correctedCollisionSolve", "refilter", "acceptCorrection"}
 # refilter is nested inside correctedCollisionSolve; never add both to totals.
-INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved"}
+INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "resetContactCaches"}
 
 
 def require(condition, message):
@@ -54,7 +54,7 @@ def analyze(directory):
             require(values["refilter"] <= values["correctedCollisionSolve"], "invalid nested refilter duration")
             corrected.append(values)
         else:
-            require(not (CORRECTION & values.keys()), f"correction phase on intact step {i}")
+            require(not ((CORRECTION | {"resetContactCaches"}) & values.keys()), f"correction phase on intact step {i}")
         residual = float(frame["physics_step_ms"]) - sum(values.get(name, 0) for name in INDEPENDENT)
         require(residual >= -0.05, "phase total exceeds complete physics step (allowing CSV rounding)")
         residuals.append(max(0, residual))
@@ -62,8 +62,26 @@ def analyze(directory):
             totals[name].append(value)
     require(len(corrected) == summary["corrections"], "correction count mismatch")
     require(corrected, "capture contains no correction")
+    def timing(column):
+        values = [float(frame[column]) for frame in frames]
+        require(all(math.isfinite(x) and x > 0 for x in values), "invalid step timing")
+        ordered = sorted(values)
+        mean = statistics.mean(values)
+        fixed_ms = 1000.0 * summary["seconds"] / len(frames)
+        return {"samples": len(values), "min_ms": min(values), "mean_ms": mean,
+                "max_ms": max(values), "p50_ms": statistics.median(values),
+                "p95_ms": ordered[min(len(values)-1, int(.95*len(values)))],
+                "p99_ms": ordered[min(len(values)-1, int(.99*len(values)))],
+                "total_wall_seconds": sum(values)/1000.0,
+                "effective_steps_per_second": 1000.0/mean,
+                "real_time_factor": fixed_ms/mean,
+                "missed_deadlines": sum(x > fixed_ms for x in values),
+                "fixed_step_ms": fixed_ms}
     return {
         "status": "validated-native-phase-capture",
+        "physics_timing": timing("physics_step_ms"),
+        "capture_tick_timing": timing("frame_host_ms"),
+        "capture_tick_scope": "physics, input placement, explicit GPU observations/audit and recording I/O; excludes setup and offline rendering",
         "frames": len(frames),
         "corrected_steps": len(corrected),
         "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",

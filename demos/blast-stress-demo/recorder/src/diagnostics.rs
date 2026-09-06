@@ -59,6 +59,7 @@ pub struct SimulationFrame {
 
 pub struct SimulationTelemetry {
     frames: Vec<SimulationFrame>,
+    native: bool,
 }
 
 impl SimulationTelemetry {
@@ -90,6 +91,7 @@ impl SimulationTelemetry {
             }
         }
 
+        let native = columns.contains_key("stress_converged");
         let mut frames = Vec::new();
         let mut budget_misses = 0_u64;
         for (line_index, line) in lines.enumerate() {
@@ -130,27 +132,27 @@ impl SimulationTelemetry {
                 },
                 simulation_seconds: parse_f64("simulation_seconds")?,
                 physics_step_ms: parse_f64("physics_step_ms")?,
-                contact_callback_ms: parse_f64("contact_callback_ms")?,
-                contact_processing_ms: parse_f64("contact_processing_ms")?,
-                gravity_ms: parse_f64("gravity_ms")?,
+                contact_callback_ms: parse_optional_f64("contact_callback_ms")?,
+                contact_processing_ms: parse_optional_f64("contact_processing_ms")?,
+                gravity_ms: parse_optional_f64("gravity_ms")?,
                 stress_solve_ms: parse_f64("stress_solve_ms")?,
                 gpu_stress_solve_ms: parse_optional_f64("gpu_stress_solve_ms")?,
                 gpu_stress_h2d_bytes: parse_optional_f64("gpu_stress_h2d_bytes")? as u64,
                 gpu_stress_d2h_bytes: parse_optional_f64("gpu_stress_d2h_bytes")? as u64,
-                fracture_topology_ms: parse_f64("fracture_topology_ms")?,
-                adapter_tick_ms: parse_f64("adapter_tick_ms")?,
-                mapping_validation_ms: parse_f64("mapping_validation_ms")?,
-                state_export_ms: parse_f64("state_export_ms")?,
+                fracture_topology_ms: parse_optional_f64("fracture_topology_ms")?,
+                adapter_tick_ms: parse_optional_f64("adapter_tick_ms")?,
+                mapping_validation_ms: parse_optional_f64("mapping_validation_ms")?,
+                state_export_ms: parse_optional_f64("state_export_ms")?,
                 frame_host_ms,
-                realtime_factor: parse_f64("realtime_factor")?,
+                realtime_factor: parse_optional_f64("realtime_factor")?,
                 bodies: parse_u64("bodies")?,
                 awake_bodies: parse_u64("awake_bodies")?,
-                solver_islands: parse_u64("solver_islands")?,
-                solver_islands_skipped: parse_u64("solver_islands_skipped")?,
-                overstressed_bonds: parse_u64("overstressed_bonds")?,
+                solver_islands: parse_optional_f64("solver_islands")? as u64,
+                solver_islands_skipped: parse_optional_f64("solver_islands_skipped")? as u64,
+                overstressed_bonds: parse_optional_f64("overstressed_bonds")? as u64,
                 contacts_frame: parse_u64("contacts_frame")?,
                 contacts_total: parse_u64("contacts_total")?,
-                contacts_dropped_total: parse_u64("contacts_dropped_total")?,
+                contacts_dropped_total: parse_optional_f64("contacts_dropped_total")? as u64,
                 projectiles_active: if columns.contains_key("projectiles_active") {
                     Some(parse_u64("projectiles_active")?)
                 } else {
@@ -160,13 +162,13 @@ impl SimulationTelemetry {
                 projectile_impacts_total: parse_optional_f64("projectile_impacts_total")? as u64,
                 projectile_impulse_frame: parse_optional_f64("projectile_impulse_frame")?,
                 projectile_impulse_total: parse_optional_f64("projectile_impulse_total")?,
-                splits_frame: parse_u64("splits_frame")?,
+                splits_frame: parse_optional_f64("splits_frame")? as u64,
                 splits_total: parse_u64("splits_total")?,
-                shapes_migrated_frame: parse_u64("shapes_migrated_frame")?,
-                shapes_migrated_total: parse_u64("shapes_migrated_total")?,
-                sleeping_actors_skipped: parse_u64("sleeping_actors_skipped")?,
-                max_position_drift: parse_f64("max_position_drift")?,
-                max_point_velocity_drift: parse_f64("max_point_velocity_drift")?,
+                shapes_migrated_frame: parse_optional_f64("shapes_migrated_frame")? as u64,
+                shapes_migrated_total: parse_optional_f64("shapes_migrated_total")? as u64,
+                sleeping_actors_skipped: parse_optional_f64("sleeping_actors_skipped")? as u64,
+                max_position_drift: parse_optional_f64("max_position_drift")?,
+                max_point_velocity_drift: parse_optional_f64("max_point_velocity_drift")?,
                 budget_miss_frames: budget_misses,
                 chunks_crushed_total: if columns.contains_key("chunks_crushed_total") {
                     Some(parse_f64("chunks_crushed_total")? as u64)
@@ -181,10 +183,54 @@ impl SimulationTelemetry {
         if frames.is_empty() {
             bail!("simulation frame telemetry contains no samples");
         }
-        Ok(Self { frames })
+        for (index, frame) in frames.iter().enumerate() {
+            if !frame.physics_step_ms.is_finite()
+                || frame.physics_step_ms <= 0.0
+                || !frame.frame_host_ms.is_finite()
+                || frame.frame_host_ms <= 0.0
+            {
+                bail!("invalid timing in telemetry sample {index}");
+            }
+        }
+        Ok(Self { frames, native })
+    }
+
+    /// Whole capture statistics include every physics step, even at 30 fps playback.
+    pub fn timing_overlay(&self) -> Vec<String> {
+        let count = self.frames.len() as f64;
+        let sum: f64 = self.frames.iter().map(|f| f.physics_step_ms).sum();
+        let mean = sum / count;
+        let min = self
+            .frames
+            .iter()
+            .map(|f| f.physics_step_ms)
+            .fold(f64::INFINITY, f64::min);
+        let max = self
+            .frames
+            .iter()
+            .map(|f| f.physics_step_ms)
+            .fold(0.0, f64::max);
+        let host_mean = self.frames.iter().map(|f| f.frame_host_ms).sum::<f64>() / count;
+        let misses = self
+            .frames
+            .iter()
+            .filter(|f| f.physics_step_ms > 1000.0 / 60.0)
+            .count();
+        vec![
+            format!("ALL STEPS: physics avg/min/max = {mean:.2} / {min:.2} / {max:.2} ms | 60 Hz budget = 16.67 ms"),
+            format!("Physics throughput: {:.2} steps/s | {:.1}% real time ({:.3}x) | over budget: {}/{}",
+                1000.0 / mean, (1000.0 / 60.0) / mean * 100.0, (1000.0 / 60.0) / mean, misses, self.frames.len()),
+            format!("Capture tick incl. observation/I/O: avg {host_mean:.2} ms | {:.1}% real time | playback is offline",
+                (1000.0 / 60.0) / host_mean * 100.0),
+        ]
     }
 
     pub fn for_output_frame(&self, output_frame: u32, output_fps: u32) -> Option<&SimulationFrame> {
+        if self.native {
+            return self
+                .frames
+                .get((output_frame as u64 * 60 / output_fps as u64) as usize);
+        }
         if output_frame == 0 {
             return self.frames.first();
         }
@@ -370,5 +416,41 @@ fn draw_text(
         if cursor_x >= width {
             break;
         }
+    }
+}
+
+#[cfg(test)]
+mod timing_tests {
+    use super::*;
+
+    #[test]
+    fn throughput_uses_total_time_and_all_physics_steps() {
+        let frames = [10.0, 20.0, 30.0, 40.0]
+            .into_iter()
+            .enumerate()
+            .map(|(step, ms)| SimulationFrame {
+                step: step as u32,
+                physics_step_ms: ms,
+                frame_host_ms: ms + 5.0,
+                ..Default::default()
+            })
+            .collect();
+        let telemetry = SimulationTelemetry {
+            frames,
+            native: true,
+        };
+        let lines = telemetry.timing_overlay();
+        assert!(lines[0].contains("25.00 / 10.00 / 40.00 ms"));
+        assert!(lines[1].contains("40.00 steps/s | 66.7% real time (0.667x)"));
+        assert!(lines[1].contains("over budget: 3/4"));
+        assert!(lines[2].contains("avg 30.00 ms | 55.6% real time"));
+        assert_eq!(telemetry.for_output_frame(0, 30).unwrap().step, 0);
+        assert_eq!(telemetry.for_output_frame(1, 30).unwrap().step, 2);
+        assert!(telemetry.for_output_frame(2, 30).is_none());
+        let legacy = SimulationTelemetry {
+            native: false,
+            ..telemetry
+        };
+        assert_eq!(legacy.for_output_frame(1, 30).unwrap().step, 1);
     }
 }

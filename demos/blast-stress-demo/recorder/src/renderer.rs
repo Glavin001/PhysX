@@ -357,6 +357,10 @@ async fn render_recording_async(
     let simulation_telemetry = simulation_telemetry_path
         .map(SimulationTelemetry::load)
         .transpose()?;
+    let timing_lines = simulation_telemetry
+        .as_ref()
+        .map(SimulationTelemetry::timing_overlay)
+        .unwrap_or_default();
     let width = state.header.pane_width * 2;
     let height = state.header.pane_height * 2;
     let fps = state.header.fps;
@@ -620,6 +624,7 @@ async fn render_recording_async(
                 &readback_layout,
                 &mut ffmpeg_stdin,
                 simulation_frame,
+                &timing_lines,
                 submit_info[written_frames],
                 presentation,
             )?;
@@ -845,6 +850,7 @@ async fn render_recording_async(
             &readback_layout,
             &mut ffmpeg_stdin,
             simulation_frame,
+            &timing_lines,
             submit_info[written_frames],
             presentation,
         )?;
@@ -1099,6 +1105,7 @@ fn write_staging_frame(
     layout: &ReadbackLayout,
     output: &mut impl Write,
     simulation: Option<&SimulationFrame>,
+    timing_lines: &[String],
     submit: RenderSubmitInfo,
     presentation: &PresentationArgs,
 ) -> Result<OutputTiming> {
@@ -1139,6 +1146,7 @@ fn write_staging_frame(
     if let Some(title) = &presentation.title {
         lines.push(title.clone());
     }
+    lines.extend_from_slice(timing_lines);
     if presentation.compact_hud {
         if let Some(sample) = simulation {
             lines.push(format!(
@@ -1153,8 +1161,8 @@ fn write_staging_frame(
                 sample.contacts_frame
             ));
             lines.push(format!(
-                "captured step={:.2} ms | correction passes={} | incomplete={} | offline rendering",
-                sample.frame_host_ms,
+                "Current physics step={:.2} ms | correction passes={} | incomplete={} | offline rendering",
+                sample.physics_step_ms,
                 sample.resim_passes,
                 sample
                     .correction_status
