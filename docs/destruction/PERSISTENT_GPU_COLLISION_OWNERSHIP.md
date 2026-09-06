@@ -1,5 +1,9 @@
 # Persistent collision ownership inside PhysX
 
+This document records the original transfer boundary. Native GPU allocation,
+body initialization and [collision binding preparation](NATIVE_GPU_COLLISION_PREPARATION.md)
+now precede it; application inside the correction transaction remains unfinished.
+
 PhysX now has an internal operation that transfers an exclusive shape between
 existing rigid bodies without destroying its `ShapeSim`, cooked geometry
 registration, transform/contact index or shape reference. GPU broadphase,

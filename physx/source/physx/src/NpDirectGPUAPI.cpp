@@ -342,7 +342,7 @@ PxU32 NpDirectGPUAPI::getShapeContactIndex(const PxShape& shape) const
 {
 #if PX_SUPPORT_GPU_PHYSX
     if(mNpScene.isAPIWriteForbidden() || !mNpScene.isDirectGPUAPIInitialized()
-        || !(mNpScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)) return PX_INVALID_U32;
+        || !(mNpScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API)) return PX_INVALID_U32;
     const NpShape& npShape = static_cast<const NpShape&>(shape);
     if(!npShape.isExclusive() || npShape.getNpScene() != &mNpScene) return PX_INVALID_U32;
     const Sc::ShapeSim* sim = npShape.getCore().getExclusiveSim();

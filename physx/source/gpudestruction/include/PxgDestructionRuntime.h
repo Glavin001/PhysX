@@ -5,6 +5,7 @@
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
+struct PxgShapeSim;
 struct PxgBodySimVelocities;
 struct PxgRigidBodyAcceleration;
 // Private bridge between PhysX's kernel-wrangler module and the runtime CUDA
@@ -28,6 +29,7 @@ public:
     virtual const PxU32* reservedBodyIndices() const = 0;
     virtual bool initializeReservedBodies(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, CUstream stream) = 0;
+    virtual bool prepareCollisionBindings(const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
     virtual void release() = 0;
 };
 }

@@ -1,0 +1,142 @@
+// Native GPU fracture -> initialized cluster slots -> persistent shape bindings.
+// Authored scene setup and diagnostic readbacks below do not orchestrate fracture.
+#include "../physx_scene.h"
+#include "NpScene.h"
+#include "NpShapeManager.h"
+#include "PxgSimulationController.h"
+#include "PxgSimulationCore.h"
+#include <PxDestructionScene.h>
+#include <cuda.h>
+#include <cstdio>
+#include <cstring>
+#include <stdexcept>
+#include <vector>
+using namespace physx;
+namespace {
+void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
+void check(CUresult result){if(result!=CUDA_SUCCESS){const char* name=nullptr;cuGetErrorName(result,&name);std::fprintf(stderr,"CUDA observation failed: %d %s\n",int(result),name?name:"");throw std::runtime_error("CUDA observation failed");}}
+void step(PxScene& scene){scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"ordinary step failed");}
+struct Fixture {
+    blast_demo::SceneCapacity capacity;
+    blast_demo::PhysXScene context;
+    PxScene& scene;
+    PxCudaContextManager& cuda;
+    PxgSimulationCore& core;
+    PxRigidDynamic* parent;
+    PxRigidDynamic* foreign;
+    std::vector<PxRigidDynamic*> quiet;
+    std::vector<PxShape*> shapes;
+    PxShape* foreignShape;
+    std::vector<PxDestructionStressChunk> chunks;
+    std::vector<PxDestructionChunkMassProperties> mass;
+    std::vector<PxDestructionStressBond> bonds;
+    std::vector<PxDestructionStressCluster> clusters;
+    std::vector<PxgShapeSim> originalShapes;
+    PxDestructionMaterial material;
+    PxDestructionStressDesc desc;
+    PxDestructionScene* stage;
+    unsigned mainCount;
+    Fixture(unsigned count,unsigned untouched,bool sleeping):
+        context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,sleeping,sleeping),
+        scene(context.scene()),cuda(*context.cudaContextManager()),
+        core(*static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getSimulationCore()),mainCount(count) {
+        const PxTransform origin(PxVec3(10,20,-5),PxQuat(.43f,PxVec3(0,0,1)));
+        parent=context.physics().createRigidDynamic(origin);parent->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
+        const auto addShape=[&](PxRigidDynamic& actor,PxVec3 point){
+            auto* shape=context.physics().createShape(PxBoxGeometry(.25f,.25f,.25f),context.material(),true);
+            require(shape,"shape creation failed");shape->setLocalPose(PxTransform(point));require(actor.attachShape(*shape),"chunk shape attachment failed");return shape;
+        };
+        for(unsigned i=0;i<count;++i)shapes.push_back(addShape(*parent,PxVec3(0,2*float(i),0)));
+        scene.addActor(*parent);
+        for(unsigned i=0;i<untouched;++i) {
+            auto* actor=context.physics().createRigidDynamic(PxTransform(PxVec3(100+3*float(i),20,0)));
+            actor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);shapes.push_back(addShape(*actor,PxVec3(0)));
+            scene.addActor(*actor);quiet.push_back(actor);
+        }
+        foreign=context.physics().createRigidDynamic(PxTransform(PxVec3(-100,20,0)));foreign->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
+        foreignShape=addShape(*foreign,PxVec3(0));scene.addActor(*foreign);step(scene);
+        clusters.push_back({parent->getGPUIndex(),PxVec3(0)});
+        for(auto* actor:quiet)clusters.push_back({actor->getGPUIndex(),PxVec3(0)});
+        const unsigned total=count+untouched;chunks.resize(total);mass.resize(total);originalShapes.resize(total);
+        for(unsigned i=0;i<total;++i) {
+            const bool dynamic=i>0 && i<count;const auto position=i<count?PxVec3(0,2*float(i),0):PxVec3(0);
+            chunks[i]={position,dynamic?1.0f:0.0f,dynamic?1.0f:0.0f,i<count?0:i-count+1,scene.getDirectGPUAPI().getShapeContactIndex(*shapes[i]),.125f,0};
+            require(chunks[i].contactIndex!=PX_INVALID_U32,"persistent shape identity unavailable without host motion access");
+            mass[i]={};mass[i].mass=dynamic?1:0;mass[i].supported=!dynamic;
+            for(unsigned k=0;k<3;++k){mass[i].center[k]=position[k];mass[i].inertia[k]=dynamic?1:0;}
+            if(dynamic)bonds.push_back({0,i,position*.5f,PxVec3(0,1,0),1,1,1});
+        }
+        desc.chunks=chunks.data();desc.chunkCount=unsigned(chunks.size());desc.chunkMassProperties=mass.data();
+        desc.bonds=bonds.data();desc.bondCount=unsigned(bonds.size());desc.clusters=clusters.data();desc.clusterCount=unsigned(clusters.size());
+        desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;
+        stage=scene.getDestructionScene();require(stage,"native destruction scene missing");
+        snapshotShapes();
+    }
+    ~Fixture(){stage->clearStress();parent->release();foreign->release();foreignShape->release();for(auto* actor:quiet)actor->release();for(auto* shape:shapes)shape->release();}
+    void configure(){require(stage->configureStress(desc),"native graph configuration failed");}
+    void snapshotShapes(){PxScopedCudaLock lock(cuda);for(unsigned i=0;i<shapes.size();++i)check(cuMemcpyDtoH(&originalShapes[i],CUdeviceptr(core.mPxgShapeSimManager.getShapeSimsDeviceTypedPtr()+chunks[i].contactIndex),sizeof(PxgShapeSim)));}
+    void assertUncommitted(){
+        require(parent->getNbShapes()==mainCount,"binding preparation changed CPU membership");
+        require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==quiet.size()+2,"binding preparation published private actors");
+        PxScopedCudaLock lock(cuda);
+        for(unsigned i=0;i<shapes.size();++i) {
+            PxgShapeSim actual;check(cuMemcpyDtoH(&actual,CUdeviceptr(core.mPxgShapeSimManager.getShapeSimsDeviceTypedPtr()+chunks[i].contactIndex),sizeof(actual)));
+            require(!std::memcmp(&actual,&originalShapes[i],sizeof(actual)),"binding preparation modified persistent GPU geometry/ownership");
+            require(shapes[i]->getActor()==(i<mainCount?parent:quiet[i-mainCount]),"binding preparation changed query owner");
+        }
+        std::vector<float> health(bonds.size());if(!health.empty())check(cuMemcpyDtoH(health.data(),CUdeviceptr(stage->getDeviceView().bondHealth),health.size()*sizeof(float)));
+        for(float value:health)require(value==1,"uncommitted collision plan changed accepted material damage");
+    }
+    PxDestructionCollisionPreparationStatus readStatus(){
+        const auto view=stage->getDeviceView();require(view.collisionPreparation && view.trialCollisionBindings,"collision device view missing");
+        PxDestructionCollisionPreparationStatus status;PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.readyEvent));check(cuMemcpyDtoH(&status,CUdeviceptr(view.collisionPreparation),sizeof(status)));return status;
+    }
+    void fracture(PxU32 expectedError=8){scene.simulate(1.0f/60);PxU32 error=0;require(!scene.fetchResults(true,&error)&&error&&stage->getLastStatus().error==expectedError,"native correction/preparation error mismatch");}
+    std::vector<PxDestructionCollisionBinding> bindings(unsigned n){
+        auto view=stage->getDeviceView();std::vector<PxDestructionCollisionBinding> result(n);PxScopedCudaLock lock(cuda);
+        check(cuEventSynchronize(view.readyEvent));if(n)check(cuMemcpyDtoH(result.data(),CUdeviceptr(view.trialCollisionBindings),n*sizeof(result[0])));return result;
+    }
+};
+void sparseAndGrowth(bool sleeping,unsigned count,unsigned quiet) {
+    std::fprintf(stderr,"begin collision fixture: chunks=%u quiet=%u sleeping=%u\n",count,quiet,unsigned(sleeping));
+    Fixture f(count,quiet,sleeping);f.configure();f.fracture();auto status=f.readStatus();
+    require(status.valid && !status.error && status.generation==1 && status.count==count && status.migrating==count-1
+        && status.affectedClusters==1 && !status.removed,"sparse native collision binding batch mismatch");
+    const auto first=f.bindings(count);std::vector<PxU32> bodies(count+quiet);
+    {PxScopedCudaLock lock(f.cuda);check(cuMemcpyDtoH(bodies.data(),CUdeviceptr(f.stage->getDeviceView().trialBodyIndices),bodies.size()*sizeof(PxU32)));}
+    for(unsigned i=0;i<count;++i)require(first[i].chunk==i && first[i].shape==f.chunks[i].contactIndex && first[i].sourceBody==f.parent->getGPUIndex() && first[i].targetBody==bodies[i],"binding identity or target does not match GPU topology");
+    require(first[0].sourceBody==first[0].targetBody,"retained shape missing from changed-COM work set");f.assertUncommitted();
+    for(unsigned retry=0;retry<2;++retry) {f.fracture();const auto current=f.bindings(count);require(!std::memcmp(first.data(),current.data(),first.size()*sizeof(first[0])),"identical fracture retry changed stable binding order/identity");f.assertUncommitted();}
+    f.material.compressionElasticLimit=1e12f;f.material.compressionFatalLimit=2e12f;f.configure();step(f.scene);status=f.readStatus();
+    require(!status.valid && !status.count && !status.generation && !status.affectedClusters && !status.error,"quiet step exposed stale collision preparation");f.assertUncommitted();
+    require(f.context.healthy(),"native collision preparation GPU health failure");
+    std::printf("native collision binding preparation: %u affected chunks, %u unchanged structures, sleeping=%u passed\n",count,quiet,unsigned(sleeping));
+}
+void rejection() {
+    Fixture f(4,2,true);const PxU32 old=f.chunks[2].contactIndex;
+    f.chunks[2].contactIndex=0xfffffffeu;f.configure();f.fracture(8u|1024u);auto status=f.readStatus();
+    require(!status.valid && (status.error&1) && status.generation==1,"out-of-range shape did not reject whole batch");
+    f.chunks[2].contactIndex=old;f.assertUncommitted();
+    f.chunks[2].contactIndex=f.scene.getDirectGPUAPI().getShapeContactIndex(*f.foreignShape);f.configure();f.fracture(8u|1024u);status=f.readStatus();
+    require(!status.valid && (status.error&2),"foreign native owner accepted in collision plan");
+    f.chunks[2].contactIndex=old;f.assertUncommitted();
+    f.configure();f.fracture();require(f.readStatus().valid,"valid graph could not recover after rejected collision batch");f.assertUncommitted();
+    require(f.context.healthy(),"rejected binding corrupted GPU scene");std::puts("native collision binding invalid shape and wrong source reject the whole batch; valid retry passed");
+}
+void crushRemoval() {
+    Fixture f(2,0,true);f.material.compressionElasticLimit=1e12f;f.material.compressionFatalLimit=2e12f;
+    f.material.crush.capPressure=2;f.material.crush.cohesion=1000;f.configure();
+    bool crushed=false;
+    for(unsigned frame=0;frame<150 && !crushed;++frame) {
+        f.scene.simulate(1.0f/60);PxU32 error=0;const bool complete=f.scene.fetchResults(true,&error);
+        if(complete){require(!error,"ordinary crush accumulation failed");continue;}
+        require(error && f.stage->getLastStatus().error==8 && f.stage->getLastStatus().crushedChunks,"crush verdict failed for an unexpected reason");
+        const auto status=f.readStatus();require(status.valid && !status.error && status.removed>0,"destroyed chunk collision removal missing");
+        const auto bindings=f.bindings(status.count);PxU32 active[2];{PxScopedCudaLock lock(f.cuda);check(cuMemcpyDtoH(active,CUdeviceptr(f.stage->getDeviceView().trialTopology.activeChunks),sizeof(active)));}
+        unsigned removed=0;for(const auto& binding:bindings)if(!active[binding.chunk]){require(binding.targetBody==PX_INVALID_U32,"destroyed geometry retained a motion owner");++removed;}
+        require(removed==status.removed,"partial collision removal verdict");crushed=true;
+    }
+    require(crushed,"crush fixture did not exercise collision removal");require(f.context.healthy(),"crush collision preparation GPU failure");std::puts("native crush verdict includes every destroyed collision shape passed");
+}
+}
+int main(){try{sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

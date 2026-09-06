@@ -13,13 +13,16 @@ GPU-compacted requests; see [NATIVE_GPU_BODY_ALLOCATION.md](NATIVE_GPU_BODY_ALLO
 The reserved slots now receive physical GPU state, including GPU-resident dynamic
 settings preserved through kinematic mode; see
 [NATIVE_GPU_BODY_INITIALIZATION.md](NATIVE_GPU_BODY_INITIALIZATION.md).
-Collision-owner transfer, retained-body updates and internal correction remain unfinished.
+GPU persistent collision binding preparation now follows initialization; see
+[NATIVE_GPU_COLLISION_PREPARATION.md](NATIVE_GPU_COLLISION_PREPARATION.md).
+Applying collision-owner transfers, retained-body updates and internal correction
+remain unfinished.
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 47/52 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
+suite is 48/53 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
@@ -114,6 +117,12 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   uploads handled internally. Authored dynamic damping/limits survive kinematic
   overrides in GPU storage. Retained owners stay unchanged; collision transfer
   and correction still remain before these bodies can be accepted.
+
+- Native GPU collision binding preparation identifies affected source clusters,
+  resolves persistent chunk shapes to candidate native bodies, includes retained
+  owners and crushed-shape removals, and rejects invalid batches before ownership
+  mutation. Stable compaction excludes unchanged structures without CPU graph or
+  shape traversal. Applying these edits inside the correction transaction remains.
 
 ## Remaining completion gates
 

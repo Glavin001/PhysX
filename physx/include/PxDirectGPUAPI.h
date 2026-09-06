@@ -461,7 +461,8 @@ public:
     geometry index returned by PxShape::getGPUIndex(). It changes on detach and
     can be recycled. Call outside simulation after fetch; keep the actor/shape
     alive and rebuild ownership after topology changes. Returns PX_INVALID_U32
-    for nonexclusive, detached or foreign shapes or unavailable host access.
+    for nonexclusive, detached or foreign shapes or an uninitialized Direct GPU
+    scene. This metadata lookup does not require host motion observation.
     */
     virtual PxU32 getShapeContactIndex(const class PxShape& shape) const = 0;
 };

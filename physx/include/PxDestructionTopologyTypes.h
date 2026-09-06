@@ -49,6 +49,19 @@ struct PxDestructionBodyAllocationStatus {
     std::uint32_t count, reserved, valid, error;
     std::uint32_t initialized, initializationError; // 1 invalid mapping, 2 CUDA/storage failure
 };
+// Persistent shape edits in stable authored chunk order. A target of
+// UINT32_MAX removes collision for a destroyed chunk. A retained target still
+// needs its changed cluster mass/COM and solver rows handled by correction.
+struct PxDestructionCollisionBinding {
+    std::uint32_t chunk, shape, sourceBody, targetBody;
+};
+struct PxDestructionCollisionPreparationStatus {
+    std::uint64_t generation;
+    std::uint32_t count, migrating, removed, affectedClusters, valid, error;
+    // error: 1 invalid shape, 2 changed source ownership, 4 invalid target,
+    // 8 unsupported collision geometry/flags, 16 CUDA failure.
+    // No physical shape ownership is changed by preparing this batch.
+};
 struct PxDestructionTopologyStatus {
     std::uint64_t generation;
     std::uint32_t clusterCount, invalidEdit, changed;
