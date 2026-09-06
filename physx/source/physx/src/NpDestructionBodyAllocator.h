@@ -19,6 +19,10 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
     NpScene& mScene;
     PxArray<Entry> mBodies;
     PxArray<Entry> mAcceptedBodies;
+    // Private-body membership must not scan every accepted fragment for every
+    // chunk binding. False denotes an uncommitted reservation; true denotes an
+    // accepted owner. The arrays retain deterministic allocation/teardown order.
+    PxHashMap<NpRigidDynamic*,bool> mPrivateBodies;
     NpRigidDynamic* source(PxU32 id, bool allowReservation=false) const {
         const auto& islands=mScene.getScScene().getSimpleIslandManager()->getAccurateIslandSim();
         if(id>=islands.getNbNodes())return NULL;
@@ -33,11 +37,12 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         auto* body=static_cast<NpRigidDynamic*>(actor);
         if(body->getNpScene()!=&mScene)return NULL;
         if(body->getRigidActorSceneIndex()!=NP_UNUSED_BASE_INDEX)return body;
-        for(const auto& entry:mAcceptedBodies)if(entry.body==body)return body;
-        if(allowReservation)for(const auto& entry:mBodies)if(entry.body==body)return body;
-        return NULL;
+        const auto* entry=mPrivateBodies.find(body);
+        return entry && (entry->second || allowReservation) ? body : NULL;
     }
     void discard(NpRigidDynamic& body) {
+        // Remove membership before the pool can reuse this object's address.
+        mPrivateBodies.erase(&body);
         PxInlineArray<const Sc::ShapeCore*,64> shapes;
         mScene.getScScene().removeBody(body.getCore(),shapes,false);
         body.getShapeManager().detachAll(&mScene.getSQAPI(), body);
@@ -57,6 +62,7 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         // transition. Consume it while FIRST_BODY_COPY_GPU still marks this as
         // uninitialized, so fetchResults cannot zero later GPU candidate motion.
         if(!mScene.getScScene().finalizeGpuSleep(&body->getCore())){discard(*body);return NULL;}
+        if(!mPrivateBodies.insert(body,false)){discard(*body);return NULL;}
         return body;
     }
 public:
@@ -147,7 +153,13 @@ public:
         return true;
     }
     void acceptReservations() override {
-        for(const auto& entry:mBodies)mAcceptedBodies.pushBack(entry);
+        for(const auto& entry:mBodies) {
+            PX_ASSERT(mPrivateBodies.find(entry.body));
+            // Already inserted at reservation time; acceptance does not grow
+            // the lookup or allocate storage after physical state is committed.
+            mPrivateBodies[entry.body]=true;
+            mAcceptedBodies.pushBack(entry);
+        }
         mBodies.clear();
     }
     void discardReservations() override {for(auto& entry:mBodies)discard(*entry.body);mBodies.clear();}
@@ -155,6 +167,7 @@ public:
         discardReservations();
         for(auto& entry:mAcceptedBodies)discard(*entry.body);
         mAcceptedBodies.clear();
+        PX_ASSERT(mPrivateBodies.size()==0);
     }
     PxU32 size() const {return mBodies.size();}
     NpRigidDynamic* find(PxU32 cluster) const {

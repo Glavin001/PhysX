@@ -2,6 +2,7 @@
 // candidate actors or reads graph/motion data to drive this transaction.
 #include "../physx_scene.h"
 #include "NpScene.h"
+#include "NpDestructionBodyAllocator.h"
 #include "NpRigidDynamic.h"
 #include "ScBodySim.h"
 #include "PxgSimulationController.h"
@@ -253,6 +254,44 @@ void moving(PxSolverType::Enum solver) {
     std::puts("native body initialization: actual GPU mass/COM/motion, point velocity, GPU settings, retained parent and post-growth descriptors passed");
 }
 
+// Exercise membership transitions independently of physical initialization.
+// Runtime initialization, momentum and collision acceptance have separate native
+// fixtures; this fixture isolates source validation and pooled-object reuse.
+void membership() {
+    blast_demo::SceneCapacity capacity;
+    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,true,false,false);
+    auto& scene=context.scene();auto& internal=static_cast<NpScene&>(scene);
+    auto* parent=context.physics().createRigidDynamic(PxTransform(PxIdentity));
+    parent->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);scene.addActor(*parent);step(scene);
+    NpDestructionBodyAllocator allocator(internal);
+    constexpr PxU32 count=257;
+    std::vector<PxvDestructionBodyRequest> requests(count);std::vector<PxU32> ids(count);
+    for(PxU32 i=0;i<count;++i)requests[i]={i,parent->getGPUIndex(),1,1,i};
+    for(unsigned cycle=0;cycle<3;++cycle) {
+        require(allocator.prepare(requests.data(),count,ids.data()),"membership reservations failed");
+        for(auto id:ids)require(!allocator.isValidSource(id),"uncommitted reservation accepted as a source");
+        const auto reserved=ids;
+        require(allocator.prepare(requests.data(),count,ids.data()) && ids==reserved,"membership lookup changed reservation reuse");
+        // No geometry or motion is installed here. Reserve acceptance storage
+        // through the same bridge used by a real candidate transaction.
+        require(allocator.applyBindings(nullptr,0,nullptr,nullptr,0),"membership acceptance storage failed");
+        allocator.acceptReservations();
+        for(auto id:ids)require(allocator.isValidSource(id),"accepted private owner missing from source lookup");
+        const PxvDestructionBodyRequest child{count,ids.back(),1,1,count};PxU32 childID;
+        require(allocator.prepare(&child,1,&childID),"accepted fragment could not source another split");
+        require(!allocator.isValidSource(childID),"new child inherited accepted membership");
+        allocator.discardReservations();
+        require(!allocator.isValidSource(childID),"discarded child retained source membership");
+        for(auto id:ids)require(allocator.isValidSource(id),"discarding reservations erased an accepted owner");
+        allocator.clear();
+        for(auto id:ids)require(!allocator.isValidSource(id),"cleared owner survived deferred node deletion");
+        require(allocator.isValidSource(parent->getGPUIndex()),"private clear invalidated ordinary source");
+        step(scene); // recycle deferred island IDs before the next pool-reuse cycle
+    }
+    parent->release();require(context.healthy(),"membership lifecycle GPU health failed");
+    std::puts("native membership: reservations, acceptance, fragment sources, discard, clear and reuse passed");
+}
+
 void teardown() {
     // Leave an uncommitted reservation alive through scene teardown. Scene must
     // release it while BodySim/island/controller pools still exist.
@@ -270,4 +309,4 @@ void teardown() {
     parent->release();
 }
 }
-int main(){try{run(true,false);run(false,false);run(true,true);run(false,true);moving(PxSolverType::eTGS);moving(PxSolverType::ePGS);teardown();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{membership();run(true,false);run(false,false);run(true,true);run(false,true);moving(PxSolverType::eTGS);moving(PxSolverType::ePGS);teardown();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

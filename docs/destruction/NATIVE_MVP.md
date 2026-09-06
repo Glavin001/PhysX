@@ -160,3 +160,66 @@ bounds fixture then passed three consecutive isolated reruns. The intermittent
 failure is recorded, not marked resolved. The native resimulation regression
 passed. Exact results are in `qualification/native-query-index-20260906.json`
 and the corresponding baseline logs.
+
+## Short integrated scale check above 100,000 chunks
+
+Private owner validation now uses a persistent pointer-to-membership hash map,
+with separate reserved/accepted states. This removes the repeated linear scans
+of all accepted fragments from each source/target lookup. Existing island-node
+and controller registration checks still precede pointer dereference; membership
+is erased before pool storage is released. Acceptance updates existing entries
+without allocating. Allocation and teardown order still follow the original
+arrays. GPU stress, topology, mass and motion calculations are unchanged.
+
+Four targeted native suites passed: body allocation, collision preparation,
+correction bodies and end-to-end resimulation. The allocation suite adds three
+257-owner lifecycle cycles, including reservation reuse, accepted fragments as
+new split sources, reservation discard, clear, deferred node deletion and pool
+reuse. These metadata tests supplement the existing physical initialization and
+momentum fixtures. The full suite was not rerun for this focused allocator change;
+the previously recorded reference failures and intermittent bounds failure remain
+open.
+
+A **three-second functional scale check**, not sustained performance qualification,
+completed with 256 buildings, **113,664 chunks and 229,376 bonds**. It launched
+252 projectiles before the short capture ended, broke 185,011 bonds and reached
+89,923 destruction clusters. All 180 accepted stress solves converged (maximum
+170 iterations). Exactly 56 steps used correction, each using only one resim.
+The peak reported normal contact-load count was 886,214 in one trial step.
+
+Simulation timings were p50 0.65 ms, p95 621.92 ms, p99 772.59 ms and worst
+822.29 ms. The overall median is dominated by the initial intact interval;
+corrected steps had a median of 298.36 ms. All 56 corrected steps exceeded
+16.67 ms. Observation and recording costs are separate. This shared-GPU check
+proves functional processing at this scene size, **not real-time operation**,
+long-duration stability, or an isolated comparison with the prior implementation.
+The first correction occurs at step 124; the capture includes less than one
+second of active bombardment. A 30–60-second run at this scale remains pending.
+
+The verified 1920x1080, 180-frame video is:
+
+```
+out/recordings/native-scale-113664-20260906-a/native-scale-113664-overview.mp4
+```
+
+It is labeled offline playback and renders committed native GPU poses. The state,
+CSV, source/binary hashes, patch and video validation are beside it. Reproduce
+into a fresh output directory:
+
+```sh
+out/destruction-sdk/reference/native_destruction_demo \
+  --grid 16 --waves 1 --seconds 3 --stress-iterations 2048 \
+  --output out/recordings/native-scale-new
+demos/blast-stress-demo/recorder/target/release/blast-mini-city-recorder render \
+  --state out/recordings/native-scale-new/native.twstate \
+  --output out/recordings/native-scale-new/overview.mp4 \
+  --camera 0 --compact-hud --ground-y 0 \
+  --focus-center 120 4 120 --focus-radius 130 --camera-margin 0.05 \
+  --title 'NATIVE PHYSX GPU + CUDA | 113664 CHUNKS | 1 RESIM | OFFLINE PLAYBACK'
+```
+
+Phase timing is the next prerequisite for targeting the remaining cost: full
+collision rebuilding, corrected solving, GPU stress/topology and CPU ownership
+application are not yet separately measured in this large-scene result. Selective
+correction or contact reuse still requires explicit validity checks; scene size
+must not be handled by dropping physical work or accepting unconverged stress.
