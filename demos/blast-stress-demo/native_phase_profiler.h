@@ -17,7 +17,9 @@ class NativePhaseProfiler final : public physx::PxProfilerCallback {
     using Clock=std::chrono::steady_clock;
     struct Token {Clock::time_point start;const char* name;uint64_t context;unsigned step;bool detached;};
     struct Row {std::string name;uint64_t context;unsigned step;bool detached;double ms;};
-    std::ofstream mFile;
+    struct DeviceRow {std::string name;uint64_t context;unsigned step;float ms;};
+    std::ofstream mFile,mDeviceFile;
+    std::vector<DeviceRow> mDeviceRows;
     std::atomic<unsigned> mStep{~0u};
     std::atomic<bool> mFailed{false};
     std::mutex mMutex;
@@ -31,6 +33,9 @@ public:
         if(PxGetProfilerCallback())throw std::runtime_error("phase capture requires an unused profiler callback");
         mFile.open(path);if(!mFile)throw std::runtime_error("cannot open phase capture");
         mFile<<"step,phase,context,detached,host_wall_ms,accepted_step\n"<<std::setprecision(10);
+        mDeviceFile.open(path+".device.csv");
+        if(!mDeviceFile)throw std::runtime_error("cannot open CUDA stage capture");
+        mDeviceFile<<"step,phase,context,cuda_elapsed_ms,accepted_step\n"<<std::setprecision(10);
         mRows.reserve(32);mEnabled=true;PxSetProfilerCallback(this);
     }
     ~NativePhaseProfiler() override {
@@ -52,16 +57,23 @@ public:
         catch(...){mFailed=true;}
         delete token;
     }
+    void recordData(float value,const char* name,uint64_t context) override {
+        if(std::strncmp(name,"GpuDestruction.cuda.",20)!=0 || mStep==~0u)return;
+        try {std::lock_guard<std::mutex> lock(mMutex);mDeviceRows.push_back({name,context,mStep.load(),value});}
+        catch(...){mFailed=true;}
+    }
     void acceptedFrame() {
         if(!mEnabled)return;
         writeRows(true);
-        if(mFailed || !mFile)throw std::runtime_error("native phase capture incomplete");
+        if(mFailed || !mFile || !mDeviceFile)throw std::runtime_error("native phase capture incomplete");
     }
 private:
     void writeRows(bool accepted) {
         std::lock_guard<std::mutex> lock(mMutex);
         for(const auto& row:mRows)mFile<<row.step<<','<<row.name<<','<<row.context<<','<<row.detached<<','<<row.ms<<','<<accepted<<'\n';
         mRows.clear();mFile.flush();
+        for(const auto& row:mDeviceRows)mDeviceFile<<row.step<<','<<row.name<<','<<row.context<<','<<row.ms<<','<<accepted<<'\n';
+        mDeviceRows.clear();mDeviceFile.flush();
     }
 };
 }

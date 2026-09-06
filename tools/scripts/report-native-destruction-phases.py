@@ -75,7 +75,16 @@ def report(capture):
         assert abs(statistics.mean(measured) - expected['mean_ms']) < 1e-9
         lines.append(f'| `{name}` | {len(measured):,} | {min(measured):.3f} | {statistics.mean(measured):.3f} | '
                      f'{max(measured):.3f} | {sum(measured)/count:.3f} |')
-    lines += ['', 'Pure CUDA stress, topology, broadphase, narrowphase and rigid-solver kernel durations '
+    if result.get('cuda_stages'):
+        gpu = result['cuda_stages']
+        lines += ['', '## CUDA destruction stages', '', gpu['scope'], '',
+                  'These stages are separate from the host-wall scopes above. Do not add them to the simulation total.', '',
+                  '| Device stage | Min ms | Average ms | Max ms | p95 ms |',
+                  '| --- | ---: | ---: | ---: | ---: |']
+        for name, row in [*gpu['phases'].items(), ('Total destruction stage sequence', gpu['total'])]:
+            lines.append(f'| {name} | {row["min_ms"]:.3f} | {row["mean_ms"]:.3f} | {row["max_ms"]:.3f} | {row["p95_ms"]:.3f} |')
+    lines += ['', 'Individual CUDA kernel durations for stress, topology, broadphase, narrowphase and rigid solving '
+
               'are not separately isolated in this capture. In particular, the short `task.contactGraph` '
               'host scope is not the GPU graph-computation duration, and `finishAndReserve` is not pure stress time.', '']
     return '\n'.join(lines)

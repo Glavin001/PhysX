@@ -390,6 +390,27 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 #include "PxgDestructionCorrection.cuh"
 class Runtime final : public PxgDestructionRuntime {
     bool mPreserveContactPairs=false;
+    PxProfilerCallback* mProfiler=nullptr;PxU64 mProfileContext=0;
+    cudaEvent_t mStageEvents[6]{};bool mStageTimingPending=false;
+    void stageMarker(PxU32 stage) {
+        if(!mProfiler)return;
+        for(auto& event:mStageEvents)if(!event)check(cudaEventCreate(&event));
+        check(cudaEventRecord(mStageEvents[stage],mStream));
+        if(stage==5)mStageTimingPending=true;
+    }
+    void collectStageTimings() {
+        if(!mStageTimingPending)return;
+        // finish already waited for mReady, which follows all six markers.
+        // Reading elapsed times introduces no additional synchronization.
+        static const char* names[]={"GpuDestruction.cuda.contactLoads", "GpuDestruction.cuda.stress",
+            "GpuDestruction.cuda.materials", "GpuDestruction.cuda.topologyAndCandidates",
+            "GpuDestruction.cuda.commitAndStressTopology"};
+        for(PxU32 i=0;i<5;++i) {
+            float elapsed=0;check(cudaEventElapsedTime(&elapsed,mStageEvents[i],mStageEvents[i+1]));
+            if(mProfiler)mProfiler->recordData(elapsed,names[i],mProfileContext);
+        }
+        mStageTimingPending=false;
+    }
     CUcontext mContext; void* mScene; bool(*mWriteAllowed)(void*);
     cudaStream_t mStream{}; cudaEvent_t mInput{},mReady{}; CUevent mConsumer{};
     ExtStressGpuSolver* mSolver{}; ExtStressGpuSolveParams mParams;
@@ -490,6 +511,7 @@ public:
         check(cudaMemset(mStatus,0,sizeof(*mStatus)));
         check(cudaEventRecord(mReady,mStream));
     }
+    void setProfiler(PxProfilerCallback* callback,PxU64 context) override {mProfiler=callback;mProfileContext=context;}
     bool buildContactInputs(PxgContactManagerInput* inputs,PxU32 count,
         const PxgShapeSim* shapes,PxU32 shapeCapacity,CUstream stream) override {
         if(mFailed || !mCorrectionEnabled || !stream || (count && (!inputs || !shapes || !shapeCapacity)))return false;
@@ -1073,10 +1095,11 @@ public:
     PxU32 clusterCount() const override {return mC;}
     bool advance(PxReal dt,const PxVec3& gravity,const PxgBodySim* bodyStates) override {
         try {Context current(mContext);if(!configured() || dt<=0)return false;
-            check(cudaStreamWaitEvent(mStream,mInput,0));
+            check(cudaStreamWaitEvent(mStream,mInput,0));stageMarker(0);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
             if(mCapacity)routeContacts<<<(mCapacity+127)/128,128,0,mStream>>>(mPairs,mCount,mCapacity,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
             check(cudaEventRecord(mReady,mStream));
+            stageMarker(1);
             const PxDestructionVectorPair* forces=nullptr;
             const ExtStressGpuDeviceStatus* solveStatus=nullptr;
             if(mSolver) {
@@ -1086,6 +1109,7 @@ public:
                 check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(view.readyEvent),0));
                 forces=reinterpret_cast<const PxDestructionVectorPair*>(view.bondImpulses);solveStatus=view.status;
             }
+            stageMarker(2);
             // Detached chunks still receive contact loads and may crush; a
             // graph without bonds has no stiffness solve to allocate or run.
             finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM);
@@ -1098,6 +1122,7 @@ public:
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
                 requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);
             }
+            stageMarker(3);
             if(mTopology) {
                 check(cudaMemsetAsync(mTopologyCount,0,sizeof(*mTopologyCount),mStream));
                 if(mMaterials)emitTopologyEdits<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mM,mTrialCrush,mCrush,mN,mTopologyEdits,mTopologyCount);
@@ -1110,6 +1135,7 @@ public:
                 beginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation);
                 prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation,mTopology->accepted(),mBodyRequests,mTrialBodyIndices);
                 finishBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus);
+                stageMarker(4);
                 beginUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopology->status(),mStatus,mTopologyAccept);
                 checkUnchangedMotionCommit<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mCollisionPreparation);
                 acceptUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopologyAccept,mStatus);
@@ -1128,7 +1154,9 @@ public:
                 // rebinding and one internal motion correction are available.
                 commitObservedTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mProvisionalMotion,mStatus);
             }
+            if(!mTopology)stageMarker(4);
             if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus);
+            stageMarker(5);
             check(cudaGetLastError());
             if(mBodyPreparation)check(cudaMemcpyAsync(mHostBodyPreparation,mBodyPreparation,sizeof(*mBodyPreparation),cudaMemcpyDeviceToHost,mStream));
             check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
@@ -1136,6 +1164,7 @@ public:
         }catch(...){mFailed=true;return false;}
     }
     void reserveBodySlots() {
+        PxProfileScoped profile(mProfiler,"GpuDestruction.finishDetail.reserveBodies",false,mProfileContext);
         mHostReservedIndices.clear();mHostBodyAllocation={};
         if(!mTopology)return;
         auto& allocation=mHostBodyAllocation;
@@ -1144,6 +1173,7 @@ public:
             std::vector<PxvDestructionBodyRequest> requests(requested);mHostReservedIndices.resize(requested);
             auto& indices=mHostReservedIndices;
             if(requested) {
+                PxProfileScoped requestProfile(mProfiler,"GpuDestruction.finishDetail.requestReadback",false,mProfileContext);
                 // Stable device compaction: only NEW cluster allocation records
                 // cross to CPU, not unchanged cluster ownership or body states.
                 check(cub::DeviceSelect::If(mBodyRequestScratch,mBodyRequestScratchBytes,mBodyRequests,mCompactBodyRequests,
@@ -1152,19 +1182,30 @@ public:
                 check(cudaStreamSynchronize(mStream));
             }
             allocation.count=count;allocation.generation=mHostBodyPreparation->generation;
-            if(mBodyAllocator && mBodyAllocator->prepare(requests.data(),requested,indices.data())) {
+            bool allocated=false;
+            {
+                PxProfileScoped allocationProfile(mProfiler,"GpuDestruction.finishDetail.allocateNativeBodies",false,mProfileContext);
+                allocated=mBodyAllocator && mBodyAllocator->prepare(requests.data(),requested,indices.data());
+            }
+            if(allocated) {
                 allocation.valid=1;allocation.reserved=requested;
                 if(requested) {
+                    PxProfileScoped uploadProfile(mProfiler,"GpuDestruction.finishDetail.uploadBindings",false,mProfileContext);
                     check(cudaMemcpyAsync(mReturnedBodyIndices,indices.data(),requested*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));
                     bindReservedBodySlots<<<(requested+127)/128,128,0,mStream>>>(mCompactBodyRequests,mReturnedBodyIndices,requested,mTrialBodyIndices);
-                    // The local host index vector must outlive its upload.
-                    check(cudaStreamSynchronize(mStream));
+                    // Indices are runtime-owned, not a local vector. The next
+                    // reservation/clear waits for mReady before reusing them;
+                    // downstream device consumers wait on the event below.
                 }
             } else {allocation.error=1;mHostStatus->error|=256u;mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->discardReservations();}
         } else {if(mBodyAllocator)mBodyAllocator->discardReservations();return;}
+        PxProfileScoped publishProfile(mProfiler,"GpuDestruction.finishDetail.publishReservation",false,mProfileContext);
         check(cudaMemcpyAsync(mBodyAllocation,&allocation,sizeof(allocation),cudaMemcpyHostToDevice,mStream));
         check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
-        check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+        // Preserve ordering without parking the host after publishing indices.
+        // Initialization, collision preparation, device observations and teardown
+        // already honor mReady; host status is unchanged by these device writes.
+        check(cudaEventRecord(mReady,mStream));
     }
     bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
         const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream) override {
@@ -1406,7 +1447,10 @@ public:
         }catch(...){mFailed=true;return false;}
     }
     bool finish() override {
-        try {Context current(mContext);if(mPending){check(cudaEventSynchronize(mReady));mPending=false;reserveBodySlots();}
+        try {Context current(mContext);if(mPending){
+                {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
+                    check(cudaEventSynchronize(mReady));}
+                collectStageTimings();mPending=false;reserveBodySlots();}
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;

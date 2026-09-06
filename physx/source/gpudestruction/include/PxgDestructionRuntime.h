@@ -1,6 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #pragma once
 #include "PxvIslandMetadata.h"
+#include "foundation/PxProfiler.h"
 #include "PxDestructionScene.h"
 #include "PxContact.h"
 #include "PxgDestructionContactGraph.h"
@@ -27,6 +28,9 @@ struct PxgDestructionRigidCheckpointView {
 // stress module. Both share the scene's CUDA context; no physics API replay.
 class PxgDestructionRuntime : public PxDestructionScene {
 public:
+    // Optional diagnostics supplied by the scene module: do not resolve a second
+    // foundation singleton from the CUDA runtime shared library.
+    virtual void setProfiler(PxProfilerCallback* callback, PxU64 context) = 0;
     virtual bool configured() const = 0;
     virtual bool correctionEnabled() const = 0;
     virtual bool gpuIslandRepairEnabled() const = 0;

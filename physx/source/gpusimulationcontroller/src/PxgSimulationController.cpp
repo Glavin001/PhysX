@@ -771,6 +771,7 @@ namespace physx
         }
         PX_PROFILE_ZONE("GpuDestruction.contactStress", 0);
         const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
+        mDestruction->setProfiler(PxGetProfilerCallback(),profileContext);
         bool ok;
         {
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
