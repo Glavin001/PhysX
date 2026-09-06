@@ -34,11 +34,14 @@ struct Shot {PxRigidDynamic* actor;unsigned visual;};
 using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
-    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000;
+    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
         else if(flag=="--gpu-connectivity-owner"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-connectivity-owner requires 0 or 1");deviceConnectivity=std::string(value)=="1";}
         else if(flag=="--color-by-cluster"){require(std::string(value)=="0" || std::string(value)=="1","--color-by-cluster requires 0 or 1");colorByCluster=std::string(value)=="1";}
+        else if(flag=="--shot-path")shotPath=value;
+        else if(flag=="--frame-strength")frameStrength=std::stof(value);
+        else if(flag=="--material-strength")materialStrength=std::stof(value);
         else if(flag=="--projectile-mass")projectileMass=std::stof(value);
         else if(flag=="--trace-motion"){require(std::string(value)=="0" || std::string(value)=="1","--trace-motion requires 0 or 1");traceMotion=std::string(value)=="1";}
         else if(flag=="--free-bodies")freeBodies=std::stoul(value);
@@ -55,7 +58,7 @@ int run(int argc,char** argv){
         else if(flag=="--record-fps"){recordFps=std::stoul(value);require(recordFps==30 || recordFps==60,"--record-fps requires 30 or 60");}
         else if(flag=="--gpu-render"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-render requires 0 or 1");gpuRender=std::string(value)=="1";}
         else if(flag=="--gpu-video")videoPath=value;
-        else if(flag=="--gpu-camera"){gpuCamera=value;require(gpuCamera=="close" || gpuCamera=="overview" || gpuCamera=="diagnostic","--gpu-camera requires close, overview or diagnostic");}
+        else if(flag=="--gpu-camera"){gpuCamera=value;require(gpuCamera=="close" || gpuCamera=="overview" || gpuCamera=="diagnostic" || gpuCamera=="penetration","--gpu-camera requires close, overview, diagnostic or penetration");}
         else if(flag=="--state-path")statePath=value;
         else if(flag=="--record-state"){require(std::string(value)=="0" || std::string(value)=="1","--record-state requires 0 or 1");recordState=std::string(value)=="1";}
         else if(flag=="--grid")grid=std::stoul(value);else if(flag=="--waves")waves=std::stoul(value);
@@ -63,6 +66,9 @@ int run(int argc,char** argv){
         else throw std::runtime_error("unknown option: "+flag);
     }
     require(grid && grid<=32 && waves && waves<=16 && stressIterations && stressIterations<=32768 && seconds>2 && seconds<=120 && !output.empty(),"use --output NEW_DIRECTORY [--grid 3 --waves 4 --seconds 30]");
+    require(shotPath=="aerial" || (shotPath=="through-wall" && grid==1 && workload=="single-impact"),"through-wall launch requires one building and one impact");
+    require(std::isfinite(frameStrength) && frameStrength>=1 && frameStrength<=1e6f,"invalid authored frame strength");
+    require(std::isfinite(materialStrength) && materialStrength>0 && materialStrength<=1e6f,"invalid authored material strength");
     require(std::isfinite(projectileMass) && projectileMass>0 && projectileMass<=1e8f,"invalid projectile mass");
     require(workload=="idle" || workload=="single-impact" || workload=="bombardment","unknown workload");
     require(freeBodies<=100000 && (!freeBodies || workload=="idle"),"--free-bodies supports up to 100000 separated bodies in idle workload");
@@ -103,13 +109,14 @@ int run(int argc,char** argv){
             const PxVec3 p(float(x)-3.5f,float(y),float(z)-3.5f);auto* shape=physics.createShape(PxBoxGeometry(half),context.material(),true);
             require(shape,"chunk shape allocation failed");shape->setLocalPose(PxTransform(p));require(parent->attachShape(*shape),"persistent chunk attachment failed");
             const unsigned id=unsigned(chunks.size());ids[{x,y,z}]=id;chunks.push_back({p,shape,building});
-            nodes.push_back({p,y?massPerChunk:0.0f,y?inertia:0.0f,building,PX_INVALID_U32,8*half.x*half.y*half.z,0});
+            const bool frameMember=(y%4==0) || ((x==0 || x==7) && (z==0 || z==7));
+            nodes.push_back({p,y?massPerChunk:0.0f,y?inertia:0.0f,building,PX_INVALID_U32,8*half.x*half.y*half.z,(frameStrength>1 && frameMember)?1u:0u});
             PxDestructionChunkMassProperties props{};props.mass=massPerChunk;props.supported=y==0;
             for(unsigned k=0;k<3;++k){props.center[k]=p[k];props.inertia[k]=inertia;}properties.push_back(props);center+=p;++count;
             const int delta[3][3]={{-1,0,0},{0,-1,0},{0,0,-1}};
             for(const auto& d:delta){auto found=ids.find({x+d[0],y+d[1],z+d[2]});if(found==ids.end())continue;
                 const auto other=found->second;const auto displacement=p-chunks[other].position;
-                bonds.push_back({other,id,(p+chunks[other].position)*.5f,displacement.getNormalized(),4*half.x*half.y,1,1,0});}
+                bonds.push_back({other,id,(p+chunks[other].position)*.5f,displacement.getNormalized(),4*half.x*half.y,1,1,(nodes[other].material==1 && nodes[id].material==1)?1u:0u});}
         }
         center/=float(count);parent->setMass(massPerChunk*count);parent->setCMassLocalPose(PxTransform(center));
         scene.addActor(*parent);parents.push_back(parent);clusters.push_back({PX_INVALID_U32,center});
@@ -130,9 +137,16 @@ int run(int argc,char** argv){
     for(unsigned i=0;i<parents.size();++i)clusters[i].body=parents[i]->getGPUIndex();
     PxDestructionMaterial material;material.compressionElasticLimit=250000;material.compressionFatalLimit=500000;
     material.tensionElasticLimit=30000;material.tensionFatalLimit=60000;material.shearElasticLimit=80000;material.shearFatalLimit=160000;
+    material.compressionElasticLimit*=materialStrength;material.compressionFatalLimit*=materialStrength;
+    material.tensionElasticLimit*=materialStrength;material.tensionFatalLimit*=materialStrength;
+    material.shearElasticLimit*=materialStrength;material.shearFatalLimit*=materialStrength;
+    PxDestructionMaterial materials[2]={material,material};
+    materials[1].compressionElasticLimit*=frameStrength;materials[1].compressionFatalLimit*=frameStrength;
+    materials[1].tensionElasticLimit*=frameStrength;materials[1].tensionFatalLimit*=frameStrength;
+    materials[1].shearElasticLimit*=frameStrength;materials[1].shearFatalLimit*=frameStrength;
     PxDestructionStressDesc desc;desc.chunks=nodes.data();desc.chunkCount=unsigned(nodes.size());desc.chunkMassProperties=properties.data();
     desc.clusters=clusters.data();desc.clusterCount=unsigned(clusters.size());desc.bonds=bonds.data();desc.bondCount=unsigned(bonds.size());
-    desc.materials=&material;desc.materialCount=1;desc.maxIterations=stressIterations;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=preservePairs;desc.gpuIslandRepair=gpuIslandRepair;
+    desc.materials=materials;desc.materialCount=frameStrength>1?2:1;desc.maxIterations=stressIterations;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=preservePairs;desc.gpuIslandRepair=gpuIslandRepair;
     auto* destruction=scene.getDestructionScene();require(destruction && destruction->configureStress(desc),"native destruction configuration failed");
     const PxVec3 center(float(grid-1)*8,4,float(grid-1)*8);std::array<Camera,4> cameras;
     for(unsigned i=0;i<4;++i){const float angle=float(i)*1.5707963f+.6f;cameras[i].eye=center+PxVec3(std::cos(angle)*float(grid)*24,float(grid)*13,std::sin(angle)*float(grid)*24);cameras[i].direction=(center-cameras[i].eye).getNormalized();}
@@ -149,6 +163,10 @@ int run(int argc,char** argv){
     }
     if(gpuCamera=="diagnostic") {
         const PxVec3 focus(0,6,0);gpuView.eye=PxVec3(26,15,-24);
+        gpuView.direction=(focus-gpuView.eye).getNormalized();gpuView.fovDegrees=40;
+    }
+    if(gpuCamera=="penetration") {
+        const PxVec3 focus(0,6,0);gpuView.eye=PxVec3(20,11,-18);
         gpuView.direction=(focus-gpuView.eye).getNormalized();gpuView.fovDegrees=40;
     }
     require(!traceMotion || (gpuRender && auditMotion && recordFps==60),"motion trace requires GPU rendering, motion audit and 60 fps observation");
@@ -180,6 +198,7 @@ int run(int argc,char** argv){
         while(launched<plannedShots && time>=launchWindow*float(launched)/float(plannedShots)){
             const unsigned building=launched%buildings,wave=launched/buildings;const auto origin=origins[building];
             auto launch=nativeBombardmentLaunch(origin,wave,12.5f);
+            if(shotPath=="through-wall")launch=nativeWallPenetrationLaunch(origin);
             // Explicit gameplay observation: CUDA checks committed chunks and
             // projectiles and returns one clearance height. Pose arrays are
             // optional recording/audit output and never drive launch commands.
@@ -189,7 +208,8 @@ int run(int argc,char** argv){
                 launch.velocity=(launch.target-launch.position)/1.5f;launch.velocity.y+=.5f*9.81f*1.5f;
                 require(launch.position.isFinite() && launch.velocity.isFinite(),"unrepresentable projectile command");
             }
-            require(launch.position.y-.75f>12.5f,"projectile spawn overlaps authored skyline");
+            if(shotPath=="aerial")require(launch.position.y-.75f>12.5f,"projectile spawn overlaps authored skyline");
+            else require(launch.position.z+.75f<origin.z-3.98f,"through-wall projectile overlaps building at spawn");
             const PxVec3 speed=launch.velocity;
             launches<<launched<<','<<frame<<','<<building<<','<<launch.position.x<<','<<launch.position.y<<','<<launch.position.z<<','<<speed.x<<','<<speed.y<<','<<speed.z<<','<<observedChunkTop<<'\n';
             auto* shot=physics.createRigidDynamic(PxTransform(launch.position));auto* sphere=physics.createShape(PxSphereGeometry(.75f),context.material(),true);
@@ -308,7 +328,7 @@ int run(int argc,char** argv){
     require(destruction->clearStress(),"native fragment cleanup failed");for(auto* parent:parents)parent->release();for(auto& shot:shots)shot.actor->release();for(auto& chunk:chunks)chunk.shape->release();for(auto* actor:freeActors)actor->release();
     require(context.healthy(),"native demo GPU health failed");
     std::ofstream manifest(output+"/native.summary.json");
-    manifest<<"{\n  \"color_by_cluster\": "<<(colorByCluster?"true":"false")<<",\n  \"projectile_mass_kg\": "<<projectileMass<<",\n  \"motion_trace_enabled\": "<<(traceMotion?"true":"false")<<",\n  \"motion_trace_readback_bytes\": "<<motionTraceReadbackBytes<<",\n  \"max_cluster_com_error\": "<<maxComError<<",\n  \"gpu_connectivity_owner\": "<<(deviceConnectivity?"true":"false")<<",\n  \"workload\": \""<<workload<<"\",\n  \"profile_gpu\": "<<(profileGpu?"true":"false")<<",\n  \"free_bodies\": "<<freeBodies<<",\n  \"launch_seconds\": "<<launchWindow<<",\n  \"physics_ms_min\": "<<times.front()<<",\n  \"physics_ms_mean\": "<<sumStep/frames<<",\n  \"simulation_realtime_fraction\": "<<seconds*1000/sumStep<<",\n  \"gpu_render_submit_and_export_ms_mean\": "<<(gpuConsumer.renderedFrames()?sumRender/gpuConsumer.renderedFrames():0)<<",\n  \"gpu_render_submit_and_export_ms_max\": "<<maxRender<<",\n  \"stress_stats_readback_bytes\": "<<frames*sizeof(PxDestructionStressTopologyStatus)<<",\n  \"topology_stats_readback_bytes\": "<<frames*sizeof(PxDestructionTopologyStatus)<<",\n  \"gpu_rendered_frames\": "<<gpuConsumer.renderedFrames()<<",\n  \"gpu_renderer\": \""<<gpuConsumer.rendererName()<<"\",\n  \"consumer_pose_readback_bytes\": "<<poseReadbackBytes<<",\n  \"consumer_query_readback_bytes\": "<<gpuConsumer.queryReadbackBytes()<<",\n  \"export_pixel_readback_bytes\": "<<gpuConsumer.pixelReadbackBytes()<<",\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \"gpu-clear-aerial-ballistic-v3\",\n  \"island_boundary_audit_enabled\": "<<(auditIslands?"true":"false")<<",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"gpu_island_repair\": "<<(gpuIslandRepair?"true":"false")<<",\n  \"gpu_pre_solve_islands\": "<<(preSolveIslands?"true":"false")<<",\n  \"gpu_pre_solve_support\": "<<(preSolveSupport?"true":"false")<<",\n  \"gpu_pre_solve_contacts\": "<<(preSolveContacts?"true":"false")<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
+    manifest<<"{\n  \"frame_strength_scale\": "<<frameStrength<<",\n  \"shot_path\": \""<<shotPath<<"\",\n  \"material_strength_scale\": "<<materialStrength<<",\n  \"color_by_cluster\": "<<(colorByCluster?"true":"false")<<",\n  \"projectile_mass_kg\": "<<projectileMass<<",\n  \"motion_trace_enabled\": "<<(traceMotion?"true":"false")<<",\n  \"motion_trace_readback_bytes\": "<<motionTraceReadbackBytes<<",\n  \"max_cluster_com_error\": "<<maxComError<<",\n  \"gpu_connectivity_owner\": "<<(deviceConnectivity?"true":"false")<<",\n  \"workload\": \""<<workload<<"\",\n  \"profile_gpu\": "<<(profileGpu?"true":"false")<<",\n  \"free_bodies\": "<<freeBodies<<",\n  \"launch_seconds\": "<<launchWindow<<",\n  \"physics_ms_min\": "<<times.front()<<",\n  \"physics_ms_mean\": "<<sumStep/frames<<",\n  \"simulation_realtime_fraction\": "<<seconds*1000/sumStep<<",\n  \"gpu_render_submit_and_export_ms_mean\": "<<(gpuConsumer.renderedFrames()?sumRender/gpuConsumer.renderedFrames():0)<<",\n  \"gpu_render_submit_and_export_ms_max\": "<<maxRender<<",\n  \"stress_stats_readback_bytes\": "<<frames*sizeof(PxDestructionStressTopologyStatus)<<",\n  \"topology_stats_readback_bytes\": "<<frames*sizeof(PxDestructionTopologyStatus)<<",\n  \"gpu_rendered_frames\": "<<gpuConsumer.renderedFrames()<<",\n  \"gpu_renderer\": \""<<gpuConsumer.rendererName()<<"\",\n  \"consumer_pose_readback_bytes\": "<<poseReadbackBytes<<",\n  \"consumer_query_readback_bytes\": "<<gpuConsumer.queryReadbackBytes()<<",\n  \"export_pixel_readback_bytes\": "<<gpuConsumer.pixelReadbackBytes()<<",\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \""<<(shotPath=="aerial"?"gpu-clear-aerial-ballistic-v3":"gpu-clear-through-wall-ballistic-v1")<<"\",\n  \"island_boundary_audit_enabled\": "<<(auditIslands?"true":"false")<<",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"gpu_island_repair\": "<<(gpuIslandRepair?"true":"false")<<",\n  \"gpu_pre_solve_islands\": "<<(preSolveIslands?"true":"false")<<",\n  \"gpu_pre_solve_support\": "<<(preSolveSupport?"true":"false")<<",\n  \"gpu_pre_solve_contacts\": "<<(preSolveContacts?"true":"false")<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
     return 0;
 }
 }

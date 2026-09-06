@@ -16,6 +16,15 @@ inline NativeBombardmentLaunch nativeBombardmentLaunch(const physx::PxVec3& orig
     launch.velocity.y+=.5f*9.81f*flight;
     return launch;
 }
+// Single-building demonstration: clear approach through the wall panel between
+// floor slabs. Only initial conditions are authored; no post-launch steering.
+inline NativeBombardmentLaunch nativeWallPenetrationLaunch(const physx::PxVec3& origin) {
+    using namespace physx;
+    NativeBombardmentLaunch launch{origin+PxVec3(0,6,-16),PxVec3(0,3,40),PxVec3(0)};
+    const float flight=.4f;
+    launch.target=launch.position+launch.velocity*flight+PxVec3(0,-.5f*9.81f*flight*flight,0);
+    return launch;
+}
 inline void raiseNativeBombardmentLaunch(NativeBombardmentLaunch& launch) {
     launch.position.y+=2.0f;
     launch.velocity=(launch.target-launch.position)/1.5f;

@@ -34,6 +34,14 @@ int main(){try {
             ++checked;
         }
     }
+    const PxVec3 wallOrigin(0,.5f,0);
+    const auto wall=blast_demo::nativeWallPenetrationLaunch(wallOrigin);
+    require(wall.position.z+.75f<-3.98f,"wall projectile spawned inside building");
+    for(float z:{-4.73f,0.0f,4.73f}) {
+        const float t=(z-wall.position.z)/wall.velocity.z;
+        const float y=wall.position.y+wall.velocity.y*t-.5f*9.81f*t*t;
+        require(y-.75f>4.98f && y+.75f<8.02f,"wall shot clips a floor slab before collision response");
+    }
     require(oldOverlaps==960,"old city spawn regression count changed");
     std::printf("launch audit: old embedded projectiles=%u/1024; safe aerial trajectories=%u passed\n",oldOverlaps,checked);
     return 0;
