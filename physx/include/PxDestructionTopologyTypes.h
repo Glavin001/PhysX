@@ -76,9 +76,17 @@ struct PxDestructionCorrectionPreparationStatus {
     // loadedSources counts affected source bodies with unapportioned external
     // accelerations. Those commands cannot be cloned onto every fragment.
 };
+// A handle is valid in its asset/scene view only when slotRoots[slot] is live
+// and slotGenerations[slot] matches. Authored chunk IDs remain independent.
+struct PxDestructionClusterHandle {
+    std::uint64_t generation;
+    std::uint32_t slot;
+};
 struct PxDestructionTopologyStatus {
     std::uint64_t generation;
     std::uint32_t clusterCount, invalidEdit, changed;
+    std::uint32_t slotError; // 1 capacity, 2 generation exhausted; never use an incomplete view
+
 };
 struct PxDestructionTopologyDeviceView {
     const PxDestructionChunkMassProperties* chunks;
@@ -90,7 +98,15 @@ struct PxDestructionTopologyDeviceView {
     const std::uint32_t* activeClusters;
     const PxDestructionClusterMassProperties* clusters;
     const PxDestructionTopologyStatus* status;
+    // Stable motion-slot storage, NOT packed activeClusters order. Resolve
+    // slot = clusterSlots[chunkCluster[chunk]], then read motions[slot].
+    // A root retaining its authored minimum keeps its slot/generation. A root
+    // that disappears retires its handle; reused slots advance generation.
     PxDestructionClusterMotion* motions;
+    const std::uint32_t* clusterSlots; // authored root -> motion slot
+    const std::uint32_t* slotRoots; // motion slot -> root, UINT32_MAX when free
+    const std::uint64_t* slotGenerations;
+    std::uint32_t slotCapacity;
     std::uint32_t chunkCount, bondCount;
     void* readyEvent;
 };
@@ -98,6 +114,6 @@ struct PxDestructionTopologyTransactionStatus {
     std::uint64_t rebuilds, commits;
     std::uint32_t prepared, error, changed, editCount;
     // error bits: 1 invalid edit, 2 device count exceeds capacity, 4 producer
-    // rejected the trial. Only prepared trials have valid candidate arrays.
+    // rejected the trial, 8 motion-slot allocation. Only prepared trials have valid candidate arrays.
 };
 } // namespace physx

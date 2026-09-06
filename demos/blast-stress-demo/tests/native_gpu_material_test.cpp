@@ -254,7 +254,12 @@ void rotatingCluster(blast_demo::PhysXScene& context) {
     CUdeviceptr buffer,indices;
     {PxScopedCudaLock lock(*context.cudaContextManager());
         check(cuEventSynchronize(view.readyEvent));
-        check(cuMemcpyDtoH(motions,reinterpret_cast<CUdeviceptr>(view.trialTopology.motions),sizeof(motions)));
+        PxU32 roots[2],slots[2];
+        check(cuMemcpyDtoH(roots,reinterpret_cast<CUdeviceptr>(view.trialTopology.activeClusters),sizeof(roots)));
+        for(PxU32 i=0;i<2;++i) {
+            check(cuMemcpyDtoH(slots+i,reinterpret_cast<CUdeviceptr>(view.trialTopology.clusterSlots+roots[i]),sizeof(PxU32)));
+            check(cuMemcpyDtoH(motions+i,reinterpret_cast<CUdeviceptr>(view.trialTopology.motions+slots[i]),sizeof(motions[i])));
+        }
         check(cuMemcpyDtoH(&bodyStatus,reinterpret_cast<CUdeviceptr>(view.bodyPreparation),sizeof(bodyStatus)));
         require(bodyStatus.valid && !bodyStatus.error && bodyStatus.count==2 && bodyStatus.generation==1,"rotating GPU solver-body preparation failed");
         check(cuMemcpyDtoH(solverBodies,reinterpret_cast<CUdeviceptr>(view.trialBodies),sizeof(solverBodies)));

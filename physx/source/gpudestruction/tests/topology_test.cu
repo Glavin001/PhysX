@@ -19,6 +19,15 @@ template<class T> std::vector<T> read(const T* device, size_t n) {
     return host;
 }
 
+std::vector<PxgDestructionClusterMotion> activeMotions(const PxgDestructionTopologyView& view) {
+    const auto count=read(view.status,1)[0].clusterCount;
+    const auto roots=read(view.activeClusters,count),slots=read(view.clusterSlots,view.chunkCount);
+    const auto storage=read(view.motions,view.slotCapacity);
+    std::vector<PxgDestructionClusterMotion> out;
+    for(auto root:roots)out.push_back(storage[slots[root]]);
+    return out;
+}
+
 struct Fixture {
     std::vector<PxgDestructionChunk> chunks;
     std::vector<PxgDestructionBond> bonds;
@@ -63,6 +72,7 @@ struct Fixture {
         CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(view.readyEvent)));
         const auto status = read(view.status,1)[0];
         CHECK(status.generation == generation);
+        CHECK(!status.slotError);
         CHECK(status.invalidEdit == unsigned(invalid));
         CHECK(read(view.activeChunks,chunks.size()) == alive);
         CHECK(read(view.activeBonds,bonds.size()) == edges);
@@ -81,6 +91,20 @@ struct Fixture {
         }
         CHECK(status.clusterCount == roots.size());
         CHECK(read(view.activeClusters,roots.size()) == roots);
+        CHECK(view.slotCapacity==chunks.size());
+        const auto slots=read(view.clusterSlots,chunks.size());
+        const auto slotRoots=read(view.slotRoots,view.slotCapacity);
+        const auto generations=read(view.slotGenerations,view.slotCapacity);
+        unsigned allocated=0;
+        for(unsigned slot=0;slot<view.slotCapacity;++slot)if(slotRoots[slot]!=0xffffffffu) {
+            ++allocated;CHECK(slotRoots[slot]<chunks.size() && slots[slotRoots[slot]]==slot);
+            CHECK(generations[slot]>0);
+        }
+        CHECK(allocated==roots.size());
+        for(unsigned i=0;i<chunks.size();++i) {
+            if(alive[i] && root(i)==i)CHECK(slots[i]<view.slotCapacity && slotRoots[slots[i]]==i);
+            else CHECK(slots[i]==0xffffffffu);
+        }
         const auto clusters=read(view.clusters,chunks.size());
         for (unsigned r:roots) {
             double mass=0,center[3]={},inertia[6]={};
@@ -122,7 +146,7 @@ void motionContinuity() {
     CUDA(cudaMemcpyAsync(f.gpu->view().motions,&initial,sizeof(initial),cudaMemcpyHostToDevice,producer));
     CUDA(cudaEventRecord(done,producer));
     f.apply({{PxgDestructionEditKind::BreakBond,0},{PxgDestructionEditKind::BreakBond,3}},true,done);
-    auto motion=read(f.gpu->view().motions,2);
+    auto motion=activeMotions(f.gpu->view());
     CHECK(std::abs(motion[0].linearVelocity[0]-5)<1e-12);
     CHECK(std::abs(motion[1].linearVelocity[0]-1)<1e-12);
     // Two equal-mass clusters: total linear and angular momentum match the
@@ -144,7 +168,7 @@ void motionContinuity() {
     for(unsigned k=0;k<3;++k)CHECK(std::abs(momentum[k]-4*initial.linearVelocity[k])<1e-12);
     CHECK(std::abs(lz-(8+4.0/6)*2)<1e-12);
     f.apply({{PxgDestructionEditKind::BreakBond,1},{PxgDestructionEditKind::BreakBond,2}});
-    motion=read(f.gpu->view().motions,4);
+    motion=activeMotions(f.gpu->view());
     // The velocity of each chunk center is continuous through both splits.
     for(unsigned i=0;i<4;++i) {
         CHECK(std::abs(motion[i].linearVelocity[0]-((i&1)?1:5))<1e-12);
@@ -152,7 +176,7 @@ void motionContinuity() {
         CHECK(motion[i].linearVelocity[2]==5);
     }
     f.apply({{PxgDestructionEditKind::DestroyChunk,0}});
-    const auto remaining=read(f.gpu->view().motions,3);
+    const auto remaining=activeMotions(f.gpu->view());
     for(unsigned i=0;i<3;++i)for(unsigned k=0;k<3;++k)
         CHECK(remaining[i].linearVelocity[k]==motion[i+1].linearVelocity[k]);
     CUDA(cudaEventDestroy(done)); CUDA(cudaStreamDestroy(producer));
@@ -213,6 +237,62 @@ void deviceTransactions() {
     std::puts("GPU topology transaction: device counts, rejected/overflow/empty trials, discard and commit-once passed");
 }
 
+// A device consumer resolves chunk -> root -> stable slot. This deliberately
+// does not receive a host-created packed component index or transform array.
+__global__ void consumeStableSlots(PxgDestructionTopologyView view,unsigned* output) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=view.chunkCount)return;
+    if(!view.activeChunks[i]){output[i]=0xffffffffu;return;}
+    const unsigned root=view.chunkCluster[i],slot=view.clusterSlots[root];
+    if(slot>=view.slotCapacity || view.slotRoots[slot]!=root || !view.slotGenerations[slot]){__trap();return;}
+    output[i]=slot;
+}
+void stableSlotLifecycle() {
+    Fixture f(6);f.bonds={{0,1},{2,3},{4,5}};f.create();
+    auto* tx=PxgDestructionTopologyTransaction::create(f.chunks.data(),6,f.bonds.data(),3);CHECK(tx);
+    PxgDestructionEdit* edits;unsigned *count,*accept,*output;
+    CUDA(cudaMalloc(&edits,2*sizeof(*edits)));CUDA(cudaMalloc(&count,sizeof(unsigned)));
+    CUDA(cudaMalloc(&accept,sizeof(unsigned)));CUDA(cudaMalloc(&output,6*sizeof(unsigned)));
+    auto wait=[&]{CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));};
+    auto submit=[&](std::initializer_list<PxgDestructionEdit> list) {
+        const unsigned n=unsigned(list.size());
+        CUDA(cudaMemcpy(edits,list.begin(),n*sizeof(*edits),cudaMemcpyHostToDevice));
+        CUDA(cudaMemcpy(count,&n,sizeof(n),cudaMemcpyHostToDevice));
+        CHECK(tx->prepare(edits,count,2));wait();return read(tx->status(),1)[0];
+    };
+    auto commit=[&](unsigned yes) {
+        CUDA(cudaMemcpy(accept,&yes,sizeof(yes),cudaMemcpyHostToDevice));CHECK(tx->commit(accept));wait();
+    };
+    auto slots=[&]{return read(tx->accepted().clusterSlots,6);};
+    auto generations=[&]{return read(tx->accepted().slotGenerations,6);};
+    wait();const auto initial=slots();const auto initialGeneration=generations();
+    CHECK(initial[0]==0 && initial[2]==1 && initial[4]==2);
+    CHECK(submit({{PxgDestructionEditKind::DestroyChunk,0},{PxgDestructionEditKind::DestroyChunk,1}}).prepared);
+    commit(1);CHECK(slots()[2]==1 && slots()[4]==2 && slots()[0]==0xffffffffu);
+    CHECK(read(tx->accepted().slotRoots,6)[0]==0xffffffffu && generations()==initialGeneration);
+    auto status=submit({{PxgDestructionEditKind::BreakBond,1}});CHECK(status.prepared && !status.error);
+    CHECK(read(tx->trial().clusterSlots,6)[3]==0 && read(tx->trial().slotGenerations,6)[0]==initialGeneration[0]+1);
+    commit(0);CHECK(slots()[3]==0xffffffffu && generations()==initialGeneration);
+    CHECK(tx->discard());wait();
+    CHECK(submit({{PxgDestructionEditKind::BreakBond,1}}).prepared);commit(1);
+    CHECK(slots()[3]==0 && generations()[0]==initialGeneration[0]+1);
+    CHECK(slots()[2]==1 && slots()[4]==2 && generations()[1]==initialGeneration[1]);
+    consumeStableSlots<<<1,32>>>(tx->accepted(),output);CUDA(cudaDeviceSynchronize());
+    CHECK(read(output,6)==std::vector<unsigned>({0xffffffffu,0xffffffffu,1,0,2,2}));
+    CHECK(submit({{PxgDestructionEditKind::DestroyChunk,3}}).prepared);commit(1);
+    // Fault injection: a freed slot must not wrap and resurrect an old handle.
+    const std::uint64_t exhausted=~std::uint64_t(0);
+    CUDA(cudaMemcpy(const_cast<std::uint64_t*>(tx->accepted().slotGenerations),&exhausted,sizeof(exhausted),cudaMemcpyHostToDevice));
+    const auto beforeSlots=slots();const auto beforeGeneration=generations();
+    const auto beforeStatus=read(tx->accepted().status,1)[0];
+    status=submit({{PxgDestructionEditKind::BreakBond,2}});
+    CHECK(!status.prepared && status.error==8 && read(tx->trial().status,1)[0].slotError==2);
+    commit(1);CHECK(slots()==beforeSlots && generations()==beforeGeneration);
+    CHECK(read(tx->accepted().status,1)[0].generation==beforeStatus.generation);
+    CHECK(read(tx->accepted().activeBonds,3)[2]==1);
+    tx->release();CUDA(cudaFree(edits));CUDA(cudaFree(count));CUDA(cudaFree(accept));CUDA(cudaFree(output));
+    std::puts("GPU stable motion slots: retained identity, free-slot reuse, device consumer, rejected candidates and generation exhaustion passed");
+}
+
 __global__ void largeTransactionEdits(const PxgDestructionBond* bonds,unsigned n,PxgDestructionEdit* edits,
     unsigned* count,bool all) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
@@ -267,6 +347,7 @@ int main() {
     deviceTransactions();
     largeTransactions();
     motionContinuity();
+    stableSlotLifecycle();
     {
         Fixture f(4); f.bonds={{0,1},{1,2},{2,0},{2,3}}; f.create();
         const auto* immutableChunks=f.gpu->view().chunks;

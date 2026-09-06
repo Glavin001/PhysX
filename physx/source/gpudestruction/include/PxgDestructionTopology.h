@@ -29,6 +29,10 @@ struct PxgDestructionEdit {
  * Device views are borrowed until the next apply/release. The caller must order
  * all consumers before the next mutation (consumerDone); this also applies to
  * error/empty batches. No geometry is recreated and no CPU body is allocated.
+ * Motion is addressed through view.clusterSlots[root], not packed component
+ * order. Retained roots keep their generation-bearing slots; retired slots may
+ * be reused only with a higher generation. slotError rejects an incomplete
+ * allocation; transaction commit never publishes such a candidate.
  * Splits transfer the parent's rigid velocity field to each new COM on the
  * GPU. The supplied motions must be finite and orientations must be unit
  * quaternions, as for engine solver state. This primitive does not itself

@@ -44,8 +44,9 @@ __global__ void editTransaction(const TransactionBatch* batch,
 __global__ void startCandidate(const PxgDestructionTopologyStatus* accepted, PxgDestructionTopologyStatus* trial) {
     *trial={accepted->generation,0,0,1};
 }
-__global__ void finishCandidate(PxDestructionTopologyTransactionStatus* status) {
-    status->prepared=1;++status->rebuilds;
+__global__ void finishCandidate(PxDestructionTopologyTransactionStatus* status,const PxgDestructionTopologyStatus* trial) {
+    if(trial->slotError)status->error|=8u;
+    status->prepared=!status->error;++status->rebuilds;
 }
 __global__ void chooseCommit(const TransactionBatch* batch,
     const PxDestructionTopologyTransactionStatus* status,cudaGraphConditionalHandle handle) {
@@ -112,13 +113,16 @@ class Transaction final : public PxgDestructionTopologyTransaction {
             const unsigned n=mTrial->mN,m=mTrial->mM;
             if(!copy(mTrial->mActiveChunks,mAccepted->mActiveChunks,n)
                 || !copy(mTrial->mActiveBonds,mAccepted->mActiveBonds,m)
-                || !copy(mTrial->mPreviousLabels,mAccepted->mLabels,n))return false;
-            captureClusterMotion<<<(n+BLOCK-1)/BLOCK,BLOCK,0,mTrial->mStream>>>(mAccepted->mRoots,mAccepted->mClusters,
+                || !copy(mTrial->mPreviousLabels,mAccepted->mLabels,n)
+                || !copy(mTrial->mClusterSlots,mAccepted->mClusterSlots,n)
+                || !copy(mTrial->mSlotRoots,mAccepted->mSlotRoots,n)
+                || !copy(mTrial->mSlotGenerations,mAccepted->mSlotGenerations,n))return false;
+            captureClusterMotion<<<(n+BLOCK-1)/BLOCK,BLOCK,0,mTrial->mStream>>>(mAccepted->mRoots,mAccepted->mClusterSlots,mAccepted->mClusters,
                 mAccepted->mMotions,mTrial->mPreviousMotions,mTrial->mPreviousCenters,mTrial->mPreviousSlots,mAccepted->mStatus,&mBatch->sourceMotion);
             startCandidate<<<1,1,0,mTrial->mStream>>>(mAccepted->mStatus,mTrial->mStatus);
             editTransaction<<<blocks,BLOCK,0,mTrial->mStream>>>(mBatch,mStatus,mTrial->mActiveChunks,mTrial->mActiveBonds);
             if(!mTrial->rebuild(true,false))return false;
-            finishCandidate<<<1,1,0,mTrial->mStream>>>(mStatus);
+            finishCandidate<<<1,1,0,mTrial->mStream>>>(mStatus,mTrial->mStatus);
             return cudaGetLastError()==cudaSuccess;
         }))return false;
         return cudaGraphInstantiate(&mPrepareExec,mPrepareGraph,0)==cudaSuccess;
@@ -139,6 +143,9 @@ class Transaction final : public PxgDestructionTopologyTransaction {
                 || !copy(mAccepted->mRoots,mTrial->mRoots,n)
                 || !copy(mAccepted->mClusters,mTrial->mClusters,n)
                 || !copy(mAccepted->mMotions,mTrial->mMotions,n)
+                || !copy(mAccepted->mClusterSlots,mTrial->mClusterSlots,n)
+                || !copy(mAccepted->mSlotRoots,mTrial->mSlotRoots,n)
+                || !copy(mAccepted->mSlotGenerations,mTrial->mSlotGenerations,n)
                 || !copy(mAccepted->mStatus,mTrial->mStatus,1))return false;
             finishCommit<<<1,1,0,mTrial->mStream>>>(mStatus);return cudaGetLastError()==cudaSuccess;
         }))return false;

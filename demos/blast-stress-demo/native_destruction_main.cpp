@@ -154,14 +154,14 @@ int run(int argc,char** argv){
         phaseProfiler.acceptedFrame();
         totalCorrections+=status.correctionPasses;totalBroken+=status.brokenBonds;totalContacts+=status.normalContacts;
         const auto observation=Clock::now();const auto view=destruction->getDeviceView();PxDestructionTopologyStatus topology{};
-        std::vector<PxU32> membership,roots;std::vector<PxDestructionClusterMotion> motions;
+        std::vector<PxU32> membership,slots;std::vector<PxDestructionClusterMotion> motions;
         {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.readyEvent));check(cuMemcpyDtoH(&topology,CUdeviceptr(view.acceptedTopology.status),sizeof(topology)));
-            read(membership,view.acceptedTopology.chunkCluster,chunks.size());read(roots,view.acceptedTopology.activeClusters,topology.clusterCount);read(motions,view.acceptedTopology.motions,topology.clusterCount);
+            read(membership,view.acceptedTopology.chunkCluster,chunks.size());read(slots,view.acceptedTopology.clusterSlots,chunks.size());read(motions,view.acceptedTopology.motions,view.acceptedTopology.slotCapacity);
             shotIds.clear();for(const auto& shot:shots)shotIds.push_back(shot.actor->getGPUIndex());shotPoses.resize(shots.size());
             if(!shots.empty()){check(cuMemcpyHtoD(deviceIds,shotIds.data(),shotIds.size()*sizeof(PxU32)));check(cuEventRecord(observationIdsReady,nullptr));
                 require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(shots.size()),observationIdsReady),"projectile observation failed");
                 check(cuCtxSynchronize());check(cuMemcpyDtoH(shotPoses.data(),devicePoses,shotPoses.size()*sizeof(PxTransform)));}}
-        std::vector<PxU32> slots(chunks.size(),PX_INVALID_U32);for(unsigned i=0;i<roots.size();++i)slots[roots[i]]=i;
+        require(!topology.slotError,"incomplete GPU cluster slot allocation");
         poses.clear();poses.reserve(chunks.size()+shots.size());observedChunkTop=0;
         for(unsigned i=0;i<chunks.size();++i){require(membership[i]<slots.size() && slots[membership[i]]<motions.size(),"invalid committed chunk membership");const auto& motion=motions[slots[membership[i]]];
             const PxTransform pose(PxVec3(float(motion.origin[0]),float(motion.origin[1]),float(motion.origin[2])),PxQuat(float(motion.orientation[0]),float(motion.orientation[1]),float(motion.orientation[2]),float(motion.orientation[3])));

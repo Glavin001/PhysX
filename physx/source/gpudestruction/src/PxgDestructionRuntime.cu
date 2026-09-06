@@ -248,7 +248,7 @@ __global__ void prepareCandidateBodies(PxDestructionTopologyDeviceView topology,
     PxDestructionTopologyDeviceView accepted,PxvDestructionBodyRequest* requests,PxU32* bodyIndices) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=status->count)return;
     const PxU32 root=topology.activeClusters[i];PxDestructionClusterBodyState body;
-    const PxU32 error=destructionBody::prepare(topology.clusters[root],topology.motions[i],body);
+    const PxU32 error=destructionBody::prepare(topology.clusters[root],topology.motions[topology.clusterSlots[root]],body);
     body.cluster=root;body.sourceBody=clusters[chunks[root].cluster].body;bodies[i]=body;
     const PxU32 needsBody=accepted.activeChunks[root] && accepted.chunkCluster[root]==root?0u:1u;
     requests[i]={root,body.sourceBody,body.supported,needsBody,i};
@@ -271,7 +271,7 @@ __global__ void finishBodyPreparation(const PxDestructionTopologyTransactionStat
 __global__ void commitObservedTopologyMotion(PxDestructionTopologyDeviceView topology,
     const PxDestructionClusterMotion* motion,const PxDestructionStageStatus* status) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(!status->error && i<topology.status->clusterCount)topology.motions[i]=motion[i];
+    if(!status->error && i<topology.status->clusterCount)topology.motions[topology.clusterSlots[topology.activeClusters[i]]]=motion[i];
 }
 
 // Validate the complete reservation mapping before writing any native slot.

@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 #include <cub/device/device_radix_sort.cuh>
 #include <cub/device/device_select.cuh>
+#include <cub/device/device_scan.cuh>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -12,6 +13,7 @@ namespace physx {
 namespace {
 constexpr unsigned INVALID = 0xffffffffu;
 constexpr unsigned BLOCK = 256;
+#include "PxgDestructionSlots.cuh"
 
 __global__ void initialize(unsigned* activeChunks, unsigned n, unsigned* activeBonds,
     unsigned m, PxgDestructionTopologyStatus* status) {
@@ -25,6 +27,7 @@ __global__ void startBatch(PxgDestructionTopologyStatus* status) {
     status->invalidEdit = 0;
     status->changed = 0;
     status->clusterCount = 0;
+    status->slotError = 0;
 }
 
 __global__ void validate(const PxgDestructionEdit* edits, unsigned count,
@@ -165,36 +168,36 @@ __global__ void massProperties(const PxgDestructionChunk* chunks, const unsigned
 }
 
 __global__ void initializeMotion(PxgDestructionClusterMotion* motions,
-    const PxgDestructionTopologyStatus* status) {
+    const unsigned* roots,const unsigned* slots,const PxgDestructionTopologyStatus* status) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(i<status->clusterCount) {
+    if(i<status->clusterCount && !status->slotError) {
         PxgDestructionClusterMotion motion{};
         motion.orientation[3]=1;
-        motions[i]=motion;
+        motions[slots[roots[i]]]=motion;
     }
 }
 
-__global__ void captureClusterMotion(const unsigned* roots,
+__global__ void captureClusterMotion(const unsigned* roots,const unsigned* slots,
     const PxgDestructionCluster* clusters, const PxgDestructionClusterMotion* motion,
     PxgDestructionClusterMotion* previousMotion, double* previousCenters,
     unsigned* previousSlots, const PxgDestructionTopologyStatus* status,
     const PxgDestructionClusterMotion* const* sourceMotion = nullptr) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i<status->clusterCount) {
-        const unsigned r=roots[i];
-        previousSlots[r]=i;
-        previousMotion[i]=sourceMotion && *sourceMotion ? (*sourceMotion)[i] : motion[i];
-        for(unsigned k=0;k<3;++k)previousCenters[3*i+k]=clusters[r].center[k];
+        const unsigned r=roots[i],slot=slots[r];
+        previousSlots[r]=slot;
+        previousMotion[slot]=sourceMotion && *sourceMotion ? (*sourceMotion)[i] : motion[slot];
+        for(unsigned k=0;k<3;++k)previousCenters[3*slot+k]=clusters[r].center[k];
     }
 }
 
-__global__ void transferClusterMotion(const unsigned* roots,
+__global__ void transferClusterMotion(const unsigned* roots,const unsigned* slots,
     const PxgDestructionCluster* clusters, const unsigned* previousLabels,
     const unsigned* previousSlots, const double* previousCenters,
     const PxgDestructionClusterMotion* previousMotion,
     PxgDestructionClusterMotion* motion, const PxgDestructionTopologyStatus* status) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(i>=status->clusterCount)return;
+    if(i>=status->clusterCount || status->slotError)return;
     const unsigned r=roots[i], parent=previousSlots[previousLabels[r]];
     auto out=previousMotion[parent];
     double d[3];
@@ -208,7 +211,7 @@ __global__ void transferClusterMotion(const unsigned* roots,
     out.linearVelocity[0]+=w[1]*world[2]-w[2]*world[1];
     out.linearVelocity[1]+=w[2]*world[0]-w[0]*world[2];
     out.linearVelocity[2]+=w[0]*world[1]-w[1]*world[0];
-    motion[i]=out;
+    motion[slots[r]]=out;
 }
 
 __global__ void emptyBatch(PxgDestructionTopologyStatus* status) {
@@ -226,6 +229,9 @@ class Topology final : public PxgDestructionTopology {
     unsigned *mIndices = nullptr, *mKeys = nullptr, *mOrder = nullptr;
     unsigned *mBegins = nullptr, *mEnds = nullptr, *mRoots = nullptr, *mRootFlags = nullptr;
     PxgDestructionCluster* mClusters = nullptr;
+    unsigned *mClusterSlots=nullptr,*mSlotRoots=nullptr;
+    std::uint64_t* mSlotGenerations=nullptr;
+    unsigned *mFreeFlags=nullptr,*mFreeRanks=nullptr,*mFreeSlots=nullptr,*mRequestRanks=nullptr;
     PxgDestructionClusterMotion *mMotions = nullptr, *mPreviousMotions = nullptr;
     unsigned *mPreviousLabels = nullptr, *mPreviousSlots = nullptr;
     double* mPreviousCenters = nullptr;
@@ -252,11 +258,18 @@ class Topology final : public PxgDestructionTopology {
         finishGeneration<<<1,1,0,mStream>>>(mStatus);
         massProperties<<<std::min(mN,2560u), BLOCK, 0, mStream>>>(mChunks, mLabels, mActiveChunks,
             mOrder, mBegins, mEnds, mClusters, mRoots, mStatus);
+        retainMotionSlots<<<grid,BLOCK,0,mStream>>>(mSlotRoots,mActiveChunks,mLabels,mFreeFlags,mN);
+        requestMotionSlots<<<grid,BLOCK,0,mStream>>>(mActiveChunks,mLabels,mClusterSlots,mSlotRoots,mRootFlags,mN);
+        if(cub::DeviceScan::ExclusiveSum(mTemp,mTempBytes,mFreeFlags,mFreeRanks,mN,mStream)!=cudaSuccess
+            || cub::DeviceScan::ExclusiveSum(mTemp,mTempBytes,mRootFlags,mRequestRanks,mN,mStream)!=cudaSuccess)return false;
+        compactFreeMotionSlots<<<grid,BLOCK,0,mStream>>>(mFreeFlags,mFreeRanks,mFreeSlots,mN);
+        allocateMotionSlots<<<grid,BLOCK,0,mStream>>>(mRootFlags,mRequestRanks,mFreeSlots,mFreeRanks,mFreeFlags,
+            mClusterSlots,mSlotRoots,mSlotGenerations,mStatus,mN);
         if(transfer)
-            transferClusterMotion<<<grid,BLOCK,0,mStream>>>(mRoots,mClusters,mPreviousLabels,
+            transferClusterMotion<<<grid,BLOCK,0,mStream>>>(mRoots,mClusterSlots,mClusters,mPreviousLabels,
                 mPreviousSlots,mPreviousCenters,mPreviousMotions,mMotions,mStatus);
         else
-            initializeMotion<<<grid,BLOCK,0,mStream>>>(mMotions,mStatus);
+            initializeMotion<<<grid,BLOCK,0,mStream>>>(mMotions,mRoots,mClusterSlots,mStatus);
         return cudaGetLastError() == cudaSuccess && (!signal || cudaEventRecord(mReady, mStream) == cudaSuccess);
     }
 public:
@@ -271,15 +284,21 @@ public:
             || !alloc(mKeys,n) || !alloc(mOrder,n) || !alloc(mBegins,n)
             || !alloc(mEnds,n) || !alloc(mRoots,n) || !alloc(mRootFlags,n) || !alloc(mClusters,n) || !alloc(mStatus,1)
             || !alloc(mMotions,n) || !alloc(mPreviousMotions,n) || !alloc(mPreviousLabels,n)
-            || !alloc(mPreviousSlots,n) || !alloc(mPreviousCenters,size_t(n)*3)) return false;
+            || !alloc(mPreviousSlots,n) || !alloc(mPreviousCenters,size_t(n)*3)
+            || !alloc(mClusterSlots,n) || !alloc(mSlotRoots,n) || !alloc(mSlotGenerations,n)
+            || !alloc(mFreeFlags,n) || !alloc(mFreeRanks,n) || !alloc(mFreeSlots,n) || !alloc(mRequestRanks,n)) return false;
         if (mOwnAssets && (cudaMemcpyAsync(mChunks,chunks,sizeof(*chunks)*n,cudaMemcpyHostToDevice,mStream) != cudaSuccess
             || (m && cudaMemcpyAsync(mBonds,bonds,sizeof(*bonds)*m,cudaMemcpyHostToDevice,mStream) != cudaSuccess))) return false;
-        size_t sortBytes = 0, selectBytes = 0;
+        size_t sortBytes = 0, selectBytes = 0, scanBytes=0;
         if (cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,mLabels,mKeys,mIndices,mOrder,n,0,32,mStream) != cudaSuccess
             || cub::DeviceSelect::Flagged(nullptr,selectBytes,mIndices,mRootFlags,mRoots,
-                &mStatus->clusterCount,n,mStream) != cudaSuccess) return false;
-        mTempBytes = std::max(sortBytes,selectBytes);
+                &mStatus->clusterCount,n,mStream) != cudaSuccess
+            || cub::DeviceScan::ExclusiveSum(nullptr,scanBytes,mFreeFlags,mFreeRanks,n,mStream)!=cudaSuccess) return false;
+        mTempBytes = std::max({sortBytes,selectBytes,scanBytes});
         if (cudaMalloc(&mTemp,mTempBytes) != cudaSuccess) return false;
+        if(cudaMemsetAsync(mClusterSlots,0xff,n*sizeof(unsigned),mStream)!=cudaSuccess
+            || cudaMemsetAsync(mSlotRoots,0xff,n*sizeof(unsigned),mStream)!=cudaSuccess
+            || cudaMemsetAsync(mSlotGenerations,0,n*sizeof(std::uint64_t),mStream)!=cudaSuccess)return false;
         initialize<<<(std::max(n,m)+BLOCK-1)/BLOCK,BLOCK,0,mStream>>>(mActiveChunks,n,mActiveBonds,m,mStatus);
         return rebuild() && cudaStreamSynchronize(mStream) == cudaSuccess;
     }
@@ -291,7 +310,7 @@ public:
             emptyBatch<<<1,1,0,mStream>>>(mStatus);
             return cudaGetLastError()==cudaSuccess && cudaEventRecord(mReady,mStream)==cudaSuccess;
         }
-        captureClusterMotion<<<(mN+BLOCK-1)/BLOCK,BLOCK,0,mStream>>>(mRoots,mClusters,
+        captureClusterMotion<<<(mN+BLOCK-1)/BLOCK,BLOCK,0,mStream>>>(mRoots,mClusterSlots,mClusters,
             mMotions,mPreviousMotions,mPreviousCenters,mPreviousSlots,mStatus);
         if(cudaMemcpyAsync(mPreviousLabels,mLabels,sizeof(unsigned)*mN,
             cudaMemcpyDeviceToDevice,mStream)!=cudaSuccess)return false;
@@ -304,7 +323,7 @@ public:
     }
     PxgDestructionTopologyView view() const override {
         return {mChunks,mBonds,mActiveBonds,mActiveChunks,mLabels,mOrder,mRoots,
-                mClusters,mStatus,mMotions,mN,mM,mReady};
+                mClusters,mStatus,mMotions,mClusterSlots,mSlotRoots,mSlotGenerations,mN,mN,mM,mReady};
     }
     void release() override { delete this; }
     ~Topology() override {
@@ -312,6 +331,8 @@ public:
         if(mOwnAssets){cudaFree(mChunks);cudaFree(mBonds);} cudaFree(mActiveChunks); cudaFree(mActiveBonds);
         cudaFree(mLabels); cudaFree(mIndices); cudaFree(mKeys); cudaFree(mOrder);
         cudaFree(mMotions); cudaFree(mPreviousMotions); cudaFree(mPreviousLabels);
+        cudaFree(mClusterSlots);cudaFree(mSlotRoots);cudaFree(mSlotGenerations);
+        cudaFree(mFreeFlags);cudaFree(mFreeRanks);cudaFree(mFreeSlots);cudaFree(mRequestRanks);
         cudaFree(mPreviousSlots); cudaFree(mPreviousCenters);
         cudaFree(mBegins); cudaFree(mEnds); cudaFree(mRoots); cudaFree(mRootFlags); cudaFree(mClusters); cudaFree(mStatus); cudaFree(mTemp);
         if (mReady) cudaEventDestroy(mReady);
