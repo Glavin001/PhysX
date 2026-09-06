@@ -386,6 +386,7 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 }
 #include "PxgDestructionCorrection.cuh"
 class Runtime final : public PxgDestructionRuntime {
+    bool mPreserveContactPairs=false;
     CUcontext mContext; void* mScene; bool(*mWriteAllowed)(void*);
     cudaStream_t mStream{}; cudaEvent_t mInput{},mReady{}; CUevent mConsumer{};
     ExtStressGpuSolver* mSolver{}; ExtStressGpuSolveParams mParams;
@@ -594,7 +595,7 @@ public:
             // work before releasing buffers even if the last stage failed.
             check(cudaEventSynchronize(mInput));check(cudaStreamSynchronize(mStream));
             if(mConsumer)check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(mConsumer)));
-            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit==1;
+            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit==1;mPreserveContactPairs=d.preserveUnchangedContactPairs;
             if(d.bondCount) {
                 mSolver=ExtStressGpuSolver::create(nodes.data(),d.chunkCount,bonds.data(),d.bondCount,NULL,0,mContext);
                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
@@ -984,6 +985,7 @@ public:
             check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
         }catch(...){mFailed=true;return false;}
     }
+    bool preserveUnchangedContactPairs() const override { return mPreserveContactPairs; }
     bool correctionEnabled() const override { return mCorrectionEnabled; }
     PxU32 correctionBodyCount() const override { return PxU32(mHostCorrectionTargets.size()); }
     const PxU32* correctionBodyIndices() const override { return mHostCorrectionTargets.data(); }

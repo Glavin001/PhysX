@@ -319,6 +319,7 @@ namespace physx
 		void allocateFrictionPatchStream(PxI32 numContactBatches, PxI32 numArtiContactBatches);
 		PxgBlockFrictionIndex* allocateFrictionPatchIndexStream(PxU32 totalFrictionPatchCount);
 		void allocateFrictionCounts(PxU32 totalEdges);
+        bool resetDestructionFrictionCaches();
 
 		void gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSolverBodies,
 			Cm::PinnableArray<PxAlignedTransform>& body2WorldPool,

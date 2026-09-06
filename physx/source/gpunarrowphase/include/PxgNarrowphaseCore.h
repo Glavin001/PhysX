@@ -583,6 +583,7 @@ namespace physx
 
 		Sc::ShapeInteraction** getGPUShapeInteractions() { return reinterpret_cast<Sc::ShapeInteraction**>(mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mShapeInteractions.getDevicePtr()); }
 
+        bool resetDestructionContactCaches();
 		PxgContactManagers& getExistingContactManagers(GPU_BUCKET_ID::Enum type) { return mContactManagers[type]->mContactManagers; }
 		PxgNewContactManagers& getNewContactManagers(GPU_BUCKET_ID::Enum type) { return mContactManagers[type]->mNewContactManagers; }
 

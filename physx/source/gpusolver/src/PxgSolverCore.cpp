@@ -194,6 +194,19 @@ void PxgSolverCore::allocateFrictionPatchStream(PxI32 numContactBatches, PxI32 n
 	frictionAnchorPatchStream[currentIndex].allocate(sizeof(PxgFrictionAnchorPatch) * numArtiContactBatches);*/
 }
 
+bool PxgSolverCore::resetDestructionFrictionCaches()
+{
+    // Invalidate both ping-pong generations: the correction must not warm start
+    // from trial impulses or use anchors associated with the provisional state.
+    // Clearing counts makes all existing anchor/index storage unreachable.
+    for(PxU32 i=0;i<2;++i) {
+        auto& buffer=mFrictionPatchCounts[i];
+        if(buffer.getSize() && mCudaContext->memsetD32Async(buffer.getDevicePtr(),0,
+            buffer.getSize()/sizeof(PxU32),mStream)!=CUDA_SUCCESS)return false;
+    }
+    return !mCudaContext->isInAbortMode();
+}
+
 void PxgSolverCore::allocateFrictionCounts(PxU32 totalEdges)
 {
 	mFrictionPatchCounts[1 - mCurrentIndex].allocateCopyOldDataAsync(totalEdges * sizeof(PxU32), mCudaContext, mStream, PX_FL);

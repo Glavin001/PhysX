@@ -2884,7 +2884,11 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         for(PxU32 i=0;canCorrect && i<mActiveKinematicBodyCount;++i)
             canCorrect=!mActiveBodies[i]->getHasValidKinematicTarget();
     }
-    if(mSimulationController->advanceDestruction(mDt, mGravity, canCorrect)) {
+    // Trial CPU reporting/trigger state is not covered by device cache reset.
+    // Keep the complete contact rebuild whenever that state needs correction.
+    const bool canReuseContactPairs=!getNbInteractions(InteractionType::eTRIGGER)
+        && !getContactModifyCallback() && !mNPhaseCore->getNbContactReportActorPairs();
+    if(mSimulationController->advanceDestruction(mDt, mGravity, canCorrect, canReuseContactPairs)) {
         {
         // Available in release builds when a profiler callback is installed.
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.refilter",false,
@@ -2900,7 +2904,10 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         Sc::ShapeSimBase** shapes=mSimulationController->getShapeSims();
         const PxU32 count=mSimulationController->getNbShapes();
         for(PxU32 i=0;i<count;++i)if(shapes[i] && shapes[i]->isInBroadPhase()) {
-            shapes[i]->onResetFiltering();
+            // Affected shapes were already refiltered by the ownership
+            // transaction. Reused pairs keep their IDs; CUDA invalidates their
+            // caches and the corrected pass regenerates collision/solver rows.
+            if(!mSimulationController->preservesDestructionContactPairs())shapes[i]->onResetFiltering();
             if(shapes[i]->getRbSim().isDynamicRigid()
                 && !mSimulationController->setGpuShapeBoundsRefresh(shapes[i]->getElementID(),true)) {
                 PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native correction could not queue every required collision bound");

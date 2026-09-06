@@ -640,6 +640,11 @@ namespace physx
         return mDestruction;
     }
 
+    bool PxgSimulationController::preservesDestructionContactPairs() const
+    {
+        return mDestructionCorrecting && mDestructionPreservePairs;
+    }
+
     bool PxgSimulationController::usesDeviceDestructionContactInputs() const
     {
         return mDestruction && mDestruction->configured() && mDestruction->correctionEnabled();
@@ -659,7 +664,7 @@ namespace physx
         return ok;
     }
 
-    bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect)
+    bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs)
     {
         if(!mDestruction) return false;
         if(mDestructionCorrecting) {
@@ -783,6 +788,16 @@ namespace physx
                     for(PxU32 i=0;i<pending.size();++i)if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
                     pending.forceSize_Unsafe(kept);
                 }
+                }
+                mDestructionPreservePairs=false;
+                if(ok && mDestruction->preserveUnchangedContactPairs() && (!canReuseContactPairs || mNpContext->hasCpuContactManagers()))
+                    ++mDestructionContactReuseFallbackCount;
+                if(ok && mDestruction->preserveUnchangedContactPairs() && canReuseContactPairs && !mNpContext->hasCpuContactManagers()) {
+                    PxProfileScoped caches(PxGetProfilerCallback(),"GpuDestruction.resetContactCaches",false,profileContext);
+                    PxScopedCudaLock lock(*mCudaContextManager);
+                    ok=mNpContext->getGpuNarrowphaseCore()->resetDestructionContactCaches()
+                        && mDynamicContext->getGpuSolverCore()->resetDestructionFrictionCaches();
+                    mDestructionPreservePairs=ok;
                 }
                 if(ok) {
                     // This event spans the task-graph continuation, including

@@ -8515,6 +8515,29 @@ void PxgGpuNarrowphaseCore::preallocateNewBuffers(PxU32 nbNewPairs)
 
 }
 
+bool PxgGpuNarrowphaseCore::resetDestructionContactCaches()
+{
+    // Trial tasks have completed. Keep persistent pair storage and identities,
+    // but regenerate geometric contacts from the restored motion. Removed pairs
+    // can still occupy slots here; the normal NP compaction removes them later.
+    const CUfunction kernel=mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::INITIALIZE_MANIFOLDS);
+    for(PxU32 bucket=GPU_BUCKET_ID::eConvex;bucket<=GPU_BUCKET_ID::eTrianglePlane;++bucket) {
+        auto& gpu=mGpuContactManagers[bucket]->mContactManagers;
+        const PxU32 count=mContactManagers[bucket]->mContactManagers.mCpuContactManagerMapping.size();
+        if(!count)continue;
+        const bool single=bucket<=GPU_BUCKET_ID::eConvexPlane;
+        CUdeviceptr destination=gpu.mPersistentContactManifolds.getDevicePtr();
+        CUdeviceptr empty=single?mGpuManifold.getDevicePtr():mGpuMultiManifold.getDevicePtr();
+        PxU32 size=single?sizeof(PxgPersistentContactManifold):sizeof(PxgPersistentContactMultiManifold);
+        if(!destination || gpu.mPersistentContactManifolds.getSize()<PxU64(count)*size)return false;
+        PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(destination),PX_CUDA_KERNEL_PARAM(empty),
+            PX_CUDA_KERNEL_PARAM(size),PX_CUDA_KERNEL_PARAM(count)};
+        if(mCudaContext->launchKernel(kernel,PxgNarrowPhaseGridDims::INITIALIZE_MANIFOLDS,1,1,
+            PxgNarrowPhaseBlockDims::INITIALIZE_MANIFOLDS,1,1,0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS)return false;
+    }
+    return !mCudaContext->isInAbortMode();
+}
+
 bool PxgGpuNarrowphaseCore::usesDeviceDestructionContactInputs(PxU32 bucket) const
 {
     // Rigid geometry buckets, including primitive, convex, plane, mesh and HF.

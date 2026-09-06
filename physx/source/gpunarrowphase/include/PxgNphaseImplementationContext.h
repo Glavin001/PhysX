@@ -255,6 +255,7 @@ namespace physx
 		virtual PxsContactManager**				getLostFoundPatchManagers()		PX_OVERRIDE PX_FINAL;
 		virtual PxU32							getNbLostFoundPatchManagers()	PX_OVERRIDE PX_FINAL;
 
+        bool hasCpuContactManagers() const { return mNbPairCount[GPU_BUCKET_ID::eFallback]!=0; }
 		virtual PxsContactManagerOutput*		getGPUContactManagerOutputBase()	PX_OVERRIDE PX_FINAL;
 		virtual PxReal*							getGPURestDistances()				PX_OVERRIDE PX_FINAL;
 		virtual Sc::ShapeInteraction**			getGPUShapeInteractions()			PX_OVERRIDE PX_FINAL;

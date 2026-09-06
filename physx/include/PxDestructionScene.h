@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 10
+#define PX_DESTRUCTION_SCENE_VERSION 11
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -75,6 +75,10 @@ struct PxDestructionStressDesc {
     // articulations, CCD, custom filter callbacks or deformables. Crushing/removal
     // and unapportioned force commands on fractured sources reject explicitly.
     PxU32 internalCorrectionLimit = 0;
+    // Experimental pair-lifecycle reuse during the full rigid correction.
+    // Retain unchanged owners' pair registrations, clear GPU manifold/friction
+    // caches and regenerate collision/constraint data. False is the reference.
+    bool preserveUnchangedContactPairs = false;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;

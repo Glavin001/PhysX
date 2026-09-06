@@ -34,11 +34,15 @@ struct Events:PxSimulationEventCallback {
     void onContact(const PxContactPairHeader&,const PxContactPair*,PxU32)override{}
     void onTrigger(PxTriggerPair*,PxU32)override{}
 };
-struct Result {float projectileVelocity;unsigned corrections,contacts;};
-Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned quietCount=0) {
-    Events events;blast_demo::SceneCapacity capacity;
+struct NoContactModification:PxContactModifyCallback {
+    void onContactModify(PxContactModifyPair* const,PxU32)override{}
+};
+struct Result {float projectileVelocity;unsigned corrections,contacts;PxU64 constructedPairs=0;std::vector<PxVec3> contactMotion;PxU64 reuseFallbacks=0;};
+Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned quietCount=0,bool reuse=false,unsigned contactCount=0,bool forceReportingFallback=false) {
+    NoContactModification modify;Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,true,true,false,false);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
+    if(forceReportingFallback)scene.setContactModifyCallback(&modify);
     scene.setGravity(gravity?PxVec3(0,-9.81f,0):PxVec3(0));
     auto* wall=physics.createRigidDynamic(PxTransform(PxVec3(0,5,0)));
     wall->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
@@ -64,6 +68,18 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         auto* piece=physics.createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);
         require(owner->attachShape(*piece),"quiet chunk setup failed");piece->release();
         scene.addActor(*owner);quiet.push_back(owner);
+    }
+    std::vector<PxRigidDynamic*> contactBodies;PxRigidStatic* contactFloor=nullptr;
+    if(contactCount) {
+        contactFloor=PxCreateStatic(physics,PxTransform(PxVec3(200+1.5f*(contactCount-1),99.5f,0)),
+            PxBoxGeometry(1.5f*contactCount+1,.5f,2),context.material());
+        require(contactFloor,"persistent-contact floor creation failed");scene.addActor(*contactFloor);
+        for(unsigned i=0;i<contactCount;++i) {
+            auto* body=PxCreateDynamic(physics,PxTransform(PxVec3(200+3*float(i),100.5f,0)),
+                PxBoxGeometry(.5f,.5f,.5f),context.material(),2);
+            require(body,"persistent-contact body creation failed");body->setLinearVelocity(PxVec3(.5f,0,0));
+            body->setLinearDamping(0);body->setAngularDamping(0);scene.addActor(*body);contactBodies.push_back(body);
+        }
     }
     scene.simulate(1.0f/60);require(scene.fetchResults(true),"warmup failed");events.advances=0;
     const auto identity=scene.getDirectGPUAPI().getShapeContactIndex(*shape);
@@ -93,6 +109,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     PxDestructionStressDesc desc;desc.chunks=chunks.data();desc.chunkCount=PxU32(chunks.size());desc.chunkMassProperties=mass.data();
     desc.clusters=clusters.data();desc.clusterCount=PxU32(clusters.size());desc.bonds=&bond;desc.bondCount=1;
     desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;
+    desc.preserveUnchangedContactPairs=reuse;
     auto* destruction=scene.getDestructionScene();require(destruction->configureStress(desc),"native correction configuration failed");
     CUdeviceptr index=0,value=0;
     {PxScopedCudaLock lock(cuda);check(cuMemAlloc(&index,sizeof(PxU32)));check(cuMemAlloc(&value,sizeof(PxTransform)));}
@@ -105,11 +122,12 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         {PxScopedCudaLock lock(cuda);check(cuMemFree(index));check(cuMemFree(value));}
         require(destruction->clearStress(),"native accepted-fragment teardown failed");
         for(auto* owner:quiet)owner->release();
+        for(auto* body:contactBodies)body->release();if(contactFloor)contactFloor->release();
         wall->release();shot->release();sentinel->release();shape->release();sphere->release();
         require(context.healthy(),"native impact GPU health failed");
     };
     AllocationAudit allocations;
-    unsigned corrections=0,contacts=0;
+    unsigned corrections=0,contacts=0;std::vector<PxVec3> contactMotion;
     for(unsigned frame=0;frame<30;++frame) {
         const auto before=events.advances;
         {PxScopedCudaLock lock(cuda);const auto id=sentinel->getGPUIndex();const PxVec3 force(1,0,0);
@@ -131,6 +149,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         require(events.advances==before+1,"trial pass duplicated pose callback");
         corrections+=status.correctionPasses;contacts+=status.normalContacts;
         if(status.correctionPasses) {
+            for(auto* body:contactBodies)contactMotion.push_back(velocity(*body));
             require(status.normalContacts && status.brokenBonds,"fracture was not driven by actual solved contact impulses");
             auto* runtime=static_cast<PxgDestructionRuntime*>(destruction);
             require(runtime->correctionBodyCount()==2,"CPU owner bridge included unchanged clusters");
@@ -184,10 +203,12 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         require(scene.raycast(pose.p+PxVec3(0,2,0),PxVec3(0,-1,0),3,hit,PxHitFlag::eDEFAULT,PxQueryFilterData(),nullptr,cached?&cache:nullptr)
             && hit.hasBlock && hit.block.actor==fragment && hit.block.shape==shape,"accepted fragment query lookup lost its private owner");
     }
-    require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3+quietCount,"query registration published a private fragment as a public actor");
+    require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3+quietCount+contactCount,"query registration published a private fragment as a public actor");
     std::printf("native query ownership valid; largest impact allocation=%zu bytes\n",allocations.largest.load());
+    const auto constructedPairs=controller.getDestructionContactInputCount();
+    const auto reuseFallbacks=controller.getDestructionContactReuseFallbackCount();
     cleanup();
-    return {v.x,corrections,contacts};
+    return {v.x,corrections,contacts,constructedPairs,contactMotion,reuseFallbacks};
 }
 void unconvergedStress() {
     for(bool native:{false,true}) {
@@ -222,4 +243,21 @@ void unconvergedStress() {
     std::puts("native convergence gate rejects exhausted stress budget; diagnostic reference remains selectable");
 }
 }
-int main(){try {unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try {
+    const auto rebuilt=impact(true,true,false,0,false,32),reused=impact(true,true,false,0,true,32);
+    require(std::abs(rebuilt.projectileVelocity-reused.projectileVelocity)<.02f && rebuilt.corrections==reused.corrections,
+        "pair reuse changed controlled fracture/projectile response");
+    require(rebuilt.contactMotion.size()==32 && rebuilt.contactMotion.size()==reused.contactMotion.size(),
+        "pair reuse fixture did not observe every ordinary contact participant");
+    for(unsigned i=0;i<rebuilt.contactMotion.size();++i)
+        require((rebuilt.contactMotion[i]-reused.contactMotion[i]).magnitude()<2e-4f,
+            "pair reuse changed ordinary friction contact response during correction");
+    require(rebuilt.constructedPairs>=reused.constructedPairs+32,
+        "pair reuse still rebuilt unchanged ordinary contact managers");
+    const auto fallback=impact(true,true,false,0,true,32,true);
+    require(fallback.reuseFallbacks==1 && fallback.constructedPairs==rebuilt.constructedPairs
+        && std::abs(fallback.projectileVelocity-rebuilt.projectileVelocity)<.02f,
+        "contact callback scene failed to use the complete correction fallback");
+    std::printf("native pair reuse: reference constructions=%llu reuse=%llu; 32 friction participants match\n",
+        (unsigned long long)rebuilt.constructedPairs,(unsigned long long)reused.constructedPairs);
+    unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

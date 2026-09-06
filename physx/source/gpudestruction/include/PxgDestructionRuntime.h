@@ -72,6 +72,7 @@ public:
 
     // Install GPU-selected cluster ownership without re-uploading immutable geometry.
     virtual bool installCollisionOwners(PxgShapeSim* shapes, PxU32 capacity, CUstream stream) = 0;
+    virtual bool preserveUnchangedContactPairs() const = 0;
 };
 }
 #if defined(_WIN32)
