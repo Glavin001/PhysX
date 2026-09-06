@@ -54,7 +54,13 @@ void ThirdPassTask::runInternal()
             &mIslandSim==&mIslandManager.getAccurateIslandSim()?"GpuDestruction.task.accurateIsland.removeDestroyedConnections":"GpuDestruction.task.speculativeIsland.removeDestroyedConnections",false,mContextID);
         mIslandSim.removeDestroyedEdges();
     }
-    mIslandSim.auditGpuContactComponents();
+    {
+        // Validation can dominate large diagnostic runs. Keep its cost visible
+        // inside (not in addition to) native island-maintenance time.
+        PxProfileScoped audit(mIslandManager.mGPU?PxGetProfilerCallback():NULL,
+            &mIslandSim==&mIslandManager.getAccurateIslandSim()?"GpuDestruction.task.accurateIsland.boundaryAudit":"GpuDestruction.task.speculativeIsland.boundaryAudit",false,mContextID);
+        mIslandSim.auditGpuContactComponents();
+    }
 	const bool allowDeactivation = true;
 	mIslandSim.processLostEdges(mIslandManager.mDestroyedNodes, allowDeactivation, allowDeactivation, mIslandManager.mMaxDirtyNodesPerFrame,mIslandManager.mGPU?PxGetProfilerCallback():NULL);
     mIslandSim.setGpuContactComponents(NULL,NULL,0);

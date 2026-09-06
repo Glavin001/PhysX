@@ -1,0 +1,209 @@
+{
+  "status": "diagnostic-failure-reproduced-outside-engine; native-cause-unproven",
+  "date": "2026-09-06",
+  "engine_revision": "e408107e",
+  "source": {
+    "tools/diagnostics/cuda-conditional-graph/repro.cu": "ae5193e795584c8e4f2907da33c1061183ff17a766277121ccbab8dcc8e4db87",
+    "tools/diagnostics/cuda-conditional-graph/run.py": "fc5026d921bb75f82d2062a9be13668223509f1ffb057acaa50002831a990dbe",
+    "tools/diagnostics/cuda-conditional-graph/README.md": "a8434eee8d155cfa8627be8659ceae801728f9f0fc926977449cc746eb492858"
+  },
+  "campaigns": [
+    {
+      "source_sha256": "ae5193e795584c8e4f2907da33c1061183ff17a766277121ccbab8dcc8e4db87",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+      "sanitizer_version": "NVIDIA (R) Compute Sanitizer\nCopyright (c) 2020-2025 NVIDIA Corporation\nVersion 2025.1.0.0 (build 35583870) (public-release)\n",
+      "gpu": "NVIDIA GeForce RTX 4090, 595.71.05\n",
+      "commands": [
+        {
+          "command": [
+            "/usr/local/cuda/bin/nvcc",
+            "-std=c++17",
+            "-arch=sm_89",
+            "-lineinfo",
+            "/root/workspace/physx-2/tools/diagnostics/cuda-conditional-graph/repro.cu",
+            "-o",
+            "/root/workspace/physx-2/out/conditional-graph-repro-12.8-20260906/repro"
+          ],
+          "exit_code": 0,
+          "log": "build.log",
+          "log_text": ""
+        },
+        {
+          "command": [
+            "/root/workspace/physx-2/out/conditional-graph-repro-12.8-20260906/repro",
+            "plain"
+          ],
+          "exit_code": 0,
+          "log": "plain-normal.log",
+          "log_text": "mode=plain: 500 correct executions; updates=499 recreates=0\n"
+        },
+        {
+          "command": [
+            "/usr/local/cuda/bin/compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "99",
+            "--print-limit",
+            "3",
+            "/root/workspace/physx-2/out/conditional-graph-repro-12.8-20260906/repro",
+            "plain"
+          ],
+          "exit_code": 0,
+          "log": "plain-memcheck.log",
+          "log_text": "========= COMPUTE-SANITIZER\nmode=plain: 500 correct executions; updates=499 recreates=0\n========= ERROR SUMMARY: 0 errors\n"
+        },
+        {
+          "command": [
+            "/root/workspace/physx-2/out/conditional-graph-repro-12.8-20260906/repro",
+            "if"
+          ],
+          "exit_code": 0,
+          "log": "if-normal.log",
+          "log_text": "mode=if: 500 correct executions; updates=499 recreates=0\n"
+        },
+        {
+          "command": [
+            "/usr/local/cuda/bin/compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "99",
+            "--print-limit",
+            "3",
+            "/root/workspace/physx-2/out/conditional-graph-repro-12.8-20260906/repro",
+            "if"
+          ],
+          "exit_code": 0,
+          "log": "if-memcheck.log",
+          "log_text": "========= COMPUTE-SANITIZER\nmode=if: 500 correct executions; updates=499 recreates=0\n========= ERROR SUMMARY: 0 errors\n"
+        },
+        {
+          "command": [
+            "/root/workspace/physx-2/out/conditional-graph-repro-12.8-20260906/repro",
+            "while"
+          ],
+          "exit_code": 0,
+          "log": "while-normal.log",
+          "log_text": "mode=while: 500 correct executions; updates=499 recreates=0\n"
+        },
+        {
+          "command": [
+            "/usr/local/cuda/bin/compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "99",
+            "--print-limit",
+            "3",
+            "/root/workspace/physx-2/out/conditional-graph-repro-12.8-20260906/repro",
+            "while"
+          ],
+          "exit_code": 99,
+          "log": "while-memcheck.log",
+          "log_text": "========= COMPUTE-SANITIZER\n========= Program hit cudaErrorIllegalAddress (error 700) due to \"an illegal memory access was encountered\" on CUDA API call to cudaMemcpyAsync.\n=========     Saved host backtrace up to driver entry point at error\n=========         Host Frame: main [0x92c9] in repro\n========= \nstep=0 observe: an illegal memory access was encountered\n========= Target application returned an error\n========= ERROR SUMMARY: 1 error\n"
+        }
+      ],
+      "artifact_directory": "out/conditional-graph-repro-12.8-20260906"
+    },
+    {
+      "source_sha256": "ae5193e795584c8e4f2907da33c1061183ff17a766277121ccbab8dcc8e4db87",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+      "sanitizer_version": "NVIDIA (R) Compute Sanitizer\nCopyright (c) 2020-2026 NVIDIA Corporation\nVersion 2026.1.0.0 (build 37182542) (public-release)\n",
+      "gpu": "NVIDIA GeForce RTX 4090, 595.71.05\n",
+      "commands": [
+        {
+          "command": [
+            "/usr/local/cuda/bin/nvcc",
+            "-std=c++17",
+            "-arch=sm_89",
+            "-lineinfo",
+            "/root/workspace/physx-2/tools/diagnostics/cuda-conditional-graph/repro.cu",
+            "-o",
+            "/root/workspace/physx-2/out/conditional-graph-repro-13.2-20260906/repro"
+          ],
+          "exit_code": 0,
+          "log": "build.log",
+          "log_text": ""
+        },
+        {
+          "command": [
+            "/root/workspace/physx-2/out/conditional-graph-repro-13.2-20260906/repro",
+            "plain"
+          ],
+          "exit_code": 0,
+          "log": "plain-normal.log",
+          "log_text": "mode=plain: 500 correct executions; updates=499 recreates=0\n"
+        },
+        {
+          "command": [
+            "out/tools/sanitizer-13.2.23/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/bin/compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "99",
+            "--print-limit",
+            "3",
+            "/root/workspace/physx-2/out/conditional-graph-repro-13.2-20260906/repro",
+            "plain"
+          ],
+          "exit_code": 0,
+          "log": "plain-memcheck.log",
+          "log_text": "========= COMPUTE-SANITIZER\nmode=plain: 500 correct executions; updates=499 recreates=0\n========= ERROR SUMMARY: 0 errors\n"
+        },
+        {
+          "command": [
+            "/root/workspace/physx-2/out/conditional-graph-repro-13.2-20260906/repro",
+            "if"
+          ],
+          "exit_code": 0,
+          "log": "if-normal.log",
+          "log_text": "mode=if: 500 correct executions; updates=499 recreates=0\n"
+        },
+        {
+          "command": [
+            "out/tools/sanitizer-13.2.23/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/bin/compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "99",
+            "--print-limit",
+            "3",
+            "/root/workspace/physx-2/out/conditional-graph-repro-13.2-20260906/repro",
+            "if"
+          ],
+          "exit_code": 99,
+          "log": "if-memcheck.log",
+          "log_text": "========= COMPUTE-SANITIZER\n========= Program hit cudaErrorIllegalAddress (error 700) due to \"an illegal memory access was encountered\" on CUDA API call to cudaMemcpyAsync.\n=========     Saved host backtrace up to driver entry point at error\n=========         Host Frame: main [0x92c9] in repro\n========= \nstep=0 observe: an illegal memory access was encountered\n========= Target application returned an error\n========= ERROR SUMMARY: 1 error\n"
+        },
+        {
+          "command": [
+            "/root/workspace/physx-2/out/conditional-graph-repro-13.2-20260906/repro",
+            "while"
+          ],
+          "exit_code": 0,
+          "log": "while-normal.log",
+          "log_text": "mode=while: 500 correct executions; updates=499 recreates=0\n"
+        },
+        {
+          "command": [
+            "out/tools/sanitizer-13.2.23/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/bin/compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "99",
+            "--print-limit",
+            "3",
+            "/root/workspace/physx-2/out/conditional-graph-repro-13.2-20260906/repro",
+            "while"
+          ],
+          "exit_code": 99,
+          "log": "while-memcheck.log",
+          "log_text": "========= COMPUTE-SANITIZER\n========= Program hit cudaErrorIllegalAddress (error 700) due to \"an illegal memory access was encountered\" on CUDA API call to cudaMemcpyAsync.\n=========     Saved host backtrace up to driver entry point at error\n=========         Host Frame: main [0x92c9] in repro\n========= \nstep=0 observe: an illegal memory access was encountered\n========= Target application returned an error\n========= ERROR SUMMARY: 1 error\n"
+        }
+      ],
+      "artifact_directory": "out/conditional-graph-repro-13.2-20260906"
+    }
+  ],
+  "scope": "No production runtime changes; not a passing engine memory qualification."
+}

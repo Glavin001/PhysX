@@ -324,3 +324,60 @@ establishes neither a CUDA graph-update bug nor a fix. Default optimization
 settings have not been changed to hide the failure. Broader qualification remains
 open. Old partial-ASan binaries predate the changed native class layout and must
 not be run against the current GPU libraries without rebuilding.
+
+### Conditional-graph diagnostic isolation
+
+A standalone arithmetic graph now reproduces an instrumented error 700 at its
+first launch without PhysX/Blast, stream capture, graph allocation nodes or any
+graph update. Its plain-graph control passes memcheck; all three modes produce
+500 correct results without instrumentation. IF and WHILE fail with the isolated
+CUDA 13.2 sanitizer, while WHILE fails and IF passes with the installed CUDA 12.8
+sanitizer. Both errors occur before graph update or destruction. This is stronger
+evidence against an update-specific explanation, but it does not identify the
+cause or prove that the native solver failure has the same cause. Production
+conditional-loop/update settings remain unchanged; native memory qualification
+is still open.
+
+`tools/diagnostics/cuda-conditional-graph/` contains the dependency-free source
+and reproducible command runner. `qualification/cuda-conditional-graph-diagnostic-20260906.json`
+records both tool versions, exact source hash, exit codes and logs. The diagnostic
+returns failure for instrumented errors and is not treated as a green engine test.
+
+The CPU boundary audit now has separate
+`task.{accurate,speculative}Island.boundaryAudit` profiling scopes. These are
+nested inside island maintenance, not additional simulation costs. With auditing
+disabled they measure only the no-op call and scope overhead. They distinguish
+validation cost from compatibility-registry maintenance in diagnostic runs;
+subtracting overlapping host scopes does not establish unaudited throughput.
+
+### Full-size retained-edge regression
+
+The fixed path completed 30 seconds / 1,800 steps with 256 buildings, 113,664
+chunks, 229,376 bonds and 1,024 projectiles. All stress solves converged, all 4,202
+independent boundary audits passed, and motion-audit error and registry fallback
+counts were zero. The 384 corrected steps used at most one resimulation each.
+It performed 2,184 graph builds and 2,184 same-pass reuses; 85,214 retained-edge
+records were uploaded (1,363,424 bytes).
+
+The existing CPU registry bridge observed 5,659,647,152 bytes of graph data. This
+is scoped graph readback, not total engine transfers. Mean physics time was
+244.89 ms (6.81% of real time), maximum 1,703.71 ms, with 1,702 missed 16.67 ms
+deadlines. The independent CPU audit is included, the GPU was shared, and state
+recording was disabled. This is a scale correctness result, not a comparison
+against the earlier unaudited video or a real-time qualification. The run used
+revision e408107e before the new boundary-audit timing scopes; do not attribute
+those new scopes to this capture.
+
+`qualification/native-retained-contact-large-20260906.json` records source/library
+provenance, every artifact hash, counters, timings and remaining limitations.
+The next production integration remains direct device island-registry maintenance
+and solver consumption, replacing the compatibility observation bridge rather
+than treating observed CUDA components as the final GPU-owned lifecycle.
+
+The profiling change rebuilt successfully and passed the same 24 focused native,
+GPU-graph and CPU-reference tests. A separate 240-step / 7,104-chunk fracture run
+exercised both boundary-audit scopes on every step, checked that each remained
+within its parent maintenance interval, and completed with zero boundary or
+motion-audit failures. Its exact results and build hashes are recorded in
+`qualification/native-island-audit-scopes-20260906.json`. No physics settings or
+assertion tolerances changed.
