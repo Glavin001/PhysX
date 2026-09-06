@@ -5,7 +5,7 @@ __device__ bool correctionVelocity(const float* center,const PxgBodySim& source,
     const double r[3]={double(center[0])-source.body2World.p.x,double(center[1])-source.body2World.p.y,double(center[2])-source.body2World.p.z};
     const double velocity[3]={v.x+double(w.y)*r[2]-double(w.z)*r[1],v.y+double(w.z)*r[0]-double(w.x)*r[2],v.z+double(w.x)*r[1]-double(w.y)*r[0]};
     const double spin[3]={w.x,w.y,w.z};
-    for(unsigned k=0;k<3;++k)if(!destructionBody::floatValue(velocity[k],linear[k]) || !destructionBody::floatValue(spin[k],angular[k]))return false;
+    for(unsigned k=0;k<3;++k)if(!destructionBody::motionValue(velocity[k],linear[k]) || !destructionBody::motionValue(spin[k],angular[k]))return false;
     return true;
 }
 __device__ bool correctionMotion(const PxDestructionClusterBodyState& candidate,
@@ -22,7 +22,7 @@ __device__ bool correctionMotion(const PxDestructionClusterBodyState& candidate,
     // Use a local COM difference instead of subtracting large world origins.
     const double offset[3]={mass.center[0]-local.p.x,mass.center[1]-local.p.y,mass.center[2]-local.p.z};
     double delta[3];destructionBody::rotate(actor,offset,delta);output=candidate;
-    for(unsigned k=0;k<3;++k)if(!destructionBody::floatValue(double(world.p[k])+delta[k],output.bodyToWorldPosition[k]))return false;
+    for(unsigned k=0;k<3;++k)if(!destructionBody::motionValue(double(world.p[k])+delta[k],output.bodyToWorldPosition[k]))return false;
     double principal[4],norm=0;for(unsigned k=0;k<4;++k){principal[k]=candidate.bodyToActorOrientation[k];norm+=principal[k]*principal[k];}
     if(!isfinite(norm) || fabs(norm-1)>1e-5)return false;
     for(unsigned k=0;k<4;++k)principal[k]/=sqrt(norm);

@@ -121,4 +121,20 @@ void failures() {
     for(unsigned k=0;k<3;++k)CHECK(!anchor.body.principalInertia[k] && !anchor.body.inverseInertia[k]);
     std::puts("invalid/singular/nonfinite/unrepresentable body candidates explicitly rejected; massless authored support preserved");
 }
-int main(){analytic();roundedRotation();failures();}
+void tinyMotion() {
+    Input in{};in.mass.mass=1;in.mass.inertia[0]=in.mass.inertia[1]=in.mass.inertia[2]=1;in.motion.orientation[3]=1;
+    in.motion.origin[0]=1e-40;in.mass.center[1]=-1e-41;
+    in.motion.linearVelocity[0]=1e-40;in.motion.linearVelocity[1]=-1e-39;in.motion.linearVelocity[2]=1e-320;
+    in.motion.angularVelocity[0]=-1e-42;in.motion.angularVelocity[1]=1e-320;
+    const auto out=run({in})[0];CHECK(!out.error);
+    CHECK(out.body.bodyToWorldPosition[0]==float(in.motion.origin[0]));
+    CHECK(out.body.bodyToActorPosition[1]==float(in.mass.center[1]));
+    CHECK(out.body.linearVelocity[0]==float(in.motion.linearVelocity[0]));
+    CHECK(out.body.linearVelocity[1]==float(in.motion.linearVelocity[1]));
+    CHECK(out.body.linearVelocity[2]==0);
+    CHECK(out.body.angularVelocity[0]==float(in.motion.angularVelocity[0]));
+    CHECK(out.body.angularVelocity[1]==0);
+    CHECK(out.body.mass==1 && out.body.inverseMass==1);
+    std::puts("contact-settled subnormal motion follows float conversion without rejecting mass/inertia");
+}
+int main(){analytic();roundedRotation();failures();tinyMotion();}

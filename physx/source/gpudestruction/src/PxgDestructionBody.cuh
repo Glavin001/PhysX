@@ -69,6 +69,13 @@ __device__ inline bool floatValue(double value,float& out) {
     if(!isfinite(value) || fabs(value)>FLT_MAX)return false;
     out=float(value);return value==0 || fabs(out)>=FLT_MIN;
 }
+// A vanishing motion component is valid float solver state. Unlike mass and
+// inverse inertia, rounding it to a subnormal/zero cannot remove a motion DOF.
+// Use normal IEEE conversion rather than rejecting contact-settled bodies.
+__device__ inline bool motionValue(double value,float& out) {
+    if(!isfinite(value) || fabs(value)>FLT_MAX)return false;
+    out=float(value);return true;
+}
 __device__ inline unsigned prepare(const PxDestructionClusterMassProperties& mass,
     const PxDestructionClusterMotion& motion,PxDestructionClusterBodyState& out) {
     out={};out.supported=mass.supported!=0;
@@ -97,8 +104,8 @@ __device__ inline unsigned prepare(const PxDestructionClusterMassProperties& mas
     }
     for(unsigned i=0;i<3;++i) {
         if(!floatValue(moments[i],out.principalInertia[i]) || !floatValue(mass.supported?0:1/moments[i],out.inverseInertia[i])
-            || !floatValue(position[i],out.bodyToWorldPosition[i]) || !floatValue(mass.center[i],out.bodyToActorPosition[i])
-            || !floatValue(motion.angularVelocity[i],out.angularVelocity[i]))return 8;
+            || !motionValue(position[i],out.bodyToWorldPosition[i]) || !motionValue(mass.center[i],out.bodyToActorPosition[i])
+            || !motionValue(motion.angularVelocity[i],out.angularVelocity[i]))return 8;
     }
     // Reconcile velocity with the COM actually stored by the float solver.
     // Include the change from normalizing an approximately unit source rotation.
@@ -107,7 +114,7 @@ __device__ inline unsigned prepare(const PxDestructionClusterMassProperties& mas
     const double* w=motion.angularVelocity;
     const double velocity[3]={motion.linearVelocity[0]+w[1]*r[2]-w[2]*r[1],
         motion.linearVelocity[1]+w[2]*r[0]-w[0]*r[2],motion.linearVelocity[2]+w[0]*r[1]-w[1]*r[0]};
-    for(unsigned i=0;i<3;++i)if(!floatValue(velocity[i],out.linearVelocity[i]))return 8;
+    for(unsigned i=0;i<3;++i)if(!motionValue(velocity[i],out.linearVelocity[i]))return 8;
     return 0;
 }
 }} // namespace physx::destructionBody
