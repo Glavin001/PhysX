@@ -46,6 +46,7 @@
 
 namespace physx
 {
+class PxProfilerCallback;
 	//this is needed to force PhysXSimulationControllerGpu linkage as Static Library!
 	void createPxgSimulationController();
 
@@ -745,6 +746,8 @@ namespace physx
         PxgDestructionRuntime* mDestruction = NULL;
         PxU32 mDestructionError = 0;
         bool mDestructionCorrecting = false;
+        PxProfilerCallback* mDestructionCorrectionProfiler = NULL;
+        void* mDestructionCorrectionProfileData = NULL;
 		PxCudaContextManager*									mCudaContextManager;
 		PxgAllocatorDesc										mAllocDesc;
 		PxgCudaBroadPhaseSap*									mBroadPhase;

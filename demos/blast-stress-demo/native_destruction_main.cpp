@@ -3,6 +3,7 @@
 // for recording. It performs no stress solve, topology change or motion replay.
 #include "physx_scene.h"
 #include "state_writer.h"
+#include "native_phase_profiler.h"
 #include <PxDestructionScene.h>
 #include <cuda.h>
 #include <algorithm>
@@ -27,9 +28,10 @@ struct Shot {PxRigidDynamic* actor;unsigned visual;};
 using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
-    unsigned grid=3,waves=4,stressIterations=2048;float seconds=30;std::string output;
+    unsigned grid=3,waves=4,stressIterations=2048;bool profilePhases=false;float seconds=30;std::string output;
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
-        if(flag=="--grid")grid=std::stoul(value);else if(flag=="--waves")waves=std::stoul(value);
+        if(flag=="--profile-phases"){require(std::string(value)=="0" || std::string(value)=="1","--profile-phases requires 0 or 1");profilePhases=std::string(value)=="1";}
+        else if(flag=="--grid")grid=std::stoul(value);else if(flag=="--waves")waves=std::stoul(value);
         else if(flag=="--stress-iterations")stressIterations=std::stoul(value);else if(flag=="--seconds")seconds=std::stof(value);else if(flag=="--output")output=value;
         else throw std::runtime_error("unknown option: "+flag);
     }
@@ -40,6 +42,7 @@ int run(int argc,char** argv){
     const float inertia=massPerChunk*(half.x*half.x+half.y*half.y)/3;
     SceneCapacity capacity;capacity.maxBodies=buildings*512+buildings*waves;capacity.maxShapes=capacity.maxBodies;
     capacity.maxContactPairs=std::max(65536u,capacity.maxShapes*16);
+    NativePhaseProfiler phaseProfiler(profilePhases?output+"/native.phases.csv":"");
     PhysXScene context(PhysicsMode::Gpu,true,capacity,nullptr,true,true,false,false);
     auto& physics=context.physics();auto& scene=context.scene();auto& cuda=*context.cudaContextManager();
     require(context.gpuActive(),"native GPU physics is required");
@@ -102,12 +105,14 @@ int run(int argc,char** argv){
             const unsigned visualId=unsigned(chunks.size())+launched;VisualActor visual;visual.shape=VisualActor::Shape::Sphere;visual.parameters=PxVec3(.75f,0,0);visual.part=5;
             require(writer.defineActor(visualId,visual),"projectile visual definition failed");shots.push_back({shot,visualId});++launched;
         }
+        phaseProfiler.begin(frame);
         const auto begin=Clock::now();scene.simulate(dt);PxU32 error=0;const bool complete=scene.fetchResults(true,&error);const double simulationMs=ms(begin);
         const auto status=destruction->getLastStatus();
         if(!complete || error || status.error){std::fprintf(stderr,"INCOMPLETE native step %u: fetch=%u stage=%u broken=%u crushed=%u\n",frame,error,status.error,status.brokenBonds,status.crushedChunks);throw std::runtime_error("native demo correction incomplete");}
         require(status.converged,"native demo accepted an unconverged stress solve");
         require(status.correctionPasses<=1,"native demo exceeded one internal correction");require(status.frame==frame+1,"native demo duplicated timestep");
         require(time>=2 || !status.brokenBonds,"authored building fractured before bombardment");
+        phaseProfiler.acceptedFrame();
         totalCorrections+=status.correctionPasses;totalBroken+=status.brokenBonds;totalContacts+=status.normalContacts;
         const auto observation=Clock::now();const auto view=destruction->getDeviceView();PxDestructionTopologyStatus topology{};
         std::vector<PxU32> membership,roots;std::vector<PxDestructionClusterMotion> motions;

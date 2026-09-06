@@ -223,3 +223,8 @@ collision rebuilding, corrected solving, GPU stress/topology and CPU ownership
 application are not yet separately measured in this large-scene result. Selective
 correction or contact reuse still requires explicit validity checks; scene size
 must not be handled by dropping physical work or accepting unconverged stress.
+
+Optional release-build phase reporting is now available with `--profile-phases 1`.
+See [native profiling](NATIVE_PROFILING.md) for verified large-scene phase costs,
+reproduction commands and timing limits. GPU kernel timings and selective
+correction optimization remain outstanding.

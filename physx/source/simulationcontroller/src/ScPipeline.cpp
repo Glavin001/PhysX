@@ -2865,6 +2865,10 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
             canCorrect=!mActiveBodies[i]->getHasValidKinematicTarget();
     }
     if(mSimulationController->advanceDestruction(mDt, mGravity, canCorrect)) {
+        {
+        // Available in release builds when a profiler callback is installed.
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.refilter",false,
+            PxU64(reinterpret_cast<size_t>(mSimulationController)));
         // The full rigid checkpoint and new cluster inputs are installed. Drop
         // trial reporting, invalidate contact rows/caches, refresh all dynamic
         // bounds from GPU motion and rediscover newly eligible fragment pairs.
@@ -2885,6 +2889,7 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
 #endif
                 return; // incomplete step; never accept a truncated collision refresh
             }
+        }
         }
         PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);
         // Use a separate finalization task: this trial finalization is still

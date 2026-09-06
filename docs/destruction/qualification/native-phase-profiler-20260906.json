@@ -1,0 +1,129 @@
+{
+  "scope": "optional native destruction host-wall phase reporting",
+  "full_objective_complete": false,
+  "targeted_tests": {
+    "passed": 3,
+    "names": [
+      "physx_native_gpu_body_allocation",
+      "physx_native_gpu_resimulation",
+      "physx_native_gpu_publication"
+    ]
+  },
+  "capture": {
+    "backend": "native PhysX GPU task graph + resident CUDA destruction",
+    "status": "completed",
+    "frames": 180,
+    "seconds": 3,
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "peak_clusters": 89923,
+    "projectiles": 252,
+    "broken_bonds": 185011,
+    "corrections": 56,
+    "correction_limit": 1,
+    "physics_ms_p50": 0.540818,
+    "physics_ms_p95": 654.237,
+    "physics_ms_p99": 741.877,
+    "physics_ms_max": 750.78,
+    "missed_16_67ms": 56,
+    "stress_included_in_physics_time": true,
+    "isolated_performance_qualification": false,
+    "sleeping": false,
+    "crushing_material_enabled": false
+  },
+  "phases": {
+    "status": "validated-native-phase-capture",
+    "frames": 180,
+    "corrected_steps": 56,
+    "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
+    "profiling_overhead_in_simulation_time": true,
+    "nested_phase": "refilter is included in correctedCollisionSolve",
+    "unmeasured_interval": "ordinary trial, checkpoint, remaining PhysX work and callback overhead",
+    "phases": {
+      "acceptCorrection": {
+        "samples": 56,
+        "mean_ms": 0.3734011071428571,
+        "median_ms": 0.366128,
+        "max_ms": 0.527333
+      },
+      "applyBindings": {
+        "samples": 56,
+        "mean_ms": 17.460941125,
+        "median_ms": 16.067802,
+        "max_ms": 29.480262
+      },
+      "collisionBindings": {
+        "samples": 180,
+        "mean_ms": 0.03341140555555556,
+        "median_ms": 0.0001055,
+        "max_ms": 1.643726
+      },
+      "correctedCollisionSolve": {
+        "samples": 56,
+        "mean_ms": 287.8683844285714,
+        "median_ms": 249.2359765,
+        "max_ms": 658.329705
+      },
+      "correctionBodies": {
+        "samples": 180,
+        "mean_ms": 0.071979,
+        "median_ms": 9e-05,
+        "max_ms": 1.519965
+      },
+      "finishAndReserve": {
+        "samples": 180,
+        "mean_ms": 2.7394029555555557,
+        "median_ms": 0.22589150000000002,
+        "max_ms": 12.846425
+      },
+      "initializeReserved": {
+        "samples": 56,
+        "mean_ms": 0.13308889285714287,
+        "median_ms": 0.056896,
+        "max_ms": 1.257525
+      },
+      "refilter": {
+        "samples": 56,
+        "mean_ms": 70.004999,
+        "median_ms": 64.51404099999999,
+        "max_ms": 148.844745
+      },
+      "restoreInstall": {
+        "samples": 56,
+        "mean_ms": 0.5654339285714286,
+        "median_ms": 0.5436639999999999,
+        "max_ms": 1.656509
+      },
+      "submit": {
+        "samples": 180,
+        "mean_ms": 0.2622195222222222,
+        "median_ms": 0.1284095,
+        "max_ms": 2.420022
+      }
+    },
+    "corrected_step_mean_ms": {
+      "acceptCorrection": 0.3734011071428571,
+      "applyBindings": 17.460941125,
+      "collisionBindings": 0.10714448214285714,
+      "correctedCollisionSolve": 287.8683844285714,
+      "correctionBodies": 0.23116375,
+      "finishAndReserve": 8.253236089285714,
+      "initializeReserved": 0.13308889285714287,
+      "refilter": 70.004999,
+      "restoreInstall": 0.5654339285714286,
+      "submit": 0.5233417142857143
+    },
+    "corrected_pass_excluding_refilter_mean_ms": 217.86338542857143,
+    "unmeasured_interval_mean_ms": 9.523494411111113,
+    "isolated_performance_qualification": false
+  },
+  "artifacts": "out/recordings/native-scale-113664-profiled-20260906",
+  "final_collector_smoke": "out/recordings/native-profiler-final-smoke-20260906",
+  "incomplete_capture": "out/recordings/native-profiler-incomplete-20260906",
+  "negative_checks": [
+    "incomplete run: exit 1, no completed summary, all phase rows unaccepted",
+    "duplicate phase row rejected by analyzer"
+  ],
+  "full_suite_reference": "native-query-index-20260906.json; not rerun for profiling change"
+}

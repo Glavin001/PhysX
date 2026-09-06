@@ -91,6 +91,8 @@ void addRef(PxCudaContextManager* cudaContextManager);
 
 using namespace physx;
 
+static const char gDestructionCorrectionZone[] = "GpuDestruction.correctedCollisionSolve";
+
 static PX_FORCE_INLINE void getGRBVertexIndices(PxU32& vref0, PxU32& vref1, PxU32& vref2, PxU32 triIndex, const Gu::TriangleMesh* triangleMesh)
 {
 	const PxU32 offset = triIndex * 3;
@@ -231,6 +233,9 @@ namespace physx
 
 	PxgSimulationController::~PxgSimulationController()
 	{
+        if(mDestructionCorrectionProfiler)
+            mDestructionCorrectionProfiler->zoneEnd(mDestructionCorrectionProfileData,
+                gDestructionCorrectionZone,true,PxU64(reinterpret_cast<size_t>(this)));
         if(mDestruction) mDestruction->release();
         {
             PxScopedCudaLock lock(*mCudaContextManager);
@@ -639,6 +644,12 @@ namespace physx
     {
         if(!mDestruction) return false;
         if(mDestructionCorrecting) {
+            if(mDestructionCorrectionProfiler) {
+                mDestructionCorrectionProfiler->zoneEnd(mDestructionCorrectionProfileData,
+                    gDestructionCorrectionZone,true,PxU64(reinterpret_cast<size_t>(this)));
+                mDestructionCorrectionProfiler=NULL;mDestructionCorrectionProfileData=NULL;
+            }
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.acceptCorrection",false,PxU64(reinterpret_cast<size_t>(this)));
             PxScopedCudaLock lock(*mCudaContextManager);
             const bool accepted=!mCudaContextManager->getCudaContext()->isInAbortMode()
                 && mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
@@ -650,8 +661,12 @@ namespace physx
             return false;
         }
         PX_PROFILE_ZONE("GpuDestruction.contactStress", 0);
+        const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
+        bool ok;
+        {
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
         const PxU32 pairs = mNpContext->getGpuNarrowphaseCore()->mTotalNumPairs;
-        bool ok = mDestruction->prepareFrame(pairs);
+        ok = mDestruction->prepareFrame(pairs);
         CUevent ready = mDestruction->inputEvent();
         if(ok && pairs)
             ok = copyContactData(mDestruction->contactPairs(), mDestruction->contactCount(), pairs, ready, ready);
@@ -662,12 +677,18 @@ namespace physx
             ok = getRigidDynamicData(mDestruction->angularVelocities(), mDestruction->bodyIndices(),
                 PxRigidDynamicGPUAPIReadType::eANGULAR_VELOCITY, mDestruction->clusterCount(), ready, ready);
         if(ok) ok = mDestruction->advance(dt, gravity, mSimulationCore->getBodySimBufferDevicePtr().getPointer());
+        }
         // Complete before contact buffers can be recycled or the scene is
         // published. Only compact new-body allocation metadata and status leave
         // the GPU; no bond graph, contact loads or physical body state readback.
-        const bool complete = mDestruction->finish();
+        bool complete;
+        {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.finishAndReserve",false,profileContext);
+            complete=mDestruction->finish();
+        }
         if(ok && mDestruction->reservedBodyCount())
         {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.initializeReserved",false,profileContext);
             PxScopedCudaLock lock(*mCudaContextManager);
             PxCudaContext* cuda=mCudaContextManager->getCudaContext();
             if(!cuda->isInAbortMode())
@@ -701,15 +722,26 @@ namespace physx
             }
             ok=ok && initialized;
         }
-        if(ok) ok=mDestruction->prepareCollisionBindings(
-            mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
-            mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),mSimulationCore->getStream());
-        if(ok) ok=mDestruction->prepareCorrectionBodies(mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
+        if(ok) {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.collisionBindings",false,profileContext);
+            ok=mDestruction->prepareCollisionBindings(
+                mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
+                mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),mSimulationCore->getStream());
+        }
+        if(ok) {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.correctionBodies",false,profileContext);
+            ok=mDestruction->prepareCorrectionBodies(mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
+        }
         if(ok && !complete && mDestruction->correctionEnabled() && canCorrect) {
             // The runtime validates command assignment and the whole metadata
             // batch before changing owners. Physical data never crosses to CPU.
-            ok=mDestruction->applyCorrectionBindings();
+            {
+                PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.applyBindings",false,profileContext);
+                ok=mDestruction->applyCorrectionBindings();
+            }
             if(ok) {
+                {
+                PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.restoreInstall",false,profileContext);
                 PxScopedCudaLock lock(*mCudaContextManager);
                 const auto checkpoint=mDestruction->rigidCheckpoint();
                 auto* bodies=mSimulationCore->getBodySimBufferDevicePtr().getPointer();
@@ -728,6 +760,16 @@ namespace physx
                     auto& pending=mBodySimManager.mNewOrUpdatedBodySims;PxU32 kept=0;
                     for(PxU32 i=0;i<pending.size();++i)if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
                     pending.forceSize_Unsafe(kept);
+                }
+                }
+                if(ok) {
+                    // This event spans the task-graph continuation, including
+                    // CPU refiltering. Keep the callback/token paired even when
+                    // the corrected finalization executes on a different worker.
+                    mDestructionCorrectionProfiler=PxGetProfilerCallback();
+                    if(mDestructionCorrectionProfiler)
+                        mDestructionCorrectionProfileData=mDestructionCorrectionProfiler->zoneStart(
+                            gDestructionCorrectionZone,true,profileContext);
                     mDestructionCorrecting=true;mDestructionError=1;return true;
                 }
             }
