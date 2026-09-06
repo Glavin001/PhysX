@@ -14,7 +14,7 @@ struct NativeGpuVisualStatus { physx::PxU32 errors, visible; };
 void writeNativeGpuInstances(physx::PxDestructionDeviceView view,
     const NativeGpuVisual* visuals, const physx::PxTransform* projectiles,
     physx::PxU32 projectileCount, NativeGpuInstance* output,
-    NativeGpuVisualStatus* status, CUstream stream);
+    NativeGpuVisualStatus* status, CUstream stream, bool colorByCluster=false);
 // Explicit gameplay query: only the scalar required launch height is observed
 // on CPU. No pose/topology readback. Radius is a conservative bounding sphere.
 void queryNativeGpuLaunch(physx::PxDestructionDeviceView view,

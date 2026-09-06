@@ -34,6 +34,7 @@ struct NativeGpuConsumer::Impl {
     PxCudaContextManager& cuda;PxDestructionScene& stage;PxDestructionDeviceView view{};
     CUstream stream{};CUevent uploaded{},shotsReady{},consumed{};
     CUdeviceptr visuals{},ids{},poses{},height{},status{};
+    bool colorByCluster=false;
     unsigned shotCount=0,shotCapacity=0,chunkCount=0,frames=0;
     unsigned long long queryBytes=0,pixelBytes=0;std::string renderer;
 #ifdef NATIVE_GPU_EGL
@@ -72,6 +73,7 @@ NativeGpuConsumer::NativeGpuConsumer(PxCudaContextManager& cuda,PxDestructionSce
     check(cuMemAlloc(&m->height,sizeof(float)));check(cuMemAlloc(&m->status,sizeof(NativeGpuVisualStatus)));check(cuMemsetD8(m->status,0,sizeof(NativeGpuVisualStatus)));
 }
 NativeGpuConsumer::~NativeGpuConsumer()=default;
+void NativeGpuConsumer::setClusterColors(bool enabled){m->colorByCluster=enabled;}
 void NativeGpuConsumer::addProjectile(PxU32 body,const PxTransform& pose){
     require(m->shotCount<m->shotCapacity,"GPU projectile capacity exhausted");PxScopedCudaLock lock(m->cuda);
     // Authored input commands, not observed motion. Synchronous tiny uploads
@@ -167,7 +169,7 @@ void NativeGpuConsumer::render(std::vector<NativeGpuInstance>* observed){
     require(eglMakeCurrent(m->display,m->surface,m->surface,m->context),"EGL context switch failed");
     check(cuGraphicsMapResources(1,&m->resource,m->stream));CUdeviceptr mapped;size_t bytes;
     try{check(cuGraphicsResourceGetMappedPointer(&mapped,&bytes,m->resource));require(bytes>=(size_t(m->chunkCount)+m->shotCount)*sizeof(NativeGpuInstance),"mapped render capacity exhausted");
-        writeNativeGpuInstances(m->view,reinterpret_cast<const NativeGpuVisual*>(m->visuals),reinterpret_cast<const PxTransform*>(m->poses),m->shotCount,reinterpret_cast<NativeGpuInstance*>(mapped),reinterpret_cast<NativeGpuVisualStatus*>(m->status),m->stream);
+        writeNativeGpuInstances(m->view,reinterpret_cast<const NativeGpuVisual*>(m->visuals),reinterpret_cast<const PxTransform*>(m->poses),m->shotCount,reinterpret_cast<NativeGpuInstance*>(mapped),reinterpret_cast<NativeGpuVisualStatus*>(m->status),m->stream,m->colorByCluster);
         if(observed) {
             observed->resize(size_t(m->chunkCount)+m->shotCount);
             check(cuMemcpyDtoHAsync(observed->data(),mapped,observed->size()*sizeof(NativeGpuInstance),m->stream));

@@ -10,6 +10,7 @@ public:
     NativeGpuConsumer(physx::PxCudaContextManager& cuda,physx::PxDestructionScene& destruction,
         const std::vector<NativeGpuVisual>& visuals,unsigned projectileCapacity);
     ~NativeGpuConsumer();
+    void setClusterColors(bool enabled);
     void addProjectile(physx::PxU32 body,const physx::PxTransform& initial);
     float launchHeight(physx::PxVec3 position,float radius);
     void update(physx::PxDirectGPUAPI& api);

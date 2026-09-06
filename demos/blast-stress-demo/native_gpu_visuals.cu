@@ -28,18 +28,44 @@ __device__ NativeGpuInstance instance(PxTransform pose,PxVec3 scale,PxU32 palett
     out.scale[0]=scale.x;out.scale[1]=scale.y;out.scale[2]=scale.z;
     for(unsigned j=0;j<3;++j)out.color[j]=colors[palette%6][j];out.color[3]=1;return out;
 }
+// Color is an observation of accepted connectivity, never a grouping rule.
+// Root + generation survive motion and packed-slot reordering. Recycled handles
+// receive a new color. The hash is a visual aid, not a unique identity encoding.
+__device__ void clusterColor(PxDestructionDeviceView view,PxU32 chunk,float* color) {
+    const auto t=view.acceptedTopology;const PxU32 root=t.chunkCluster[chunk];
+    const PxU64 generation=t.slotGenerations[t.clusterSlots[root]];
+    PxU32 key=root ^ PxU32(generation)*0x9e3779b9u ^ PxU32(generation>>32);
+    key^=key>>16;key*=0x7feb352du;key^=key>>15;key*=0x846ca68bu;key^=key>>16;
+    const float hue=float(key&0xffffffu)*(6.0f/16777216.0f);
+    const float low=.24f,high=.95f,f=hue-floorf(hue);
+    const float rising=low+(high-low)*f,falling=high-(high-low)*f;
+    switch(unsigned(hue)) {
+        case 0:color[0]=high;color[1]=rising;color[2]=low;break;
+        case 1:color[0]=falling;color[1]=high;color[2]=low;break;
+        case 2:color[0]=low;color[1]=high;color[2]=rising;break;
+        case 3:color[0]=low;color[1]=falling;color[2]=high;break;
+        case 4:color[0]=rising;color[1]=low;color[2]=high;break;
+        default:color[0]=high;color[1]=low;color[2]=falling;break;
+    }
+}
 __global__ void instances(PxDestructionDeviceView view,const NativeGpuVisual* visuals,
-    const PxTransform* shots,PxU32 count,NativeGpuInstance* out,NativeGpuVisualStatus* status) {
+    const PxTransform* shots,PxU32 count,NativeGpuInstance* out,NativeGpuVisualStatus* status,bool colorByCluster) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=view.chunkCount+count)return;
     NativeGpuInstance value{};bool invalid=false;
     if(view.status->error || !view.status->frame || view.acceptedTopology.status->slotError)invalid=true;
     else if(i<view.chunkCount) {
         PxTransform pose;
-        if(chunkPose(view,visuals,i,pose,invalid))value=instance(pose,visuals[i].half,visuals[i].palette);
+        if(chunkPose(view,visuals,i,pose,invalid)) {
+            value=instance(pose,visuals[i].half,visuals[i].palette);
+            if(colorByCluster)clusterColor(view,i,value.color);
+        }
     } else {
         const auto pose=shots[i-view.chunkCount];
         if(!pose.isValid())invalid=true;
-        else value=instance(pose,PxVec3(.75f),5);
+        else {
+            value=instance(pose,PxVec3(.75f),5);
+            if(colorByCluster)for(unsigned j=0;j<3;++j)value.color[j]=.95f;
+        }
     }
     out[i]=value;
     if(invalid)atomicOr(&status->errors,1u);
@@ -68,9 +94,9 @@ __global__ void launchHeight(PxDestructionDeviceView view,const NativeGpuVisual*
 void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(e));}
 }
 void writeNativeGpuInstances(physx::PxDestructionDeviceView view,const NativeGpuVisual* visuals,
-    const physx::PxTransform* shots,physx::PxU32 count,NativeGpuInstance* out,NativeGpuVisualStatus* status,CUstream stream) {
+    const physx::PxTransform* shots,physx::PxU32 count,NativeGpuInstance* out,NativeGpuVisualStatus* status,CUstream stream,bool colorByCluster) {
     check(cudaMemsetAsync(&status->visible,0,sizeof(status->visible),stream));
-    if(view.chunkCount+count)instances<<<(view.chunkCount+count+255)/256,256,0,stream>>>(view,visuals,shots,count,out,status);
+    if(view.chunkCount+count)instances<<<(view.chunkCount+count+255)/256,256,0,stream>>>(view,visuals,shots,count,out,status,colorByCluster);
     check(cudaGetLastError());
 }
 void queryNativeGpuLaunch(physx::PxDestructionDeviceView view,const NativeGpuVisual* visuals,
