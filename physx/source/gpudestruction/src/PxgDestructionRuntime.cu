@@ -363,6 +363,13 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionCollisionPreparationStatus mHostCollisionPreparation{};
     void* mCollisionScratch{};size_t mCollisionScratchBytes{};
     PxgDestructionEdit* mTopologyEdits{};PxU32* mTopologyCount{};PxU32* mTopologyAccept{};PxU32 mEditCapacity{};
+    PxgBodySim* mCheckpointBodies{};
+    PxgBodySimVelocities* mCheckpointPrevious{};
+    PxgRigidBodyAcceleration* mCheckpointAccelerations{};
+    PxU32 mCheckpointCapacity{},mCheckpointCount{};
+    PxU64 mCheckpointGeneration{};
+    bool mCheckpointHasPrevious=false,mCheckpointHasAccelerations=false,mCheckpointValid=false;
+    cudaEvent_t mCheckpointReady{};
     bool mPending=false; bool mFailed=false;
 public:
     Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
@@ -370,6 +377,7 @@ public:
         check(cudaStreamCreateWithFlags(&mStream,cudaStreamNonBlocking));
         check(cudaEventCreateWithFlags(&mInput,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mReady,cudaEventDisableTiming));
+        check(cudaEventCreateWithFlags(&mCheckpointReady,cudaEventDisableTiming));
         allocate(mCount,1); allocate(mStatus,1);
         check(cudaMallocHost(&mHostStatus,sizeof(*mHostStatus)));*mHostStatus={};
         check(cudaMemset(mStatus,0,sizeof(*mStatus)));
@@ -379,9 +387,15 @@ public:
     ~Runtime() override {
         Context current(mContext); cudaStreamSynchronize(mStream);clear();
         cudaFree(mCount);cudaFree(mStatus);cudaFree(mPairs);cudaFreeHost(mHostStatus);
-        cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaStreamDestroy(mStream);
+        cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
+        if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
+        mCheckpointValid=false;mCheckpointCount=0;mCheckpointCapacity=0;
+        mCheckpointHasPrevious=mCheckpointHasAccelerations=false;
+        cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
+        cudaFree(mCheckpointPrevious);mCheckpointPrevious=nullptr;
+        cudaFree(mCheckpointAccelerations);mCheckpointAccelerations=nullptr;
         mHostReservedIndices.clear();mHostBodyAllocation={};mHostCollisionPreparation={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
@@ -698,6 +712,63 @@ public:
         check(cudaMemcpyAsync(mBodyAllocation,&allocation,sizeof(allocation),cudaMemcpyHostToDevice,mStream));
         check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
         check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+    }
+    bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
+        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream) override {
+        if(!mTopology)return true;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            if(mFailed || !bodies || !count || !stream || mCheckpointGeneration==std::numeric_limits<PxU64>::max())
+                throw std::runtime_error("invalid rigid checkpoint boundary");
+            if(mCheckpointValid)check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+            mCheckpointValid=false;
+            if(count>mCheckpointCapacity || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations) {
+                // Grow only at the ordered pre-solve boundary. Allocation failure
+                // cannot truncate the checkpoint or mutate accepted body state.
+                PxgBodySim* freshBodies=nullptr;PxgBodySimVelocities* freshPrevious=nullptr;
+                PxgRigidBodyAcceleration* freshAccelerations=nullptr;
+                const PxU64 grown=std::max<PxU64>(256,PxU64(mCheckpointCapacity)+mCheckpointCapacity/2);
+                const PxU32 capacity=PxU32(std::max<PxU64>(count,std::min<PxU64>(grown,std::numeric_limits<PxU32>::max())));
+                try {
+                    allocate(freshBodies,capacity);
+                    if(previous)allocate(freshPrevious,capacity);
+                    if(accelerations)allocate(freshAccelerations,capacity);
+                }catch(...) {cudaFree(freshBodies);cudaFree(freshPrevious);cudaFree(freshAccelerations);throw;}
+                cudaFree(mCheckpointBodies);cudaFree(mCheckpointPrevious);cudaFree(mCheckpointAccelerations);
+                mCheckpointBodies=freshBodies;mCheckpointPrevious=freshPrevious;mCheckpointAccelerations=freshAccelerations;
+                mCheckpointCapacity=capacity;
+                mCheckpointHasPrevious=previous!=nullptr;mCheckpointHasAccelerations=accelerations!=nullptr;
+            }
+            check(cudaMemcpyAsync(mCheckpointBodies,bodies,size_t(count)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
+            if(previous)check(cudaMemcpyAsync(mCheckpointPrevious,previous,size_t(count)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
+            if(accelerations)check(cudaMemcpyAsync(mCheckpointAccelerations,accelerations,size_t(count)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
+            check(cudaEventRecord(mCheckpointReady,stream));
+            mCheckpointCount=count;++mCheckpointGeneration;mCheckpointValid=true;return true;
+        }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
+    }
+    PxgDestructionRigidCheckpointView rigidCheckpoint() const override {
+        PxgDestructionRigidCheckpointView result;
+        if(mCheckpointValid) {
+            result.bodies=mCheckpointBodies;result.previous=mCheckpointPrevious;result.accelerations=mCheckpointAccelerations;
+            result.count=mCheckpointCount;result.generation=mCheckpointGeneration;result.ready=mCheckpointReady;
+        }
+        return result;
+    }
+    bool restoreRigidState(PxgBodySim* bodies,PxgBodySimVelocities* previous,
+        PxgRigidBodyAcceleration* accelerations,PxU32 capacity,PxU64 generation,CUstream coreStream) override {
+        // Reject the whole operation before any device write. A generation is
+        // never recycled by clear/reconfiguration, so stale views cannot rewind
+        // a newly instantiated structure or a later timestep.
+        if(mFailed || !mCheckpointValid || generation!=mCheckpointGeneration || capacity<mCheckpointCount || !bodies || !coreStream
+            || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations)return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+            check(cudaMemcpyAsync(bodies,mCheckpointBodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
+            if(previous)check(cudaMemcpyAsync(previous,mCheckpointPrevious,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
+            if(accelerations)check(cudaMemcpyAsync(accelerations,mCheckpointAccelerations,size_t(mCheckpointCount)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
+            check(cudaEventRecord(mCheckpointReady,stream));return true;
+        }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
     }
     PxU32 reservedBodyCount() const override {return PxU32(mHostReservedIndices.size());}
     const PxU32* reservedBodyIndices() const override {return mHostReservedIndices.data();}

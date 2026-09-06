@@ -8,11 +8,30 @@ struct PxgBodySim;
 struct PxgShapeSim;
 struct PxgBodySimVelocities;
 struct PxgRigidBodyAcceleration;
+// Internal rigid-state portion of the correction checkpoint, captured after
+// command upload and before solving. This is not a complete scene checkpoint:
+// island/contact/constraint and articulation state require separate accounting.
+struct PxgDestructionRigidCheckpointView {
+    const PxgBodySim* bodies = NULL;
+    const PxgBodySimVelocities* previous = NULL;
+    const PxgRigidBodyAcceleration* accelerations = NULL;
+    PxU32 count = 0;
+    PxU64 generation = 0;
+    CUevent ready = NULL;
+};
 // Private bridge between PhysX's kernel-wrangler module and the runtime CUDA
 // stress module. Both share the scene's CUDA context; no physics API replay.
 class PxgDestructionRuntime : public PxDestructionScene {
 public:
     virtual bool configured() const = 0;
+    virtual bool captureRigidState(const PxgBodySim* bodies, const PxgBodySimVelocities* previous,
+        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream) = 0;
+    virtual PxgDestructionRigidCheckpointView rigidCheckpoint() const = 0;
+    // Copies only the captured rigid arrays, never CPU/island/contact state.
+    // Candidate bodies must be applied after this restore, including new slots
+    // that reused pre-existing holes. The future correction task owns that order.
+    virtual bool restoreRigidState(PxgBodySim* bodies, PxgBodySimVelocities* previous,
+        PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 generation, CUstream stream) = 0;
     virtual bool prepareFrame(PxU32 contactCapacity) = 0;
     virtual PxGpuContactPair* contactPairs() const = 0;
     virtual PxU32* contactCount() const = 0;

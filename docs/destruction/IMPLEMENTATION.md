@@ -15,14 +15,16 @@ settings preserved through kinematic mode; see
 [NATIVE_GPU_BODY_INITIALIZATION.md](NATIVE_GPU_BODY_INITIALIZATION.md).
 GPU persistent collision binding preparation now follows initialization; see
 [NATIVE_GPU_COLLISION_PREPARATION.md](NATIVE_GPU_COLLISION_PREPARATION.md).
-Applying collision-owner transfers, retained-body updates and internal correction
-remain unfinished.
+The pre-solve GPU rigid-state checkpoint is now captured automatically; see
+[NATIVE_GPU_RIGID_CHECKPOINT.md](NATIVE_GPU_RIGID_CHECKPOINT.md). Applying
+collision-owner transfers, retained-body updates and the complete internal
+correction transaction remain unfinished.
 
 The standalone reference demo and recording workflow are documented in
 [DEMO.md](DEMO.md). They now default to one verdict and one motion replay; see
 [SINGLE_RESIM_REFERENCE.md](SINGLE_RESIM_REFERENCE.md) for the explicit legacy
 comparison and the new, unresolved wall-crushing behavior gap. The latest full
-suite is 48/53 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
+suite is 49/54 passing (the same four earlier failures plus that single-resim gap). Contact-stress/correction fidelity fixes and their unresolved
 expectations are documented separately in [CONTACT_STRESS_FIXES.md](CONTACT_STRESS_FIXES.md).
 
 Source repositories `blast-stress-solver-2` and `vibe-land-4` remain read-only.
@@ -123,6 +125,11 @@ is tracked separately in [GPU_QUIET_LOAD_FIX.md](GPU_QUIET_LOAD_FIX.md).
   owners and crushed-shape removals, and rejects invalid batches before ownership
   mutation. Stable compaction excludes unchanged structures without CPU graph or
   shape traversal. Applying these edits inside the correction transaction remains.
+
+- Added an automatically captured GPU rigid-state checkpoint after command
+  upload and before solving, with a guarded internal array restore. It includes
+  ordinary bodies, consumed force inputs and optional acceleration history;
+  full island/contact/constraint restoration and the single resim remain open.
 
 ## Remaining completion gates
 

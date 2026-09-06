@@ -1,0 +1,158 @@
+{
+  "milestone": "Native pre-solve GPU rigid-state checkpoint",
+  "timestampUtc": "2026-09-06T01:31:03.964175+00:00",
+  "baseRevision": "e3fde112ffb80e578ec1f0a947572eb073719481",
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05",
+  "buildCommand": {
+    "command": [
+      "python3",
+      "tools/scripts/build-destruction-sdk.py",
+      "--jobs",
+      "4"
+    ],
+    "returncode": 0
+  },
+  "regressionCommand": {
+    "command": [
+      "ctest",
+      "--test-dir",
+      "out/destruction-sdk",
+      "--output-on-failure",
+      "--output-junit",
+      "/root/workspace/physx-2/out/native-rigid-checkpoint-regression.xml"
+    ],
+    "returncode": 8
+  },
+  "regression": {
+    "tests": 54,
+    "passed": 49,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newFailures": [],
+    "existingAssertionsWeakened": false
+  },
+  "newTest": "physx_native_gpu_rigid_checkpoint",
+  "memoryChecks": [
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_checkpoint_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-rigid-checkpoint-native_gpu_checkpoint_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "3572b942bec29ed764ffbd4af98621260b682422bcfba26bfa6056e6de13e305"
+    },
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_allocation_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-rigid-checkpoint-native_gpu_allocation_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "647ae9708bb3dd63dee3119a6e41aca29ea51ba135f28a24a5ea9f335e1053ba"
+    },
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_collision_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-rigid-checkpoint-native_gpu_collision_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "f353ffc669051715ee10c5ca54f94c12db2e7635f76159b7e4223f67d1c16f5b"
+    }
+  ],
+  "installedConsumers": [
+    {
+      "command": [
+        "out/package-consumer/package_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    }
+  ],
+  "sourceSha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "6ca29f52ddc23c79d43a0eceb11f21724880da292738ea4c208db8df2edee535",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "be296de0c95574968036f0fc1a95d0a85354f2ea84ef76b89534139c22042083",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "f58218289bec21d8d027cdecb44c7aa35e56ab7f62c6394f37624768ffa91f4a",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "77db03e6a2585ebc9378029c3e8c173b6c9434ab9b42e93193cc734447b83f76",
+    "demos/blast-stress-demo/tests/native_gpu_checkpoint_test.cpp": "e20602c8e128303606bf9c99054377280fc755e2a65cde6ccec846bbc8a20a90"
+  },
+  "librarySha256": {
+    "libPhysXDestructionGpuRuntime_64.so": "352c741ae61e7b34147b099f6797e90b1e11dfebe8ce386018e8d047c6005a0e",
+    "libPhysXGpuActivity_64.so": "26986fa99cec62f73533ccb4ecd65717dbc84b86a64943aacfe401e556583a93",
+    "libPhysX_static_64.a": "b04d4bcd7978921d4b69675e596ad372d8492a4812439d174befeceb7d001c73"
+  },
+  "logsSha256": {
+    "out/native-rigid-checkpoint-build.log": "ac5ab2f1924be4b71c1feb4207f89c91894cd60522a269cc48de281b5b6097f8",
+    "out/native-rigid-checkpoint-regression.log": "4a7ece36a0428c91541cf18e19b92bab663ef7356fe7cf79a927bb60cc025863",
+    "out/native-rigid-checkpoint-regression.xml": "b1b204738fa1d4e39278cae3d4c9b01c644e2cfb268ab5f2588196b4e7684698",
+    "out/native-rigid-checkpoint-package-build.log": "1da857deadc73aa5bd215aeb48c8f02190f3e18347dc14e7ebb0895ba7d39d4a",
+    "out/native-rigid-checkpoint-package-consumers.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "coverage": [
+    "Native GPU task captures complete rigid-body arrays after command upload and before solver execution",
+    "Actual projectile ground contact and locked D6 joint change both ordinary participant velocities after checkpoint capture",
+    "Newly uploaded velocity, mass and pose are captured",
+    "Direct GPU force inputs are captured before consumption and restored for later correction",
+    "TGS/PGS crossed with sleeping and optional acceleration tracking enabled/disabled: eight modes",
+    "Growth by 257 native bodies, all included without truncation",
+    "Stale generations, insufficient capacity and partial optional buffers reject before any writes",
+    "Clear/reconfiguration invalidates checkpoint views without reusing generations",
+    "Internal restore to actual GPU body/previous-velocity/acceleration arrays is byte-identical to checkpoint and ordered on a nonblocking CUDA stream"
+  ],
+  "storage": {
+    "bodyBytesPerSlot": 240,
+    "optionalAccelerationBytesPerSlot": 64,
+    "growth": "geometric with at least 256 slots",
+    "hostMotionTransferBytes": 0,
+    "captureRange": "entire current native body pool, including holes"
+  },
+  "limitations": [
+    "Automatic checkpoint capture is implemented; normal simulation does not invoke the private rigid-array restore yet",
+    "Rigid arrays alone are not a complete scene checkpoint; island activation, contact and constraint state, CCD histories, CPU mirrors and notifications still require restoration/accounting",
+    "Articulation reduced-coordinate state is not captured by this primitive",
+    "Fracture candidates still reflect provisional trial motion and need reconciliation with original input state before the correction solve",
+    "Native ownership-changing fracture still returns incomplete error 8, with no accepted shape ownership transaction or full resim",
+    "Full SDK API, fidelity corrections, compatibility consumers/game, native demo/video and massive-scene performance qualification remain unfinished",
+    "No isolated full-scene performance or 60 Hz claim"
+  ]
+}
