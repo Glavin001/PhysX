@@ -3,10 +3,11 @@
 #include "StressHierarchyGraph.cuh"
 #include "StressHierarchyPacking.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
-class PackedLevel {
+template<bool RetireTerminal>
+class PackedLevelImpl {
     Input mInput;Buffers mParent;const Status* mParentStatus;cudaStream_t mStream;
     PackingBuffers mBuffers{};Status* mStatus=nullptr;PackingWork* mWork=nullptr;
-    unsigned mTiles=0,mBlocks=0;bool mAppended=false;
+    unsigned mTiles=0,mBlocks=0;bool mAppended=false;TerminalRetirement mRetirement{};
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident packed level: ")+cudaGetErrorString(e));}
     template<class T>static void allocate(T*& p,size_t n){check(cudaMalloc(&p,std::max(size_t(1),n)*sizeof(T)));}
     void release()noexcept{
@@ -16,7 +17,8 @@ class PackedLevel {
         cudaFree(mBuffers.keys);cudaFree(mBuffers.sorted);cudaFree(mBuffers.bonds);cudaFree(mStatus);cudaFree(mWork);
     }
 public:
-    PackedLevel(Input input,const Graph& parent,cudaStream_t stream):mInput(input),mParent(parent.buffers()),mParentStatus(parent.status()),mStream(stream){
+    PackedLevelImpl(Input input,const Graph& parent,cudaStream_t stream,TerminalRetirement retirement={}):mInput(input),mParent(parent.buffers()),mParentStatus(parent.status()),mStream(stream),mRetirement(retirement){
+        if constexpr(RetireTerminal)if(!retirement.owner || !retirement.status || retirement.level==Invalid)throw std::runtime_error("Resident retiring packing requires committed terminal ownership");
         if(input.nodes>(1u<<29) || input.bonds>(1u<<29))throw std::runtime_error("Resident packed level exceeds scan index capacity");
         const auto partition=input.partition;
         if(!partition.ids || !partition.begin || !partition.end || !partition.nodeCount || !partition.count || (!input.levelBonds && !partition.nodes))
@@ -25,7 +27,7 @@ public:
         try {
             int device=0,sms=0,blocks=0,cooperative=0;check(cudaGetDevice(&device));
             check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));
-            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,packLevel,Threads,0));
+            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,packLevel<RetireTerminal>,Threads,0));
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident packing requires legal cooperative CUDA residency");
             // At least two blocks provide all 16 radix-prefix warps.
             const unsigned required=std::max(2u,(std::max(input.nodes,input.bonds)+Threads-1)/Threads);
@@ -43,12 +45,12 @@ public:
             check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));check(cudaMemsetAsync(mBuffers.counts,0,3*sizeof(unsigned),stream));
         } catch(...){release();throw;}
     }
-    ~PackedLevel(){cudaStreamSynchronize(mStream);release();}
-    PackedLevel(const PackedLevel&)=delete;PackedLevel& operator=(const PackedLevel&)=delete;
+    ~PackedLevelImpl(){cudaStreamSynchronize(mStream);release();}
+    PackedLevelImpl(const PackedLevelImpl&)=delete;PackedLevelImpl& operator=(const PackedLevelImpl&)=delete;
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
         if(mAppended)throw std::runtime_error("Resident packed level already appended");
-        void* args[]={&mInput,&mParent,&mParentStatus,&mStatus,&mBuffers,&mWork,&mTiles};
-        cudaKernelNodeParams params{};params.func=(void*)packLevel;params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
+        void* args[]={&mInput,&mParent,&mParentStatus,&mStatus,&mBuffers,&mWork,&mTiles,&mRetirement};
+        cudaKernelNodeParams params{};params.func=(void*)packLevel<RetireTerminal>;params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
         cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&params));
         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attribute));
         mAppended=true;return node;
@@ -65,4 +67,8 @@ public:
     PackingBuffers buffers()const{return mBuffers;}
     const Status* status()const{return mStatus;}
 };
+// The unretired specialization is a mathematical Galerkin primitive used by
+// independent reference tests. The assembled solver uses RetiringPackedLevel.
+using PackedLevel=PackedLevelImpl<false>;
+using RetiringPackedLevel=PackedLevelImpl<true>;
 }}}

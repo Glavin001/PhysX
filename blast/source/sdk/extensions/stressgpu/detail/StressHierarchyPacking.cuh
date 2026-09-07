@@ -6,6 +6,7 @@
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_store.cuh>
 namespace Nv { namespace Blast { namespace StressHierarchy {
+#include "StressHierarchyRetirement.cuh"
 struct PackingBuffers {
     unsigned *nodeMap,*nodeSource,*bondMap,*identity,*component,*bondIdentity,*begin,*refs,*counts,*partial,*localBegin;
     unsigned *orderedPrefix,*componentIds,*componentBegin,*componentEnd;
@@ -15,35 +16,38 @@ struct PackingBuffers {
 struct PackingWork {unsigned active,bins[16];};
 #include "StressHierarchyPackingPrimitives.cuh"
 #include "StressHierarchyPackingPartition.cuh"
-__device__ __forceinline__ void startPacking(Input input,const Status* parent,Status* output,PackingWork* work){
+template<bool Retire>
+__device__ __forceinline__ void startPacking(Input input,const Status* parent,Status* output,PackingWork* work,TerminalRetirement retired){
     work->active=0;
     if(input.accept && !*input.accept)return;
+    if constexpr(Retire)if(!retired.status->initialized || retired.status->error || retired.status->generation!=*input.generation){output->error=32;return;}
     if(!parent->initialized || parent->error || !sourceCountsValid(input) || parent->generation!=*input.generation){output->error=32;return;}
     if(*input.partition.nodeCount>resolvedInput(input).nodes || *input.partition.count>resolvedInput(input).nodes){output->error=64;return;}
     if(output->initialized && parent->generation<output->generation){output->error=4;return;}
     if(!output->initialized || output->generation!=parent->generation || output->error){output->error=0;work->active=1;}
 }
+template<bool Retire>
 __global__ void packLevel(Input input,Buffers parent,const Status* source,Status* output,
-                          PackingBuffers b,PackingWork* work,unsigned tilesCapacity){
+                          PackingBuffers b,PackingWork* work,unsigned tilesCapacity,TerminalRetirement retired){
     __shared__ PackingShared shared;const auto grid=cooperative_groups::this_grid();
     const unsigned lane=blockIdx.x*Threads+threadIdx.x,stride=gridDim.x*Threads;
-    if(!lane)startPacking(input,source,output,work);
+    if(!lane)startPacking<Retire>(input,source,output,work,retired);
     grid.sync();if(!work->active)return;input=resolvedInput(input);
     validatePackingPartition(input,output);
     grid.sync();if(!lane)work->active=!output->error;grid.sync();if(!work->active)return;
     const unsigned ordered=*input.partition.nodeCount,components=*input.partition.count;
     const unsigned nodeBlocks=(ordered+Threads-1)/Threads,bondBlocks=(input.bonds+Threads-1)/Threads;
     for(unsigned i=lane;i<input.nodes;i+=stride)b.nodeMap[i]=Invalid;
-    for(unsigned block=blockIdx.x;block<nodeBlocks;block+=gridDim.x)localPackingScan(input,parent,b,shared,block,false);
+    for(unsigned block=blockIdx.x;block<nodeBlocks;block+=gridDim.x)localPackingScan<Retire>(input,parent,b,shared,block,false,retired);
     grid.sync();if(!blockIdx.x)prefixPackingBlocks(b,shared,nodeBlocks,0);grid.sync();
     for(unsigned i=lane;i<ordered;i+=stride){
         const unsigned node=orderedNode(input,i),next=b.orderedPrefix[i]+b.partial[i/Threads];b.orderedPrefix[i]=next;
-        if(parent.leader[node]==node && parent.coarseActive[node]){
+        if(packingRootRetained<Retire>(input,parent,node,retired)){
             b.nodeMap[node]=next;b.nodeSource[next]=node;b.identity[next]=input.identity?input.identity[node]:node;b.component[next]=input.component[node];
         }
     }
     if(!lane)b.orderedPrefix[ordered]=b.counts[0];grid.sync();
-    for(unsigned i=lane;i<input.nodes;i+=stride)if(parent.leader[i]==i && parent.coarseActive[i] && b.nodeMap[i]==Invalid)atomicOr(&output->error,64u);
+    for(unsigned i=lane;i<input.nodes;i+=stride)if(packingRootRetained<Retire>(input,parent,i,retired) && b.nodeMap[i]==Invalid)atomicOr(&output->error,64u);
     const unsigned componentBlocks=(components+Threads-1)/Threads;
     for(unsigned block=blockIdx.x;block<componentBlocks;block+=gridDim.x)scanPackedComponents(input,b,shared,block);
     grid.sync();if(!blockIdx.x)prefixPackingBlocks(b,shared,componentBlocks,2);grid.sync();
@@ -52,10 +56,10 @@ __global__ void packLevel(Input input,Buffers parent,const Status* source,Status
         if(b.componentBegin[id]!=b.componentEnd[id])b.componentIds[b.bondMap[i]+b.partial[i/Threads]]=id;
     }
     grid.sync();if(!lane)work->active=!output->error;grid.sync();if(!work->active)return;
-    for(unsigned block=blockIdx.x;block<bondBlocks;block+=gridDim.x)localPackingScan(input,parent,b,shared,block,true);
+    for(unsigned block=blockIdx.x;block<bondBlocks;block+=gridDim.x)localPackingScan<Retire>(input,parent,b,shared,block,true,retired);
     grid.sync();if(!blockIdx.x)prefixPackingBlocks(b,shared,bondBlocks,1);grid.sync();
     for(unsigned i=lane;i<input.bonds;i+=stride){
-        b.bondMap[i]+=b.partial[i/Threads];if(!retainedColumn(parent.coarse[i]))continue;
+        b.bondMap[i]+=b.partial[i/Threads];if(!packingBondRetained<Retire>(input,parent,i,retired))continue;
         const unsigned next=b.bondMap[i];auto edge=parent.coarse[i];std::uint64_t first=~std::uint64_t(0),second=first;
         if(edge.a!=Invalid){edge.a=b.nodeMap[edge.a];first=(std::uint64_t(edge.a)<<32)|(next*2);}
         if(edge.b!=Invalid){edge.b=b.nodeMap[edge.b];second=(std::uint64_t(edge.b)<<32)|(next*2+1);}

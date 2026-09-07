@@ -7,7 +7,7 @@ constexpr unsigned TerminalNodes=6,TerminalDofs=6*TerminalNodes;
 constexpr unsigned TerminalTriangle=TerminalDofs*(TerminalDofs+1)/2;
 constexpr unsigned TerminalFactorSlots=TerminalTriangle/TerminalNodes;
 constexpr unsigned TerminalNodeSlots=TerminalFactorSlots+6;
-struct TerminalBuffers {double* storage;double* lift;unsigned* kind;};
+struct TerminalBuffers {double* storage;double* lift;unsigned* kind;unsigned* owner;};
 struct TerminalShared {
     double lower[TerminalTriangle],scaling[TerminalDofs],rhs[TerminalDofs],lift[6];
     unsigned nodes[TerminalNodes],coupled,anchored,failed;
@@ -43,9 +43,9 @@ __device__ __forceinline__ double terminalCoefficient(const Input& a,unsigned no
     }
     return value;
 }
-__device__ __forceinline__ void constructTerminalComponent(const Input& a,TerminalBuffers b,Status* status,TerminalShared& s,unsigned component){
+__device__ __forceinline__ void constructTerminalComponent(const Input& a,TerminalBuffers b,Status* status,TerminalShared& s,unsigned component,unsigned level){
     const unsigned first=a.partition.begin[component],count=a.partition.end[component]-first;
-    if(count>TerminalNodes){if(!threadIdx.x)b.kind[component]=0;return;}
+    if(count>TerminalNodes){if(!threadIdx.x){b.kind[component]=0;b.owner[component]=Invalid;}return;}
     const unsigned size=6*count,entries=size*(size+1)/2;
     if(threadIdx.x<count)s.nodes[threadIdx.x]=terminalNode(a,first+threadIdx.x);
     if(!threadIdx.x)s.anchored=s.failed=s.coupled=0;__syncthreads();
@@ -100,9 +100,9 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
     if(s.failed){if(!threadIdx.x)atomicOr(&status->error,128u);return;}
     for(unsigned entry=threadIdx.x;entry<entries;entry+=blockDim.x)terminalFactor(a,b,s.nodes,entry)=s.coupled?s.lower[entry]:0;
     for(unsigned i=threadIdx.x;i<size;i+=blockDim.x)terminalScaling(a,b,s.nodes[i/6],i%6)=s.scaling[i];
-    if(!threadIdx.x)b.kind[component]=s.coupled?2:1;
+    if(!threadIdx.x){b.kind[component]=s.coupled?2:1;b.owner[component]=level;}
 }
-__global__ void constructTerminals(Input input,const Status* source,Status* status,Work* work,TerminalBuffers b){
+__global__ void constructTerminals(Input input,const Status* source,Status* status,Work* work,TerminalBuffers b,unsigned level){
     __shared__ TerminalShared shared;const auto grid=cooperative_groups::this_grid();
     const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
     if(!lane){
@@ -118,11 +118,12 @@ __global__ void constructTerminals(Input input,const Status* source,Status* stat
     validatePackingPartition(input,status);
     grid.sync();if(!lane)work->active=!status->error;grid.sync();if(!work->active)return;
     for(unsigned i=blockIdx.x;i<*input.partition.count;i+=gridDim.x){
-        constructTerminalComponent(input,b,status,shared,input.partition.ids[i]);__syncthreads();
+        constructTerminalComponent(input,b,status,shared,input.partition.ids[i],level);__syncthreads();
     }
     grid.sync();if(!lane && !status->error){status->generation=source->generation;status->initialized=1;++status->builds;}
 }
-__device__ __forceinline__ void solveTerminalComponent(const Input& a,TerminalBuffers b,TerminalShared& s,unsigned component,const Vector* rhs,Vector* result){
+__device__ __forceinline__ void solveTerminalComponent(const Input& a,TerminalBuffers b,TerminalShared& s,unsigned component,unsigned level,const Vector* rhs,Vector* result){
+    if(b.owner[component]!=level)return;
     const unsigned kind=b.kind[component];if(!kind)return;
     const unsigned first=a.partition.begin[component],count=a.partition.end[component]-first,size=6*count;
     if(threadIdx.x<count)s.nodes[threadIdx.x]=terminalNode(a,first+threadIdx.x);__syncthreads();
@@ -144,11 +145,11 @@ __device__ __forceinline__ void solveTerminalComponent(const Input& a,TerminalBu
         result[node]={{x[0],x[1],x[2]},{x[3],x[4],x[5]}};
     }
 }
-__global__ void applyTerminals(Input input,const Status* status,TerminalBuffers b,const Vector* rhs,Vector* result){
+__global__ void applyTerminals(Input input,const Status* status,TerminalBuffers b,unsigned level,const Vector* rhs,Vector* result){
     __shared__ TerminalShared shared;
     if(!usable(status) || status->generation!=*input.generation)return;input=resolvedInput(input);
     for(unsigned i=blockIdx.x;i<*input.partition.count;i+=gridDim.x){
-        solveTerminalComponent(input,b,shared,input.partition.ids[i],rhs,result);__syncthreads();
+        solveTerminalComponent(input,b,shared,input.partition.ids[i],level,rhs,result);__syncthreads();
     }
 }
 }}}

@@ -25,7 +25,7 @@ __global__ void prolongPacked(Input input,Buffers parent,PackingBuffers packed,c
     if(node>=input.nodes)return;Vector out{};
     if(usable(status)){
         const unsigned root=parent.leader[node];
-        if(root!=Invalid && parent.coarseActive[root])
+        if(root!=Invalid && packed.nodeMap[root]!=Invalid)
             out=prolongValue(coarse[packed.nodeMap[root]],shift(input,node,root),sourceInertia(input,node));
     }
     fine[node]=out;

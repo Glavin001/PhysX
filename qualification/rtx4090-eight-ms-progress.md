@@ -835,3 +835,8 @@ Packing consumes the GPU partition and retains component-contiguous coarse vecto
 ## Resident small-component terminal factors and solves
 
 GPU terminal factors/triangular solves now pass independent equations, symmetry, free-body and explicit failure/recovery checks at the existing tolerance. All CUDA safety audits pass, including large application scheduling within the 100,000-node / 199,997-bond hierarchy. The frozen 10-second 444-chunk / 896-bond wall fixture remains exact. See `resident-hierarchy-terminals/report.md`. Terminal retirement/shared storage, coarse smoothers, V-cycle and production CGLS integration remain; no new production performance result is claimed.
+
+
+## Captured hierarchy construction, shared factors and terminal retirement
+
+`ResidentHierarchy` now assembles the GPU construction pipeline with one shared terminal pool, per-component level ownership, retiring packing, and an explicit incomplete-depth gate. Two correctness suites and six CUDA safety audits pass. The largest isolated stress fixture has 100,000 nodes / 199,997 bonds and uses sixteen allocated levels through six transitions; twelve levels correctly rejected a changed topology. The frozen 10-second 444-chunk / 896-bond wall regression remains exact. See `resident-hierarchy-assembled/report.md`. Coarse smoothing, V-cycle and production CGLS integration remain; no new simulation performance claim.

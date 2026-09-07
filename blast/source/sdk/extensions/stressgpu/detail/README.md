@@ -136,8 +136,7 @@ fine and recursive roles so fine-only diagonal storage is not allocated for
 recursive levels. Calling the fine-only diagonal kernel on a coarse view fails
 explicitly. Terminal factors are independently implemented and qualified below; coarse smoothers remain.
 
-Remaining integration work: retire terminal components from deeper levels,
-share their factor storage, build coarse smoothers, and run a symmetric resident V-cycle twice in
+Remaining integration work: build coarse smoothers and run a symmetric resident V-cycle twice in
 the preconditioned CGLS recurrence. Its authoritative fine operator and stopping
 test must remain unchanged. Fine inertia/position normalization must match the
 existing asset-preparation scale. Native convergence/fracture and full-step
@@ -197,15 +196,38 @@ retained inconsistent-offset coupling at the established 2e-12 tolerance.
 
 Factors use diagonal equilibration and double precision. Each authored-node
 slot holds 111 factor entries plus six row scales; a six-node component's
-lower factor needs exactly 666 entries. `TerminalLevel` currently owns its
-qualification workspace (117 doubles/node plus six lift diagnostics and one
-kind per component-ID capacity). Construction is cooperative and device
+lower factor needs exactly 666 entries. `TerminalLevel` borrows one shared
+`TerminalPool`: 117 doubles/node plus six lift diagnostics, one kind and one
+owner-level index per component-ID capacity. Construction is cooperative and device
 generation-controlled; application consumes resident factors without host
 decisions. Error 128 rejects failed numerical factors; source/partition errors
 retain their existing codes. Rejected commands preserve committed status.
 
-Remaining before production: stop coarsening terminal components and share
-the factor pool across their disjoint authored origins, build coarse smoothers,
-compose the symmetric V-cycle, and bind the native CGLS path. Standalone
+Remaining before production: build coarse smoothers, compose the symmetric
+V-cycle, and bind the native CGLS path. Standalone
 terminal qualification does not establish V-cycle convergence, production
 speed, or the 8 ms peak gate.
+
+
+`StressHierarchyResident.cuh` assembles construction into a captured GPU
+pipeline: aggregate/factor the current level, establish terminal ownership,
+pack only nonterminal coarse work, and continue. `RetiringPackedLevel` is a
+compile-time specialization with a required committed retirement view. The
+nonretiring `PackedLevel` specialization remains an independent Galerkin
+primitive for mathematical qualification; no runtime backend switch is added.
+
+`StressHierarchyRetirement.cuh` filters only numerical coarse rows/columns of
+terminal components. Fine physical chunk/bond state is untouched. Prolongation
+uses the committed compact map, returning zero for retired coordinates. Each
+terminal component records its owning level; earlier levels skip components
+that terminate deeper. Their factor slots reference disjoint authored origins,
+so one pool serves every level without aliasing or per-level dense storage.
+
+A final device gate rejects an unfinished allocated depth with error 256. It
+does not accept omitted terminal work. Source/terminal failures propagate as
+uncommitted hierarchy state. Counts and ownership remain on GPU, and rejected
+commands/unchanged generations preserve the appropriate committed statuses.
+The assembled qualifier uses 16 allocated levels for its 100,000-node /
+199,997-bond fixture; 12 were insufficient after its bond-removal transition,
+and the explicit completion gate caught that condition. This is capacity
+qualification, not a simulation timing or depth-independent convergence claim.

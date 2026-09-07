@@ -1,0 +1,616 @@
+{
+  "scope": "Captured GPU hierarchy construction, terminal retirement and shared factors; V-cycle and native production integration remain incomplete",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyDiagonal.cuh": "798c91aa2c25204013bc14187e4485c00b87435e6b120b44adb81da24d2f64b9",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh": "e33efc1d4c3c384b0cbb8a752bb08d593ad098e899dd1dd75bb7a22fba5851fd",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh": "e5c0130b72697b124abfacfd44aa39f63e7638167b3882a7c670d58be9de600f",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh": "5709f68cee7416b2a8287300f7b20b3c07f227f46c67b81be8298857ecae5db8",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh": "032df477f4f3adb667b1c810cbd87d670cfdf1157f24e9885118a3387d86e648",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackedLevel.cuh": "49bce8ce03ae6257d47d26eccfa9c17d1b290813554574ccf43ff1b96516d10b",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPacking.cuh": "a4ee7ff555b4eb20b6828c5af5a33aa88d7fb810c0be1def35c9ee2cc7fd839a",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackingPartition.cuh": "1eae57ca44bb436bd0e7bc572145042bf1865b145eb16b25d61e884120a5df46",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackingPrimitives.cuh": "9a81be5a36803c599a7c74be7a37abdbf81f67d1506418fbdd25b9cfaf4de409",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyResident.cuh": "275ea7802bd6c5c85b5bc81f6f740df490d8a678c17cfc3dfa46a3fb440f9bf0",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyRetirement.cuh": "c44b2e22d63ae12bc64caf89b0ff7199eeaa7ee1b1d058d0a5fbb5ac674a79ec",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminal.cuh": "057283a26a8a5591a82829bdadda8b21073bd83872423ea034513b27a1d9667e",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminalLevel.cuh": "ecd11dc131b24bb8afd89640bb473b1cdffcde6060c36f8327b4a9153e558ca3",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTransfers.cuh": "52c3ba7f188753f1b9e31ee67ea6d69d7d1450f78ac0134e51a6ce902585643b",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh": "cbf16d1f0edf5b0c25358d2692d83e70fdedddc470530c4a837e5d817a66ef4e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_diagonal_checks.cuh": "79bfe9d885b7d3b1a799110d3655e4b2f051ec2db2bc303a724a3156eb24bd6e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_operator_checks.cuh": "4ead8720e175c3ee11a0eef406dbef9665eab021cd3fab25e03e9872803c3f8c",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_partition_checks.cuh": "c87356e0b816388e9d450de1f6ea37b9a671c7e93633263c7b964bdcda171eef",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_recursive_checks.cuh": "953a583378ae35b6dfc0363e58b058438bda92a5bd5913484eec4b337cf0cce1",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_resident_checks.cuh": "009d1178036328c771ba2253d675bd60e6f6147b2189bcc31e4799a26562164d",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_terminal_checks.cuh": "011bbafbf7adb38573d395286b893f99cea539cfc9835a17b17cc939886b0166",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu": "d1f28769f2d6a37a5877e801cfda1211531d0a1ac35ddcf14f00afb177ca8ae6",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_transfer_checks.cuh": "6758cbe55adcbd27c4645b20a83edec76c5b89a3b5d8f5f76a734401f068e274",
+    "demos/blast-stress-demo/CMakeLists.txt": "ad0013422eae39d535168b9d9e4e326d2c80708cbfc72c676a749cd931f169ee"
+  },
+  "binary_sha256": "51e9f5b370b395c63f0f7b6d615962fc58ce151bf7e93024f3820e4d3d86b7cb",
+  "fixtures": [
+    {
+      "nodes": 0,
+      "bonds": 0
+    },
+    {
+      "nodes": 1,
+      "bonds": 0
+    },
+    {
+      "nodes": 2,
+      "bonds": 1
+    },
+    {
+      "nodes": 4,
+      "bonds": 3
+    },
+    {
+      "nodes": 6,
+      "bonds": 10
+    },
+    {
+      "nodes": 24,
+      "bonds": 11
+    },
+    {
+      "nodes": 24,
+      "bonds": 33
+    },
+    {
+      "nodes": 129,
+      "bonds": 121
+    },
+    {
+      "nodes": 256,
+      "bonds": 0
+    },
+    {
+      "nodes": 257,
+      "bonds": 256
+    },
+    {
+      "nodes": 100000,
+      "bonds": 199997
+    }
+  ],
+  "tests": {
+    "reference_correctness": "pass",
+    "assembled_correctness": "pass",
+    "reference_memcheck": "pass",
+    "reference_synccheck": "pass",
+    "reference_racecheck": "pass",
+    "assembled_memcheck": "pass",
+    "assembled_synccheck": "pass",
+    "assembled_racecheck": "pass",
+    "numerical_tolerance": 2e-12,
+    "coverage": [
+      "retirement at the earliest eligible component level",
+      "exact surviving coarse factors and stable root ordering",
+      "disjoint authored-origin terminal slots across levels/components",
+      "shared solves remain byte-identical to independent per-level workspaces after all deeper construction",
+      "retired coordinates prolong to zero; nonterminal output is preserved",
+      "unchanged generation skips and rejected commands preserve all stage statuses",
+      "insufficient allocated depth returns explicit error 256",
+      "all prior independent operator, factor and numerical rejection checks"
+    ]
+  },
+  "largest_fixture_level_runs": [
+    [
+      {
+        "level": 0,
+        "nodes": 100000,
+        "bonds": 199997
+      },
+      {
+        "level": 1,
+        "nodes": 27321,
+        "bonds": 78816
+      },
+      {
+        "level": 2,
+        "nodes": 10833,
+        "bonds": 32053
+      },
+      {
+        "level": 3,
+        "nodes": 4517,
+        "bonds": 13496
+      },
+      {
+        "level": 4,
+        "nodes": 1927,
+        "bonds": 5772
+      },
+      {
+        "level": 5,
+        "nodes": 824,
+        "bonds": 2468
+      },
+      {
+        "level": 6,
+        "nodes": 356,
+        "bonds": 1064
+      },
+      {
+        "level": 7,
+        "nodes": 152,
+        "bonds": 453
+      },
+      {
+        "level": 8,
+        "nodes": 66,
+        "bonds": 195
+      },
+      {
+        "level": 9,
+        "nodes": 30,
+        "bonds": 87
+      },
+      {
+        "level": 10,
+        "nodes": 13,
+        "bonds": 36
+      },
+      {
+        "level": 11,
+        "nodes": 5,
+        "bonds": 12
+      },
+      {
+        "level": 12,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 13,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 14,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 15,
+        "nodes": 0,
+        "bonds": 0
+      }
+    ],
+    [
+      {
+        "level": 0,
+        "nodes": 100000,
+        "bonds": 199997
+      },
+      {
+        "level": 1,
+        "nodes": 27321,
+        "bonds": 78816
+      },
+      {
+        "level": 2,
+        "nodes": 10833,
+        "bonds": 32053
+      },
+      {
+        "level": 3,
+        "nodes": 4517,
+        "bonds": 13496
+      },
+      {
+        "level": 4,
+        "nodes": 1927,
+        "bonds": 5772
+      },
+      {
+        "level": 5,
+        "nodes": 824,
+        "bonds": 2468
+      },
+      {
+        "level": 6,
+        "nodes": 356,
+        "bonds": 1064
+      },
+      {
+        "level": 7,
+        "nodes": 152,
+        "bonds": 453
+      },
+      {
+        "level": 8,
+        "nodes": 66,
+        "bonds": 195
+      },
+      {
+        "level": 9,
+        "nodes": 30,
+        "bonds": 87
+      },
+      {
+        "level": 10,
+        "nodes": 13,
+        "bonds": 36
+      },
+      {
+        "level": 11,
+        "nodes": 5,
+        "bonds": 12
+      },
+      {
+        "level": 12,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 13,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 14,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 15,
+        "nodes": 0,
+        "bonds": 0
+      }
+    ],
+    [
+      {
+        "level": 0,
+        "nodes": 100000,
+        "bonds": 199997
+      },
+      {
+        "level": 1,
+        "nodes": 33333,
+        "bonds": 43373
+      },
+      {
+        "level": 2,
+        "nodes": 13677,
+        "bonds": 15118
+      },
+      {
+        "level": 3,
+        "nodes": 5861,
+        "bonds": 5941
+      },
+      {
+        "level": 4,
+        "nodes": 2522,
+        "bonds": 2521
+      },
+      {
+        "level": 5,
+        "nodes": 1083,
+        "bonds": 1082
+      },
+      {
+        "level": 6,
+        "nodes": 466,
+        "bonds": 465
+      },
+      {
+        "level": 7,
+        "nodes": 202,
+        "bonds": 201
+      },
+      {
+        "level": 8,
+        "nodes": 86,
+        "bonds": 85
+      },
+      {
+        "level": 9,
+        "nodes": 38,
+        "bonds": 37
+      },
+      {
+        "level": 10,
+        "nodes": 16,
+        "bonds": 15
+      },
+      {
+        "level": 11,
+        "nodes": 7,
+        "bonds": 6
+      },
+      {
+        "level": 12,
+        "nodes": 3,
+        "bonds": 2
+      },
+      {
+        "level": 13,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 14,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 15,
+        "nodes": 0,
+        "bonds": 0
+      }
+    ],
+    [
+      {
+        "level": 0,
+        "nodes": 100000,
+        "bonds": 199997
+      },
+      {
+        "level": 1,
+        "nodes": 33333,
+        "bonds": 43373
+      },
+      {
+        "level": 2,
+        "nodes": 13677,
+        "bonds": 15118
+      },
+      {
+        "level": 3,
+        "nodes": 5861,
+        "bonds": 5941
+      },
+      {
+        "level": 4,
+        "nodes": 2522,
+        "bonds": 2521
+      },
+      {
+        "level": 5,
+        "nodes": 1083,
+        "bonds": 1082
+      },
+      {
+        "level": 6,
+        "nodes": 466,
+        "bonds": 465
+      },
+      {
+        "level": 7,
+        "nodes": 202,
+        "bonds": 201
+      },
+      {
+        "level": 8,
+        "nodes": 86,
+        "bonds": 85
+      },
+      {
+        "level": 9,
+        "nodes": 38,
+        "bonds": 37
+      },
+      {
+        "level": 10,
+        "nodes": 16,
+        "bonds": 15
+      },
+      {
+        "level": 11,
+        "nodes": 7,
+        "bonds": 6
+      },
+      {
+        "level": 12,
+        "nodes": 3,
+        "bonds": 2
+      },
+      {
+        "level": 13,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 14,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 15,
+        "nodes": 0,
+        "bonds": 0
+      }
+    ],
+    [
+      {
+        "level": 0,
+        "nodes": 100000,
+        "bonds": 199997
+      },
+      {
+        "level": 1,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 2,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 3,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 4,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 5,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 6,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 7,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 8,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 9,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 10,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 11,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 12,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 13,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 14,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 15,
+        "nodes": 0,
+        "bonds": 0
+      }
+    ],
+    [
+      {
+        "level": 0,
+        "nodes": 100000,
+        "bonds": 199997
+      },
+      {
+        "level": 1,
+        "nodes": 27321,
+        "bonds": 78816
+      },
+      {
+        "level": 2,
+        "nodes": 10833,
+        "bonds": 32053
+      },
+      {
+        "level": 3,
+        "nodes": 4517,
+        "bonds": 13496
+      },
+      {
+        "level": 4,
+        "nodes": 1927,
+        "bonds": 5772
+      },
+      {
+        "level": 5,
+        "nodes": 824,
+        "bonds": 2468
+      },
+      {
+        "level": 6,
+        "nodes": 356,
+        "bonds": 1064
+      },
+      {
+        "level": 7,
+        "nodes": 152,
+        "bonds": 453
+      },
+      {
+        "level": 8,
+        "nodes": 66,
+        "bonds": 195
+      },
+      {
+        "level": 9,
+        "nodes": 30,
+        "bonds": 87
+      },
+      {
+        "level": 10,
+        "nodes": 13,
+        "bonds": 36
+      },
+      {
+        "level": 11,
+        "nodes": 5,
+        "bonds": 12
+      },
+      {
+        "level": 12,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 13,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 14,
+        "nodes": 0,
+        "bonds": 0
+      },
+      {
+        "level": 15,
+        "nodes": 0,
+        "bonds": 0
+      }
+    ]
+  ],
+  "allocation": {
+    "terminal_pool_bytes_per_authored_node_capacity": 992,
+    "terminal_pool_bytes_at_100000_nodes": 99200000,
+    "terminal_pools_per_hierarchy": 1,
+    "allocated_levels_for_100000_node_fixture": 16,
+    "scope": "Terminal storage and metadata only; excludes other hierarchy/PhysX allocations. Layout-derived size, not a whole-engine measured memory claim."
+  },
+  "wall_regression": {
+    "seconds": 10,
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "timestep": "1/60",
+    "correction_limit": 1,
+    "exact_frozen_gate": "pass",
+    "production_artifact_hashes_unchanged": true
+  },
+  "capacity_observation": "Twelve levels rejected the large fixture after bond removal with error 256; sixteen allocated levels pass. The negative depth gate remains tested.",
+  "new_simulation_performance_claim": null,
+  "remaining": [
+    "coarse smoothers and full symmetric resident V-cycle",
+    "native component-view binding and CGLS integration",
+    "256-building full-step performance/quality campaign",
+    "remaining GPU lifecycle, sleep, selective correction, scaling and endurance requirements"
+  ]
+}

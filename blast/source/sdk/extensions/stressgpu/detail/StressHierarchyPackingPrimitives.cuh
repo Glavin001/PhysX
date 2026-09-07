@@ -9,11 +9,12 @@ struct PackingShared {
            typename PackingLoad::TempStorage load;typename PackingStore::TempStorage store;} temp;
     unsigned carry,begin[RadixBins],end[RadixBins];
 };
+template<bool Retire>
 __device__ __forceinline__ void localPackingScan(const Input& input,Buffers parent,PackingBuffers b,
-                                                PackingShared& shared,unsigned block,bool bonds){
+                                                PackingShared& shared,unsigned block,bool bonds,TerminalRetirement retired){
     const unsigned i=block*Threads+threadIdx.x,count=bonds?input.bonds:*input.partition.nodeCount;
     unsigned flag=0;if(i<count){const unsigned node=(!bonds && input.partition.nodes)?input.partition.nodes[i]:i;
-        flag=bonds?retainedColumn(parent.coarse[i]):(parent.leader[node]==node && parent.coarseActive[node]);}
+        flag=bonds?packingBondRetained<Retire>(input,parent,i,retired):packingRootRetained<Retire>(input,parent,node,retired);}
     unsigned prefix,total;PackingScan(shared.temp.scan).ExclusiveSum(flag,prefix,total);
     if(i<count)(bonds?b.bondMap:b.orderedPrefix)[i]=prefix;
     if(!threadIdx.x)b.partial[block]=total;

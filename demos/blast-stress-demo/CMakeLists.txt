@@ -894,6 +894,19 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
         set_tests_properties(blast_stress_gpu_resident_hierarchy_${hierarchy_tool}
             PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
     endforeach()
+    add_test(NAME blast_stress_gpu_assembled_hierarchy COMMAND gpu_resident_hierarchy_test --assembled)
+    set_tests_properties(blast_stress_gpu_assembled_hierarchy PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
+    foreach(hierarchy_tool memcheck synccheck racecheck)
+        set(hierarchy_options)
+        if(hierarchy_tool STREQUAL "memcheck")
+            list(APPEND hierarchy_options --leak-check full)
+        endif()
+        add_test(NAME blast_stress_gpu_assembled_hierarchy_${hierarchy_tool}
+            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${hierarchy_tool}
+                    ${hierarchy_options} --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --assembled)
+        set_tests_properties(blast_stress_gpu_assembled_hierarchy_${hierarchy_tool}
+            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+    endforeach()
     add_library(gpu_resident_stress_test_core OBJECT EXCLUDE_FROM_ALL
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu")
     target_include_directories(gpu_resident_stress_test_core PUBLIC

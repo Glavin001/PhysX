@@ -5,7 +5,7 @@ void verifyTerminals(const Fixture& f,Input input,const Status* source,cudaStrea
     const auto sourceState=download(source,1,stream)[0];
     Device<unsigned> accept(1);Device<std::uint64_t> generation(1);accept.put({1},stream);generation.put({sourceState.generation},stream);
     input.accept=accept.data;input.generation=generation.data;
-    TerminalLevel terminal(input,source,stream);cudaGraph_t graph=nullptr;cudaGraphExec_t executable=nullptr;
+    TerminalPool pool(input.authoredNodes?input.authoredNodes:input.nodes,stream);TerminalLevel terminal(input,source,pool,0,stream);cudaGraph_t graph=nullptr;cudaGraphExec_t executable=nullptr;
     check(cudaGraphCreate(&graph,0));terminal.append(graph,nullptr);check(cudaGraphInstantiate(&executable,graph,0));
     check(cudaGraphLaunch(executable,stream));const auto state=download(terminal.status(),1,stream)[0];
     require(state.initialized && !state.error && state.generation==download(source,1,stream)[0].generation,"terminal factors did not commit");
@@ -121,7 +121,7 @@ void verifyTerminals(const Fixture& f,Input input,const Status* source,cudaStrea
 void verifyTerminalFactorFailure(const Fixture& f,Input input,const Status* source,cudaStream_t stream){
     if(input.levelBonds || input.nodes!=2 || input.bonds!=1 || f.health[0]<=0)return;
     Device<float4> offset(1),secondOffset(1);auto bad=f.offset0;bad[0]=make_float4(1e20f,0,0,0);offset.put(bad,stream);secondOffset.put(bad,stream);input.offset0=offset.data;input.offset1=secondOffset.data;
-    TerminalLevel terminal(input,source,stream);cudaGraph_t graph=nullptr;cudaGraphExec_t executable=nullptr;
+    TerminalPool pool(input.authoredNodes?input.authoredNodes:input.nodes,stream);TerminalLevel terminal(input,source,pool,0,stream);cudaGraph_t graph=nullptr;cudaGraphExec_t executable=nullptr;
     check(cudaGraphCreate(&graph,0));terminal.append(graph,nullptr);check(cudaGraphInstantiate(&executable,graph,0));
     check(cudaGraphLaunch(executable,stream));auto state=download(terminal.status(),1,stream)[0];
     require(state.error==128 && !state.initialized,"unfactorable terminal system was accepted");
