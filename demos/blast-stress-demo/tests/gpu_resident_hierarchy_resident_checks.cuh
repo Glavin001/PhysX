@@ -3,7 +3,7 @@
 std::vector<Status> residentStates(const ResidentHierarchy& hierarchy,cudaStream_t stream){
     std::vector<Status> result{download(hierarchy.status(),1,stream)[0]};
     for(unsigned i=0;i<hierarchy.levels();++i){
-        result.push_back(download(hierarchy.topology(i).status(),1,stream)[0]);result.push_back(download(hierarchy.terminal(i).status(),1,stream)[0]);
+        result.push_back(download(hierarchy.topology(i).status(),1,stream)[0]);result.push_back(download(hierarchy.terminal(i).status(),1,stream)[0]);result.push_back(download(hierarchy.smoother(i).status(),1,stream)[0]);
         if(i+1<hierarchy.levels())result.push_back(download(hierarchy.packed(i).status(),1,stream)[0]);
     }
     return result;
@@ -69,7 +69,8 @@ void verifyResidentHierarchy(const Fixture& f,const ResidentHierarchy& hierarchy
     }
     for(unsigned i=0;i<original;++i)if(f.component[i]==i)require(owners[i]==expectedOwner[i],"component terminal owner differs from earliest eligible level");
 }
-void runResidentHierarchy(Fixture f,bool transitions){
+void runResidentHierarchy(Fixture f,bool transitions,bool cycleChecks=false,unsigned selectedStep=Invalid){
+    require(selectedStep==Invalid || (cycleChecks && selectedStep<(transitions?6u:2u)),"invalid cycle transition selection");
     f.csr();f.partition();const unsigned n=f.positions.size(),m=f.a.size();cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     {
         Device<unsigned> begin(n+1),refs(2*m),a(m),b(m),component(n),accept(1),nodes(n),ids(n),starts(n),ends(n),counts(2);
@@ -80,6 +81,7 @@ void runResidentHierarchy(Fixture f,bool transitions){
         input.partition={nodes.data,ids.data,starts.data,ends.data,counts.data,counts.data+1};
         const unsigned depth=n>257?16:7;ResidentHierarchy hierarchy(input,depth,stream);cudaGraph_t graph=nullptr;cudaGraphExec_t executable=nullptr;
         check(cudaGraphCreate(&graph,0));hierarchy.append(graph,nullptr);check(cudaGraphInstantiate(&executable,graph,0));
+        std::unique_ptr<CycleQualification> cycle;if(cycleChecks)cycle.reset(new CycleQualification(hierarchy,stream));
         const auto originalHealth=f.health;std::vector<Status> previous;
         for(unsigned step=0;step<(transitions?6u:2u);++step){
             f.health=originalHealth;if(step==2 || step==3)for(unsigned e=0;e<m;++e)if(e%3==0)f.health[e]=0;
@@ -94,16 +96,18 @@ void runResidentHierarchy(Fixture f,bool transitions){
             if(state[0].error){std::fprintf(stderr,"resident pipeline error nodes=%u bonds=%u step=%u error=%u\n",n,m,step,state[0].error);for(unsigned i=0;i<depth;++i)std::fprintf(stderr,"level=%u graph=%u terminal=%u\n",i,download(hierarchy.topology(i).status(),1,stream)[0].error,download(hierarchy.terminal(i).status(),1,stream)[0].error);}
             require(state[0].initialized && !state[0].error,"assembled hierarchy did not complete");
             if(step==1)require(!std::memcmp(previous.data(),state.data(),state.size()*sizeof(Status)),"unchanged assembled hierarchy rebuilt");
-            verifyResidentHierarchy(f,hierarchy,stream);previous=state;
+            if(cycle){if(selectedStep==Invalid || step==selectedStep)cycle->verify(f,hierarchy);}
+            else verifyResidentHierarchy(f,hierarchy,stream);previous=state;
         }
         accept.put({0},stream);generation.put({999},stream);check(cudaGraphLaunch(executable,stream));const auto rejected=residentStates(hierarchy,stream);
         require(!std::memcmp(previous.data(),rejected.data(),previous.size()*sizeof(Status)),"rejected command modified shared hierarchy status");
+        if(cycle)cycle->verifyRejected();
         accept.put({1},stream);generation.put({transitions?5u:0u},stream);
         // An allocated hierarchy that stops before required components become
         // terminal reports incomplete work, rather than silently accepting it.
         bool needsMore=false;std::vector<unsigned> sizes(n);for(auto part:f.component)if(part!=Invalid)++sizes[part];for(auto count:sizes)needsMore=needsMore || count>TerminalNodes;
         if(needsMore){ResidentHierarchy shallow(input,1,stream);cudaGraph_t g=nullptr;cudaGraphExec_t e=nullptr;check(cudaGraphCreate(&g,0));shallow.append(g,nullptr);check(cudaGraphInstantiate(&e,g,0));check(cudaGraphLaunch(e,stream));
-            const auto state=download(shallow.status(),1,stream)[0];require(state.error==256 && !state.initialized,"incomplete depth silently accepted");check(cudaGraphExecDestroy(e));check(cudaGraphDestroy(g));}
+            const auto state=download(shallow.status(),1,stream)[0];require(state.error==256 && !state.initialized,"incomplete depth silently accepted");if(cycleChecks){CycleQualification rejected(shallow,stream);rejected.verifyRejected();}check(cudaGraphExecDestroy(e));check(cudaGraphDestroy(g));}
         check(cudaGraphExecDestroy(executable));check(cudaGraphDestroy(graph));
         std::printf("assembled resident hierarchy nodes=%u bonds=%u levels=%u transitions=%u passed\n",n,m,depth,transitions?6:2);
     }

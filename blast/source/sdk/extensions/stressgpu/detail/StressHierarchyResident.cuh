@@ -2,6 +2,7 @@
 #pragma once
 #include "StressHierarchyPackedLevel.cuh"
 #include "StressHierarchyTerminalLevel.cuh"
+#include "StressHierarchySmoother.cuh"
 #include <memory>
 #include <vector>
 namespace Nv { namespace Blast { namespace StressHierarchy {
@@ -27,11 +28,12 @@ class ResidentHierarchy {
     std::vector<std::unique_ptr<TerminalLevel>> mTerminals;
     std::vector<std::unique_ptr<RetiringPackedLevel>> mPacked;
     std::vector<Input> mInputs;
+    std::vector<std::unique_ptr<LevelSmoother>> mSmoothers;
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident hierarchy: ")+cudaGetErrorString(e));}
 public:
     ResidentHierarchy(Input input,unsigned depth,cudaStream_t stream):mPool(input.authoredNodes?input.authoredNodes:input.nodes,stream),mInput(input),mStream(stream),mDepth(depth){
         if(!depth || depth>32)throw std::runtime_error("Resident hierarchy requires between one and 32 allocated levels");
-        mGraphs.reserve(depth);mTerminals.reserve(depth);mInputs.reserve(depth);mPacked.reserve(depth-1);
+        mGraphs.reserve(depth);mTerminals.reserve(depth);mInputs.reserve(depth);mPacked.reserve(depth-1);mSmoothers.reserve(depth);
         check(cudaMalloc(&mStatus,sizeof(Status)));
         const auto result=cudaMemsetAsync(mStatus,0,sizeof(Status),stream);
         if(result!=cudaSuccess){cudaFree(mStatus);mStatus=nullptr;check(result);}
@@ -46,12 +48,14 @@ public:
             prior=mGraphs.back()->append(graph,prior,input);
             mTerminals.emplace_back(new TerminalLevel(input,mGraphs.back()->status(),mPool,level,mStream));
             prior=mTerminals.back()->append(graph,prior);
+            mSmoothers.emplace_back(new LevelSmoother(input,*mGraphs.back(),*mTerminals.back(),level,mStream));
+            prior=mSmoothers.back()->append(graph,prior);
             if(level+1<mDepth){
-                mPacked.emplace_back(new RetiringPackedLevel(input,*mGraphs.back(),mStream,mTerminals.back()->retirement()));
+                mPacked.emplace_back(new RetiringPackedLevel(input,*mGraphs.back(),mStream,TerminalRetirement{mPool.buffers().owner,level,mSmoothers.back()->status()}));
                 prior=mPacked.back()->append(graph,prior);input=mPacked.back()->view();
             }
         }
-        const Status* terminal=mTerminals.back()->status();auto buffers=mPool.buffers();unsigned last=mDepth-1;
+        const Status* terminal=mSmoothers.back()->status();auto buffers=mPool.buffers();unsigned last=mDepth-1;
         void* args[]={&input,&terminal,&buffers,&last,&mStatus};cudaKernelNodeParams params{};
         params.func=(void*)finalizeHierarchy;params.gridDim=dim3(1);params.blockDim=dim3(Threads);params.kernelParams=args;
         cudaGraphNode_t final;check(cudaGraphAddKernelNode(&final,graph,&prior,1,&params));mAppended=true;return final;
@@ -59,6 +63,8 @@ public:
     const Status* status()const{return mStatus;}
     TerminalBuffers terminalBuffers()const{return mPool.buffers();}
     unsigned levels()const{return mDepth;}
+    cudaStream_t stream()const{return mStream;}
+    const LevelSmoother& smoother(unsigned level)const{return *mSmoothers.at(level);}
     Input input(unsigned level)const{return mInputs.at(level);}
     const Graph& topology(unsigned level)const{return *mGraphs.at(level);}
     const TerminalLevel& terminal(unsigned level)const{return *mTerminals.at(level);}

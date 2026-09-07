@@ -6,6 +6,7 @@
 #include "StressHierarchyTransfers.cuh"
 #include "StressHierarchyTerminalLevel.cuh"
 #include "StressHierarchyResident.cuh"
+#include "StressHierarchyCycle.cuh"
 #include <memory>
 #include <array>
 #include <cstdio>
@@ -122,6 +123,7 @@ void verifyPartition(const Fixture& f,const std::vector<unsigned>& leaders,unsig
 #include "gpu_resident_hierarchy_recursive_checks.cuh"
 #include "gpu_resident_hierarchy_partition_checks.cuh"
 #include "gpu_resident_hierarchy_terminal_checks.cuh"
+#include "gpu_resident_hierarchy_cycle_checks.cuh"
 #include "gpu_resident_hierarchy_resident_checks.cuh"
 void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=Invalid){
     f.csr();f.partition();const auto n=f.positions.size(),m=f.a.size();
@@ -231,23 +233,31 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
 }
 }
 int main(int argc,char** argv){try{
-    const bool assembled=argc==2 && std::string(argv[1])=="--assembled";
-    require(argc==1 || assembled,"unknown hierarchy qualifier argument");
-    auto runCase=[&](Fixture f,bool transitions,bool factorCheck,unsigned expected=Invalid){if(assembled)runResidentHierarchy(f,transitions);else run(f,transitions,factorCheck,expected);};
-    runCase(Fixture(0),false,true);runCase(Fixture(1),false,true);runCase(Fixture(256),false,false);
+    const bool assembled=argc>=2 && std::string(argv[1])=="--assembled",cycle=argc>=2 && std::string(argv[1])=="--cycle";
+    require(argc==1 || (argc==2 && (assembled || cycle)) || ((argc==3 || argc==4) && cycle),"unknown hierarchy qualifier argument");
+    const std::string selected=argc>=3?argv[2]:"";unsigned executed=0;
+    const unsigned selectedStep=argc==4?unsigned(std::stoul(argv[3])):Invalid;
+    if(argc==4)require(std::to_string(selectedStep)==argv[3],"invalid transition index");
+    auto runCase=[&](const char* name,Fixture f,bool transitions,bool factorCheck,unsigned expected=Invalid){
+        if(!selected.empty() && selected!=name)return;
+        ++executed;std::printf("START fixture=%s nodes=%zu bonds=%zu\n",name,f.positions.size(),f.a.size());std::fflush(stdout);
+        if(assembled || cycle)runResidentHierarchy(f,transitions,cycle,selectedStep);else run(f,transitions,factorCheck,expected);
+    };
+    runCase("empty",Fixture(0),false,true);runCase("singleton",Fixture(1),false,true);runCase("isolated",Fixture(256),false,false);
     Fixture small(24);small.inverse[0]=small.inverse[12]=make_float2(0,0);
     for(unsigned i=1;i<24;++i)if(i!=12)small.edge(i-1,i);
     for(unsigned i=2;i<12;++i)small.edge(i-2,i);
     // One static boundary may support otherwise disconnected components.
-    small.edge(0,13);runCase(small,true,true);
-    Fixture self(2);self.edge(0,1);self.offset1[0].x+=.03125f;runCase(self,true,true);
+    small.edge(0,13);runCase("supported",small,true,true);
+    Fixture path(24);for(unsigned i=1;i<24;++i)path.edge(i-1,i);runCase("path",path,false,true);
+    Fixture self(2);self.edge(0,1);self.offset1[0].x+=.03125f;runCase("self",self,true,true);
     Fixture parallel(6);for(unsigned i=1;i<6;++i){parallel.edge(0,i);parallel.edge(0,i);}
-    runCase(parallel,true,true,1);
+    runCase("parallel",parallel,true,true,1);
     Fixture omitted(24);omitted.omitUncoupled=true;for(unsigned i=1;i<12;++i)omitted.edge(i-1,i);
-    runCase(omitted,true,true);
-    Fixture star(257);for(unsigned i=1;i<257;++i)star.edge(0,i);runCase(star,false,false,1);
-    Fixture fixed(4);for(auto& inv:fixed.inverse)inv=make_float2(0,0);for(unsigned i=1;i<4;++i)fixed.edge(i-1,i);runCase(fixed,true,true,0);
-    Fixture mixed(129);for(unsigned i=1;i<129;++i)if(i%17)mixed.edge(i-1,i);runCase(mixed,true,false);
-    Fixture large(100000);for(unsigned i=1;i<100000;++i){large.edge(i-1,i);if(i>1)large.edge(i-2,i);}runCase(large,true,false);
-    return 0;
+    runCase("omitted",omitted,true,true);
+    Fixture star(257);for(unsigned i=1;i<257;++i)star.edge(0,i);runCase("star",star,false,false,1);
+    Fixture fixed(4);for(auto& inv:fixed.inverse)inv=make_float2(0,0);for(unsigned i=1;i<4;++i)fixed.edge(i-1,i);runCase("fixed",fixed,true,true,0);
+    Fixture mixed(129);for(unsigned i=1;i<129;++i)if(i%17)mixed.edge(i-1,i);runCase("mixed",mixed,true,false);
+    Fixture large(100000);for(unsigned i=1;i<100000;++i){large.edge(i-1,i);if(i>1)large.edge(i-2,i);}runCase("large",large,true,false);
+    require(executed>0,"unknown hierarchy fixture");return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"resident hierarchy: %s\n",e.what());return 1;}}

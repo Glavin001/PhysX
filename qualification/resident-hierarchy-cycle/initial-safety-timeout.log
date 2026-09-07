@@ -1,0 +1,22 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 92: blast_stress_gpu_resident_cycle_memcheck
+1/3 Test #92: blast_stress_gpu_resident_cycle_memcheck ....   Passed   15.30 sec
+    Start 93: blast_stress_gpu_resident_cycle_synccheck
+2/3 Test #93: blast_stress_gpu_resident_cycle_synccheck ...   Passed   12.54 sec
+    Start 94: blast_stress_gpu_resident_cycle_racecheck
+3/3 Test #94: blast_stress_gpu_resident_cycle_racecheck ...***Timeout 120.10 sec
+========= COMPUTE-SANITIZER
+
+
+67% tests passed, 1 tests failed out of 3
+
+Label Time Summary:
+gpu          = 147.94 sec*proc (3 tests)
+sanitizer    = 147.94 sec*proc (3 tests)
+
+Total Test time (real) = 147.94 sec
+
+The following tests FAILED:
+	 94 - blast_stress_gpu_resident_cycle_racecheck (Timeout)
+Errors while running CTest

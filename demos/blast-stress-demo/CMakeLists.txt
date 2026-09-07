@@ -907,6 +907,42 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
         set_tests_properties(blast_stress_gpu_assembled_hierarchy_${hierarchy_tool}
             PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
     endforeach()
+    add_test(NAME blast_stress_gpu_resident_cycle COMMAND gpu_resident_hierarchy_test --cycle)
+    set_tests_properties(blast_stress_gpu_resident_cycle PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
+    foreach(hierarchy_tool memcheck synccheck)
+        set(hierarchy_options)
+        if(hierarchy_tool STREQUAL "memcheck")
+            list(APPEND hierarchy_options --leak-check full)
+        endif()
+        add_test(NAME blast_stress_gpu_resident_cycle_${hierarchy_tool}
+            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${hierarchy_tool}
+                    ${hierarchy_options} --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --cycle)
+        set_tests_properties(blast_stress_gpu_resident_cycle_${hierarchy_tool}
+            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+    endforeach()
+    # Retain every basis assertion and topology transition. Expensive fixtures
+    # qualify one transition per process, replaying the same full build sequence
+    # so graph reuse and stale/incomplete publication checks are still exercised.
+    foreach(hierarchy_case empty singleton isolated supported path self parallel omitted star fixed mixed large)
+        if(hierarchy_case MATCHES "^(supported|omitted|large)$")
+            set(hierarchy_steps 0 1 2 3 4 5)
+        elseif(hierarchy_case STREQUAL "path")
+            set(hierarchy_steps 0 1)
+        else()
+            set(hierarchy_steps all)
+        endif()
+        foreach(hierarchy_step IN LISTS hierarchy_steps)
+            set(hierarchy_step_argument)
+            if(NOT hierarchy_step STREQUAL "all")
+                set(hierarchy_step_argument ${hierarchy_step})
+            endif()
+            add_test(NAME blast_stress_gpu_resident_cycle_racecheck_${hierarchy_case}_${hierarchy_step}
+                COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool racecheck --error-exitcode 99
+                        $<TARGET_FILE:gpu_resident_hierarchy_test> --cycle ${hierarchy_case} ${hierarchy_step_argument})
+            set_tests_properties(blast_stress_gpu_resident_cycle_racecheck_${hierarchy_case}_${hierarchy_step}
+                PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+        endforeach()
+    endforeach()
     add_library(gpu_resident_stress_test_core OBJECT EXCLUDE_FROM_ALL
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu")
     target_include_directories(gpu_resident_stress_test_core PUBLIC

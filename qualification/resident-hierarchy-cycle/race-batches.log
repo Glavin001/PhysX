@@ -1,0 +1,64 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start  94: blast_stress_gpu_resident_cycle_racecheck_empty_all
+ 1/27 Test  #94: blast_stress_gpu_resident_cycle_racecheck_empty_all .......   Passed    1.47 sec
+      Start  95: blast_stress_gpu_resident_cycle_racecheck_singleton_all
+ 2/27 Test  #95: blast_stress_gpu_resident_cycle_racecheck_singleton_all ...   Passed    1.79 sec
+      Start  96: blast_stress_gpu_resident_cycle_racecheck_isolated_all
+ 3/27 Test  #96: blast_stress_gpu_resident_cycle_racecheck_isolated_all ....   Passed    2.44 sec
+      Start  98: blast_stress_gpu_resident_cycle_racecheck_supported_1
+ 4/27 Test  #98: blast_stress_gpu_resident_cycle_racecheck_supported_1 .....   Passed   35.15 sec
+      Start  99: blast_stress_gpu_resident_cycle_racecheck_supported_2
+ 5/27 Test  #99: blast_stress_gpu_resident_cycle_racecheck_supported_2 .....   Passed   52.96 sec
+      Start 100: blast_stress_gpu_resident_cycle_racecheck_supported_3
+ 6/27 Test #100: blast_stress_gpu_resident_cycle_racecheck_supported_3 .....   Passed   53.16 sec
+      Start 101: blast_stress_gpu_resident_cycle_racecheck_supported_4
+ 7/27 Test #101: blast_stress_gpu_resident_cycle_racecheck_supported_4 .....   Passed   17.45 sec
+      Start 102: blast_stress_gpu_resident_cycle_racecheck_supported_5
+ 8/27 Test #102: blast_stress_gpu_resident_cycle_racecheck_supported_5 .....   Passed   35.27 sec
+      Start 103: blast_stress_gpu_resident_cycle_racecheck_path_0
+ 9/27 Test #103: blast_stress_gpu_resident_cycle_racecheck_path_0 ..........   Passed   27.13 sec
+      Start 104: blast_stress_gpu_resident_cycle_racecheck_path_1
+10/27 Test #104: blast_stress_gpu_resident_cycle_racecheck_path_1 ..........   Passed   27.12 sec
+      Start 105: blast_stress_gpu_resident_cycle_racecheck_self_all
+11/27 Test #105: blast_stress_gpu_resident_cycle_racecheck_self_all ........   Passed    7.39 sec
+      Start 106: blast_stress_gpu_resident_cycle_racecheck_parallel_all
+12/27 Test #106: blast_stress_gpu_resident_cycle_racecheck_parallel_all ....   Passed   49.93 sec
+      Start 107: blast_stress_gpu_resident_cycle_racecheck_omitted_0
+13/27 Test #107: blast_stress_gpu_resident_cycle_racecheck_omitted_0 .......   Passed   31.25 sec
+      Start 108: blast_stress_gpu_resident_cycle_racecheck_omitted_1
+14/27 Test #108: blast_stress_gpu_resident_cycle_racecheck_omitted_1 .......   Passed   31.15 sec
+      Start 109: blast_stress_gpu_resident_cycle_racecheck_omitted_2
+15/27 Test #109: blast_stress_gpu_resident_cycle_racecheck_omitted_2 .......   Passed   35.19 sec
+      Start 110: blast_stress_gpu_resident_cycle_racecheck_omitted_3
+16/27 Test #110: blast_stress_gpu_resident_cycle_racecheck_omitted_3 .......   Passed   35.14 sec
+      Start 111: blast_stress_gpu_resident_cycle_racecheck_omitted_4
+17/27 Test #111: blast_stress_gpu_resident_cycle_racecheck_omitted_4 .......   Passed    5.12 sec
+      Start 112: blast_stress_gpu_resident_cycle_racecheck_omitted_5
+18/27 Test #112: blast_stress_gpu_resident_cycle_racecheck_omitted_5 .......   Passed   31.16 sec
+      Start 113: blast_stress_gpu_resident_cycle_racecheck_star_all
+19/27 Test #113: blast_stress_gpu_resident_cycle_racecheck_star_all ........   Passed    1.68 sec
+      Start 114: blast_stress_gpu_resident_cycle_racecheck_fixed_all
+20/27 Test #114: blast_stress_gpu_resident_cycle_racecheck_fixed_all .......   Passed    4.98 sec
+      Start 115: blast_stress_gpu_resident_cycle_racecheck_mixed_all
+21/27 Test #115: blast_stress_gpu_resident_cycle_racecheck_mixed_all .......   Passed   11.07 sec
+      Start 116: blast_stress_gpu_resident_cycle_racecheck_large_0
+22/27 Test #116: blast_stress_gpu_resident_cycle_racecheck_large_0 .........   Passed   23.66 sec
+      Start 117: blast_stress_gpu_resident_cycle_racecheck_large_1
+23/27 Test #117: blast_stress_gpu_resident_cycle_racecheck_large_1 .........   Passed   23.27 sec
+      Start 118: blast_stress_gpu_resident_cycle_racecheck_large_2
+24/27 Test #118: blast_stress_gpu_resident_cycle_racecheck_large_2 .........   Passed   22.99 sec
+      Start 119: blast_stress_gpu_resident_cycle_racecheck_large_3
+25/27 Test #119: blast_stress_gpu_resident_cycle_racecheck_large_3 .........   Passed   22.81 sec
+      Start 120: blast_stress_gpu_resident_cycle_racecheck_large_4
+26/27 Test #120: blast_stress_gpu_resident_cycle_racecheck_large_4 .........   Passed  101.87 sec
+      Start 121: blast_stress_gpu_resident_cycle_racecheck_large_5
+27/27 Test #121: blast_stress_gpu_resident_cycle_racecheck_large_5 .........   Passed   23.25 sec
+
+100% tests passed, 0 tests failed out of 27
+
+Label Time Summary:
+gpu          = 715.81 sec*proc (27 tests)
+sanitizer    = 715.81 sec*proc (27 tests)
+
+Total Test time (real) = 715.82 sec
