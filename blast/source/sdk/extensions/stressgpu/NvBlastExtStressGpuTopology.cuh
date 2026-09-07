@@ -155,6 +155,7 @@ class DeviceStressTopology
     DeviceStressTopologyBuffers b;
     unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr;
     unsigned *rangeBegin=nullptr, *rangeEnd=nullptr, *tileCounts=nullptr;
+    unsigned* liveIslands=nullptr;
     void *sortScratch=nullptr, *scanScratch=nullptr;
     size_t sortBytes=0, scanBytes=0;
     DeviceStressTopologyBatch* batch=nullptr;
@@ -215,6 +216,13 @@ class DeviceStressTopology
         labelDeviceStressBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,parent,rootFlags,b.bondIsland,b.m);
         labelDeviceStressNodes<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,rootFlags,b.nodeIsland,b.n,state);
         cub::CountingInputIterator<unsigned> indices(0u);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        // Stable minimum-node IDs remain the connectivity truth. Iteration
+        // scheduling uses a compact ascending list, built only on topology
+        // changes; scalar storage remains indexed by the persistent IDs.
+        checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,
+            rootFlags,liveIslands,&state->islandCount,b.n,captureStream), "compact resident stress components");
+#endif
         flagDeviceStressRows<<<bondBlocks,kBlockSize,0,captureStream>>>(b.bondIsland,b.m,b.activeFlags);
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,b.activeFlags,b.activeBonds,b.activeCounts,b.m,captureStream), "compact device stress bonds");
         flagDeviceStressRows<<<nodeBlocks,kBlockSize,0,captureStream>>>(b.nodeIsland,b.n,b.activeFlags);
@@ -247,13 +255,16 @@ public:
         if (graph) cudaGraphDestroy(graph);
         if (captureStream) cudaStreamDestroy(captureStream);
         cudaFree(parent); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys);
-        cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts);
+        cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
     }
     void init(cudaStream_t stream)
     {
         allocate(parent,b.n); allocate(rootFlags,b.n); allocate(identity,std::max(b.n,b.m));
         allocate(batch,1); allocate(state,1);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        allocate(liveIslands,b.n);
+#endif
         checkCuda(cudaMemsetAsync(state,0,sizeof(*state),stream), "initialize stress topology status");
         checkCuda(cudaMemsetAsync(&state->solvedGeneration,0xff,sizeof(state->solvedGeneration),stream), "invalidate stress solved generation");
         checkCuda(cudaStreamCreateWithFlags(&captureStream,cudaStreamNonBlocking), "create stress topology capture stream");
@@ -274,4 +285,5 @@ public:
         checkCuda(cudaGraphLaunch(exec,stream), "launch device stress topology transaction");
     }
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
+    const unsigned* islandIds() const { return liveIslands; }
 };

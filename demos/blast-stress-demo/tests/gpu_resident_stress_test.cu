@@ -65,15 +65,75 @@ void columns(unsigned n, bool deviceTopology){
         }
     }
     if(deviceTopology){
-        // Remove every bond after nonzero solves. The cached component ranges
-        // become empty: no stale partial may leak into an isolated chunk's
-        // response. Repeating the same generation must not rebuild the layout.
+        // Keep only the final column: its minimum-node ID is near capacity,
+        // while its compact scheduling index is zero. This catches accidental
+        // scalar addressing by compact index and stale component-list tails.
         unsigned* mask=nullptr;std::uint64_t* generation=nullptr;
         check(cudaMalloc(&mask,bonds.size()*sizeof(*mask)));
         check(cudaMalloc(&generation,sizeof(*generation)));
         check(cudaStreamWaitEvent(producer,reinterpret_cast<cudaEvent_t>(solver->deviceView().readyEvent),0));
+        std::vector<unsigned> alive(bonds.size(),0u);
+        std::fill(alive.end()-3,alive.end(),1u);
+        check(cudaMemcpyAsync(mask,alive.data(),alive.size()*sizeof(*mask),cudaMemcpyHostToDevice,producer));
+        const std::uint64_t partialGen=1;
+        check(cudaMemcpyAsync(generation,&partialGen,sizeof(partialGen),cudaMemcpyHostToDevice,producer));
+        check(cudaEventRecord(ready,producer));
+        require(solver->updateDeviceTopologyAsync(mask,bonds.size(),generation,nullptr,ready),"partial GPU split failed");
+        auto partialView=solver->deviceView();
+        check(cudaStreamWaitEvent(producer,reinterpret_cast<cudaEvent_t>(partialView.readyEvent),0));
+        produce<<<(n+127)/128,128,0,producer>>>(partialView.nodeInputs,n,3);
+        check(cudaGetLastError());check(cudaEventRecord(ready,producer));
+        require(solver->solveDeviceAsync(partialView.nodeInputs,n,params,ready),"sparse component solve failed");
+        partialView=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(partialView.readyEvent)));
+        ExtStressGpuDeviceTopologyStatus partialTopology{};
+        ExtStressGpuDeviceStatus partialStatus{};
+        check(cudaMemcpy(&partialTopology,partialView.topologyStatus,sizeof(partialTopology),cudaMemcpyDeviceToHost));
+        check(cudaMemcpy(&partialStatus,partialView.status,sizeof(partialStatus),cudaMemcpyDeviceToHost));
+        require(!partialTopology.error && partialTopology.islandCount==1 && partialTopology.activeBondCount==3,"sparse component count incorrect");
+        require(partialStatus.converged && partialStatus.iterations<=params.maxIterations,"sparse component failed convergence");
+        check(cudaMemcpy(actual.data(),partialView.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+        for(unsigned i=0;i<actual.size();++i){
+            const unsigned group=i/3,edge=i%3;
+            const float expected=alive[i]?float(1+group%7)*3*(group%2?1:3-edge):0;
+            const auto f=actual[i];
+            for(float value:{f.linear.x,f.linear.y,f.linear.z,f.angular.x,f.angular.y,f.angular.z})
+                require(std::isfinite(value),"nonfinite sparse component response");
+            const float error=std::max({std::abs(std::abs(f.linear.y)-expected),std::abs(f.linear.x),std::abs(f.linear.z),std::abs(f.angular.x),std::abs(f.angular.y),std::abs(f.angular.z)})/std::max(1.f,expected);
+            require(error<2e-4f,"sparse component analytic equilibrium failed");
+        }
+        // Split that final column into two components. Both new roots have
+        // high, sparse IDs, and the compact list must grow from one to two.
+        alive[alive.size()-2]=0;
+        check(cudaMemcpyAsync(mask,alive.data(),alive.size()*sizeof(*mask),cudaMemcpyHostToDevice,producer));
+        const std::uint64_t splitGen=2;
+        check(cudaMemcpyAsync(generation,&splitGen,sizeof(splitGen),cudaMemcpyHostToDevice,producer));
+        check(cudaEventRecord(ready,producer));
+        require(solver->updateDeviceTopologyAsync(mask,bonds.size(),generation,nullptr,ready),"component split rejected");
+        auto splitView=solver->deviceView();
+        require(solver->solveDeviceAsync(splitView.nodeInputs,n,params),"split component solve failed");
+        splitView=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(splitView.readyEvent)));
+        ExtStressGpuDeviceTopologyStatus splitTopology{};
+        ExtStressGpuDeviceStatus splitStatus{};
+        check(cudaMemcpy(&splitTopology,splitView.topologyStatus,sizeof(splitTopology),cudaMemcpyDeviceToHost));
+        check(cudaMemcpy(&splitStatus,splitView.status,sizeof(splitStatus),cudaMemcpyDeviceToHost));
+        require(!splitTopology.error && splitTopology.islandCount==2 && splitTopology.activeBondCount==2,"component list failed to grow after split");
+        require(splitStatus.converged,"split component solve did not converge");
+        check(cudaMemcpy(actual.data(),splitView.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+        for(unsigned i=0;i<actual.size();++i){
+            const unsigned group=i/3,edge=i%3;const float a=float(1+group%7)*3;
+            // Each free pair accelerates under its net load. Only half the
+            // end-load difference is transmitted across its remaining bond.
+            const float expected=alive[i]?(group%2?a*.5f:(edge==0?a:0)):0;
+            const auto f=actual[i];
+            for(float value:{f.linear.x,f.linear.y,f.linear.z,f.angular.x,f.angular.y,f.angular.z})
+                require(std::isfinite(value),"nonfinite split component response");
+            const float error=std::max({std::abs(std::abs(f.linear.y)-expected),std::abs(f.linear.x),std::abs(f.linear.z),std::abs(f.angular.x),std::abs(f.angular.y),std::abs(f.angular.z)})/std::max(1.f,expected);
+            require(error<2e-4f,"split pair analytic equilibrium failed");
+        }
+        // Then remove every bond. The empty list must publish convergence;
+        // repeating the generation must not rebuild the layout.
         check(cudaMemsetAsync(mask,0,bonds.size()*sizeof(*mask),producer));
-        const std::uint64_t gen=1;
+        const std::uint64_t gen=3;
         check(cudaMemcpyAsync(generation,&gen,sizeof(gen),cudaMemcpyHostToDevice,producer));
         check(cudaEventRecord(ready,producer));
         unsigned rebuilds=0;

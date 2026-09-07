@@ -154,21 +154,23 @@ __device__ __forceinline__ void finalizeAndCheckConvergenceBody(
     const float* deltaSquared,
     std::uint32_t* blockActiveCounts,
     std::uint32_t islandCount,
-    const std::uint32_t* partialBegin, unsigned logicalBlock)
+    const std::uint32_t* partialBegin, unsigned logicalBlock,
+    const std::uint32_t* islandIds = nullptr)
 {
     __shared__ std::uint32_t partial[kBlockSize];
     const std::uint32_t tid = threadIdx.x;
-    const std::uint32_t id = logicalBlock * blockDim.x + tid;
+    const std::uint32_t slot = logicalBlock * blockDim.x + tid;
+    const std::uint32_t id = slot < islandCount ? (islandIds ? islandIds[slot] : slot) : kNoIsland;
 
     float sum = 0.0f;
-    if (id < islandCount)
+    if (slot < islandCount)
     {
         sum = sumIslandPartials(perIslandSlots, id, slots, partialBegin);
         result[id] = sum;
     }
 
     std::uint32_t active = 0;
-    if (id < islandCount && islandActive[id])
+    if (slot < islandCount && islandActive[id])
     {
         if (sum <= deltaSquared[id])
         {
@@ -223,10 +225,12 @@ __device__ __forceinline__ void finalizeAndRetireBody(
     std::uint32_t islandCount,
     cudaGraphConditionalHandle loopHandle,
     std::uint32_t maxIterations,
-    const std::uint32_t* partialBegin, unsigned logicalBlock)
+    const std::uint32_t* partialBegin, unsigned logicalBlock,
+    const std::uint32_t* islandIds = nullptr)
 {
-    const std::uint32_t id = logicalBlock * blockDim.x + threadIdx.x;
-    if (id < islandCount)
+    const std::uint32_t slot = logicalBlock * blockDim.x + threadIdx.x;
+    const std::uint32_t id = slot < islandCount ? (islandIds ? islandIds[slot] : slot) : kNoIsland;
+    if (slot < islandCount)
     {
         const float sum = sumIslandPartials(perIslandSlots, id, slots, partialBegin);
         result[id] = sum;

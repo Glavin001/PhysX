@@ -1,0 +1,167 @@
+{
+  "base_simulation_revision": "d8050885",
+  "capture_base_revision": "96bc0dc8",
+  "change": "GPU topology owns compact ascending live-component IDs; resident scalar reduction finalization and clearing visit the live IDs instead of node-sized sparse capacity. Shared minimum-node identity, node order, operator, precision and convergence are unchanged. The device component count controls work without readback.",
+  "new_persistent_storage": "Four bytes per stress node for live-component index capacity; actual iteration work uses the device live count.",
+  "builds": [
+    "PhysXDestructionGpuRuntime",
+    "gpu_resident_stress_test",
+    "gpu_resident_stress_parity_test",
+    "gpu_stress_topology_test"
+  ],
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh": "c7722c7fc68a36d5871f44a0c07943b45e2cd7f20ed839d4594e44951c66d3c4",
+    "blast/source/sdk/extensions/stressgpu/detail/StressIslandReduction.cuh": "ea2d4bfbb1559dfcf8d6100d4f9d16daa21656fa8efc0e1f12c924b24b57feed",
+    "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl": "03a3945b45fa841b9cbbded006823b1aed163771fa5ac7d26331a79873056d19",
+    "blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh": "137f07e035c516302fbd1fba5d134e97e7e76af73a7be3e9085c88dc6a95bdb1",
+    "demos/blast-stress-demo/tests/gpu_resident_stress_test.cu": "d1b63f729188cfbf2ba79ed333cfb5b3541960a04e839aeef7eab32d5443330f"
+  },
+  "focused_tests": {
+    "passed": 9,
+    "log": "qualification/compact-stress-ctest.log",
+    "analytic_scope": "Anchored/free columns at 12, 1536 and 131072 nodes with 9, 1152 and 98304 bonds; asset and GPU topology; warm/quiet restarts; one surviving high-ID component, subsequent split into two, empty graph and unchanged-generation reuse; memory checker included."
+  },
+  "reporter_tests_passed": 26,
+  "penetration_audit": "qualification/compact-stress-quality.json",
+  "large_motion_audit": "qualification/compact-stress-large-motion-audit.json",
+  "comparison": [
+    {
+      "case": "penetration",
+      "chunks": 444,
+      "bonds": 896,
+      "projectiles": 1,
+      "trials": 5,
+      "seconds": 60,
+      "before_complete_mean_ms": 3.028083123777778,
+      "after_complete_mean_ms": 2.8953241906666665,
+      "mean_change_percent": -4.384256563785605,
+      "before_complete_peak_ms": 6.830679,
+      "after_complete_peak_ms": 7.040818,
+      "before_missed_8ms": 0,
+      "after_missed_8ms": 0,
+      "repeated_counter_history_matches": true
+    },
+    {
+      "case": "world-256",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 1,
+      "trials": 2,
+      "seconds": 10,
+      "before_complete_mean_ms": 6.789699555833334,
+      "after_complete_mean_ms": 6.11009308,
+      "mean_change_percent": -10.009374792577574,
+      "before_complete_peak_ms": 14.897665,
+      "after_complete_peak_ms": 14.647169,
+      "before_missed_8ms": 211,
+      "after_missed_8ms": 93,
+      "repeated_counter_history_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "before_complete_mean_ms": 24.588060806666668,
+      "after_complete_mean_ms": 23.7005354,
+      "mean_change_percent": -3.6095787042548344,
+      "before_complete_peak_ms": 95.907978,
+      "after_complete_peak_ms": 98.298316,
+      "before_missed_8ms": 1038,
+      "after_missed_8ms": 1038,
+      "repeated_counter_history_matches": false
+    }
+  ],
+  "counter_history_comparisons": [
+    {
+      "case": "world-256",
+      "run": "world-256-plain-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "world-256",
+      "run": "world-256-plain-1",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "world-256",
+      "run": "world-256-phases-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-plain-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": 101,
+      "peak_step": 82,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-plain-1",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": 102,
+      "peak_step": 82,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-phases-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 82,
+      "through_peak_matches": true
+    }
+  ],
+  "full_plan_complete": false,
+  "large_physical_parity_qualified": false,
+  "remaining": [
+    "CPU native body reservation and ownership/contact/query lifecycle",
+    "Resident component-local iteration and GPU multilevel preconditioning",
+    "Selective correction scheduling",
+    "Validated settled reuse and sleep/wake",
+    "Large-scene repeated physical variation review",
+    "Larger five-run deadline gates and ten-minute lifecycle endurance"
+  ]
+}

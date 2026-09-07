@@ -430,3 +430,19 @@ previous capture. This audit does not read the renderer buffer or perform the
 full COM/momentum trace, and it does not complete large-scene fidelity or
 endurance qualification. The remaining major work is GPU lifecycle allocation,
 component-local stress/preconditioning and validated correction work selection.
+
+## Compact GPU component scheduling
+
+The native stress iteration now visits a GPU-resident compact list of live component IDs. Connectivity still uses minimum-node IDs; the list is rebuilt only when GPU topology changes. No physical equations, node reduction order, tolerance or correction limit were changed. This deletes repeated scalar work over unused sparse IDs; it does not yet provide component-local resident vectors or remove the global cooperative barriers.
+
+The runtime, production-kernel analytic tests and reference topology consumers rebuilt. Nine focused tests passed, including CPU numerical parity, native correction/publication and GPU memory checking. Analytic fixtures cover up to 131,072 nodes / 98,304 bonds, sparse IDs, list growth after splitting, empty topology, warm starts and event ordering. The 444-chunk / 896-bond frozen 10-second penetration audit preserves 398 supported chunks, 46 detached chunks, 199 broken bonds and its exact existing topology signature. The separate 113,664-chunk / 229,376-bond / 256-projectile 10-second audit passed committed-pose/membership/collision-owner checks; it is not a full momentum or render-buffer audit.
+
+[Generated timing and phase report](compact-stress-scaling/report.html) · [Validation and before/after comparisons](compact-stress-validation.json). Timings below include the complete command-to-accepted-state advance; no rendering. Sleeping remains disabled.
+
+- penetration: 444 chunks / 896 bonds / 1 projectile(s), 5 × 60 seconds. Mean 3.028 → 2.895 ms; peak 6.831 → 7.041 ms; steps above 8 ms 0 → 0.
+- world-256: 113,664 chunks / 229,376 bonds / 1 projectile(s), 2 × 10 seconds. Mean 6.790 → 6.110 ms; peak 14.898 → 14.647 ms; steps above 8 ms 211 → 93.
+- impacts-256: 113,664 chunks / 229,376 bonds / 256 projectile(s), 2 × 10 seconds. Mean 24.588 → 23.701 ms; peak 95.908 → 98.298 ms; steps above 8 ms 1038 → 1038.
+
+The small scene passes all 18,000 measured steps under 8 ms. Neither large scene passes the 8 ms peak gate. The bombardment mean is descriptive, not qualified identical-trajectory speedup: repeated histories differ after the impact peak, before and after this change. All compared captures retain matching fracture/correction/cluster counters through their worst step. CPU ownership/lifecycle changes and full resimulation still dominate that fracture spike. No worst-case bombardment improvement is claimed.
+
+A separate reporting fix aggregates the peak cluster count across all measured repeats, with 26 reporter tests passing. It does not change simulation.
