@@ -33,7 +33,9 @@ __device__ __forceinline__ void nodeSpaceUpdateDirectionBody(
     {
         return;
     }
-    const float denominator = zSqPrev[island];
+    // A first solve has no previous gradient value. Do not even read that
+    // storage on the restart iteration; the first beta is exactly zero.
+    const float denominator = *iteration != 0u ? zSqPrev[island] : 0.0f;
     // The first direction belongs to this solve. A quiet previous solve can
     // leave a subnormal denominator; forming new/old then multiplying the
     // reset vectors by infinity produces NaNs and retires a loaded island.

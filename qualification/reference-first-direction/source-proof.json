@@ -1,0 +1,9 @@
+{
+  "base_revision": "426fd5be662273e00ce71c04d039610712a29023",
+  "path": "blast/source/sdk/extensions/stressgpu/detail/StressNodeIteration.cuh",
+  "previous_source_sha256": "62cffe9ed6848c018b693fe1a99911462f84768758575db15a155c12585ea512",
+  "fixed_source_sha256": "9a6e4f60b63b8c950825d5c0285fd66b803ab97cf09fd6a71ba6697fcbeadbfb",
+  "scope": "Asset-topology reference direction restart; native projected component solver uses another direction function",
+  "observed_before_errors": 116042,
+  "observed_after_errors": 0
+}
