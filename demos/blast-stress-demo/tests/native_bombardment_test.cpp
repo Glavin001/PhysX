@@ -34,6 +34,18 @@ int main(){try {
             ++checked;
         }
     }
+    for(unsigned grid:{1u,2u,4u,8u,16u,32u}) {
+        const auto target=blast_demo::nativeBuildingOrigin(0,grid,true);
+        require((target-PxVec3(0,.5f,0)).magnitudeSquared()==0,"scaling moved the accepted impact target");
+        for(unsigned i=1;i<grid*grid;++i) {
+            const auto origin=blast_demo::nativeBuildingOrigin(i,grid,true);
+            require(origin.x-3.98f>.75f,"another building obstructs the impact corridor");
+            for(unsigned j=1;j<i;++j) {
+                const auto other=blast_demo::nativeBuildingOrigin(j,grid,true);
+                require((origin-other).magnitudeSquared()>=16*16,"city buildings overlap");
+            }
+        }
+    }
     const PxVec3 wallOrigin(0,.5f,0);
     const auto wall=blast_demo::nativeWallPenetrationLaunch(wallOrigin);
     require(wall.position.z+.75f<-3.98f,"wall projectile spawned inside building");

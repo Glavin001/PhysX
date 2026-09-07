@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "description": "World-size sweep preserves building zero and its frozen through-wall launch; extra buildings are outside the flight corridor. Concurrent bombardment uses the existing safe aerial launches, reported separately.",
+  "common": [
+    "--waves",
+    "1",
+    "--launch-seconds",
+    "0",
+    "--stress-iterations",
+    "8192",
+    "--preserve-contact-pairs",
+    "1",
+    "--gpu-island-repair",
+    "1",
+    "--gpu-pre-solve-islands",
+    "1",
+    "--gpu-pre-solve-contacts",
+    "1",
+    "--gpu-pre-solve-support",
+    "1",
+    "--gpu-connectivity-owner",
+    "1",
+    "--projectile-mass",
+    "18000",
+    "--material-strength",
+    "24",
+    "--frame-strength",
+    "40",
+    "--record-state",
+    "0",
+    "--gpu-render",
+    "0",
+    "--audit-motion",
+    "0",
+    "--trace-motion",
+    "0"
+  ],
+  "cases": [
+    {
+      "id": "world-4",
+      "label": "4 buildings, one unchanged wall impact",
+      "args": [
+        "--grid",
+        "2",
+        "--layout",
+        "impact-corridor",
+        "--workload",
+        "single-impact",
+        "--shot-path",
+        "through-wall"
+      ]
+    },
+    {
+      "id": "world-16",
+      "label": "16 buildings, one unchanged wall impact",
+      "args": [
+        "--grid",
+        "4",
+        "--layout",
+        "impact-corridor",
+        "--workload",
+        "single-impact",
+        "--shot-path",
+        "through-wall"
+      ]
+    },
+    {
+      "id": "world-64",
+      "label": "64 buildings, one unchanged wall impact",
+      "args": [
+        "--grid",
+        "8",
+        "--layout",
+        "impact-corridor",
+        "--workload",
+        "single-impact",
+        "--shot-path",
+        "through-wall"
+      ]
+    },
+    {
+      "id": "world-256",
+      "label": "256 buildings, one unchanged wall impact",
+      "args": [
+        "--grid",
+        "16",
+        "--layout",
+        "impact-corridor",
+        "--workload",
+        "single-impact",
+        "--shot-path",
+        "through-wall"
+      ]
+    },
+    {
+      "id": "impacts-4",
+      "label": "4 buildings, simultaneous aerial impacts",
+      "args": [
+        "--grid",
+        "2",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial"
+      ]
+    },
+    {
+      "id": "impacts-16",
+      "label": "16 buildings, simultaneous aerial impacts",
+      "args": [
+        "--grid",
+        "4",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial"
+      ]
+    },
+    {
+      "id": "impacts-64",
+      "label": "64 buildings, simultaneous aerial impacts",
+      "args": [
+        "--grid",
+        "8",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial"
+      ]
+    },
+    {
+      "id": "impacts-256",
+      "label": "256 buildings, simultaneous aerial impacts",
+      "args": [
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial"
+      ]
+    }
+  ]
+}

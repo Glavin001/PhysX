@@ -139,3 +139,41 @@ sleeping remains disabled. No new speedup is claimed from this storage cleanup.
 [Final generated report](eight-ms-storage-final-qualified/report.html) includes
 scene population, projectile count, peak cluster count, duration, correction
 limit and sleeping settings alongside every measured timing table.
+
+## Integrated world-size and concurrent-impact diagnostics
+
+The optional `impact-corridor` demo layout leaves building zero and the frozen
+wall projectile at exactly their original coordinates. Additional structures
+sit beside the flight path. The default layout and frozen fixture are unchanged;
+the launch-geometry test and complete 10-second frozen identity audit pass.
+
+Seven larger workloads ran twice for ten simulated seconds each, at 1/60-second
+timestep and correction limit one, with sleeping disabled. All accepted steps
+converged. These are diagnostic runs, not five-by-60-second or endurance gates.
+[Generated combined report](destruction-scaling/report.html) includes exact
+populations, active-body counts, contact reports, memory samples, every peak,
+deadline misses and the separate phase attribution.
+
+- World-size axis: 4, 16, 64 and 256 buildings; one unchanged wall impact.
+  Every size retains 199 broken bonds, three corrected steps and 42 additional
+  clusters. At 256 buildings (113,664 chunks / 229,376 bonds), complete advances
+  average 6.792 ms and peak at 16.162 ms. The 8 ms gate fails; no step in these
+  two 10-second runs exceeds 1000/60 ms. This is not a strict 60 Hz qualification.
+- Concurrent axis: 16, 64 and 256 aerial projectiles/buildings. With 256 impacts
+  on 113,664 chunks / 229,376 bonds, complete advances average 25.170 ms and peak
+  at 98.180 ms, reaching 14,096 clusters and 62,582 broken bonds. This fails both
+  peak deadlines. Actual destruction work is included, not just static geometry.
+- A separate ten-second scoped run of the 256-impact scene peaks at step 82:
+  40.595 ms CPU ownership/lifecycle bridge, 32.779 ms correction collision/solve,
+  5.582 ms native body reservation and 9.404 ms stress-stream interval. Mean
+  stress-stream time is 17.624 ms. GPU stream durations overlap host waits and
+  are not additive with the wall partition. The scoped peak is 94.982 ms, not
+  the untraced 98.180 ms maximum. Counter histories match through that peak;
+  the scoped run ends with one fewer broken bond. Full chaotic physical-quality
+  qualification remains open and is disclosed in the report.
+
+This evidence prioritizes GPU fragment allocation/ownership for fracture peaks
+and component-local stress/preconditioning for sustained cost. It does not
+justify optimizing the CPU ownership bridge into a permanent architecture.
+The remaining migration, exact-bond, selective-correction and endurance gates
+above still apply.

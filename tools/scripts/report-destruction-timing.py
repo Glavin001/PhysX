@@ -380,7 +380,7 @@ def complete_step_metrics(run):
 def render_complete_gate(manifest,runs,out):
     doc=Document();doc.title('🎯 Complete PhysX destruction advance — 8 ms gate',1)
     doc.text('60 Hz physical timestep. Timer includes commands, projectile insertion, simulate/fetch, destruction/correction and mandatory completion. All measured steps, including startup, remain. Rendering and report output are outside the bracket.')
-    rows=[];workloads=[];failures=0;gates=[]
+    rows=[];workloads=[];failures=0;gates=[];quality_failures=[];history_changes=[]
     for case in manifest['config']['cases']:
         summary=runs[case['id']]['plain'][0]['summary']
         workloads.append([case['label'],summary['chunks'],summary['bonds'],summary['projectiles'],
@@ -390,23 +390,51 @@ def render_complete_gate(manifest,runs,out):
         for i,run in enumerate(runs[case['id']]['plain']):
             metric=complete_step_metrics(run);frames=run['frames'];worst=max(range(len(frames)),key=lambda n:float(frames[n]['complete_step_ms']));f=frames[worst]
             misses=sum(float(f['complete_step_ms'])>8 for f in frames);failures+=misses
-            if case['id']=='penetration':require(run['summary']['broken_bonds']==199 and run['summary']['corrections']==3 and run['summary']['peak_clusters']==43,'Frozen wall topology counters changed')
-            if previous is not None:require(run['signature_rows']==previous,'Controlled fixture topology signature changed across repetitions')
+            summary=run['summary']
+            if summary['shot_path']=='through-wall' and not (summary['broken_bonds']==199 and summary['corrections']==3 and summary['peak_clusters']==summary['buildings']+42):
+                quality_failures.append(f"{case['label']}, repeat {i+1}: frozen wall counters changed")
+            if previous is not None and run['signature_rows']!=previous:
+                change=f"{case['label']}, repeat {i+1}: per-step counter history differs"
+                # Multi-impact rubble is a chaotic workload. Keep the changed
+                # histories visible; never waive the controlled wall fixture.
+                if summary['workload']=='bombardment':history_changes.append(change)
+                else:quality_failures.append(change)
             previous=run['signature_rows']
             rows.append([case['label'],i+1,len(frames),fmt(metric['min']),fmt(metric['mean']),fmt(metric['p95']),fmt(metric['p99']),fmt(metric['max']),misses,worst,fmt(float(f['command_ms'])),fmt(float(f['physics_step_ms'])),fmt(float(f['completion_ms']))])
             gates.append(dict(case=case['id'],repeat=i+1,metrics=metric,misses=misses,worst_step=worst))
     enough=manifest['seconds']>=60 and manifest['trials']>=5
     doc.text(('❌ Deadline failed' if failures else '✅ Measured deadlines passed')+f': {failures} steps exceeded 8.0 ms. '+('Five × 60-second duration requirement met.' if enough else 'Diagnostic only: five × 60-second qualification duration not met.'))
     doc.text('This timing gate checks convergence, correction limit, frozen wall counters and repeated counter histories. It does not substitute for the independent trajectory/hole/momentum audit or the 10-minute endurance gate; overall plan qualification remains incomplete until those pass.')
+    for message in quality_failures:doc.text('❌ Controlled quality gate failed: '+message)
+    for message in history_changes:doc.text('⚠️ Chaotic workload variation: '+message+'. Convergence and correction-limit checks passed, but exact trajectories and full physical quality are not qualified.')
     doc.table(['Scene','Chunks','Bonds','Projectiles','Peak destruction clusters','Seconds per run','Correction limit','Sleeping'],workloads)
     doc.text('Stress chunks are geometry/connectivity units, not independently solved rigid bodies while bonded. Peak destruction clusters excludes ordinary actors such as the projectile and ground. Idle controls measure retained geometry, not concurrent destruction.')
     doc.table(['Scene','Repeat','Steps','Min ms','Mean ms','p95 ms','p99 ms','Peak ms','Misses','Peak step','Commands at peak ms','Physics/destruction at peak ms','Completion at peak ms'],rows)
     doc.text('Commands and completion timings are disjoint from simulate/fetch. Detailed CPU/GPU subdivisions require a separate profiling capture; they must not be inferred from another run’s maximum. No percentile or outlier removal changes the deadline verdict.')
+    scoped=[]
+    for case in manifest['config']['cases']:
+        for run in runs[case['id']]['phases']:
+            data=run['profile'];frames=run['frames']
+            peak=max(range(len(frames)),key=lambda i:float(frames[i]['complete_step_ms']))
+            doc.title('Separate phase capture: '+case['label'])
+            doc.text('This is a separate instrumented run. CPU elapsed regions form a partition; CUDA stream stages overlap that partition and must not be added to it. The peak column below refers only to this scoped run, not the untraced peak above.')
+            doc.table(['Operation','Owner / responsibility','Mean elapsed ms','At scoped peak ms'],[
+                [LABELS[key][0],LABELS[key][1],fmt(mean([v[key] for v in data['wall_partition']])),fmt(data['wall_partition'][peak][key])]
+                for key in data['wall_partition'][0]])
+            doc.table(['GPU stream stage','Mean ms','At scoped peak ms'],[
+                [label,fmt(mean([v.get(key,0) for v in data['cuda_stages']])),fmt(data['cuda_stages'][peak].get(key,0))]
+                for key,label in STAGES.items()])
+            doc.text(f"Scoped peak: repeat 1, step {peak}, complete advance {float(frames[peak]['complete_step_ms']):.3f} ms. CUDA-event timings measure stream intervals, including gaps; they do not establish SM utilization or hardware bandwidth limits.")
+            reference=runs[case['id']]['plain'][0]
+            full_match=run['signature_rows']==reference['signature_rows']
+            prefix_match=run['signature_rows'][:peak+1]==reference['signature_rows'][:peak+1]
+            doc.text(f"Scoped versus first untraced counter history: complete run {'matches' if full_match else 'differs'}; through the scoped peak {'matches' if prefix_match else 'differs'}. Broken bonds: scoped {run['summary']['broken_bonds']}, first untraced {reference['summary']['broken_bonds']}. These are separate trajectories, not a decomposition of the same measured peak.")
+            scoped.append({'case':case['id'],'peak_step':peak,'profile':data})
     doc.save(out)
-    payload=dict(schema=1,deadline_ms=8.0,deadline_pass=failures==0,duration_pass=enough,quality_endurance_qualified=False,runs=gates,manifest=manifest)
+    payload=dict(schema=1,deadline_ms=8.0,deadline_pass=failures==0,duration_pass=enough,quality_endurance_qualified=False,runs=gates,phase_captures=scoped,controlled_quality_failures=quality_failures,chaotic_history_changes=history_changes,manifest=manifest)
     with (out/'report.json.gz').open('wb') as raw:
         with gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0) as z:z.write((json.dumps(payload,indent=2,sort_keys=True)+'\n').encode())
-    return failures==0 and enough
+    return failures==0 and enough and not quality_failures
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('capture',type=Path);parser.add_argument('--output',type=Path,required=True);args=parser.parse_args()
@@ -422,6 +450,8 @@ def main():
         runs[rec['case']][rec['mode']].append(r)
     if manifest.get('gate_only'):
         for case in runs.values():require(len(case['plain'])==manifest['trials'],'Missing untraced repetition')
+        if manifest.get('phase_scopes'):
+            for case in runs.values():require(len(case['phases'])==1,'Missing scoped capture')
         passed=render_complete_gate(manifest,runs,args.output)
         print(args.output/'report.html')
         raise SystemExit(0 if passed else 2)

@@ -76,6 +76,35 @@ class TimingAccounting(unittest.TestCase):
             self.assertEqual(first,compressed.read_bytes())
     def complete_run(self,values):
         return dict(summary=dict(complete_timer_schema=1,missed_8ms=sum(v>8 for v in values),complete_step_ms_max=max(values)),frames=[dict(complete_step_ms=v,command_ms=.1,physics_step_ms=v-.2,completion_ms=.1,complete_start_ns=1,simulation_start_ns=2,simulation_end_ns=3,complete_end_ns=4) for v in values])
+    def gate_runs(self, chaotic=False):
+        runs=[]
+        for _ in range(5):
+            run=self.complete_run([1]*3600)
+            run['summary'].update(chunks=444,bonds=896,projectiles=1,peak_clusters=43,
+                seconds=60,correction_limit=1,sleeping=False,buildings=1,broken_bonds=199,
+                corrections=3,shot_path='aerial' if chaotic else 'through-wall',
+                workload='bombardment' if chaotic else 'single-impact')
+            run['signature_rows']=[[i,0,0,1] for i in range(3600)]
+            runs.append(run)
+        manifest=dict(seconds=60,trials=5,config=dict(cases=[dict(id='fixture',label='fixture')]))
+        return manifest,dict(fixture=dict(plain=runs,phases=[]))
+    def test_controlled_wall_counter_failure_still_writes_failed_report(self):
+        manifest,runs=self.gate_runs();runs['fixture']['plain'][2]['summary']['broken_bonds']=198
+        with tempfile.TemporaryDirectory() as d:
+            self.assertFalse(r.render_complete_gate(manifest,runs,Path(d)))
+            self.assertIn('Controlled quality gate failed',(Path(d)/'report.md').read_text())
+    def test_controlled_wall_history_variation_rejected(self):
+        manifest,runs=self.gate_runs();runs['fixture']['plain'][1]['signature_rows'][10][1]=1
+        with tempfile.TemporaryDirectory() as d:
+            self.assertFalse(r.render_complete_gate(manifest,runs,Path(d)))
+    def test_chaotic_variation_is_visible_and_not_full_quality_qualification(self):
+        manifest,runs=self.gate_runs(True);runs['fixture']['plain'][1]['signature_rows'][10][1]=1
+        with tempfile.TemporaryDirectory() as d:
+            self.assertTrue(r.render_complete_gate(manifest,runs,Path(d)))
+            report=(Path(d)/'report.md').read_text()
+            self.assertIn('Chaotic workload variation',report)
+            self.assertIn('full physical quality are not qualified',report)
+
     def test_complete_peak_keeps_every_spike(self):
         run=self.complete_run([1]*599+[8.00001]);metric=r.complete_step_metrics(run)
         self.assertEqual(metric['max'],8.00001);self.assertEqual(run['summary']['missed_8ms'],1)
