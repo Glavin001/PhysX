@@ -431,18 +431,18 @@ bool PxgAABBManager::refilterBounds(BoundsIndex index, FilterGroup::Enum group, 
     // the legacy reset path until that integration is available; do not create
     // duplicate aggregate pairs while refreshing a neighboring single actor.
     if (mNbAggregates || index >= mVolumeData.size() || !mVolumeData[index].isSingleActor()
-        || mGroups[index] == FilterGroup::eINVALID || group == FilterGroup::eINVALID)
+        || mGroups[index] == FilterGroup::eINVALID || (!deviceOwnerTransaction && group == FilterGroup::eINVALID))
         return false;
     if(!deviceOwnerTransaction) {
         mRefilterHandleMap.growAndSet(index);
         mRefilterPending = true;
         mChangedHandleMap.growAndSet(index);
         ++mHostRefilterRequests;
+        mGroups[index] = group;
+        mPersistentStateChanged = true;
     }
-    // CPU group/type observation remains for the current lifecycle bridge.
-    // Native overlap discovery and changed projections consume GPU owner stamps.
-    mGroups[index] = group;
-    mPersistentStateChanged = true;
+    // Native rigid group identity comes from NP's GPU shape-to-motion map.
+    // No CPU group reconstruction or whole-world metadata DMA is requested.
     mGPUStateChanged = true;
     return true;
 }

@@ -99,7 +99,8 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     if (&owner.getScene() != &scene || !isInBroadPhase() || !owner.isDynamicRigid()
         || owner.getActorType() != PxActorType::eRIGID_DYNAMIC) return false;
     BodySim& body = static_cast<BodySim&>(owner);
-    const Bp::FilterGroup::Enum group = Bp::getFilterGroup(false, owner.getActorID(), body.isKinematic() && !body.hasForcedKinematicNotif());
+    const Bp::FilterGroup::Enum group = deviceOwnerTransaction ? Bp::FilterGroup::eINVALID
+        : Bp::getFilterGroup(false, owner.getActorID(), body.isKinematic() && !body.hasForcedKinematicNotif());
     if (!scene.getAABBManager()->refilterBounds(getElementID(), group, deviceOwnerTransaction)) return false;
     // Fresh public bodies have not reached the GPU yet. Native destruction
     // candidates initialized in the GPU pool have already cleared FIRST_COPY.

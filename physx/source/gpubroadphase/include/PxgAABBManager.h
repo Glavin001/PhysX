@@ -30,6 +30,7 @@
 #define PXG_AABBMANAGER_H
 
 #include "PxgDestructionOwnership.h"
+#include "PxNodeIndex.h"
 #include "BpAABBManagerBase.h"
 #include "PxgCudaBuffer.h"
 #include "PxgAggregate.h"
@@ -113,6 +114,9 @@ namespace physx
         virtual bool refilterBounds(Bp::BoundsIndex index, Bp::FilterGroup::Enum group, bool deviceOwnerTransaction = false) PX_OVERRIDE;
         void setNativeOwnershipView(PxgDestructionOwnershipView view) { mNativeOwnership = view; }
         PxgDestructionOwnershipView getNativeOwnershipView() const { return mNativeOwnership; }
+        void setRigidOwnershipView(const PxNodeIndex* owners, PxU32 capacity) { mRigidOwners=owners; mRigidOwnerCapacity=capacity; }
+        const PxNodeIndex* getRigidOwners() const { return mRigidOwners; }
+        PxU32 getRigidOwnerCapacity() const { return mRigidOwnerCapacity; }
         PxU64 getHostRefilterRequests() const { return mHostRefilterRequests; }
         PxU64 getHostRefilterUploadWords() const { return mHostRefilterUploadWords; }
         CUdeviceptr getRefilterHandles() const { return mRefilterHandlesBuf.getDevicePtr(); }
@@ -203,6 +207,8 @@ namespace physx
         PxgCudaBuffer mRefilterHandlesBuf;
         bool mRefilterPending;
         PxgDestructionOwnershipView mNativeOwnership;
+        const PxNodeIndex* mRigidOwners = NULL;
+        PxU32 mRigidOwnerCapacity = 0;
         PxU64 mHostRefilterRequests = 0, mHostRefilterUploadWords = 0;
 
 		PxU32								mNumAggregatesSlots;

@@ -1114,6 +1114,20 @@ namespace physx
             mCudaContextManager->getCudaContext()->setAbortMode(true);return;
         }
 		mNpContext->updateNarrowPhaseShape();
+        // Capture after NP growth/uploads so broad phase never borrows a retired
+        // allocation. The existing NP -> articulation -> BP event chain orders
+        // reads on ordinary and corrected passes alike.
+        const bool nativeGroups=mDestruction && mDestruction->configured();
+        const auto& rigidOwners=npCore->mGpuShapesManager.mGpuShapesRemapTableBuffer;
+        static_cast<PxgAABBManager&>(aabbManager).setRigidOwnershipView(
+            nativeGroups ? reinterpret_cast<const PxNodeIndex*>(rigidOwners.getDevicePtr()) : NULL,
+            nativeGroups ? PxU32(rigidOwners.getSize()/sizeof(PxNodeIndex)) : 0);
+        if(nativeGroups && !isDirectApiInitialized) {
+            // The normal direct-GPU NP -> articulation -> BP dependency below
+            // is absent on initialization. Order this new consumer explicitly.
+            auto* bp=static_cast<PxgCudaBroadPhaseSap*>(aabbManager.getBroadPhase());
+            npCore->synchronizedStreams(bp->getBpStream());
+        }
 
 		// AD TODO: remove this if again once we have the warm-start implemented, or find a way to avoid doing this alltogether.
 		// this needs to run even if direct-GPU API is not initialized, because it is part of the initialization.

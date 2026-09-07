@@ -31,6 +31,7 @@
 
 #include "foundation/PxSimpleTypes.h"
 #include "PxgDestructionOwnership.h"
+#include "PxNodeIndex.h"
 
 // PT: the GPU AABB manager apparently DMAs the updated handles' *bitmap* to the GPU directly, bypassing the
 // BP API. This creates coupling between the GPU BP and the GPU AABB manager, i.e. the GPU BP cannot be used
@@ -76,6 +77,8 @@ namespace physx
         const PxU32* refilterHandleMap;
         PxU32 refilterWordCount;
         PxgDestructionOwnershipView nativeOwnership;
+        const PxNodeIndex* rigidOwners;
+        PxU32 rigidOwnerCapacity;
 
 		PxBounds3*				updateData_fpBounds;					// PT: copy of updateData buffer in device memory
 		PxReal*					updateData_contactDistances;			// PT: copy of updateData buffer in device memory

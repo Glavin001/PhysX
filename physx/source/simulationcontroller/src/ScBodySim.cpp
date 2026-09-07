@@ -213,7 +213,7 @@ void BodySim::tearDownSimStateData(bool isKinematic)
 	}
 }
 
-void BodySim::switchToKinematic()
+void BodySim::switchToKinematic(bool deviceOwnerTransaction)
 {
 	setupSimStateData(true);
 
@@ -228,7 +228,7 @@ void BodySim::switchToKinematic()
 
 		mScene.getSimpleIslandManager()->setKinematic(mNodeIndex);
 
-		updateBPGroup(this);
+		if(!deviceOwnerTransaction)updateBPGroup(this);
 	}
 
 	mScene.setDynamicsDirty();
@@ -236,7 +236,7 @@ void BodySim::switchToKinematic()
 	mFilterFlags |= PxFilterObjectFlag::eKINEMATIC;
 }
 
-void BodySim::switchToDynamic()
+void BodySim::switchToDynamic(bool deviceOwnerTransaction)
 {
 	tearDownSimStateData(true);
 
@@ -258,7 +258,7 @@ void BodySim::switchToDynamic()
 			mScene.swapInActiveBodyList(*this);
 
 		//
-		updateBPGroup(this);
+		if(!deviceOwnerTransaction)updateBPGroup(this);
 	}
 
 	mScene.setDynamicsDirty();

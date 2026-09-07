@@ -377,6 +377,7 @@ void PxgCudaBroadPhaseSap::gpuDMAUp(const Bp::BroadPhaseUpdateData& updateData, 
 	{
 		mCudaContext->memcpyHtoDAsync(mBoxContactDistancesBuf.getDevicePtr(), mContactDistances, sizeof(PxReal)* mBoxesCapacity, mStream);
 		mCudaContext->memcpyHtoDAsync(mBoxGroupsBuf.getDevicePtr(), mBoxGroups, sizeof(PxU32)* mBoxesCapacity, mStream);
+        mHostGroupUploadBytes+=sizeof(PxU32)*PxU64(mBoxesCapacity);
 		mCudaContext->memcpyHtoDAsync(mBoxFpBoundsBuf.getDevicePtr(), mBoxBoundsMinMax, sizeof(PxBounds3)* mBoxesCapacity, mStream);			
 	}*/
 		
@@ -999,6 +1000,8 @@ void PxgCudaBroadPhaseSap::updateDescriptor(PxgBroadPhaseDesc& desc)
 	if(mAABBManager)
 	{
 		desc.nativeOwnership = mAABBManager->getNativeOwnershipView();
+        desc.rigidOwners=mAABBManager->getRigidOwners();
+        desc.rigidOwnerCapacity=mAABBManager->getRigidOwnerCapacity();
 		// PT: this data is used in:
 		// - markUpdatedPairsLaunch (BP_UPDATE_UPDATEDPAIRS)
 		{
@@ -1246,6 +1249,7 @@ void PxgCudaBroadPhaseSap::preBroadPhase(const Bp::BroadPhaseUpdateData& updateD
 	}
 	mCudaContext->memcpyHtoDAsync(mBoxContactDistancesBuf.getDevicePtr(), updateData.getContactDistance(), distanceSize, mStream);
 	mCudaContext->memcpyHtoDAsync(mBoxGroupsBuf.getDevicePtr(), updateData.getGroups(), groupSize, mStream);
+    mHostGroupUploadBytes+=groupSize;
 	if(updateData.getEnvIDs())
 		mCudaContext->memcpyHtoDAsync(mBoxEnvIDsBuf.getDevicePtr(), updateData.getEnvIDs(), envIDSize, mStream);
 }

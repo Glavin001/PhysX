@@ -66,8 +66,8 @@ namespace Sc
 												BodySim(Scene&, BodyCore&, bool);
 		virtual									~BodySim();
 
-						void					switchToKinematic();
-						void					switchToDynamic();
+						void					switchToKinematic(bool deviceOwnerTransaction = false);
+						void					switchToDynamic(bool deviceOwnerTransaction = false);
 
 		PX_FORCE_INLINE const SimStateData*		getSimStateData(bool isKinematic)	const	{ return (mSimStateData && (checkSimStateKinematicStatus(isKinematic)) ? mSimStateData : NULL); }
 		PX_FORCE_INLINE SimStateData*			getSimStateData(bool isKinematic)			{ return (mSimStateData && (checkSimStateKinematicStatus(isKinematic)) ? mSimStateData : NULL); }

@@ -28,6 +28,7 @@
 
 #include "PxgAggregate.h"
 #include "PxgBroadPhaseDesc.h"
+#include "PxgBroadPhaseGroups.h"
 #include "PxgCommonDefines.h"
 #include "copy.cuh"
 #include "foundation/PxBounds3.h"
@@ -467,7 +468,7 @@ __device__ PxU32 getIndex(const PxU32* PX_RESTRICT startMasks, const PxU32 start
 bool __device__ generatePairs(PxU32 i, PxU32 nbBounds, const PxU32* PX_RESTRICT comparisons,
 	const PxgSapBox1D* PX_RESTRICT sapBox1D, const PxU32* PX_RESTRICT startMasks, 
 	const PxU32* PX_RESTRICT sortedHandles, const PxgIntegerAABB* PX_RESTRICT currBounds, 
-	const PxgIntegerAABB* PX_RESTRICT prevBounds, const PxU32* boundsId, const PxU32* groupId, PxgBroadPhasePair& pair)
+	const PxgIntegerAABB* PX_RESTRICT prevBounds, const PxU32* boundsId, const PxgBroadPhaseDesc* groupDesc, PxgBroadPhasePair& pair)
 {
 	//First stage, let's do the prev comparisons to find out if we have lost self-collisions!
 	{
@@ -491,7 +492,7 @@ bool __device__ generatePairs(PxU32 i, PxU32 nbBounds, const PxU32* PX_RESTRICT 
 		PxU32 otherBoundsIdx = boundsId[handle];
 
 		//Skip based on BP groups
-		if (groupId[otherBoundsIdx] != groupId[boundsIdx])
+		if (differentBroadPhaseGroups(groupDesc, otherBoundsIdx, boundsIdx))
 		{
 			//Test whether bounds overlap on all axes
 			if (currBounds[otherBoundsIdx].intersects(currBounds[boundsIdx]))
@@ -514,7 +515,7 @@ bool __device__ generatePairs(PxU32 i, PxU32 nbBounds, const PxU32* PX_RESTRICT 
 }
 
 void  __device__ generateAllPairs(PxgAggregate& agg, const PxU32 totalComparisons, const PxU32 nbBounds, PxgBroadPhasePair* pairs, PxU32* sharedIndex,
-	const PxgIntegerAABB* PX_RESTRICT bounds, const PxgIntegerAABB* PX_RESTRICT prevBounds, const PxU32* PX_RESTRICT groupIds, const PxU32 isLostPair,
+	const PxgIntegerAABB* PX_RESTRICT bounds, const PxgIntegerAABB* PX_RESTRICT prevBounds, const PxgBroadPhaseDesc* groupDesc, const PxU32 isLostPair,
 	const PxU32 maxPairs)
 {
 	PxU32* comparisons = agg.comparisons[isLostPair];
@@ -528,7 +529,7 @@ void  __device__ generateAllPairs(PxgAggregate& agg, const PxU32 totalComparison
 		if (idx < totalComparisons)
 		{
 			generatedPair = generatePairs(idx, nbBounds, comparisons, agg.sapBox1D[isLostPair], agg.startMasks[isLostPair],
-				agg.sortedHandles[isLostPair], bounds, prevBounds, agg.boundIndices[isLostPair], groupIds, pair);
+				agg.sortedHandles[isLostPair], bounds, prevBounds, agg.boundIndices[isLostPair], groupDesc, pair);
 		}
 
 		PxU32 mask = __ballot_sync(FULL_MASK, generatedPair);
@@ -642,13 +643,13 @@ extern "C" __global__ void doSelfCollision(
 			if (!agg.isNew)
 			{
 				generateAllPairs(agg, agg.prevComparisons, agg.prevSize, aggDesc->lostPairReport, &aggDesc->sharedLostPairIndex,
-					iOldAABB, iAABB, desc->updateData_groups, 1, maxPairs);
+					iOldAABB, iAABB, desc, 1, maxPairs);
 			}
 
 			//Find found pairs by finding all current pairs and comparing them to see if they
 			//were not present last frame
 			generateAllPairs(agg, totalCount, agg.size, aggDesc->foundPairReport, &aggDesc->sharedFoundPairIndex,
-				iAABB, iOldAABB, desc->updateData_groups, 0, maxPairs);
+				iAABB, iOldAABB, desc, 0, maxPairs);
 
 		}
 
@@ -766,7 +767,7 @@ __device__ PxU32 countComparisons(const PxgIntegerAABB& objBound, const PxU32* P
 
 static __device__ void boxPruningProjection(const PxgIntegerAABB* PX_RESTRICT bounds, const PxgIntegerAABB* PX_RESTRICT oldBounds, 
 	const PxU32* objBoundIndices, const PxU32 nbObj, const PxU32* PX_RESTRICT sortedProjections, const PxU32 nbProjections, 
-	const PxU32* PX_RESTRICT sortedHandles, const PxU32* PX_RESTRICT startMasks, const PxU32* boundIndices, const PxU32* groupIds,
+	const PxU32* PX_RESTRICT sortedHandles, const PxU32* PX_RESTRICT startMasks, const PxU32* boundIndices, const PxgBroadPhaseDesc* groupDesc,
 	PxgBroadPhasePair* PX_RESTRICT pairs, PxU32* PX_RESTRICT sharedIndex, bool findLostPairs, const PxU32 isFirst, bool isNew,
 	const PxU32 maxPairs)
 {
@@ -827,7 +828,7 @@ static __device__ void boxPruningProjection(const PxgIntegerAABB* PX_RESTRICT bo
 				assert(handle != otherHandle);
 
 				//Now we know which index we need to read, and we know which original bounds we are comparing, let's do collision...
-				if (groupIds[handle] != groupIds[otherHandle])
+				if (differentBroadPhaseGroups(groupDesc, handle, otherHandle))
 				{
 					// we check if the bounds intersect.
 					// if foundPairs: these are the current bounds. 
@@ -906,16 +907,16 @@ static __device__ void boxPruningProjection(const PxgIntegerAABB* PX_RESTRICT bo
 static __device__ void bipartiteBoxPruning(const PxU32* PX_RESTRICT sortedProjections0, const PxU32* PX_RESTRICT sortedProjections1,
 	const PxU32* PX_RESTRICT sortedHandles0, const PxU32* PX_RESTRICT sortedHandles1, const PxU32* PX_RESTRICT startMask0, 
 	const PxU32* PX_RESTRICT startMask1, const PxU32* PX_RESTRICT boundIndices0, const PxU32* PX_RESTRICT boundIndices1,
-	const PxgIntegerAABB* PX_RESTRICT bounds, const PxgIntegerAABB* PX_RESTRICT oldBounds, const PxU32* PX_RESTRICT groupIds,
+	const PxgIntegerAABB* PX_RESTRICT bounds, const PxgIntegerAABB* PX_RESTRICT oldBounds, const PxgBroadPhaseDesc* groupDesc,
 	const PxU32 nbObj0, const PxU32 nbObj1, PxgBroadPhasePair* PX_RESTRICT pairs, PxU32* PX_RESTRICT sharedIndex, bool isLost, bool isNew,
 	const PxU32 maxPairs)
 {
 	//A bipartite projection box pruning algorithm projects list 0 onto list 1 and then list 1 onto list 0
 	boxPruningProjection(bounds, oldBounds, boundIndices0, nbObj0, sortedProjections1, nbObj1 * 2, sortedHandles1, startMask1, 
-		boundIndices1, groupIds, pairs, sharedIndex, isLost, 1, isNew, maxPairs);
+		boundIndices1, groupDesc, pairs, sharedIndex, isLost, 1, isNew, maxPairs);
 
 	boxPruningProjection(bounds, oldBounds, boundIndices1, nbObj1, sortedProjections0, nbObj0 * 2, sortedHandles0, startMask0,
-		boundIndices0, groupIds, pairs, sharedIndex, isLost, 0, isNew, maxPairs);
+		boundIndices0, groupDesc, pairs, sharedIndex, isLost, 0, isNew, maxPairs);
 }
 
 static __device__ PxU32 PX_FORCE_INLINE testBitmap(PxU32 actorHandle, const PxU32* bitmap)
@@ -1101,17 +1102,17 @@ extern "C" __global__ void doAggPairCollisions(
 			__syncwarp();
 
 			const PxgIntegerAABB* oldBounds = desc->oldIntegerBounds;
-			const PxU32* groupIds = desc->updateData_groups;
+			const PxgBroadPhaseDesc* groupDesc = desc;
 
 			
 			bipartiteBoxPruning(sortedProjections0[0], sortedProjections1[0], sortedHandles0[0], sortedHandles1[0], startMask0[0],
-				startMask1[0], boundIndices0[0], boundIndices1[0], bounds, oldBounds, groupIds, nbObj0[0], nbObj1[0], aggDesc->foundPairReport,
+				startMask1[0], boundIndices0[0], boundIndices1[0], bounds, oldBounds, groupDesc, nbObj0[0], nbObj1[0], aggDesc->foundPairReport,
 				&aggDesc->sharedFoundPairIndex, false, pair.isNew, maxFoundLostPairs);
 
 			if (!pair.isNew)
 			{
 				bipartiteBoxPruning(sortedProjections0[1], sortedProjections1[1], sortedHandles0[1], sortedHandles1[1], startMask0[1],
-					startMask1[1], boundIndices0[1], boundIndices1[1], oldBounds, bounds, groupIds, nbObj0[1], nbObj1[1], aggDesc->lostPairReport,
+					startMask1[1], boundIndices0[1], boundIndices1[1], oldBounds, bounds, groupDesc, nbObj0[1], nbObj1[1], aggDesc->lostPairReport,
 					&aggDesc->sharedLostPairIndex, true, false, maxFoundLostPairs);
 			}
 

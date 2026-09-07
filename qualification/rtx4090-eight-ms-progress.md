@@ -373,3 +373,60 @@ ownership/lifecycle bridge remain the dominant measured responsibilities.
 In particular, CPU group/type observation and its group upload still remain.
 The final GPU lifecycle, component-local stress/preconditioning and validated
 correction work selection are still required before the full plan is complete.
+
+
+## Shared GPU motion identity replaces native collision-group reconstruction
+
+Broad phase now compares NP's authoritative shape-to-motion map for rigid group
+identity, including full articulation-link IDs. Static/proxy group handling and
+environment filtering retain their existing rules. Both ordinary SAP and
+aggregate pair generation use the same comparison. The borrowed map is captured
+after NP allocation/growth; existing stream dependencies order its consumption,
+with an explicit NP-to-BP join during initialization.
+
+Native owner migration no longer computes CPU actor-based groups or marks the
+whole world's contact-distance/group/environment metadata for upload. Native
+kinematic/dynamic flag observation retains scheduler and filter metadata while
+skipping CPU broad-phase shape reinsertion. No extra simulation kernel, copied
+owner buffer or separate native group-ID allocator is introduced. This does not
+remove the remaining CPU actor allocation and shape/contact/query lifecycle.
+
+Twelve focused checks pass, with assertions that valid native reuse performs
+neither CPU refilter nor group upload. Comparison checks deliberately alias old
+CPU groups across different GPU owners and give different groups to one owner;
+self collisions remain suppressed and newly separated owners remain eligible.
+An additional GPU aggregate control checks two moving members against two static
+walls, self collisions enabled/disabled, with native destruction present/absent.
+Each of its four variants advances 180 steps. A stationary two-chunk/one-bond
+structure enables native grouping; that control does not qualify aggregate
+fracture correction. The controlled final positions agree within 1e-5.
+See [validation](native-group-validation.json).
+
+[Generated report](native-group-scaling/report.html): the one-projectile,
+444-chunk/896-bond penetration scene passes five 60-second runs, all 18,000
+complete advances below 8 ms (mean 3.028 ms, peak 6.831 ms).
+The original ten-second topology/clearance/motion audit also passes unchanged.
+Two large diagnostics each contain 113,664 chunks and 229,376 bonds, with two
+ten-second untraced runs plus one separate phase capture. One projectile averages
+6.790 ms and peaks at 14.898 ms; 256 projectiles average
+24.588 ms and peak at 95.908 ms. Both miss 8 ms.
+These complete timers include commands, insertion, physics, destruction,
+correction and completion; initialization/rendering are excluded. Timestep is
+1/60, correction limit one, sleeping disabled, and every measured peak is kept.
+
+The localized-impact histories match the previous build. For the large
+bombardment, one untraced run diverges after step 102 and ends with 62,476 broken
+bonds; the other run and the separate profile match the previous 62,582. All
+match the previous counters through the impact peak. This variation is retained
+in the report and is not treated as proof of harmlessness or complete parity.
+No overall speedup is claimed from means with differing trajectories.
+
+A separate ten-second [large motion audit](native-group-large-motion-audit.json)
+checks all 113,664 chunks on every step, with the same 256-projectile inputs.
+Committed membership, finite poses, CPU-owner/GPU-motion agreement and collision
+pose agreement pass existing position/orientation tolerances. Maximum position
+error is 0; terminal fracture counts match the
+previous capture. This audit does not read the renderer buffer or perform the
+full COM/momentum trace, and it does not complete large-scene fidelity or
+endurance qualification. The remaining major work is GPU lifecycle allocation,
+component-local stress/preconditioning and validated correction work selection.

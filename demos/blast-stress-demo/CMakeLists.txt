@@ -764,6 +764,13 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_resimulation_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
     add_test(NAME physx_native_gpu_resimulation COMMAND native_gpu_resimulation_test)
 
+    add_executable(native_group_filter_test tests/native_group_filter_test.cpp physx_scene.cpp)
+    target_compile_definitions(native_group_filter_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_group_filter_test PRIVATE ${PHYSX_ROOT}/include)
+    target_link_options(native_group_filter_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_group_filter_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
+    add_test(NAME physx_native_gpu_group_filtering COMMAND native_group_filter_test)
+
     add_executable(native_gpu_publication_test tests/native_gpu_publication_test.cpp physx_scene.cpp)
     target_compile_definitions(native_gpu_publication_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_gpu_publication_test PRIVATE ${PHYSX_ROOT}/include)

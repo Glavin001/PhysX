@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
 #include "PxgBroadPhaseDesc.h"
+#include "PxgBroadPhaseGroups.h"
 #include "PxgIntegerAABB.h"
 #include "PxgSapBox1D.h"
 #include "PxgBroadPhasePairReport.h"
@@ -59,10 +60,8 @@ extern "C" __host__ void initBroadphaseKernels0() {}
 #define CHECK64(x)	if(x>0x00000000ffffffff)	{ printf("FOUND OVERFLOW! %s = %lld\n", #x, x);	}
 
 #if USE_ENV_IDS
-static __device__ PX_FORCE_INLINE bool filtering(PxU32 groupId, PxU32 otherGroupId, PxU32 envId, PxU32 otherEnvId)
+static __device__ PX_FORCE_INLINE bool filtering(const PxgBroadPhaseDesc* desc, PxU32 handle, PxU32 otherHandle, PxU32 envId, PxU32 otherEnvId)
 {
-	if(0)
-		printf("%d %d %d %d\n", groupId, otherGroupId, envId, otherEnvId);
 	// PT: filtering uses two distinct IDs: group IDs and environment IDs.
 	//
 	// Group IDs are for the standard group-based filtering implemented by all broadphases. This is typically used by
@@ -75,7 +74,7 @@ static __device__ PX_FORCE_INLINE bool filtering(PxU32 groupId, PxU32 otherGroup
 	// everything else. This is for e.g. ground plane shapes, which should support all other shapes regardless of their
 	// environment. The alternative would be to duplicate the ground plane in each environment, which would be a waste.
 	//
-	return	(groupId != otherGroupId									// PT: true if shapes are not part of the same actor
+	return	(differentBroadPhaseGroups(desc, handle, otherHandle)									// PT: true if shapes are not part of the same actor
 		&&	((envId == otherEnvId)										// PT: true is shapes belong to the same environment
 		||	(envId==PX_INVALID_U32) || (otherEnvId==PX_INVALID_U32)));	// PT: true for shapes shared by all environments
 }
@@ -1563,7 +1562,6 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 		sSharedPointers[1] = &bpDesc->sharedLostPairIndex;
 	}
 
-	const PxU32* groupIds = bpDesc->updateData_groups;
 #if USE_ENV_IDS
 	const PxU32* envIds = bpDesc->updateData_envIDs;
 #endif
@@ -1611,7 +1609,6 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 
 				handle = getHandle(sortedHandle);
 
-				const PxU32 groupId = groupIds[handle];
 #if USE_ENV_IDS
 				const PxU32 envId = envIds ? envIds[handle] : PX_INVALID_U32;
 #endif
@@ -1644,12 +1641,11 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 
 				//Perform the swap...
 
-				const PxU32 otherGroupId = groupIds[otherHandle];
 #if USE_ENV_IDS
 				const PxU32 otherEnvId = envIds ? envIds[otherHandle] : PX_INVALID_U32;
-				if(filtering(groupId, otherGroupId, envId, otherEnvId))
+				if(filtering(bpDesc, handle, otherHandle, envId, otherEnvId))
 #else
-				if((groupId != otherGroupId))// && (isStartHandle ^ isStartProjection(otherSortedHandle)))
+				if(differentBroadPhaseGroups(bpDesc, handle, otherHandle))// && (isStartHandle ^ isStartProjection(otherSortedHandle)))
 #endif
 				{
 					//Then we need to do actual work...
@@ -1761,7 +1757,6 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 
 	const PxgIntegerRegion* regionRange = bpDesc->regionRange;
 	
-	const PxU32* boxGroups = bpDesc->updateData_groups;
 #if USE_ENV_IDS
 	const PxU32* boxEnvIDs = bpDesc->updateData_envIDs;
 #endif
@@ -1832,7 +1827,6 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 
 				if(otherIndex < regionEndIndex)
 				{
-					const PxU32 group = boxGroups[handle];
 #if USE_ENV_IDS
 					const PxU32 envID = boxEnvIDs ? boxEnvIDs[handle] : PX_INVALID_U32;
 #endif
@@ -1851,12 +1845,11 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 					
 					if(regionIndex == otherRegionIndex)
 					{
-						const PxU32 otherGroup = boxGroups[otherHandle];
 #if USE_ENV_IDS
 						const PxU32 otherEnvID = boxEnvIDs ? boxEnvIDs[otherHandle] : PX_INVALID_U32;
-						if(filtering(group, otherGroup, envID, otherEnvID))
+						if(filtering(bpDesc, handle, otherHandle, envID, otherEnvID))
 #else
-						if(group != otherGroup)
+						if(differentBroadPhaseGroups(bpDesc, handle, otherHandle))
 #endif
 						{
 							const PxgIntegerAABB& iaabb = newBounds[handle];

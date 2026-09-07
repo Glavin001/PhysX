@@ -144,7 +144,7 @@ public:
             auto* target=source(targets[i],true);auto& core=target->getCore();auto flags=core.getFlags();
             if(requests[i].supported)flags|=PxRigidBodyFlag::eKINEMATIC;
             else flags.clear(PxRigidBodyFlag::eKINEMATIC);
-            core.setFlags(flags);
+            core.setFlags(flags,true);
             if(!requests[i].supported) {
                 core.getSim()->setActive(true);
                 // Reservations begin with ready-for-sleep island flags. Installing

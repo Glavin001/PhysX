@@ -1,0 +1,158 @@
+{
+  "base_revision": "37eb00387dfb8d36a8810b193747aed8e174600e",
+  "change": "Native broad phase compares the borrowed NP shape-to-motion map for rigid group equality. Removes CPU native group reconstruction and group-triggered whole-world metadata uploads. Native body type observation skips CPU BP shape reinsertion. Ordinary/proxy grouping and environment rules are retained.",
+  "physical_equations_changed": false,
+  "additional_simulation_kernels": 0,
+  "additional_owner_buffers": 0,
+  "ownership_view_lifetime": "Borrow after NP growth; existing NP/articulation/BP dependencies order ordinary and correction consumers. Initialization receives an explicit NP-to-BP dependency.",
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "8ff30fe407ee1c03064987f772960cc59cf2eeb98b5286dd75b9c9e938e10d43",
+    "demos/blast-stress-demo/tests/native_group_filter_test.cpp": "6719d70e4711e9d5513b80abe4bea096424d9d4607d989015813b61e6c694b29",
+    "demos/blast-stress-demo/tests/native_refilter_check.h": "3a77993c33e2be93c8e5b87b816c80ce63c73be63bb6c6652c70fe8e199e60be",
+    "physx/source/gpubroadphase/include/PxgAABBManager.h": "a2c436edeecbe2878216f6441e747f161f93981498492f5a0fc5cc74fdec9461",
+    "physx/source/gpubroadphase/include/PxgBroadPhaseDesc.h": "68a3c8c8883fcec3dcb5565ebb647f6b7240519b21abe16306f5f43c0b9bee3c",
+    "physx/source/gpubroadphase/include/PxgBroadPhaseGroups.h": "8fd2c5e9cf1852bbb6662292233e66d7528e85b10d5aa385931d4b0e3901d144",
+    "physx/source/gpubroadphase/include/PxgCudaBroadPhaseSap.h": "82c5577c734afa30b4fe98870dd6faf8236218e0993a1bc934e2ed0621e3e8b9",
+    "physx/source/gpubroadphase/src/CUDA/aggregate.cu": "e005f7dd0494d8e77df48520c3e45bccc5a6f11af4f0f7cbd65cbd4eec3ec981",
+    "physx/source/gpubroadphase/src/CUDA/broadphase.cu": "9630b45bf89a45ada92216b8ba7cb7c1a218df489f0827c0a53112291293b21d",
+    "physx/source/gpubroadphase/src/PxgAABBManager.cpp": "496f42957294d9ed87926aa18889fffcac46dfc6feef447bf1119b41415115e6",
+    "physx/source/gpubroadphase/src/PxgCudaBroadPhaseSap.cpp": "67e2e013caab1c62901a5d38b8ea8c526de3b2bfd978385d05a0d9af2712d46c",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "d73dc3ae1ddc653d55373523a2dcf3a1e8eda354661e9e3ae36d83f54ca85bd6",
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "41b2f51f130b6704bc4e53ff8d8acaca6b7ad6aeba2e3fa0c54ec64c64af3852",
+    "physx/source/simulationcontroller/include/ScBodyCore.h": "fbeea3519fe706fd9a402c28b13204ef3607c292bc0191daf74c37145e8c08e1",
+    "physx/source/simulationcontroller/src/ScBodyCore.cpp": "744b09c2a0c6c5b501a8ff72b014dd472fd06d2cef5896fd373f95ab9e0efe7f",
+    "physx/source/simulationcontroller/src/ScBodySim.cpp": "4b74002c0422d250993564b86f49bbb4a73b0c6e28f02233c475461b1a3759b2",
+    "physx/source/simulationcontroller/src/ScBodySim.h": "9f0ed0e5a6f96f64207c205fe448584093a340ee4c8fc8796b12620ac1098780",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.cpp": "e3320ea3b3f30a0ed114f74eb04b6a313f799b7dcec3d7cd90a17c55d02f5607"
+  },
+  "focused_ctest": "qualification/native-group-ctest.log",
+  "focused_tests_passed": 12,
+  "aggregate_control_ctest": "qualification/native-group-filter-test.log",
+  "aggregate_control_passed": true,
+  "aggregate_control_workload": {
+    "moving_aggregate_bodies": 2,
+    "external_static_walls": 2,
+    "stationary_diagnostic_chunks": 2,
+    "diagnostic_bonds": 1,
+    "steps_per_variant": 180,
+    "variants": 4,
+    "native_correction_exercised": false
+  },
+  "quality": "qualification/native-group-quality.json",
+  "large_motion_audit": "qualification/native-group-large-motion-audit.json",
+  "baseline_deadline_report": "qualification/native-group-qualified/report.html",
+  "scaling_report": "qualification/native-group-scaling/report.html",
+  "prior_counter_comparisons": [
+    {
+      "case": "world-256",
+      "mode": "plain-0",
+      "before": "out/native-refilter-world-256/world-256-plain-0/native.frames.csv.gz",
+      "after": "out/native-group-world-256/world-256-plain-0/native.frames.csv.gz",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": true,
+      "first_differing_step": null,
+      "peak_step": 33,
+      "prefix_through_peak_matches": true,
+      "full_physical_qualification": false
+    },
+    {
+      "case": "world-256",
+      "mode": "plain-1",
+      "before": "out/native-refilter-world-256/world-256-plain-0/native.frames.csv.gz",
+      "after": "out/native-group-world-256/world-256-plain-1/native.frames.csv.gz",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": true,
+      "first_differing_step": null,
+      "peak_step": 33,
+      "prefix_through_peak_matches": true,
+      "full_physical_qualification": false
+    },
+    {
+      "case": "world-256",
+      "mode": "phases-0",
+      "before": "out/native-refilter-world-256/world-256-plain-0/native.frames.csv.gz",
+      "after": "out/native-group-world-256/world-256-phases-0/native.frames.csv.gz",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": true,
+      "first_differing_step": null,
+      "peak_step": 33,
+      "prefix_through_peak_matches": true,
+      "full_physical_qualification": false
+    },
+    {
+      "case": "impacts-256",
+      "mode": "plain-0",
+      "before": "out/native-refilter-impacts-256/impacts-256-plain-0/native.frames.csv.gz",
+      "after": "out/native-group-impacts-256/impacts-256-plain-0/native.frames.csv.gz",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": false,
+      "first_differing_step": 102,
+      "peak_step": 82,
+      "prefix_through_peak_matches": true,
+      "full_physical_qualification": false
+    },
+    {
+      "case": "impacts-256",
+      "mode": "plain-1",
+      "before": "out/native-refilter-impacts-256/impacts-256-plain-0/native.frames.csv.gz",
+      "after": "out/native-group-impacts-256/impacts-256-plain-1/native.frames.csv.gz",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": true,
+      "first_differing_step": null,
+      "peak_step": 82,
+      "prefix_through_peak_matches": true,
+      "full_physical_qualification": false
+    },
+    {
+      "case": "impacts-256",
+      "mode": "phases-0",
+      "before": "out/native-refilter-impacts-256/impacts-256-plain-0/native.frames.csv.gz",
+      "after": "out/native-group-impacts-256/impacts-256-phases-0/native.frames.csv.gz",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": true,
+      "first_differing_step": null,
+      "peak_step": 82,
+      "prefix_through_peak_matches": true,
+      "full_physical_qualification": false
+    }
+  ],
+  "quality_limitation": "One large untraced repeat differs after step 102; other repeat, phase capture and motion audit match previous terminal counts. This variation is retained, not declared proof of harmlessness or full physical parity. Every large capture matches counters through its impact peak.",
+  "remaining": [
+    "CPU fragment allocation and shape/contact/query lifecycle bridge",
+    "Component-local stress and GPU multilevel preconditioning",
+    "Selective correction scheduling",
+    "Larger five-run 8ms qualification",
+    "Full physical and lifecycle endurance qualification including large-run variability"
+  ],
+  "full_plan_complete": false
+}

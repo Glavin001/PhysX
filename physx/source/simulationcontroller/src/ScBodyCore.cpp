@@ -403,7 +403,7 @@ void Sc::BodyCore::setMaxLinVelSq(PxReal v)
 	}
 }
 
-void Sc::BodyCore::setFlags(PxRigidBodyFlags f)
+void Sc::BodyCore::setFlags(PxRigidBodyFlags f, bool deviceOwnerTransaction)
 {
 	const PxRigidBodyFlags old = mCore.mFlags;
 	if(f != old)
@@ -426,9 +426,9 @@ void Sc::BodyCore::setFlags(PxRigidBodyFlags f)
 			// Thus, the kinematic data should only be created/destroyed when we know for sure that we are in a scene.
 
 			if(switchToKinematic)
-				sim->switchToKinematic();
+				sim->switchToKinematic(deviceOwnerTransaction);
 			else if(switchToDynamic)
-				sim->switchToDynamic();
+				sim->switchToDynamic(deviceOwnerTransaction);
 
 			const PxU32 wasSpeculativeCCD = old & PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD;
 			const PxU32 isSpeculativeCCD = f & PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD;
