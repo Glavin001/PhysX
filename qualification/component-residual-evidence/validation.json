@@ -134,17 +134,18 @@
     "aos-tests.log": "6c419ba3fb84ac07cec64f2b2dded401c7e9e3722696ed0d84df12b78f93b2b5",
     "max-occupancy-quality.json": "49eebfb6032766bc480865101eab41b32c772bc838b252da968d6bd85bc77cd6",
     "max-occupancy-tests.log": "6caeb62080a43673608f6fc2d5c951f440e0fe0bab9a31fe10e23ed78c736248",
-    "rejected-aos.patch": "202105e7386d546260b6c47a27e966db8d63ea09a592f0c9ac216482194c14c3",
-    "rejected-max-occupancy.patch": "4e40eedeb4b59d188fb613f9cd1613929fca315f8adcafb2b97c5b15218952e1",
-    "rejected-single-worker.patch": "83eba0f731972cc2f8810876abfe8db18d48c1e7e0a5129da675d43e448c860e",
-    "rejected-soa.patch": "8130ce1ea4bc9510905fa0d9b3cd439ac428728b0c84a064a264fdd7e8480798",
+    "rejected-aos.patch.gz": "f540f15dcf8c0924a27a5ba23880979ce09d1013b3bb1db65187505197c14270",
+    "rejected-max-occupancy.patch.gz": "21181db51c78d924ad0e6aa0bb09e07d11e9ffec7f70262515af97bc9e539682",
+    "rejected-single-worker.patch.gz": "89d496c79ebc78bf586892f2971633c371ade597ebe9512436d3d79fa041630f",
+    "rejected-soa.patch.gz": "b952fef1afef5b6c08f0efb1732cb46ae617db909d79b7a489dad085816f7de3",
     "restored-quality.json": "c67e53d7e68aafea2af735a3d833bb960ff0234828e1b798acebfc80546c3783",
     "restored-tests.log": "462aad77495e84369934e11f4bc282960e8fc4589c0904808a0b030b73f1cbf0",
     "single-worker-quality.json": "24ba8d50979d2722b6352d94ce1888b16cee890ba782bc6d62a2526545a84ad2",
     "single-worker-tests.log": "3bcbe3b23323e6140315ff61f766f15e93dc6c07b616ea3e183a4b36c91eccd0",
-    "soa-kernel-resources.txt": "f904ada0670b2c2e4c890b46ab30fa623089afab687ab77de913f878716b61ba",
+    "soa-kernel-resources.txt.gz": "40e443d8fdaa1432358e8c27eb46f05e45f75508360d5e435c39ce80578ee4c6",
     "soa-quality.json": "3da43816f5a1174a3b2221c72556a7f0d398124576aa5267fae898f8afdbabab",
     "soa-tests.log": "90244c448b27796c79aa2bfd7b6e0b9150e627ae58c60aa2ff9b2516bc7d2256"
   },
-  "comparison_regeneration_byte_identical": true
+  "comparison_regeneration_byte_identical": true,
+  "raw_evidence_encoding": "Deterministic gzip preserves exact patch context and raw compiler output, including significant whitespace."
 }
