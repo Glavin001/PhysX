@@ -1,0 +1,10 @@
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":0,"compensated":false,"gpu_ms":1.089920,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":0,"compensated":true,"gpu_ms":1.567712,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":1,"compensated":true,"gpu_ms":1.565984,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":1,"compensated":false,"gpu_ms":1.089632,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":2,"compensated":false,"gpu_ms":1.094432,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":2,"compensated":true,"gpu_ms":1.566720,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":3,"compensated":true,"gpu_ms":1.568768,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":3,"compensated":false,"gpu_ms":1.092768,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":4,"compensated":false,"gpu_ms":1.089248,"worst_relative_error":1.36322015352e-14}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":4,"compensated":true,"gpu_ms":1.567968,"worst_relative_error":1.36322015352e-14}
