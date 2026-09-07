@@ -48,7 +48,7 @@ double compare(const std::vector<Vector>& actual,const std::vector<Six>& expecte
 }
 void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& graph,Input input,cudaStream_t stream){
     const unsigned n=unsigned(roots.size());if(!n)return;
-    Device<Vector> coarse(n),fine(n),prolonged(n),restricted(n),applied(n),diagonal(n);
+    Device<Vector> coarse(n),fine(n),prolonged(n),restricted(n),applied(n),diagonal(n),current(n);
     std::vector<Vector> x(n),y(n);
     for(unsigned i=0;i<n;++i){
         Six a{},b{};for(unsigned k=0;k<6;++k){a[k]=(int((i*11+k*7)%23)-11)/8.;b[k]=(int((i*5+k*13)%31)-15)/16.;}
@@ -63,6 +63,7 @@ void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& 
     prolongate<<<(n+255)/256,256,0,stream>>>(input,buffers,graph.status(),coarse.data,prolonged.data);
     restrictResidual<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,restricted.data);
     applyCoarse<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),coarse.data,applied.data);
+    applyLevel<<<(n+7)/8,256,0,stream>>>(input,graph.status(),fine.data,current.data);
     applyFineDiagonal<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,diagonal.data);
     check(cudaGetLastError());check(cudaStreamEndCapture(stream,&captured));check(cudaGraphInstantiate(&executable,captured,0));
     auto verify=[&](){
@@ -71,6 +72,7 @@ void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& 
         verifyDiagonalSolve(f,y,diagonal.get(stream));
         const auto expectedP=hostProlong(f,roots,x);
         std::vector<Six> fy(n);for(unsigned i=0;i<n;++i)fy[i]=pack(y[i]);
+        compare(current.get(stream),hostFineOperator(f,fy),"current fine operator differs from original equations");
         const auto expectedR=hostRestrict(f,roots,fy);
         const auto expectedL=hostRestrict(f,roots,hostFineOperator(f,expectedP));
         double worst=compare(px,expectedP,"P application differs from independent rigid basis");

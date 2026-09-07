@@ -10,7 +10,7 @@ class PackedLevel {
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident packed level: ")+cudaGetErrorString(e));}
     template<class T>static void allocate(T*& p,size_t n){check(cudaMalloc(&p,std::max(size_t(1),n)*sizeof(T)));}
     void release()noexcept{
-        cudaFree(mBuffers.nodeMap);cudaFree(mBuffers.bondMap);cudaFree(mBuffers.identity);cudaFree(mBuffers.component);cudaFree(mBuffers.bondIdentity);
+        cudaFree(mBuffers.nodeMap);cudaFree(mBuffers.nodeSource);cudaFree(mBuffers.bondMap);cudaFree(mBuffers.identity);cudaFree(mBuffers.component);cudaFree(mBuffers.bondIdentity);
         cudaFree(mBuffers.begin);cudaFree(mBuffers.refs);cudaFree(mBuffers.counts);cudaFree(mBuffers.partial);cudaFree(mBuffers.localBegin);
         cudaFree(mBuffers.keys);cudaFree(mBuffers.sorted);cudaFree(mBuffers.bonds);cudaFree(mStatus);cudaFree(mWork);
     }
@@ -27,7 +27,7 @@ public:
             const unsigned required=std::max(2u,(std::max(input.nodes,input.bonds)+Threads-1)/Threads);
             mBlocks=std::min(required,unsigned(sms*blocks));
             if(mBlocks<2)throw std::runtime_error("Resident packing requires at least two resident blocks");
-            allocate(mBuffers.nodeMap,input.nodes);allocate(mBuffers.bondMap,input.bonds);
+            allocate(mBuffers.nodeMap,input.nodes);allocate(mBuffers.nodeSource,input.nodes);allocate(mBuffers.bondMap,input.bonds);
             allocate(mBuffers.identity,input.nodes);allocate(mBuffers.component,input.nodes);allocate(mBuffers.bondIdentity,input.bonds);
             allocate(mBuffers.begin,size_t(input.nodes)+1);allocate(mBuffers.refs,2*size_t(input.bonds));allocate(mBuffers.counts,2);
             allocate(mBuffers.keys,size_t(mTiles)*SortTile);allocate(mBuffers.sorted,size_t(mTiles)*SortTile);allocate(mBuffers.bonds,input.bonds);
@@ -52,6 +52,8 @@ public:
         next.levelBonds=mBuffers.bonds;next.identity=mBuffers.identity;next.counts=mBuffers.counts;next.sourceStatus=mStatus;
         next.authoredNodes=mInput.authoredNodes?mInput.authoredNodes:mInput.nodes;next.bondIdentity=mBuffers.bondIdentity;return next;
     }
+    Input parentInput()const{return mInput;}
+    Buffers parentBuffers()const{return mParent;}
     PackingBuffers buffers()const{return mBuffers;}
     const Status* status()const{return mStatus;}
 };

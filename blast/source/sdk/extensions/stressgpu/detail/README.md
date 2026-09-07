@@ -137,9 +137,23 @@ recursive levels. Calling the fine-only diagonal kernel on a coarse view fails
 explicitly. Terminal/coarse factors are not implemented yet.
 
 Remaining integration work: classify terminal components on the GPU, construct
-and apply small null-space-safe factors, fuse transfers with compact level
-indexing, build coarse smoothers, and run a symmetric resident V-cycle twice in
+and apply small null-space-safe factors, build coarse smoothers, and run a symmetric resident V-cycle twice in
 the preconditioned CGLS recurrence. Its authoritative fine operator and stopping
 test must remain unchanged. Fine inertia/position normalization must match the
 existing asset-preparation scale. Native convergence/fracture and full-step
 timing gates are required before claiming a production improvement.
+
+
+`StressHierarchyTransfers.cuh` restricts and prolongs directly between parent
+and compact child vectors. Persistent `nodeSource` maps each compact child to
+its parent root; `nodeMap` supplies the inverse mapping. Transfers retain the
+same rigid basis and its exact transpose, including inertia scaling. Retired
+exact-zero coarse rows contribute zero. No parent-sized intermediate vector or
+copy pass is needed.
+
+`StressHierarchyLevelOperator.cuh` applies the current level's operator through
+its own compact CSR. It shares the coupling/transpose equations and exact
+double coarse coefficients, including both contributions of nonzero self
+edges. This supplies the residual operation required by a resident V-cycle;
+`applyCoarse` remains the next-level Galerkin qualification operator. Tests
+compare both directly against independently composed original fine equations.

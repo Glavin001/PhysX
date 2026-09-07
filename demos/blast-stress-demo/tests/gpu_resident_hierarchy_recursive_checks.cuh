@@ -19,6 +19,7 @@ template<class T>std::vector<T> download(const T* pointer,size_t count,cudaStrea
     std::vector<T> result(count);if(count)check(cudaMemcpyAsync(result.data(),pointer,count*sizeof(T),cudaMemcpyDeviceToHost,stream));
     check(cudaStreamSynchronize(stream));return result;
 }
+#include "gpu_resident_hierarchy_transfer_checks.cuh"
 bool nonzeroColumn(const CoarseBond& e){
     return e.scale>0 && (e.a!=Invalid || e.b!=Invalid) && !(e.a==e.b && e.offset0.x==e.offset1.x && e.offset0.y==e.offset1.y && e.offset0.z==e.offset1.z);
 }
@@ -58,12 +59,14 @@ void verifyRecursive(const Fixture& f,RecursiveChain& chain,std::vector<unsigned
         for(unsigned i=0;i<m;++i){if(bonds[i].a!=Invalid)expected[bonds[i].a].push_back(i);if(bonds[i].b!=Invalid)expected[bonds[i].b].push_back(i|0x80000000u);}
         for(unsigned i=0;i<n;++i){require(begin[i]<=begin[i+1] && begin[i+1]-begin[i]==expected[i].size(),"packed CSR degree incorrect");
             for(unsigned j=0;j<expected[i].size();++j)require(refs[begin[i]+j]==expected[i][j],"packed CSR is not canonical");}
+        verifyCompactTransfers(f,packed,stream);
         leaders=download(graph.leaders(),n,stream);coarse=download(graph.coarseBonds(),m,stream);
         std::vector<unsigned> oldOriginToNew(original,Invalid);
         for(unsigned i=0;i<n;++i)oldOriginToNew[ids[i]]=i;
+        auto sourceCumulative=cumulative;
         for(unsigned node=0;node<original;++node)if(cumulative[node]!=Invalid){
             const unsigned compact=oldOriginToNew[cumulative[node]];
-            if(compact==Invalid){cumulative[node]=Invalid;continue;}
+            if(compact==Invalid){sourceCumulative[node]=cumulative[node]=Invalid;continue;}
             require(leaders[compact]<=compact && leaders[compact]<n && leaders[leaders[compact]]==leaders[compact],"recursive owner is not a canonical root");
             cumulative[node]=ids[leaders[compact]];
         }
@@ -89,6 +92,10 @@ void verifyRecursive(const Fixture& f,RecursiveChain& chain,std::vector<unsigned
             const auto expectedResult=hostRestrict(f,cumulative,hostFineOperator(f,fine));std::vector<Six> compactExpected(n);
             for(unsigned i=0;i<n;++i)if(leaders[i]==i)compactExpected[i]=expectedResult[ids[i]];
             compare(result.get(stream),compactExpected,"recursive sparse application differs from original fine Galerkin operator");
+            applyLevel<<<(n+7)/8,256,0,stream>>>(input,graph.status(),values.data,result.data);check(cudaGetLastError());
+            const auto currentExpected=hostRestrict(f,sourceCumulative,hostFineOperator(f,hostProlong(f,sourceCumulative,x)));
+            for(unsigned i=0;i<n;++i)compactExpected[i]=currentExpected[ids[i]];
+            compare(result.get(stream),compactExpected,"compact current-level operator differs from original equations");
         }
         identity=ids;components=parts;bondIdentity=origins;
         std::printf("recursive GPU level=%u source nodes=%u bonds=%zu packed nodes=%u bonds=%u aggregates=%u passed\n",level+1,original,f.a.size(),n,m,gs.aggregates);

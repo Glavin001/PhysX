@@ -7,7 +7,7 @@
 #include <cub/block/block_store.cuh>
 namespace Nv { namespace Blast { namespace StressHierarchy {
 struct PackingBuffers {
-    unsigned *nodeMap,*bondMap,*identity,*component,*bondIdentity,*begin,*refs,*counts,*partial,*localBegin;
+    unsigned *nodeMap,*nodeSource,*bondMap,*identity,*component,*bondIdentity,*begin,*refs,*counts,*partial,*localBegin;
     std::uint64_t *keys,*sorted;
     CoarseBond* bonds;
 };
@@ -31,7 +31,7 @@ __global__ void packLevel(Input input,Buffers parent,const Status* source,Status
     grid.sync();if(!blockIdx.x)prefixPackingBlocks(b,shared,nodeBlocks,0);grid.sync();
     for(unsigned i=lane;i<input.nodes;i+=stride){
         b.nodeMap[i]+=b.partial[i/Threads];
-        if(parent.leader[i]==i && parent.coarseActive[i]){const unsigned next=b.nodeMap[i];b.identity[next]=input.identity?input.identity[i]:i;b.component[next]=input.component[i];}
+        if(parent.leader[i]==i && parent.coarseActive[i]){const unsigned next=b.nodeMap[i];b.nodeSource[next]=i;b.identity[next]=input.identity?input.identity[i]:i;b.component[next]=input.component[i];}
     }
     grid.sync();
     for(unsigned block=blockIdx.x;block<bondBlocks;block+=gridDim.x)localPackingScan(input,parent,b,shared,block,true);

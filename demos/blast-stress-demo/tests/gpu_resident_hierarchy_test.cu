@@ -2,6 +2,8 @@
 #include "StressHierarchyGraph.cuh"
 #include "StressHierarchyOperator.cuh"
 #include "StressHierarchyPackedLevel.cuh"
+#include "StressHierarchyLevelOperator.cuh"
+#include "StressHierarchyTransfers.cuh"
 #include <memory>
 #include <array>
 #include <cstdio>
