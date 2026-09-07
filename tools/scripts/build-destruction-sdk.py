@@ -27,7 +27,10 @@ def main():
     parser.add_argument('--test', action='store_true')
     parser.add_argument('--gpu-renderer', action='store_true', help='Require EGL/OpenGL and build the direct CUDA graphics demo consumer')
     parser.add_argument('--gpu-profiler', action='store_true', help='Build optional CUPTI activity tracing for the native demo')
+    parser.add_argument('--cupti-root',type=Path,help='Qualified profiler SDK from fetch-destruction-cupti.py; independent of --cuda')
     args = parser.parse_args()
+    if args.gpu_profiler and args.cupti_root is None:
+        parser.error('--gpu-profiler requires --cupti-root pointing to CUPTI 13.2 Update 2 or newer')
     if args.jobs < 1:
         parser.error('--jobs must be positive')
     for compiler in (args.cuda, args.cc, args.cxx):
@@ -48,6 +51,7 @@ def main():
         '-DBLAST_ENABLE_CUDA_STRESS=ON', f'-DCMAKE_CUDA_ARCHITECTURES={args.cuda_architectures}',
         f'-DNATIVE_GPU_EGL_RENDERER={"ON" if args.gpu_renderer else "OFF"}',
         f'-DNATIVE_GPU_CUPTI={"ON" if args.gpu_profiler else "OFF"}',
+        f'-DNATIVE_GPU_CUPTI_ROOT={args.cupti_root.resolve() if args.cupti_root else ""}',
         f'-DCMAKE_INSTALL_PREFIX={out / "install"}')
     run('cmake', '--build', out / 'destruction-sdk', f'-j{args.jobs}')
     run('cmake', '--install', out / 'destruction-sdk')

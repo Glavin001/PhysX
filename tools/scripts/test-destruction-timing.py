@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Accounting regressions: dropped/overlapping evidence must never look faster."""
-import importlib.util,tempfile,unittest
+import gzip,importlib.util,tempfile,unittest
 from pathlib import Path
 spec=importlib.util.spec_from_file_location('report',Path(__file__).with_name('report-destruction-timing.py'))
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
@@ -47,11 +47,33 @@ class TimingAccounting(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'hash mismatch'):
                 r.load_run(p,{'files':{'native.frames.csv':'incorrect'}})
     def test_incomplete_gpu_evidence_rejected(self):
-        valid=dict(complete=True,records=10,dropped=0,invalid_timestamps=0)
+        valid=dict(schema=2,cupti_header_version=130202,cupti_runtime_version=130202,device_graph_buffer_bytes=512*1024**2,complete=True,records=10,dropped=0,invalid_timestamps=0)
         r.validate_activity_status(valid)
         for key,value in [('complete',False),('records',0),('dropped',1),('invalid_timestamps',1)]:
             with self.subTest(key=key),self.assertRaisesRegex(ValueError,'Incomplete CUPTI'):
                 r.validate_activity_status(dict(valid,**{key:value}))
+    def test_unqualified_profiler_rejected(self):
+        valid=dict(schema=2,cupti_header_version=130202,cupti_runtime_version=130202,device_graph_buffer_bytes=512*1024**2,complete=True,records=10,dropped=0,invalid_timestamps=0)
+        for change in [dict(schema=1),dict(cupti_header_version=130203),dict(cupti_runtime_version=28),dict(device_graph_buffer_bytes=0)]:
+            with self.subTest(change=change),self.assertRaises(ValueError):r.validate_activity_status(dict(valid,**change))
+    def test_truncated_duration_rejected(self):
+        r.validate_duration(dict(seconds=10,gpu_seconds=10),range(600))
+        with self.assertRaisesRegex(ValueError,'Partial-duration'):r.validate_duration(dict(seconds=10,gpu_seconds=5),range(600))
+        with self.assertRaisesRegex(ValueError,'duration differs'):r.validate_duration(dict(seconds=10,gpu_seconds=10),range(599))
+    def test_missing_activity_rows_or_step_rejected(self):
+        r.validate_activity_census(dict(records=10),10,[3,7])
+        with self.assertRaisesRegex(ValueError,'row count'):r.validate_activity_census(dict(records=10),9,[3,6])
+        with self.assertRaisesRegex(ValueError,'coverage'):r.validate_activity_census(dict(records=10),10,[10,0])
+    def test_raw_storage_is_lossless_and_repeatable(self):
+        spec=importlib.util.spec_from_file_location('runner',Path(__file__).with_name('run-destruction-timing.py'))
+        runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as d:
+            directory=Path(d);source=directory/'test.csv';raw=b'a,b\n1,2\n'
+            source.write_bytes(raw);runner.compress_csv(directory)
+            compressed=directory/'test.csv.gz';first=compressed.read_bytes()
+            self.assertFalse(source.exists());self.assertEqual(gzip.decompress(first),raw)
+            compressed.unlink();source.write_bytes(raw);runner.compress_csv(directory)
+            self.assertEqual(first,compressed.read_bytes())
     def test_gpu_overlap_identity(self):
         gpu=[(1,7),(3,8),(9,10)];kernel=[(1,7),(3,8)]
         active=r.a.length(gpu);kernels=r.a.length(kernel)

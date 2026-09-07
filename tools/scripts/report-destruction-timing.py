@@ -124,8 +124,18 @@ def load_run(directory,record):
 def sha_json(value):return hashlib.sha256(json.dumps(value,separators=(',',':')).encode()).hexdigest()
 
 def validate_activity_status(status):
+    require(status.get('schema')==2 and status.get('cupti_header_version',0)==status.get('cupti_runtime_version',-1) and status.get('cupti_runtime_version',0)>=130202,'Unqualified CUPTI header/runtime configuration')
+    require(16*1024**2<=status.get('device_graph_buffer_bytes',0)<=4096*1024**2,'Missing or invalid CUPTI device-graph capacity')
     require(status['complete'] and status['records']>0 and status['dropped']==0 and status['invalid_timestamps']==0,'Incomplete CUPTI trace')
 
+
+def validate_duration(manifest,frames):
+    require(manifest['gpu_seconds']==manifest['seconds'],'Partial-duration GPU capture cannot qualify this report')
+    require(len(frames)==manifest['seconds']*60,'Capture duration differs from campaign')
+
+def validate_activity_census(status,rows,kernel_counts):
+    require(rows==status['records'],'CUPTI activity row count differs from collector status')
+    require(all(count>0 for count in kernel_counts),'Missing GPU kernel coverage in accepted simulation step')
 
 def profile(directory,run,catalog):
     frames=run['frames'];n=len(frames);begins=[int(f['simulation_start_ns']) for f in frames];ends=[int(f['simulation_end_ns']) for f in frames]
@@ -162,8 +172,9 @@ def profile(directory,run,catalog):
     categories={i:catalog.get(name,('unclassified',None))[0] for i,name in names.items()}
     busy=[[] for _ in frames];kernels=[[] for _ in frames];apis=[[] for _ in frames];waits=[[] for _ in frames]
     kernel_sum=[collections.defaultdict(float) for _ in frames];kernel_count=[collections.Counter() for _ in frames]
-    transfers=[collections.Counter() for _ in frames];outside_device=collections.Counter();zero=0
+    transfers=[collections.Counter() for _ in frames];outside_device=collections.Counter();zero=0;activity_rows=0
     for row in a.read_csv(directory/'native.activity.csv'):
+        activity_rows+=1
         start,end=int(row['start_ns']),int(row['end_ns']);kind=row['kind'];name=names[int(row['name_id'])]
         require(kind in ('A','K','C','M') and int(row['bytes'])>=0,'Unsupported activity record')
         require(end>=start and start>0,'Bad activity timestamps')
@@ -184,6 +195,7 @@ def profile(directory,run,catalog):
                     elif lo==start:transfers[i][name]+=int(row['bytes'])
             i+=1
         if not matched:outside_device[kind]+=1
+    validate_activity_census(status,activity_rows,[sum(counts.values()) for counts in kernel_count])
     metrics=[];regions={name:[] for name in ['trial.other',*TREE]};cats=collections.defaultdict(lambda:[0.0]*n)
     for i in range(n):
         total=(ends[i]-begins[i])/1e6;gpu=a.length(busy[i])/1e6;kernel=a.length(kernels[i])/1e6
@@ -238,18 +250,19 @@ def render(manifest,runs,out):
     d.table(['Check','Result'],[
         ['Capture completeness / recorded file hashes','PASS — every input capture hashed and validated'],
         ['Stress convergence / correction limit','PASS — every accepted step converged; at most one correction per step'],
-        ['Fracture/topology signatures across repetitions and trace modes','MATCH over each capture duration (short GPU traces checked against the full-run prefix)' if matches else 'DIFFER — comparisons below are workload-level; inspect report.json.gz signatures'],
+        ['Fracture/topology signatures across repetitions and trace modes','MATCH across full-duration untraced, host-scope and GPU captures' if matches else 'DIFFER — comparisons below are workload-level; inspect report.json.gz signatures'],
         ['CPU observations / rendering / video encoding','Disabled in measured runs; compact SDK status observation remains outside simulate/fetch'],
         ['Wall-time partition / GPU overlap accounting','PASS — disjoint scope tree closes; GPU interval unions remain inside the measured bracket'],
-        ['CUPTI loss / malformed timestamps','PASS — zero dropped activity records and zero invalid activity timestamps'],
+        ['CUPTI loss / malformed timestamps','PASS — every full-duration GPU repetition has zero dropped records and zero invalid timestamps'],
+        ['CUPTI configuration',f"Header/runtime API version {trace['profile']['activity_status'].get('cupti_runtime_version','unknown')}; device-graph trace buffer {trace['profile']['activity_status'].get('device_graph_buffer_bytes',0)//(1024*1024)} MiB per context. No solver or physical-input changes."],
         ['GPU process isolation evidence',manifest['monitor']],
         ['Determinism','Same input configuration and stable report generation. GPU timings are not deterministic; repeated measurements retain variation.']])
-    d.text(f"Hardware: {manifest['runs'][0]['samples'][0]['devices'][0]['name']}; driver {manifest['runs'][0]['samples'][0]['driver']}. Revision {manifest['revision']}. {manifest['warmup']} Untraced and host-scope runs advance {manifest['seconds']} simulated seconds; CUPTI captures advance {manifest['gpu_seconds']} seconds of the same input prefix, at 60 Hz. This short diagnostic campaign is not the planned five × 60-second scale qualification.")
+    d.text(f"Hardware: {manifest['runs'][0]['samples'][0]['devices'][0]['name']}; driver {manifest['runs'][0]['samples'][0]['driver']}. Revision {manifest['revision']}. {manifest['warmup']} All modes advance {manifest['seconds']} simulated seconds; {manifest.get('gpu_trials',1)} complete CUPTI repetitions per scene, at 60 Hz. This short diagnostic campaign is not the planned five × 60-second scale qualification.")
     d.text('Timing starts immediately before scene.simulate and ends after blocking scene.fetchResults, including embedded destruction and correction. Scene construction, projectile creation before the step, compact post-step status observation, CSV output and GPU activity flush are outside this bracket. This is simulation cost, not the complete application tick. CPU profiling callbacks and concurrent CUPTI collection can still perturb the measured interval.')
     failures=manifest.get('prior_failure_evidence',{}).get('attempts',[])+manifest.get('failed_attempts',[])
     if failures:
-        d.title('Open capture limitation — failed traces are excluded, not repaired')
-        d.text(f'{len(failures)} earlier capture attempts failed. Their recorded errors and activity status are retained below and in the machine-readable data. Root cause is unresolved; the evidence does not distinguish a profiler/driver problem from a simulation issue exposed by tracing. No failed capture contributes timings. The full-duration untraced repetitions and host-scope captures completed. Kernel tables use separately completed short captures and make no claim about GPU execution after their end.')
+        d.title('Earlier failed captures — excluded from measurements')
+        d.text(f'{len(failures)} earlier capture attempts failed. Their recorded errors and activity status are retained below and in the machine-readable data. No failed capture contributes timings. Every GPU capture used below passed full-duration validation. Historical failure records alone do not establish their cause; consult the separate capture qualification record.')
         d.table(['Failed attempt','Exit','Step','Recorded error','Invalid activity timestamps'],[[r['name'],r.get('exit_code','interrupted'),r.get('failure_step','unknown'),r.get('error_line',r.get('campaign_error','See captured log')),r.get('activity_status',{}).get('invalid_timestamps','unknown')] for r in failures])
     d.title('Untraced simulation cost — authoritative elapsed-time measurements')
     rows=[]
@@ -272,13 +285,13 @@ def render(manifest,runs,out):
     rows=[]
     for mode,label in [('plain','No detailed profiling'),('phases','CPU scopes + CUDA stream events'),('gpu','CPU scopes + CUDA events + CUPTI')]:
         rr=p[mode];v=stats([float(f['physics_step_ms']) for r in rr for f in r['frames']]);rows.append([label,len(rr),fmt(v['mean']),fmt(v['max']),f"{v['mean']/mean([float(f['physics_step_ms']) for r in plain for f in r['frames'][:len(rr[0]['frames'])]]):.2f}×"])
-    d.table(['Mode','Runs','Mean ms','Max ms','Mean / untraced same-prefix mean'],rows)
+    d.table(['Mode','Runs','Mean ms','Max ms','Mean / untraced mean'],rows)
     d.text('Profiling changes scheduling and adds overhead. Detailed tables describe their own measured capture; they are not a retrospective decomposition of the video or of an untraced maximum. Overhead is observed, not subtracted as a guessed correction.')
     pf=phase['frames'];pp=phase['profile'];first=next((i for i,f in enumerate(pf) if int(f['bonds_broken'])),0);worst=phase['worst_step'];late=phase['windows']['last_2s']
     d.title('Additive wall-time breakdown — host-scope capture')
     d.text(f"Columns show all-step mean, first fracture (step {first}), this capture's worst step ({worst}), and the last-two-seconds mean. CPU/GPU designations describe what happens inside the scope, not exclusive processor execution. Rows are disjoint and add to the timestamp bracket. The bracket includes clock-read bookends around simulate/fetch; mean difference from the simulation timer is {pp['timestamp_bookend_ms']['mean']*1000:.2f} µs.")
     rows=[]
-    for key in pp['wall_partition'][0]:
+    for key in partition([],{}):
         values=[x[key] for x in pp['wall_partition']];label,meaning=LABELS[key]
         rows.append([label,meaning,fmt(mean(values)),fmt(values[first]),fmt(values[worst]),fmt(mean([values[i] for i in late]))])
     rows.append(['TOTAL','Measured simulate/fetch bracket',fmt(mean([sum(x.values()) for x in pp['wall_partition']])),fmt(sum(pp['wall_partition'][first].values())),fmt(sum(pp['wall_partition'][worst].values())),fmt(mean([sum(pp['wall_partition'][i].values()) for i in late]))])
@@ -288,7 +301,7 @@ def render(manifest,runs,out):
     d.table(['GPU stream operation','Mean ms','First fracture ms','Worst step ms','Last 2 s ms'],[[label,fmt(mean([r.get(key,0) for r in pp['cuda_stages']])),fmt(pp['cuda_stages'][first].get(key,0)),fmt(pp['cuda_stages'][worst].get(key,0)),fmt(mean([pp['cuda_stages'][i].get(key,0) for i in late]))] for key,label in STAGES.items()])
     t=trace['profile'];tf=trace['frames'];tfirst=next((i for i,f in enumerate(tf) if int(f['bonds_broken'])),0);tworst=trace['worst_step'];tl=trace['windows']['last_2s']
     d.title('Actual GPU execution versus elapsed gaps — CUPTI capture')
-    d.text(f"GPU capture duration: {trace['summary']['seconds']} s. Its final-two-seconds column covers simulation seconds {max(0,trace['summary']['seconds']-2)}–{trace['summary']['seconds']}, not the end of the full-duration run. This capture's first fracture is step {tfirst}; its worst step is {tworst}. Concurrent GPU intervals are merged before summing. No GPU activity means no recorded kernel/copy/memset from this process, not proof of global GPU idleness or useful CPU computation. CPU core-time can exceed elapsed time and is never added to it.")
+    d.text(f"Detailed GPU tables use repetition 1; all {len(p['gpu'])} repetitions pass full validation and contribute to the overhead table. GPU capture duration: {trace['summary']['seconds']} s. Its final-two-seconds column covers simulation seconds {max(0,trace['summary']['seconds']-2)}–{trace['summary']['seconds']}. This capture's first fracture is step {tfirst}; its worst step is {tworst}. Concurrent GPU intervals are merged before summing. No GPU activity means no recorded kernel/copy/memset from this process, not proof of global GPU idleness or useful CPU computation. CPU core-time can exceed elapsed time and is never added to it.")
     rows=[]
     for key,label in [('kernel_union_ms','GPU kernel execution (union)'),('copy_memset_only_ms','GPU copy/memset time not overlapping kernels'),('no_gpu_activity_ms','No recorded GPU execution'),('wall_ms','TOTAL measured bracket')]:
         v=[r[key] for r in t['gpu']];rows.append([label,fmt(mean(v)),fmt(v[tfirst]),fmt(v[tworst]),fmt(mean([v[i] for i in tl]))])
@@ -337,7 +350,7 @@ def render(manifest,runs,out):
     d.text(f"Late-scene stress remains active: {late_iterations:.1f} reported iterations/step in the last two seconds. No new fracture does not imply no stress work. Compare convergence, applied loads and contact changes before considering any result reuse; this report does not authorize skipped physics or relaxed convergence.")
     d.text('Evidence supports targeting the largest measured stages and investigating small-kernel/iteration scheduling. It does not distinguish memory-bandwidth limitation from arithmetic throughput: SM occupancy, bandwidth and instruction counters require a separate hardware-counter experiment. Scale an active workload only after comparing these per-step costs; the intact controls show geometry scaling alone.')
     d.title('Reproduce, audit and extend')
-    d.text('Capture and generate in one command: python3 tools/scripts/run-destruction-timing.py NEW_CAPTURE_DIRECTORY --trials 5 --seconds 10 --gpu-seconds 3. Reports appear in NEW_CAPTURE_DIRECTORY/report. Regenerate from captures only: python3 tools/scripts/report-destruction-timing.py CAPTURE_DIRECTORY --output REPORT_DIRECTORY. Change the versioned tools/profiles/wall-penetration-timing.json configuration for additional physical workloads; every resolved command is retained.')
+    d.text('Capture and generate in one command: python3 tools/scripts/run-destruction-timing.py NEW_CAPTURE_DIRECTORY --trials 5 --gpu-trials 3 --seconds 10. Reports appear in NEW_CAPTURE_DIRECTORY/report. Regenerate from captures only: python3 tools/scripts/report-destruction-timing.py CAPTURE_DIRECTORY --output REPORT_DIRECTORY. Change the versioned tools/profiles/wall-penetration-timing.json configuration for additional physical workloads; every resolved command is retained.')
     d.text('report.json.gz contains every per-step partition, GPU region, CPU exclusive core-time scope, kernel symbol/source, transfer byte count, run signature and summary. campaign.json beside the captures records binary/library SHA-256 hashes, exact inputs, driver, GPU process/clock samples, and hashes of all raw files. Reports are generated from those recorded files, without querying the current GPU or inserting a generation timestamp.')
     d.text('Percentiles use nearest rank ceil(p × N), with 1-based ranks. Means pool equally long untraced runs; maxima retain all measured spikes. Event windows overlap and must not be added. Zero-size windows are omitted. Rounded display values can differ from the exact total by rounding; raw JSON preserves full precision.')
     d.save(out)
@@ -351,9 +364,11 @@ def main():
     for rec in manifest['runs']:
         if rec['mode']=='warmup':continue
         directory=args.capture/rec['name'];r=load_run(directory,rec);r['capture']=str(directory.resolve())
+        validate_duration(manifest,r['frames'])
         if rec['mode'] in ['phases','gpu']:r['profile']=profile(directory,r,catalog)
         runs[rec['case']][rec['mode']].append(r)
-    for case in runs.values():require(len(case['plain'])==manifest['trials'] and len(case['phases'])==len(case['gpu'])==1,'Missing repeat or profile capture')
+    require(manifest['gpu_seconds']==manifest['seconds'],'Partial-duration GPU capture cannot qualify this report')
+    for case in runs.values():require(len(case['plain'])==manifest['trials'] and len(case['phases'])==1 and len(case['gpu'])==manifest.get('gpu_trials',1),'Missing repeat or profile capture')
     render(manifest,runs,args.output)
     with (args.output/'report.json.gz').open('wb') as raw:
         with gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0) as zipped:

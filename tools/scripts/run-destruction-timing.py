@@ -2,9 +2,9 @@
 """Capture repeatable inputs and trace provenance; never stops another GPU process.
 
 One discarded warm-up run per case, interleaved untraced trials, then one host-scope
-and one CUPTI capture per case. No per-frame warm-up exclusion can hide an impact.
+and repeated full-duration CUPTI captures per case. No per-frame warm-up exclusion can hide an impact.
 """
-import argparse,hashlib,importlib.util,json,re,subprocess,sys,time,xml.etree.ElementTree as ET
+import argparse,gzip,shutil,hashlib,importlib.util,json,re,subprocess,sys,time,xml.etree.ElementTree as ET
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -13,6 +13,18 @@ def sha(path):
     with path.open('rb') as f:
         for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
     return h.hexdigest()
+
+def compress_csv(directory):
+    """Lossless, deterministic storage after capture; never inside timed simulation."""
+    for source in sorted(directory.glob('*.csv')):
+        destination=source.with_suffix('.csv.gz')
+        if destination.exists():raise RuntimeError(f'Conflicting raw/compressed capture: {source}')
+        temporary=destination.with_suffix('.gz.tmp')
+        with source.open('rb') as incoming,temporary.open('wb') as raw:
+            with gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0,compresslevel=1) as outgoing:
+                shutil.copyfileobj(incoming,outgoing)
+        temporary.rename(destination)
+        source.unlink()
 
 def gpu():
     xml=subprocess.check_output(['nvidia-smi','-q','-x'],text=True)
@@ -30,17 +42,17 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('output',type=Path)
     p.add_argument('--config',type=Path,default=ROOT/'tools/profiles/wall-penetration-timing.json')
     p.add_argument('--binary',type=Path,default=ROOT/'out/destruction-sdk/reference/native_destruction_demo')
-    p.add_argument('--resume',action='store_true');p.add_argument('--trials',type=int,default=5);p.add_argument('--seconds',type=int,default=10);p.add_argument('--gpu-seconds',type=int,default=3)
+    p.add_argument('--resume',action='store_true');p.add_argument('--trials',type=int,default=5);p.add_argument('--seconds',type=int,default=10);p.add_argument('--gpu-trials',type=int,default=3);p.add_argument('--gpu-trace-buffer-mb',type=int,default=512)
     p.add_argument('--report-output',type=Path,help='Generated report directory (default: CAPTURE/report)')
     p.add_argument('--failure-campaign',type=Path,help='Retain failed earlier capture attempts as explicit report evidence')
     args=p.parse_args()
-    if args.trials<2 or args.seconds<3 or not 3<=args.gpu_seconds<=args.seconds:raise ValueError('At least two trials and three seconds required')
+    if args.trials<2 or args.seconds<3 or args.gpu_trials<1 or not 16<=args.gpu_trace_buffer_mb<=4096:raise ValueError('At least two trials and three seconds required')
     args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=args.resume)
     config=json.loads(args.config.read_text());binary=args.binary.resolve()
     linked=subprocess.check_output(['ldd',str(binary)],text=True)
     libs=[Path(line.split('=>',1)[1].strip().split()[0]) for line in linked.splitlines() if '=>' in line and line.split('=>',1)[1].strip().startswith('/')]
     artifacts=sorted(set([binary,*libs,*list((ROOT/'physx/bin/linux.x86_64/release').glob('*.so'))]))
-    manifest={'schema':1,'config':config,'config_sha256':sha(args.config),'seconds':args.seconds,'gpu_seconds':args.gpu_seconds,'trials':args.trials,
+    manifest={'schema':1,'config':config,'config_sha256':sha(args.config),'seconds':args.seconds,'gpu_seconds':args.seconds,'gpu_trials':args.gpu_trials,'gpu_trace_buffer_mb':args.gpu_trace_buffer_mb,'trials':args.trials,
       'revision':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
       'git_status':subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True),
       'binary':str(binary),'artifacts':{str(f):sha(f) for f in artifacts},'ldd':linked,
@@ -54,7 +66,7 @@ def main():
     manifest_path=args.output/'campaign.json'
     if args.resume:
         previous=json.loads(manifest_path.read_text())
-        if any(previous[k]!=manifest[k] for k in ['config','seconds','gpu_seconds','trials','artifacts']):raise RuntimeError('Resume inputs or executable artifacts changed')
+        if any(previous[k]!=manifest[k] for k in ['config','seconds','gpu_seconds','gpu_trials','gpu_trace_buffer_mb','trials','artifacts']):raise RuntimeError('Resume inputs or executable artifacts changed')
         previous.setdefault('runner_revisions',[]).append(manifest['runner_sha256'])
         failed=[r for r in previous['runs'] if r.get('exit_code')!=0]
         for r in failed:
@@ -70,7 +82,8 @@ def main():
     def save():manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
     modes=[('warmup',0,c) for c in config['cases']]
     modes += [('plain',i,c) for i in range(args.trials) for c in config['cases']]
-    modes += [(mode,0,c) for c in config['cases'] for mode in ['phases','gpu']]
+    modes += [('phases',0,c) for c in config['cases']]
+    modes += [('gpu',i,c) for i in range(args.gpu_trials) for c in config['cases']]
     save()
     try:
         for mode,trial,case in modes:
@@ -79,8 +92,8 @@ def main():
             attempt=sum(r['case']==case['id'] and r['mode']==mode and r['trial']==trial for r in manifest.get('failed_attempts',[]))
             if attempt:name+=f'-retry{attempt}'
             out=args.output/name
-            cmd=[str(binary),*config['common'],*case['args'],'--seconds',str(args.gpu_seconds if mode=='gpu' else args.seconds),'--output',str(out),
-                 '--profile-phases','0' if mode in ('plain','warmup') else '1','--profile-gpu','1' if mode=='gpu' else '0']
+            cmd=[str(binary),*config['common'],*case['args'],'--seconds',str(args.seconds),'--output',str(out),
+                 '--gpu-trace-buffer-mb',str(args.gpu_trace_buffer_mb),'--profile-phases','0' if mode in ('plain','warmup') else '1','--profile-gpu','1' if mode=='gpu' else '0']
             record={'name':name,'case':case['id'],'mode':mode,'trial':trial,'command':cmd,'samples':[]};manifest['runs'].append(record);save()
             print('RUN',name,flush=True)
             before=gpu();record['samples'].append(before)
@@ -106,6 +119,8 @@ def main():
             record['samples'].append(gpu());save()
             if record['exit_code']:raise RuntimeError(f'Capture failed: {name}; inspect its log')
             if any(g['processes'] for g in record['samples'][-1]['devices']):raise RuntimeError('Foreign GPU process observed at capture end')
+            compress_csv(out)
+            record['csv_storage']='lossless gzip, mtime=0, after simulation'
             record['files']={str(f.relative_to(out)):sha(f) for f in sorted(out.iterdir()) if f.is_file()}
             record['log_sha256']=sha(args.output/(name+'.log'));save()
         if any(sha(Path(f))!=v for f,v in manifest['artifacts'].items()):raise RuntimeError('Binary or linked library changed during campaign')

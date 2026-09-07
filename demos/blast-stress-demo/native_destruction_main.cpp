@@ -34,9 +34,10 @@ struct Shot {PxRigidDynamic* actor;unsigned visual;};
 using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
-    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial";
+    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
+        else if(flag=="--gpu-trace-buffer-mb"){gpuTraceBufferMiB=std::stoul(value);require(gpuTraceBufferMiB>=16 && gpuTraceBufferMiB<=4096,"GPU trace buffer must be 16..4096 MiB");}
         else if(flag=="--gpu-connectivity-owner"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-connectivity-owner requires 0 or 1");deviceConnectivity=std::string(value)=="1";}
         else if(flag=="--color-by-cluster"){require(std::string(value)=="0" || std::string(value)=="1","--color-by-cluster requires 0 or 1");colorByCluster=std::string(value)=="1";}
         else if(flag=="--shot-path")shotPath=value;
@@ -82,7 +83,7 @@ int run(int argc,char** argv){
     const float inertia=massPerChunk*(half.x*half.x+half.y*half.y)/3;
     SceneCapacity capacity;capacity.maxBodies=buildings*512+buildings*waves+freeBodies;capacity.maxShapes=capacity.maxBodies;
     capacity.maxContactPairs=std::max(65536u,capacity.maxShapes*16);
-    NativeGpuActivity gpuActivity(profileGpu?output:"");
+    NativeGpuActivity gpuActivity(profileGpu?output:"",uint64_t(gpuTraceBufferMiB)*1024*1024);
     NativePhaseProfiler phaseProfiler(profilePhases?output+"/native.phases.csv":"");
     PhysXScene context(PhysicsMode::Gpu,true,capacity,nullptr,true,true,false,false);
     auto& physics=context.physics();auto& scene=context.scene();auto& cuda=*context.cudaContextManager();

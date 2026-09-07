@@ -12,7 +12,7 @@ class NativeGpuActivity {
     struct Impl;
     std::unique_ptr<Impl> m;
 public:
-    explicit NativeGpuActivity(const std::string& directory);
+    explicit NativeGpuActivity(const std::string& directory, uint64_t graphBufferBytes=512ull*1024*1024);
     ~NativeGpuActivity();
     void finish();
 };
