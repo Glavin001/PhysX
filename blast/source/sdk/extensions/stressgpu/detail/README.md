@@ -82,3 +82,33 @@ views until stream completion. The independent test checks P, P^T, P^T L P,
 adjointness, nonnegative energy, repeatability and six coherent free rigid modes
 with 2e-12 scaled comparisons. This is still an integration foundation: no native
 preconditioner or simulation speedup is claimed.
+
+`StressHierarchyDiagonal.cuh` is included inside the construction namespace.
+It builds one exact 6x6 fine diagonal block per chunk directly from borrowed
+bond coupling, using a warp to hold its 21 lower-triangle coefficients. The
+warp performs Cholesky and retains the factor, not a dense inverse. The operator
+header supplies a warp-cooperative forward/back solve suitable for inclusion
+in a resident V-cycle. Fixed and truly uncoupled rows have zero pseudoinverse.
+Nonpositive or nonfinite numerical pivots reject construction; no identity
+fallback, diagonal regularization or reduced physical work is substituted.
+
+For the original two-endpoint factor, each bond obeys
+`||a-b||^2 <= 2||a||^2 + 2||b||^2`. Thus `0 <= L <= 2J` for its exact block
+diagonal J; on nonzero rows the normalized operator has eigenvalues at most 2.
+This gives a certified damping interval for the upcoming fine smoother without
+a CPU spectral estimate. It does not prove the spectrum of an arbitrary
+smoothed/assembled next-level operator, which needs its own bound.
+
+The native topology excludes isolated dynamic rows as well as fixed rows. The
+hierarchy accepts these zero rows, and rejects an excluded dynamic row with a
+live incident bond. Active hierarchy rows require positive finite angular and
+linear scaling; partially constrained coordinates require a different basis and
+are explicitly rejected here. Native coordinate upload must use the same length
+normalization as existing offsets; it belongs to asset preparation, not solves.
+
+Construction status error bits are 1 for invalid/inconsistent topology, 2 for
+nonfinite geometry/bond coefficients, 4 for a stale generation, 8 for invalid
+mass scaling, and 16 for an unfactorable local diagonal. Multiple errors may be
+combined. Consumers must reject an error before using any hierarchy result.
+The local factors alone do not constitute the multilevel preconditioner: its
+recursive levels/coarse solve and production CGLS wiring remain unfinished.

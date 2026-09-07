@@ -20,6 +20,7 @@ template<class T>struct Device {
     std::vector<T> get(cudaStream_t stream){std::vector<T> v(count);if(count)check(cudaMemcpyAsync(v.data(),data,count*sizeof(T),cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));return v;}
 };
 struct Fixture {
+    bool omitUncoupled=false;
     std::vector<float4> positions,offset0,offset1;
     std::vector<float2> inverse;
     std::vector<unsigned> a,b,begin,refs,component;
@@ -50,6 +51,11 @@ struct Fixture {
                     if(inverse[other].x && component[other]==Invalid){component[other]=seed;queue.push(other);}
                 }
             }
+        }
+        if(omitUncoupled){
+            std::vector<unsigned> live(component.size());
+            for(unsigned e=0;e<a.size();++e)if(health[e]>0){live[a[e]]=1;live[b[e]]=1;}
+            for(unsigned node=0;node<component.size();++node)if(!live[node])component[node]=Invalid;
         }
     }
 };
@@ -169,6 +175,22 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
             inertia.put(f.inverse,stream);generation.put({103},stream);launch();
             check(cudaMemcpyAsync(&rejected,graph.status(),sizeof(rejected),cudaMemcpyDeviceToHost,stream));
             check(cudaStreamSynchronize(stream));require(!rejected.error && rejected.generation==103,"failed construction did not recover");
+            for(unsigned node=0;node<n;++node)if(f.component[node]!=Invalid){
+                bool live=false;for(unsigned slot=f.begin[node];slot<f.begin[node+1];++slot){const auto ref=f.refs[slot];if(ref!=Invalid)live=live || f.health[ref&0x7fffffffu]>0;}
+                if(!live)continue;
+                auto missing=f.component;missing[node]=Invalid;component.put(missing,stream);generation.put({104},stream);launch();
+                check(cudaMemcpyAsync(&rejected,graph.status(),sizeof(rejected),cudaMemcpyDeviceToHost,stream));
+                check(cudaStreamSynchronize(stream));require((rejected.error&1) && rejected.generation!=104,"live stress row was silently omitted");
+                component.put(f.component,stream);break;
+            }
+            if(n==2 && m==1){
+                auto excessive=f.offset0;excessive[0]=make_float4(1e20f,0,0,0);offset0.put(excessive,stream);
+                generation.put({105},stream);launch();check(cudaMemcpyAsync(&rejected,graph.status(),sizeof(rejected),cudaMemcpyDeviceToHost,stream));
+                check(cudaStreamSynchronize(stream));require(rejected.error==16 && rejected.generation!=105,"unfactorable diagonal used a fallback or committed");
+                offset0.put(f.offset0,stream);
+            }
+            generation.put({106},stream);launch();check(cudaMemcpyAsync(&rejected,graph.status(),sizeof(rejected),cudaMemcpyDeviceToHost,stream));
+            check(cudaStreamSynchronize(stream));require(!rejected.error && rejected.generation==106,"construction did not recover after structural/numerical failure");
         }
         check(cudaGraphExecDestroy(executable));check(cudaGraphDestroy(captured));
         std::printf("GPU hierarchy: nodes=%zu bonds=%zu final aggregates=%u rounds=%u transitions=%u passed\n",n,m,old.aggregates,old.rounds,transitions?6:2);
@@ -186,6 +208,8 @@ int main(){try{
     Fixture self(2);self.edge(0,1);self.offset1[0].x+=.03125f;run(self,true,true);
     Fixture parallel(6);for(unsigned i=1;i<6;++i){parallel.edge(0,i);parallel.edge(0,i);}
     run(parallel,true,true,1);
+    Fixture omitted(24);omitted.omitUncoupled=true;for(unsigned i=1;i<12;++i)omitted.edge(i-1,i);
+    run(omitted,true,true);
     Fixture star(257);for(unsigned i=1;i<257;++i)star.edge(0,i);run(star,false,false,1);
     Fixture fixed(4);for(auto& inv:fixed.inverse)inv=make_float2(0,0);for(unsigned i=1;i<4;++i)fixed.edge(i-1,i);run(fixed,true,true,0);
     Fixture mixed(129);for(unsigned i=1;i<129;++i)if(i%17)mixed.edge(i-1,i);run(mixed,true,false);

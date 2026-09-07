@@ -28,6 +28,7 @@ struct CoarseBond {
 struct Buffers {
     unsigned *owner,*seed,*minimum,*leader,*pending,*memberBond;
     CoarseBond* coarse;
+    double* diagonal;
 };
 __device__ __forceinline__ unsigned priority(unsigned node,unsigned round)
 {
@@ -66,8 +67,20 @@ __device__ __forceinline__ void initialize(const Input* input,Buffers b,Status* 
     const unsigned i=logicalBlock*blockDim.x+threadIdx.x;if(i>=input->nodes)return;
     b.owner[i]=b.minimum[i]=b.leader[i]=b.memberBond[i]=Invalid;b.seed[i]=0;
     const auto d=input->inertia[i];const auto p=input->position[i];
-    const bool fixed=input->component[i]==Invalid;
-    if(!isfinite(d.x)||!isfinite(d.y)||(fixed ? d.x!=0||d.y!=0 : d.x<=0||d.y<=0))atomicOr(&status->error,8u);
+    const bool active=input->component[i]!=Invalid;
+    const bool dynamic=d.x>0 && d.y>0,fixed=d.x==0 && d.y==0;
+    if(!isfinite(d.x)||!isfinite(d.y)||(!dynamic&&!fixed)||(active&&!dynamic))atomicOr(&status->error,8u);
+    // Native PhysX stress labels omit uncoupled dynamic rows as well as fixed
+    // rows. Accept those zero rows, but never omit a loaded live constraint.
+    if(!active && dynamic){
+        const unsigned begin=input->begin[i],end=input->begin[i+1];
+        if(begin>end || end>2ull*input->bonds)atomicOr(&status->error,1u);
+        else for(unsigned slot=begin;slot<end;++slot){
+            const unsigned ref=input->refs[slot];if(ref==Invalid)continue;
+            const unsigned bond=ref&0x7fffffffu;
+            if(bond>=input->bonds || input->health[bond]>0)atomicOr(&status->error,1u);
+        }
+    }
     if(!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z))atomicOr(&status->error,2u);
 }
 __device__ __forceinline__ void chooseSeeds(const Input* input,Buffers b,Status* status,unsigned logicalBlock)
@@ -160,6 +173,7 @@ __device__ __forceinline__ void commitBuild(const Input* input,Status* status)
 {
     if(!status->error){status->generation=*input->generation;status->initialized=1;++status->builds;}
 }
+#include "StressHierarchyDiagonal.cuh"
 // All mutable construction state stays on the device. Residency limits the
 // physical grid, never the amount of topology processed by its virtual blocks.
 __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
@@ -184,6 +198,15 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
     for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)publishLeaders(&input,buffers,status,block);
     grid.sync();
     for(unsigned block=blockIdx.x;block<bonds;block+=gridDim.x)buildCoarseBonds(&input,buffers,status,block);
+    grid.sync();
+    // Validate all shared geometry/topology first. This decision is uniform
+    // across the cooperative grid and never travels through the host.
+    if(!blockIdx.x && !threadIdx.x)work->pending=unsigned(!status->error);
+    grid.sync();
+    if(work->pending){
+        const unsigned diagonalBlocks=(input.nodes+Threads/32-1)/(Threads/32);
+        for(unsigned block=blockIdx.x;block<diagonalBlocks;block+=gridDim.x)buildFineDiagonal(input,buffers,status,block);
+    }
     grid.sync();
     if(!blockIdx.x && !threadIdx.x)commitBuild(&input,status);
 }

@@ -760,3 +760,32 @@ No new simulation performance result or full-plan completion is claimed.
 [Operator validation](resident-hierarchy-operator/validation.json) ·
 [Tests](resident-hierarchy-operator/tests.log) ·
 [Wall audit](resident-hierarchy-operator/wall-quality.json).
+
+## Resident local factors for multilevel smoothing
+
+GPU hierarchy construction now builds exact per-chunk 6x6 block-diagonal
+Cholesky factors directly from shared fine coupling. Each warp retains only
+21 lower-triangle coefficients and performs forward/back substitution on the
+GPU. This supplies the local solve needed by the upcoming V-cycle. It does not
+assemble an inverse, estimate a spectrum on the CPU, allocate in an iteration or
+fall back to a different solver. A bond-energy inequality certifies L <= 2J for
+the fine operator, providing a safe smoothing interval. Coarse levels require
+their own qualification.
+
+The independent checks compare local solves against the original coupling
+equations at 2e-12 scaled tolerance, including every scalar basis load in small
+fixtures. They also cover native-style omitted isolated dynamic rows, rejection
+of omitted live rows, failure on an unfactorable finite-input block, recovery
+after failure, and a 100,000-node / 199,997-bond sparse fixture through six
+transitions. Captured correctness, CUDA memory/leak, synchronization and race
+checks pass. The frozen ten-second wall remains exact (444 chunks, 896 bonds,
+one projectile, dt=1/60, correction limit one, 398 supported, 46 detached,
+199 broken bonds). No tolerance was loosened.
+
+These are still private hierarchy qualification targets, not a production
+preconditioner. Recursive coarsening, a null-space-safe terminal solve, resident
+V-cycle/CGLS integration, affected-component reuse and primary-workload timing
+remain. No new simulation speedup or 8 ms qualification is claimed.
+
+[Local factor report](resident-hierarchy-diagonal/report.md) ·
+[Validation](resident-hierarchy-diagonal/validation.json).

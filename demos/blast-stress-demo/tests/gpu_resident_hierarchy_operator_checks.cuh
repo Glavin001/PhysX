@@ -37,6 +37,7 @@ std::vector<Six> hostFineOperator(const Fixture& f,const std::vector<Six>& x){
     }
     return result;
 }
+#include "gpu_resident_hierarchy_diagonal_checks.cuh"
 double compare(const std::vector<Vector>& actual,const std::vector<Six>& expected,const char* message){
     double worst=0;
     for(unsigned i=0;i<actual.size();++i){const auto a=pack(actual[i]);for(unsigned k=0;k<6;++k){
@@ -47,13 +48,13 @@ double compare(const std::vector<Vector>& actual,const std::vector<Six>& expecte
 }
 void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& graph,Input input,cudaStream_t stream){
     const unsigned n=unsigned(roots.size());if(!n)return;
-    Device<Vector> coarse(n),fine(n),prolonged(n),restricted(n),applied(n);
+    Device<Vector> coarse(n),fine(n),prolonged(n),restricted(n),applied(n),diagonal(n);
     std::vector<Vector> x(n),y(n);
     for(unsigned i=0;i<n;++i){
         Six a{},b{};for(unsigned k=0;k<6;++k){a[k]=(int((i*11+k*7)%23)-11)/8.;b[k]=(int((i*5+k*13)%31)-15)/16.;}
         x[i]=unpack(a);y[i]=unpack(b);
     }
-    coarse.put(x,stream);fine.put(y,stream);
+    coarse.put(x,stream);fine.put(y,stream);verifySmoothingBound(f,y);
     // Capture actual transfers/operator, not just construction; every call
     // uses borrowed resident buffers and requires no temporary allocation.
     cudaGraph_t captured=nullptr;cudaGraphExec_t executable=nullptr;
@@ -62,10 +63,12 @@ void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& 
     prolongate<<<(n+255)/256,256,0,stream>>>(input,buffers,graph.status(),coarse.data,prolonged.data);
     restrictResidual<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,restricted.data);
     applyCoarse<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),coarse.data,applied.data);
+    applyFineDiagonal<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,diagonal.data);
     check(cudaGetLastError());check(cudaStreamEndCapture(stream,&captured));check(cudaGraphInstantiate(&executable,captured,0));
     auto verify=[&](){
         check(cudaGraphLaunch(executable,stream));
         const auto px=prolonged.get(stream),ry=restricted.get(stream),lx=applied.get(stream);
+        verifyDiagonalSolve(f,y,diagonal.get(stream));
         const auto expectedP=hostProlong(f,roots,x);
         std::vector<Six> fy(n);for(unsigned i=0;i<n;++i)fy[i]=pack(y[i]);
         const auto expectedR=hostRestrict(f,roots,fy);
@@ -88,6 +91,10 @@ void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& 
     // Full basis for small fixtures detects couplings hidden by a single RHS.
     if(n<=24)for(unsigned root=0;root<n;++root)if(roots[root]==root)for(unsigned k=0;k<6;++k){
         std::fill(x.begin(),x.end(),Vector{});Six basis{};basis[k]=1;x[root]=unpack(basis);coarse.put(x,stream);
+        worst=std::max(worst,verify());
+    }
+    if(n<=24)for(unsigned node=0;node<n;++node)for(unsigned k=0;k<6;++k){
+        std::fill(y.begin(),y.end(),Vector{});Six basis{};basis[k]=1;y[node]=unpack(basis);fine.put(y,stream);
         worst=std::max(worst,verify());
     }
     // A coherent free graph has six rigid null modes. Static boundaries and

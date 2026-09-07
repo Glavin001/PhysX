@@ -15,7 +15,7 @@ class Graph {
     template<class T> static void allocate(T*& p,size_t n){check(cudaMalloc(&p,std::max(size_t(1),n)*sizeof(T)));}
     void release() noexcept{
         cudaFree(mStatus);cudaFree(mWork);cudaFree(mBuffers.owner);cudaFree(mBuffers.seed);
-        cudaFree(mBuffers.minimum);cudaFree(mBuffers.leader);cudaFree(mBuffers.pending);cudaFree(mBuffers.memberBond);cudaFree(mBuffers.coarse);
+        cudaFree(mBuffers.minimum);cudaFree(mBuffers.leader);cudaFree(mBuffers.pending);cudaFree(mBuffers.memberBond);cudaFree(mBuffers.coarse);cudaFree(mBuffers.diagonal);
     }
 public:
     Graph(unsigned nodes,unsigned bonds,cudaStream_t stream):mNodes(nodes),mBonds(bonds),mStream(stream){
@@ -29,6 +29,7 @@ public:
             mBlocks=std::min(std::max(1u,(nodes+Threads-1)/Threads),unsigned(sms*blocks));
             allocate(mStatus,1);allocate(mWork,1);allocate(mBuffers.owner,nodes);allocate(mBuffers.seed,nodes);
             allocate(mBuffers.minimum,nodes);allocate(mBuffers.leader,nodes);allocate(mBuffers.memberBond,nodes);
+            allocate(mBuffers.diagonal,size_t(nodes)*DiagonalEntries);
             allocate(mBuffers.pending,(nodes+Threads-1)/Threads);allocate(mBuffers.coarse,bonds);
             check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
         } catch(...){release();throw;}
