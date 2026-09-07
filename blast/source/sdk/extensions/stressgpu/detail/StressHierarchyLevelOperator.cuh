@@ -11,8 +11,8 @@ __device__ __forceinline__ Vector levelRowContribution(const Input& input,unsign
         const unsigned edge=ref&0x7fffffffu;if(sourceHealth(input,edge)<=0)continue;
         const unsigned first=sourceFirst(input,edge),second=sourceSecond(input,edge);
         Vector a{},b{};
-        if(first!=Invalid)a=couple(scaledValue(x[first],sourceInertia(input,first)),sourceOffset(input,edge,false));
-        if(second!=Invalid)b=couple(scaledValue(x[second],sourceInertia(input,second)),sourceOffset(input,edge,true));
+        if(first!=Invalid && input.component[first]!=Invalid)a=couple(scaledValue(x[first],sourceInertia(input,first)),sourceOffset(input,edge,false));
+        if(second!=Invalid && input.component[second]!=Invalid)b=couple(scaledValue(x[second],sourceInertia(input,second)),sourceOffset(input,edge,true));
         const double scale=sourceScale(input,edge);const bool back=ref>>31;
         const auto flux=mul(sub(a,b),scale*scale*(back?-1.:1.));
         out=add(out,scaledValue(transposeCouple(flux,sourceOffset(input,edge,back)),sourceInertia(input,node)));

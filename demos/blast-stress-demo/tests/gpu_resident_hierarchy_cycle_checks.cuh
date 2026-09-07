@@ -1,22 +1,22 @@
 #include "gpu_resident_hierarchy_cycle_oracle.cuh"
 class CycleQualification {
-    ResidentCycle cycle;unsigned n;cudaStream_t stream;Device<Vector> rhs,once,squared,twice;
+    ResidentCycle cycle;unsigned n;cudaStream_t stream;Device<Vector> rhs,once,squared,twice,componentOnce,componentSquared;
     cudaGraph_t graph=nullptr;cudaGraphExec_t executable=nullptr;
     std::pair<std::vector<Vector>,std::vector<Vector>> run(const std::vector<Vector>& value){
-        rhs.put(value,stream);check(cudaGraphLaunch(executable,stream));const auto m=once.get(stream),s=squared.get(stream),t=twice.get(stream),input=rhs.get(stream);
-        if(n){require(!std::memcmp(value.data(),input.data(),n*sizeof(Vector)),"cycle changed its source RHS");require(!std::memcmp(s.data(),t.data(),n*sizeof(Vector)),"resident squared cycle differs from two separate cycle applications");}
+        rhs.put(value,stream);check(cudaGraphLaunch(executable,stream));const auto m=once.get(stream),s=squared.get(stream),t=twice.get(stream),input=rhs.get(stream),local=componentOnce.get(stream),localSquared=componentSquared.get(stream);
+        if(n){require(!std::memcmp(m.data(),local.data(),n*sizeof(Vector)),"block-local cycle differs from cooperative cycle");require(!std::memcmp(s.data(),localSquared.data(),n*sizeof(Vector)),"block-local squared cycle differs from cooperative cycle");require(!std::memcmp(value.data(),input.data(),n*sizeof(Vector)),"cycle changed its source RHS");require(!std::memcmp(s.data(),t.data(),n*sizeof(Vector)),"resident squared cycle differs from two separate cycle applications");}
         for(auto v:m)for(auto x:pack(v))require(std::isfinite(x),"cycle produced nonfinite output");for(auto v:s)for(auto x:pack(v))require(std::isfinite(x),"squared cycle produced nonfinite output");return {m,s};
     }
 public:
-    CycleQualification(const ResidentHierarchy& h,cudaStream_t s):cycle(h),n(h.input(0).nodes),stream(s),rhs(n),once(n),squared(n),twice(n){
-        check(cudaStreamBeginCapture(stream,cudaStreamCaptureModeThreadLocal));cycle.apply(rhs.data,once.data);cycle.applySquared(rhs.data,squared.data);cycle.apply(once.data,twice.data);
+    CycleQualification(const ResidentHierarchy& h,cudaStream_t s):cycle(h),n(h.input(0).nodes),stream(s),rhs(n),once(n),squared(n),twice(n),componentOnce(n),componentSquared(n){
+        check(cudaStreamBeginCapture(stream,cudaStreamCaptureModeThreadLocal));cycle.apply(rhs.data,once.data);cycle.applySquared(rhs.data,squared.data);cycle.apply(once.data,twice.data);cycle.applyComponents(rhs.data,componentOnce.data);cycle.applyComponentsSquared(rhs.data,componentSquared.data);
         check(cudaStreamEndCapture(stream,&graph));check(cudaGraphInstantiate(&executable,graph,0));
     }
     ~CycleQualification(){cudaGraphExecDestroy(executable);cudaGraphDestroy(graph);}
     void verifyRejected(){
-        std::vector<Vector> marker(n,unpack({123,123,123,123,123,123}));rhs.put(std::vector<Vector>(n),stream);once.put(marker,stream);squared.put(marker,stream);twice.put(marker,stream);
-        check(cudaGraphLaunch(executable,stream));const auto a=once.get(stream),b=squared.get(stream),c=twice.get(stream);
-        if(n)require(!std::memcmp(a.data(),marker.data(),n*sizeof(Vector)) && !std::memcmp(b.data(),marker.data(),n*sizeof(Vector)) && !std::memcmp(c.data(),marker.data(),n*sizeof(Vector)),"invalid hierarchy published cycle output");
+        std::vector<Vector> marker(n,unpack({123,123,123,123,123,123}));rhs.put(std::vector<Vector>(n),stream);once.put(marker,stream);squared.put(marker,stream);twice.put(marker,stream);componentOnce.put(marker,stream);componentSquared.put(marker,stream);
+        check(cudaGraphLaunch(executable,stream));const auto a=once.get(stream),b=squared.get(stream),c=twice.get(stream),d=componentOnce.get(stream),e=componentSquared.get(stream);
+        if(n)require(!std::memcmp(a.data(),marker.data(),n*sizeof(Vector)) && !std::memcmp(b.data(),marker.data(),n*sizeof(Vector)) && !std::memcmp(c.data(),marker.data(),n*sizeof(Vector)) && !std::memcmp(d.data(),marker.data(),n*sizeof(Vector)) && !std::memcmp(e.data(),marker.data(),n*sizeof(Vector)),"invalid hierarchy published cycle output");
     }
     void verify(const Fixture& f,const ResidentHierarchy& h){
         std::vector<Vector> x(n),y(n),sum(n);for(unsigned i=0;i<n;++i){Six a{},b{},c{};for(unsigned k=0;k<6;++k){a[k]=(int((i*7+k*11)%29)-14)/16.;b[k]=(int((i*13+k*3)%23)-11)/8.;c[k]=a[k]+b[k];}x[i]=unpack(a);y[i]=unpack(b);sum[i]=unpack(c);}

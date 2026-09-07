@@ -1,0 +1,15 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 83: blast_stress_gpu_resident_hierarchy
+1/3 Test #83: blast_stress_gpu_resident_hierarchy ....   Passed    3.14 sec
+    Start 87: blast_stress_gpu_assembled_hierarchy
+2/3 Test #87: blast_stress_gpu_assembled_hierarchy ...   Passed    0.60 sec
+    Start 91: blast_stress_gpu_resident_cycle
+3/3 Test #91: blast_stress_gpu_resident_cycle ........   Passed   32.37 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Label Time Summary:
+gpu    =  36.11 sec*proc (3 tests)
+
+Total Test time (real) =  36.11 sec

@@ -1,0 +1,45 @@
+{
+  "scope": "Block-local cycle numerical equivalence and focused CUDA safety; native CGLS binding remains incomplete",
+  "base_revision": "9140cc884dd798804bbbe9525db087a711412138",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh": "fb1f545d42897d765f12b90d308079f7d18a5d91c9ea2c7d88f986200062dda6",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh": "1cf3b2d6a3413cd30647ebc8b56502430abcddb96295a6a1dd06ac6ddfd4ad18",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_cycle_checks.cuh": "a16522b64d0b21f2ed69a115fb589de29d13c46ffac84cd54441a5d7340007c1"
+  },
+  "binary_sha256": "1ff0547007d7301df8912767bcdeccc56e6907d473f74bcae2c3c37cd184229b",
+  "post_build_edits": "One comment changed from native CGLS invokes to can call; no functional code changed after the tested build.",
+  "correctness_suites_passed": 3,
+  "comparison": "Byte-identical M and M-squared outputs between block-local and cooperative scheduling for every RHS and dense basis coordinate in all fixtures/transitions.",
+  "largest_fixture": {
+    "nodes": 100000,
+    "bonds": 199997,
+    "levels": 16,
+    "transitions": 6
+  },
+  "focused_safety": [
+    {
+      "tool": "memcheck with leak check",
+      "nodes": 100000,
+      "bonds": 199997,
+      "cycle_transition": 0,
+      "topology_transitions_replayed": 6
+    },
+    {
+      "tool": "synccheck",
+      "nodes": 24,
+      "bonds": 33,
+      "cycle_transition": 0,
+      "topology_transitions_replayed": 6
+    },
+    {
+      "tool": "racecheck",
+      "nodes": 24,
+      "bonds": 33,
+      "cycle_transition": 0,
+      "topology_transitions_replayed": 6
+    }
+  ],
+  "production_timing_claim": false,
+  "full_new_safety_matrix_completed": false,
+  "native_component_threshold": 1024
+}

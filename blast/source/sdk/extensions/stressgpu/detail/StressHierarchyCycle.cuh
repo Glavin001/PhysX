@@ -7,30 +7,48 @@ struct CycleLevel {
     Input input;Buffers topology,diagonal;PackingBuffers child{};
     const Vector* rhs=nullptr;Vector *x=nullptr,*residual=nullptr;
 };
+// Work ownership changes the schedule only; all sparse numerical operations
+// below are shared by cooperative large-component and block-local execution.
+template<bool Local> struct CycleWork {
+    unsigned component;
+    __device__ unsigned first()const {if constexpr(Local)return threadIdx.x/32;else return (blockIdx.x*blockDim.x+threadIdx.x)/32;}
+    __device__ unsigned stride()const {if constexpr(Local)return blockDim.x/32;else return gridDim.x*(blockDim.x/32);}
+    __device__ unsigned count(const Input& a)const {if constexpr(Local)return a.partition.end[component]-a.partition.begin[component];else return a.nodes;}
+    __device__ unsigned node(const Input& a,unsigned i)const {if constexpr(Local)return orderedNode(a,a.partition.begin[component]+i);else return i;}
+    __device__ unsigned childCount(const PackingBuffers& b)const {if constexpr(Local)return b.componentEnd[component]-b.componentBegin[component];else return b.counts[0];}
+    __device__ unsigned childNode(const PackingBuffers& b,unsigned i)const {if constexpr(Local)return b.componentBegin[component]+i;else return i;}
+    __device__ void sync()const {if constexpr(Local)__syncthreads();else cooperative_groups::this_grid().sync();}
+};
 __device__ __forceinline__ CycleLevel cycleView(const CycleLevel* levels,unsigned index,const Vector* rhs,Vector* output){
     CycleLevel level=levels[index];if(!index){level.rhs=rhs;level.x=output;}level.input=resolvedInput(level.input);return level;
 }
 __device__ __forceinline__ bool smoothedNode(const CycleLevel& d,TerminalBuffers pool,unsigned level,unsigned node){
     return d.input.component[node]!=Invalid && pool.owner[d.input.component[node]]!=level;
 }
-__device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool,unsigned level){
-    const unsigned lane=threadIdx.x&31u,first=(blockIdx.x*blockDim.x+threadIdx.x)/32,stride=gridDim.x*(blockDim.x/32);
-    for(unsigned node=first;node<d.input.nodes;node+=stride){
+template<bool Local>
+__device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
+    const unsigned lane=threadIdx.x&31u;
+    for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+        const unsigned node=work.node(d.input,index);
         if(d.input.component[node]==Invalid){if(!lane)d.x[node]={};continue;}
         if(!smoothedNode(d,pool,level,node))continue;
         const auto value=mul(solveFineDiagonal(d.diagonal,node,d.rhs[node]),.5);if(!lane)d.x[node]=value;
     }
 }
-__device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,unsigned level){
-    const unsigned lane=threadIdx.x&31u,first=(blockIdx.x*blockDim.x+threadIdx.x)/32,stride=gridDim.x*(blockDim.x/32);
-    for(unsigned node=first;node<d.input.nodes;node+=stride){
+template<bool Local>
+__device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
+    const unsigned lane=threadIdx.x&31u;
+    for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+        const unsigned node=work.node(d.input,index);
         Vector value{};if(smoothedNode(d,pool,level,node))value=levelRowContribution(d.input,node,d.x);
         value=warpSum(value);if(!lane)d.residual[node]=smoothedNode(d,pool,level,node)?sub(d.rhs[node],value):Vector{};
     }
 }
-__device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs){
-    const unsigned lane=threadIdx.x&31u,first=(blockIdx.x*blockDim.x+threadIdx.x)/32,stride=gridDim.x*(blockDim.x/32);
-    for(unsigned node=first;node<parent.child.counts[0];node+=stride){
+template<bool Local>
+__device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs,CycleWork<Local> work){
+    const unsigned lane=threadIdx.x&31u;
+    for(unsigned index=work.first();index<work.childCount(parent.child);index+=work.stride()){
+        const unsigned node=work.childNode(parent.child,index);
         auto value=restrictPackedContribution(parent.input,parent.topology,parent.child.nodeSource[node],parent.residual);
         value=warpSum(value);if(!lane)childRhs[node]=value;
     }
@@ -53,9 +71,11 @@ __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned n
     }
     return sum;
 }
-__device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffers pool,unsigned level,const Vector* childX){
-    const unsigned lane=threadIdx.x&31u,first=(blockIdx.x*blockDim.x+threadIdx.x)/32,stride=gridDim.x*(blockDim.x/32);
-    for(unsigned node=first;node<d.input.nodes;node+=stride){
+template<bool Local>
+__device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffers pool,unsigned level,const Vector* childX,CycleWork<Local> work){
+    const unsigned lane=threadIdx.x&31u;
+    for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+        const unsigned node=work.node(d.input,index);
         if(!smoothedNode(d,pool,level,node))continue;
         auto effect=warpSum(cycleCoarseEffect(d,node,childX));
         // warpSum's complete result lives in lane zero. The diagonal solver
@@ -69,33 +89,37 @@ __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffe
         }
     }
 }
-__device__ __forceinline__ void cyclePostsmooth(CycleLevel d,TerminalBuffers pool,unsigned level){
-    const unsigned lane=threadIdx.x&31u,first=(blockIdx.x*blockDim.x+threadIdx.x)/32,stride=gridDim.x*(blockDim.x/32);
-    for(unsigned node=first;node<d.input.nodes;node+=stride){
+template<bool Local>
+__device__ __forceinline__ void cyclePostsmooth(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
+    const unsigned lane=threadIdx.x&31u;
+    for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+        const unsigned node=work.node(d.input,index);
         if(!smoothedNode(d,pool,level,node))continue;
         const auto correction=mul(solveFineDiagonal(d.diagonal,node,d.residual[node]),.5);
         if(!lane)d.x[node]=add(d.x[node],correction);
     }
 }
-__device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned depth,TerminalBuffers pool,TerminalShared& shared,const Vector* rhs,Vector* output){
-    const auto grid=cooperative_groups::this_grid();unsigned last=0;
+template<bool Local=false>
+__device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned depth,TerminalBuffers pool,TerminalShared& shared,const Vector* rhs,Vector* output,unsigned component=Invalid){
+    CycleWork<Local> work{component};unsigned last=0;
     for(unsigned level=0;level<depth;++level){
         auto d=cycleView(levels,level,rhs,output);last=level;
-        cyclePresmooth(d,pool,level);
+        cyclePresmooth(d,pool,level,work);
         // Presmoothing skips terminal rows; these writes are disjoint and need
         // no global barrier between the two producer stages.
-        for(unsigned i=blockIdx.x;i<*d.input.partition.count;i+=gridDim.x){
+        if constexpr(Local)solveTerminalComponent(d.input,pool,shared,component,level,d.rhs,d.x);
+        else for(unsigned i=blockIdx.x;i<*d.input.partition.count;i+=gridDim.x){
             solveTerminalComponent(d.input,pool,shared,d.input.partition.ids[i],level,d.rhs,d.x);__syncthreads();
         }
-        grid.sync();
-        if(level+1==depth || !d.child.counts[0])break;
-        cycleResidual(d,pool,level);grid.sync();
-        cycleRestrict(d,const_cast<Vector*>(levels[level+1].rhs));grid.sync();
+        work.sync();
+        if(level+1==depth || (Local?pool.owner[component]==level:!d.child.counts[0]))break;
+        cycleResidual(d,pool,level,work);work.sync();
+        cycleRestrict(d,const_cast<Vector*>(levels[level+1].rhs),work);work.sync();
     }
     for(int level=int(last);level>=0;--level){
         auto d=cycleView(levels,unsigned(level),rhs,output);
-        if(unsigned(level)<last){cycleCorrectAndSmooth(d,pool,unsigned(level),levels[level+1].x);grid.sync();}
-        else {cycleResidual(d,pool,unsigned(level));grid.sync();cyclePostsmooth(d,pool,unsigned(level));grid.sync();}
+        if(unsigned(level)<last){cycleCorrectAndSmooth(d,pool,unsigned(level),levels[level+1].x,work);work.sync();}
+        else {cycleResidual(d,pool,unsigned(level),work);work.sync();cyclePostsmooth(d,pool,unsigned(level),work);work.sync();}
     }
 }
 template<unsigned Passes>
@@ -105,6 +129,24 @@ __global__ void applyCycle(const CycleLevel* levels,unsigned depth,TerminalBuffe
     if(!usable(status) || status->generation!=*levels[0].input.generation)return;
     if constexpr(Passes==2){cyclePass(levels,depth,pool,shared,rhs,intermediate);cyclePass(levels,depth,pool,shared,intermediate,output);}
     else cyclePass(levels,depth,pool,shared,rhs,output);
+}
+// Qualification launch for the block-local body that native per-component
+// CGLS can call inside its resident loop, without another kernel launch.
+template<unsigned Passes>
+__global__ void applyComponentCycles(const CycleLevel* levels,unsigned depth,TerminalBuffers pool,const Status* status,const Vector* rhs,Vector* output,Vector* intermediate){
+    __shared__ TerminalShared shared;
+    if(!usable(status) || status->generation!=*levels[0].input.generation)return;
+    const auto input=levels[0].input;
+    // Fixed boundaries are never read by the sparse operator. These disjoint
+    // observation writes therefore need no cross-component barrier.
+    for(unsigned i=blockIdx.x*blockDim.x+threadIdx.x;i<input.nodes;i+=gridDim.x*blockDim.x)
+        if(input.component[i]==Invalid){output[i]={};if constexpr(Passes==2)intermediate[i]={};}
+    for(unsigned slot=blockIdx.x;slot<*input.partition.count;slot+=gridDim.x){
+        const unsigned id=input.partition.ids[slot];
+        if constexpr(Passes==2){cyclePass<true>(levels,depth,pool,shared,rhs,intermediate,id);cyclePass<true>(levels,depth,pool,shared,intermediate,output,id);}
+        else cyclePass<true>(levels,depth,pool,shared,rhs,output,id);
+        __syncthreads();
+    }
 }
 class ResidentCycle {
     const ResidentHierarchy& mHierarchy;cudaStream_t mStream;std::vector<CycleLevel> mHost;
@@ -124,6 +166,11 @@ class ResidentCycle {
         void* args[]={&descriptors,&depth,&pool,&status,&rhs,&result,&intermediate};
         check(cudaLaunchCooperativeKernel((void*)applyCycle<Passes>,dim3(mBlocks[Passes-1]),dim3(Threads),args,0,mStream));
     }
+    template<unsigned Passes>void launchComponents(const Vector* rhs,Vector* result)const{
+        if(!rhs || !result || rhs==result)throw std::runtime_error("Resident cycle requires distinct device input and output vectors");
+        applyComponentCycles<Passes><<<mBlocks[Passes-1],Threads,0,mStream>>>(mDevice,mHierarchy.levels(),mHierarchy.terminalBuffers(),mHierarchy.status(),rhs,result,mIntermediate);
+        check(cudaGetLastError());
+    }
 public:
     explicit ResidentCycle(const ResidentHierarchy& hierarchy):mHierarchy(hierarchy),mStream(hierarchy.stream()){
         mHost.resize(hierarchy.levels());
@@ -140,5 +187,7 @@ public:
     ResidentCycle(const ResidentCycle&)=delete;ResidentCycle& operator=(const ResidentCycle&)=delete;
     void apply(const Vector* rhs,Vector* result)const{launch<1>(rhs,result);}
     void applySquared(const Vector* rhs,Vector* result)const{launch<2>(rhs,result);}
+    void applyComponents(const Vector* rhs,Vector* result)const{launchComponents<1>(rhs,result);}
+    void applyComponentsSquared(const Vector* rhs,Vector* result)const{launchComponents<2>(rhs,result);}
 };
 }}}
