@@ -22,12 +22,22 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
 // same ones used by the cooperative large-component implementation.
 __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
 {
-    __shared__ unsigned counts[2], iteration, activeCount;
+    __shared__ unsigned counts[2], iteration, activeCount, slot;
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
-    for(unsigned slot=blockIdx.x;slot<*c.count;slot+=gridDim.x) {
+    // Components have very different convergence costs after fracture. A CTA
+    // claims its next independent component only when its previous one finishes;
+    // fixed grid-stride ownership can strand expensive components on one SM.
+    // Only integer dispatch order changes, never a component's numerical order.
+    for(;;) {
+        if(threadIdx.x==0)slot=atomicAdd(c.workCursor,1u);
+        __syncthreads();
+        if(slot>=*c.count)break;
         const unsigned id=c.ids[slot], begin=c.begin[id], count=c.end[id]-begin;
-        if(count>kResidentComponentMaxNodes)continue;
+        if(count>kResidentComponentMaxNodes) {
+            // All readers must finish using the shared ticket before reuse.
+            __syncthreads();continue;
+        }
         if(threadIdx.x==0) {
             counts[0]=0;counts[1]=count;iteration=0;activeCount=0;
             status={1u,a.maxIterations,0u};

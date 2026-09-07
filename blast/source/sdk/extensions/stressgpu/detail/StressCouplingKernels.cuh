@@ -369,7 +369,8 @@ __global__ void setTolerancePerIsland(
 }
 
 __global__ void initializeStatus(
-    SolveStatus* status, std::uint32_t* iteration, std::uint32_t maxIterations)
+    SolveStatus* status, std::uint32_t* iteration, std::uint32_t maxIterations,
+    std::uint32_t* componentWorkCursor = nullptr)
 {
     if (threadIdx.x == 0 && blockIdx.x == 0)
     {
@@ -379,6 +380,7 @@ __global__ void initializeStatus(
         // The loop counter lives on the device so the CG body can be ONE graph
         // node executed repeatedly, instead of maxIterations copies of it.
         *iteration = 0u;
+        if(componentWorkCursor)*componentWorkCursor=0u;
     }
 }
 

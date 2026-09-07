@@ -97,7 +97,8 @@
         m_kernelProfile.end(m_stream);
         m_kernelProfile.begin("initializeStatus", m_stream);
         initializeStatus<<<1, 1, 0, m_stream>>>(
-            m_status, m_iteration, params.maxIterations);
+            m_status, m_iteration, params.maxIterations,
+            m_deviceTopology ? m_deviceTopology->components().workCursor : nullptr);
         m_kernelProfile.end(m_stream);
 
         if (nodeSpaceEnabled() && jacobiEnabled() && !m_jacobiBuilt)

@@ -231,5 +231,71 @@ void mixedComponentSizes(bool interleaved)
     std::printf("resident mixed components: nodes=%u bonds=%zu sizes=12,1024,1028 interleaved=%u analytic forces and iteration-cap rejection passed\n",n,bonds.size(),unsigned(interleaved));
 }
 
+
+void unevenComponents(bool warmStart)
+{
+    // More independent components than resident CTAs, with unequal work and
+    // alternating support/free-body null spaces. Every bond has an analytic
+    // axial response; warm/quiet/load transitions must reset dispatch state.
+    constexpr unsigned components=769;
+    std::vector<ExtStressGpuNode> nodes;
+    std::vector<ExtStressGpuBond> bonds;
+    std::vector<ExtStressGpuImpulse> loads;
+    std::vector<float> expected;
+    for(unsigned c=0;c<components;++c) {
+        const unsigned count=4u*(1u+(c*13u)%8u),start=nodes.size();
+        const bool free=c%2;
+        const float force=1.f+float(c%5);
+        for(unsigned j=0;j<count;++j) {
+            const bool fixed=!free && j==0;
+            nodes.push_back({{float(c)*4,float(j),0},fixed?0.f:1.f,fixed?0.f:.5f});
+            ExtStressGpuImpulse load{};
+            load.linear.y=free ? (j==0?force:(j+1==count?-force:0)) : (j?-force:0);
+            loads.push_back(load);
+            if(j) {
+                ExtStressGpuBond b{};b.node0=start+j-1;b.node1=start+j;
+                b.centroid[0]=float(c)*4;b.centroid[1]=float(j)-.5f;b.normal[1]=1;
+                bonds.push_back(b);expected.push_back(force*(free?1.f:float(count-j)));
+            }
+        }
+    }
+    std::unique_ptr<ExtStressGpuSolver,Release> solver(ExtStressGpuSolver::create(
+        nodes.data(),nodes.size(),bonds.data(),bonds.size()));
+    require(bool(solver) && solver->enableDeviceTopology(),"uneven component initialization failed");
+    ExtStressGpuSolveParams params;params.maxIterations=8192;params.tolerance=1e-5f;params.warmStart=warmStart;
+    cudaStream_t producer;cudaEvent_t ready;
+    check(cudaStreamCreateWithFlags(&producer,cudaStreamNonBlocking));
+    check(cudaEventCreateWithFlags(&ready,cudaEventDisableTiming));
+    const auto fullLoads=loads;
+    std::vector<ExtStressGpuImpulse> actual(bonds.size());
+    for(unsigned revision:{1u,0u,3u,3u,0u,2u}) {
+        loads=fullLoads;for(auto& load:loads)load.linear.y*=revision;
+        auto view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+        // Pageable host uploads are not an ordering boundary for the solver's
+        // nonblocking stream. Publish the upload event explicitly, as a GPU
+        // producer does, before the resident solver can consume these inputs.
+        check(cudaMemcpyAsync(view.nodeInputs,loads.data(),loads.size()*sizeof(loads[0]),cudaMemcpyHostToDevice,producer));
+        check(cudaEventRecord(ready,producer));
+        require(solver->solveDeviceAsync(view.nodeInputs,loads.size(),params,ready),"uneven component submission failed");
+        view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+        ExtStressGpuDeviceStatus status{};check(cudaMemcpy(&status,view.status,sizeof(status),cudaMemcpyDeviceToHost));
+        require(status.converged,"uneven component solve did not converge");
+        check(cudaMemcpy(actual.data(),view.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+        for(unsigned i=0;i<bonds.size();++i) {
+            const auto f=actual[i];const float target=expected[i]*revision;
+            const float error=std::max({std::abs(std::abs(f.linear.y)-target),std::abs(f.linear.x),
+                std::abs(f.linear.z),std::abs(f.angular.x),std::abs(f.angular.y),std::abs(f.angular.z)})/std::max(1.f,target);
+            if(!std::isfinite(error) || error>=2e-4f) {
+                std::fprintf(stderr,"uneven revision=%u bond=%u target=%g actual=%g error=%g iterations=%u\n",
+                    revision,i,target,f.linear.y,error,status.iterations);
+                throw std::runtime_error("uneven component analytic equilibrium failed");
+            }
+        }
+    }
+    check(cudaEventDestroy(ready));check(cudaStreamDestroy(producer));
+    std::printf("resident uneven components: components=%u nodes=%zu bonds=%zu warm=%u six quiet/load transitions passed\n",
+        components,nodes.size(),bonds.size(),unsigned(warmStart));
 }
-int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+
+}
+int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

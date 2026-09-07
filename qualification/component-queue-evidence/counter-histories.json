@@ -1,0 +1,44 @@
+[
+  {
+    "run": "plain-0",
+    "steps": 600,
+    "fields": {
+      "bonds_broken": null,
+      "resim_passes": null,
+      "logical_clusters": null,
+      "stress_iterations": 121,
+      "stress_converged": null,
+      "contacts_frame": null,
+      "bodies": null,
+      "awake_bodies": null
+    }
+  },
+  {
+    "run": "plain-1",
+    "steps": 600,
+    "fields": {
+      "bonds_broken": null,
+      "resim_passes": null,
+      "logical_clusters": null,
+      "stress_iterations": 97,
+      "stress_converged": null,
+      "contacts_frame": null,
+      "bodies": null,
+      "awake_bodies": null
+    }
+  },
+  {
+    "run": "phases-0",
+    "steps": 600,
+    "fields": {
+      "bonds_broken": null,
+      "resim_passes": null,
+      "logical_clusters": null,
+      "stress_iterations": 121,
+      "stress_converged": null,
+      "contacts_frame": null,
+      "bodies": null,
+      "awake_bodies": null
+    }
+  }
+]

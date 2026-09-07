@@ -148,6 +148,7 @@ struct ResidentStressComponentView
 {
     const unsigned *ids, *count, *nodes, *begin, *end, *largeIds, *largeCount;
     SolveStatus* results;
+    unsigned* workCursor; // reset by solve initialization, never observed by the host
 };
 
 struct DeviceStressTopologyBuffers
@@ -173,6 +174,7 @@ class DeviceStressTopology
     unsigned* liveIslands=nullptr;
     unsigned *componentNodes=nullptr, *largeIslands=nullptr, *largeCount=nullptr;
     SolveStatus* componentResults=nullptr;
+    unsigned* componentWorkCursor=nullptr;
     void *sortScratch=nullptr, *scanScratch=nullptr;
     size_t sortBytes=0, scanBytes=0;
     DeviceStressTopologyBatch* batch=nullptr;
@@ -290,6 +292,7 @@ public:
         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
         cudaFree(componentNodes); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
+        cudaFree(componentWorkCursor);
     }
     void init(cudaStream_t stream)
     {
@@ -298,6 +301,7 @@ public:
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         allocate(liveIslands,b.n); allocate(componentNodes,b.n);
         allocate(largeIslands,b.n); allocate(largeCount,1); allocate(componentResults,b.n);
+        allocate(componentWorkCursor,1);
         allocate(sortedKeys,b.n); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n);
         checkCuda(cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,b.nodeIsland,sortedKeys,
             identity,componentNodes,b.n), "size resident component sorting");
@@ -326,5 +330,5 @@ public:
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
     const unsigned* islandIds() const { return liveIslands; }
     ResidentStressComponentView components() const
-    { return {liveIslands,&state->islandCount,componentNodes,rangeBegin,rangeEnd,largeIslands,largeCount,componentResults}; }
+    { return {liveIslands,&state->islandCount,componentNodes,rangeBegin,rangeEnd,largeIslands,largeCount,componentResults,componentWorkCursor}; }
 };
