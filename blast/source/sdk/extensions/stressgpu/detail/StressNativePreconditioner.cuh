@@ -1,4 +1,5 @@
 #include "StressNativeNullspace.cuh"
+#include "StressNativeFineInverse.cuh"
 // Shared projected-CG/preconditioner boundary. Conversion is fused into the
 // resident producer/consumer, not a separate export/copy/reimport operation.
 __device__ __forceinline__ bool nativeHierarchyReady(const NativeStressCycleView& h){
@@ -53,17 +54,16 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
 #else
 #define SUBPROBE_END(index)
 #endif
-    const auto v=a.hierarchy.cycle;
     // Begin with a projected steepest-descent step. It is exact for a single
     // mode and costs no hierarchy traversal. If further work is needed, restart
     // PCG with the fixed block preconditioner on iteration one; never mix preconditioners
     // in the conjugacy recurrence.
     if(!iteration){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
     else {
-        // Independent six-variable systems are solved per thread in registers.
+        // Apply the cached symmetric local operator with no triangular divisions.
         // Large components retain their cooperative multilevel schedule.
         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-            a.hierarchy.result[node]=StressHierarchy::solveFineDiagonalThread(v.levels[0].diagonal,node,a.hierarchy.rhs[node]);}
+            a.hierarchy.result[node]=applyNativeFineInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
         __syncthreads();
     }
     SUBPROBE_END(0)

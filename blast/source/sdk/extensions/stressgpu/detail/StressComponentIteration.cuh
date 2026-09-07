@@ -52,6 +52,10 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             status={1u,a.maxIterations,0u};
         }
         __syncthreads();
+        // Cache validity belongs to each built operator, independently of a
+        // solve's success. Each node has one writer in this owning component.
+        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeFineInverse(a.hierarchy,c.nodes[begin+i]);
+        __syncthreads();
         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
         do {

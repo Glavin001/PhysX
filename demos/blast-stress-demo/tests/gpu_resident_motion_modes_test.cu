@@ -185,10 +185,12 @@ void run(Fixture f,bool transitions){
 }
 }
 #include "native_warm_range_test.cuh"
+#include "native_fine_inverse_test.cuh"
 using namespace MotionModeTest;
 int main(int argc,char** argv){try{
     const bool small=argc==2 && std::string(argv[1])=="small";require(argc==1 || small,"usage: gpu_resident_motion_modes_test [small]");
     {Device<unsigned> result(3);checkPredicates<<<1,1>>>(result.data);check(cudaGetLastError());check(cudaDeviceSynchronize());for(auto value:result.get())require(value==1,"exact closure collinearity predicate failed");}
+    fineInverseCache();
     warmRangeLifecycle();
     run(Fixture(0),false);run(Fixture(1),false);
     for(unsigned kind=0;kind<5;++kind){Fixture f(24);for(unsigned i=1;i<f.n;++i)f.edge(i-1,i);
