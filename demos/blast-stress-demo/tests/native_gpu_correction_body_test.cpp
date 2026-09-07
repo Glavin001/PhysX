@@ -5,6 +5,8 @@
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
 #include "PxgDestructionRuntime.h"
+#include "PxgNphaseImplementationContext.h"
+#include "PxgNarrowphaseCore.h"
 #include <extensions/PxMassProperties.h>
 #include <cuda.h>
 #include <cmath>
@@ -24,7 +26,7 @@ PxVec3 vec(float4 p){return PxVec3(p.x,p.y,p.z);}
 PxQuat quat(const float* p){return PxQuat(p[0],p[1],p[2],p[3]);}
 template<class T> std::vector<T> read(const T* ptr,unsigned count){std::vector<T> out(count);if(count)check(cuMemcpyDtoH(out.data(),CUdeviceptr(ptr),count*sizeof(T)));return out;}
 void step(PxScene& scene){scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"ordinary step failed");}
-void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,bool invalidCheckpoint=false,bool invalidCollision=false) {
+void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,bool invalidCheckpoint=false,bool invalidCollision=false,bool invalidInitialization=false) {
     blast_demo::SceneCapacity capacity;blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,sleeping,sleeping,solver,accelerations);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();auto& internal=static_cast<NpScene&>(scene);
     auto& controller=*static_cast<PxgSimulationController*>(internal.getScScene().getSimulationController());auto& core=*controller.getSimulationCore();
@@ -80,7 +82,40 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
     }
     near(momentum,oldV*5,"correction linear momentum changed");near(angularMomentum,oldWorld.q.rotate(parentMoments.multiply(oldWorld.q.rotateInv(oldW))),"correction angular momentum changed");
     require((before[parentId].body2World.getTransform().p-oldWorld.p).magnitude()>.01f,"fixture did not advance trial motion");
-    if(invalidCollision) {
+    if(invalidInitialization) {
+        // Populate all preparation buffers first, then submit invalid GPU input
+        // without observing the new device verdict on the CPU.
+        PxScopedCudaLock lock(cuda);
+        auto allocation=read(view.bodyAllocation,1)[0];
+        require(allocation.reserved==1 && allocation.initialized==1 && !allocation.initializationError,
+            "initialization failure fixture lacks a valid prior reservation");
+        auto& np=*static_cast<PxgNphaseImplementationContext*>(internal.getScScene().getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
+        CUstream stream;check(cuStreamCreate(&stream,CU_STREAM_NON_BLOCKING));
+        require(runtime->initializeReservedBodies(core.getBodySimBufferDevicePtr().getPointer(),
+            core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),core.getRigidBodyAccelerationsDevice(),0,stream),
+            "initialization observed a device verdict instead of submitting asynchronously");
+        require(runtime->getLastStatus().error==8u,"initialization unexpectedly read back its device error");
+        require(runtime->prepareCollisionBindings(core.mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
+            core.mPxgShapeSimManager.getNbTotalShapeSims(),
+            reinterpret_cast<const PxNodeIndex*>(np.mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
+            PxU32(np.mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),core.getStream()),
+            "device-gated collision preparation submission failed");
+        require(runtime->prepareCorrectionBodies(controller.getBodySimManager().mTotalNumBodies,stream),
+            "device-gated correction preparation submission failed");
+        require(!runtime->completeCorrectionPreparation(),"invalid initialization reached accepted preparation");
+        check(cuEventSynchronize(runtime->getDeviceView().readyEvent));
+        allocation=read(view.bodyAllocation,1)[0];const auto collision=read(view.collisionPreparation,1)[0];
+        const auto correction=read(view.correctionPreparation,1)[0];
+        require(allocation.initializationError==1 && !allocation.initialized,"invalid allocation wrote initialized state");
+        require(!collision.valid && (collision.error&64u) && !collision.count && !collision.migrating,
+            "initialization failure left stale collision records");
+        require(!correction.valid && (correction.error&32u) && !correction.count && !correction.loadedSources,
+            "initialization failure left stale correction records");
+        require(runtime->getLastStatus().error==(8u|512u|1024u),"initialization failure lost its originating status");
+        const auto actual=read(core.getBodySimBufferDevicePtr().getPointer(),unsigned(before.size()));
+        require(!std::memcmp(actual.data(),before.data(),actual.size()*sizeof(PxgBodySim)),"invalid initialization changed native motion");
+        check(cuStreamDestroy(stream));
+    } else if(invalidCollision) {
         // A previously valid batch has populated the compaction storage. Reject
         // its device prerequisite without changing the stale host observation.
         PxScopedCudaLock lock(cuda);
@@ -127,7 +162,7 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
     require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3,"private body installation published trial actors");
     {PxScopedCudaLock lock(cuda);const auto accepted=read(view.acceptedTopology.status,1)[0];require(accepted.generation==0 && accepted.clusterCount==2,"private body installation committed topology");require(read(view.bondHealth,1)[0]==1,"private body installation committed damage");}
     require(runtime->clearStress(),"correction cleanup failed");parent->release();quiet->release();ordinary->release();for(auto* shape:shapes)shape->release();require(context.healthy(),"correction fixture GPU health failed");
-    std::printf("native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=%u acceleration=%u solver=%u loaded=%u invalid=%u invalidCollision=%u passed\n",unsigned(sleeping),unsigned(accelerations),unsigned(solver),unsigned(loaded),unsigned(invalidCheckpoint),unsigned(invalidCollision));
+    std::printf("native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=%u acceleration=%u solver=%u loaded=%u invalid=%u invalidCollision=%u invalidInitialization=%u passed\n",unsigned(sleeping),unsigned(accelerations),unsigned(solver),unsigned(loaded),unsigned(invalidCheckpoint),unsigned(invalidCollision),unsigned(invalidInitialization));
 }
 }
-int main(){try{for(bool sleeping:{false,true})for(bool accelerations:{false,true})for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(sleeping,accelerations,solver,false);run(true,true,PxSolverType::eTGS,true);run(false,false,PxSolverType::eTGS,false,true);run(false,false,PxSolverType::eTGS,false,false,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{for(bool sleeping:{false,true})for(bool accelerations:{false,true})for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(sleeping,accelerations,solver,false);run(true,true,PxSolverType::eTGS,true);run(false,false,PxSolverType::eTGS,false,true);run(false,false,PxSolverType::eTGS,false,false,true);for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(false,true,solver,false,false,false,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

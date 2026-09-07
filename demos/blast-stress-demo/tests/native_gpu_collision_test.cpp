@@ -112,6 +112,7 @@ struct Fixture {
     }
 };
 #include "native_contact_lifetime_check.h"
+#include "native_initialization_failure_check.h"
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
 void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,bool contacts=false,bool support=false,bool ownership=false) {
@@ -674,6 +675,7 @@ int main(int argc,char** argv){try{
         if(mode=="--connectivity-owner"){solverMetadata(PxSolverType::ePGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true,true);return 0;}
         if(mode=="--pre-solve-islands"){solverMetadata(PxSolverType::ePGS,false,true);solverMetadata(PxSolverType::eTGS,false,true);solverMetadata(PxSolverType::eTGS,true,true);return 0;}
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
+        if(mode=="--initialization-failure"){nativeInitializationFailure();return 0;}
         if(mode=="--lifetime-exhaustion"){contactLifetimeExhaustion();return 0;}
         if(mode=="--retained-registry"){gpuRetainedRegistryLifecycle();return 0;}
         if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}

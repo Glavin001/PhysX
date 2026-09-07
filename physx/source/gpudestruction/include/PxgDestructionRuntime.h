@@ -68,6 +68,9 @@ public:
     // private/inactive until the correction transaction commits.
     virtual PxU32 reservedBodyCount() const = 0;
     virtual const PxU32* reservedBodyIndices() const = 0;
+    // Asynchronous submission; success does not observe GPU validation. Collision
+    // preparation consumes the device prerequisite; combined completion publishes
+    // initialization/collision/correction failures before any ownership mutation.
     virtual bool initializeReservedBodies(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, CUstream stream) = 0;
     // Asynchronous submission. GPU verdicts are available through readyEvent;

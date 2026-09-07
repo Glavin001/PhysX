@@ -810,12 +810,15 @@ namespace physx
                 // it after growth so subsequent commands address the new pool.
                 mSimulationCore->gpuDmaUpdateData();
             }
-            const bool initialized=mDestruction->initializeReservedBodies(
+            const bool initializationSubmitted=mDestruction->initializeReservedBodies(
                 cuda->isInAbortMode()?NULL:mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
                 mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
                 mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
-            if(initialized)
+            if(initializationSubmitted)
             {
+                // Transfer initialization ownership to the ordered GPU pipeline.
+                // Combined preparation completion rejects device validation errors
+                // before these private reservations can acquire shapes or publish.
                 const PxU32* indices=mDestruction->reservedBodyIndices();
                 for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)
                 {
@@ -832,7 +835,7 @@ namespace physx
                     if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
                 pending.forceSize_Unsafe(kept);
             }
-            ok=ok && initialized;
+            ok=ok && initializationSubmitted;
         }
         if(ok) {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.collisionBindings",false,profileContext);
