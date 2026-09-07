@@ -1,0 +1,2055 @@
+{
+  "schema": 1,
+  "date": "2026-09-07",
+  "scope": "GPU stress and destruction integration: listed source entry points and linked supporting implementations/docs; not all PhysX, game, Rust/WASM or renderer code",
+  "repositories": {
+    "/root/workspace/physx-2": "a896a8bd5fef57e8f9e1e9482229b0b9baaf7826",
+    "/root/workspace/blast-stress-solver-2": "7c09837e7bea87099e85cccf81150f7811aa8346",
+    "/root/workspace/vibe-land-4": "b72d3e5c271cb2160dc7a7c6deb951b64a2c1b9b"
+  },
+  "files": [
+    {
+      "path": "/root/workspace/blast-stress-solver-2/blast/include/extensions/stress/NvBlastExtStressSolver.h",
+      "sha256": "1d6d904d858c23952a2f65778b07cbaf43281f6c529180ffe63a938aa203e0d6",
+      "bytes": 41280,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "sha256": "ed62e2df05d0bcb06f9b8d7788a6bd88611f85c15c2bf9f2e4fd3d60c62bb640",
+      "bytes": 275229,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "sha256": "1e3f625a21d1694c983c4a18b75a5f56d3f951bb8495ba1ea2bb3c05bf2b2226",
+      "bytes": 326293,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/blast-stress-solver-2/demos/blast-stress-demo/GPU_PIPELINE.md",
+      "sha256": "db655eb34135b7ad4a65e700464c080a2a137081fde87d6ed63d6b301b109ba6",
+      "bytes": 15736,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh",
+      "sha256": "1714f198d831ea50b515f4d26c02fa8b4350fb6e8d92bd96aa9279b2465d8161",
+      "bytes": 22502,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
+      "sha256": "d616d8dc811498f6ec5bf187cc48110de7a46367a4d6808f6098da97cd1e08f1",
+      "bytes": 11086,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressGraphExecution.inl",
+      "sha256": "c3deecd6a1e64a06da0717020048ddee7568c14a891798a49ad42d3fb0efebfb",
+      "bytes": 7616,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressHomogeneousComponents.cuh",
+      "sha256": "886d8fa35b6320e9ca74a69f3f31fda5f102c3c937703d4237db788b76fa8196",
+      "bytes": 3999,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl",
+      "sha256": "ded0cbf0d91ef58fbee20530cfafd9910fb259ea31bbe885ca72caccaf722d8b",
+      "bytes": 18683,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh",
+      "sha256": "31ec12590ffe5a0306defec6e2c900ac3cab0f25568e278b0ff6b54d68f9c28c",
+      "bytes": 2008,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh",
+      "sha256": "06ca7a31c0e5da32583b1aa162c7f188702286753ddf979890f7be33a95375aa",
+      "bytes": 4602,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeNullspace.cuh",
+      "sha256": "fffe4ad7178211e5524bfe9e7eec7006cb680e2ccaf3a3780bdb490c0513bf00",
+      "bytes": 1030,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh",
+      "sha256": "260615bb731efeed95178c9c269011b83fb166b68807f2bbfda2deb68d772446",
+      "bytes": 9108,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh",
+      "sha256": "a3a5309df19b4495fbea4bce3d79022d20d909de696ac367fd775164d078c37c",
+      "bytes": 10788,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressReliableResidual.cuh",
+      "sha256": "2104ba55f106ece05c7e670eb5f950faf3510c8f4c91de9eb79e49bec9b0990d",
+      "bytes": 2284,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressResidentAPI.inl",
+      "sha256": "248d40b5d988277c65719151f2f7b7269021a634df059f98f5f5922a504ef05a",
+      "bytes": 6335,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+      "sha256": "0498943f795acbfd9b36ec45c9395519cab23db1980f908414765095772a9356",
+      "bytes": 10279,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/demos/blast-stress-demo/native_destruction_main.cpp",
+      "sha256": "4ed8236248d4affc4ae4c148d7fd586b2cd0a3b06352f8bc6daf79db5c23117b",
+      "bytes": 42493,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/demos/blast-stress-demo/native_gpu_consumer.cpp",
+      "sha256": "79833ceb51684429a804dc55ba859c924599e7a4c6003ce731cd6cb1dd05fa54",
+      "bytes": 17904,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/include/PxSceneDesc.h",
+      "sha256": "2e9ee63b60189b789e2c59b5ce61e519e15cdf77140ce157b39af4d30d46df96",
+      "bytes": 44962,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/gpudestruction/runtime/CMakeLists.txt",
+      "sha256": "16e1198b6c4f5005ac3ad86e911dc6fd3734e64848ba4ea33ba73bfdbdaf25db",
+      "bytes": 3832,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh",
+      "sha256": "413acc34f565366b87dbd4031829ea101b48c26fd7fcb918370dd9491aa70bf4",
+      "bytes": 9307,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionCorrection.cuh",
+      "sha256": "e06a5f02dc72de3c171e8ecfa8e5e61caadab7944f368b34fb7f3b2ba5e7ae17",
+      "bytes": 8171,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionMaterial.cuh",
+      "sha256": "2112fe150dfe0b0b05caab4ede613b803dd1367d5fc6ef53770e0daaa6680c90",
+      "bytes": 5736,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionMotionSlots.cuh",
+      "sha256": "bef12ace1062d58d24a97ae31206fbb20281dbc6e7f1b643b98e98f915896a43",
+      "bytes": 2290,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+      "sha256": "a0be4477d448b6396486ddd09e0482f6ea71e5c147c7001b414ead601b034dd7",
+      "bytes": 118024,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTopology.cu",
+      "sha256": "68cb50b477adb69cb04cffeb7deb98aa1b6a045078f7900f3b1c7361a3acc89f",
+      "bytes": 19182,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgPreSolveIslands.cuh",
+      "sha256": "f40758e0acb8c196130f39784c4ad86b20208a923597a583f8dcf7cec0c3a9f5",
+      "bytes": 5155,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/physx/source/simulationcontroller/src/ScScene.cpp",
+      "sha256": "d2b43da445aafe9bed6bf7b6a21b7c6a9ce1b44f4b6f6b92c3407f8b17455e21",
+      "bytes": 140833,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/qualification/component-work-bombardment-256/report.md",
+      "sha256": "94bdf3b1688bb3e91549917135a11587093d083b49066e842a5d0ae8ff5b0d61",
+      "bytes": 5194,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/qualification/local-inverse-impacts-256/report.md",
+      "sha256": "eb33a359536fe734fe59ec9cdc349e4523ce8c6d5d221b4379c038ab993902c1",
+      "bytes": 23105,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/qualification/local-inverse-peak-opportunities/report.md",
+      "sha256": "f58c3828b3ce0c5712370da41f83809ccd702604796965718032d6caca21000d",
+      "bytes": 6134,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/physx-2/tools/scripts/run-destruction-component-capture.py",
+      "sha256": "32f10951cf2c1069dd452c4ae79d12eab6565c2df428652e6bcdd73af804d3f5",
+      "bytes": 5996,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/docs/component-hierarchy-2026-09-06.md",
+      "sha256": "2276147a52bc2a89cf6e13948cad028a0fd7b43b913c3a42bcccd3c0e6bafb09",
+      "bytes": 8361,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/docs/direct-gpu-observation-2026-09-05.md",
+      "sha256": "eb34f3796eefe7ff7d5fe529b9a0cfda96335054dd1b666d83778840d1f71084",
+      "bytes": 9211,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/docs/direct-gpu-sleep-2026-09-05.md",
+      "sha256": "e1d29af9b4334ea82ca397b7dfbb30f44b116768a434dc8689b8f4dddbd2d6f1",
+      "bytes": 11062,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/docs/gpu-contact-order-2026-09-05.md",
+      "sha256": "d41bf97f19453369eef4e01ffa4b1480e34138582a5be2587546aeee34bf201b",
+      "bytes": 7876,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/docs/gpu-hierarchy-setup-2026-09-06.md",
+      "sha256": "22efc12ecdc2422af96e48fc11c2b22ed66ea78abc6e0909833991523bf48465",
+      "bytes": 9554,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/docs/gpu-lazy-readback-2026-09-05.md",
+      "sha256": "6136d006918ecfb9b74948a6dc8f5bf45c402ce72caeb1f2f70a92712e72ea6d",
+      "bytes": 8938,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/docs/gpu-rigid-projection-2026-09-06.md",
+      "sha256": "7d249f92335343d4e31e799d39b11b434e7b921d309bd5d56635ad6dd60cfd42",
+      "bytes": 10362,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/docs/simulation-fidelity-contract.md",
+      "sha256": "46a883f1cb18ba33cae960643fba9cfa960ed3e1a2f90da6dc15e9fb2e67c91d",
+      "bytes": 5454,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "sha256": "0ec54474b773e272b954722e86bc15fc3614a4b6f5fbb87857cbee24fbad4be4",
+      "bytes": 191318,
+      "tracked": true,
+      "differs_from_head": false
+    },
+    {
+      "path": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "sha256": "8a979048bfb264caa1deea1f3969a7369c7d042bc75ae2c27ddcfa629281cba0",
+      "bytes": 165304,
+      "tracked": true,
+      "differs_from_head": false
+    }
+  ],
+  "optimizations": [
+    {
+      "section": "Stress islands, activity and convergence",
+      "id": "S01",
+      "status": "\u2705",
+      "optimization": "Exact independent stress components",
+      "current_and_action": "Active GPU bond connectivity with stable minimum-node IDs and compact component ranges. Fixed supports do not tie independent dynamic structures into one stress solve. These are distinct from rigid clusters and PhysX contact/constraint islands.",
+      "evidence": [
+        "oldgpu",
+        "native topology"
+      ]
+    },
+    {
+      "section": "Stress islands, activity and convergence",
+      "id": "S02",
+      "status": "\u2705",
+      "optimization": "Retire converged components within a solve",
+      "current_and_action": "Each component checks its own convergence and stops its iterative updates. A difficult building does not force already-converged fragments through the same iteration count.",
+      "evidence": [
+        "iteration",
+        "oldgpu"
+      ]
+    },
+    {
+      "section": "Stress islands, activity and convergence",
+      "id": "S03",
+      "status": "\ud83d\udfe1",
+      "optimization": "Warm start between timesteps",
+      "current_and_action": "Previous bond solution is retained and used; this is not continuation of every CG direction/reduction state. Preparation and residual verification still run. A topology generation change currently clears warm state globally; preserve unaffected components next.",
+      "evidence": [
+        "oldstress",
+        "submission",
+        "native topology"
+      ]
+    },
+    {
+      "section": "Stress islands, activity and convergence",
+      "id": "S04",
+      "status": "\u2b1c",
+      "optimization": "Skip unchanged, settled stress components across timesteps",
+      "current_and_action": "NOT active as the original general settled-island cache. Native solveDeviceAsync explicitly rejects skipSettledIslands. Add validated input/convergence/topology/material invalidation; unchanged inputs alone must not stop ongoing damage evolution.",
+      "evidence": [
+        "native API",
+        "oldstress",
+        "game"
+      ]
+    },
+    {
+      "section": "Stress islands, activity and convergence",
+      "id": "S05",
+      "status": "\ud83d\udd01",
+      "optimization": "Exact zero-load and isolated/free-component shortcuts",
+      "current_and_action": "Native has narrower mathematically checked homogeneous/free-tree cases. This is useful active work avoidance, but does not implement S04 for arbitrary settled loaded structures.",
+      "evidence": [
+        "zero-load",
+        "iteration"
+      ]
+    },
+    {
+      "section": "Stress islands, activity and convergence",
+      "id": "S06",
+      "status": "\u2696\ufe0f",
+      "optimization": "Bounded iterations per frame, converging over time",
+      "current_and_action": "Original public default is 25 updates/frame with warm starts; the game supplies its own budget. Native correction requires within-step convergence. Compare the two policies explicitly before changing production; do not label the behavior change an equal-fidelity speedup.",
+      "evidence": [
+        "settings",
+        "oldstress",
+        "runtime",
+        "fidelity source"
+      ]
+    },
+    {
+      "section": "Stress islands, activity and convergence",
+      "id": "S07",
+      "status": "\ud83d\udeab",
+      "optimization": "Skip stable but unconverged islands",
+      "current_and_action": "Present/enabled in source game settings, explicitly rejected by native API. Apparent stability is not proof of valid stresses. Do not port as an unconditional speed feature; any revised policy needs separate physical qualification.",
+      "evidence": [
+        "game",
+        "native API"
+      ]
+    },
+    {
+      "section": "Stress islands, activity and convergence",
+      "id": "S08",
+      "status": "\ud83d\udfe1",
+      "optimization": "Skip quiet per-structure bookkeeping",
+      "current_and_action": "The source skips unchanged event diffs/host walks. Native GPU topology has generation guards, but there is no complete unchanged-component bypass across all preparation/material/publication work. Eliminate remaining work at its device owner, not by porting CPU caches.",
+      "evidence": [
+        "game",
+        "native topology",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N01",
+      "status": "\ud83d\udd01",
+      "optimization": "Node-space sparse operator / adjacency gather",
+      "current_and_action": "Active native node-space gather reads persistent adjacency and avoids a global atomic scatter for each bond update. Shares the physical bond operator, not a dense world-sized matrix multiplication.",
+      "evidence": [
+        "oldgpu",
+        "operator"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N02",
+      "status": "\ud83d\udd01",
+      "optimization": "Resident block solve for small components",
+      "current_and_action": "Components up to 1,024 nodes iterate within a CUDA block; vectors/reductions are reused inside the kernel. This replaces many per-iteration launches for this class of work.",
+      "evidence": [
+        "dispatch",
+        "iteration"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N03",
+      "status": "\ud83d\udd01",
+      "optimization": "Cooperative solve for larger components",
+      "current_and_action": "A separate size specialization uses legal cooperative residency and device synchronization. This is workload specialization, not a CPU/older-device fallback. Larger connected structures still need independent scaling qualification.",
+      "evidence": [
+        "dispatch",
+        "preconditioner"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N04",
+      "status": "\u2705",
+      "optimization": "Dynamic component scheduling",
+      "current_and_action": "Resident workers fetch compact component IDs through a device work cursor. Small-component work is batched rather than launching a host solve per building.",
+      "evidence": [
+        "iteration",
+        "dispatch"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N05",
+      "status": "\ud83d\udfe1",
+      "optimization": "Eliminate repeated reduction clearing",
+      "current_and_action": "Small-component resident reductions overwrite their owned scratch. Some global/large-component reset passes remain; only delete those whose producers fully overwrite valid output.",
+      "evidence": [
+        "iteration",
+        "dispatch"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N06",
+      "status": "\u2705",
+      "optimization": "Cached per-node 6\u00d76 inverse preconditioning",
+      "current_and_action": "Active packed FP64 local inverse with validity/topology generation. Replaces repeated local triangular solves after the initial update; no global dense inverse. Qualified local implementation, not proof that all workloads meet deadline.",
+      "evidence": [
+        "inverse",
+        "preconditioner",
+        "inverse evidence"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N07",
+      "status": "\u2705",
+      "optimization": "Rigid-mode/nullspace projection",
+      "current_and_action": "Native GPU current-component projection handles free-body modes. Necessary physics/numerics; keep while improving its cost. Source segmented-projector experiment is mathematical/reference evidence, not code automatically selected in native.",
+      "evidence": [
+        "nullspace",
+        "projection experiment"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N08",
+      "status": "\u2705",
+      "optimization": "Verify original residual, not only recurrence",
+      "current_and_action": "Native convergence includes reliable/original residual checks. Zero reported updates may still include real operator sweeps. Keep acceptance criteria when comparing optimizations.",
+      "evidence": [
+        "residual",
+        "iteration",
+        "work report"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N09",
+      "status": "\ud83d\udfe1",
+      "optimization": "Deterministic reductions and physical signatures",
+      "current_and_action": "Source has an optional deterministic-reduction audit; native block reductions have fixed local structure, but this does not prove deterministic whole-scene atomics/trajectories. Keep controlled topology signatures and repeated-run invariants.",
+      "evidence": [
+        "oldgpu",
+        "iteration",
+        "capture"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N10",
+      "status": "\u2b1c",
+      "optimization": "Compact broken-bond adjacency",
+      "current_and_action": "Active-bond lists exist, but node CSR traversal still visits dead entries and rejects them. Stable compaction preserving live arithmetic order remains a concrete candidate, with rebuild cost included.",
+      "evidence": [
+        "operator",
+        "native topology",
+        "work report"
+      ]
+    },
+    {
+      "section": "Stress arithmetic, layout and scheduling",
+      "id": "N11",
+      "status": "\ud83e\uddea",
+      "optimization": "Tensor Core / lower precision preconditioning",
+      "current_and_action": "Not a qualified production optimization. Experiment only if authoritative residual and final physical outputs pass and complete-step time improves. Sparse irregular outer operator is not automatically suitable for dense GEMM.",
+      "evidence": [
+        "preconditioner",
+        "residual"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H01",
+      "status": "\u2705",
+      "optimization": "Retain immutable geometry/couplings on device",
+      "current_and_action": "Native assets and solver topology remain allocated across advances. CPU cooking/loading is allowed; the ordinary step consumes device views. Remaining duplicated representations require separate cleanup.",
+      "evidence": [
+        "native API",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H02",
+      "status": "\ud83d\udd01",
+      "optimization": "Device topology instead of CPU delta uploads",
+      "current_and_action": "Original delta-upload path is replaced in native by device health/connectivity and conditional topology graphs. No need to optimize an external CPU topology upload that native should not perform.",
+      "evidence": [
+        "oldgpu",
+        "native topology"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H03",
+      "status": "\u2705",
+      "optimization": "Skip partition rebuild when generation is unchanged",
+      "current_and_action": "Device conditional guards bypass topology rebuild on unchanged generations. This is already active; it is distinct from per-component settled stress skipping.",
+      "evidence": [
+        "native topology"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H04",
+      "status": "\u2b1c",
+      "optimization": "Rebuild only affected stress components",
+      "current_and_action": "On a changed generation the current native rebuild scans the global stress graph and resets global warm state. Need affected-component partition/range/cache invalidation with exact connectivity and boundary handling.",
+      "evidence": [
+        "native topology"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H05",
+      "status": "\ud83d\udfe1",
+      "optimization": "Resident multilevel hierarchy",
+      "current_and_action": "Native has device hierarchy construction/storage and a coarse path for large components. Small block-solved components use local preconditioning, so the dominant retained-building workload does NOT automatically receive multilevel acceleration.",
+      "evidence": [
+        "hierarchy",
+        "preconditioner",
+        "work report"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H06",
+      "status": "\u2b1c",
+      "optimization": "Stronger current-component preconditioning for retained buildings",
+      "current_and_action": "Most important remaining stress candidate for bombardment: reduce expensive iterations on retained components, using a hierarchy or another stronger qualified block preconditioner. Must include setup/update cost and preserve the same equations/acceptance.",
+      "evidence": [
+        "work report",
+        "hierarchy experiment",
+        "preconditioner"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H07",
+      "status": "\ud83e\uddea",
+      "optimization": "Fresh component hierarchy / component-local coarse solves from source",
+      "current_and_action": "New source experiment solves the split convergence problem with current-component hierarchies, component smoothing and sparse block-diagonal terminal solves. It remains a test/reference path with CPU orchestration, assembly and upload/recapture. Use its physical oracle and algorithmic results, not its hybrid runtime.",
+      "evidence": [
+        "hierarchy experiment"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H08",
+      "status": "\ud83e\uddea",
+      "optimization": "cuSPARSE Galerkin products and workspace reuse",
+      "current_and_action": "Source GPU coarse products retain intermediates, but surrounding setup/readback remains hybrid. Not linked into the native runtime target. Evaluate only as part of a fully resident measured design, not an automatic winning port.",
+      "evidence": [
+        "Galerkin experiment",
+        "build"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H09",
+      "status": "\ud83d\udfe1",
+      "optimization": "Keep unaffected hierarchy and inverse caches across fractures",
+      "current_and_action": "Existing caches use topology generations. Local fracture still invalidates too broadly. Per-component generations/retained hierarchy need exact handling of splits, supports and coefficient changes.",
+      "evidence": [
+        "inverse",
+        "hierarchy",
+        "native topology"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H10",
+      "status": "\ud83d\udfe1",
+      "optimization": "Persistent graph execution and scratch",
+      "current_and_action": "Native captures reusable device execution and topology graph structure. The original stable-graph/update helpers still exist; not all imported code has been removed. Remove abandoned production methods only with build/behavior checks.",
+      "evidence": [
+        "graph",
+        "native topology",
+        "build"
+      ]
+    },
+    {
+      "section": "Topology, hierarchy and persistent storage",
+      "id": "H11",
+      "status": "\ud83d\udeab",
+      "optimization": "Source local-split shortcut and full-width launch experiment",
+      "current_and_action": "Source marks local-split correctness issues and full-launch performance regression. Do not port those experiments as established wins. Native exact component rebuilding and resident iteration solve different responsibilities.",
+      "evidence": [
+        "oldgpu",
+        "pipeline"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C01",
+      "status": "\ud83d\udd01",
+      "optimization": "Read solved contacts at the PhysX producer boundary",
+      "current_and_action": "Native consumes the borrowed device contact/impulse stream directly. Replaces public CPU contact export, adapter classification and reimport. NVIDIA collision/solve kernels remain outside the optimization target.",
+      "evidence": [
+        "runtime",
+        "bridge"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C02",
+      "status": "\ud83d\udd01",
+      "optimization": "Contact-to-load execution on GPU",
+      "current_and_action": "Native routes normal/friction impulses, application points, moments and crushing evidence into resident stress inputs. CPU parallel contact draining and callback micro-optimizations are unnecessary in this path.",
+      "evidence": [
+        "runtime",
+        "bridge"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C03",
+      "status": "\ud83d\udfe1",
+      "optimization": "Compact/aggregate contact work without losing the wrench",
+      "current_and_action": "Source combines contacts while preserving force and torque; crushing needs per-point information. Native currently consumes points directly. A GPU segmented consumer could reduce atomics/work, but needs order/wrench/crushing parity and measured benefit.",
+      "evidence": [
+        "bridge",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C04",
+      "status": "\ud83d\udeab",
+      "optimization": "External GPU contact sorting with CPU ambiguity fallback",
+      "current_and_action": "Source GPU sorting was held from deployment after behavior qualification failed. Native avoids that external export/order boundary. Do not add its sort plus fallback merely to match old architecture.",
+      "evidence": [
+        "ordering experiment",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C05",
+      "status": "\ud83d\udfe1",
+      "optimization": "Skip stress work for bondless fragments",
+      "current_and_action": "Native isolated/zero-load handling and active stress lists avoid iterative bond work. Some full-range preparation/material/export still runs. Ordinary rubble contacts, motion and crushing must remain active.",
+      "evidence": [
+        "zero-load",
+        "native topology",
+        "material",
+        "native API"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C06",
+      "status": "\ud83d\udd01",
+      "optimization": "GPU bond-stress and material evaluation",
+      "current_and_action": "Physical stress/material formulas execute on GPU; the external GPU-to-CPU bond impulse handoff is replaced. Native material kernel still launches across bond count and skips inactive entries; it is not fully compact/dirty-only.",
+      "evidence": [
+        "oldstress",
+        "material"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C07",
+      "status": "\u2b1c",
+      "optimization": "Cache unchanged bond stresses / compact material groups",
+      "current_and_action": "Original dirty/group skip and fracture candidate optimizations are not fully present in native material evaluation. Separate reusable stress values from damage that must advance in time; compact active candidates without dropping failures.",
+      "evidence": [
+        "oldstress",
+        "material"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C08",
+      "status": "\ud83d\udfe1",
+      "optimization": "Avoid all-node/all-bond final export work",
+      "current_and_action": "Native converts physical bond impulses after solve across bond capacity/count. Reduce or fuse work where shared consumers can use an equivalent representation; preserve physical units and all material/crush consumers.",
+      "evidence": [
+        "native API",
+        "material"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C09",
+      "status": "\u2705",
+      "optimization": "Commit damage and events once",
+      "current_and_action": "Native accepted/trial material state and correction transaction are designed for single commit, rather than repeating accumulated damage for each trial. Preserve and extend tests when changing scheduling.",
+      "evidence": [
+        "material",
+        "runtime",
+        "correction"
+      ]
+    },
+    {
+      "section": "Contact loads, material evaluation and fracture",
+      "id": "C10",
+      "status": "\ud83d\udeab",
+      "optimization": "Suppress contact reporting / mass-ratio filtering for speed",
+      "current_and_action": "Source documents confounded improvements when missing stress inputs changed destruction. Exclude such cuts and physical force/velocity clamps from behavior-preserving optimization.",
+      "evidence": [
+        "game",
+        "fidelity source"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R01",
+      "status": "\u2705",
+      "optimization": "One motion state per rigid cluster",
+      "current_and_action": "Persistent authored chunks retain geometry/identity while a connected cluster shares motion. This is already the native representation; a stress island is a separate numerical partition.",
+      "evidence": [
+        "clusters",
+        "slots"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R02",
+      "status": "\ud83d\udd01",
+      "optimization": "GPU mass/inertia/COM and motion fitting",
+      "current_and_action": "Native computes cluster properties and split motion on device. Preserve point-velocity/COM/ancestry semantics; affected-only traversal still has optimization headroom.",
+      "evidence": [
+        "clusters",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R03",
+      "status": "\ud83d\udfe1",
+      "optimization": "GPU motion slot allocation",
+      "current_and_action": "Device motion slots and generations exist. CPU compatibility registration/reservation/owner bookkeeping has not completely disappeared; GPU slot selection alone does not satisfy final architecture acceptance.",
+      "evidence": [
+        "slots",
+        "runtime",
+        "scene"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R04",
+      "status": "\ud83d\udfe1",
+      "optimization": "Persistent collision geometry / ownership transactions",
+      "current_and_action": "Native preserves geometry and has ownership/contact metadata integration, but CPU bridge and contact-manager/query updates remain. Migrate necessary ownership work; do not optimize public per-shape detach/attach as the final architecture.",
+      "evidence": [
+        "runtime",
+        "scene"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R05",
+      "status": "\u2705",
+      "optimization": "GPU motion checkpoint / restore",
+      "current_and_action": "Native device checkpoint and restore exist for correction. Saving/restoring physical state remains necessary for impulse-driven fracture; its extent and duplicated integration work can still shrink.",
+      "evidence": [
+        "correction",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R06",
+      "status": "\ud83d\udfe1",
+      "optimization": "Affected contact graph / pre-solve island work",
+      "current_and_action": "GPU contact graph and pre-solve metadata exist and are exercised. They do not imply a complete selective correction scheduler with all ordinary-body/joint/new-contact dependencies.",
+      "evidence": [
+        "contact graph",
+        "presolve",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R07",
+      "status": "\u2b1c",
+      "optimization": "Replace full replay with validated selective correction",
+      "current_and_action": "Full rigid checkpoint replay remains. Reuse valid collision work and restrict correction through complete dependency closure; retain complete recomputation where validity cannot be proven. Major independent peak opportunity in our integration.",
+      "evidence": [
+        "runtime",
+        "peak report"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R08",
+      "status": "\ud83d\udfe1",
+      "optimization": "Preserve valid contact pairs after ownership changes",
+      "current_and_action": "Pair-preservation/contact repair paths are present. Full reuse of geometry, rows, warm starts and newly eligible pairs is not solved by retaining a pair alone. Owner/mass changes require proper invalidation.",
+      "evidence": [
+        "runtime",
+        "contact graph"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R09",
+      "status": "\ud83d\udfe1",
+      "optimization": "No host decisions between destruction stages",
+      "current_and_action": "GPU dependencies control several topology/solve stages. Host status waits and lifecycle bridge remain in the full scene. A final completion boundary is valid; intermediate host branch/resubmission should be removed.",
+      "evidence": [
+        "native API",
+        "runtime",
+        "peak report"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R10",
+      "status": "\ud83d\udfe1",
+      "optimization": "Batch commands and avoid CPU body snapshots",
+      "current_and_action": "Resident inputs replace stress input copies and native checkpoint replaces motion snapshots. Some ordinary actor insertion/compatibility commands still involve CPU. CPU source node caches/parallel walkers are not the final implementation to copy.",
+      "evidence": [
+        "native API",
+        "runtime",
+        "game",
+        "demo"
+      ]
+    },
+    {
+      "section": "Motion ownership, correction and CPU boundaries",
+      "id": "R11",
+      "status": "\ud83d\udfe1",
+      "optimization": "Capacity growth without simulated spare bodies",
+      "current_and_action": "Persistent slots/storage exist, but lifecycle/capacity handling must be qualified through growth, exhaustion and reuse. Include runtime growth in complete-step timing; never truncate events/contacts to fit a budget.",
+      "evidence": [
+        "slots",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Sleeping, observations and application work",
+      "id": "O01",
+      "status": "\ud83d\udfe1",
+      "optimization": "Direct GPU rigid-body sleeping",
+      "current_and_action": "The PhysX Direct GPU sleeping patch/API exists. The current native bombardment benchmark explicitly disables sleeping, so no benchmark speedup can be credited to it. GPU-authoritative sleep/wake integration and destruction invalidation still need full qualification.",
+      "evidence": [
+        "sleep source",
+        "sleep API",
+        "demo"
+      ]
+    },
+    {
+      "section": "Sleeping, observations and application work",
+      "id": "O02",
+      "status": "\u2b1c",
+      "optimization": "Couple structural activity to valid sleep/wake evidence",
+      "current_and_action": "Rigid sleep does not imply stress can be cached forever. Support removal, changing gravity/load, impacts, damage and topology must invalidate appropriate work. General device structural activity cache remains S04.",
+      "evidence": [
+        "sleep source",
+        "native API",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Sleeping, observations and application work",
+      "id": "O03",
+      "status": "\ud83d\udd01",
+      "optimization": "Lazy/explicit CPU observations",
+      "current_and_action": "Native device views and GPU consumer replace mandatory full pose/solution export for rendering. Demo statistics and explicitly requested queries/traces still read back; they must be reported rather than called zero-transfer.",
+      "evidence": [
+        "lazy source",
+        "observation source",
+        "native API",
+        "consumer",
+        "demo"
+      ]
+    },
+    {
+      "section": "Sleeping, observations and application work",
+      "id": "O04",
+      "status": "\ud83d\udfe1",
+      "optimization": "CPU query/host mirror freshness",
+      "current_and_action": "Direct GPU host/query support exists; mirrors still require committed ownership/motion updates. Do not delete freshness work merely because simulation is device resident. Reduce to explicit observation needs and qualify wake/split transitions.",
+      "evidence": [
+        "observation source",
+        "scene",
+        "runtime"
+      ]
+    },
+    {
+      "section": "Sleeping, observations and application work",
+      "id": "O05",
+      "status": "\ud83d\udd01",
+      "optimization": "GPU render consumer",
+      "current_and_action": "Native demo can consume GPU motion/topology without a CPU pose/render membership loop. Rendering/encoding are separate consumers, excluded from simulation performance timing.",
+      "evidence": [
+        "consumer",
+        "demo"
+      ]
+    },
+    {
+      "section": "Sleeping, observations and application work",
+      "id": "O06",
+      "status": "\ud83d\udeab",
+      "optimization": "Artificial freezing, aggregate parking and settling assists",
+      "current_and_action": "Source contains experiments that freeze/merge/remove bodies or change damping/depenetration for settling. These are not unconditional physics-preserving performance ports. Keep material/solver policy changes separately tested.",
+      "evidence": [
+        "game",
+        "fidelity source"
+      ]
+    },
+    {
+      "section": "Sleeping, observations and application work",
+      "id": "O07",
+      "status": "\ud83c\udfae",
+      "optimization": "Networking, interest, compression, scene selection",
+      "current_and_action": "Remain game responsibilities. CPU parallel event serialization and application snapshot caches are not missing CUDA stress optimizations. Deliver committed events/device views to consumers.",
+      "evidence": [
+        "game",
+        "bridge",
+        "consumer"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q01",
+      "status": "\u2705",
+      "optimization": "Whole-advance timer and peak opportunity report",
+      "current_and_action": "Recorded commands through committed completion are timed, including first steps and runtime work; disjoint host scopes distinguish stress, ownership and correction. Overlapping device timings are not added into a fabricated total.",
+      "evidence": [
+        "demo",
+        "peak report"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q02",
+      "status": "\u2705",
+      "optimization": "Per-component actual operator work capture",
+      "current_and_action": "Separate diagnostic runtime records component updates, residual/verification/direction sweeps, live/dead CSR visits and phase cycles, reconciled against scene counters. Diagnostic overhead is excluded from production timing claims.",
+      "evidence": [
+        "capture",
+        "work report",
+        "build"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q03",
+      "status": "\ud83d\udfe1",
+      "optimization": "Systematic hardware-counter-free bottleneck testing",
+      "current_and_action": "Work attribution exists; controlled component-size/concurrency/iteration A/B and calibrated kernel experiments remain necessary to identify bandwidth/compute/launch limits. CTA-cycle shares alone do not prove a hardware bottleneck.",
+      "evidence": [
+        "work report",
+        "peak report"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q04",
+      "status": "\ud83d\udfe1",
+      "optimization": "Correctness, peak and endurance qualification",
+      "current_and_action": "Focused regressions and diagnostic checks exist. This does not mean the 256-building scene passes every-step real-time, five long performance trials or full lifecycle endurance. Keep exact quality controls and all spikes.",
+      "evidence": [
+        "work report",
+        "inverse evidence"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q05",
+      "status": "\ud83d\udeab",
+      "optimization": "CPU crossover and old GPU/toolkit fallback",
+      "current_and_action": "Source switches small structures to CPU to amortize external overhead. Outside current RTX 4090-only scope; batch native GPU components instead. Native build pins sm_89 and requires CUDA >=12.8.",
+      "evidence": [
+        "game",
+        "build"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q06",
+      "status": "\ud83d\udfe1",
+      "optimization": "Remove legacy methods/switches from production translation unit",
+      "current_and_action": "Native runtime selects PHYSX_RESIDENT_DESTRUCTION and does not link the source hybrid hierarchy builders. Imported reference methods and switches still share code: presence is not active usage, and cleanup is not complete.",
+      "evidence": [
+        "build",
+        "native API",
+        "graph"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q07",
+      "status": "\ud83d\udeab",
+      "optimization": "Second CPU stress thread pool / adapter parallelism",
+      "current_and_action": "Source reports oversubscription/deadlock problems with nested CPU work. CPU scheduling optimizations for the external adapter are not the direction for resident CUDA destruction.",
+      "evidence": [
+        "game",
+        "bridge"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q08",
+      "status": "\u2705",
+      "optimization": "Leave NVIDIA rigid-body computation as the foundation",
+      "current_and_action": "Profile ordinary PhysX as a control. Optimize our load/solver/topology/lifecycle/correction overhead first; this inventory does not propose rewriting NVIDIA broad phase, narrow phase or rigid-body solve.",
+      "evidence": [
+        "runtime",
+        "peak report"
+      ]
+    },
+    {
+      "section": "Measurement, compatibility and rejected work",
+      "id": "Q09",
+      "status": "\u2696\ufe0f",
+      "optimization": "Physical material and solver settings",
+      "current_and_action": "Bending/fibre laws, damage rate, crushing, gravity, support thresholds, CCD and rigid-solver iterations are physical or numerical policy, not interchangeable speed switches. Preserve the frozen settings for performance A/B; qualify any change separately.",
+      "evidence": [
+        "fidelity source",
+        "material",
+        "game"
+      ]
+    }
+  ],
+  "source_configuration_occurrences": [
+    {
+      "name": "BLAST_BEND_FIBER",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        228
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_PROBE",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        2716
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_GPU_COND_CHUNK",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        289
+      ],
+      "review_id": "N02",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_GPU_COND_LOOP",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        278
+      ],
+      "review_id": "N02",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_GPU_DEFER_REPARTITION",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        391
+      ],
+      "review_id": "H03",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_GPU_DELTA_UPLOAD",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        382
+      ],
+      "review_id": "H02",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_GPU_DETERMINISTIC_REDUCTIONS",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        335
+      ],
+      "review_id": "N09",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "BLAST_GPU_FULL_LAUNCH",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        445
+      ],
+      "review_id": "H11",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "BLAST_GPU_GATHER",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        251
+      ],
+      "review_id": "N01",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_GPU_GRAPH_STATS",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        400
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_GPU_GRAPH_UPDATE",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        481
+      ],
+      "review_id": "H10",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "BLAST_GPU_JACOBI",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        315
+      ],
+      "review_id": "N06",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_GPU_KERNEL_PROFILE",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        237
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_GPU_LOCAL_SPLIT",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        373
+      ],
+      "review_id": "H11",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "BLAST_GPU_NODE_SPACE",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        344
+      ],
+      "review_id": "N01",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_GPU_SKIP_CONVERGED",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        326
+      ],
+      "review_id": "S02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_GPU_SKIP_DEBUG",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        65
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_GPU_STABLE_GRAPH",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        472
+      ],
+      "review_id": "H10",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "BLAST_GPU_VERIFY_PARTITION",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        364
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_GPU_WHOLE_RESET_ON_TOPOLOGY",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        490
+      ],
+      "review_id": "H04",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "BLAST_ISLAND_TRACE",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        263
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_TOPO_UPLOAD",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
+      "lines": [
+        3906
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_BEND_FIBER",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        189
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "BLAST_BEND_MAX_GAIN",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        144
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "BLAST_BEND_SECTION_MODULUS",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        178
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_COMPACT",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        1850
+      ],
+      "review_id": "C06",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_COMPACT_SKIP",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        2210
+      ],
+      "review_id": "C07",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_COMPACT_TRACE",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        1859
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_COMPACT_VERIFY",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        5699
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_CSR_VERIFY",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        1878
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_GPU",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        1837
+      ],
+      "review_id": "C06",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_GPU_VERIFY",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        1868
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_STATS",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        1797
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_DAMAGE_RATE",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        5682
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "BLAST_FRACTURE_CANDIDATES",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        5998
+      ],
+      "review_id": "C07",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "BLAST_FRACTURE_CANDIDATES_VERIFY",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        6007
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_FRACTURE_NODE_SKIP",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        5882
+      ],
+      "review_id": "C07",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "BLAST_GPU_IMPULSE_READBACK",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        471
+      ],
+      "review_id": "O03",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_GPU_NO_INCREMENTAL_REMOVAL",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        99
+      ],
+      "review_id": "H04",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "BLAST_SKIP_UNCHANGED_BOND_STRESS",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        1827
+      ],
+      "review_id": "C07",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "BLAST_WALKIN_SKIP",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        1702
+      ],
+      "review_id": "C07",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "BLAST_WARMSTART_TRACE",
+      "source": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
+      "lines": [
+        948
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_FLAT",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1845
+      ],
+      "review_id": "C06",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "BLAST_BOND_STRESS_PARALLEL",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        520
+      ],
+      "review_id": "Q07",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "BLAST_CRUSH_CAP",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        822
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "BLAST_END_TICK_SPLIT",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1986
+      ],
+      "review_id": "C09",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "BLAST_SHOT_AREA_SCALED",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        2394
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "VIBE_CITY_ASSIST_ANG_DAMP",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1040
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_ASSIST_LIN_DAMP",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1029
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_ASSIST_MAX_MASS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1018
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_ASSIST_SLEEP_MULT",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1053
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_BODY_ITERATIONS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        736
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "VIBE_CITY_BOND_SAMPLE_TICKS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        455
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_CITY_BOND_SAMPLE_VERIFY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1918
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_CITY_BRIDGE_CCD_WALK",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        2036
+      ],
+      "review_id": "R10",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_CITY_CCD",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        122
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "VIBE_CITY_CONTACT_REPORT_MASS_RATIO",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        196
+      ],
+      "review_id": "C10",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_CONTACT_WAKE_RATIO",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        3164
+      ],
+      "review_id": "O01",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_CITY_DEPEN_VELOCITY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        138
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_FREEZE_AGGREGATE",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        243
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_FREEZE_AGG_CELL_M",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        253
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_FREEZE_REMOVE_FROM_SCENE",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        283
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_GPU_STRESS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        296
+      ],
+      "review_id": "Q05",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_GPU_STRESS_MIN_BONDS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        308
+      ],
+      "review_id": "Q05",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_ISLAND_AWARE",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        699
+      ],
+      "review_id": "S01",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_CITY_PRUNE_BODY_BOOKKEEPING",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1401
+      ],
+      "review_id": "R10",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_CITY_QUIET_SKIP",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        163
+      ],
+      "review_id": "S08",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_CITY_SETTLE_ASSIST",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1005
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_SKIP_SETTLED",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        706
+      ],
+      "review_id": "S04",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "VIBE_CITY_SKIP_STABLE_UNCONVERGED",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        728
+      ],
+      "review_id": "S07",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_SLEEP_THRESHOLD",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        941
+      ],
+      "review_id": "O01",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_CITY_SNAPSHOT_BEGIN",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        155
+      ],
+      "review_id": "R10",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_CITY_SOLVER_POSITION_ITERS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1073
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "VIBE_CITY_SOLVER_VELOCITY_ITERS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        1087
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "VIBE_CITY_STRESS_WORKERS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        461
+      ],
+      "review_id": "Q07",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_CITY_SUPPORT_AGE_TICKS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        3425
+      ],
+      "review_id": "O02",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "VIBE_CITY_SUPPORT_FY_RATIO",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        3415
+      ],
+      "review_id": "O02",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "VIBE_CITY_SUPPORT_ROW_MAP",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        3438
+      ],
+      "review_id": "O02",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "VIBE_CITY_SUPPORT_STAGE_UNCHANGED",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        3715
+      ],
+      "review_id": "O02",
+      "native_responsibility_status": "\u2b1c"
+    },
+    {
+      "name": "VIBE_FREEZE_ISLAND_RESLEEP",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        2808
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_PHYSX_CONTACT_FASTPATH",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        2220
+      ],
+      "review_id": "C03",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_NODE_CACHE",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        2244
+      ],
+      "review_id": "R10",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_NODE_CACHE_VERIFY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        2248
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_WORLD_GRAVITY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+      "lines": [
+        220,
+        3151
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "BLAST_CRUSH_CAP",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        808
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "VIBE_PHYSX_BONDLESS_HOIST",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        373
+      ],
+      "review_id": "C05",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_BONDLESS_HOIST_VERIFY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        387
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_COMPACT_CONTACTS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        152
+      ],
+      "review_id": "C03",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_COMPACT_CONTACTS_VERIFY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        159
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_CONTACT_AGGREGATE",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        803
+      ],
+      "review_id": "C03",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_CONTACT_CENSUS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        337
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_CONTACT_CLASSIFY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        864
+      ],
+      "review_id": "C03",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_CONTACT_CSE",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        143
+      ],
+      "review_id": "C03",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_CONTACT_FASTPATH",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        305
+      ],
+      "review_id": "C03",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_CONTACT_PERSISTS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        430
+      ],
+      "review_id": "R08",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_DEFER_CONTACTS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        422
+      ],
+      "review_id": "R08",
+      "native_responsibility_status": "\ud83d\udfe1"
+    },
+    {
+      "name": "VIBE_PHYSX_DIRECT_GPU",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        3129
+      ],
+      "review_id": "O03",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "VIBE_PHYSX_DRAIN_PARALLEL",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        825
+      ],
+      "review_id": "C02",
+      "native_responsibility_status": "\ud83d\udd01"
+    },
+    {
+      "name": "VIBE_PHYSX_DRAIN_PARALLEL_VERIFY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        832
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_FROZEN_HOIST",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        414
+      ],
+      "review_id": "O06",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_PHYSX_FROZEN_HOIST_VERIFY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        406
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_GPU_CONTACT_ORDER",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        168
+      ],
+      "review_id": "C04",
+      "native_responsibility_status": "\ud83d\udeab"
+    },
+    {
+      "name": "VIBE_PHYSX_GPU_CONTACT_ORDER_VERIFY",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        175
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_GPU_SAMPLE_TICKS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        287
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_POSITION_ITERS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        443
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    },
+    {
+      "name": "VIBE_PHYSX_PROFILE_CALLBACK",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        325
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_PROFILE_FETCH",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        3503
+      ],
+      "review_id": "Q02",
+      "native_responsibility_status": "\u2705"
+    },
+    {
+      "name": "VIBE_PHYSX_VELOCITY_ITERS",
+      "source": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+      "lines": [
+        451
+      ],
+      "review_id": "Q09",
+      "native_responsibility_status": "\u2696\ufe0f"
+    }
+  ]
+}
