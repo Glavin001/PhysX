@@ -71,7 +71,7 @@ def render(captures,output,phase_captures=()):
     cases=[c for result in results for c in result['cases']]
     doc=t.Document();doc.title('🏙️ Integrated PhysX GPU destruction — scaling measurements',1)
     doc.text('All measured advances include recorded commands, projectile insertion, ordinary physics, CUDA stress/material/topology work, up to one correction and mandatory completion. Timestep is 1/60 second. Rendering, video encoding, asset preparation and initial CUDA setup are excluded; initialization is reported separately. Every measured step is retained.')
-    doc.text('These are diagnostic scaling runs, not the five × 60-second deadline or ten-minute endurance qualification. A mean below a deadline does not pass the peak requirement. Sleeping is disabled in these fixtures.')
+    doc.text('Run count and duration are reported per scenario. Five × 60-second runs with every complete step at or below 8 ms satisfy the timing gate; shorter captures are diagnostic. Timing alone does not establish full physical or ten-minute lifecycle qualification. A mean below a deadline does not pass the peak requirement. Sleeping is disabled in these fixtures.')
     doc.table(['Scenario','Buildings','Chunks','Bonds','Projectiles','Launch','Runs × seconds','Peak clusters'],[
         [c['label'],c['buildings'],c['chunks'],c['bonds'],c['projectiles'],c['shot_path'],f"{c['trials']} × {c['seconds']}",c['population_peaks']['logical_clusters']] for c in cases])
     doc.text('World-size cases keep the original target and wall projectile unchanged; extra buildings sit beside its flight corridor. Concurrent-impact cases use the existing aerial launch. Aerial and wall trajectories are different workloads; compare scaling within each family.')
