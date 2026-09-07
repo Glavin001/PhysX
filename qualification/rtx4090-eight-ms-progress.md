@@ -789,3 +789,34 @@ remain. No new simulation speedup or 8 ms qualification is claimed.
 
 [Local factor report](resident-hierarchy-diagonal/report.md) ·
 [Validation](resident-hierarchy-diagonal/validation.json).
+
+## Recursive GPU hierarchy and compact sparse levels
+
+Recursive construction now keeps counts, coefficients, canonical CSR, ancestry
+and generation/recovery decisions on the GPU. One cooperative packing kernel
+replaces the rejected conditional CUB implementation. It processes used extents,
+reuses persistent scratch, applies stable tiled radix sorting and parallel row
+prefixes, and deletes only exact-zero coarse rows/columns. The original fine
+physical operator and state are unchanged. An error-gate race found during
+qualification was fixed with a uniform device decision before the next stage.
+
+The complete captured correctness, memory/leak, synchronization and race suite
+passes without relaxed tolerances or timeouts. It covers three levels for small
+fixtures and eight for a 100,000-node / 199,997-bond sparse graph across six
+transitions. The initial connected state reaches 66 packed nodes / 195 bonds
+and then 30 aggregate groups at the eighth level. These are algebra sizes, not
+a claim about fewer physical chunks/bonds. Independent original-fine equations
+validate composed factors and coarse application at 2e-12 scaled tolerance;
+small fixtures sweep full basis columns. Reuse, rejected publication, overflow,
+stale upstream generations, invalid origins and recovery are also checked.
+
+The frozen ten-second 444-chunk / 896-bond one-projectile wall audit remains
+exact with correction limit one: 398 supported chunks, 46 detached, 199 broken
+bonds, the same hole identities and clearance, and unchanged production binary
+hashes. Terminal solve, compact-vector V-cycle, native CGLS integration and
+affected-component reuse remain before benchmarking a candidate. The primary
+256-building scene, full GPU lifecycle/sleep/joint/selective-correction work and
+8 ms/endurance gates are still incomplete. No simulation speedup is claimed.
+
+[Generated recursive report](resident-hierarchy-recursive/report.md) ·
+[Validation and rejected experiments](resident-hierarchy-recursive/validation.json).

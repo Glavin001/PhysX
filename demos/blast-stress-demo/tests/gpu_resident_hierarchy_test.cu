@@ -1,6 +1,8 @@
 // Independent connectivity and B^T P / Galerkin checks for GPU construction.
 #include "StressHierarchyGraph.cuh"
 #include "StressHierarchyOperator.cuh"
+#include "StressHierarchyPackedLevel.cuh"
+#include <memory>
 #include <array>
 #include <cstdio>
 #include <vector>
@@ -113,6 +115,7 @@ void verifyPartition(const Fixture& f,const std::vector<unsigned>& leaders,unsig
     }
 }
 #include "gpu_resident_hierarchy_operator_checks.cuh"
+#include "gpu_resident_hierarchy_recursive_checks.cuh"
 void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=Invalid){
     f.csr();f.partition();const auto n=f.positions.size(),m=f.a.size();
     std::printf("START GPU hierarchy: nodes=%zu bonds=%zu\n",n,m);std::fflush(stdout);cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
@@ -125,8 +128,9 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
         Input input{unsigned(n),unsigned(m),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,
             position.data,offset0.data,offset1.data,inertia.data,generation.data,accept.data};
         cudaGraph_t captured=nullptr;cudaGraphExec_t executable=nullptr;
-        check(cudaStreamBeginCapture(stream,cudaStreamCaptureModeThreadLocal));graph.enqueue(input);
-        check(cudaStreamEndCapture(stream,&captured));check(cudaGraphInstantiate(&executable,captured,0));
+        check(cudaGraphCreate(&captured,0));auto priorNode=graph.append(captured,nullptr,input);
+        RecursiveChain recursive;recursive.append(captured,priorNode,input,graph,stream,n>1000?8:3);
+        check(cudaGraphInstantiate(&executable,captured,0));
         auto launch=[&](){check(cudaGraphLaunch(executable,stream));};
         std::vector<unsigned> prior,initial;Status old{};
         const auto originalHealth=f.health;
@@ -142,7 +146,8 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
             if(m)check(cudaMemcpyAsync(coarse.data(),graph.coarseBonds(),m*sizeof(CoarseBond),cudaMemcpyDeviceToHost,stream));
             check(cudaStreamSynchronize(stream));
             require(!status.error && status.initialized && status.generation==gen,"hierarchy did not commit");
-            verifyPartition(f,leaders,status.aggregates);verifyOperators(f,leaders,graph,input,stream);if(step==0 && expectedInitial!=Invalid)require(status.aggregates==expectedInitial,"hub aggregation failed to coarsen");if(factorCheck)verifyFactor(f,leaders,coarse);
+            verifyPartition(f,leaders,status.aggregates);verifyOperators(f,leaders,graph,input,stream);
+            verifyRecursive(f,recursive,leaders,coarse,gen,stream);if(step==0 && expectedInitial!=Invalid)require(status.aggregates==expectedInitial,"hub aggregation failed to coarsen");if(factorCheck)verifyFactor(f,leaders,coarse);
             if(step==0)initial=leaders;
             if(step==5)require(leaders==initial,"restored physical graph changed aggregate identities");
             if(step==1){require(status.builds==old.builds && status.rounds==old.rounds,"unchanged generation rebuilt");require(leaders==prior,"unchanged generation changed mapping");}
@@ -150,11 +155,15 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
             if(step==5 && n){require(status.aggregates<=n,"restored graph aggregate overflow");}
             prior=leaders;old=status;
         }
+        verifyRecursiveFailures(recursive,stream);
+        const auto acceptedRecursive=recursiveState(recursive,stream);
         // Rejected transaction must leave committed GPU outputs untouched.
         health.put(std::vector<float>(m,0),stream);
         accept.put({0},stream);generation.put({99},stream);launch();Status rejected;
         check(cudaMemcpyAsync(&rejected,graph.status(),sizeof(rejected),cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
         require(!std::memcmp(&old,&rejected,sizeof(old)),"rejected transaction changed status");
+        const auto rejectedRecursive=recursiveState(recursive,stream);
+        require(acceptedRecursive.size()==rejectedRecursive.size() && !std::memcmp(acceptedRecursive.data(),rejectedRecursive.data(),acceptedRecursive.size()*sizeof(Status)),"rejected command changed a recursive level");
         std::vector<unsigned> unchanged(n);
         if(n)check(cudaMemcpyAsync(unchanged.data(),graph.leaders(),n*sizeof(unsigned),cudaMemcpyDeviceToHost,stream));
         check(cudaStreamSynchronize(stream));require(unchanged==prior,"rejected topology overwrote committed aggregates");
@@ -199,7 +208,7 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
 }
 }
 int main(){try{
-    run(Fixture(0),false,true);run(Fixture(1),false,true);
+    run(Fixture(0),false,true);run(Fixture(1),false,true);run(Fixture(256),false,false);
     Fixture small(24);small.inverse[0]=small.inverse[12]=make_float2(0,0);
     for(unsigned i=1;i<24;++i)if(i!=12)small.edge(i-1,i);
     for(unsigned i=2;i<12;++i)small.edge(i-2,i);

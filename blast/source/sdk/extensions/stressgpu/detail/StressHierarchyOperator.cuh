@@ -12,7 +12,7 @@ __device__ __forceinline__ Vector add(Vector a,Vector b){return {add(a.angular,b
 __device__ __forceinline__ Vector sub(Vector a,Vector b){return {sub(a.angular,b.angular),sub(a.linear,b.linear)};}
 __device__ __forceinline__ Vector mul(Vector a,double b){return {mul(a.angular,b),mul(a.linear,b)};}
 __device__ __forceinline__ double3 shift(const Input& input,unsigned node,unsigned root){
-    const auto a=input.position[node],b=input.position[root];
+    const auto a=sourcePosition(input,node),b=sourcePosition(input,root);
     return make_double3(double(a.x)-b.x,double(a.y)-b.y,double(a.z)-b.z);
 }
 // D^-1 [omega; v + (p_i-p_root) x omega]. Inertia is the same
@@ -40,8 +40,8 @@ __device__ __forceinline__ unsigned memberAt(const Input& input,Buffers b,unsign
     const unsigned ref=input.refs[input.begin[seed]+item-1];
     if(ref==Invalid)return Invalid;
     const unsigned bond=ref&0x7fffffffu;
-    const unsigned other=(ref>>31)?input.node0[bond]:input.node1[bond];
-    return b.owner[other]==seed && b.memberBond[other]==bond ? other : Invalid;
+    const unsigned other=(ref>>31)?sourceFirst(input,bond):sourceSecond(input,bond);
+    return other!=Invalid && b.owner[other]==seed && b.memberBond[other]==bond ? other : Invalid;
 }
 __device__ __forceinline__ double warpSum(double v){
     for(unsigned offset=16;offset;offset>>=1)v+=__shfl_down_sync(0xffffffffu,v,offset);
@@ -53,12 +53,13 @@ __device__ __forceinline__ Vector warpSum(Vector v){
 }
 __global__ void prolongate(Input input,Buffers b,const Status* status,
                            const Vector* coarse,Vector* fine){
+    input=resolvedInput(input);
     const unsigned node=blockIdx.x*blockDim.x+threadIdx.x;if(node>=input.nodes)return;
     Vector out{};
     if(usable(status)){
         const unsigned root=b.leader[node];
         if(root!=Invalid){
-            out=prolongValue(coarse[root],shift(input,node,root),input.inertia[node]);
+            out=prolongValue(coarse[root],shift(input,node,root),sourceInertia(input,node));
         }
     }
     fine[node]=out;
@@ -67,6 +68,7 @@ __global__ void prolongate(Input input,Buffers b,const Status* status,
 // separate clearing launch and no atomic floating-point reduction are needed.
 __global__ void restrictResidual(Input input,Buffers b,const Status* status,
                                 const Vector* fine,Vector* coarse){
+    input=resolvedInput(input);
     const unsigned lane=threadIdx.x&31u,root=(blockIdx.x*blockDim.x+threadIdx.x)/32;
     if(root>=input.nodes)return;
     Vector out{};
@@ -74,7 +76,7 @@ __global__ void restrictResidual(Input input,Buffers b,const Status* status,
         const unsigned seed=b.owner[root],items=1+input.begin[seed+1]-input.begin[seed];
         for(unsigned item=lane;item<items;item+=32){
             const unsigned node=memberAt(input,b,seed,item);if(node==Invalid)continue;
-            out=add(out,restrictValue(fine[node],shift(input,node,root),input.inertia[node]));
+            out=add(out,restrictValue(fine[node],shift(input,node,root),sourceInertia(input,node)));
         }
     }
     out=warpSum(out);if(!lane)coarse[root]=out;
@@ -99,6 +101,7 @@ __device__ __forceinline__ Vector coarseNodeValue(const Input& input,Buffers b,
     return out;
 }
 __global__ void applyCoarse(Input input,Buffers b,const Status* status,const Vector* coarse,Vector* result){
+    input=resolvedInput(input);
     const unsigned lane=threadIdx.x&31u,root=(blockIdx.x*blockDim.x+threadIdx.x)/32;
     if(root>=input.nodes)return;
     Vector out{};
@@ -141,7 +144,9 @@ __device__ __forceinline__ Vector solveFineDiagonal(Buffers b,unsigned node,Vect
             {__shfl_sync(0xffffffffu,rhs,3),__shfl_sync(0xffffffffu,rhs,4),__shfl_sync(0xffffffffu,rhs,5)}};
 }
 __global__ void applyFineDiagonal(Input input,Buffers b,const Status* status,const Vector* residual,Vector* result){
+    input=resolvedInput(input);
     const unsigned node=(blockIdx.x*blockDim.x+threadIdx.x)/32;if(node>=input.nodes)return;
+    if(input.levelBonds){__trap();return;} // Fine-only factor misuse is an explicit device error.
     Vector out{};if(usable(status))out=solveFineDiagonal(b,node,residual[node]);
     if(!(threadIdx.x&31u))result[node]=out;
 }

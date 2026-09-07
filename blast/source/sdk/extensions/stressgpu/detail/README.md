@@ -112,3 +112,34 @@ mass scaling, and 16 for an unfactorable local diagonal. Multiple errors may be
 combined. Consumers must reject an error before using any hierarchy result.
 The local factors alone do not constitute the multilevel preconditioner: its
 recursive levels/coarse solve and production CGLS wiring remain unfinished.
+
+## Recursive packed levels
+
+`StressHierarchyViews.cuh` shares access to original fine inputs and exact
+double coarse factors. Recursive positions reference persistent authored
+origins; no float conversion of coarse coefficients is performed. Actual counts
+are device views bounded by allocated capacity. Error bit 32 rejects invalid
+counts or an uncommitted/error/stale upstream generation.
+
+`StressHierarchyPacking.cuh`, `StressHierarchyPackingPrimitives.cuh` and
+`StressHierarchyPackedLevel.cuh` compact nodes/bonds and build canonical CSR in
+one cooperative kernel. Block scans and stable tiled radix passes share
+persistent scratch. Only used rows/edges are traversed, with at most one padded
+radix tile. Exactly zero coarse columns and their unused variables are retired;
+nonzero self-edge moment terms remain. Original fine physical state is unchanged.
+
+The graph is prepared once and replayed through GPU generations. Cooperative
+construction snapshots validation decisions before another stage can write the
+error flag; all blocks must take the same grid exit. Coarse input generations
+must match their committed upstream status. The private `Graph` distinguishes
+fine and recursive roles so fine-only diagonal storage is not allocated for
+recursive levels. Calling the fine-only diagonal kernel on a coarse view fails
+explicitly. Terminal/coarse factors are not implemented yet.
+
+Remaining integration work: classify terminal components on the GPU, construct
+and apply small null-space-safe factors, fuse transfers with compact level
+indexing, build coarse smoothers, and run a symmetric resident V-cycle twice in
+the preconditioned CGLS recurrence. Its authoritative fine operator and stopping
+test must remain unchanged. Fine inertia/position normalization must match the
+existing asset-preparation scale. Native convergence/fracture and full-step
+timing gates are required before claiming a production improvement.

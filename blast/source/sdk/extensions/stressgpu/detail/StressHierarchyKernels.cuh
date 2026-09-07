@@ -6,6 +6,8 @@
 #include <cmath>
 namespace Nv { namespace Blast { namespace StressHierarchy {
 constexpr unsigned Invalid=0xffffffffu, Threads=256;
+struct CoarseBond;
+struct Status;
 struct Input {
     unsigned nodes,bonds;
     const unsigned *begin,*refs,*node0,*node1,*component;
@@ -14,6 +16,13 @@ struct Input {
     const float2* inertia;
     const std::uint64_t* generation;
     const unsigned* accept;
+    // Recursive levels retain exact double factors and original chunk origins.
+    // Device counts describe the used portion of persistent capacity.
+    const CoarseBond* levelBonds=nullptr;
+    const unsigned *identity=nullptr,*counts=nullptr;
+    const Status* sourceStatus=nullptr;
+    const unsigned* bondIdentity=nullptr;
+    unsigned authoredNodes=0;
 };
 struct Status {
     std::uint64_t generation;
@@ -26,10 +35,15 @@ struct CoarseBond {
     double scale;
 };
 struct Buffers {
-    unsigned *owner,*seed,*minimum,*leader,*pending,*memberBond;
+    unsigned *owner,*seed,*minimum,*leader,*pending,*memberBond,*coarseActive;
     CoarseBond* coarse;
     double* diagonal;
 };
+__device__ __forceinline__ bool retainedColumn(const CoarseBond& e){
+    return e.scale>0 && (e.a!=Invalid || e.b!=Invalid) &&
+        !(e.a==e.b && e.offset0.x==e.offset1.x && e.offset0.y==e.offset1.y && e.offset0.z==e.offset1.z);
+}
+#include "StressHierarchyViews.cuh"
 __device__ __forceinline__ unsigned priority(unsigned node,unsigned round)
 {
     unsigned x=node+0x9e3779b9u*(round+1u);
@@ -44,13 +58,13 @@ __device__ __forceinline__ unsigned neighbour(const Input& a,unsigned node,unsig
     const unsigned ref=a.refs[slot];if(ref==Invalid)return Invalid;
     const unsigned bond=ref&0x7fffffffu;
     if(bond>=a.bonds){atomicOr(&status->error,1u);return Invalid;}
-    const unsigned first=a.node0[bond],second=a.node1[bond];
-    if(first>=a.nodes || second>=a.nodes || first==second
+    const unsigned first=sourceFirst(a,bond),second=sourceSecond(a,bond);
+    if(!validEndpoint(a,first) || !validEndpoint(a,second) || (!a.levelBonds && first==second)
         || ((ref>>31)?second:first)!=node){atomicOr(&status->error,1u);return Invalid;}
-    if(!isfinite(a.health[bond])){atomicOr(&status->error,2u);return Invalid;}
-    if(a.health[bond]<=0)return Invalid;
+    if(!isfinite(sourceHealth(a,bond))){atomicOr(&status->error,2u);return Invalid;}
+    if(sourceHealth(a,bond)<=0)return Invalid;
     const unsigned other=(ref>>31)?first:second;
-    if(a.component[other]==Invalid)return Invalid;
+    if(other==Invalid || other==node || a.component[other]==Invalid)return Invalid;
     if(a.component[node]!=a.component[other]){atomicOr(&status->error,1u);return Invalid;}
     return other;
 }
@@ -65,8 +79,9 @@ __device__ __forceinline__ void beginBuild(const Input& a,Status* status,Work* w
 __device__ __forceinline__ void initialize(const Input* input,Buffers b,Status* status,unsigned logicalBlock)
 {
     const unsigned i=logicalBlock*blockDim.x+threadIdx.x;if(i>=input->nodes)return;
-    b.owner[i]=b.minimum[i]=b.leader[i]=b.memberBond[i]=Invalid;b.seed[i]=0;
-    const auto d=input->inertia[i];const auto p=input->position[i];
+    b.owner[i]=b.minimum[i]=b.leader[i]=b.memberBond[i]=Invalid;b.seed[i]=0;b.coarseActive[i]=0;
+    if(input->identity && input->identity[i]>=input->authoredNodes){atomicOr(&status->error,1u);return;}
+    const auto d=sourceInertia(*input,i);const auto p=sourcePosition(*input,i);
     const bool active=input->component[i]!=Invalid;
     const bool dynamic=d.x>0 && d.y>0,fixed=d.x==0 && d.y==0;
     if(!isfinite(d.x)||!isfinite(d.y)||(!dynamic&&!fixed)||(active&&!dynamic))atomicOr(&status->error,8u);
@@ -78,7 +93,7 @@ __device__ __forceinline__ void initialize(const Input* input,Buffers b,Status* 
         else for(unsigned slot=begin;slot<end;++slot){
             const unsigned ref=input->refs[slot];if(ref==Invalid)continue;
             const unsigned bond=ref&0x7fffffffu;
-            if(bond>=input->bonds || input->health[bond]>0)atomicOr(&status->error,1u);
+            if(bond>=input->bonds || sourceHealth(*input,bond)>0)atomicOr(&status->error,1u);
         }
     }
     if(!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z))atomicOr(&status->error,2u);
@@ -89,7 +104,7 @@ __device__ __forceinline__ void chooseSeeds(const Input* input,Buffers b,Status*
     if(node>=a.nodes)return;b.seed[node]=0;
     if(a.component[node]==Invalid || b.owner[node]!=Invalid)return;
     const unsigned begin=a.begin[node],end=a.begin[node+1];
-    if(begin>end || end>2ull*a.bonds || a.component[node]>=a.nodes){atomicOr(&status->error,1u);return;}
+    if(begin>end || end>2ull*a.bonds || a.component[node]>=sourceComponentCapacity(a)){atomicOr(&status->error,1u);return;}
     // Prefer hubs so a star coarsens to one aggregate instead of losing only
     // one leaf per level. Hash ties by round for parallel progress on paths;
     // this is an integer layout choice, never a physical approximation.
@@ -142,7 +157,7 @@ __device__ __forceinline__ void publishLeaders(const Input* input,Buffers b,Stat
     const unsigned count=__syncthreads_count(i<input->nodes && root==i);
     if(!threadIdx.x)atomicAdd(&status->aggregates,count);
 }
-__device__ __forceinline__ double3 relativeOffset(float4 position,float4 offset,float4 origin)
+__device__ __forceinline__ double3 relativeOffset(float4 position,double3 offset,float4 origin)
 {
     return make_double3((double(position.x)-origin.x)+offset.x,
                         (double(position.y)-origin.y)+offset.y,
@@ -158,16 +173,22 @@ __device__ __forceinline__ void buildCoarseBonds(const Input* input,Buffers b,St
 {
     const auto a=*input;const unsigned i=logicalBlock*blockDim.x+threadIdx.x;if(i>=a.bonds)return;
     CoarseBond out{};out.a=out.b=Invalid;
-    if(!isfinite(a.health[i]))atomicOr(&status->error,2u);
-    else if(a.health[i]>0){
-        const unsigned first=a.node0[i],second=a.node1[i];
-        if(first>=a.nodes || second>=a.nodes || first==second){atomicOr(&status->error,1u);b.coarse[i]=out;return;}
-        out.a=b.leader[first];out.b=b.leader[second];out.scale=a.scale[i];
-        if(out.a!=Invalid)out.offset0=relativeOffset(a.position[first],a.offset0[i],a.position[out.a]);
-        if(out.b!=Invalid)out.offset1=relativeOffset(a.position[second],a.offset1[i],a.position[out.b]);
+    if(!isfinite(sourceHealth(a,i)))atomicOr(&status->error,2u);
+    else if(sourceHealth(a,i)>0){
+        const unsigned first=sourceFirst(a,i),second=sourceSecond(a,i);
+        if(!validEndpoint(a,first) || !validEndpoint(a,second) || (!a.levelBonds && first==second)){atomicOr(&status->error,1u);b.coarse[i]=out;return;}
+        out.a=first==Invalid?Invalid:b.leader[first];out.b=second==Invalid?Invalid:b.leader[second];out.scale=sourceScale(a,i);
+        if(out.a!=Invalid)out.offset0=relativeOffset(sourcePosition(a,first),sourceOffset(a,i,false),sourcePosition(a,out.a));
+        if(out.b!=Invalid)out.offset1=relativeOffset(sourcePosition(a,second),sourceOffset(a,i,true),sourcePosition(a,out.b));
         if(!finite(out.offset0)||!finite(out.offset1)||!isfinite(out.scale)||!(out.scale>0))atomicOr(&status->error,2u);
     }
     b.coarse[i]=out;
+    // A coarse variable with no nonzero factor column is an exact zero row.
+    // Retire that algebra work; original fine bonds/chunks remain untouched.
+    if(retainedColumn(out)){
+        if(out.a!=Invalid)atomicOr(b.coarseActive+out.a,1u);
+        if(out.b!=Invalid)atomicOr(b.coarseActive+out.b,1u);
+    }
 }
 __device__ __forceinline__ void commitBuild(const Input* input,Status* status)
 {
@@ -179,12 +200,26 @@ __device__ __forceinline__ void commitBuild(const Input* input,Status* status)
 __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
 {
     const auto grid=cooperative_groups::this_grid();
+    if(input.accept && !*input.accept){
+        if(!blockIdx.x && !threadIdx.x)work->active=work->pending=0;
+        return;
+    }
+    if(!sourceCountsValid(input) || (input.sourceStatus && (!input.sourceStatus->initialized || input.sourceStatus->error || input.sourceStatus->generation!=*input.generation))){
+        if(!blockIdx.x && !threadIdx.x){status->error=32;work->active=work->pending=0;}
+        return;
+    }
+    input=resolvedInput(input);
     const unsigned nodes=max(1u,(input.nodes+Threads-1)/Threads);
     const unsigned bonds=(input.bonds+Threads-1)/Threads;
     if(!blockIdx.x && !threadIdx.x)beginBuild(input,status,work);
     grid.sync();if(!work->active)return;
     for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)initialize(&input,buffers,status,block);
     grid.sync();
+    // Freeze the decision before any block enters a stage that may publish a
+    // new error. Reading status->error directly here lets a faster block's
+    // next-stage error send late blocks home before the next grid barrier.
+    if(!blockIdx.x && !threadIdx.x)work->pending=unsigned(!status->error);
+    grid.sync();if(!work->pending)return;
     while(work->pending){
         for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)chooseSeeds(&input,buffers,status,block);
         grid.sync();
@@ -203,7 +238,7 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
     // across the cooperative grid and never travels through the host.
     if(!blockIdx.x && !threadIdx.x)work->pending=unsigned(!status->error);
     grid.sync();
-    if(work->pending){
+    if(work->pending && !input.levelBonds){
         const unsigned diagonalBlocks=(input.nodes+Threads/32-1)/(Threads/32);
         for(unsigned block=blockIdx.x;block<diagonalBlocks;block+=gridDim.x)buildFineDiagonal(input,buffers,status,block);
     }
