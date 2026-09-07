@@ -1,5 +1,5 @@
 // Private implementation fragment; included once inside the owning .cu namespace.
-// BEGIN UNCHANGED SOURCE
+// Shared direction, motion update and initialization kernels.
 /// pi = rho + beta pi ;  q = w + beta q, and ||q||^2 accumulated in the same
 /// pass.
 ///
@@ -197,6 +197,6 @@ __global__ void nodeSpaceReset(
     mu[node] = AngLin{};
     pi[node] = AngLin{};
     q[node] = AngLin{};
-    g[node] = AngLin{};
+    if (g) g[node] = AngLin{};
 }
 

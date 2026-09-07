@@ -1,5 +1,5 @@
 // Private member definitions; included once inside ExtStressGpuSolverImpl.
-// BEGIN UNCHANGED SOURCE
+// Allocate only storage used by the selected build-time numerical path.
     template <typename T>
     void allocateDevice(T*& pointer, std::size_t count, const char* name)
     {
@@ -31,14 +31,16 @@
         allocateDevice(m_input, m_nodeCount, "allocate input");
         allocateDevice(m_impulses, m_bondCount, "allocate impulses");
         allocateDevice(m_rhs, m_nodeCount, "allocate rhs");
-        allocateDevice(m_gradient, m_bondCount, "allocate gradient");
-        allocateDevice(m_direction, m_bondCount, "allocate direction");
+        if (!nodeSpaceEnabled())
+        {
+            allocateDevice(m_gradient, m_bondCount, "allocate gradient");
+            allocateDevice(m_direction, m_bondCount, "allocate direction");
+        }
         allocateDevice(m_residual, m_nodeCount, "allocate residual");
         allocateDevice(m_projectedDirection, m_nodeCount, "allocate projected direction");
-        allocateDevice(
-            m_reductionInput,
-            std::max(m_nodeCount, m_bondCount),
-            "allocate reduction input");
+        if (deterministicReductionsEnabled())
+            allocateDevice(m_reductionInput, std::max(m_nodeCount, m_bondCount),
+                           "allocate reduction input");
         // Per-island conjugate-gradient scalars. One set per disconnected
         // component, so islands converge and step independently.
         // Sized for the worst case, not for today's partition: every bond that
@@ -68,12 +70,17 @@
         allocateDevice(m_nsQ, m_nodeCount, "allocate node-space projected direction");
         allocateDevice(m_nsW, m_nodeCount, "allocate node-space matvec output");
         allocateDevice(m_nsMu, m_nodeCount, "allocate node-space correction");
-        allocateDevice(m_nsG, m_nodeCount, "allocate node-space preconditioned residual");
-        allocateDevice(m_nsW2, m_nodeCount, "allocate node-space second matvec output");
-        allocateDevice(m_nsJacobi, static_cast<std::size_t>(m_nodeCount) * 36,
-                       "allocate node-space block-Jacobi inverses");
-        allocateDevice(m_nsGamma, m_islandCapacity, "allocate node-space gamma");
-        allocateDevice(m_nsGammaPrev, m_islandCapacity, "allocate node-space gamma prev");
+        // The native resident operator does not use reference Jacobi vectors
+        // or inverses. Keep their storage out of the native memory footprint.
+        if (jacobiEnabled())
+        {
+            allocateDevice(m_nsG, m_nodeCount, "allocate node-space preconditioned residual");
+            allocateDevice(m_nsW2, m_nodeCount, "allocate node-space second matvec output");
+            allocateDevice(m_nsJacobi, static_cast<std::size_t>(m_nodeCount) * 36,
+                           "allocate node-space block-Jacobi inverses");
+            allocateDevice(m_nsGamma, m_islandCapacity, "allocate node-space gamma");
+            allocateDevice(m_nsGammaPrev, m_islandCapacity, "allocate node-space gamma prev");
+        }
         // Padded accumulators for the per-island reduction. One buffer serves
         // every reduction because each is finalized into its own result array
         // before the next one starts.
@@ -156,23 +163,17 @@
         m_changedBonds.reserve(m_bondCount);
         std::fill(m_hostIslandSkip, m_hostIslandSkip + m_islandCount, 0u);
 
-        const std::uint32_t reductionCount = std::max(m_nodeCount, m_bondCount);
-        cub::DeviceReduce::Sum(
-            nullptr,
-            m_reduceScratchBytes,
-            m_reductionInput,
-            m_gradientSquared,
-            reductionCount);
-        checkCuda(cudaMalloc(&m_reduceScratch, m_reduceScratchBytes), "allocate reduction scratch");
         checkCuda(
             cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking),
             "create solver stream");
+#ifndef PHYSX_RESIDENT_DESTRUCTION
         // Capture-only: the conditional loop body is captured onto this stream
         // into the while-node's body graph. Nothing is ever launched on it
         // outside capture.
         checkCuda(
             cudaStreamCreateWithFlags(&m_bodyStream, cudaStreamNonBlocking),
             "create conditional body capture stream");
+#endif
         checkCuda(cudaEventCreate(&m_uploadStart), "create upload start event");
         checkCuda(cudaEventCreate(&m_uploadStop), "create upload stop event");
         checkCuda(cudaEventCreate(&m_solveStart), "create solve start event");

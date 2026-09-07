@@ -1,0 +1,38 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start 38: physx_native_gpu_material
+ 1/14 Test #38: physx_native_gpu_material .................   Passed    0.56 sec
+      Start 39: physx_native_gpu_destruction
+ 2/14 Test #39: physx_native_gpu_destruction ..............   Passed    0.97 sec
+      Start 48: physx_native_gpu_collision_preparation
+ 3/14 Test #48: physx_native_gpu_collision_preparation ....   Passed    4.52 sec
+      Start 56: physx_native_gpu_rigid_checkpoint
+ 4/14 Test #56: physx_native_gpu_rigid_checkpoint .........   Passed    2.74 sec
+      Start 68: physx_native_gpu_resimulation
+ 5/14 Test #68: physx_native_gpu_resimulation .............   Passed    6.78 sec
+      Start 69: physx_native_gpu_publication
+ 6/14 Test #69: physx_native_gpu_publication ..............   Passed    1.46 sec
+      Start 70: blast_stress_gpu_device_input
+ 7/14 Test #70: blast_stress_gpu_device_input .............   Passed    0.24 sec
+      Start 71: blast_stress_gpu_topology
+ 8/14 Test #71: blast_stress_gpu_topology .................   Passed    0.32 sec
+      Start 72: blast_stress_gpu_topology_deterministic
+ 9/14 Test #72: blast_stress_gpu_topology_deterministic ...   Passed    0.33 sec
+      Start 73: blast_stress_gpu_topology_jacobi
+10/14 Test #73: blast_stress_gpu_topology_jacobi ..........   Passed    0.32 sec
+      Start 74: blast_stress_gpu_topology_bond_space
+11/14 Test #74: blast_stress_gpu_topology_bond_space ......   Passed    0.31 sec
+      Start 76: blast_stress_gpu_resident_cpu_parity
+12/14 Test #76: blast_stress_gpu_resident_cpu_parity ......   Passed    0.23 sec
+      Start 77: blast_stress_gpu_resident_analytic
+13/14 Test #77: blast_stress_gpu_resident_analytic ........   Passed    0.31 sec
+      Start 78: blast_stress_gpu_resident_memory
+14/14 Test #78: blast_stress_gpu_resident_memory ..........   Passed    0.53 sec
+
+100% tests passed, 0 tests failed out of 14
+
+Label Time Summary:
+gpu          =   0.53 sec*proc (1 test)
+sanitizer    =   0.53 sec*proc (1 test)
+
+Total Test time (real) =  19.63 sec

@@ -380,8 +380,12 @@ def complete_step_metrics(run):
 def render_complete_gate(manifest,runs,out):
     doc=Document();doc.title('🎯 Complete PhysX destruction advance — 8 ms gate',1)
     doc.text('60 Hz physical timestep. Timer includes commands, projectile insertion, simulate/fetch, destruction/correction and mandatory completion. All measured steps, including startup, remain. Rendering and report output are outside the bracket.')
-    rows=[];failures=0;gates=[]
+    rows=[];workloads=[];failures=0;gates=[]
     for case in manifest['config']['cases']:
+        summary=runs[case['id']]['plain'][0]['summary']
+        workloads.append([case['label'],summary['chunks'],summary['bonds'],summary['projectiles'],
+                          summary['peak_clusters'],summary['seconds'],summary['correction_limit'],
+                          'Enabled' if summary['sleeping'] else 'Disabled'])
         previous=None
         for i,run in enumerate(runs[case['id']]['plain']):
             metric=complete_step_metrics(run);frames=run['frames'];worst=max(range(len(frames)),key=lambda n:float(frames[n]['complete_step_ms']));f=frames[worst]
@@ -394,6 +398,8 @@ def render_complete_gate(manifest,runs,out):
     enough=manifest['seconds']>=60 and manifest['trials']>=5
     doc.text(('❌ Deadline failed' if failures else '✅ Measured deadlines passed')+f': {failures} steps exceeded 8.0 ms. '+('Five × 60-second duration requirement met.' if enough else 'Diagnostic only: five × 60-second qualification duration not met.'))
     doc.text('This timing gate checks convergence, correction limit, frozen wall counters and repeated counter histories. It does not substitute for the independent trajectory/hole/momentum audit or the 10-minute endurance gate; overall plan qualification remains incomplete until those pass.')
+    doc.table(['Scene','Chunks','Bonds','Projectiles','Peak destruction clusters','Seconds per run','Correction limit','Sleeping'],workloads)
+    doc.text('Stress chunks are geometry/connectivity units, not independently solved rigid bodies while bonded. Peak destruction clusters excludes ordinary actors such as the projectile and ground. Idle controls measure retained geometry, not concurrent destruction.')
     doc.table(['Scene','Repeat','Steps','Min ms','Mean ms','p95 ms','p99 ms','Peak ms','Misses','Peak step','Commands at peak ms','Physics/destruction at peak ms','Completion at peak ms'],rows)
     doc.text('Commands and completion timings are disjoint from simulate/fetch. Detailed CPU/GPU subdivisions require a separate profiling capture; they must not be inferred from another run’s maximum. No percentile or outlier removal changes the deadline verdict.')
     doc.save(out)

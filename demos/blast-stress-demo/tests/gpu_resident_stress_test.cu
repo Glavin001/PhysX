@@ -23,7 +23,7 @@ __global__ void produce(ExtStressGpuImpulse* inputs,unsigned n,unsigned revision
     value.linear.y=free ? (i%4==0?a:(i%4==3?-a:0)) : (i%4 ? -a:0);
     inputs[i]=value;
 }
-void columns(unsigned n){
+void columns(unsigned n, bool deviceTopology){
     std::vector<ExtStressGpuNode> nodes(n);std::vector<ExtStressGpuBond> bonds;
     for(unsigned i=0;i<n;++i){
         const bool fixed=i%4==0 && (i/4)%2==0;
@@ -34,6 +34,7 @@ void columns(unsigned n){
     std::unique_ptr<ExtStressGpuSolver,Release> solver(ExtStressGpuSolver::create(nodes.data(),n,bonds.data(),bonds.size()));
     require(bool(solver),"resident solver creation failed");
     require(solver->prepareDeviceSolve(),"resident preparation failed");
+    if(deviceTopology)require(solver->enableDeviceTopology(),"GPU topology preparation failed");
     cudaStream_t producer;cudaEvent_t ready;
     check(cudaStreamCreateWithFlags(&producer,cudaStreamNonBlocking));check(cudaEventCreateWithFlags(&ready,cudaEventDisableTiming));
     ExtStressGpuSolveParams params;params.maxIterations=128;params.tolerance=1e-5f;
@@ -63,8 +64,42 @@ void columns(unsigned n){
             if(error>=2e-4f){std::fprintf(stderr,"nodes=%u revision=%u bond=%u expected=%g actual=%g error=%g\n",n,revision,i,expected,f.linear.y,error);throw std::runtime_error("analytic column equilibrium failed");}
         }
     }
+    if(deviceTopology){
+        // Remove every bond after nonzero solves. The cached component ranges
+        // become empty: no stale partial may leak into an isolated chunk's
+        // response. Repeating the same generation must not rebuild the layout.
+        unsigned* mask=nullptr;std::uint64_t* generation=nullptr;
+        check(cudaMalloc(&mask,bonds.size()*sizeof(*mask)));
+        check(cudaMalloc(&generation,sizeof(*generation)));
+        check(cudaStreamWaitEvent(producer,reinterpret_cast<cudaEvent_t>(solver->deviceView().readyEvent),0));
+        check(cudaMemsetAsync(mask,0,bonds.size()*sizeof(*mask),producer));
+        const std::uint64_t gen=1;
+        check(cudaMemcpyAsync(generation,&gen,sizeof(gen),cudaMemcpyHostToDevice,producer));
+        check(cudaEventRecord(ready,producer));
+        unsigned rebuilds=0;
+        for(unsigned repeat=0;repeat<2;++repeat){
+            require(solver->updateDeviceTopologyAsync(mask,bonds.size(),generation,nullptr,ready),"GPU split failed");
+            auto view=solver->deviceView();
+            check(cudaStreamWaitEvent(producer,reinterpret_cast<cudaEvent_t>(view.readyEvent),0));
+            produce<<<(n+127)/128,128,0,producer>>>(view.nodeInputs,n,3);
+            check(cudaGetLastError());check(cudaEventRecord(ready,producer));
+            require(solver->solveDeviceAsync(view.nodeInputs,n,params,ready),"isolated solve failed");
+            view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+            ExtStressGpuDeviceTopologyStatus topology{};
+            check(cudaMemcpy(&topology,view.topologyStatus,sizeof(topology),cudaMemcpyDeviceToHost));
+            require(!topology.error && topology.generation==gen && topology.solvedGeneration==gen,"stale GPU topology");
+            require(!topology.islandCount && !topology.activeNodeCount && !topology.activeBondCount,"removed component still scheduled");
+            if(repeat)require(topology.rebuilds==rebuilds,"unchanged topology rebuilt");
+            rebuilds=topology.rebuilds;
+            check(cudaMemcpy(actual.data(),view.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+            for(const auto& f:actual)
+                for(float value:{f.linear.x,f.linear.y,f.linear.z,f.angular.x,f.angular.y,f.angular.z})
+                    require(value==0,"removed bond retained force");
+        }
+        check(cudaFree(mask));check(cudaFree(generation));
+    }
     check(cudaEventDestroy(ready));check(cudaStreamDestroy(producer));
-    std::printf("resident columns: nodes=%u bonds=%zu worst relative error=%g\n",n,bonds.size(),worst);
+    std::printf("resident columns: topology=%s nodes=%u bonds=%zu worst relative error=%g\n",deviceTopology?"GPU":"asset",n,bonds.size(),worst);
 }
 }
-int main(){try{for(unsigned n:{12u,1536u,131072u})columns(n);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

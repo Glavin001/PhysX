@@ -4418,8 +4418,6 @@ private:
     std::uint32_t* m_hostScatterIndices{nullptr};
     ExtStressGpuImpulse* m_hostScatterValues{nullptr};
     std::uint32_t* m_hostGatherIndices{nullptr};
-    void* m_reduceScratch{nullptr};
-    std::size_t m_reduceScratchBytes{0};
     cudaEvent_t m_uploadStart{};
     cudaEvent_t m_uploadStop{};
     cudaEvent_t m_solveStart{};

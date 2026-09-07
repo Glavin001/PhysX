@@ -1,0 +1,81 @@
+========= COMPUTE-SANITIZER
+========= Leaked 48 bytes at 0x74b747802a00
+=========     Saved host backtrace up to driver entry point at allocation time
+=========         Host Frame: cuMemHostAlloc [0x314729] in libcuda.so.1
+=========         Host Frame:  [0x47aed] in libcudart.so.12
+=========         Host Frame:  [0x15335] in libcudart.so.12
+=========         Host Frame: cudaHostAlloc [0x58918] in libcudart.so.12
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::allocate() [0x2b07d] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::ExtStressGpuSolverImpl(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, CUctx_st*) [0x31d0a] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::ExtStressGpuSolver::create(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, void*) [0x13e75] in gpu_resident_stress_test
+=========         Host Frame: (anonymous namespace)::columns(unsigned int, bool) [0x7902] in gpu_resident_stress_test
+=========         Host Frame: main [0x6138] in gpu_resident_stress_test
+========= 
+========= Leaked 48 bytes at 0x74b747802c00
+=========     Saved host backtrace up to driver entry point at allocation time
+=========         Host Frame: cuMemHostAlloc [0x314729] in libcuda.so.1
+=========         Host Frame:  [0x47aed] in libcudart.so.12
+=========         Host Frame:  [0x15335] in libcudart.so.12
+=========         Host Frame: cudaHostAlloc [0x58918] in libcudart.so.12
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::allocate() [0x2b07d] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::ExtStressGpuSolverImpl(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, CUctx_st*) [0x31d0a] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::ExtStressGpuSolver::create(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, void*) [0x13e75] in gpu_resident_stress_test
+=========         Host Frame: (anonymous namespace)::columns(unsigned int, bool) [0x7902] in gpu_resident_stress_test
+=========         Host Frame: main [0x615a] in gpu_resident_stress_test
+========= 
+========= Leaked 6144 bytes at 0x74b747831800
+=========     Saved host backtrace up to driver entry point at allocation time
+=========         Host Frame: cuMemHostAlloc [0x314729] in libcuda.so.1
+=========         Host Frame:  [0x47aed] in libcudart.so.12
+=========         Host Frame:  [0x15335] in libcudart.so.12
+=========         Host Frame: cudaHostAlloc [0x58918] in libcudart.so.12
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::allocate() [0x2b07d] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::ExtStressGpuSolverImpl(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, CUctx_st*) [0x31d0a] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::ExtStressGpuSolver::create(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, void*) [0x13e75] in gpu_resident_stress_test
+=========         Host Frame: (anonymous namespace)::columns(unsigned int, bool) [0x7902] in gpu_resident_stress_test
+=========         Host Frame: main [0x6138] in gpu_resident_stress_test
+========= 
+========= Leaked 524288 bytes at 0x74b765f60200
+=========     Saved host backtrace up to driver entry point at allocation time
+=========         Host Frame: cuMemHostAlloc [0x314729] in libcuda.so.1
+=========         Host Frame:  [0x47aed] in libcudart.so.12
+=========         Host Frame:  [0x15335] in libcudart.so.12
+=========         Host Frame: cudaHostAlloc [0x58918] in libcudart.so.12
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::allocate() [0x2b07d] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::ExtStressGpuSolverImpl(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, CUctx_st*) [0x31d0a] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::ExtStressGpuSolver::create(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, void*) [0x13e75] in gpu_resident_stress_test
+=========         Host Frame: (anonymous namespace)::columns(unsigned int, bool) [0x7902] in gpu_resident_stress_test
+=========         Host Frame: main [0x615a] in gpu_resident_stress_test
+========= 
+========= Leaked 524288 bytes at 0x74b767d40200
+=========     Saved host backtrace up to driver entry point at allocation time
+=========         Host Frame: cuMemHostAlloc [0x314729] in libcuda.so.1
+=========         Host Frame:  [0x47aed] in libcudart.so.12
+=========         Host Frame:  [0x15335] in libcudart.so.12
+=========         Host Frame: cudaHostAlloc [0x58918] in libcudart.so.12
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::allocate() [0x2b07d] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::ExtStressGpuSolverImpl(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, CUctx_st*) [0x31d0a] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::ExtStressGpuSolver::create(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, void*) [0x13e75] in gpu_resident_stress_test
+=========         Host Frame: (anonymous namespace)::columns(unsigned int, bool) [0x7902] in gpu_resident_stress_test
+=========         Host Frame: main [0x6138] in gpu_resident_stress_test
+========= 
+========= Leaked 6144 bytes at 0x74b767dc0400
+=========     Saved host backtrace up to driver entry point at allocation time
+=========         Host Frame: cuMemHostAlloc [0x314729] in libcuda.so.1
+=========         Host Frame:  [0x47aed] in libcudart.so.12
+=========         Host Frame:  [0x15335] in libcudart.so.12
+=========         Host Frame: cudaHostAlloc [0x58918] in libcudart.so.12
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::allocate() [0x2b07d] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::ExtStressGpuSolverImpl(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, CUctx_st*) [0x31d0a] in gpu_resident_stress_test
+=========         Host Frame: Nv::Blast::ExtStressGpuSolver::create(Nv::Blast::ExtStressGpuNode const*, unsigned int, Nv::Blast::ExtStressGpuBond const*, unsigned int, Nv::Blast::ExtStressGpuMaterial const*, unsigned int, void*) [0x13e75] in gpu_resident_stress_test
+=========         Host Frame: (anonymous namespace)::columns(unsigned int, bool) [0x7902] in gpu_resident_stress_test
+=========         Host Frame: main [0x615a] in gpu_resident_stress_test
+========= 
+resident columns: topology=asset nodes=12 bonds=9 worst relative error=0
+resident columns: topology=asset nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=asset nodes=131072 bonds=98304 worst relative error=0
+resident columns: topology=GPU nodes=12 bonds=9 worst relative error=0
+resident columns: topology=GPU nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=GPU nodes=131072 bonds=98304 worst relative error=0
+========= LEAK SUMMARY: 1060960 bytes leaked in 6 allocations
+========= ERROR SUMMARY: 6 errors

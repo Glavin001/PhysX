@@ -1,5 +1,5 @@
 // Private member definitions; included once inside ExtStressGpuSolverImpl.
-// BEGIN UNCHANGED SOURCE
+// Solver lifetime; release every owned allocation.
     ExtStressGpuSolverImpl(
         const ExtStressGpuNode* nodes,
         std::uint32_t nodeCount,
@@ -79,6 +79,7 @@ uploadIslands();
         cudaFreeHost(m_hostStatus);
         cudaFreeHost(m_hostBrokenCount);
         cudaFreeHost(m_hostIslandConvergedPinned);
+        cudaFreeHost(m_hostIslandSkip);
         cudaFreeHost(m_hostImpulses);
         cudaFree(m_devicePhysicalImpulses);
         cudaFreeHost(m_hostInput);
@@ -98,7 +99,6 @@ uploadIslands();
         cudaFree(m_islandConverged);
         cudaFree(m_islandSkip);
         cudaFree(m_deviceIslandDirty);
-        cudaFree(m_reduceScratch);
         cudaFree(m_status);
         cudaFree(m_previousGradientSquared);
         cudaFree(m_deltaSquared);

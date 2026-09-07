@@ -96,3 +96,46 @@ reference scheduling methods remain there. Expanded source still matches
 `00504a89` exactly. Nine focused tests and the frozen 10-second, 444-chunk /
 896-bond penetration audit passed after this split. No new long performance
 campaign was run for the host-only extraction.
+
+## Native storage cleanup and rejected reductions
+
+Removed unused bond-space gradient/direction arrays, reference Jacobi vectors,
+inverses/scalars, dense reduction input, an unused CUB workspace and the native
+build's reference-only conditional-loop stream. The node reset no longer writes
+an unused Jacobi vector. Resident CG equations and ordering are unchanged.
+Requested device array storage falls by `64*bonds + 216*nodes + 4*max(nodes,bonds)`
+bytes: 156,832 bytes for the 444-node / 896-bond wall, or 35,200,000 bytes for
+100,000 stress nodes and 200,000 bonds. This is allocation accounting, not an
+integrated large-scene memory/performance qualification; allocator rounding,
+CUB scratch and stream overhead are excluded.
+
+Before this cleanup, two fixed-order segmented-reduction candidates passed
+physical checks but regressed complete-step cost on the frozen wall. Both were
+removed from production. The CTA-per-tile version averaged 4.728–4.747 ms and
+missed 12 deadlines; the warp-per-tile version averaged 3.491–3.508 ms, against
+3.202–3.205 ms before. Each arm measured two 10-second runs, one projectile,
+444 chunks / 896 bonds, timestep 1/60 second and correction limit one. These
+short runs reject the regressions; they do not establish the full endurance gate.
+See [candidate evidence](stress-resident-cleanup.json). Component-local iteration
+remains unfinished; fixed-order reductions alone are not a qualified speedup.
+
+The full CUDA leak check also found the pinned island-skip array was never freed
+on solver destruction. Its release is now paired with allocation. The new
+`blast_stress_gpu_resident_memory` CTest fails on CUDA memory errors or leaks;
+the native analytic test covers GPU-owned topology and complete bond removal
+at 12/9, 1,536/1,152 and 131,072/98,304 stress nodes/bonds, plus repeated
+unchanged generations. These are numerical/lifecycle tests, not large-world
+simulation deadline measurements.
+
+Final validation: 14 focused tests pass, including the registered CUDA memory
+check with zero errors and zero leaked bytes; 21 report-accounting tests pass.
+The rebuilt artifact preserves the complete frozen wall membership history,
+398 supported / 46 detached chunks, 199 broken bonds and correction limit one.
+Five 60-second runs of each of the three existing workloads pass all 54,000
+complete-step deadlines. On the 444-chunk / 896-bond, single-projectile wall,
+mean complete-step time is 3.013–3.027 ms and the largest measured step is
+7.037 ms. The idle controls contain 444/896 and 7,104/14,336 chunks/bonds;
+sleeping remains disabled. No new speedup is claimed from this storage cleanup.
+[Final generated report](eight-ms-storage-final-qualified/report.html) includes
+scene population, projectile count, peak cluster count, duration, correction
+limit and sleeping settings alongside every measured timing table.

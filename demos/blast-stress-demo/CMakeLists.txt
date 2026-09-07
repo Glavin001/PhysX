@@ -854,4 +854,10 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
     add_test(NAME blast_stress_gpu_resident_cpu_parity COMMAND gpu_resident_stress_parity_test)
     add_test(NAME blast_stress_gpu_resident_analytic COMMAND gpu_resident_stress_test)
     set_tests_properties(blast_stress_gpu_resident_analytic PROPERTIES TIMEOUT 120)
+    # Native lifecycle gate: allocation removal must not hide stale accesses,
+    # and repeated solver creation/release must return pinned and device memory.
+    add_test(NAME blast_stress_gpu_resident_memory
+        COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool memcheck
+                --leak-check full --error-exitcode 99 $<TARGET_FILE:gpu_resident_stress_test>)
+    set_tests_properties(blast_stress_gpu_resident_memory PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer")
 endif()
