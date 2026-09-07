@@ -1,0 +1,200 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+index 68be6a39..957004a6 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+@@ -1,5 +1,6 @@
+ #include "StressNativeNullspace.cuh"
+ #include "StressNativeFineInverse.cuh"
++#include "StressNativePolynomial.cuh"
+ // Shared projected-CG/preconditioner boundary. Conversion is fused into the
+ // resident producer/consumer, not a separate export/copy/reimport operation.
+ __device__ __forceinline__ bool nativeHierarchyReady(const NativeStressCycleView& h){
+@@ -36,9 +37,9 @@ __device__ __forceinline__ double nativeComponentMaximum(double value){
+     if(!threadIdx.x){double maximum=0;for(unsigned i=0;i<kBlockSize/32;++i)maximum=fmax(maximum,partial[i]);partial[0]=maximum;}
+     __syncthreads();value=partial[0];__syncthreads();return value;
+ }
+-__device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a,unsigned node,unsigned id,double magnitude){
++__device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a,unsigned node,unsigned id,double magnitude,const StressHierarchy::Vector* result){
+     if(!(magnitude>0) || !isfinite(magnitude)){atomicExch(a.hierarchy.failed+id,1u);return 0;}
+-    const auto v=StressHierarchy::mul(a.hierarchy.result[node],1/magnitude);
++    const auto v=StressHierarchy::mul(result[node],1/magnitude);
+     const AngLin g{{float(v.angular.x),float(v.angular.y),float(v.angular.z),0},{float(v.linear.x),float(v.linear.y),float(v.linear.z),0}};
+     const auto w=a.hierarchy.rhs[node];a.hierarchy.g[node]=g;
+     const float gamma=w.angular.x*g.angular.x+w.angular.y*g.angular.y+w.angular.z*g.angular.z
+@@ -58,24 +59,23 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
+     // mode and costs no hierarchy traversal. If further work is needed, restart
+     // PCG with the fixed block preconditioner on iteration one; never mix preconditioners
+     // in the conjugacy recurrence.
++    auto* result=a.hierarchy.result;
+     if(!iteration){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
+     else {
+-        // Apply the cached symmetric local operator with no triangular divisions.
++        // Apply the fixed polynomial using cached local inverses.
+         // Large components retain their cooperative multilevel schedule.
+-        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+-            a.hierarchy.result[node]=applyNativeFineInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
+-        __syncthreads();
++        result=preconditionNativePolynomial(a,nodes,count);
+     }
+     SUBPROBE_END(0)
+-    projectNativeNullspace(a,id,nodes,count,a.hierarchy.result);
++    projectNativeNullspace(a,id,nodes,count,result);
+     SUBPROBE_END(1)
+-    double magnitude=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)magnitude=fmax(magnitude,nativeCycleMagnitude(a.hierarchy.result[nodes[i]]));
++    double magnitude=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)magnitude=fmax(magnitude,nativeCycleMagnitude(result[nodes[i]]));
+     magnitude=nativeComponentMaximum(magnitude);
+     SUBPROBE_END(2)
+     // A positive per-component scaling of g cancels in PCG's beta/alpha.
+     // Normalize before conversion to float so a tiny residual does not flush
+     // gamma or direction energy while the original convergence norm is live.
+-    float gamma=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)gamma+=nativeCycleResult(a,nodes[i],id,magnitude);
++    float gamma=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)gamma+=nativeCycleResult(a,nodes[i],id,magnitude,result);
+     SUBPROBE_END(3)
+ #undef SUBPROBE_END
+     return gamma;
+@@ -107,7 +107,7 @@ __device__ __forceinline__ void preconditionNativeGrid(const PersistentStressArg
+     for(unsigned i=first;i<islands*a.slots;i+=stride)a.m_reduceSlots[a.islandIds[i/a.slots]*a.slots+i%a.slots]=0;
+     grid.sync();
+     for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const unsigned node=a.m_activeNodes[i],id=a.m_nodeIsland[node];
+-        if(a.m_islandActive[id])atomicAdd(a.m_reduceSlots+id*a.slots+(i&(a.slots-1)),nativeCycleResult(a,node,id,a.hierarchy.normalizer[id]));}
++        if(a.m_islandActive[id])atomicAdd(a.m_reduceSlots+id*a.slots+(i&(a.slots-1)),nativeCycleResult(a,node,id,a.hierarchy.normalizer[id],a.hierarchy.result));}
+     grid.sync();
+     for(unsigned i=first;i<islands;i+=stride){const unsigned id=a.islandIds[i];const float value=sumIslandPartials(a.m_reduceSlots,id,a.slots,nullptr);a.hierarchy.gamma[id]=value;
+         if(a.m_islandActive[id] && (!(value>0) || !isfinite(value)))a.hierarchy.failed[id]=1;}
+diff --git a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+index 29fdaf36..94771f1e 100644
+--- a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
++++ b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+@@ -186,12 +186,14 @@ void run(Fixture f,bool transitions){
+ }
+ #include "native_warm_range_test.cuh"
+ #include "native_fine_inverse_test.cuh"
++#include "native_polynomial_test.cuh"
+ #include "native_direction_restart_test.cuh"
+ using namespace MotionModeTest;
+ int main(int argc,char** argv){try{
+     const bool small=argc==2 && std::string(argv[1])=="small";require(argc==1 || small,"usage: gpu_resident_motion_modes_test [small]");
+     {Device<unsigned> result(3);checkPredicates<<<1,1>>>(result.data);check(cudaGetLastError());check(cudaDeviceSynchronize());for(auto value:result.get())require(value==1,"exact closure collinearity predicate failed");}
+     fineInverseCache();
++    polynomialOperator();
+     firstDirectionWithoutHistory();
+     warmRangeLifecycle();
+     run(Fixture(0),false);run(Fixture(1),false);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+new file mode 100644
+index 00000000..4eda6c55
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+@@ -0,0 +1,46 @@
++// Fixed two-step Chebyshev-Jacobi preconditioner for a resident component.
++// Let L=D+E, with the same cached node-block inverse M=D^-1. The two Richardson
++// weights give P=(a+b)M-abMLM=(a+b-ab)M-abMEM. Only the off-diagonal E needs
++// another sparse traversal: re-evaluating D would repeat algebra already cached.
++// Each physical bond has at most two endpoints, hence L<=2D. Weights are the
++// two Chebyshev roots for [0.1,2.01]; P stays positive on [0,2], including the
++// zero eigenvalue. No low mode or load is dropped. Outer projection, equations
++// and authoritative residual acceptance remain unchanged.
++__device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
++    const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* x)
++{
++    using namespace StressHierarchy;
++    Vector value{};
++    for(unsigned slot=input.begin[node];slot<input.begin[node+1];++slot){
++        const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
++        const unsigned edge=ref&0x7fffffffu;if(input.health[edge]<=0)continue;
++        const bool back=ref>>31;
++        const unsigned other=back?input.node0[edge]:input.node1[edge];
++        // Fixed boundaries contribute to D, but have no off-diagonal motion.
++        if(other==node || input.component[other]==Invalid)continue;
++        const auto remote=couple(scaledValue(x[other],input.inertia[other]),sourceOffset(input,edge,!back));
++        const double scale=input.scale[edge];
++        value=add(value,scaledValue(transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)),input.inertia[node]));
++    }
++    return value;
++}
++__device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial(
++    const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
++{
++    using namespace StressHierarchy;
++    constexpr double lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
++    constexpr double coupling=lowWeight*highWeight;
++    constexpr double diagonal=lowWeight+highWeight-coupling;
++    const auto input=a.hierarchy.cycle.levels[0].input;
++    auto* local=a.hierarchy.result;
++    auto* result=a.hierarchy.cycle.intermediate;
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
++        local[node]=applyNativeFineInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
++    __syncthreads();
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
++        const auto off=nativeOffDiagonal(input,node,local);
++        result[node]=sub(mul(local[node],diagonal),mul(applyNativeFineInverse(a.hierarchy,node,off),coupling));}
++    // One disjoint destination per node. Readers consume this completed view;
++    // there is no product buffer, copy back or second launch inside iteration.
++    __syncthreads();return result;
++}
+diff --git a/demos/blast-stress-demo/tests/native_polynomial_test.cuh b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+new file mode 100644
+index 00000000..1981558f
+--- /dev/null
++++ b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+@@ -0,0 +1,60 @@
++// Independent long-double assembled operator / polynomial oracle. Actual CUDA
++// private implementation is called for every basis vector; no public test API.
++namespace MotionModeTest {
++__global__ void polynomialBasis(PersistentStressArgs a,const unsigned* nodes,unsigned count,unsigned column,Vector* matrix,unsigned stride){
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];double x[6]{};if(column/6==node)x[column%6]=1;
++        a.hierarchy.rhs[node]={{x[0],x[1],x[2]},{x[3],x[4],x[5]}};}
++    __syncthreads();const auto* result=preconditionNativePolynomial(a,nodes,count);
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];matrix[size_t(column)*stride+node]=result[node];}
++}
++void polynomialOperator(){
++    constexpr unsigned n=12,size=6*n;
++    for(unsigned anchored=0;anchored<2;++anchored){
++        Fixture f(n);for(unsigned i=1;i<n;++i){f.edge(i-1,i);if(i>2)f.edge(i-3,i);}
++        if(anchored)f.inertia[0]={0,0};f.csr();
++        std::vector<long double> matrix(size*size),inverse(size*size);
++        // Assemble B B^T directly from each independent physical bond column.
++        for(unsigned e=0;e<f.a.size();++e)for(unsigned k=0;k<6;++k){
++            std::vector<long double> column(size);
++            for(unsigned side=0;side<2;++side){const unsigned node=side?f.b[e]:f.a[e];const auto offset=side?f.offset1[e]:f.offset0[e];
++                Three force{},moment{};if(k<3)moment[k]=1;else force[k-3]=1;
++                moment=minus(moment,product(coord(offset),force));const long double sign=side?-1:1;
++                for(unsigned d=0;d<3;++d){column[node*6+d]=sign*f.inertia[node].angular*moment[d];column[node*6+3+d]=sign*f.inertia[node].linear*force[d];}}
++            for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col)matrix[row*size+col]+=column[row]*column[col];
++        }
++        std::vector<double> packed(n*DiagonalEntries);std::vector<unsigned> labels(n,0),order;
++        for(unsigned node=0;node<n;++node){
++            if(anchored && !node){labels[node]=Invalid;continue;}order.push_back(node);
++            long double work[6][12]{};
++            for(unsigned row=0;row<6;++row){for(unsigned col=0;col<6;++col)work[row][col]=matrix[(node*6+row)*size+node*6+col];work[row][row+6]=1;}
++            for(unsigned k=0;k<6;++k){const auto pivot=work[k][k];require(pivot>0,"polynomial oracle diagonal is not SPD");for(auto& x:work[k])x/=pivot;
++                for(unsigned row=0;row<6;++row)if(row!=k){const auto scale=work[row][k];for(unsigned col=0;col<12;++col)work[row][col]-=scale*work[k][col];}}
++            for(unsigned row=0;row<6;++row)for(unsigned col=0;col<6;++col){inverse[(node*6+row)*size+node*6+col]=work[row][col+6];if(row>=col)packed[size_t(row*(row+1)/2+col)*n+node]=double(work[row][col+6]);}
++        }
++        Device<unsigned> a(f.a.size()),b(f.b.size()),begin(f.begin.size()),refs(f.refs.size()),component(n),nodes(order.size());
++        Device<float> health(f.health.size()),scale(f.scale.size());Device<float4> offset0(f.offset0.size()),offset1(f.offset1.size());Device<float2> inertia(n);
++        Device<double> factors(packed.size());Device<Vector> rhs(n),out(n),scratch(n),columns(size*n);Device<CycleLevel> level(1);
++        a.put(f.a);b.put(f.b);begin.put(f.begin);refs.put(f.refs);component.put(labels);nodes.put(order);health.put(f.health);scale.put(f.scale);offset0.put(f.offset0);offset1.put(f.offset1);factors.put(packed);
++        std::vector<float2> mass(n);for(unsigned i=0;i<n;++i)mass[i]={f.inertia[i].angular,f.inertia[i].linear};inertia.put(mass);
++        CycleLevel descriptor{};descriptor.input={n,unsigned(f.a.size()),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,nullptr,offset0.data,offset1.data,inertia.data,nullptr,nullptr};level.put({descriptor});
++        PersistentStressArgs args{};args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
++        for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n);
++        check(cudaGetLastError());check(cudaDeviceSynchronize());const auto observed=columns.get();
++        auto multiply=[&](const std::vector<long double>& m,const std::vector<long double>& x){std::vector<long double> y(size);for(unsigned r=0;r<size;++r)for(unsigned c=0;c<size;++c)y[r]+=m[r*size+c]*x[c];return y;};
++        long double worst=0,symmetry=0;std::vector<long double> actual(size*size);
++        for(unsigned column=anchored?6:0;column<size;++column){std::vector<long double> x(size),r(size);r[column]=1;
++            const unsigned roots[2]={1,0};
++            for(auto root:roots){const auto ax=multiply(matrix,x);for(unsigned i=0;i<size;++i)r[i]=(i==column?1:0)-ax[i];const auto z=multiply(inverse,r);
++                const long double weight=1/(1.055L-.955L*cosl((2*root+1)*acosl(-1.L)/4));for(unsigned i=0;i<size;++i)x[i]+=weight*z[i];}
++            for(unsigned node=0;node<n;++node){auto y=unpack(observed[size_t(column)*n+node]);for(unsigned k=0;k<6;++k){const auto row=node*6+k;actual[row*size+column]=y[k];worst=std::max(worst,fabsl(y[k]-x[row])/(1+fabsl(x[row])));}}
++        }
++        for(unsigned row=anchored?6:0;row<size;++row)for(unsigned col=anchored?6:0;col<size;++col)symmetry=std::max(symmetry,fabsl(actual[row*size+col]-actual[col*size+row])/(1+fabsl(actual[row*size+col])));
++        require(worst<2e-11L && symmetry<2e-11L,"polynomial differs from independent operator or loses symmetry");
++        // Full dynamic-subspace Cholesky verifies positive definiteness, even
++        // for a free component whose physical operator itself is singular.
++        for(unsigned k=anchored?6:0;k<size;++k){long double d=actual[k*size+k];for(unsigned j=anchored?6:0;j<k;++j)d-=actual[k*size+j]*actual[k*size+j];require(d>0,"polynomial not positive definite");actual[k*size+k]=sqrtl(d);
++            for(unsigned row=k+1;row<size;++row){long double v=actual[row*size+k];for(unsigned j=anchored?6:0;j<k;++j)v-=actual[row*size+j]*actual[k*size+j];actual[row*size+k]=v/actual[k*size+k];}}
++        std::printf("polynomial oracle nodes=%u bonds=%zu anchored=%u all_basis=true relative_error=%.3Lg symmetry_error=%.3Lg SPD=true\n",n,f.a.size(),anchored,worst,symmetry);
++    }
++}
++}

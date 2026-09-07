@@ -1,5 +1,6 @@
 #include "StressNativeNullspace.cuh"
 #include "StressNativeFineInverse.cuh"
+#include "StressNativePolynomial.cuh"
 // Shared projected-CG/preconditioner boundary. Conversion is fused into the
 // resident producer/consumer, not a separate export/copy/reimport operation.
 __device__ __forceinline__ bool nativeHierarchyReady(const NativeStressCycleView& h){
@@ -36,9 +37,9 @@ __device__ __forceinline__ double nativeComponentMaximum(double value){
     if(!threadIdx.x){double maximum=0;for(unsigned i=0;i<kBlockSize/32;++i)maximum=fmax(maximum,partial[i]);partial[0]=maximum;}
     __syncthreads();value=partial[0];__syncthreads();return value;
 }
-__device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a,unsigned node,unsigned id,double magnitude){
+__device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a,unsigned node,unsigned id,double magnitude,const StressHierarchy::Vector* result){
     if(!(magnitude>0) || !isfinite(magnitude)){atomicExch(a.hierarchy.failed+id,1u);return 0;}
-    const auto v=StressHierarchy::mul(a.hierarchy.result[node],1/magnitude);
+    const auto v=StressHierarchy::mul(result[node],1/magnitude);
     const AngLin g{{float(v.angular.x),float(v.angular.y),float(v.angular.z),0},{float(v.linear.x),float(v.linear.y),float(v.linear.z),0}};
     const auto w=a.hierarchy.rhs[node];a.hierarchy.g[node]=g;
     const float gamma=w.angular.x*g.angular.x+w.angular.y*g.angular.y+w.angular.z*g.angular.z
@@ -58,24 +59,23 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
     // mode and costs no hierarchy traversal. If further work is needed, restart
     // PCG with the fixed block preconditioner on iteration one; never mix preconditioners
     // in the conjugacy recurrence.
+    auto* result=a.hierarchy.result;
     if(!iteration){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
     else {
-        // Apply the cached symmetric local operator with no triangular divisions.
+        // Apply the fixed polynomial using cached local inverses.
         // Large components retain their cooperative multilevel schedule.
-        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-            a.hierarchy.result[node]=applyNativeFineInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
-        __syncthreads();
+        result=preconditionNativePolynomial(a,nodes,count);
     }
     SUBPROBE_END(0)
-    projectNativeNullspace(a,id,nodes,count,a.hierarchy.result);
+    projectNativeNullspace(a,id,nodes,count,result);
     SUBPROBE_END(1)
-    double magnitude=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)magnitude=fmax(magnitude,nativeCycleMagnitude(a.hierarchy.result[nodes[i]]));
+    double magnitude=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)magnitude=fmax(magnitude,nativeCycleMagnitude(result[nodes[i]]));
     magnitude=nativeComponentMaximum(magnitude);
     SUBPROBE_END(2)
     // A positive per-component scaling of g cancels in PCG's beta/alpha.
     // Normalize before conversion to float so a tiny residual does not flush
     // gamma or direction energy while the original convergence norm is live.
-    float gamma=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)gamma+=nativeCycleResult(a,nodes[i],id,magnitude);
+    float gamma=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)gamma+=nativeCycleResult(a,nodes[i],id,magnitude,result);
     SUBPROBE_END(3)
 #undef SUBPROBE_END
     return gamma;
@@ -107,7 +107,7 @@ __device__ __forceinline__ void preconditionNativeGrid(const PersistentStressArg
     for(unsigned i=first;i<islands*a.slots;i+=stride)a.m_reduceSlots[a.islandIds[i/a.slots]*a.slots+i%a.slots]=0;
     grid.sync();
     for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const unsigned node=a.m_activeNodes[i],id=a.m_nodeIsland[node];
-        if(a.m_islandActive[id])atomicAdd(a.m_reduceSlots+id*a.slots+(i&(a.slots-1)),nativeCycleResult(a,node,id,a.hierarchy.normalizer[id]));}
+        if(a.m_islandActive[id])atomicAdd(a.m_reduceSlots+id*a.slots+(i&(a.slots-1)),nativeCycleResult(a,node,id,a.hierarchy.normalizer[id],a.hierarchy.result));}
     grid.sync();
     for(unsigned i=first;i<islands;i+=stride){const unsigned id=a.islandIds[i];const float value=sumIslandPartials(a.m_reduceSlots,id,a.slots,nullptr);a.hierarchy.gamma[id]=value;
         if(a.m_islandActive[id] && (!(value>0) || !isfinite(value)))a.hierarchy.failed[id]=1;}
