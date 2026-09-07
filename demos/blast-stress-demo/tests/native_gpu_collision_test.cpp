@@ -5,6 +5,7 @@
 #include "NpShapeManager.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
+#include "PxgDestructionRuntime.h"
 #include "PxgContext.h"
 #include "PxgSolverCore.h"
 #include "native_contact_graph_check.h"
@@ -626,6 +627,26 @@ void rejection() {
     require(!status.valid && (status.error&2),"foreign native owner accepted in collision plan");
     f.chunks[2].contactIndex=old;f.assertUncommitted();
     f.configure();f.fracture();require(f.readStatus().valid,"valid graph could not recover after rejected collision batch");f.assertUncommitted();
+    // Corrupt only the NP remap after a valid prepared batch. The shape-sim
+    // owner remains correct, so validation must inspect both authoritative views.
+    {PxScopedCudaLock lock(f.cuda);
+        auto& controller=*static_cast<PxgSimulationController*>(static_cast<NpScene&>(f.scene).getScScene().getSimulationController());
+        auto& np=*static_cast<PxgNphaseImplementationContext*>(static_cast<NpScene&>(f.scene).getScScene().getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
+        const auto ptr=np.mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr();
+        PxNodeIndex saved;check(cuMemcpyDtoH(&saved,ptr+old*sizeof(saved),sizeof(saved)));
+        const PxNodeIndex wrong(f.foreign->getGPUIndex());check(cuMemcpyHtoD(ptr+old*sizeof(wrong),&wrong,sizeof(wrong)));
+        auto* runtime=static_cast<PxgDestructionRuntime*>(f.stage);
+        require(runtime->prepareCollisionBindings(f.core.mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
+            f.core.mPxgShapeSimManager.getNbTotalShapeSims(),reinterpret_cast<const PxNodeIndex*>(ptr),
+            PxU32(np.mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),f.core.getStream()),"remap validation submission failed");
+        require(runtime->prepareCorrectionBodies(controller.getBodySimManager().mTotalNumBodies,f.core.getStream()),"remap-gated motion submission failed");
+        require(!runtime->completeCorrectionPreparation(),"foreign narrowphase remap accepted before ownership mutation");
+        const auto rejected=f.readStatus();require(!rejected.valid && (rejected.error&32u),"native remap rejection missing");
+        PxDestructionCorrectionPreparationStatus correction;check(cuMemcpyDtoH(&correction,CUdeviceptr(f.stage->getDeviceView().correctionPreparation),sizeof(correction)));
+        require(!correction.valid && !correction.count,"bad remap retained stale correction work");
+        check(cuMemcpyHtoD(ptr+old*sizeof(saved),&saved,sizeof(saved)));
+    }
+    f.assertUncommitted();
     require(f.context.healthy(),"rejected binding corrupted GPU scene");std::puts("native collision binding invalid shape and wrong source reject the whole batch; valid retry passed");
 }
 void crushRemoval() {

@@ -354,7 +354,8 @@ __global__ void indexCandidateRoots(PxDestructionTopologyDeviceView topology,PxU
 __global__ void preparePersistentCollisionBindings(const PxDestructionStressChunk* chunks,PxU32 chunkCount,
     const PxDestructionStressCluster* clusters,const PxU32* affectedClusters,
     PxDestructionTopologyDeviceView topology,const PxU32* candidateSlots,const PxU32* candidateBodies,
-    const PxgShapeSim* shapes,PxU32 shapeCapacity,PxDestructionCollisionBinding* bindings,
+    const PxgShapeSim* shapes,PxU32 shapeCapacity,const PxNodeIndex* shapeToBody,PxU32 remapCapacity,
+    PxDestructionCollisionBinding* bindings,
     PxDestructionCollisionPreparationStatus* status) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=chunkCount)return;
     bindings[i]={i,PX_INVALID_U32,PX_INVALID_U32,PX_INVALID_U32};
@@ -364,6 +365,10 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
     const auto shape=shapes[shapeId];
     if(shape.mBodySimIndex.isStaticBody() || shape.mBodySimIndex.isArticulation() || shape.mBodySimIndex.index()!=source)
         {atomicOr(&status->error,2u);return;}
+    if(!shapeToBody || shapeId>=remapCapacity) {atomicOr(&status->error,32u);return;}
+    const auto mapped=shapeToBody[shapeId];
+    if(mapped.isStaticBody() || mapped.isArticulation() || mapped.index()!=source)
+        {atomicOr(&status->error,32u);return;}
     const PxU32 kind=shape.mShapeType;
     if(!(shape.mShapeFlags&PxShapeFlag::eSIMULATION_SHAPE) || (shape.mShapeFlags&PxShapeFlag::eTRIGGER_SHAPE)
         || (kind!=PxGeometryType::eBOX && kind!=PxGeometryType::eSPHERE && kind!=PxGeometryType::eCAPSULE && kind!=PxGeometryType::eCONVEXMESH)
@@ -385,14 +390,18 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
 // The native transaction preserves authored shape-to-actor coordinates. Only
 // the motion owner changes; geometry, local bounds and registration stay resident.
 __global__ void installNativeCollisionOwners(const PxDestructionCollisionBinding* bindings,
-    PxU32 count,PxgShapeSim* shapes,PxU32 capacity) {
+    PxU32 count,PxgShapeSim* shapes,PxU32 capacity,PxNodeIndex* shapeToBody,PxU32 remapCapacity) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bindings[i];
-    if(b.shape>=capacity || b.targetBody==PX_INVALID_U32) {asm volatile("trap;");return;}
+    if(b.shape>=capacity || b.shape>=remapCapacity || b.targetBody==PX_INVALID_U32) {asm volatile("trap;");return;}
     auto& shape=shapes[b.shape];
     if(shape.mBodySimIndex.isStaticBody() || shape.mBodySimIndex.isArticulation()
         || shape.mBodySimIndex.index()!=b.sourceBody) {asm volatile("trap;");return;}
+    const auto previous=shapeToBody[b.shape];
+    if(previous.isStaticBody() || previous.isArticulation() || previous.index()!=b.sourceBody)
+        {asm volatile("trap;");return;}
     shape.mBodySimIndex=PxNodeIndex(b.targetBody);
+    shapeToBody[b.shape]=shape.mBodySimIndex;
 }
 struct HasCollisionBinding {
     __host__ __device__ bool operator()(const PxDestructionCollisionBinding& b) const {return b.shape!=PX_INVALID_U32;}
@@ -1315,7 +1324,7 @@ public:
             return false;
         }
     }
-    bool prepareCollisionBindings(const PxgShapeSim* shapes,PxU32 shapeCapacity,CUstream coreStream) override {
+    bool prepareCollisionBindings(const PxgShapeSim* shapes,PxU32 shapeCapacity,const PxNodeIndex* shapeToBody,PxU32 remapCapacity,CUstream coreStream) override {
         if(!mTopology || mHostStatus->error!=8u || !mHostBodyAllocation.valid)return true;
         mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
         mHostCollisionPreparation={};mHostCorrectionPreparation={};
@@ -1327,7 +1336,7 @@ public:
             check(cudaMemsetAsync(mCandidateSlots,0xff,mN*sizeof(PxU32),stream));
             indexCandidateRoots<<<std::max(1u,(mHostBodyAllocation.count+127)/128),128,0,stream>>>(mTopology->trial(),mCandidateSlots);
             preparePersistentCollisionBindings<<<(mN+127)/128,128,0,stream>>>(mChunks,mN,mClusters,mAffectedClusters,
-                mTopology->trial(),mCandidateSlots,mTrialBodyIndices,shapes,shapeCapacity,mCollisionBindings,mCollisionPreparation);
+                mTopology->trial(),mCandidateSlots,mTrialBodyIndices,shapes,shapeCapacity,shapeToBody,remapCapacity,mCollisionBindings,mCollisionPreparation);
             check(cudaGetLastError());
             check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
                 &mCollisionPreparation->count,mN,HasCollisionBinding{},stream));
@@ -1408,15 +1417,15 @@ public:
             check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
         }catch(...) {mFailed=true;return false;}
     }
-    bool installCollisionOwners(PxgShapeSim* shapes,PxU32 capacity,CUstream coreStream) override {
+    bool installCollisionOwners(PxgShapeSim* shapes,PxU32 capacity,PxNodeIndex* shapeToBody,PxU32 remapCapacity,CUstream coreStream) override {
         if(mFailed || !mCorrectionEnabled || mHostStatus->error!=8u || !mHostCollisionPreparation.valid
             || mHostCollisionPreparation.removed || !mHostCorrectionPreparation.valid || !coreStream
-            || (mHostCollisionPreparation.count && (!shapes || !capacity)))return false;
+            || (mHostCollisionPreparation.count && (!shapes || !capacity || !shapeToBody || remapCapacity<capacity)))return false;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mReady,0));
             const PxU32 count=mHostCollisionPreparation.count;
-            if(count)installNativeCollisionOwners<<<(count+127)/128,128,0,stream>>>(mCompactCollisionBindings,count,shapes,capacity);
+            if(count)installNativeCollisionOwners<<<(count+127)/128,128,0,stream>>>(mCompactCollisionBindings,count,shapes,capacity,shapeToBody,remapCapacity);
             check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
         }catch(...){mFailed=true;return false;}
     }

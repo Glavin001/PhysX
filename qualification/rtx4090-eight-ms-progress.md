@@ -222,3 +222,58 @@ diagnostic captures precede final exceptional-error handling; final physical
 and five-by-sixty deadline checks use the final build. The major GPU ownership,
 component-local stress, selective correction, exact-bond and endurance work
 remains required.
+
+## GPU-authoritative narrowphase ownership
+
+The native CUDA ownership transaction now writes both the persistent shape-sim
+owner and PhysX narrowphase's shape-to-body remap. Preparation validates both
+views before the CPU lifecycle bridge can mutate anything. Narrowphase joins
+the transaction's CUDA event before remap growth/uploads and its existing GPU
+rigid-to-shape sort. Cooked geometry and shape identities stay persistent.
+
+Native CPU registry updates now observe ownership without marking shape/node/
+actor payloads for DMA. Independently queued ordinary PhysX edits remain queued.
+CPU actor pointers are used only for explicit contact export: that request takes
+a private pinned snapshot and fences its asynchronous consumption. Subsequent
+exports wait before reusing that observation storage; normal simulation never
+creates, fills or waits on this snapshot. Its event is destroyed under the
+existing narrowphase CUDA-context lock.
+
+Twelve focused checks pass, including ordinary persistent-owner bounds/growth/
+overflow, native allocation/checkpoint/correction, publication and resimulation.
+The native fixture verifies zero ownership-map upload entries after initial
+uploads, exact GPU remap/shape-owner agreement, and a unique correct entry in the
+Direct GPU API's sorted shape view. A delayed public contact-export test blocks
+on a CUDA event, changes the CPU actor pointer, then releases the event and
+requires the previously captured actor. Corrupt GPU remaps reject before owner
+mutation and cannot leave stale correction records. See the
+[validation record](native-remap-validation.json) and
+[test log](native-remap-ctest.log).
+
+The final ten-second wall audit preserves the reference topology identity,
+398 supported chunks, 46 detached chunks and actual projectile clearance.
+[Final generated deadline report](native-remap-final-qualified/report.html):
+444 chunks, 896 bonds, one projectile, peak 43 destruction clusters, five runs
+of 60 simulated seconds. All 18,000 complete advances fit 8 ms; worst is
+7.556 ms and per-run means are 3.019–3.039 ms. Timestep remains 1/60, correction
+limit one and sleeping disabled. Commands, physics, destruction, correction and
+mandatory completion are included; initialization/rendering are excluded.
+The earlier passed gate before observer lifetime hardening remains recorded
+separately, with its own artifact hashes; it is not substituted for the final run.
+
+[Large diagnostic report](native-remap-impacts64/report.html): 64 aerial impacts
+on 64 buildings, 28,416 chunks and 57,344 bonds, two ten-second untraced runs and
+one separately scoped run. Untraced means are 9.002–9.009 ms and the maximum is
+23.793 ms; 892 of 1,200 measured steps exceed 8 ms. Peak cluster count is 3,211
+and 14,711 bonds break. Per-step fracture/correction/cluster counters match the
+previous capture; scoped counters also match the untraced capture. This is a
+failed large-workload deadline diagnostic, not a full physical/endurance gate.
+No overall speedup is established by these short comparisons.
+
+At the separate scoped peak, CPU ownership/lifecycle still costs 8.478 ms and
+correction collision/solve costs 7.366 ms; mean GPU stress-stream time is
+6.550 ms. The latter overlaps host waits and must not be added to the CPU wall
+partition. CPU fragment allocation, shape lifecycle/refiltering, bounds-request
+metadata, component-local stress/preconditioning, selective correction and
+endurance remain unfinished. This change removes one duplicated ownership route;
+it does not complete GPU ownership of the entire PhysX lifecycle.

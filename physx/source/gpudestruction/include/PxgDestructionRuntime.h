@@ -8,6 +8,7 @@
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
+class PxNodeIndex;
 struct PxgShapeSim;
 struct PxgContactManagerInput;
 struct PxsContactManagerOutput;
@@ -70,7 +71,7 @@ public:
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, CUstream stream) = 0;
     // Asynchronous submission. GPU verdicts are available through readyEvent;
     // invalid collision preparation gates corrected-motion preparation on device.
-    virtual bool prepareCollisionBindings(const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
+    virtual bool prepareCollisionBindings(const PxgShapeSim* shapes, PxU32 shapeCapacity, const PxNodeIndex* shapeToBody, PxU32 remapCapacity, CUstream stream) = 0;
     virtual bool prepareCorrectionBodies(PxU32 bodyCapacity, CUstream stream) = 0;
     // Combined observation at the remaining CPU ownership/completion boundary.
     virtual bool completeCorrectionPreparation() = 0;
@@ -104,7 +105,7 @@ public:
 
 
     // Install GPU-selected cluster ownership without re-uploading immutable geometry.
-    virtual bool installCollisionOwners(PxgShapeSim* shapes, PxU32 capacity, CUstream stream) = 0;
+    virtual bool installCollisionOwners(PxgShapeSim* shapes, PxU32 capacity, PxNodeIndex* shapeToBody, PxU32 remapCapacity, CUstream stream) = 0;
     virtual bool preserveUnchangedContactPairs() const = 0;
 };
 }

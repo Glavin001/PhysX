@@ -7,6 +7,7 @@
 #include "PxgSimulationCore.h"
 #include "native_contact_graph_check.h"
 #include "native_pre_solve_check.h"
+#include "native_owner_observation_check.h"
 #include "PxgNphaseImplementationContext.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxsContactManager.h"
@@ -120,6 +121,9 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     auto& controller=*static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController());
     auto& shapeManager=controller.getSimulationCore()->mPxgShapeSimManager;
     const auto initialShapeUploads=shapeManager.getUploadedShapeCount();
+    auto& nativeShapes=static_cast<PxgNphaseImplementationContext*>(static_cast<NpScene&>(scene).getScScene().getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore()->mGpuShapesManager;
+    const auto initialOwnerUploads=nativeShapes.mHostOwnerMappingUploads;
+    const auto initialOwnerObservations=nativeShapes.mNativeOwnerObservations;
     PxgShapeSim originalShape;
     {PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(&originalShape,
         shapeManager.getShapeSimsDevicePtr()+identity*sizeof(PxgShapeSim),sizeof(originalShape)));}
@@ -166,7 +170,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         require(context.healthy(),"native impact GPU health failed");
     };
     AllocationAudit allocations;
-    unsigned corrections=0,contacts=0;std::vector<PxVec3> contactMotion;
+    unsigned corrections=0,contacts=0,observedNativeContacts=0;std::vector<PxVec3> contactMotion;
     for(unsigned frame=0;frame<30;++frame) {
         const auto before=events.advances;
         {PxScopedCudaLock lock(cuda);const auto id=sentinel->getGPUIndex();const PxVec3 force(1,0,0);
@@ -188,6 +192,8 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         require(status.correctionPasses<=1,"native step exceeded one correction");
         require(events.advances==before+1,"trial pass duplicated pose callback");
         corrections+=status.correctionPasses;contacts+=status.normalContacts;
+        if(shape->getActor()!=wall)
+            observedNativeContacts+=nativeOwnerTest::observe(scene,cuda,identity,shape->getActor()->is<PxRigidDynamic>(),nativeShapes);
         // Track the entire contact trajectory, including persistence after correction.
         for(auto* body:contactBodies)contactMotion.push_back(velocity(*body));
         if(status.correctionPasses) {
@@ -202,6 +208,23 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
             auto* owner=shape->getActor()->is<PxRigidDynamic>();
             require(owner && resident.mBodySimIndex.index()==owner->getGPUIndex(),
                 "GPU shape owner differs from the committed fragment");
+            require(nativeShapes.mNativeOwnerObservations>initialOwnerObservations
+                && nativeShapes.mHostOwnerMappingUploads==initialOwnerUploads,
+                "native fracture uploaded ownership through the CPU remap table");
+            {PxScopedCudaLock lock(cuda);PxNodeIndex mapped;PxActor* oldActor=nullptr;
+                check(cuMemcpyDtoH(&mapped,nativeShapes.mGpuShapesRemapTableBuffer.getDevicePtr()+identity*sizeof(mapped),sizeof(mapped)));
+                check(cuMemcpyDtoH(&oldActor,nativeShapes.mGpuTransformCacheIdToActorTableBuffer.getDevicePtr()+identity*sizeof(oldActor),sizeof(oldActor)));
+                require(mapped.index()==owner->getGPUIndex(),"narrowphase remap lost native GPU owner");
+                require(oldActor==wall,"native simulation unnecessarily uploaded CPU actor observation");
+                const PxU32 n=PxU32(nativeShapes.mMaxTransformCacheID+1);
+                std::vector<PxNodeIndex> nodes(n);std::vector<PxU32> shapes(n);
+                check(cuMemcpyDtoH(nodes.data(),nativeShapes.mGpuRigidIndiceBuffer.getDevicePtr(),n*sizeof(nodes[0])));
+                check(cuMemcpyDtoH(shapes.data(),nativeShapes.mGpuShapeIndiceBuffer.getDevicePtr(),n*sizeof(shapes[0])));
+                unsigned found=0;for(PxU32 i=0;i<n;++i)if(shapes[i]==identity) {
+                    require(nodes[i].index()==owner->getGPUIndex(),"Direct GPU API shape index retained previous motion owner");++found;
+                }
+                require(found==1,"native shape missing or duplicated in sorted GPU ownership view");
+            }
             require(resident.mTransform.p==originalShape.mTransform.p && resident.mTransform.q==originalShape.mTransform.q
                 && resident.mLocalBounds.minimum==originalShape.mLocalBounds.minimum
                 && resident.mLocalBounds.maximum==originalShape.mLocalBounds.maximum
@@ -238,6 +261,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     const auto ordinary=velocity(*sentinel);
     require(std::abs(ordinary.x-.5f)<2e-4f,"correction duplicated or lost an ordinary body's force command");
     require(std::abs(ordinary.y-(gravity?-9.81f*31/60:0))<2e-4f,"correction integrated gravity more than once");
+    if(fracture)require(observedNativeContacts>0,"fixture did not observe contacts with the committed native fragment");
     auto* fragment=shape->getActor()->is<PxRigidDynamic>();require(fragment,"accepted chunk has no motion owner");
     require((fragment!=wall)==fracture,"native split did not change chunk motion ownership");
     const auto v=velocity(*shot),w=velocity(*fragment);require(v.isFinite() && w.isFinite(),"nonfinite accepted motion");

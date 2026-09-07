@@ -54,7 +54,7 @@ namespace physx
 	{
 	public:
 		PxgShapeManager(PxgAllocatorDesc& allocDesc);
-		~PxgShapeManager(){}
+		~PxgShapeManager(){PX_ASSERT(!mActorObservationReady);}
 
 
 		//this method push CopyDesc to PxgCopyManager
@@ -63,6 +63,16 @@ namespace physx
 
 		PxU32 registerShape(PxgShape& shape);
 		void registerShapeInstance(const PxNodeIndex& nodeIndex, const PxU32 transformCacheID, PxActor* actor, bool aggregate = false);
+        // CPU compatibility observation only; the native GPU transaction installs
+        // the authoritative remap. No shape/node/actor payload is uploaded here.
+        bool observeNativeShapeOwner(const PxNodeIndex& nodeIndex,PxU32 shape,PxActor* actor);
+        // Explicit CPU-facing contact export only. The snapshot survives async
+        // start events and CPU registry changes until the consuming stream ends.
+        CUdeviceptr captureActorObservation(PxCudaContext* context);
+        bool finishActorObservation(CUstream stream);
+        void releaseActorObservation(); // caller holds the CUDA context
+        PxU64 mNativeOwnerObservations=0;
+        PxU64 mHostOwnerMappingUploads=0; // shape entries, excluding sort padding
 		void unregisterShape(const PxU32 shapeId);
 		void unregisterShapeInstance(const PxU32 transformCacheID);
 
@@ -97,7 +107,10 @@ namespace physx
 		bool							mHasShapeInstanceChanged;
 		bool							mAllocFailed;
 
-	private:
+    private:
+        Cm::PinnableArray<PxActor*> mActorObservation;
+        PxCudaContext* mActorObservationContext=nullptr;
+        CUevent mActorObservationReady=nullptr;
 		PX_NOCOPY(PxgShapeManager)
 	};
 

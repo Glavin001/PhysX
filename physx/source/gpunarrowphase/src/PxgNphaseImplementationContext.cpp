@@ -1730,9 +1730,9 @@ PxsContactManagerOutput& PxgNphaseImplementationContext::getNewContactManagerOut
 	return mFallbackForUnsupportedCMs->getNewContactManagerOutput(npId);
 }
 
-bool PxgNphaseImplementationContext::rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor)
+bool PxgNphaseImplementationContext::rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor, bool deviceOwnerTransaction)
 {
-    return mGpuNarrowphaseCore->rebindShapeInstance(nodeIndex, shape, index, actor);
+    return mGpuNarrowphaseCore->rebindShapeInstance(nodeIndex, shape, index, actor, deviceOwnerTransaction);
 }
 
 void PxgNphaseImplementationContext::registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, PxActor* actor, const bool isFemCloth)

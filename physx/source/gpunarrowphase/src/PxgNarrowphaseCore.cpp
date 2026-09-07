@@ -268,6 +268,7 @@ PxgGpuNarrowphaseCore::PxgGpuNarrowphaseCore(PxgCudaKernelWranglerManager* gpuKe
 PxgGpuNarrowphaseCore::~PxgGpuNarrowphaseCore()
 {
 	mCudaContextManager->acquireContext();
+    mGpuShapesManager.releaseActorObservation();
 
 	mCopyMan.destroyFinishedEvent(mCudaContext);
 	mCopyManBp.destroyFinishedEvent(mCudaContext);
@@ -7702,10 +7703,12 @@ void PxgGpuNarrowphaseCore::waitAndResetCopyQueuesBp()
 	mGpuPBDMaterialManager.releaseIDs();
 }
 
-bool PxgGpuNarrowphaseCore::rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor)
+bool PxgGpuNarrowphaseCore::rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor, bool deviceOwnerTransaction)
 {
     if (!mShapesMap->find(size_t(&shape))) return false;
-    mGpuShapesManager.registerShapeInstance(nodeIndex, index, actor);
+    if(deviceOwnerTransaction) {
+        if(!mGpuShapesManager.observeNativeShapeOwner(nodeIndex,index,actor))return false;
+    } else mGpuShapesManager.registerShapeInstance(nodeIndex, index, actor);
     if (mGpuShapesManager.mAllocFailed) mCudaContext->setAbortMode(true);
     return !mGpuShapesManager.mAllocFailed;
 }
@@ -9171,7 +9174,7 @@ void PxgGpuNarrowphaseCore::computeRigidsToShapes()
 	CUdeviceptr tempRigidIndiceBitsd = shapeManager.mGpuTempRigidBitIndiceBuffer.getDevicePtr();
 	CUdeviceptr rankd = shapeManager.mGpuShapeIndiceBuffer.getDevicePtr();
 
-	// always start with the state from CPU which has all the updates, and the indices are still in the right place.
+	// Start from the authoritative GPU shape-to-body remap, including native ownership transactions.
 	mCudaContext->memcpyDtoDAsync(rigidIndiced, shapeManager.mGpuShapesRemapTableBuffer.getDevicePtr(), sizeof(PxNodeIndex) * totalNumShapes, mStream);
 	mCudaContext->memcpyDtoDAsync(shapeManager.mGpuShapeIndiceBuffer.getDevicePtr(), shapeManager.mGpuUnsortedShapeIndicesBuffer.getDevicePtr(), sizeof(PxU32) * totalNumShapes, mStream);
 
@@ -9490,6 +9493,16 @@ bool PxgGpuNarrowphaseCore::copyContactData(void* PX_RESTRICT data, PxU32* PX_RE
 
 	if (mTotalNumPairs)
 	{
+        // CPU actor identities are observations, never native simulation inputs.
+        // A native split updates the compatibility table without uploading it.
+        // Snapshot it only for this explicit contact-export request. Its storage
+        // remains stable through delayed start events and CPU registry changes.
+        // Chunk loads and ordinary collision/solve consume GPU body identities.
+        CUdeviceptr transformCacheIdToActorTabled = mGpuShapesManager.mNativeOwnerObservations
+            ? mGpuShapesManager.captureActorObservation(mCudaContext)
+            : mGpuShapesManager.mGpuTransformCacheIdToActorTableBuffer.getDevicePtr();
+        if(!transformCacheIdToActorTabled)return false;
+
 		if (startEvent)
 		{
 			mCudaContext->streamWaitEvent(mStream, startEvent);
@@ -9501,8 +9514,6 @@ bool PxgGpuNarrowphaseCore::copyContactData(void* PX_RESTRICT data, PxU32* PX_RE
 		CUdeviceptr cvxInputDeviceptr = mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mContactManagerInputData.getDevicePtr();
 		CUdeviceptr cvxDeviceptr = mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mContactManagerOutputData.getDevicePtr();
 		CUdeviceptr shapeToRigidRemapTabled = mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr();
-		CUdeviceptr transformCacheIdToActorTabled = mGpuShapesManager.mGpuTransformCacheIdToActorTableBuffer.getDevicePtr();
-
 		PxMutex::ScopedLock lock2(mIntermStackAlloc.mMutex);
 
 		CUdeviceptr gpuIntermNumPairs = reinterpret_cast<CUdeviceptr>(mIntermStackAlloc.allocateAligned(256, PxgNarrowPhaseGridDims::COMPRESS_CONTACT * sizeof(PxU32)));
@@ -9606,6 +9617,8 @@ bool PxgGpuNarrowphaseCore::copyContactData(void* PX_RESTRICT data, PxU32* PX_RE
 			//PX_UNUSED(bob);
 #endif
 		}
+
+        if(mGpuShapesManager.mNativeOwnerObservations && !mGpuShapesManager.finishActorObservation(mStream))return false;
 
 		if (finishEvent)
 		{

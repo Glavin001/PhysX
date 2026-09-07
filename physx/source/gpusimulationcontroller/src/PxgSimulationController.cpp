@@ -838,7 +838,9 @@ namespace physx
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.collisionBindings",false,profileContext);
             ok=mDestruction->prepareCollisionBindings(
                 mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
-                mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),mSimulationCore->getStream());
+                mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),
+                reinterpret_cast<const PxNodeIndex*>(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
+                PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),mSimulationCore->getStream());
         }
         if(ok) {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.correctionBodies",false,profileContext);
@@ -868,7 +870,9 @@ namespace physx
                     && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCollisionOwners(
                         mSimulationCore->mPxgShapeSimManager.getMutableShapeSimsDeviceTypedPtr(),
-                        mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),stream);
+                        mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),
+                        reinterpret_cast<PxNodeIndex*>(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
+                        PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),stream);
                 if(ok) {
                     const auto* indices=mDestruction->correctionBodyIndices();
                     for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i) {
@@ -1097,6 +1101,13 @@ namespace physx
             || static_cast<PxgBoundsArray&>(aabbManager.getBoundsArray()).getNumberOfChanges())
 			updateBoundsAndTransformCache(aabbManager, npStream, mNpContext->getContext().getTransformCache(), npCore->getTransformCache());
 			
+        // Native ownership writes the narrowphase remap on the simulation stream.
+        // Join its producer before remap growth/copies and rigid-to-shape sorting.
+        if(mDestructionCorrecting && mCudaContextManager->getCudaContext()->streamWaitEvent(
+            npStream,mDestruction->getDeviceView().readyEvent,0)!=CUDA_SUCCESS) {
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native owner remap dependency failed");
+            mCudaContextManager->getCudaContext()->setAbortMode(true);return;
+        }
 		mNpContext->updateNarrowPhaseShape();
 
 		// AD TODO: remove this if again once we have the warm-start implemented, or find a way to avoid doing this alltogether.

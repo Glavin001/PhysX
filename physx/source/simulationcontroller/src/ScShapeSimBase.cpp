@@ -121,7 +121,7 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
     // ShapeSim, contact/transform index, geometry registration and shape refcount
     // all persist. Only incompatible contact rows and ownership maps change.
-    if (!np->rebindShapeInstance(body.getNodeIndex(), getCore(), getElementID(), owner.getPxActor()))
+    if (!np->rebindShapeInstance(body.getNodeIndex(), getCore(), getElementID(), owner.getPxActor(), deviceOwnerTransaction))
     {
         PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Persistent shape owner update failed in GPU narrowphase");
 #if PX_SUPPORT_GPU_PHYSX

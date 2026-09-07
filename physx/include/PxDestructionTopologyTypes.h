@@ -59,7 +59,7 @@ struct PxDestructionCollisionPreparationStatus {
     std::uint64_t generation;
     std::uint32_t count, migrating, removed, affectedClusters, valid, error;
     // error: 1 invalid shape, 2 changed source ownership, 4 invalid target,
-    // 8 unsupported collision geometry/flags, 16 CUDA failure.
+    // 8 unsupported collision geometry/flags, 16 CUDA failure, 32 invalid native remap.
     // No physical shape ownership is changed by preparing this batch.
 };
 // Fractured solver-body inputs rewound to the saved pre-solve state. Geometry

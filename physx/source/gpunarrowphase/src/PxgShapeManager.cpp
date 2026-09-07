@@ -48,7 +48,8 @@ PxgShapeManager::PxgShapeManager(PxgAllocatorDesc& allocDesc) :
 	mGpuUnsortedShapeIndicesBuffer(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mGpuTempRigidBitIndiceBuffer(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mGpuTempRigidIndiceBuffer(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
-	mAllocFailed(false)
+    mAllocFailed(false),
+    mActorObservation(allocDesc.hostMappedAlloc, PxsHeapStats::eNARROWPHASE, Cm::PinnableAllocatorFallback::eDISABLED)
 {
 	//allocate x4
 	const PxU32 initialSize = 128;
@@ -83,6 +84,7 @@ PxgShapeManager::PxgShapeManager(PxgAllocatorDesc& allocDesc) :
 		return;
 	}
 	mHostTransformCacheIdToActorTableMapped.forceSize_Unsafe(initialSize);
+    PxMemZero(mHostTransformCacheIdToActorTableMapped.begin(),initialSize*sizeof(PxActor*));
 
 	mGpuShapesBuffer.allocate(sizeof(PxgShape)*initialSize, PX_FL);
 	mGpuShapesRemapTableBuffer.allocate(sizeof(PxNodeIndex) * initialSize, PX_FL);
@@ -100,6 +102,33 @@ PxgShapeManager::PxgShapeManager(PxgAllocatorDesc& allocDesc) :
 
 	mHasShapeChanged = false;
 	mHasShapeInstanceChanged = false;
+}
+
+void PxgShapeManager::releaseActorObservation()
+{
+    if(mActorObservationReady) {
+        mActorObservationContext->eventSynchronize(mActorObservationReady);
+        mActorObservationContext->eventDestroy(mActorObservationReady);
+        mActorObservationReady=nullptr;mActorObservationContext=nullptr;
+    }
+}
+
+CUdeviceptr PxgShapeManager::captureActorObservation(PxCudaContext* context)
+{
+    if(mAllocFailed || !context)return 0;
+    if(!mActorObservationReady) {
+        if(context->eventCreate(&mActorObservationReady,CU_EVENT_DISABLE_TIMING)!=CUDA_SUCCESS)return 0;
+        mActorObservationContext=context;
+    } else if(context!=mActorObservationContext || context->eventSynchronize(mActorObservationReady)!=CUDA_SUCCESS)return 0;
+    const PxU32 count=PxU32(mMaxTransformCacheID+1);
+    if(!count || count>mHostTransformCacheIdToActorTableMapped.size() || !mActorObservation.resize(count))return 0;
+    PxMemCopy(mActorObservation.begin(),mHostTransformCacheIdToActorTableMapped.begin(),count*sizeof(PxActor*));
+    return reinterpret_cast<CUdeviceptr>(getMappedDevicePtr(context,mActorObservation.begin()));
+}
+
+bool PxgShapeManager::finishActorObservation(CUstream stream)
+{
+    return mActorObservationReady && mActorObservationContext->eventRecord(mActorObservationReady,stream)==CUDA_SUCCESS;
 }
 
 void PxgShapeManager::initialize(PxCudaContext* cudaContext, CUstream stream)
@@ -191,6 +220,20 @@ void PxgShapeManager::registerShapeInstance(const PxNodeIndex& nodeIndex, const 
 	mHasShapeInstanceChanged = true;
 	mDirtyTransformCacheMap.growAndSet(transformCacheID);
 	mMaxTransformCacheID = PxMax(PxI32(transformCacheID), mMaxTransformCacheID);
+}
+
+bool PxgShapeManager::observeNativeShapeOwner(const PxNodeIndex& nodeIndex,PxU32 shape,PxActor* actor)
+{
+    if(mAllocFailed || shape>=mHostShapesRemapTableMapped.size()
+        || shape>=mHostShapeIdTableMapped.size() || shape>=mHostTransformCacheIdToActorTableMapped.size()
+        || mHostShapeIdTableMapped[shape]!=shape || nodeIndex.isStaticBody() || nodeIndex.isArticulation())return false;
+    mHostShapesRemapTableMapped[shape]=nodeIndex;
+    mHostTransformCacheIdToActorTableMapped[shape]=actor;
+    // Leave independently queued creation/removal updates intact. Persistent
+    // native shapes normally have none; GPU writes are not marked for CPU DMA.
+    mHasShapeInstanceChanged=true;
+    ++mNativeOwnerObservations;
+    return true;
 }
 
 void PxgShapeManager::unregisterShape(const PxU32 id)
@@ -423,6 +466,8 @@ void PxgShapeManager::scheduleCopyHtoD(PxgCopyManager& copyManager, PxCudaContex
 						b &= (b - 1);
 					}
 
+                    if(dirtyId<totalNumOfShapeInstances)
+                        mHostOwnerMappingUploads+=PxMin(groupSize,totalNumOfShapeInstances-dirtyId);
 					copyManager.pushDeferredHtoD(desc1);
 					copyManager.pushDeferredHtoD(desc2);
 					copyManager.pushDeferredHtoD(desc3);

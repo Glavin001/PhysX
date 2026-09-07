@@ -1,0 +1,71 @@
+{
+  "base_revision": "c6ab860254bc1ea458480d3e511065f01bba42c2",
+  "change": "GPU ownership transaction writes persistent shape-sim and narrowphase remaps. CPU compatibility remaps do not cause ownership DMA. CPU actor identities are snapshotted only for explicit contact export.",
+  "physical_equations_changed": false,
+  "focused_ctest": "qualification/native-remap-ctest.log",
+  "quality": "qualification/native-remap-quality.json",
+  "quality_topology_identity": "e589eb8317c456147287443232209bb950514a75b5e4fb6783e2de5fe7486d4c",
+  "final_deadline_report": "qualification/native-remap-final-qualified/report.html",
+  "final_deadline_pass": true,
+  "final_duration_pass": true,
+  "final_deadline_workload": {
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "peak_destruction_clusters": 43,
+    "trials": 5,
+    "seconds_per_trial": 60,
+    "steps": 18000,
+    "timestep": 0.016666666666666666,
+    "correction_limit": 1,
+    "sleeping": false
+  },
+  "large_report": "qualification/native-remap-impacts64/report.html",
+  "large_counter_comparison": {
+    "fields": [
+      "step",
+      "bonds_broken",
+      "resim_passes",
+      "logical_clusters"
+    ],
+    "before": "out/preparation-ordered-impacts64/impacts-64-plain-0/native.frames.csv.gz",
+    "after": "out/native-remap-impacts64/impacts-64-plain-0/native.frames.csv.gz",
+    "matches": true,
+    "full_physical_qualification": false
+  },
+  "earlier_gate": "qualification/native-remap-qualified/report.html",
+  "earlier_gate_note": "Passed normal-simulation deadline before explicit-observer snapshot lifetime hardening; final gate and audit use the final build.",
+  "coverage": [
+    "Native GPU remap equals committed shape owner",
+    "GPU sorted rigid-to-shape view reflects new owner exactly once",
+    "No native shape-owner DMA after initial uploads in controlled fixture",
+    "Delayed public contact export returns captured actor despite changed CPU owner pointer",
+    "Corrupt native remap rejected before ownership mutation; stale correction records removed",
+    "Ordinary persistent-shape API bounds, growth, overflow and CPU pose precedence retained"
+  ],
+  "remaining": [
+    "CPU fragment allocation and shape lifecycle bridge",
+    "CPU broadphase refilter and bounds-request metadata",
+    "Component-local stress and GPU multilevel preconditioning",
+    "Selective correction scheduling",
+    "Full lifecycle endurance and larger 8ms qualification"
+  ],
+  "source_sha256": {
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "2eb621ce3054b2601d82163435c2889658235668d353513118f2ef5eea980355",
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "362d4b7f6b54e0136ab9b43db7b12f0792df40737ee71e6c3a74c78f36f26e42",
+    "demos/blast-stress-demo/tests/native_owner_observation_check.h": "231cf7be8e3d979a2d9af29d3e0a2a1f9a9d0cdeddb2594283b16ec745db1b21",
+    "physx/include/PxDestructionTopologyTypes.h": "34a76f2208f58409faa1d76c27bb8f5fc145d541a39bef84d1b67bbf911db849",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "370b4e87aaef6ef81b8141dba228001b3703dd322a768b3812b853c927b95dd7",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "671bf2cff376b82d8aac056fd7fa3330954bcc705433fcdef3f52c6cca413696",
+    "physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h": "1f42f227f21d41f7f6d3ba18ece45a365bce918dfa462ade97e074619d9eaa4c",
+    "physx/source/gpunarrowphase/include/PxgNphaseImplementationContext.h": "d93457ab262c652cda12f4bf787c636147cb1591b2a32fded889b242a82a04fa",
+    "physx/source/gpunarrowphase/include/PxgShapeManager.h": "25c67d57d991a0a8cd96df0b1ed1df9cd893d9d5f14c75073f224d4a305a4148",
+    "physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp": "5af4af09e8a3e46e91ebb2df407d2a0f616b38d1d19eb45853b22b205a37b0c5",
+    "physx/source/gpunarrowphase/src/PxgNphaseImplementationContext.cpp": "16aa80571c8f788d38ce4ee97c1b4edf54fb1635797e3ce6f70f50f759bfe4c3",
+    "physx/source/gpunarrowphase/src/PxgShapeManager.cpp": "9a3a7d8c974c088a47e3a6df9bc5d32dee19b6b24e05b7b5de5e387368cabc14",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "c586aa75fa652f2d75dfa621ab9de1c0dc544e96755cc2a55c7842c618a16bc5",
+    "physx/source/lowlevel/software/include/PxvNphaseImplementationContext.h": "78a89ca60aa3d95d5884829f44c79f47a432478dbf442a6199dfa225c8df8706",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.cpp": "a823e3ced90235fd5df8cff4d97f94e09d225fee341af9ddfa558c4581c6c123"
+  },
+  "full_plan_complete": false
+}
