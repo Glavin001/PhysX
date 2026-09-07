@@ -634,3 +634,23 @@ Each timing case has two ten-second untraced runs and a separate ten-second inst
 The primary observed worst complete step decreases from 59.478 to 49.302 ms; means change from 11.548 to 11.428 ms. Both new repeats peak below both preceding repeats, but this is a short comparison, not a deadline guarantee. In the separate phase captures, worst-step query/owner cost decreases from 5.896 to 1.591 ms. The current scoped complete peak is 55.081 ms, including 6.764 ms CPU compatibility-body construction and 30.071 ms complete correction. Average GPU stress-stream time is 5.473 ms. Instrumented values are not subdivisions of the untraced peak.
 
 CPU fragment/contact lifecycle, remaining owner metadata observations and full correction still dominate split-time cost. This deletion preserves the intended separation of persistent geometry and changing motion ownership; it does not make CPU query mirrors GPU-resident or finish the native lifecycle migration. Device-owned contact/body scheduling, selective correction, resident preconditioning, validated sleep/activity and full scaling/endurance qualification remain active requirements.
+
+## GPU actor-pair canonicalization: migrated and validated, not a material speedup
+
+Native destruction now sorts and removes duplicate actor pairs on the producing GPU stream before publication. It reuses the existing raw/partitioned PhysX report buffers, retaining raw counts for aggregate handling and overflow diagnostics. The only new persistent scratch is two unsigned tile offsets per 1,024-pair tile of configured capacity. Device counts bound sorting, merge, scan and compaction; no pair-count readback or host decisions occur between stages. CPU pair sorting is retained only for unrelated non-native PhysX operation. Native invalid/overflow batches abort explicitly instead of accepting a truncated contact set.
+
+The implementation uses block radix sorting, stable descending merge ranks, and stable unique compaction. It preserves exact CPU pair ordering, including duplicate keys across tiles and merge runs. Fifty-five production-kernel batches cover empty/singleton inputs, non-power-of-two tails, repeated buffer reuse, all-equal keys, invalid pairs, capacity overflow and up to 1,048,577 pairs. Memory/synchronization/race checks pass. Fifteen integrated native tests and 29 timing tests pass; no assertions were weakened.
+
+The frozen 10-second wall audit preserves 398 supported chunks, 46 detached chunks, 199 broken bonds, exact topology identity, entry/exit holes, clearance step 39, zero collision/render position mismatch and the prior COM tolerance. The separate 256-building audit retains 14,219 peak clusters, 62,728 broken bonds, 224 corrected steps, zero motion mismatch and 1,648 boundary audits with zero failures; it does not enable the expensive large-scene render/COM trace. All 3,600 compared timing steps match prior fracture/correction/cluster/body/contact counter histories.
+
+Each timing case is two untraced 10-second runs plus a separate phase capture, dt=1/60, correction limit one, sleeping disabled. Complete advance includes commands, projectile insertion, physics, destruction, correction and mandatory completion; initialization/rendering/reporting are separate. Every measured spike is retained.
+
+| Case | Chunks | Bonds | Projectiles | Mean complete ms | Maximum complete ms | >8 ms / 1,200 steps |
+|---|---:|---:|---:|---:|---:|---:|
+| One building, projectile penetration | 444 | 896 | 1 | 2.268457 | 6.245235 | 0 |
+| 16 buildings, simultaneous aerial impacts | 7104 | 14336 | 16 | 4.159149 | 9.466100 | 10 |
+| 256 buildings, simultaneous aerial impacts | 113664 | 229376 | 256 | 11.379837 | 50.600128 | 1038 |
+
+The comparison does not demonstrate a material end-to-end speedup. This step removes a CPU responsibility from the native data flow; it does not remove the dominant CPU contact creation/registration or fragment compatibility lifecycle. These remain the next structural migration targets. The 8 ms peak and full plan gates remain unmet.
+
+Generated reports: [primary 256-building breakdown](native-pairs-impacts-256/report.html), [same-input comparison](native-pairs-comparison/report.html), [three-scene scaling](native-pairs-scaling/report.html). Evidence: [validation](native-pairs-evidence/validation.json).

@@ -80,6 +80,11 @@ KERNEL_DEF(BP_GENERATE_FOUNDPAIR_NEWBOUNDS, "generateFoundPairsForNewBoundsRegio
 KERNEL_DEF(BP_WRITEOUT_OVERLAPCHECKS_HISTOGRAM_NEWBOUNDS, "writeOutOverlapChecksForInsertedBoundsRegionsHistogram")
 KERNEL_DEF(BP_ACCUMULATE_REPORT_STAGE_1, "accumulateReportsStage_1")
 KERNEL_DEF(BP_ACCUMULATE_REPORT_STAGE_2, "accumulateReportsStage_2")
+KERNEL_DEF(BP_NATIVE_PAIR_TILES, "nativePairSortTiles")
+KERNEL_DEF(BP_NATIVE_PAIR_MERGE, "nativePairMerge")
+KERNEL_DEF(BP_NATIVE_PAIR_COUNTS, "nativePairUniqueCounts")
+KERNEL_DEF(BP_NATIVE_PAIR_PREFIX, "nativePairUniquePrefix")
+KERNEL_DEF(BP_NATIVE_PAIR_SCATTER, "nativePairUniqueScatter")
 KERNEL_DEF(BP_COPY_REPORTS, "copyReports")
 
 ///////////////////////////////////////////////

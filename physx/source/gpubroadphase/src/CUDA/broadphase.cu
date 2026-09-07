@@ -36,6 +36,7 @@
 #include "PxgBroadPhaseKernelIndices.h"
 #include "reduction.cuh"
 #include "PxgCommonDefines.h"
+#include "PxgNativePairCanonicalization.cuh"
 #include <assert.h>
 #include <stdio.h>
 
@@ -2577,11 +2578,11 @@ extern "C" __global__ void copyReports(PxgBroadPhaseDesc* bpDesc)	// BP_COPY_REP
 	// of aggregate pairs in the pairs list.
 	// this means that we need to correct the total size to account for the max size of the pairs buffer, and can then 
 	// subtract the number of aggregate pairs written to that buffer to get the final actor count.
-	const PxU32 nbCreatedPairs = PxMin(bpDesc->sharedFoundPairIndex, max_found_lost_pairs) - bpDesc->sharedFoundAggPairIndex;
-	const PxU32 nbLostPairs = PxMin(bpDesc->sharedLostPairIndex, max_found_lost_pairs) - bpDesc->sharedLostAggPairIndex;
+	const PxU32 nbCreatedPairs = bpDesc->rigidOwners ? (bpDesc->nativePairError ? 0 : bpDesc->nativePairCounts[0]) : PxMin(bpDesc->sharedFoundPairIndex, max_found_lost_pairs) - bpDesc->sharedFoundAggPairIndex;
+	const PxU32 nbLostPairs = bpDesc->rigidOwners ? (bpDesc->nativePairError ? 0 : bpDesc->nativePairCounts[1]) : PxMin(bpDesc->sharedLostPairIndex, max_found_lost_pairs) - bpDesc->sharedLostAggPairIndex;
 
-	const PxU32* foundReports = reinterpret_cast<const PxU32*>(bpDesc->foundActorPairReport);
-	const PxU32* lostReports = reinterpret_cast<const PxU32*>(bpDesc->lostActorPairReport);
+	const PxU32* foundReports = reinterpret_cast<const PxU32*>(bpDesc->rigidOwners ? bpDesc->nativePairReports[0] : bpDesc->foundActorPairReport);
+	const PxU32* lostReports = reinterpret_cast<const PxU32*>(bpDesc->rigidOwners ? bpDesc->nativePairReports[1] : bpDesc->lostActorPairReport);
 
 	PxU32* foundReportMap = reinterpret_cast<PxU32*>(bpDesc->foundPairReportMap);
 	PxU32* lostReportMap = reinterpret_cast<PxU32*>(bpDesc->lostPairReportMap);

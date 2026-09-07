@@ -230,6 +230,7 @@ class PxgCudaBroadPhaseSap : public Bp::BroadPhase
 					PxgTypedCudaBuffer<int>               mBlockRegionAccumBuf;
 					PxU32                                 mRegionAccumTotal; //need to write back to cpu every frame
 	
+					PxgTypedCudaBuffer<PxU32> mNativePairTileOffsets;
 					PxgTypedCudaBuffer<PxgBroadPhasePair> mFoundPairsBuf;     //total found pairs(include actors and aggregates)
 					PxgTypedCudaBuffer<PxgBroadPhasePair> mLostPairsBuf;      //total lost pairs(include actors and aggregates)
 	

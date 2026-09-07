@@ -108,6 +108,13 @@ namespace physx
 		PxgBroadPhasePair*		foundActorPairReport;		//device memory for GPU actor foundReport
 		PxgBroadPhasePair*		lostActorPairReport;		//device memory for GPU actor lostReport
 
+        // Native actor pairs are canonicalized on the producing stream. Raw
+        // report counts remain unchanged for aggregate processing and overflow.
+        PxU32* nativePairTileOffsets;
+        PxU32 nativePairCounts[2];
+        PxU32 nativePairError;
+        PxgBroadPhasePair* nativePairReports[2];
+
 		PxgBroadPhasePair*		foundPairReportMap;			//mapped address in the GPU for the cpu foundReport for actor pairs (not include aggregate);
 		PxgBroadPhasePair*		lostPairReportMap;			//mapped address in the GPU for the cpu lostReport  for actor pairs(not include aggregate);
 

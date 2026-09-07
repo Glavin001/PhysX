@@ -150,6 +150,7 @@ PxgCudaBroadPhaseSap::PxgCudaBroadPhaseSap(const PxGpuBroadPhaseDesc& desc, PxgC
 	mBlockStartRegionAccumBuf			(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mRegionAccumBuf						(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mBlockRegionAccumBuf				(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
+	mNativePairTileOffsets                 (allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mFoundPairsBuf						(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mLostPairsBuf						(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mFoundAggregateBuf					(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
@@ -399,7 +400,7 @@ void PxgCudaBroadPhaseSap::freeBuffers()
 	mFoundActorPairsMapped.forceSize_Unsafe(0);
 }
 
-void PxgCudaBroadPhaseSap::runCopyResultsKernel(PxgBroadPhaseDesc& /*desc*/)
+void PxgCudaBroadPhaseSap::runCopyResultsKernel(PxgBroadPhaseDesc& desc)
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.runCopyResultsKernel", mContextID);
 
@@ -415,10 +416,30 @@ void PxgCudaBroadPhaseSap::runCopyResultsKernel(PxgBroadPhaseDesc& /*desc*/)
 #endif
 	}
 
-	{
-		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff) };
-		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_COPY_REPORTS, PxgBPKernelGridDim::BP_COPY_REPORTS, 1, 1, PxgBPKernelBlockDim::BP_COPY_REPORTS, 1, 1, 0, EPILOG);
-	}
+    if (desc.rigidOwners)
+    {
+        // Device counts select work; never read counts back between stages.
+        {
+            KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff) };
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_TILES, 128, 2, 1, 128, 1, 1, 0, EPILOG);
+        }
+        for (PxU64 width = 1024; width < mMaxFoundLostPairs; width *= 2)
+        {
+            PxU32 runLength = PxU32(width);
+            KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff), CUDA_KERNEL_PARAM(runLength) };
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_MERGE, 128, 2, 1, 128, 1, 1, 0, EPILOG);
+        }
+        {
+            KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff) };
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_COUNTS, 128, 2, 1, 128, 1, 1, 0, EPILOG);
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_PREFIX, 1, 2, 1, 128, 1, 1, 0, EPILOG);
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_SCATTER, 128, 2, 1, 128, 1, 1, 0, EPILOG);
+        }
+    }
+    {
+        KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff) };
+        _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_COPY_REPORTS, PxgBPKernelGridDim::BP_COPY_REPORTS, 1, 1, PxgBPKernelBlockDim::BP_COPY_REPORTS, 1, 1, 0, EPILOG);
+    }
 }
 
 void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
@@ -490,14 +511,21 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
         // Ownership refresh cannot accept a truncated set of new interactions.
         // Fail the step explicitly; capacity growth/retry belongs to the scene
         // correction transaction. Ordinary upstream overflow policy is retained.
-        if (hasRefiltering(&desc)) mCudaContext->setAbortMode(true);
+        if (hasRefiltering(&desc) || desc.rigidOwners) mCudaContext->setAbortMode(true);
 	}
+
+    if (desc.rigidOwners && desc.nativePairError)
+    {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+            "Native GPU broad-phase pair canonicalization failed; simulation step incomplete");
+        mCudaContext->setAbortMode(true);
+    }
 
 	// AD: safety in case copyReports did not run due to abort mode
 	if(!mCudaContext->isInAbortMode())
 	{
-		mFoundActorPairsMapped.forceSize_Unsafe(PxMin(mMaxFoundLostPairs, desc.sharedFoundPairIndex) - desc.sharedFoundAggPairIndex);
-		mLostActorPairsMapped.forceSize_Unsafe(PxMin(mMaxFoundLostPairs, desc.sharedLostPairIndex) - desc.sharedLostAggPairIndex);
+		mFoundActorPairsMapped.forceSize_Unsafe(desc.rigidOwners ? desc.nativePairCounts[0] : PxMin(mMaxFoundLostPairs, desc.sharedFoundPairIndex) - desc.sharedFoundAggPairIndex);
+		mLostActorPairsMapped.forceSize_Unsafe(desc.rigidOwners ? desc.nativePairCounts[1] : PxMin(mMaxFoundLostPairs, desc.sharedLostPairIndex) - desc.sharedLostAggPairIndex);
 	}
 	else
 	{
@@ -634,12 +662,12 @@ void PxgCudaBroadPhaseSap::purgeDuplicates(Cm::PinnableArray<PxgBroadPhasePair>&
 
 void PxgCudaBroadPhaseSap::purgeDuplicateFoundPairs()
 {
-	purgeDuplicates(mFoundActorPairsMapped);
+	if (!mBpDesc.get().rigidOwners) purgeDuplicates(mFoundActorPairsMapped);
 }
 
 void PxgCudaBroadPhaseSap::purgeDuplicateLostPairs()
 {
-	purgeDuplicates(mLostActorPairsMapped);
+	if (!mBpDesc.get().rigidOwners) purgeDuplicates(mLostActorPairsMapped);
 }
 
 void PxgCudaBroadPhaseSap::runRadixSort(const PxU32 numOfKeys, CUdeviceptr radixSortDescBuf)
@@ -1002,6 +1030,17 @@ void PxgCudaBroadPhaseSap::updateDescriptor(PxgBroadPhaseDesc& desc)
 		desc.nativeOwnership = mAABBManager->getNativeOwnershipView();
         desc.rigidOwners=mAABBManager->getRigidOwners();
         desc.rigidOwnerCapacity=mAABBManager->getRigidOwnerCapacity();
+        if (desc.rigidOwners)
+        {
+            const PxU64 tiles = (PxU64(mMaxFoundLostPairs) + 1023) / 1024;
+            mNativePairTileOffsets.allocate(2 * tiles * sizeof(PxU32), PX_FL);
+            desc.nativePairTileOffsets = reinterpret_cast<PxU32*>(mNativePairTileOffsets.getDevicePtr());
+            if (!desc.nativePairTileOffsets)
+            {
+                PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY, PX_FL, "Native GPU pair scratch allocation failed");
+                mCudaContext->setAbortMode(true);
+            }
+        }
 		// PT: this data is used in:
 		// - markUpdatedPairsLaunch (BP_UPDATE_UPDATEDPAIRS)
 		{
