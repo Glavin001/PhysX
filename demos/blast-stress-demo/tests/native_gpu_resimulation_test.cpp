@@ -39,12 +39,11 @@ void verifyAcceptedContactIdentities(PxScene& scene,PxCudaContextManager& cuda) 
         const PxU32 count=host.mCpuContactManagerMapping.size();if(!count)continue;
         std::vector<PxgContactGraphIdentity> ids(count);
         check(cuMemcpyDtoH(ids.data(),gpu.mContactGraphIdentities.getDevicePtr(),count*sizeof(ids[0])));
-        require(host.mContactGraphIdentities.size()==count,"accepted contact identity count mismatch");
         for(PxU32 i=0;i<count;++i) {
-            const auto& id=ids[i];const auto& cpu=host.mContactGraphIdentities[i];
+            const auto& id=ids[i];
             require(id.generation && id.edgeIndex!=PX_INVALID_U32 && id.edgeIndex==host.mCpuContactManagerMapping[i]->getWorkUnit().mEdgeIndex,
                 "correction left an invalid GPU contact graph edge");
-            require(id.generation==cpu.generation && id.edgeIndex==cpu.edgeIndex && live.insert(id.generation).second,
+            require(live.insert(id.generation).second,
                 "correction left stale or duplicated GPU contact identities");
         }
     }

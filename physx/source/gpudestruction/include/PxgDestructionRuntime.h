@@ -91,7 +91,7 @@ public:
     virtual bool buildContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
         const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxgShapeSim* shapes,
         PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream,
-        const PxgDestructionRetainedEdge* retainedUpdates,PxU32 retainedUpdateCount,PxU32 retainedSlotCount) = 0;
+        const PxgDestructionRetainedEdge* retainedUpdates,PxU32 retainedUpdateCount,PxU32 retainedSlotCount,const PxgContactGraphSequence* sequence=NULL) = 0;
     virtual PxgDestructionContactGraphView getContactGraphView() const = 0;
     // Pre-solve components retain previous connectivity and merge new native
     // edges. Outputs are ordered on the supplied solver stream.

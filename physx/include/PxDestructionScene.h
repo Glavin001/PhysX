@@ -100,6 +100,7 @@ struct PxDestructionStageStatus {
                  // 256: native body allocation, 512: native GPU body initialization,
                  // 1024: persistent collision binding preparation; 2048: correction body preparation
                  // 4096: unconverged stress solve in enabled native correction mode
+                 // 8192: GPU contact lifetime space exhausted (scene cannot continue)
 
     PxU32 normalContacts, frictionAnchors;
     PxU32 iterations, converged;

@@ -1,6 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #pragma once
 #include "PxgContactManager.h"
+#include "PxNodeIndex.h"
 #include "cudamanager/PxCudaTypes.h"
 namespace physx {
 struct PxsContactManagerOutput;
@@ -56,7 +57,7 @@ struct PxgDestructionContactGraphObservationStats {
     PxU32 peakRetainedEdges=0;
 };
 struct PxgDestructionContactGraphStatus {
-    enum { eMISSING_PAIRS=1, eINVALID_IDENTITY=2, eUNSUPPORTED_ENDPOINT=4 };
+    enum { eMISSING_PAIRS=1, eINVALID_IDENTITY=2, eUNSUPPORTED_ENDPOINT=4, eLIFETIME_EXHAUSTED=8 };
     PxU32 error, omittedPairs;
 };
 // Snapshot of rigid contact connectivity, not yet a complete solver-island

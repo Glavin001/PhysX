@@ -33,6 +33,7 @@
 #include "PxgPersistentContactManifold.h"
 #include "PxsContactManagerState.h"
 #include "PxgContactManager.h"
+#include "PxgContactIdentity.cuh"
 #include "PxgNpKernelIndices.h"
 
 using namespace physx;
@@ -151,8 +152,14 @@ extern "C" __global__ void removeContactManagers_Stage5_CvxTri(const PxgPairMana
 	}
 }
 
-extern "C" __global__ void initializeManifolds(float4* destination, const float4* source, PxU32 dataSize, PxU32 nbTimesToReplicate)
+extern "C" __global__ void initializeManifolds(float4* destination, const float4* source, PxU32 dataSize, PxU32 nbTimesToReplicate,
+    PxgContactGraphIdentity* identities,const PxU32* edges,PxgContactGraphSequence* sequence)
 {
+    // New pairs create their device-owned lifetime alongside manifold storage.
+    // Cache invalidation passes null identities and never changes lifetimes.
+    if(identities)contactIdentity::initialize(identities,edges,nbTimesToReplicate,sequence);
+    if(!dataSize)return; // primitive buckets have identities but no PCM manifold
+
 	const PxU32 MaxStructureSize = 4096;
 
 	__shared__ float sourceData[MaxStructureSize / sizeof(float)];

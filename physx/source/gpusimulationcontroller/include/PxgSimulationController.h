@@ -60,6 +60,7 @@ class PxProfilerCallback;
 	class PxgDestructionRuntime;
     struct PxgContactManagerInput;
     struct PxgContactGraphIdentity;
+    struct PxgContactGraphSequence;
 	class PxgSimulationCore;
 	class PxgParticleSystemCore;
 	class PxgPBDParticleSystemCore;
@@ -510,7 +511,7 @@ class PxProfilerCallback;
         void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) override;
         bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
         bool buildDestructionContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
-            const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream);
+            const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream,const PxgContactGraphSequence* sequence);
         PxU64 getDestructionContactInputCount() const { return mDestructionContactInputCount; }
         PxU64 getDestructionContactReuseFallbackCount() const { return mDestructionContactReuseFallbackCount; }
 

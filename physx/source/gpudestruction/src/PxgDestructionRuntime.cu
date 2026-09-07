@@ -35,17 +35,20 @@ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T
 #include "PxgDestructionMaterial.cuh"
 // Rebind compact runtime cluster slots entirely on device after acceptance.
 __global__ void acceptClusterBindings(PxDestructionTopologyDeviceView topology,
-    const PxU32* targets,PxDestructionStressCluster* clusters) {
+    const PxU32* targets,PxDestructionStressCluster* clusters,const PxDestructionStageStatus* status) {
+    if(status->error & ~8u)return;
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=topology.status->clusterCount)return;
     const auto mass=topology.clusters[topology.activeClusters[i]];
     clusters[i]={targets[i],PxVec3(float(mass.center[0]),float(mass.center[1]),float(mass.center[2]))};
 }
 __global__ void acceptChunkBindings(PxDestructionTopologyDeviceView topology,
-    const PxU32* slots,PxDestructionStressChunk* chunks) {
+    const PxU32* slots,PxDestructionStressChunk* chunks,const PxDestructionStageStatus* status) {
+    if(status->error & ~8u)return;
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<topology.chunkCount && topology.activeChunks[i])chunks[i].cluster=slots[topology.chunkCluster[i]];
 }
 __global__ void observeNativeClusters(const PxDestructionStressCluster* clusters,PxU32 count,
-    const PxgBodySim* bodies,PxTransform* poses,PxVec3* angular) {
+    const PxgBodySim* bodies,PxTransform* poses,PxVec3* angular,const PxDestructionStageStatus* status=nullptr) {
+    if(status && (status->error & ~8u))return;
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bodies[clusters[i].body];poses[i]=b.body2World.getTransform()*b.body2Actor_maxImpulseW.getTransform().getInverse();
     angular[i]=PxVec3(b.angularVelocityXYZ_maxPenBiasW.x,b.angularVelocityXYZ_maxPenBiasW.y,b.angularVelocityXYZ_maxPenBiasW.z);
@@ -81,8 +84,14 @@ __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
 __device__ void add(PxVec3& target,const PxVec3& value) {
     atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
 }
-__global__ void startFrame(PxDestructionStageStatus* status) {
+__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence) {
     const PxU64 frame=status->frame+1; *status={}; status->frame=frame;
+    if(sequence && sequence->error)status->error|=8192u;
+}
+__global__ void prepareNativeCorrectionAcceptance(PxDestructionStageStatus* status,
+    const PxgContactGraphSequence* sequence,PxU32* accept) {
+    if(sequence && sequence->error)status->error|=8192u;
+    *accept=!(status->error & ~8u);
 }
 __global__ void prepareLoads(const PxDestructionStressChunk* chunks, PxU32 n,
     const PxDestructionStressCluster* clusters, const PxTransform* poses,
@@ -508,6 +517,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxgDestructionContactGraphStatus* mGraphStatus{};
     PxU32 mGraphPairCapacity{},mGraphNodeCapacity{};
     PxgDestructionContactGraphView mGraphView{};
+    const PxgContactGraphSequence* mContactSequence{}; // borrowed scene-lifetime device allocator
     PxU64 mGraphGeneration{};
     PxvPreSolveNode *mPreNodes{},*mPrePrevious{};
     PxvPreSolveNodeUpdate* mPreUpdates{};
@@ -667,7 +677,7 @@ public:
     bool buildContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
         const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxgShapeSim* shapes,
         PxU32 shapeCapacity,PxU32 nodeCapacity,const PxU32* retired,PxU32 retiredCount,CUstream stream,
-        const PxgDestructionRetainedEdge* retainedEdges,PxU32 retainedEdgeCount,PxU32 retainedSlotCount) override {
+        const PxgDestructionRetainedEdge* retainedEdges,PxU32 retainedEdgeCount,PxU32 retainedSlotCount,const PxgContactGraphSequence* sequence) override {
         if(mFailed || !mCorrectionEnabled || !stream || mGraphGeneration==~PxU64(0))return false;
         if((count && (!inputs || !identities || !outputs || !shapes)) || (retiredCount && !retired) || (retainedEdgeCount && !retainedEdges))return false;
         try {
@@ -743,7 +753,7 @@ public:
             }
             if(!mGraphStatus)allocate(mGraphStatus,1);
             const auto cudaStream=reinterpret_cast<cudaStream_t>(stream);
-            destructionContactGraph::initialize<<<(std::max(nodeCapacity,1u)+127)/128,128,0,cudaStream>>>(mGraphAccurate,mGraphSpeculative,nodeCapacity,mGraphStatus,omitted);
+            destructionContactGraph::initialize<<<(std::max(nodeCapacity,1u)+127)/128,128,0,cudaStream>>>(mGraphAccurate,mGraphSpeculative,nodeCapacity,mGraphStatus,omitted,sequence);
             if(retiredCount) {
                 if(count)check(cudaMemsetAsync(mGraphRetiredMask,0,((size_t(count)+31)/32)*sizeof(PxU32),cudaStream));
                 check(cudaMemcpyAsync(mGraphRetired,mGraphHostRetired,size_t(retiredCount)*sizeof(PxU32),cudaMemcpyHostToDevice,cudaStream));
@@ -776,6 +786,7 @@ public:
             // and the next NP pass. Include graph reads in that dependency,
             // rather than relying on this small kernel usually finishing first.
             check(cudaStreamWaitEvent(mStream,mGraphReady,0));
+            mContactSequence=sequence;
             mGraphView={inputs,identities,outputs,shapes,retiredCount?mGraphRetiredMask:nullptr,mGraphAccurate,mGraphSpeculative,mGraphStatus,count,shapeCapacity,nodeCapacity,++mGraphGeneration,mGraphReady,mGraphRetainedSlots,mGraphRetainedActive,retainedSlotCount};
             return true;
         }catch(...){mFailed=true;mGraphView={};return false;}
@@ -1123,7 +1134,7 @@ public:
         try {Context current(mContext);if(!configured() || mPending)return false;
             mInstalledOwnerGeneration=0;
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
-            startFrame<<<1,1,0,mStream>>>(mStatus);
+            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;
             mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
@@ -1509,14 +1520,14 @@ public:
             Context current(mContext);
             check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(coreStream)));
             check(cudaStreamWaitEvent(mStream,mInput,0));
-            const PxU32 accept=1;check(cudaMemcpyAsync(mTopologyAccept,&accept,sizeof(accept),cudaMemcpyHostToDevice,mStream));
+            prepareNativeCorrectionAcceptance<<<1,1,0,mStream>>>(mStatus,mContactSequence,mTopologyAccept);
             check(cudaEventRecord(mReady,mStream));
             if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("corrected topology commit failed");
             check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
             mC=mHostBodyPreparation->count;
-            acceptClusterBindings<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mTrialBodyIndices,mClusters);
-            acceptChunkBindings<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mCandidateSlots,mChunks);
-            observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodies,mPoses,mAngular);
+            acceptClusterBindings<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mTrialBodyIndices,mClusters,mStatus);
+            acceptChunkBindings<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mCandidateSlots,mChunks,mStatus);
+            observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodies,mPoses,mAngular,mStatus);
             finishNativeCorrection<<<1,1,0,mStream>>>(mStatus);
             provisionalTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mChunks,mClusters,mPoses,bodies,mProvisionalMotion);
             commitObservedTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mProvisionalMotion,mStatus);

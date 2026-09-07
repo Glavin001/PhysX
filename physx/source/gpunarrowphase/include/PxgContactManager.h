@@ -33,8 +33,13 @@
 
 namespace physx
 {
-    // Contact-manager lifetime identity, independent of its current bucket slot.
-    // Generation zero denotes unavailable metadata (e.g. CPU fallback contacts).
+    // Scene-lifetime GPU allocator. Zero is invalid; exhaustion never wraps.
+    // Kept across destruction reconfiguration and pair-buffer compaction.
+    struct PxgContactGraphSequence {
+        PxU64 next;
+        PxU32 error, reserved;
+    };
+    // Independent of bucket slots. Zero generation is invalid/unavailable.
     struct PxgContactGraphIdentity {
         PxU32 edgeIndex;
         PxU32 reserved;

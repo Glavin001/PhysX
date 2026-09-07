@@ -5,10 +5,11 @@
 #include "PxsContactManagerState.h"
 namespace physx { namespace destructionContactGraph {
 __global__ void initialize(PxU32* accurate,PxU32* speculative,PxU32 n,
-    PxgDestructionContactGraphStatus* status,PxU32 omitted) {
+    PxgDestructionContactGraphStatus* status,PxU32 omitted,const PxgContactGraphSequence* sequence=nullptr) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i<n){accurate[i]=i;speculative[i]=i;}
-    if(i==0)*status={omitted?PxgDestructionContactGraphStatus::eMISSING_PAIRS:0u,omitted};
+    if(i==0)*status={(omitted?PxgDestructionContactGraphStatus::eMISSING_PAIRS:0u)
+        | (sequence && sequence->error?PxgDestructionContactGraphStatus::eLIFETIME_EXHAUSTED:0u),omitted};
 }
 __global__ void retire(const PxU32* indices,PxU32 count,PxU32 pairs,PxU32* retired,PxgDestructionContactGraphStatus* status) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;

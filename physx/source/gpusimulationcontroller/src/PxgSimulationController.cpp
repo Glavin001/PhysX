@@ -692,7 +692,7 @@ namespace physx
     }
 
     bool PxgSimulationController::buildDestructionContactGraph(const PxgContactManagerInput* inputs,
-        const PxgContactGraphIdentity* identities,const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream)
+        const PxgContactGraphIdentity* identities,const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream,const PxgContactGraphSequence* sequence)
     {
         static_assert(PxU32(PxgDestructionContactFlags::eKINEMATIC_PAIR)==PxU32(PxcNpWorkUnitFlag::eHAS_KINEMATIC_ACTOR),"GPU graph kinematic flag ABI");
         static_assert(PxU32(PxgDestructionContactFlags::eDISABLE_RESPONSE)==PxU32(PxcNpWorkUnitFlag::eDISABLE_RESPONSE),"GPU graph response flag ABI");
@@ -736,7 +736,7 @@ namespace physx
         }
         const bool ok=mDestruction->buildContactGraph(inputs,identities,outputs,count,omitted,
             shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),mBodySimManager.mBodies.size(),retired,retiredCount,stream,
-            retainedUpdates.begin(),retainedUpdates.size(),islands.getNbEdgeHandles());
+            retainedUpdates.begin(),retainedUpdates.size(),islands.getNbEdgeHandles(),sequence);
         if(ok) {
             if(reset)islands.resetRetainedContactReceipt();
             for(PxU32 i=0;i<retainedUpdates.size();++i)

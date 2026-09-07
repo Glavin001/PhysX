@@ -17,6 +17,8 @@
 #include <cuda.h>
 #include <cstdio>
 #include <algorithm>
+#include <atomic>
+#include <foundation/PxProfiler.h>
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -109,6 +111,7 @@ struct Fixture {
         check(cuEventSynchronize(view.readyEvent));if(n)check(cuMemcpyDtoH(result.data(),CUdeviceptr(view.trialCollisionBindings),n*sizeof(result[0])));return result;
     }
 };
+#include "native_contact_lifetime_check.h"
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
 void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,bool contacts=false,bool support=false,bool ownership=false) {
@@ -288,7 +291,6 @@ void deviceContactInputs(bool enabled) {
             std::vector<PxgContactManagerInput> inputs(count);
             check(cuMemcpyDtoH(inputs.data(),gpu.mContactManagerInputData.getDevicePtr(),count*sizeof(inputs[0])));
             std::vector<PxgContactGraphIdentity> identities(count),mergedIdentities(count);
-            require(host.mContactGraphIdentities.size()==count,"CPU contact identity count mismatch");
             check(cuMemcpyDtoH(identities.data(),gpu.mContactGraphIdentities.getDevicePtr(),count*sizeof(identities[0])));
             check(cuMemcpyDtoH(mergedIdentities.data(),merged.mContactGraphIdentities.getDevicePtr()+mergedOffset*sizeof(identities[0]),count*sizeof(identities[0])));
             require(!std::memcmp(identities.data(),mergedIdentities.data(),count*sizeof(identities[0])),"flattened GPU contact identities misaligned with buckets");
@@ -297,7 +299,8 @@ void deviceContactInputs(bool enabled) {
                 const auto& work=host.mCpuContactManagerMapping[i]->getWorkUnit();const auto input=inputs[i];
                 const auto& identity=identities[i];
                 require(identity.generation && identity.edgeIndex!=PX_INVALID_U32 && identity.edgeIndex==work.mEdgeIndex,"GPU contact identity has stale or missing island edge");
-                require(!std::memcmp(&identity,&host.mContactGraphIdentities[i],sizeof(identity)),"CPU/GPU pair identity compaction diverged");
+                // There is no CPU generation mirror. Verify against independent
+                // pair survival/removal history below, and the CPU-created edge.
                 require(currentGenerations.insert(identity.generation).second,"live GPU contact generations are not unique");
                 const PairKey key(work.mTransformCache0,work.mTransformCache1);
                 require(current.emplace(key,identity.generation).second,"duplicate persistent contact pair");
@@ -671,6 +674,7 @@ int main(int argc,char** argv){try{
         if(mode=="--connectivity-owner"){solverMetadata(PxSolverType::ePGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true,true);return 0;}
         if(mode=="--pre-solve-islands"){solverMetadata(PxSolverType::ePGS,false,true);solverMetadata(PxSolverType::eTGS,false,true);solverMetadata(PxSolverType::eTGS,true,true);return 0;}
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
+        if(mode=="--lifetime-exhaustion"){contactLifetimeExhaustion();return 0;}
         if(mode=="--retained-registry"){gpuRetainedRegistryLifecycle();return 0;}
         if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}
         if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();return 0;}

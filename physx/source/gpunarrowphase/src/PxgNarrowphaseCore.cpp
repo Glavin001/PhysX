@@ -122,6 +122,7 @@ PxgGpuNarrowphaseCore::PxgGpuNarrowphaseCore(PxgCudaKernelWranglerManager* gpuKe
 	mGpuContactDistance(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mLostFoundPairsOutputData(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
 	mLostFoundPairsCms(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
+    mContactGraphSequence(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mPairManagementData(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
 	mGpuPairManagementData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mRSDesc(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
@@ -196,6 +197,9 @@ PxgGpuNarrowphaseCore::PxgGpuNarrowphaseCore(PxgCudaKernelWranglerManager* gpuKe
 
 	mGpuMultiManifold.allocate(sizeof(PxgPersistentContactMultiManifold), PX_FL);
 	mGpuManifold.allocate(sizeof(PxgPersistentContactManifold), PX_FL);
+    mContactGraphSequence.allocate(sizeof(PxgContactGraphSequence),PX_FL);
+    const PxgContactGraphSequence sequence={1,0,0};
+    mCudaContext->memcpyHtoD(mContactGraphSequence.getDevicePtr(),&sequence,sizeof(sequence));
 
 	mCudaContext->memcpyHtoD(mGpuMultiManifold.getDevicePtr(), &emptyMultiManifold, sizeof(PxgPersistentContactMultiManifold));
 	mCudaContext->memcpyHtoD(mGpuManifold.getDevicePtr(), &emptyManifold, sizeof(PxgPersistentContactManifold));
@@ -8272,14 +8276,6 @@ void PxgGpuNarrowphaseCore::registerContactManagerInternal(PxsContactManager* cm
         itInputs.pushBack(pair);
     }
 
-    // Registration is serialized by the existing NP lock. Never recycle a
-    // generation when bucket slots or CPU island-edge handles are reused.
-    if(!mNextContactGraphGeneration) {
-        mCudaContext->setAbortMode(true);
-        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Contact graph generation exhausted");
-    }
-    newContactManagers.mContactGraphIdentities.pushBack({PX_INVALID_U32,0,mNextContactGraphGeneration});
-    if(mNextContactGraphGeneration) ++mNextContactGraphGeneration;
 	itOutputs.pushBack(output);
 	itCms.pushBack(cm);
 	itSI.pushBack(shapeInteraction);
@@ -8319,7 +8315,6 @@ void PxgGpuNarrowphaseCore::unregisterContactManagerInternal(PxsContactManager* 
 		PinnableArray<PxsTorsionalFrictionData>& itTor = newContactManagers.mTorsionalProperties;
 	
 		itInputs.replaceWithLast(index);
-        newContactManagers.mContactGraphIdentities.replaceWithLast(index);
 		itOutputs.replaceWithLast(index);
 		itCms.replaceWithLast(index);
 		itSI.replaceWithLast(index);
@@ -8378,7 +8373,6 @@ void PxgGpuNarrowphaseCore::refreshContactManagerInternal(PxsContactManager* cm,
 		shapeInteraction = itSI[index];
 	
 		itInputs.replaceWithLast(index);
-        newContactManagers.mContactGraphIdentities.replaceWithLast(index);
 		itOutputs.replaceWithLast(index);
 		itCms.replaceWithLast(index);
 		itSI.replaceWithLast(index);
@@ -8583,7 +8577,7 @@ bool PxgGpuNarrowphaseCore::buildDestructionContactGraph(bool reuseSamePass)
     const bool ok=controller->buildDestructionContactGraph(
         merged.mContactManagerInputData.getTypedPtr(),merged.mContactGraphIdentities.getTypedPtr(),
         merged.mContactManagerOutputData.getTypedPtr(),rigidPairs,mTotalNumPairs+mDestructionGraphFallbackPairs-rigidPairs,
-        retired.begin(),retired.size(),mSolverStream);
+        retired.begin(),retired.size(),mSolverStream,mContactGraphSequence.getTypedPtr());
     if(ok) {
         mDestructionGraphCachedGeneration=controller->getDestructionContactGraphGeneration();
         mDestructionGraphRetainedRevision=mGpuContext->getIslandManager().getRetainedContactRevision();
@@ -8612,8 +8606,10 @@ bool PxgGpuNarrowphaseCore::resetDestructionContactCaches()
         CUdeviceptr empty=single?mGpuManifold.getDevicePtr():mGpuMultiManifold.getDevicePtr();
         PxU32 size=single?sizeof(PxgPersistentContactManifold):sizeof(PxgPersistentContactMultiManifold);
         if(!destination || gpu.mPersistentContactManifolds.getSize()<PxU64(count)*size)return false;
+        CUdeviceptr noIdentityInitialization=0;
         PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(destination),PX_CUDA_KERNEL_PARAM(empty),
-            PX_CUDA_KERNEL_PARAM(size),PX_CUDA_KERNEL_PARAM(count)};
+            PX_CUDA_KERNEL_PARAM(size),PX_CUDA_KERNEL_PARAM(count),PX_CUDA_KERNEL_PARAM(noIdentityInitialization),
+            PX_CUDA_KERNEL_PARAM(noIdentityInitialization),PX_CUDA_KERNEL_PARAM(noIdentityInitialization)};
         if(mCudaContext->launchKernel(kernel,PxgNarrowPhaseGridDims::INITIALIZE_MANIFOLDS,1,1,
             PxgNarrowPhaseBlockDims::INITIALIZE_MANIFOLDS,1,1,0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS)return false;
     }
@@ -8635,6 +8631,28 @@ bool PxgGpuNarrowphaseCore::buildDestructionContactInputs(PxgGpuContactManagers&
     // This launch follows pair-ID upload on NP's stream and precedes contact gen.
     return mGpuContext->getSimulationController()->buildDestructionContactInputs(
         managers.mContactManagerInputData.getTypedPtr(),count,mStream);
+}
+
+void PxgGpuNarrowphaseCore::initializeContactManagerIdentities(PxgGpuContactManagers& gpu,PxgNewContactManagers& host,
+    PxU32 manifoldBytes,CUdeviceptr emptyManifold)
+{
+    const PxU32 count=host.mCpuContactManagerMapping.size();
+    host.mContactGraphEdges.resize(count);
+    for(PxU32 i=0;i<count;++i)host.mContactGraphEdges[i]=host.mCpuContactManagerMapping[i]->getWorkUnit().mEdgeIndex;
+    gpu.mContactGraphEdgeUpload.allocate(sizeof(PxU32)*count,PX_FL);
+    mCudaContext->memcpyHtoDAsync(gpu.mContactGraphEdgeUpload.getDevicePtr(),host.mContactGraphEdges.begin(),sizeof(PxU32)*count,mStream);
+    CUdeviceptr destination=gpu.mPersistentContactManifolds.getDevicePtr();
+    CUdeviceptr identities=gpu.mContactGraphIdentities.getDevicePtr(),edges=gpu.mContactGraphEdgeUpload.getDevicePtr();
+    CUdeviceptr sequence=mContactGraphSequence.getDevicePtr();
+    PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(destination),PX_CUDA_KERNEL_PARAM(emptyManifold),
+        PX_CUDA_KERNEL_PARAM(manifoldBytes),PX_CUDA_KERNEL_PARAM(count),PX_CUDA_KERNEL_PARAM(identities),
+        PX_CUDA_KERNEL_PARAM(edges),PX_CUDA_KERNEL_PARAM(sequence)};
+    if(mCudaContext->launchKernel(mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::INITIALIZE_MANIFOLDS),
+        PxgNarrowPhaseGridDims::INITIALIZE_MANIFOLDS,1,1,PxgNarrowPhaseBlockDims::INITIALIZE_MANIFOLDS,1,1,
+        0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS) {
+        mCudaContext->setAbortMode(true);
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"GPU contact lifetime initialization failed; step incomplete.");
+    }
 }
 
 template <typename Manifold>
@@ -8669,10 +8687,6 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gp
 	PinnableArray<PxReal>& itR = newManagers.mRestDistances;
 	PinnableArray<PxsTorsionalFrictionData>& itTor = newManagers.mTorsionalProperties;
 	
-    for(PxU32 i=0;i<nbNewManagers;++i)
-        newManagers.mContactGraphIdentities[i].edgeIndex=itCms[i]->getWorkUnit().mEdgeIndex;
-    mCudaContext->memcpyHtoDAsync(gpuManagers.mContactGraphIdentities.getDevicePtr(),newManagers.mContactGraphIdentities.begin(),
-        sizeof(PxgContactGraphIdentity)*nbNewManagers,mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerInputData.getDevicePtr(), itInputs.begin(), sizeof(PxgContactManagerInput) * nbNewManagers, mStream);
     if(!buildDestructionContactInputs(gpuManagers,nbNewManagers))return;
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerOutputData.getDevicePtr(), itOutputs.begin(), sizeof(PxsContactManagerOutput) * nbNewManagers, mStream);
@@ -8681,25 +8695,7 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gp
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mRestDistances.getDevicePtr(), itR.begin(), sizeof(PxReal) * nbNewManagers, mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mTorsionalProperties.getDevicePtr(), itTor.begin(), sizeof(PxsTorsionalFrictionData) * nbNewManagers, mStream);
 
-	CUfunction initializeManifolds = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::INITIALIZE_MANIFOLDS);
-
-	CUdeviceptr devicePtr = gpuManagers.mPersistentContactManifolds.getDevicePtr();
-	//void* mappedPtr = getMappedDevicePtr(emptyManifold);
-	PxU32 size = sizeof(Manifold);
-
-	PxCudaKernelParam kernelParams[] =
-	{
-		PX_CUDA_KERNEL_PARAM(devicePtr),
-		PX_CUDA_KERNEL_PARAM(emptyManifold),
-		PX_CUDA_KERNEL_PARAM(size),
-		PX_CUDA_KERNEL_PARAM(nbNewManagers)
-	};
-
-	CUresult result = mCudaContext->launchKernel(initializeManifolds, PxgNarrowPhaseGridDims::INITIALIZE_MANIFOLDS, 1, 1, PxgNarrowPhaseBlockDims::INITIALIZE_MANIFOLDS, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
-
-	PX_ASSERT(result == CUDA_SUCCESS);
-
-	PX_UNUSED(result);
+    initializeContactManagerIdentities(gpuManagers,newManagers,sizeof(Manifold),CUdeviceptr(emptyManifold));
 }
 
 void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gpuManagers, PxgNewContactManagers& newManagers)
@@ -8732,10 +8728,6 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gp
 	PinnableArray<PxReal>& itR = newManagers.mRestDistances;
 	PinnableArray<PxsTorsionalFrictionData>& itTor = newManagers.mTorsionalProperties;
 
-    for(PxU32 i=0;i<nbNewManagers;++i)
-        newManagers.mContactGraphIdentities[i].edgeIndex=itCms[i]->getWorkUnit().mEdgeIndex;
-    mCudaContext->memcpyHtoDAsync(gpuManagers.mContactGraphIdentities.getDevicePtr(),newManagers.mContactGraphIdentities.begin(),
-        sizeof(PxgContactGraphIdentity)*nbNewManagers,mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerInputData.getDevicePtr(), itInputs.begin(), sizeof(PxgContactManagerInput) * nbNewManagers, mStream);
     if(!buildDestructionContactInputs(gpuManagers,nbNewManagers))return;
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerOutputData.getDevicePtr(), itOutputs.begin(), sizeof(PxsContactManagerOutput) * nbNewManagers, mStream);
@@ -8743,6 +8735,7 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gp
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mShapeInteractions.getDevicePtr(), itSI.begin(), sizeof(Sc::ShapeInteraction*) * nbNewManagers, mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mRestDistances.getDevicePtr(), itR.begin(), sizeof(PxReal) * nbNewManagers, mStream);
 	mCudaContext->memcpyHtoDAsync(gpuManagers.mTorsionalProperties.getDevicePtr(), itTor.begin(), sizeof(PxsTorsionalFrictionData) * nbNewManagers, mStream);
+    initializeContactManagerIdentities(gpuManagers,newManagers,0,0);
 }
 
 void PxgGpuNarrowphaseCore::prepareTempContactManagers()
@@ -8864,7 +8857,6 @@ void PxgGpuNarrowphaseCore::removeLostPairsInternal(PinnableArray<PxU32>& remove
 				{
 					itCms[writeIndex] = itCms[writeIndex + offset];
 					itInputs[writeIndex] = itInputs[writeIndex + offset];
-                    contactManagers.mContactGraphIdentities[writeIndex]=contactManagers.mContactGraphIdentities[writeIndex+offset];
 					itSI[writeIndex] = itSI[writeIndex + offset];
 					itR[writeIndex] = itR[writeIndex + offset];
 					itTor[writeIndex] = itTor[writeIndex + offset];
@@ -8874,7 +8866,6 @@ void PxgGpuNarrowphaseCore::removeLostPairsInternal(PinnableArray<PxU32>& remove
 		}
 		itCms.forceSize_Unsafe(finalSize + removeSize);
 		itInputs.forceSize_Unsafe(finalSize + removeSize);
-        contactManagers.mContactGraphIdentities.forceSize_Unsafe(finalSize+removeSize);
 		itSI.forceSize_Unsafe(finalSize + removeSize);
 		itR.forceSize_Unsafe(finalSize + removeSize);
 		itTor.forceSize_Unsafe(finalSize + removeSize);
@@ -8888,7 +8879,6 @@ void PxgGpuNarrowphaseCore::removeLostPairsInternal(PinnableArray<PxU32>& remove
 			PxU32 removedIndex = removedIndices[a - 1];
 			itCms.replaceWithLast(removedIndex);
 			itInputs.replaceWithLast(removedIndex);
-            contactManagers.mContactGraphIdentities.replaceWithLast(removedIndex);
 			itSI.replaceWithLast(removedIndex);
 			itR.replaceWithLast(removedIndex);
 			itTor.replaceWithLast(removedIndex);
@@ -9091,7 +9081,7 @@ void PxgGpuNarrowphaseCore::updateContactDistance(const PxReal* contactDistances
 	}
 }
 
-void PxgGpuNarrowphaseCore::adjustNpIndices(PxgNewContactManagers& newContactManagers, PinnableArray<PxgContactGraphIdentity>& identities, PinnableArray<PxgContactManagerInput>& itMainInputs,
+void PxgGpuNarrowphaseCore::adjustNpIndices(PxgNewContactManagers& newContactManagers, PinnableArray<PxgContactManagerInput>& itMainInputs,
 	PinnableArray<PxsContactManager*>& itCms, PinnableArray<const Sc::ShapeInteraction*>& itSIs, 
 	PinnableArray<PxReal>& itR, PinnableArray<PxsTorsionalFrictionData>& itTor,
 	PinnableArray<PxgContactManagerInput>& itNewInputs,
@@ -9114,7 +9104,6 @@ void PxgGpuNarrowphaseCore::adjustNpIndices(PxgNewContactManagers& newContactMan
 		}
 
 		itMainInputs.pushBack(itNewInputs[i]);
-        identities.pushBack(newContactManagers.mContactGraphIdentities[i]);
 		itCms.pushBack(cm);
 		itSIs.pushBack(itNewSIs[i]);
 		itR.pushBack(itNewR[i]);
@@ -9150,7 +9139,7 @@ void PxgGpuNarrowphaseCore::appendContactManagers(PxsContactManagerOutput* /*cmO
 		PinnableArray<PxReal>& itNewR = mContactManagers[i]->mNewContactManagers.mRestDistances;
 		PinnableArray<PxsTorsionalFrictionData>& itNewTor = mContactManagers[i]->mNewContactManagers.mTorsionalProperties;
 
-		adjustNpIndices(mContactManagers[i]->mNewContactManagers, mContactManagers[i]->mContactManagers.mContactGraphIdentities, itMainInputs, itCms, itSIs, itR, itTor, itNewInputs, itNewCms, itNewSIs, itNewR, itNewTor);
+		adjustNpIndices(mContactManagers[i]->mNewContactManagers, itMainInputs, itCms, itSIs, itR, itTor, itNewInputs, itNewCms, itNewSIs, itNewR, itNewTor);
 	}
 	
 	waitAndResetCopyQueues();
