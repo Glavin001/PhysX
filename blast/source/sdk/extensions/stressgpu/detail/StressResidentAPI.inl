@@ -41,6 +41,10 @@
         if(inputs != m_input) checkCuda(cudaMemcpyAsync(m_input, inputs, sizeof(*inputs)*count,
             cudaMemcpyDeviceToDevice, m_stream), "copy reference stress inputs");
 #endif
+#ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
+        if(!m_workCapture)throw std::runtime_error("component diagnostic requires native topology");
+        m_workCapture->begin(m_stream);
+#endif
         executeSolve(params);
         exportPhysicalImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
             m_impulses, m_colScales, m_devicePhysicalImpulses, m_bondCount,
@@ -48,6 +52,9 @@
         if (m_deviceTopology) markDeviceStressSolved<<<1,1,0,m_stream>>>(m_deviceTopology->status());
         checkCuda(cudaGetLastError(), "export resident bond forces");
         checkCuda(cudaEventRecord(m_statusReady, m_stream), "record resident stress completion");
+#ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
+        m_workCapture->finish(m_stream);
+#endif
         m_hasWarmStart = true;
         return true;
     }
@@ -85,6 +92,9 @@
             m_hasWarmStart = false; m_settledBaselineValid = false; m_hostInputValid = false;
             m_jacobiBuilt = true; // topology rebuild maintains it on the device
             checkCuda(cudaEventRecord(m_statusReady,m_stream), "record device topology preparation");
+#ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
+            m_workCapture=std::make_unique<ComponentWorkCapture>(m_nodeCount);
+#endif
             return true;
         } catch (...) { m_deviceTopologyFailed=true; return false; }
     }

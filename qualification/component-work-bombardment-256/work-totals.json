@@ -1,0 +1,4862 @@
+[
+  {
+    "record": "total",
+    "solve": 0,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 16926720,
+    "operator_csr_visits": 68597760,
+    "operator_live_visits": 68597760,
+    "component_updates": 22016,
+    "phase_cycles": [
+      607289759,
+      584728210,
+      21926230,
+      754592296,
+      106517889,
+      576718283,
+      252783970,
+      675003,
+      2905231640
+    ],
+    "precondition_cycles": [
+      348950163,
+      22600745,
+      145831564,
+      207100025
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 1,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147582767,
+      48469976,
+      253483,
+      0,
+      0,
+      0,
+      0,
+      650549,
+      196956775
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 2,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146854746,
+      48641895,
+      254804,
+      0,
+      0,
+      0,
+      0,
+      639582,
+      196391027
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 3,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147338835,
+      48192973,
+      256609,
+      0,
+      0,
+      0,
+      0,
+      649930,
+      196438347
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 4,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147125706,
+      48419618,
+      254377,
+      0,
+      0,
+      0,
+      0,
+      656537,
+      196456238
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 5,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146774594,
+      48405857,
+      260121,
+      0,
+      0,
+      0,
+      0,
+      655134,
+      196095706
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 6,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147175388,
+      48644095,
+      259881,
+      0,
+      0,
+      0,
+      0,
+      649527,
+      196728891
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 7,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146144439,
+      48312436,
+      253838,
+      0,
+      0,
+      0,
+      0,
+      656523,
+      195367236
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 8,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147290813,
+      48325335,
+      253536,
+      0,
+      0,
+      0,
+      0,
+      652936,
+      196522620
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 9,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146699907,
+      48348340,
+      261175,
+      0,
+      0,
+      0,
+      0,
+      650613,
+      195960035
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 10,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146428836,
+      48425325,
+      259148,
+      0,
+      0,
+      0,
+      0,
+      657226,
+      195770535
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 11,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147458920,
+      48277428,
+      255630,
+      0,
+      0,
+      0,
+      0,
+      650245,
+      196642223
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 12,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146713148,
+      48322146,
+      261044,
+      0,
+      0,
+      0,
+      0,
+      659801,
+      195956139
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 13,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147121437,
+      48819004,
+      258282,
+      0,
+      0,
+      0,
+      0,
+      648189,
+      196846912
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 14,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146644391,
+      48882052,
+      256186,
+      0,
+      0,
+      0,
+      0,
+      648619,
+      196431248
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 15,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146951740,
+      48757153,
+      258405,
+      0,
+      0,
+      0,
+      0,
+      655649,
+      196622947
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 16,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147020650,
+      48563830,
+      254603,
+      0,
+      0,
+      0,
+      0,
+      653548,
+      196492631
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 17,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146565159,
+      48585522,
+      258227,
+      0,
+      0,
+      0,
+      0,
+      653571,
+      196062479
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 18,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      145669130,
+      48733030,
+      258914,
+      0,
+      0,
+      0,
+      0,
+      651215,
+      195312289
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 19,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147210551,
+      48594519,
+      254517,
+      0,
+      0,
+      0,
+      0,
+      646174,
+      196705761
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 20,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146577701,
+      48622360,
+      259788,
+      0,
+      0,
+      0,
+      0,
+      660171,
+      196120020
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 21,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146220713,
+      48191990,
+      257589,
+      0,
+      0,
+      0,
+      0,
+      659953,
+      195330245
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 22,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146608622,
+      48739396,
+      257667,
+      0,
+      0,
+      0,
+      0,
+      659355,
+      196265040
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 23,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147191721,
+      48155902,
+      258250,
+      0,
+      0,
+      0,
+      0,
+      653077,
+      196258950
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 24,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146712618,
+      48582948,
+      261925,
+      0,
+      0,
+      0,
+      0,
+      650083,
+      196207574
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 25,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147192025,
+      48672484,
+      259297,
+      0,
+      0,
+      0,
+      0,
+      644714,
+      196768520
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 26,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146229138,
+      48590501,
+      258943,
+      0,
+      0,
+      0,
+      0,
+      663990,
+      195742572
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 27,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147111076,
+      48533616,
+      258011,
+      0,
+      0,
+      0,
+      0,
+      645736,
+      196548439
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 28,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146408893,
+      48765021,
+      258042,
+      0,
+      0,
+      0,
+      0,
+      648895,
+      196080851
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 29,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146392780,
+      48487430,
+      257343,
+      0,
+      0,
+      0,
+      0,
+      655106,
+      195792659
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 30,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146700068,
+      48559953,
+      260841,
+      0,
+      0,
+      0,
+      0,
+      658228,
+      196179090
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 31,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146620702,
+      48468603,
+      258602,
+      0,
+      0,
+      0,
+      0,
+      657128,
+      196005035
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 32,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147135142,
+      48740497,
+      252595,
+      0,
+      0,
+      0,
+      0,
+      656967,
+      196785201
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 33,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146938134,
+      48177498,
+      258841,
+      0,
+      0,
+      0,
+      0,
+      653915,
+      196028388
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 34,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147077826,
+      48217346,
+      255528,
+      0,
+      0,
+      0,
+      0,
+      647073,
+      196197773
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 35,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146756215,
+      48513360,
+      260167,
+      0,
+      0,
+      0,
+      0,
+      655793,
+      196185535
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 36,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147607306,
+      48261595,
+      252984,
+      0,
+      0,
+      0,
+      0,
+      646963,
+      196768848
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 37,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146510688,
+      48339227,
+      258795,
+      0,
+      0,
+      0,
+      0,
+      657751,
+      195766461
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 38,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147498229,
+      48218344,
+      259152,
+      0,
+      0,
+      0,
+      0,
+      651174,
+      196626899
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 39,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147247309,
+      48276623,
+      256313,
+      0,
+      0,
+      0,
+      0,
+      652880,
+      196433125
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 40,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147951016,
+      47940843,
+      259261,
+      0,
+      0,
+      0,
+      0,
+      650128,
+      196801248
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 41,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147442626,
+      48344925,
+      257491,
+      0,
+      0,
+      0,
+      0,
+      645188,
+      196690230
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 42,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146922823,
+      48272356,
+      261970,
+      0,
+      0,
+      0,
+      0,
+      664160,
+      196121309
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 43,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147073104,
+      48798333,
+      257540,
+      0,
+      0,
+      0,
+      0,
+      648337,
+      196777314
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 44,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146933129,
+      48647890,
+      256829,
+      0,
+      0,
+      0,
+      0,
+      650693,
+      196488541
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 45,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147885394,
+      48168101,
+      256023,
+      0,
+      0,
+      0,
+      0,
+      661311,
+      196970829
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 46,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147112153,
+      48353230,
+      258374,
+      0,
+      0,
+      0,
+      0,
+      657525,
+      196381282
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 47,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147358336,
+      48371270,
+      259019,
+      0,
+      0,
+      0,
+      0,
+      651250,
+      196639875
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 48,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146447268,
+      48734972,
+      256664,
+      0,
+      0,
+      0,
+      0,
+      646175,
+      196085079
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 49,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146854001,
+      48844110,
+      255108,
+      0,
+      0,
+      0,
+      0,
+      658641,
+      196611860
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 50,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147179398,
+      48437058,
+      256894,
+      0,
+      0,
+      0,
+      0,
+      651458,
+      196524808
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 51,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      148016416,
+      48031636,
+      255655,
+      0,
+      0,
+      0,
+      0,
+      652635,
+      196956342
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 52,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147309938,
+      48359723,
+      260830,
+      0,
+      0,
+      0,
+      0,
+      649046,
+      196579537
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 53,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147267162,
+      48154878,
+      256968,
+      0,
+      0,
+      0,
+      0,
+      652663,
+      196331671
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 54,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146649971,
+      48798741,
+      253777,
+      0,
+      0,
+      0,
+      0,
+      646890,
+      196349379
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 55,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146773057,
+      48354781,
+      257693,
+      0,
+      0,
+      0,
+      0,
+      649586,
+      196035117
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 56,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147005684,
+      48590417,
+      257105,
+      0,
+      0,
+      0,
+      0,
+      647950,
+      196501156
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 57,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146745006,
+      48484327,
+      255504,
+      0,
+      0,
+      0,
+      0,
+      654621,
+      196139458
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 58,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147391867,
+      48128672,
+      257352,
+      0,
+      0,
+      0,
+      0,
+      653271,
+      196431162
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 59,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147115436,
+      48391462,
+      257047,
+      0,
+      0,
+      0,
+      0,
+      642624,
+      196406569
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 60,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146795238,
+      48534707,
+      259564,
+      0,
+      0,
+      0,
+      0,
+      660373,
+      196249882
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 61,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147356314,
+      48347701,
+      257945,
+      0,
+      0,
+      0,
+      0,
+      664270,
+      196626230
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 62,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146522211,
+      48831041,
+      256730,
+      0,
+      0,
+      0,
+      0,
+      655596,
+      196265578
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 63,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147372457,
+      48690431,
+      259858,
+      0,
+      0,
+      0,
+      0,
+      650686,
+      196973432
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 64,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147709662,
+      48330568,
+      255039,
+      0,
+      0,
+      0,
+      0,
+      649311,
+      196944580
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 65,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146730468,
+      48712278,
+      255444,
+      0,
+      0,
+      0,
+      0,
+      648281,
+      196346471
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 66,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147459787,
+      48057416,
+      255383,
+      0,
+      0,
+      0,
+      0,
+      649918,
+      196422504
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 67,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147461126,
+      47976830,
+      256316,
+      0,
+      0,
+      0,
+      0,
+      656612,
+      196350884
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 68,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      148012203,
+      48281336,
+      255909,
+      0,
+      0,
+      0,
+      0,
+      647181,
+      197196629
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 69,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147002029,
+      48747773,
+      254938,
+      0,
+      0,
+      0,
+      0,
+      643658,
+      196648398
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 70,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146854036,
+      48796314,
+      256754,
+      0,
+      0,
+      0,
+      0,
+      645098,
+      196552202
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 71,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147398855,
+      48522916,
+      257878,
+      0,
+      0,
+      0,
+      0,
+      641183,
+      196820832
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 72,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146327326,
+      48617853,
+      255959,
+      0,
+      0,
+      0,
+      0,
+      653626,
+      195854764
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 73,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146897516,
+      48691853,
+      260929,
+      0,
+      0,
+      0,
+      0,
+      663537,
+      196513835
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 74,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147755931,
+      48205223,
+      256301,
+      0,
+      0,
+      0,
+      0,
+      653219,
+      196870674
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 75,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147429689,
+      48549404,
+      253495,
+      0,
+      0,
+      0,
+      0,
+      645673,
+      196878261
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 76,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146892260,
+      48109485,
+      260444,
+      0,
+      0,
+      0,
+      0,
+      657123,
+      195919312
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 77,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147387509,
+      48340614,
+      258333,
+      0,
+      0,
+      0,
+      0,
+      648348,
+      196634804
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 78,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147416483,
+      48531731,
+      256395,
+      0,
+      0,
+      0,
+      0,
+      639811,
+      196844420
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 79,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      147309145,
+      48277580,
+      256095,
+      0,
+      0,
+      0,
+      0,
+      647490,
+      196490310
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 80,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146124402,
+      48851226,
+      260063,
+      0,
+      0,
+      0,
+      0,
+      657245,
+      195892936
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 81,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 194560,
+    "operator_csr_visits": 788480,
+    "operator_live_visits": 788480,
+    "component_updates": 0,
+    "phase_cycles": [
+      146395379,
+      48494614,
+      258467,
+      0,
+      0,
+      0,
+      0,
+      656804,
+      195805264
+    ],
+    "precondition_cycles": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 82,
+    "components": 256,
+    "unmeasured_components": 0,
+    "operator_node_visits": 35604480,
+    "operator_csr_visits": 144291840,
+    "operator_live_visits": 144291840,
+    "component_updates": 46592,
+    "phase_cycles": [
+      895158032,
+      1185468464,
+      45453684,
+      1603008956,
+      221040319,
+      1208460299,
+      537622816,
+      690292,
+      5696902862
+    ],
+    "precondition_cycles": [
+      741057834,
+      47848338,
+      309936193,
+      440715723
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 83,
+    "components": 512,
+    "unmeasured_components": 0,
+    "operator_node_visits": 49069918,
+    "operator_csr_visits": 199967966,
+    "operator_live_visits": 181504944,
+    "component_updates": 68712,
+    "phase_cycles": [
+      1334572519,
+      1701805627,
+      63419045,
+      2294780829,
+      329194808,
+      1752445158,
+      747858868,
+      697164,
+      8224774018
+    ],
+    "precondition_cycles": [
+      1053457988,
+      87548670,
+      439119143,
+      624270471
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 84,
+    "components": 512,
+    "unmeasured_components": 0,
+    "operator_node_visits": 49567708,
+    "operator_csr_visits": 201996476,
+    "operator_live_visits": 183345840,
+    "component_updates": 69450,
+    "phase_cycles": [
+      1237788643,
+      1711228868,
+      63974607,
+      2320752087,
+      336034351,
+      1775110868,
+      755401646,
+      687215,
+      8200978285
+    ],
+    "precondition_cycles": [
+      1067880997,
+      88401369,
+      443059460,
+      629804913
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 85,
+    "components": 520,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51416939,
+    "operator_csr_visits": 209545410,
+    "operator_live_visits": 190139802,
+    "component_updates": 72283,
+    "phase_cycles": [
+      1391901077,
+      1758694866,
+      66197438,
+      2416067705,
+      357985408,
+      1824124305,
+      793752838,
+      717308,
+      8609440945
+    ],
+    "precondition_cycles": [
+      1101732060,
+      94298250,
+      462401159,
+      662355128
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 86,
+    "components": 732,
+    "unmeasured_components": 0,
+    "operator_node_visits": 54812735,
+    "operator_csr_visits": 223435593,
+    "operator_live_visits": 202898188,
+    "component_updates": 78037,
+    "phase_cycles": [
+      1477264780,
+      1868206202,
+      70711052,
+      2558419557,
+      372993056,
+      1938456225,
+      839685877,
+      722062,
+      9126458811
+    ],
+    "precondition_cycles": [
+      1167810167,
+      99376618,
+      489374065,
+      701495886
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 87,
+    "components": 732,
+    "unmeasured_components": 0,
+    "operator_node_visits": 56374908,
+    "operator_csr_visits": 229803679,
+    "operator_live_visits": 208684874,
+    "component_updates": 80249,
+    "phase_cycles": [
+      1514046941,
+      1930722937,
+      73279510,
+      2639157102,
+      384418813,
+      2002492170,
+      866635337,
+      741381,
+      9411494191
+    ],
+    "precondition_cycles": [
+      1208135919,
+      102039287,
+      504850201,
+      720269183
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 88,
+    "components": 732,
+    "unmeasured_components": 0,
+    "operator_node_visits": 55729427,
+    "operator_csr_visits": 227172345,
+    "operator_live_visits": 206285698,
+    "component_updates": 79370,
+    "phase_cycles": [
+      1371601177,
+      1904833384,
+      71494806,
+      2604461466,
+      379530216,
+      1973910349,
+      854794128,
+      721614,
+      9161347140
+    ],
+    "precondition_cycles": [
+      1188033050,
+      101695289,
+      498417651,
+      713561050
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 89,
+    "components": 739,
+    "unmeasured_components": 0,
+    "operator_node_visits": 56212208,
+    "operator_csr_visits": 229141512,
+    "operator_live_visits": 208102290,
+    "component_updates": 80971,
+    "phase_cycles": [
+      1530416319,
+      1913889013,
+      72916409,
+      2648599142,
+      378397609,
+      1972589920,
+      853875025,
+      729177,
+      9371412614
+    ],
+    "precondition_cycles": [
+      1192060225,
+      132896247,
+      502551565,
+      718029016
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 90,
+    "components": 843,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51802675,
+    "operator_csr_visits": 211192286,
+    "operator_live_visits": 192306964,
+    "component_updates": 76117,
+    "phase_cycles": [
+      1464555174,
+      1780437378,
+      68002593,
+      2446163528,
+      346898823,
+      1818986672,
+      784529533,
+      690069,
+      8710263770
+    ],
+    "precondition_cycles": [
+      1085724939,
+      154609356,
+      457470178,
+      653312679
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 91,
+    "components": 843,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51389575,
+    "operator_csr_visits": 209507756,
+    "operator_live_visits": 190565584,
+    "component_updates": 75527,
+    "phase_cycles": [
+      1458536349,
+      1753460607,
+      66918533,
+      2430878215,
+      344100226,
+      1800507347,
+      777887581,
+      748544,
+      8633037402
+    ],
+    "precondition_cycles": [
+      1075858158,
+      153470663,
+      454910076,
+      652430429
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 92,
+    "components": 843,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51054839,
+    "operator_csr_visits": 208147160,
+    "operator_live_visits": 189299746,
+    "component_updates": 75076,
+    "phase_cycles": [
+      1453702481,
+      1746730812,
+      66271462,
+      2426225303,
+      340233783,
+      1785631805,
+      781261961,
+      741978,
+      8600799585
+    ],
+    "precondition_cycles": [
+      1073748985,
+      156004790,
+      454761213,
+      647625465
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 93,
+    "components": 850,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51124996,
+    "operator_csr_visits": 208446231,
+    "operator_live_visits": 189146224,
+    "component_updates": 75230,
+    "phase_cycles": [
+      1446586145,
+      1737009932,
+      66844977,
+      2411168743,
+      340096843,
+      1778545802,
+      768813052,
+      737131,
+      8549802625
+    ],
+    "precondition_cycles": [
+      1068685139,
+      155831902,
+      449083861,
+      643871179
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 94,
+    "components": 856,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51318345,
+    "operator_csr_visits": 209241818,
+    "operator_live_visits": 189693919,
+    "component_updates": 75546,
+    "phase_cycles": [
+      1464929814,
+      1739924739,
+      66606672,
+      2430424435,
+      342742793,
+      1791727975,
+      780129794,
+      736331,
+      8617222553
+    ],
+    "precondition_cycles": [
+      1074400727,
+      156038268,
+      455352389,
+      650927946
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 95,
+    "components": 861,
+    "unmeasured_components": 0,
+    "operator_node_visits": 52133586,
+    "operator_csr_visits": 212575889,
+    "operator_live_visits": 192570410,
+    "component_updates": 76769,
+    "phase_cycles": [
+      1476279290,
+      1777850028,
+      68067443,
+      2460958084,
+      349421211,
+      1824276930,
+      786989813,
+      721947,
+      8744564746
+    ],
+    "precondition_cycles": [
+      1091105708,
+      157924313,
+      458530073,
+      658241795
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 96,
+    "components": 866,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51773425,
+    "operator_csr_visits": 211112257,
+    "operator_live_visits": 191242970,
+    "component_updates": 76263,
+    "phase_cycles": [
+      1469214684,
+      1759399665,
+      66932145,
+      2448512109,
+      346794454,
+      1810693236,
+      782374512,
+      749686,
+      8684670491
+    ],
+    "precondition_cycles": [
+      1083758419,
+      157543684,
+      457714217,
+      654932687
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 97,
+    "components": 866,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51805794,
+    "operator_csr_visits": 211244298,
+    "operator_live_visits": 191358018,
+    "component_updates": 76318,
+    "phase_cycles": [
+      1475641780,
+      1758173873,
+      67504538,
+      2449969154,
+      346546469,
+      1813029831,
+      783638576,
+      719905,
+      8695224126
+    ],
+    "precondition_cycles": [
+      1085971169,
+      158288101,
+      456725777,
+      654316892
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 98,
+    "components": 871,
+    "unmeasured_components": 0,
+    "operator_node_visits": 51665046,
+    "operator_csr_visits": 210675998,
+    "operator_live_visits": 190759209,
+    "component_updates": 76199,
+    "phase_cycles": [
+      1464196271,
+      1772656388,
+      67449773,
+      2441410730,
+      344412038,
+      1810584776,
+      781591703,
+      745758,
+      8683047437
+    ],
+    "precondition_cycles": [
+      1078665504,
+      158964003,
+      456055314,
+      653073269
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 99,
+    "components": 910,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53730018,
+    "operator_csr_visits": 219171512,
+    "operator_live_visits": 196685311,
+    "component_updates": 79596,
+    "phase_cycles": [
+      1524684809,
+      1846670801,
+      70456830,
+      2550009550,
+      358364681,
+      1886773187,
+      817888383,
+      714782,
+      9055563023
+    ],
+    "precondition_cycles": [
+      1126891108,
+      166777155,
+      476962234,
+      680610613
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 100,
+    "components": 1086,
+    "unmeasured_components": 0,
+    "operator_node_visits": 55319804,
+    "operator_csr_visits": 225879403,
+    "operator_live_visits": 200989924,
+    "component_updates": 83555,
+    "phase_cycles": [
+      1593830114,
+      1882094760,
+      72281803,
+      2634903576,
+      366010374,
+      1930659475,
+      832633249,
+      750533,
+      9313163884
+    ],
+    "precondition_cycles": [
+      1149285777,
+      195430055,
+      489170274,
+      699780769
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 101,
+    "components": 1172,
+    "unmeasured_components": 0,
+    "operator_node_visits": 56532514,
+    "operator_csr_visits": 231019359,
+    "operator_live_visits": 203844029,
+    "component_updates": 86407,
+    "phase_cycles": [
+      1634244088,
+      1929946361,
+      74474645,
+      2695670241,
+      371337448,
+      1970900089,
+      851237972,
+      721029,
+      9528531873
+    ],
+    "precondition_cycles": [
+      1170101245,
+      208232821,
+      499700413,
+      714317747
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 102,
+    "components": 1321,
+    "unmeasured_components": 0,
+    "operator_node_visits": 57046920,
+    "operator_csr_visits": 233520174,
+    "operator_live_visits": 202430353,
+    "component_updates": 89119,
+    "phase_cycles": [
+      1651463185,
+      1959161557,
+      75427496,
+      2704047755,
+      368823220,
+      1987405820,
+      844495563,
+      721402,
+      9591545998
+    ],
+    "precondition_cycles": [
+      1166770707,
+      220450750,
+      496190943,
+      716672284
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 103,
+    "components": 1606,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58553189,
+    "operator_csr_visits": 240282085,
+    "operator_live_visits": 202767597,
+    "component_updates": 94421,
+    "phase_cycles": [
+      1718578054,
+      2071828916,
+      78198677,
+      2810811700,
+      376571232,
+      2079297727,
+      898689728,
+      748644,
+      10034724678
+    ],
+    "precondition_cycles": [
+      1204608325,
+      227512014,
+      522584941,
+      748651305
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 104,
+    "components": 1842,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59886071,
+    "operator_csr_visits": 246322115,
+    "operator_live_visits": 202126281,
+    "component_updates": 99597,
+    "phase_cycles": [
+      1766887053,
+      2186876172,
+      82027147,
+      2884790318,
+      386965167,
+      2193167247,
+      924630457,
+      729857,
+      10426073418
+    ],
+    "precondition_cycles": [
+      1228269954,
+      245512516,
+      531288831,
+      767514565
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 105,
+    "components": 1865,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59903073,
+    "operator_csr_visits": 246439941,
+    "operator_live_visits": 201763966,
+    "component_updates": 101277,
+    "phase_cycles": [
+      1817961153,
+      2158673584,
+      81828932,
+      2939534543,
+      383241260,
+      2170320082,
+      916906452,
+      729184,
+      10469195190
+    ],
+    "precondition_cycles": [
+      1226171270,
+      296838257,
+      535989754,
+      768485774
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 106,
+    "components": 1875,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59994778,
+    "operator_csr_visits": 246802286,
+    "operator_live_visits": 201927512,
+    "component_updates": 104006,
+    "phase_cycles": [
+      1887008925,
+      2109594015,
+      82359099,
+      3003642835,
+      376944334,
+      2122376758,
+      901087043,
+      679111,
+      10483692120
+    ],
+    "precondition_cycles": [
+      1211033706,
+      379763658,
+      535386131,
+      764890771
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 107,
+    "components": 1892,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59766530,
+    "operator_csr_visits": 245871206,
+    "operator_live_visits": 201197307,
+    "component_updates": 106007,
+    "phase_cycles": [
+      1947303757,
+      2078617434,
+      82719765,
+      3069436897,
+      372699466,
+      2092110534,
+      889130088,
+      727812,
+      10532745753
+    ],
+    "precondition_cycles": [
+      1197590425,
+      452853710,
+      538736471,
+      766728899
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 108,
+    "components": 1898,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59633277,
+    "operator_csr_visits": 245333733,
+    "operator_live_visits": 200781032,
+    "component_updates": 106320,
+    "phase_cycles": [
+      1958180290,
+      2066184188,
+      82074628,
+      3064828677,
+      370774178,
+      2079285494,
+      879798491,
+      738503,
+      10501864449
+    ],
+    "precondition_cycles": [
+      1188989382,
+      471339639,
+      532987713,
+      758523899
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 109,
+    "components": 1903,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59653441,
+    "operator_csr_visits": 245434813,
+    "operator_live_visits": 200807833,
+    "component_updates": 106536,
+    "phase_cycles": [
+      1959252792,
+      2081593433,
+      83181295,
+      3082664517,
+      373678662,
+      2090110042,
+      890653236,
+      712114,
+      10561846091
+    ],
+    "precondition_cycles": [
+      1195748415,
+      469331752,
+      538782939,
+      765091286
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 110,
+    "components": 1907,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59614576,
+    "operator_csr_visits": 245268249,
+    "operator_live_visits": 200716141,
+    "component_updates": 106521,
+    "phase_cycles": [
+      1958848854,
+      2079543352,
+      82534719,
+      3078612872,
+      372538959,
+      2083559531,
+      885125089,
+      705720,
+      10541469096
+    ],
+    "precondition_cycles": [
+      1197681481,
+      469483746,
+      535155476,
+      761923419
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 111,
+    "components": 1907,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59555666,
+    "operator_csr_visits": 245027572,
+    "operator_live_visits": 200493229,
+    "component_updates": 106488,
+    "phase_cycles": [
+      1967767338,
+      2066816398,
+      82731702,
+      3070828619,
+      370161524,
+      2072280964,
+      876180846,
+      732481,
+      10507499872
+    ],
+    "precondition_cycles": [
+      1184937642,
+      480537771,
+      532953308,
+      759112366
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 112,
+    "components": 1907,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59615874,
+    "operator_csr_visits": 245274644,
+    "operator_live_visits": 200701494,
+    "component_updates": 106561,
+    "phase_cycles": [
+      1971103845,
+      2074153843,
+      82668653,
+      3085104826,
+      371584884,
+      2078076992,
+      885382277,
+      745045,
+      10548820365
+    ],
+    "precondition_cycles": [
+      1193068950,
+      478911435,
+      537220500,
+      762354741
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 113,
+    "components": 1908,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59686004,
+    "operator_csr_visits": 245567750,
+    "operator_live_visits": 200952133,
+    "component_updates": 106654,
+    "phase_cycles": [
+      1967199936,
+      2074105854,
+      83204640,
+      3082503015,
+      372001842,
+      2083186484,
+      885364288,
+      720924,
+      10548286983
+    ],
+    "precondition_cycles": [
+      1193699124,
+      477327333,
+      535566846,
+      761973619
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 114,
+    "components": 1909,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59545969,
+    "operator_csr_visits": 244991775,
+    "operator_live_visits": 200489305,
+    "component_updates": 106464,
+    "phase_cycles": [
+      1972512930,
+      2062280354,
+      82562454,
+      3086146020,
+      370076618,
+      2067730335,
+      885174627,
+      697380,
+      10527180718
+    ],
+    "precondition_cycles": [
+      1188666391,
+      481257322,
+      537139350,
+      765437329
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 115,
+    "components": 1909,
+    "unmeasured_components": 0,
+    "operator_node_visits": 54658786,
+    "operator_csr_visits": 224883687,
+    "operator_live_visits": 183976931,
+    "component_updates": 98310,
+    "phase_cycles": [
+      1653768221,
+      1906661152,
+      76856752,
+      2846891467,
+      342608583,
+      1924492975,
+      813524263,
+      720304,
+      9565523717
+    ],
+    "precondition_cycles": [
+      1099022732,
+      454262828,
+      490917983,
+      697369766
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 116,
+    "components": 1909,
+    "unmeasured_components": 0,
+    "operator_node_visits": 54186580,
+    "operator_csr_visits": 222941895,
+    "operator_live_visits": 182356869,
+    "component_updates": 97542,
+    "phase_cycles": [
+      1639369923,
+      1891745699,
+      75429699,
+      2815955720,
+      338771650,
+      1896340835,
+      801551384,
+      747814,
+      9459912724
+    ],
+    "precondition_cycles": [
+      1084068060,
+      453983404,
+      485260575,
+      688713177
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 117,
+    "components": 1909,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53601560,
+    "operator_csr_visits": 220539683,
+    "operator_live_visits": 180383753,
+    "component_updates": 96573,
+    "phase_cycles": [
+      1627871691,
+      1878396128,
+      75055192,
+      2799752178,
+      334835994,
+      1878976143,
+      801607162,
+      715064,
+      9397209552
+    ],
+    "precondition_cycles": [
+      1076415685,
+      449347006,
+      484829389,
+      686312509
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 118,
+    "components": 1910,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59472170,
+    "operator_csr_visits": 244689266,
+    "operator_live_visits": 200235805,
+    "component_updates": 106335,
+    "phase_cycles": [
+      1967793087,
+      2064911048,
+      82464243,
+      3082165752,
+      370303329,
+      2070801899,
+      885252119,
+      734579,
+      10524426056
+    ],
+    "precondition_cycles": [
+      1193881624,
+      475424778,
+      537522993,
+      761548355
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 119,
+    "components": 1910,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53846844,
+    "operator_csr_visits": 221550984,
+    "operator_live_visits": 181182935,
+    "component_updates": 96897,
+    "phase_cycles": [
+      1630575041,
+      1889695972,
+      75431915,
+      2809517952,
+      338441904,
+      1892407434,
+      806716825,
+      728380,
+      9443515423
+    ],
+    "precondition_cycles": [
+      1081500592,
+      446401040,
+      487903972,
+      690508294
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 120,
+    "components": 1910,
+    "unmeasured_components": 0,
+    "operator_node_visits": 54053924,
+    "operator_csr_visits": 222396714,
+    "operator_live_visits": 181935631,
+    "component_updates": 97191,
+    "phase_cycles": [
+      1646094442,
+      1899870305,
+      76136382,
+      2826684771,
+      340406696,
+      1914702417,
+      808630341,
+      728716,
+      9513254070
+    ],
+    "precondition_cycles": [
+      1094875644,
+      444479181,
+      490411604,
+      692024548
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 121,
+    "components": 1911,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59501644,
+    "operator_csr_visits": 244810398,
+    "operator_live_visits": 200356879,
+    "component_updates": 106346,
+    "phase_cycles": [
+      1968392654,
+      2075011901,
+      82900638,
+      3081798177,
+      370969819,
+      2072866446,
+      882446756,
+      696030,
+      10535082421
+    ],
+    "precondition_cycles": [
+      1192468213,
+      477166945,
+      535151158,
+      762713808
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 122,
+    "components": 1913,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59544109,
+    "operator_csr_visits": 244987014,
+    "operator_live_visits": 200499227,
+    "component_updates": 106438,
+    "phase_cycles": [
+      1968668011,
+      2071640622,
+      82587264,
+      3084832569,
+      371932564,
+      2074600257,
+      885667475,
+      748548,
+      10540677310
+    ],
+    "precondition_cycles": [
+      1195126104,
+      474730811,
+      538717378,
+      762641596
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 123,
+    "components": 1913,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53894608,
+    "operator_csr_visits": 221749374,
+    "operator_live_visits": 181412155,
+    "component_updates": 96946,
+    "phase_cycles": [
+      1640821506,
+      1893695341,
+      76056882,
+      2812393148,
+      338988594,
+      1897763538,
+      804625243,
+      743189,
+      9465087441
+    ],
+    "precondition_cycles": [
+      1082337706,
+      448815186,
+      486596121,
+      690174021
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 124,
+    "components": 1913,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53857310,
+    "operator_csr_visits": 221594999,
+    "operator_live_visits": 181282003,
+    "component_updates": 96881,
+    "phase_cycles": [
+      1638115314,
+      1882170897,
+      75067214,
+      2814540281,
+      337235480,
+      1887656380,
+      805078658,
+      719740,
+      9440583964
+    ],
+    "precondition_cycles": [
+      1079964189,
+      452690965,
+      487056491,
+      691189214
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 125,
+    "components": 1913,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53172172,
+    "operator_csr_visits": 218778833,
+    "operator_live_visits": 178959944,
+    "component_updates": 95746,
+    "phase_cycles": [
+      1621464650,
+      1862705810,
+      75134869,
+      2774123344,
+      334616343,
+      1869928491,
+      789157737,
+      725813,
+      9327857057
+    ],
+    "precondition_cycles": [
+      1065563733,
+      448286066,
+      477576069,
+      680326614
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 126,
+    "components": 1914,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59612713,
+    "operator_csr_visits": 245270542,
+    "operator_live_visits": 200728816,
+    "component_updates": 106534,
+    "phase_cycles": [
+      1965861310,
+      2081866887,
+      82998433,
+      3080149879,
+      371188468,
+      2082175206,
+      883720045,
+      701853,
+      10548662081
+    ],
+    "precondition_cycles": [
+      1193845060,
+      476194106,
+      533570777,
+      762581816
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 127,
+    "components": 1914,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53675790,
+    "operator_csr_visits": 220844105,
+    "operator_live_visits": 180736616,
+    "component_updates": 96464,
+    "phase_cycles": [
+      1630294811,
+      1889834977,
+      75519343,
+      2810440262,
+      338438371,
+      1894224733,
+      807180291,
+      716959,
+      9446649747
+    ],
+    "precondition_cycles": [
+      1082287672,
+      442238889,
+      489213562,
+      692459141
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 128,
+    "components": 1914,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53549883,
+    "operator_csr_visits": 220332084,
+    "operator_live_visits": 180263498,
+    "component_updates": 96292,
+    "phase_cycles": [
+      1633890366,
+      1887686193,
+      75909843,
+      2805397307,
+      337513126,
+      1887360623,
+      804686584,
+      724168,
+      9433168210
+    ],
+    "precondition_cycles": [
+      1080666602,
+      446375457,
+      485512766,
+      688845304
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 129,
+    "components": 1916,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59563574,
+    "operator_csr_visits": 245068679,
+    "operator_live_visits": 200558637,
+    "component_updates": 106468,
+    "phase_cycles": [
+      1967634528,
+      2082127254,
+      83049382,
+      3078991223,
+      371115004,
+      2085544030,
+      879256232,
+      718031,
+      10548435684
+    ],
+    "precondition_cycles": [
+      1191464526,
+      477366857,
+      533735135,
+      761750003
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 130,
+    "components": 1917,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59445203,
+    "operator_csr_visits": 244583073,
+    "operator_live_visits": 200158597,
+    "component_updates": 106280,
+    "phase_cycles": [
+      1961925715,
+      2069877018,
+      82144259,
+      3064933337,
+      370093420,
+      2073216623,
+      880657639,
+      719352,
+      10503567363
+    ],
+    "precondition_cycles": [
+      1188012824,
+      473998420,
+      532623893,
+      757400251
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 131,
+    "components": 1917,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59445678,
+    "operator_csr_visits": 244585075,
+    "operator_live_visits": 200174618,
+    "component_updates": 106240,
+    "phase_cycles": [
+      1970511713,
+      2057735726,
+      82346460,
+      3067704169,
+      370669758,
+      2063744153,
+      876736428,
+      728780,
+      10490177187
+    ],
+    "precondition_cycles": [
+      1186694591,
+      477842908,
+      532500301,
+      757565853
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 132,
+    "components": 1917,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53507994,
+    "operator_csr_visits": 220162863,
+    "operator_live_visits": 180109358,
+    "component_updates": 96252,
+    "phase_cycles": [
+      1617072947,
+      1866879065,
+      74663390,
+      2777187547,
+      333500612,
+      1871748849,
+      790283963,
+      694778,
+      9332031151
+    ],
+    "precondition_cycles": [
+      1069014809,
+      444463667,
+      479323963,
+      681712842
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 133,
+    "components": 1919,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59526816,
+    "operator_csr_visits": 244920012,
+    "operator_live_visits": 200443388,
+    "component_updates": 106356,
+    "phase_cycles": [
+      1970681612,
+      2071400228,
+      82736324,
+      3077948118,
+      370875568,
+      2077064689,
+      888052546,
+      707736,
+      10539466821
+    ],
+    "precondition_cycles": [
+      1192561891,
+      472005956,
+      537628316,
+      761764362
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 134,
+    "components": 1923,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59516935,
+    "operator_csr_visits": 244877042,
+    "operator_live_visits": 200424435,
+    "component_updates": 106359,
+    "phase_cycles": [
+      1964262337,
+      2061299146,
+      82224391,
+      3062417578,
+      368962812,
+      2063775031,
+      875490987,
+      703342,
+      10479135624
+    ],
+    "precondition_cycles": [
+      1184222404,
+      475852903,
+      530245888,
+      759267957
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 135,
+    "components": 1927,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59556732,
+    "operator_csr_visits": 245045216,
+    "operator_live_visits": 200557735,
+    "component_updates": 106490,
+    "phase_cycles": [
+      1965770221,
+      2071869875,
+      82679241,
+      3072033353,
+      369286158,
+      2071327270,
+      882862865,
+      692247,
+      10516521230
+    ],
+    "precondition_cycles": [
+      1189752997,
+      474709597,
+      534202820,
+      760375571
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 136,
+    "components": 1929,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59468925,
+    "operator_csr_visits": 244688028,
+    "operator_live_visits": 200244202,
+    "component_updates": 106368,
+    "phase_cycles": [
+      1957887057,
+      2076903856,
+      83064016,
+      3056817542,
+      369292792,
+      2086993489,
+      876925714,
+      696660,
+      10508581126
+    ],
+    "precondition_cycles": [
+      1187162475,
+      472578189,
+      529429361,
+      754933381
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 137,
+    "components": 1929,
+    "unmeasured_components": 0,
+    "operator_node_visits": 53705910,
+    "operator_csr_visits": 220981666,
+    "operator_live_visits": 180784883,
+    "component_updates": 96501,
+    "phase_cycles": [
+      1633864386,
+      1876547501,
+      75214681,
+      2795302360,
+      334796713,
+      1871928646,
+      798203866,
+      734010,
+      9386592163
+    ],
+    "precondition_cycles": [
+      1076755221,
+      444241241,
+      484249281,
+      687056825
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 138,
+    "components": 1931,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59547946,
+    "operator_csr_visits": 245012212,
+    "operator_live_visits": 200517025,
+    "component_updates": 106573,
+    "phase_cycles": [
+      1966688506,
+      2071942965,
+      82571208,
+      3078146389,
+      369353716,
+      2072676550,
+      880371321,
+      718929,
+      10522469584
+    ],
+    "precondition_cycles": [
+      1190466402,
+      478067649,
+      534773304,
+      760970784
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 139,
+    "components": 1934,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59488778,
+    "operator_csr_visits": 244768863,
+    "operator_live_visits": 200341525,
+    "component_updates": 106475,
+    "phase_cycles": [
+      1973585332,
+      2079537937,
+      83062882,
+      3085024344,
+      372104300,
+      2085141705,
+      883774906,
+      716033,
+      10562947439
+    ],
+    "precondition_cycles": [
+      1194789893,
+      478830143,
+      535175966,
+      761617243
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 140,
+    "components": 1937,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59248978,
+    "operator_csr_visits": 243790004,
+    "operator_live_visits": 199529307,
+    "component_updates": 106208,
+    "phase_cycles": [
+      1965973115,
+      2046309157,
+      82032445,
+      3061740944,
+      366825468,
+      2051558188,
+      875739185,
+      725181,
+      10450903683
+    ],
+    "precondition_cycles": [
+      1180201153,
+      481761083,
+      531940847,
+      754796771
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 141,
+    "components": 1939,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59288327,
+    "operator_csr_visits": 243952697,
+    "operator_live_visits": 199681372,
+    "component_updates": 106268,
+    "phase_cycles": [
+      1973563057,
+      2054863643,
+      82625133,
+      3071988144,
+      368738529,
+      2067396871,
+      882988855,
+      740777,
+      10502905009
+    ],
+    "precondition_cycles": [
+      1187754796,
+      481221995,
+      532435018,
+      757343003
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 142,
+    "components": 1941,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59188903,
+    "operator_csr_visits": 243544237,
+    "operator_live_visits": 199338253,
+    "component_updates": 106144,
+    "phase_cycles": [
+      1969945057,
+      2054085840,
+      82026406,
+      3071784829,
+      366754810,
+      2059106071,
+      879719648,
+      726434,
+      10484149095
+    ],
+    "precondition_cycles": [
+      1184616105,
+      481394556,
+      535494836,
+      756810392
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 143,
+    "components": 1947,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59141378,
+    "operator_csr_visits": 243349361,
+    "operator_live_visits": 199185581,
+    "component_updates": 106138,
+    "phase_cycles": [
+      1964082277,
+      2057827502,
+      82124911,
+      3063813237,
+      367792479,
+      2061397984,
+      879474088,
+      750935,
+      10477263413
+    ],
+    "precondition_cycles": [
+      1179857899,
+      480185795,
+      532697415,
+      757824472
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 144,
+    "components": 1950,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59193185,
+    "operator_csr_visits": 243564462,
+    "operator_live_visits": 199354997,
+    "component_updates": 106241,
+    "phase_cycles": [
+      1965131316,
+      2067159738,
+      82226055,
+      3071456326,
+      367295970,
+      2069183360,
+      878740602,
+      722615,
+      10501915982
+    ],
+    "precondition_cycles": [
+      1185224760,
+      479005462,
+      535394541,
+      758619987
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 145,
+    "components": 1952,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59194816,
+    "operator_csr_visits": 243571598,
+    "operator_live_visits": 199373330,
+    "component_updates": 106238,
+    "phase_cycles": [
+      1957990076,
+      2069435101,
+      82649432,
+      3069553727,
+      368670841,
+      2075013350,
+      881378476,
+      744260,
+      10505435263
+    ],
+    "precondition_cycles": [
+      1182399985,
+      477716967,
+      534058179,
+      761432302
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 146,
+    "components": 1954,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59031939,
+    "operator_csr_visits": 242903677,
+    "operator_live_visits": 198810333,
+    "component_updates": 106060,
+    "phase_cycles": [
+      1967359872,
+      2062454942,
+      82865806,
+      3053185553,
+      367394958,
+      2066474602,
+      871433678,
+      719468,
+      10471888879
+    ],
+    "precondition_cycles": [
+      1177018596,
+      483877955,
+      527533624,
+      752060296
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 147,
+    "components": 1958,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58999793,
+    "operator_csr_visits": 242775048,
+    "operator_live_visits": 198731937,
+    "component_updates": 106012,
+    "phase_cycles": [
+      1972199247,
+      2055528869,
+      81704874,
+      3069099203,
+      366714824,
+      2053001533,
+      879268531,
+      739614,
+      10478256695
+    ],
+    "precondition_cycles": [
+      1183154072,
+      485640523,
+      532842414,
+      754990925
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 148,
+    "components": 1959,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59106609,
+    "operator_csr_visits": 243218112,
+    "operator_live_visits": 199053417,
+    "component_updates": 106209,
+    "phase_cycles": [
+      1963375080,
+      2057233691,
+      82735302,
+      3063699525,
+      367996489,
+      2063690843,
+      875589489,
+      765955,
+      10475086374
+    ],
+    "precondition_cycles": [
+      1183856672,
+      481822265,
+      529716085,
+      755002764
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 149,
+    "components": 1964,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59034110,
+    "operator_csr_visits": 242925335,
+    "operator_live_visits": 198834022,
+    "component_updates": 106166,
+    "phase_cycles": [
+      1977519347,
+      2042581532,
+      82379132,
+      3070023918,
+      366094267,
+      2045537539,
+      876325109,
+      727835,
+      10461188679
+    ],
+    "precondition_cycles": [
+      1178193186,
+      489771806,
+      532088453,
+      757662955
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 150,
+    "components": 1975,
+    "unmeasured_components": 0,
+    "operator_node_visits": 59029503,
+    "operator_csr_visits": 242919670,
+    "operator_live_visits": 198789177,
+    "component_updates": 106352,
+    "phase_cycles": [
+      1969541740,
+      2046617185,
+      82255008,
+      3066413388,
+      365452249,
+      2051655788,
+      875162752,
+      748593,
+      10457846703
+    ],
+    "precondition_cycles": [
+      1179427705,
+      487326496,
+      532039129,
+      754596709
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 151,
+    "components": 1983,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58869388,
+    "operator_csr_visits": 242267264,
+    "operator_live_visits": 198251055,
+    "component_updates": 106196,
+    "phase_cycles": [
+      1965688993,
+      2038435761,
+      82096796,
+      3053893582,
+      364376499,
+      2042391123,
+      871248441,
+      729778,
+      10418860973
+    ],
+    "precondition_cycles": [
+      1171816767,
+      486946850,
+      529586346,
+      752857555
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 152,
+    "components": 1991,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58946007,
+    "operator_csr_visits": 242584992,
+    "operator_live_visits": 198506703,
+    "component_updates": 106339,
+    "phase_cycles": [
+      1961504859,
+      2077375927,
+      82865492,
+      3075471013,
+      367794981,
+      2075407697,
+      883794941,
+      693231,
+      10524908141
+    ],
+    "precondition_cycles": [
+      1187262917,
+      478184147,
+      535280675,
+      760662999
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 153,
+    "components": 1995,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58881696,
+    "operator_csr_visits": 242324332,
+    "operator_live_visits": 198304646,
+    "component_updates": 106269,
+    "phase_cycles": [
+      1985572335,
+      2044975719,
+      82383439,
+      3066439659,
+      363930633,
+      2038758525,
+      873405867,
+      711796,
+      10456177973
+    ],
+    "precondition_cycles": [
+      1174236565,
+      494886061,
+      529683581,
+      755034424
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 154,
+    "components": 2004,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58745870,
+    "operator_csr_visits": 241779810,
+    "operator_live_visits": 197841653,
+    "component_updates": 106196,
+    "phase_cycles": [
+      1966925250,
+      2055880571,
+      82059554,
+      3059491710,
+      364446874,
+      2054410778,
+      873903909,
+      702181,
+      10457820827
+    ],
+    "precondition_cycles": [
+      1172195813,
+      489790046,
+      530004195,
+      754621004
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 155,
+    "components": 2011,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58716503,
+    "operator_csr_visits": 241661056,
+    "operator_live_visits": 197801064,
+    "component_updates": 106228,
+    "phase_cycles": [
+      1974718840,
+      2059503776,
+      82493107,
+      3071785608,
+      365657893,
+      2059358352,
+      880736139,
+      692044,
+      10494945759
+    ],
+    "precondition_cycles": [
+      1182151674,
+      487885863,
+      533400907,
+      755011670
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 156,
+    "components": 2016,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58696912,
+    "operator_csr_visits": 241591062,
+    "operator_live_visits": 197731713,
+    "component_updates": 106368,
+    "phase_cycles": [
+      1975165910,
+      2045671122,
+      82177110,
+      3053836205,
+      363943632,
+      2043839443,
+      867058205,
+      700982,
+      10432392609
+    ],
+    "precondition_cycles": [
+      1168916222,
+      496905794,
+      526490604,
+      748638640
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 157,
+    "components": 2032,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58606052,
+    "operator_csr_visits": 241226136,
+    "operator_live_visits": 197428683,
+    "component_updates": 106337,
+    "phase_cycles": [
+      1977686647,
+      2051064719,
+      82448181,
+      3062429016,
+      363918583,
+      2044119432,
+      874309347,
+      692679,
+      10456668604
+    ],
+    "precondition_cycles": [
+      1171876017,
+      494916046,
+      530380685,
+      752160264
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 158,
+    "components": 2035,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58581257,
+    "operator_csr_visits": 241127306,
+    "operator_live_visits": 197342000,
+    "component_updates": 106367,
+    "phase_cycles": [
+      1981179799,
+      2056104709,
+      81958079,
+      3068117249,
+      363443926,
+      2047398302,
+      876830836,
+      706338,
+      10475739238
+    ],
+    "precondition_cycles": [
+      1174709311,
+      496046369,
+      531675148,
+      752949225
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 159,
+    "components": 2049,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58598607,
+    "operator_csr_visits": 241206768,
+    "operator_live_visits": 197419130,
+    "component_updates": 106527,
+    "phase_cycles": [
+      1982130051,
+      2052001896,
+      81524864,
+      3066090044,
+      362846325,
+      2050363008,
+      875464372,
+      759787,
+      10471180347
+    ],
+    "precondition_cycles": [
+      1171759004,
+      497007547,
+      533222968,
+      751676482
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 160,
+    "components": 2052,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58484112,
+    "operator_csr_visits": 240738012,
+    "operator_live_visits": 197045836,
+    "component_updates": 106459,
+    "phase_cycles": [
+      1982713411,
+      2038145786,
+      81980950,
+      3068791345,
+      362220658,
+      2040728434,
+      873985597,
+      714713,
+      10449280894
+    ],
+    "precondition_cycles": [
+      1170001000,
+      499794832,
+      532239760,
+      753343137
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 161,
+    "components": 2066,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58534598,
+    "operator_csr_visits": 240956677,
+    "operator_live_visits": 197179030,
+    "component_updates": 106632,
+    "phase_cycles": [
+      1988469386,
+      2046438831,
+      81735368,
+      3066884229,
+      364246093,
+      2048053946,
+      874851393,
+      737615,
+      10471416861
+    ],
+    "precondition_cycles": [
+      1171777697,
+      498556683,
+      531844956,
+      752307478
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 162,
+    "components": 2067,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58419350,
+    "operator_csr_visits": 240480714,
+    "operator_live_visits": 196785046,
+    "component_updates": 106517,
+    "phase_cycles": [
+      1980576822,
+      2035357130,
+      81679131,
+      3050322746,
+      360710536,
+      2024935874,
+      868815648,
+      734570,
+      10403132457
+    ],
+    "precondition_cycles": [
+      1159289013,
+      503409423,
+      527035496,
+      748638057
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 163,
+    "components": 2069,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58523157,
+    "operator_csr_visits": 240910088,
+    "operator_live_visits": 197125231,
+    "component_updates": 106721,
+    "phase_cycles": [
+      1993317921,
+      2035636375,
+      82368932,
+      3063803064,
+      361710659,
+      2032016875,
+      867178238,
+      726908,
+      10436758972
+    ],
+    "precondition_cycles": [
+      1167037995,
+      509636673,
+      526294594,
+      748498537
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 164,
+    "components": 2073,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58513402,
+    "operator_csr_visits": 240871246,
+    "operator_live_visits": 197105533,
+    "component_updates": 106804,
+    "phase_cycles": [
+      1995880696,
+      2028706801,
+      81960313,
+      3076710666,
+      360732020,
+      2028954741,
+      873149603,
+      707429,
+      10446802269
+    ],
+    "precondition_cycles": [
+      1167907184,
+      512002131,
+      530651394,
+      753601066
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 165,
+    "components": 2081,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58478068,
+    "operator_csr_visits": 240729140,
+    "operator_live_visits": 197020253,
+    "component_updates": 106812,
+    "phase_cycles": [
+      1986538866,
+      2041889486,
+      81829263,
+      3060864304,
+      363305084,
+      2042795481,
+      868822400,
+      741411,
+      10446786295
+    ],
+    "precondition_cycles": [
+      1164578572,
+      506989149,
+      527159312,
+      749519903
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 166,
+    "components": 2083,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58425259,
+    "operator_csr_visits": 240514925,
+    "operator_live_visits": 196835618,
+    "component_updates": 106748,
+    "phase_cycles": [
+      1995365413,
+      2035382304,
+      82216458,
+      3066284013,
+      360417605,
+      2029100993,
+      865910975,
+      726911,
+      10435404672
+    ],
+    "precondition_cycles": [
+      1165725511,
+      511384628,
+      526983337,
+      749561171
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 167,
+    "components": 2085,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58401044,
+    "operator_csr_visits": 240415156,
+    "operator_live_visits": 196772294,
+    "component_updates": 106729,
+    "phase_cycles": [
+      1988725503,
+      2046966202,
+      82350507,
+      3071460767,
+      363184619,
+      2044872791,
+      870505617,
+      711998,
+      10468778004
+    ],
+    "precondition_cycles": [
+      1167945511,
+      508295021,
+      529406508,
+      752084391
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 168,
+    "components": 2088,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58404832,
+    "operator_csr_visits": 240436766,
+    "operator_live_visits": 196770501,
+    "component_updates": 106820,
+    "phase_cycles": [
+      1998753061,
+      2026369377,
+      81921950,
+      3059383284,
+      360871175,
+      2027253986,
+      863463092,
+      709911,
+      10418725836
+    ],
+    "precondition_cycles": [
+      1163535101,
+      515402293,
+      525365352,
+      743421279
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 169,
+    "components": 2088,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58455342,
+    "operator_csr_visits": 240645958,
+    "operator_live_visits": 196931458,
+    "component_updates": 106944,
+    "phase_cycles": [
+      1998734534,
+      2027919648,
+      81869341,
+      3062590929,
+      361232018,
+      2025719621,
+      864485501,
+      722994,
+      10423274586
+    ],
+    "precondition_cycles": [
+      1160430300,
+      517679116,
+      525290366,
+      747503565
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 170,
+    "components": 2091,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58467871,
+    "operator_csr_visits": 240698503,
+    "operator_live_visits": 196969209,
+    "component_updates": 106988,
+    "phase_cycles": [
+      2006926227,
+      2028868996,
+      82135756,
+      3066181927,
+      360393510,
+      2020573634,
+      866631296,
+      721216,
+      10432432562
+    ],
+    "precondition_cycles": [
+      1160896565,
+      519292587,
+      527272793,
+      746527551
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 171,
+    "components": 2091,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58433672,
+    "operator_csr_visits": 240557934,
+    "operator_live_visits": 196869463,
+    "component_updates": 106907,
+    "phase_cycles": [
+      1994264916,
+      2059349668,
+      82024894,
+      3070586954,
+      361522424,
+      2043677311,
+      869730748,
+      727530,
+      10481884445
+    ],
+    "precondition_cycles": [
+      1166382082,
+      511986077,
+      528549569,
+      750248977
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 172,
+    "components": 2094,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58318699,
+    "operator_csr_visits": 240087254,
+    "operator_live_visits": 196479954,
+    "component_updates": 106764,
+    "phase_cycles": [
+      1987313342,
+      2055797064,
+      82788357,
+      3060134966,
+      362026997,
+      2048283786,
+      870077156,
+      715629,
+      10467137297
+    ],
+    "precondition_cycles": [
+      1169683323,
+      506780693,
+      525332016,
+      745469675
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 173,
+    "components": 2096,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58385580,
+    "operator_csr_visits": 240364149,
+    "operator_live_visits": 196714389,
+    "component_updates": 106909,
+    "phase_cycles": [
+      2002316751,
+      2035290587,
+      81641253,
+      3068494047,
+      358409883,
+      2023375110,
+      867977383,
+      702751,
+      10438207765
+    ],
+    "precondition_cycles": [
+      1163524061,
+      515241997,
+      528249096,
+      748893311
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 174,
+    "components": 2101,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58402207,
+    "operator_csr_visits": 240436508,
+    "operator_live_visits": 196783640,
+    "component_updates": 106970,
+    "phase_cycles": [
+      1999840712,
+      2046473117,
+      81634184,
+      3087843334,
+      361066865,
+      2033977086,
+      876651731,
+      702048,
+      10488189077
+    ],
+    "precondition_cycles": [
+      1168709560,
+      513595877,
+      536374967,
+      755901887
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 175,
+    "components": 2104,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58357917,
+    "operator_csr_visits": 240256175,
+    "operator_live_visits": 196629481,
+    "component_updates": 106926,
+    "phase_cycles": [
+      1992991519,
+      2037993834,
+      82153296,
+      3067345809,
+      361443765,
+      2030027189,
+      874527461,
+      710400,
+      10447193273
+    ],
+    "precondition_cycles": [
+      1162274937,
+      512377947,
+      529175019,
+      750595625
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 176,
+    "components": 2105,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58374936,
+    "operator_csr_visits": 240326669,
+    "operator_live_visits": 196676500,
+    "component_updates": 106984,
+    "phase_cycles": [
+      2002262307,
+      2058015238,
+      81817722,
+      3088165991,
+      361184134,
+      2040546536,
+      878376250,
+      706867,
+      10511075045
+    ],
+    "precondition_cycles": [
+      1172862646,
+      512089003,
+      534377298,
+      755653979
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 177,
+    "components": 2110,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58243608,
+    "operator_csr_visits": 239792434,
+    "operator_live_visits": 196255716,
+    "component_updates": 106823,
+    "phase_cycles": [
+      1999505638,
+      2055373550,
+      82185518,
+      3074520236,
+      362311945,
+      2041160546,
+      872785988,
+      753271,
+      10488596692
+    ],
+    "precondition_cycles": [
+      1168749393,
+      512767568,
+      529887757,
+      749389302
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 178,
+    "components": 2111,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58281632,
+    "operator_csr_visits": 239948921,
+    "operator_live_visits": 196356222,
+    "component_updates": 106911,
+    "phase_cycles": [
+      2002435776,
+      2044444133,
+      82453538,
+      3078988115,
+      362769298,
+      2041830645,
+      875508004,
+      705522,
+      10489135031
+    ],
+    "precondition_cycles": [
+      1168869644,
+      514922425,
+      531137902,
+      751372612
+    ]
+  },
+  {
+    "record": "total",
+    "solve": 179,
+    "components": 2115,
+    "unmeasured_components": 0,
+    "operator_node_visits": 58332642,
+    "operator_csr_visits": 240160997,
+    "operator_live_visits": 196556074,
+    "component_updates": 107007,
+    "phase_cycles": [
+      1992894540,
+      2053449752,
+      81855645,
+      3072445064,
+      360671364,
+      2041964062,
+      869504048,
+      730474,
+      10473514949
+    ],
+    "precondition_cycles": [
+      1165666655,
+      513699492,
+      529867637,
+      750186066
+    ]
+  }
+]

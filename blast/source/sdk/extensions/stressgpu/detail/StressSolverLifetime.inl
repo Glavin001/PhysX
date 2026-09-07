@@ -55,6 +55,9 @@ uploadIslands();
     {
         ContextGuard context(m_cudaContext);
         cudaStreamSynchronize(m_stream);
+#ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
+        m_workCapture.reset();
+#endif
         delete m_deviceTopology;
         if (m_graphExec)
         {

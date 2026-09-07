@@ -37,3 +37,26 @@ target_link_libraries(PhysXDestructionGpuRuntime PRIVATE CUDA::cudart_static CUD
 if(UNIX AND NOT APPLE)
     target_link_options(PhysXDestructionGpuRuntime PRIVATE "-Wl,-Bsymbolic" "-Wl,--exclude-libs,ALL")
 endif()
+
+# Isolated diagnostic implementation. Never replaces the production output and
+# is excluded from default builds. The capture process explicitly selects it.
+get_target_property(DESTRUCTION_DIAGNOSTIC_SOURCES PhysXDestructionGpuRuntime SOURCES)
+add_library(PhysXDestructionGpuWorkDiagnostic SHARED EXCLUDE_FROM_ALL ${DESTRUCTION_DIAGNOSTIC_SOURCES})
+foreach(property INCLUDE_DIRECTORIES COMPILE_DEFINITIONS CUDA_STANDARD CUDA_STANDARD_REQUIRED
+        CUDA_RUNTIME_LIBRARY CUDA_ARCHITECTURES CXX_VISIBILITY_PRESET CUDA_VISIBILITY_PRESET
+        VISIBILITY_INLINES_HIDDEN POSITION_INDEPENDENT_CODE LINK_LIBRARIES LINK_OPTIONS)
+    get_target_property(value PhysXDestructionGpuRuntime ${property})
+    if(NOT value STREQUAL "value-NOTFOUND")
+        set_property(TARGET PhysXDestructionGpuWorkDiagnostic PROPERTY ${property} "${value}")
+    endif()
+endforeach()
+target_compile_definitions(PhysXDestructionGpuWorkDiagnostic PRIVATE
+    BLAST_GPU_COMPONENT_PHASE_PROBE BLAST_GPU_COMPONENT_WORK_CAPTURE)
+get_target_property(diagnostic_name PhysXDestructionGpuRuntime OUTPUT_NAME)
+if(diagnostic_name STREQUAL "diagnostic_name-NOTFOUND")
+    set(diagnostic_name PhysXDestructionGpuRuntime)
+endif()
+set_target_properties(PhysXDestructionGpuWorkDiagnostic PROPERTIES
+    OUTPUT_NAME "${diagnostic_name}"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/diagnostics/component-work"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/diagnostics/component-work")

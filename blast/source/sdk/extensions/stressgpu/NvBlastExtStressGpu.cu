@@ -745,6 +745,7 @@ struct IslandReductionOrder
 
 #include "detail/StressResidentIteration.cuh"
 #include "detail/StressComponentIteration.cuh"
+#include "detail/StressComponentWorkCapture.cuh"
 class ExtStressGpuSolverImpl final : public ExtStressGpuSolver
 {
 public:
@@ -4236,6 +4237,9 @@ private:
     std::uint32_t m_nodeCount;
     std::uint32_t m_bondCount;
     CUcontext m_cudaContext{nullptr};
+#ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
+    std::unique_ptr<ComponentWorkCapture> m_workCapture;
+#endif
     DeviceStressTopology* m_deviceTopology{nullptr};
     bool m_deviceTopologyFailed{false};
     float m_massScale{1.0f};

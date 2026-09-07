@@ -1,0 +1,5 @@
+========= COMPUTE-SANITIZER
+native t=0.0 chunks=444 bonds=896 clusters=1 shots=1 broken=0 corrections=0 step=190.38ms
+native t=1.0 chunks=444 bonds=896 clusters=1 shots=1 broken=0 corrections=0 step=49.63ms
+native t=2.0 chunks=444 bonds=896 clusters=41 shots=1 broken=192 corrections=5 step=324.33ms
+========= ERROR SUMMARY: 0 errors
