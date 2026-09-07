@@ -37,10 +37,12 @@ __device__ bool correctionMotion(const PxDestructionClusterBodyState& candidate,
 __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState* candidates,const PxU32* targets,
     PxU32 chunkCount,PxDestructionTopologyDeviceView topology,const PxDestructionStressChunk* chunks,
     const PxU32* affected,const PxgBodySim* checkpoint,const PxgBodySimVelocities* previous,PxU32 checkpointCount,PxU32 bodyCapacity,
+    const PxDestructionCollisionPreparationStatus* collision,
     PxDestructionCorrectionBody* output,PxDestructionCorrectionPreparationStatus* status) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=chunkCount)return;
     output[i]={};output[i].targetBody=PX_INVALID_U32;
-    if(i>=topology.status->clusterCount)return;
+    // Always overwrite the compaction sentinel, including a rejected prerequisite.
+    if(!collision->valid || i>=topology.status->clusterCount)return;
     const auto candidate=candidates[i];
     if(candidate.cluster>=chunkCount || topology.activeClusters[i]!=candidate.cluster){atomicOr(&status->error,2u);return;}
     if(!affected[chunks[candidate.cluster].cluster])return;
@@ -59,8 +61,9 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
     output[i].targetBody=targets[i];
 }
 __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* clusters,const PxU32* affected,PxU32 count,
-    const PxgBodySim* checkpoint,PxU32 checkpointCount,PxDestructionCorrectionPreparationStatus* status) {
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count || !affected[i])return;
+    const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxDestructionCollisionPreparationStatus* collision,
+    PxDestructionCorrectionPreparationStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(!collision->valid || i>=count || !affected[i])return;
     const PxU32 id=clusters[i].body;if(id>=checkpointCount){atomicOr(&status->error,1u);return;}
     const auto body=checkpoint[id];const auto a=body.externalLinearAcceleration,b=body.externalAngularAcceleration;
     if(!isfinite(a.x) || !isfinite(a.y) || !isfinite(a.z) || !isfinite(b.x) || !isfinite(b.y) || !isfinite(b.z))
@@ -73,6 +76,10 @@ struct HasCorrectionBody {
 __global__ void finishCorrectionPreparation(PxDestructionCorrectionPreparationStatus* correction,
     const PxDestructionCollisionPreparationStatus* collision,PxU64 checkpointGeneration,PxDestructionStageStatus* stage) {
     correction->generation=collision->generation;correction->checkpointGeneration=checkpointGeneration;
+    if(!collision->valid) {
+        correction->error|=32u;correction->valid=0;
+        return; // The collision stage already reported the originating error.
+    }
     correction->valid=!correction->error;
     if(correction->error)stage->error|=2048u;
 }

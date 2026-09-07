@@ -1,5 +1,5 @@
 // Native fracture verdict -> pre-solve correction inputs -> private GPU body
-// installation. Shape/island commit and a complete internal resim remain open.
+// installation. This fixture stops before the separately tested internal resim.
 #include "../physx_scene.h"
 #include "NpScene.h"
 #include "PxgSimulationController.h"
@@ -24,7 +24,7 @@ PxVec3 vec(float4 p){return PxVec3(p.x,p.y,p.z);}
 PxQuat quat(const float* p){return PxQuat(p[0],p[1],p[2],p[3]);}
 template<class T> std::vector<T> read(const T* ptr,unsigned count){std::vector<T> out(count);if(count)check(cuMemcpyDtoH(out.data(),CUdeviceptr(ptr),count*sizeof(T)));return out;}
 void step(PxScene& scene){scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"ordinary step failed");}
-void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,bool invalidCheckpoint=false) {
+void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,bool invalidCheckpoint=false,bool invalidCollision=false) {
     blast_demo::SceneCapacity capacity;blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,sleeping,sleeping,solver,accelerations);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();auto& internal=static_cast<NpScene&>(scene);
     auto& controller=*static_cast<PxgSimulationController*>(internal.getScScene().getSimulationController());auto& core=*controller.getSimulationCore();
@@ -80,10 +80,28 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
     }
     near(momentum,oldV*5,"correction linear momentum changed");near(angularMomentum,oldWorld.q.rotate(parentMoments.multiply(oldWorld.q.rotateInv(oldW))),"correction angular momentum changed");
     require((before[parentId].body2World.getTransform().p-oldWorld.p).magnitude()>.01f,"fixture did not advance trial motion");
-    if(invalidCheckpoint) {
+    if(invalidCollision) {
+        // A previously valid batch has populated the compaction storage. Reject
+        // its device prerequisite without changing the stale host observation.
+        PxScopedCudaLock lock(cuda);
+        auto collision=read(view.collisionPreparation,1)[0];collision.valid=0;collision.error|=2u;
+        auto stage=runtime->getLastStatus();stage.error|=1024u;
+        check(cuMemcpyHtoD(CUdeviceptr(view.collisionPreparation),&collision,sizeof(collision)));
+        check(cuMemcpyHtoD(CUdeviceptr(view.status),&stage,sizeof(stage)));
+        require(runtime->prepareCorrectionBodies(controller.getBodySimManager().mTotalNumBodies,core.getStream()),"device-gated correction submission failed");
+        require(!runtime->completeCorrectionPreparation(),"invalid device prerequisite accepted through stale host observation");
+        check(cuEventSynchronize(runtime->getDeviceView().readyEvent));
+        const auto rejected=read(view.correctionPreparation,1)[0];
+        require(!rejected.valid && (rejected.error&32u) && !rejected.count && !rejected.loadedSources,
+            "invalid collision prerequisite retained stale correction records");
+        require(runtime->getLastStatus().error==(8u|1024u),"collision failure lost originating error");
+        const auto actual=read(core.getBodySimBufferDevicePtr().getPointer(),unsigned(before.size()));
+        require(!std::memcmp(actual.data(),before.data(),actual.size()*sizeof(PxgBodySim)),"prerequisite rejection changed native motion");
+    } else if(invalidCheckpoint) {
         PxScopedCudaLock lock(cuda);auto corrupted=source;corrupted.body2World.p.x=std::numeric_limits<float>::quiet_NaN();
         check(cuMemcpyHtoD(CUdeviceptr(checkpoint.bodies+parentId),&corrupted,sizeof(corrupted)));
-        require(!runtime->prepareCorrectionBodies(controller.getBodySimManager().mTotalNumBodies,core.getStream()),"nonfinite checkpoint accepted as correction motion");
+        require(runtime->prepareCorrectionBodies(controller.getBodySimManager().mTotalNumBodies,core.getStream()),"correction validation submission failed");
+        require(!runtime->completeCorrectionPreparation(),"nonfinite checkpoint accepted as correction motion");
         check(cuEventSynchronize(runtime->getDeviceView().readyEvent));const auto rejected=read(view.correctionPreparation,1)[0];
         require(!rejected.valid && (rejected.error&4) && runtime->getLastStatus().error==(8u|2048u),"bad input did not reject the correction batch explicitly");
         const auto actual=read(core.getBodySimBufferDevicePtr().getPointer(),unsigned(before.size()));
@@ -109,7 +127,7 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
     require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3,"private body installation published trial actors");
     {PxScopedCudaLock lock(cuda);const auto accepted=read(view.acceptedTopology.status,1)[0];require(accepted.generation==0 && accepted.clusterCount==2,"private body installation committed topology");require(read(view.bondHealth,1)[0]==1,"private body installation committed damage");}
     require(runtime->clearStress(),"correction cleanup failed");parent->release();quiet->release();ordinary->release();for(auto* shape:shapes)shape->release();require(context.healthy(),"correction fixture GPU health failed");
-    std::printf("native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=%u acceleration=%u solver=%u loaded=%u invalid=%u passed\n",unsigned(sleeping),unsigned(accelerations),unsigned(solver),unsigned(loaded),unsigned(invalidCheckpoint));
+    std::printf("native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=%u acceleration=%u solver=%u loaded=%u invalid=%u invalidCollision=%u passed\n",unsigned(sleeping),unsigned(accelerations),unsigned(solver),unsigned(loaded),unsigned(invalidCheckpoint),unsigned(invalidCollision));
 }
 }
-int main(){try{for(bool sleeping:{false,true})for(bool accelerations:{false,true})for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(sleeping,accelerations,solver,false);run(true,true,PxSolverType::eTGS,true);run(false,false,PxSolverType::eTGS,false,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{for(bool sleeping:{false,true})for(bool accelerations:{false,true})for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(sleeping,accelerations,solver,false);run(true,true,PxSolverType::eTGS,true);run(false,false,PxSolverType::eTGS,false,true);run(false,false,PxSolverType::eTGS,false,false,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

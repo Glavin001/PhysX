@@ -68,8 +68,12 @@ public:
     virtual const PxU32* reservedBodyIndices() const = 0;
     virtual bool initializeReservedBodies(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, CUstream stream) = 0;
+    // Asynchronous submission. GPU verdicts are available through readyEvent;
+    // invalid collision preparation gates corrected-motion preparation on device.
     virtual bool prepareCollisionBindings(const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
     virtual bool prepareCorrectionBodies(PxU32 bodyCapacity, CUstream stream) = 0;
+    // Combined observation at the remaining CPU ownership/completion boundary.
+    virtual bool completeCorrectionPreparation() = 0;
     // Body installation after rigid restore. Island/collision ownership and
     // accepted events remain separate. Unresolved source commands reject before
     // mutation; they must never be cloned indiscriminately onto fragments.

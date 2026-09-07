@@ -12,7 +12,7 @@ PREFIX = "GpuDestruction."
 ALWAYS = {"submit", "finishAndReserve", "collisionBindings", "correctionBodies"}
 CORRECTION = {"applyBindings", "restoreInstall", "correctedCollisionSolve", "refilter", "acceptCorrection"}
 # refilter is nested inside correctedCollisionSolve; never add both to totals.
-INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "resetContactCaches"}
+INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "resetContactCaches", "preparationCompletion"}
 
 
 def require(condition, message):

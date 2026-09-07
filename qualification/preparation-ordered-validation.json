@@ -1,0 +1,55 @@
+{
+  "base_revision": "8a10f061551dc58f8f84d072050eeee974615a9a",
+  "change": "Device-gated collision-to-correction preparation; one combined host verdict observation at the remaining CPU ownership bridge.",
+  "production_math_changes": false,
+  "remaining_cpu_ownership_bridge": true,
+  "focused_ctest": "qualification/preparation-ordered-ctest.log",
+  "quality": "qualification/preparation-ordered-quality.json",
+  "diagnostic_reports": [
+    "qualification/preparation-ordered-before/report.html",
+    "qualification/preparation-ordered-after/report.html",
+    "qualification/preparation-ordered-impacts64/report.html"
+  ],
+  "diagnostic_note": "After-change diagnostic captures precede the final exceptional-error stream-drain hardening; artifact hashes distinguish builds. Normal-path mathematical operations are unchanged.",
+  "source_sha256": {
+    "demos/blast-stress-demo/tests/native_gpu_correction_body_test.cpp": "76d25adb65839026ecb96465ed70515cd3e5d5886b044f206622970e6ac35e2a",
+    "physx/include/PxDestructionTopologyTypes.h": "6289471c968cd2f0069fdd2fd0acaf0e36224086a5cccbba8208078aa70c36b0",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "6155157007580fe77da5c517d8e970135eecba7f5fb5c49cce40e09c49780dbb",
+    "physx/source/gpudestruction/src/PxgDestructionCorrection.cuh": "e06a5f02dc72de3c171e8ecfa8e5e61caadab7944f368b34fb7f3b2ba5e7ae17",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "cada173ed607f3ab2c9d246c2c728ec770f3dee9f029594c09937af25458c475",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "2ca4108a92c8c132003bc071025df3652b8b3dde1ccb09077cd6791194af9bda",
+    "tools/scripts/analyze-native-destruction-phases.py": "5adaf73c0e175be0d67e49c75e1f506576e5dce116dfee61d539a1e61eaffd75",
+    "tools/scripts/report-destruction-timing.py": "0cb02d5adea6a2e11355f1335579353c5d33e0739915813c769a2f72d95a4b71",
+    "tools/scripts/report-native-destruction-phases.py": "da1b4214a090aa872dfd46cdc2656e82320560ad51bc1014b7051240035fb11c",
+    "tools/scripts/report-single-impact-timing.py": "9c768d2738f371a6099b9d4031626774b244f22d92e8d6b9d5f96f489620d638",
+    "tools/scripts/test-destruction-timing.py": "14761dfb4e1a888c9fb2c6b99d17b9a91aba297097b41cef6798c30af76b2e9b",
+    "tools/scripts/test-native-phase-analysis.py": "00d1e22c95362096bf8769b49dcd592faf273ad4562a4912d9dfc625dedc3c1f"
+  },
+  "full_plan_complete": false,
+  "endurance_complete": false,
+  "large_counter_comparison": {
+    "fields": [
+      "step",
+      "bonds_broken",
+      "resim_passes",
+      "logical_clusters"
+    ],
+    "before": "out/scaling-impacts-64/impacts-64-plain-0/native.frames.csv.gz",
+    "after": "out/preparation-ordered-impacts64/impacts-64-plain-0/native.frames.csv.gz",
+    "matches": true,
+    "complete_physical_qualification": false
+  },
+  "final_gate": {
+    "report": "qualification/preparation-ordered-qualified/report.html",
+    "report_sha256": "d4262f6744f55503d8057e2f83901b9426fcbccba42e815e4107e686a1f5ac73",
+    "deadline_pass": true,
+    "duration_pass": true,
+    "runs": 5,
+    "seconds_per_run": 60,
+    "complete_advances": 18000,
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "correction_limit": 1
+  }
+}

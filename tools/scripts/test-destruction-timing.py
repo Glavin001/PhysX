@@ -19,6 +19,15 @@ class TimingAccounting(unittest.TestCase):
         self.assertAlmostEqual(sum(p.values()),.0001)
         self.assertAlmostEqual(p['finishAndReserve.other'],.00001)
         self.assertAlmostEqual(p['finishDetail.reserveBodies.other'],.00001)
+    def test_preparation_completion_is_explicit_and_disjoint(self):
+        by={'collisionBindings':[(0,10)],'correctionBodies':[(10,20)],
+            'preparationCompletion':[(20,70)],'applyBindings':[(70,90)]}
+        p=r.partition([(0,100)],by)
+        self.assertAlmostEqual(p['preparationCompletion'],.00005)
+        self.assertAlmostEqual(p['trial.other'],.00001)
+        with self.assertRaisesRegex(ValueError,'Overlapping'):
+            r.partition([(0,100)],dict(by,preparationCompletion=[(19,70)]))
+
     def test_overlapping_siblings_rejected(self):
         with self.assertRaisesRegex(ValueError,'Overlapping'):
             r.partition([(0,100)],{'submit':[(0,20)],'finishAndReserve':[(10,40)]})

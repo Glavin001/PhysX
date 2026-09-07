@@ -43,6 +43,7 @@ def report(capture):
         'finishAndReserve': 'Wait for destruction completion and reserve bodies',
         'collisionBindings': 'Prepare collision ownership bindings',
         'correctionBodies': 'Prepare bodies for correction',
+        'preparationCompletion': 'Observe prepared correction verdicts',
         'initializeReserved': 'Initialize reserved body state',
         'applyBindings': 'Apply changed collision ownership',
         'restoreInstall': 'Restore/install provisional motion',

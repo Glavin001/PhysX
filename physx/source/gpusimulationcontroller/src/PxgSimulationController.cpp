@@ -844,6 +844,10 @@ namespace physx
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.correctionBodies",false,profileContext);
             ok=mDestruction->prepareCorrectionBodies(mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
         }
+        if(ok) {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.preparationCompletion",false,profileContext);
+            ok=mDestruction->completeCorrectionPreparation();
+        }
         if(ok && !complete && mDestruction->correctionEnabled() && canCorrect) {
             // The runtime validates command assignment and the whole metadata
             // batch before changing owners. Physical data never crosses to CPU.

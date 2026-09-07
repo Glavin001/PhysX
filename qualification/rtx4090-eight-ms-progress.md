@@ -177,3 +177,48 @@ and component-local stress/preconditioning for sustained cost. It does not
 justify optimizing the CPU ownership bridge into a permanent architecture.
 The remaining migration, exact-bond, selective-correction and endurance gates
 above still apply.
+
+
+## GPU-ordered collision and corrected-motion preparation
+
+Collision preparation and corrected-motion preparation now submit consecutive
+GPU work without reading a host verdict between stages. The corrected-motion
+kernels consume collision validity on device and overwrite every compaction
+sentinel even when that prerequisite is invalid. One combined compact status
+observation remains before the existing CPU ownership bridge. This replaces
+two stage-local waits with one combined boundary; it does not remove CPU
+fragment reservation, shape rebinding or the full correction pass.
+
+The native runtime interface documents submission versus observation explicitly.
+Exceptional launch failures drain prior writers before publishing rejection.
+A new negative fixture poisons the GPU prerequisite after a valid batch and
+proves stale host observations cannot retain correction records or mutate native
+motion. Existing nonfinite-checkpoint rejection remains covered. Eleven focused
+native/accounting checks pass, along with 25 timing-accounting unit tests and five
+phase-analysis tests. The full frozen ten-second wall audit keeps the reference
+topology identity, clearance, 398 supported chunks and 46 detached chunks.
+
+[Final generated deadline report](preparation-ordered-qualified/report.html):
+444 chunks, 896 bonds, one projectile, peak 43 destruction clusters, five runs
+of 60 simulated seconds, timestep 1/60 and correction limit one. All 18,000
+complete advances fit 8 ms; peak is 6.649 ms and per-run means are 3.010–3.035 ms.
+Sleeping is disabled; the timer includes commands, physics, destruction,
+correction and mandatory completion, excluding rendering/initialization.
+This proves the unchanged wall deadline on this build, not overall plan
+completion or the ten-minute lifecycle endurance gate.
+
+[Large diagnostic report](preparation-ordered-impacts64/report.html): 64 buildings
+and 64 aerial projectiles, 28,416 chunks and 57,344 bonds, two ten-second runs plus
+one separately scoped run. All per-step fracture/correction/cluster counters in
+the first untraced run match the pre-change large capture. Peak 3,211 clusters and
+14,711 broken bonds remain. Complete advances average 8.985–9.068 ms and peak at
+26.120 ms: the 8 ms gate still fails. No overall speedup is claimed from this
+orchestration change. The scoped combined preparation boundary is explicitly
+reported instead of disappearing into residual time.
+
+[Validation record](preparation-ordered-validation.json) contains source hashes,
+artifact/report references and the cross-build counter comparison. Intermediate
+diagnostic captures precede final exceptional-error handling; final physical
+and five-by-sixty deadline checks use the final build. The major GPU ownership,
+component-local stress, selective correction, exact-bond and endurance work
+remains required.

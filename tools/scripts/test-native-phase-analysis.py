@@ -44,6 +44,13 @@ class PhaseAnalysis(unittest.TestCase):
         self.assertEqual(result['cuda_stages']['total']['samples'], 2)
         self.assertEqual(result['frames'], 2)
 
+    def test_combined_preparation_wait_is_attributed(self):
+        before = API['analyze'](self.root)['unmeasured_interval_mean_ms']
+        with (self.root / 'native.phases.csv').open('a') as stream:
+            csv.writer(stream).writerow([1, 'GpuDestruction.preparationCompletion', 2.0, 1])
+        after = API['analyze'](self.root)['unmeasured_interval_mean_ms']
+        self.assertAlmostEqual(before - after, 1.0)
+
     def test_legacy_host_only(self):
         (self.root / 'native.phases.csv.device.csv').unlink()
         self.assertIsNone(API['analyze'](self.root)['cuda_stages'])

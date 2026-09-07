@@ -45,7 +45,7 @@ TREE={
  'finishAndReserve':{'finishDetail.waitForGpu':{},'finishDetail.reserveBodies':{
      'finishDetail.requestReadback':{},'finishDetail.allocateNativeBodies':{},
      'finishDetail.uploadBindings':{},'finishDetail.publishReservation':{}}},
- 'initializeReserved':{},'collisionBindings':{},'correctionBodies':{},'applyBindings':{},
+ 'initializeReserved':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{},'applyBindings':{},
  'restoreInstall':{},'resetContactCaches':{},'correctedCollisionSolve':{},'acceptCorrection':{}}
 LABELS={
  'checkpoint':('Checkpoint moving-body state','CPU submission → GPU copy; save state for possible rewind'),
@@ -60,6 +60,7 @@ LABELS={
  'initializeReserved':('Initialize reserved fragment bodies','CPU dispatch/lifecycle + GPU state initialization'),
  'collisionBindings':('Prepare chunk collision ownership','CPU dispatch + GPU persistent-shape ownership preparation'),
  'correctionBodies':('Prepare corrected motion states','CPU dispatch + GPU cluster/body preparation'),
+ 'preparationCompletion':('Observe prepared correction verdicts','GPU → CPU compact validation status at the remaining ownership bridge; includes completion wait'),
  'applyBindings':('Apply ownership/lifecycle changes','CPU PhysX ownership and lifecycle bridge'),
  'restoreInstall':('Rewind and install fractured motion','CPU dispatch + GPU checkpoint restore and owner installation'),
  'resetContactCaches':('Invalidate incompatible contact caches','CPU dispatch + GPU contact/friction cache reset'),

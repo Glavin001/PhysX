@@ -72,7 +72,8 @@ struct PxDestructionCorrectionPreparationStatus {
     std::uint64_t generation, checkpointGeneration;
     std::uint32_t count, loadedSources, valid, error;
     // error: 1 missing/invalid checkpoint source, 2 native mapping,
-    // 4 invalid/unrepresentable motion, 8 nonfinite input load, 16 CUDA failure.
+    // 4 invalid/unrepresentable motion, 8 nonfinite input load, 16 CUDA failure,
+    // 32 rejected collision prerequisite (originating collision error is retained).
     // loadedSources counts affected source bodies with unapportioned external
     // accelerations. Those commands cannot be cloned onto every fragment.
 };
