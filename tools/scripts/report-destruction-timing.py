@@ -252,17 +252,27 @@ class Document:
 def fmt(x):return '—' if x is None else f'{x:.3f}'
 def mean(v):return statistics.mean(v) if v else 0.0
 
+def focused_case(manifest,runs):
+    cases=manifest['config']['cases']
+    require(bool(cases),'No configured scene for detailed profiling')
+    case=cases[0]
+    require(case['id'] in runs,'Configured focus scene has no captures')
+    return case,runs[case['id']]
+
 def render(manifest,runs,out):
     d=Document();d.title('PhysX GPU destruction — measured timing breakdown',1)
-    cases=manifest['config']['cases'];p=runs['penetration'];plain=p['plain'];phase=p['phases'][0];trace=p['gpu'][0]
+    cases=manifest['config']['cases'];focus,p=focused_case(manifest,runs);plain=p['plain'];phase=p['phases'][0];trace=p['gpu'][0]
+    d.text(f"Detailed focus: {focus['label']} — {plain[0]['summary']['chunks']:,} chunks, {plain[0]['summary']['bonds']:,} bonds. All configured scenes appear in the comparison table; detailed sections use this first configured scene.")
     pooled=[float(f['physics_step_ms']) for r in plain for f in r['frames']];s=stats(pooled)
     stress=mean([v['stress'] for v in phase['profile']['cuda_stages']]);interval=mean([sum(v.values()) for v in phase['profile']['wall_partition']])
-    d.text(f"The penetration simulate/fetch subinterval averages {s['mean']:.3f} ms per step across {len(plain)} untraced repeats; the worst measured step is {s['max']:.3f} ms. {sum(x<1 for x in pooled)}/{len(pooled)} steps are below 1 ms. GPU stress occupies a mean {stress:.3f} ms of destruction-stream elapsed time in the separate host-scope capture ({100*stress/interval:.1f}% of its simulation bracket; this overlaps submission/wait).")
+    d.text(f"The selected scene’s simulate/fetch subinterval averages {s['mean']:.3f} ms per step across {len(plain)} untraced repeats; the worst measured step is {s['max']:.3f} ms. {sum(x<1 for x in pooled)}/{len(pooled)} steps are below 1 ms. GPU stress occupies a mean {stress:.3f} ms of destruction-stream elapsed time in the separate host-scope capture ({100*stress/interval:.1f}% of its simulation bracket; this overlaps submission/wait).")
     if 'idle-1' in runs and 'idle-16' in runs:
         base=mean([r['metrics']['post_startup']['mean'] for r in runs['idle-1']['plain']]);big=mean([r['metrics']['post_startup']['mean'] for r in runs['idle-16']['plain']])
         d.text(f"The intact one-building control costs {base:.3f} ms after its first step; 16 intact buildings cost {big:.3f} ms ({big/base:.2f}× for 16× geometry). This measures an idle baseline of the current implementation, not a fundamental GPU latency floor. Idle controls do not establish active-destruction scalability.")
     if all(r['summary'].get('complete_timer_schema')==1 for r in plain):
         d.title('🎯 Authoritative complete advance — commands through committed completion')
+        misses=sum(float(f['complete_step_ms'])>8 for r in plain for f in r['frames'])
+        d.text(('❌ Deadline failed' if misses else '✅ Measured deadlines passed')+f': {misses} complete steps exceeded 8.0 ms. Every measured step is retained. Full plan and endurance qualification remain incomplete.')
         complete_rows=[]
         for i,r in enumerate(plain):
             metric=complete_step_metrics(r);frames=r['frames'];peak=max(frames,key=lambda f:float(f['complete_step_ms']))
@@ -298,7 +308,7 @@ def render(manifest,runs,out):
     for j,r in enumerate(plain):
         q=r['metrics']['all'];i=r['worst_step'];f=r['frames'][i]
         rows.append([j+1,fmt(q['mean']),fmt(q['max']),i,fmt(float(f['simulation_seconds'])),f['resim_passes'],f['stress_iterations'],f['logical_clusters'],f['awake_bodies'],f['contacts_frame']])
-    d.table(['Penetration repeat','Mean ms','Worst ms','Worst step','Sim time s','Resim','Stress iterations','Clusters','Scheduled active bodies','Solved contact reports'],rows)
+    d.table(['Selected scene repeat','Mean ms','Worst ms','Worst step','Sim time s','Resim','Stress iterations','Clusters','Scheduled active bodies','Solved contact reports'],rows)
     d.title('Event-based windows — no fixed impact frame or hidden warm-up cutoff')
     rows=[]
     for key,label in [('startup','First accepted step'),('preimpact','After startup, before first broken bond'),('corrected','Steps that execute correction'),('after_last_fracture','After the last newly broken bond'),('last_2s','Last two simulated seconds')]:

@@ -125,7 +125,10 @@ __device__ __forceinline__ Vector solveFineDiagonal(Buffers b,unsigned node,Vect
     else {
         for(unsigned k=0;k<6;++k){
             const double pivot=__shfl_sync(0xffffffffu,coefficient,triangle(k,k));
-            const double solved=__shfl_sync(0xffffffffu,rhs,k)/pivot;
+            // The pivot equation is one scalar. Computing its division in
+            // every lane repeats identical FP64 work 32 times on sm_89.
+            double solved=lane==unsigned(k)?rhs/pivot:0;
+            solved=__shfl_sync(0xffffffffu,solved,k);
             const unsigned row=lane<6?lane:0;
             const double lower=__shfl_sync(0xffffffffu,coefficient,triangle(row,k<=row?k:row));
             if(lane==k)rhs=solved;
@@ -133,7 +136,10 @@ __device__ __forceinline__ Vector solveFineDiagonal(Buffers b,unsigned node,Vect
         }
         for(int k=5;k>=0;--k){
             const double pivot=__shfl_sync(0xffffffffu,coefficient,triangle(k,k));
-            const double solved=__shfl_sync(0xffffffffu,rhs,k)/pivot;
+            // The pivot equation is one scalar. Computing its division in
+            // every lane repeats identical FP64 work 32 times on sm_89.
+            double solved=lane==unsigned(k)?rhs/pivot:0;
+            solved=__shfl_sync(0xffffffffu,solved,k);
             const unsigned col=lane<unsigned(k)?lane:unsigned(k);
             const double upper=__shfl_sync(0xffffffffu,coefficient,triangle(k,col));
             if(lane==unsigned(k))rhs=solved;
@@ -142,6 +148,29 @@ __device__ __forceinline__ Vector solveFineDiagonal(Buffers b,unsigned node,Vect
     }
     return {{__shfl_sync(0xffffffffu,rhs,0),__shfl_sync(0xffffffffu,rhs,1),__shfl_sync(0xffffffffu,rhs,2)},
             {__shfl_sync(0xffffffffu,rhs,3),__shfl_sync(0xffffffffu,rhs,4),__shfl_sync(0xffffffffu,rhs,5)}};
+}
+// A six-variable factor fits in a thread's registers. Independent nodes then
+// occupy independent lanes instead of serializing a component through eight
+// warp-owned solves. Keep the exact triangular update order and FP64 divisions.
+__device__ __forceinline__ Vector solveFineDiagonalThread(Buffers b,unsigned node,Vector value){
+    double factor[DiagonalEntries];
+#pragma unroll
+    for(unsigned k=0;k<DiagonalEntries;++k)factor[k]=b.diagonal[size_t(node)*DiagonalEntries+k];
+    if(factor[0]==0)return {};
+    double rhs[6]={value.angular.x,value.angular.y,value.angular.z,value.linear.x,value.linear.y,value.linear.z};
+#pragma unroll
+    for(unsigned k=0;k<6;++k){
+        const double solved=rhs[k]/factor[triangle(k,k)];rhs[k]=solved;
+#pragma unroll
+        for(unsigned row=k+1;row<6;++row)rhs[row]-=factor[triangle(row,k)]*solved;
+    }
+#pragma unroll
+    for(int k=5;k>=0;--k){
+        const double solved=rhs[k]/factor[triangle(k,k)];rhs[k]=solved;
+#pragma unroll
+        for(unsigned row=0;row<unsigned(k);++row)rhs[row]-=factor[triangle(k,row)]*solved;
+    }
+    return {{rhs[0],rhs[1],rhs[2]},{rhs[3],rhs[4],rhs[5]}};
 }
 __global__ void applyFineDiagonal(Input input,Buffers b,const Status* status,const Vector* residual,Vector* result){
     input=resolvedInput(input);

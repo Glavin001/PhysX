@@ -1,4 +1,5 @@
 // Independent host-side P, P^T and P^T L P oracle for the private GPU operators.
+#include "gpu_resident_diagonal_reference.cuh"
 // Test only: all production transfers and matrix applications stay on device.
 Six pack(Vector a){return {a.angular.x,a.angular.y,a.angular.z,a.linear.x,a.linear.y,a.linear.z};}
 Vector unpack(Six a){return {{a[0],a[1],a[2]},{a[3],a[4],a[5]}};}
@@ -48,7 +49,7 @@ double compare(const std::vector<Vector>& actual,const std::vector<Six>& expecte
 }
 void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& graph,Input input,cudaStream_t stream){
     const unsigned n=unsigned(roots.size());if(!n)return;
-    Device<Vector> coarse(n),fine(n),prolonged(n),restricted(n),applied(n),diagonal(n),current(n);
+    Device<Vector> coarse(n),fine(n),prolonged(n),restricted(n),applied(n),diagonal(n),current(n),referenceDiagonal(n),threadDiagonal(n);
     std::vector<Vector> x(n),y(n);
     for(unsigned i=0;i<n;++i){
         Six a{},b{};for(unsigned k=0;k<6;++k){a[k]=(int((i*11+k*7)%23)-11)/8.;b[k]=(int((i*5+k*13)%31)-15)/16.;}
@@ -65,11 +66,17 @@ void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& 
     applyCoarse<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),coarse.data,applied.data);
     applyLevel<<<(n+7)/8,256,0,stream>>>(input,graph.status(),fine.data,current.data);
     applyFineDiagonal<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,diagonal.data);
+    applyReferenceDiagonal<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,referenceDiagonal.data);
+    applyThreadDiagonal<<<(n+255)/256,256,0,stream>>>(input,buffers,graph.status(),fine.data,threadDiagonal.data);
     check(cudaGetLastError());check(cudaStreamEndCapture(stream,&captured));check(cudaGraphInstantiate(&executable,captured,0));
     auto verify=[&](){
         check(cudaGraphLaunch(executable,stream));
         const auto px=prolonged.get(stream),ry=restricted.get(stream),lx=applied.get(stream);
-        verifyDiagonalSolve(f,y,diagonal.get(stream));
+        const auto actualDiagonal=diagonal.get(stream),oldDiagonal=referenceDiagonal.get(stream);
+        require(!std::memcmp(actualDiagonal.data(),oldDiagonal.data(),n*sizeof(Vector)),"pivot-lane division changed diagonal solve bits");
+        const auto perThread=threadDiagonal.get(stream);
+        require(!std::memcmp(perThread.data(),oldDiagonal.data(),n*sizeof(Vector)),"per-thread solve changed diagonal solve bits");
+        verifyDiagonalSolve(f,y,actualDiagonal);
         const auto expectedP=hostProlong(f,roots,x);
         std::vector<Six> fy(n);for(unsigned i=0;i<n;++i)fy[i]=pack(y[i]);
         compare(current.get(stream),hostFineOperator(f,fy),"current fine operator differs from original equations");

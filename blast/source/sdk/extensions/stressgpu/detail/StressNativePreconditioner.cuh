@@ -46,21 +46,38 @@ __device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a
     return stressSquaredContribution(gamma);
 }
 __device__ __forceinline__ float preconditionNativeComponent(const PersistentStressArgs& a,
-    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration,StressHierarchy::TerminalShared& shared){
+    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration){
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+    unsigned long long subStart=0;if(!threadIdx.x)subStart=clock64();
+#define SUBPROBE_END(index) __syncthreads();if(!threadIdx.x){atomicAdd(componentPreconditionClocks+index,clock64()-subStart);subStart=clock64();}__syncthreads();
+#else
+#define SUBPROBE_END(index)
+#endif
     const auto v=a.hierarchy.cycle;
     // Begin with a projected steepest-descent step. It is exact for a single
     // mode and costs no hierarchy traversal. If further work is needed, restart
-    // PCG with the fixed V-cycle on iteration one; never mix preconditioners
+    // PCG with the fixed block preconditioner on iteration one; never mix preconditioners
     // in the conjugacy recurrence.
     if(!iteration){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
-    else StressHierarchy::cyclePass<true>(v.levels,v.depth,v.pool,shared,a.hierarchy.rhs,a.hierarchy.result,id);
+    else {
+        // Independent six-variable systems are solved per thread in registers.
+        // Large components retain their cooperative multilevel schedule.
+        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+            a.hierarchy.result[node]=StressHierarchy::solveFineDiagonalThread(v.levels[0].diagonal,node,a.hierarchy.rhs[node]);}
+        __syncthreads();
+    }
+    SUBPROBE_END(0)
     projectNativeNullspace(a,id,nodes,count,a.hierarchy.result);
+    SUBPROBE_END(1)
     double magnitude=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)magnitude=fmax(magnitude,nativeCycleMagnitude(a.hierarchy.result[nodes[i]]));
     magnitude=nativeComponentMaximum(magnitude);
+    SUBPROBE_END(2)
     // A positive per-component scaling of g cancels in PCG's beta/alpha.
     // Normalize before conversion to float so a tiny residual does not flush
     // gamma or direction energy while the original convergence norm is live.
     float gamma=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)gamma+=nativeCycleResult(a,nodes[i],id,magnitude);
+    SUBPROBE_END(3)
+#undef SUBPROBE_END
     return gamma;
 }
 // PCG keeps directions in node space. q is then evaluated directly as L*p;

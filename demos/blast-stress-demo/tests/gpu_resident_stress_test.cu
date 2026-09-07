@@ -367,6 +367,6 @@ void largeToSmallComponents()
 }
 
 }
-int main(int argc,char** argv){try{
+int main(int argc,char** argv){std::setvbuf(stdout,nullptr,_IOLBF,0);try{
     if(argc==2){const std::string fixture=argv[1];require(fixture=="mixed","unknown resident fixture");mixedComponentSizes(false);mixedComponentSizes(true);return 0;}
     require(argc==1,"invalid resident fixture arguments");for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);largeToSmallComponents();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

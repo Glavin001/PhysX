@@ -6,6 +6,17 @@ spec=importlib.util.spec_from_file_location('report',Path(__file__).with_name('r
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 class TimingAccounting(unittest.TestCase):
+    def test_full_profile_focus_accepts_bombardment(self):
+        scene={'id':'impacts-256','label':'256-building bombardment'}
+        captures={'plain':[object()],'phases':[object()],'gpu':[object()]}
+        case,data=r.focused_case({'config':{'cases':[scene]}},{'impacts-256':captures})
+        self.assertEqual(case,scene)
+        self.assertIs(data,captures)
+        with self.assertRaisesRegex(ValueError,'No configured scene'):
+            r.focused_case({'config':{'cases':[]}}, {})
+        with self.assertRaisesRegex(ValueError,'no captures'):
+            r.focused_case({'config':{'cases':[scene]}}, {})
+
     def test_nearest_rank(self):
         self.assertEqual(r.stats(list(range(1,101)))['p95'],95)
         self.assertEqual(r.stats([1,2])['p50'],1)

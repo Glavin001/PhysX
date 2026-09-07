@@ -1,3 +1,4 @@
+#include "StressComponentPhaseProbe.cuh"
 // Private native specialization, included after the shared resident arguments.
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 // Every warp produces one fully overwritten partial. No floating atomics
@@ -24,8 +25,8 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
 {
     __shared__ unsigned counts[2], iteration, activeCount, slot;
     __shared__ SolveStatus status;
-    __shared__ StressHierarchy::TerminalShared cycleShared;
     __shared__ float reduceValue;
+    COMPONENT_PROBE_BEGIN
     // Components have very different convergence costs after fracture. A CTA
     // claims its next independent component only when its previous one finishes;
     // fixed grid-stride ownership can strand expensive components on one SM.
@@ -52,6 +53,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
         do {
             if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id);
+            COMPONENT_PROBE_END(0)
             float squared=0;
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
@@ -64,16 +66,20 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             const float numerator=componentSquaredNorm(squared);
             if(threadIdx.x==0)reduceValue=numerator;
             __syncthreads();
+            COMPONENT_PROBE_END(1)
             finalizeAndCheckConvergenceBody(&reduceValue,a.m_gradientSquared,1u,
                 a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
             __syncthreads();
+            COMPONENT_PROBE_END(2)
             float localGamma=0;
-            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration,cycleShared);
+            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration);
             const float gamma=componentSquaredNorm(localGamma);
             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
             __syncthreads();
+            COMPONENT_PROBE_END(3)
             for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeDirection(a,c.nodes[begin+i],id,iteration);
             __syncthreads();
+            COMPONENT_PROBE_END(4)
             squared=0;
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
@@ -85,12 +91,14 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             const float denominator=componentSquaredNorm(squared);
             if(threadIdx.x==0)reduceValue=denominator;
             __syncthreads();
+            COMPONENT_PROBE_END(5)
             finalizeAndRetireBody(&reduceValue,a.m_projectedDirectionSquared,1u,
                 a.m_islandActive,a.hierarchy.previous,a.hierarchy.gamma,&status,&activeCount,1u,
                 &iteration,1u,0,a.maxIterations,nullptr,0u,c.ids+slot,id);
             __syncthreads();
             for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeStressSolution(a,c.nodes[begin+i],id,iteration);
             __syncthreads();
+            COMPONENT_PROBE_END(6)
 #ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
             if(!threadIdx.x && count==1024 && (iteration&(iteration-1))==0)printf("native history id=%u iteration=%u residual2=%g gamma=%g direction_energy=%g g0=%g mu0=%g\n",id,iteration,a.m_gradientSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id],a.hierarchy.g[c.nodes[begin]].linear.y,a.hierarchy.solution[c.nodes[begin]].linear.y);
 #endif
@@ -108,7 +116,12 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         }
         __syncthreads();
     }
+    COMPONENT_PROBE_PUBLISH
 }
+
+#undef COMPONENT_PROBE_BEGIN
+#undef COMPONENT_PROBE_END
+#undef COMPONENT_PROBE_PUBLISH
 
 // Merge per-component convergence only after both workload specializations
 // finish. A small component reaching the cap cannot be hidden by a successful

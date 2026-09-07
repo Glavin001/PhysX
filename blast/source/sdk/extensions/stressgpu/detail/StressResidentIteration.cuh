@@ -45,6 +45,7 @@ struct PersistentStressArgs {
     const ExtStressGpuImpulse* input=nullptr;
     AngLin* impulses=nullptr;
 };
+#include "StressComponentPhaseProbe.cuh"
 #include "StressNativePreconditioner.cuh"
 #include "StressNativeSolution.cuh"
 #include "StressHomogeneousComponents.cuh"
