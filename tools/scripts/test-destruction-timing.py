@@ -97,6 +97,14 @@ class TimingAccounting(unittest.TestCase):
             runs.append(run)
         manifest=dict(seconds=60,trials=5,config=dict(cases=[dict(id='fixture',label='fixture')]))
         return manifest,dict(fixture=dict(plain=runs,phases=[]))
+    def test_workload_peak_includes_later_repeats(self):
+        manifest,runs=self.gate_runs(chaotic=True)
+        runs['fixture']['plain'][3]['summary']['peak_clusters']=57
+        with tempfile.TemporaryDirectory() as d:
+            out=Path(d)
+            r.render_complete_gate(manifest,runs,out)
+            self.assertIn('| fixture | 444 | 896 | 1 | 57 |', (out/'report.md').read_text())
+
     def test_controlled_wall_counter_failure_still_writes_failed_report(self):
         manifest,runs=self.gate_runs();runs['fixture']['plain'][2]['summary']['broken_bonds']=198
         with tempfile.TemporaryDirectory() as d:

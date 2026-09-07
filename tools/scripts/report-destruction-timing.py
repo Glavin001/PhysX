@@ -383,9 +383,11 @@ def render_complete_gate(manifest,runs,out):
     doc.text('60 Hz physical timestep. Timer includes commands, projectile insertion, simulate/fetch, destruction/correction and mandatory completion. All measured steps, including startup, remain. Rendering and report output are outside the bracket.')
     rows=[];workloads=[];failures=0;gates=[];quality_failures=[];history_changes=[]
     for case in manifest['config']['cases']:
-        summary=runs[case['id']]['plain'][0]['summary']
+        case_runs=runs[case['id']]['plain']
+        summary=case_runs[0]['summary']
+        peak_clusters=max(run['summary']['peak_clusters'] for run in case_runs)
         workloads.append([case['label'],summary['chunks'],summary['bonds'],summary['projectiles'],
-                          summary['peak_clusters'],summary['seconds'],summary['correction_limit'],
+                          peak_clusters,summary['seconds'],summary['correction_limit'],
                           'Enabled' if summary['sleeping'] else 'Disabled'])
         previous=None
         for i,run in enumerate(runs[case['id']]['plain']):
@@ -409,7 +411,7 @@ def render_complete_gate(manifest,runs,out):
     for message in quality_failures:doc.text('❌ Controlled quality gate failed: '+message)
     for message in history_changes:doc.text('⚠️ Chaotic workload variation: '+message+'. Convergence and correction-limit checks passed, but exact trajectories and full physical quality are not qualified.')
     doc.table(['Scene','Chunks','Bonds','Projectiles','Peak destruction clusters','Seconds per run','Correction limit','Sleeping'],workloads)
-    doc.text('Stress chunks are geometry/connectivity units, not independently solved rigid bodies while bonded. Peak destruction clusters excludes ordinary actors such as the projectile and ground. Idle controls measure retained geometry, not concurrent destruction.')
+    doc.text('Stress chunks are geometry/connectivity units, not independently solved rigid bodies while bonded. Peak destruction clusters is the maximum across all measured repeats and excludes ordinary actors such as the projectile and ground. Idle controls measure retained geometry, not concurrent destruction.')
     doc.table(['Scene','Repeat','Steps','Min ms','Mean ms','p95 ms','p99 ms','Peak ms','Misses','Peak step','Commands at peak ms','Physics/destruction at peak ms','Completion at peak ms'],rows)
     doc.text('Commands and completion timings are disjoint from simulate/fetch. Detailed CPU/GPU subdivisions require a separate profiling capture; they must not be inferred from another run’s maximum. No percentile or outlier removal changes the deadline verdict.')
     scoped=[]
