@@ -40,12 +40,17 @@ struct PersistentStressArgs {
     unsigned nodeBlocks;
     const std::uint32_t* islandIds;
     const std::uint32_t* liveIslandCount;
+    bool largeComponentsOnly;
 };
 __global__ void persistentStressSolve(PersistentStressArgs a) {
     const auto grid=cooperative_groups::this_grid();
     const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
     const unsigned stride=gridDim.x*blockDim.x;
     const unsigned islandCount=a.liveIslandCount ? *a.liveIslandCount : a.m_islandCount;
+    if(a.largeComponentsOnly && islandCount==0) {
+        if(lane==0) { *a.m_status={0u,0u,1u}; *a.m_iteration=0; }
+        return;
+    }
     // One empty block still publishes the converged status when no bonds
     // remain. No CPU observation is needed to choose the work size.
     const unsigned islandBlocks=max(1u,(islandCount+blockDim.x-1)/blockDim.x);

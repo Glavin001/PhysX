@@ -239,7 +239,7 @@
         const unsigned nodeBlocks=(m_graphNodeCap+kBlockSize-1)/kBlockSize;
         const unsigned islandBlocks=(m_islandCount+kBlockSize-1)/kBlockSize;
         const unsigned slots=reductionSlots(m_graphNodeCap),maxIterations=params.maxIterations;
-        PersistentStressArgs args{m_nsW,m_residual,m_inertia,m_nodeBondBegin,m_nodeBondRef,m_node0,m_node1,m_offset0,m_offset1,m_health,m_colScales,m_bondIsland,m_nodeIsland,m_islandActive,m_reduceSlots,slots,m_activeNodes,m_activeCounts,m_iteration,m_gradientSquared,m_islandConverged,m_deltaSquared,m_blockActiveCounts,m_islandCount,m_nsPi,m_nsQ,m_previousGradientSquared,m_projectedDirectionSquared,m_status,islandBlocks,maxIterations,m_nsMu,nodeBlocks,m_deviceTopology ? m_deviceTopology->islandIds() : nullptr,m_deviceTopology ? &m_deviceTopology->status()->islandCount : nullptr};
+        PersistentStressArgs args{m_nsW,m_residual,m_inertia,m_nodeBondBegin,m_nodeBondRef,m_node0,m_node1,m_offset0,m_offset1,m_health,m_colScales,m_bondIsland,m_nodeIsland,m_islandActive,m_reduceSlots,slots,m_activeNodes,m_activeCounts,m_iteration,m_gradientSquared,m_islandConverged,m_deltaSquared,m_blockActiveCounts,m_islandCount,m_nsPi,m_nsQ,m_previousGradientSquared,m_projectedDirectionSquared,m_status,islandBlocks,maxIterations,m_nsMu,nodeBlocks,m_deviceTopology ? m_deviceTopology->islandIds() : nullptr,m_deviceTopology ? &m_deviceTopology->status()->islandCount : nullptr,false};
         // Residency is a launch constraint, not a physical-work limit. All
         // virtual node/island blocks are processed by the resident grid.
         int blocksPerSm=0,device=0,sms=0;
@@ -250,8 +250,20 @@
         // Small complete problems remain within one block: shared-block
         // barriers avoid cross-SM rendezvous for a few hundred nodes.
         const unsigned blocks=m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks,islandBlocks),unsigned(blocksPerSm*sms));
+        ResidentStressComponentView components{};
+        if(m_deviceTopology) {
+            components=m_deviceTopology->components();
+            // The device list controls the live work; a bounded persistent
+            // grid distributes independent components without a host count.
+            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);
+            args.islandIds=components.largeIds;
+            args.liveIslandCount=components.largeCount;
+            args.largeComponentsOnly=true;
+        }
         void* arguments[]={&args};
         checkCuda(cudaLaunchCooperativeKernel((void*)persistentStressSolve,dim3(blocks),dim3(kBlockSize),arguments,0,m_stream),"capture persistent stress solve");
+        if(m_deviceTopology)
+            finishComponentStress<<<1,kBlockSize,0,m_stream>>>(args,components);
 #else
         (void)params;
 #endif

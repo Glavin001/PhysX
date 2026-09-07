@@ -1,0 +1,47 @@
+[
+  {
+    "mode": "eager",
+    "exit_code": 0,
+    "command": [
+      "/usr/local/cuda/bin/compute-sanitizer",
+      "--tool",
+      "synccheck",
+      "--print-limit",
+      "2",
+      "--error-exitcode",
+      "99",
+      "out/component-stress-cub-check/select",
+      "eager"
+    ]
+  },
+  {
+    "mode": "graph",
+    "exit_code": 0,
+    "command": [
+      "/usr/local/cuda/bin/compute-sanitizer",
+      "--tool",
+      "synccheck",
+      "--print-limit",
+      "2",
+      "--error-exitcode",
+      "99",
+      "out/component-stress-cub-check/select",
+      "graph"
+    ]
+  },
+  {
+    "mode": "conditional",
+    "exit_code": 1,
+    "command": [
+      "/usr/local/cuda/bin/compute-sanitizer",
+      "--tool",
+      "synccheck",
+      "--print-limit",
+      "2",
+      "--error-exitcode",
+      "99",
+      "out/component-stress-cub-check/select",
+      "conditional"
+    ]
+  }
+]

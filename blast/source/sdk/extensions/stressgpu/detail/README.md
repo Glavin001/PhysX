@@ -18,7 +18,8 @@ exports, linking boundaries or relocatable device code.
 | `StressBondIteration.cuh` | Existing reference bond-space iteration kernels |
 | `StressDeviceIO.cuh` | Device output conversion and active-work flags |
 | `StressMaterialKernels.cuh` | Existing material/stress evaluation and removal compaction |
-| `StressResidentIteration.cuh` | Production cooperative resident iteration |
+| `StressResidentIteration.cuh` | Production cooperative iteration for large connected components |
+| `StressComponentIteration.cuh` | Independent single-block component iteration and combined completion status |
 | `StressSolverLifetime.inl` | Construction, destruction and release |
 | `StressResidentAPI.inl` | Device solve, device views and GPU topology API |
 | `StressBufferAllocation.inl` | Required buffer allocation and initial state; omit unused reference-only storage |

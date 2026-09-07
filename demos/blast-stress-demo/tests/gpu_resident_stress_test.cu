@@ -161,5 +161,62 @@ void columns(unsigned n, bool deviceTopology){
     check(cudaEventDestroy(ready));check(cudaStreamDestroy(producer));
     std::printf("resident columns: topology=%s nodes=%u bonds=%zu worst relative error=%g\n",deviceTopology?"GPU":"asset",n,bonds.size(),worst);
 }
+void mixedComponentSizes()
+{
+    // The middle component fits one block's specialization; the last one
+    // crosses its size boundary and must use cooperative iteration.
+    const unsigned sizes[]={12u,1024u,1028u};
+    const unsigned starts[]={0u,12u,1036u};
+    const unsigned n=2064u;
+    std::vector<ExtStressGpuNode> nodes(n);
+    std::vector<ExtStressGpuBond> bonds;
+    std::vector<ExtStressGpuImpulse> loads(n);
+    for(unsigned component=0;component<3;++component) {
+        const unsigned start=starts[component],count=sizes[component];
+        for(unsigned j=0;j<count;++j) {
+            const unsigned i=start+j;
+            nodes[i]={{float(component)*4,float(j),0},1.f,.5f};
+            // Exact eigenvector of the free path Laplacian, eigenvalue two.
+            // Its prefix sums give bond forces 1,0,-1,0,... analytically.
+            loads[i].linear.y=(j%4==0 || j%4==3)?1.f:-1.f;
+            if(j) { ExtStressGpuBond b{};b.node0=i-1;b.node1=i;
+                b.centroid[0]=nodes[i].position[0];b.centroid[1]=float(j)-.5f;
+                b.normal[1]=1;bonds.push_back(b); }
+        }
+    }
+    std::unique_ptr<ExtStressGpuSolver,Release> solver(ExtStressGpuSolver::create(nodes.data(),n,bonds.data(),bonds.size()));
+    require(bool(solver) && solver->enableDeviceTopology(),"mixed component initialization failed");
+    ExtStressGpuSolveParams params;params.maxIterations=128;params.tolerance=1e-5f;params.warmStart=false;
+    auto solve=[&]() {
+        auto view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+        check(cudaMemcpy(view.nodeInputs,loads.data(),n*sizeof(loads[0]),cudaMemcpyHostToDevice));
+        require(solver->solveDeviceAsync(view.nodeInputs,n,params),"mixed component solve rejected");
+        view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+        ExtStressGpuDeviceStatus status{};check(cudaMemcpy(&status,view.status,sizeof(status),cudaMemcpyDeviceToHost));
+        return status;
+    };
+    require(solve().converged,"mixed component solve did not converge");
+    std::vector<ExtStressGpuImpulse> actual(bonds.size());
+    check(cudaMemcpy(actual.data(),solver->deviceView().bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+    unsigned bond=0;
+    for(unsigned component=0;component<3;++component)for(unsigned j=0;j+1<sizes[component];++j,++bond) {
+        const auto f=actual[bond];const float expected=j%2?0.f:1.f;
+        for(float value:{f.linear.x,f.linear.y,f.linear.z,f.angular.x,f.angular.y,f.angular.z})
+            require(std::isfinite(value),"nonfinite mixed component response");
+        require(std::max({std::abs(std::abs(f.linear.y)-expected),std::abs(f.linear.x),std::abs(f.linear.z),std::abs(f.angular.x),std::abs(f.angular.y),std::abs(f.angular.z)})<2e-4f,"mixed component analytic force failed");
+    }
+    // A nonconverged result from EITHER specialization must reject the whole
+    // solve, even when every component handled by the other one converges.
+    params.maxIterations=2;
+    for(unsigned component:{0u,2u}) {
+        const unsigned first=starts[component],last=first+sizes[component]-1;
+        loads[first].linear.y+=2;loads[last].linear.y-=2;
+        const auto status=solve();
+        require(!status.converged && status.active && status.iterations==2,"component failure was hidden by merged status");
+        loads[first].linear.y-=2;loads[last].linear.y+=2;
+    }
+    std::printf("resident mixed components: nodes=%u bonds=%zu sizes=12,1024,1028 analytic forces and iteration-cap rejection passed\n",n,bonds.size());
 }
-int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+
+}
+int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

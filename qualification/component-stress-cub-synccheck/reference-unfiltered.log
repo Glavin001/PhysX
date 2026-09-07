@@ -1,0 +1,29 @@
+========= COMPUTE-SANITIZER
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at void cub::CUB_200700_890_NS::DeviceSelectSweepKernel<cub::CUB_200700_890_NS::detail::device_select_policy_hub<unsigned int, unsigned int, int, (bool)0, (bool)0>::Policy900, cub::CUB_200700_890_NS::CountingInputIterator<unsigned int, long>, unsigned int *, unsigned int *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, cub::CUB_200700_890_NS::NullType, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>(T2, T3, T4, T5, T6, T7, T8, T9, int, cub::CUB_200700_890_NS::detail::vsmem_t)+0x2230
+=========     by thread (32,0,0) in block (0,0,0)
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: Nv::Blast::(anonymous namespace)::DeviceStressTopology::init(CUstream_st*) [0x51db0] in gpu_stress_topology_test
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::enableDeviceTopology() [0x523a7] in gpu_stress_topology_test
+=========         Host Frame: (anonymous namespace)::small() [0xb93a] in gpu_stress_topology_test
+=========         Host Frame: main [0x72e9] in gpu_stress_topology_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at void cub::CUB_200700_890_NS::DeviceSelectSweepKernel<cub::CUB_200700_890_NS::detail::device_select_policy_hub<unsigned int, unsigned int, int, (bool)0, (bool)0>::Policy900, cub::CUB_200700_890_NS::CountingInputIterator<unsigned int, long>, unsigned int *, unsigned int *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, cub::CUB_200700_890_NS::NullType, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>(T2, T3, T4, T5, T6, T7, T8, T9, int, cub::CUB_200700_890_NS::detail::vsmem_t)+0x2230
+=========     by thread (33,0,0) in block (0,0,0)
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: Nv::Blast::(anonymous namespace)::DeviceStressTopology::init(CUstream_st*) [0x51db0] in gpu_stress_topology_test
+=========         Host Frame: Nv::Blast::(anonymous namespace)::ExtStressGpuSolverImpl::enableDeviceTopology() [0x523a7] in gpu_stress_topology_test
+=========         Host Frame: (anonymous namespace)::small() [0xb93a] in gpu_stress_topology_test
+=========         Host Frame: main [0x72e9] in gpu_stress_topology_test
+========= 
+device topology configuration failed
+========= Target application returned an error
+========= ERROR SUMMARY: 128 errors
+========= ERROR SUMMARY: 126 errors were not printed. Use --print-limit option to adjust the number of printed errors

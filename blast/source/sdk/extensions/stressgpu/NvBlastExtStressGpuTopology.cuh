@@ -135,6 +135,21 @@ __global__ void deviceStressTiles(const unsigned* keys, unsigned count, const un
         tiles[partialBegin[root] + offset / kDeterministicTileSize] = make_uint2(i, min(end[root], i + kDeterministicTileSize));
 }
 
+// Workload specialization, not a device/backend fallback. Larger components
+// retain cooperative iteration; small components synchronize within one CTA.
+constexpr unsigned kResidentComponentMaxNodes = 1024u;
+__global__ void flagLargeStressComponents(const unsigned* begin, const unsigned* end,
+    unsigned* flags, unsigned count)
+{
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<count)flags[i]=(end[i]-begin[i])>kResidentComponentMaxNodes;
+}
+struct ResidentStressComponentView
+{
+    const unsigned *ids, *count, *nodes, *begin, *end, *largeIds, *largeCount;
+    SolveStatus* results;
+};
+
 struct DeviceStressTopologyBuffers
 {
     unsigned n, m;
@@ -156,6 +171,8 @@ class DeviceStressTopology
     unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr;
     unsigned *rangeBegin=nullptr, *rangeEnd=nullptr, *tileCounts=nullptr;
     unsigned* liveIslands=nullptr;
+    unsigned *componentNodes=nullptr, *largeIslands=nullptr, *largeCount=nullptr;
+    SolveStatus* componentResults=nullptr;
     void *sortScratch=nullptr, *scanScratch=nullptr;
     size_t sortBytes=0, scanBytes=0;
     DeviceStressTopologyBatch* batch=nullptr;
@@ -195,6 +212,20 @@ class DeviceStressTopology
         checkCuda(cub::DeviceScan::ExclusiveSum(scanScratch,scanBytes,tileCounts,o.devicePartialBegin,b.n+1,captureStream), "scan stress reduction tiles");
         deviceStressTiles<<<(count+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(sortedKeys,count,rangeBegin,rangeEnd,o.devicePartialBegin,o.deviceTiles);
     }
+    void componentOrder()
+    {
+        checkCuda(cudaMemsetAsync(rangeBegin,0,sizeof(unsigned)*b.n,captureStream), "clear component range starts");
+        checkCuda(cudaMemsetAsync(rangeEnd,0,sizeof(unsigned)*b.n,captureStream), "clear component range ends");
+        checkCuda(cub::DeviceRadixSort::SortPairs(sortScratch,sortBytes,b.nodeIsland,
+            sortedKeys,identity,componentNodes,b.n,0,32,captureStream), "order resident component nodes");
+        deviceStressReductionRanges<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
+            sortedKeys,b.n,rangeBegin,rangeEnd);
+        flagLargeStressComponents<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
+            rangeBegin,rangeEnd,b.activeFlags,b.n);
+        cub::CountingInputIterator<unsigned> indices(0u);
+        checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,
+            b.activeFlags,largeIslands,largeCount,b.n,captureStream), "compact large stress components");
+    }
     void build()
     {
         const unsigned nodeBlocks=(b.n+kBlockSize-1)/kBlockSize, bondBlocks=(b.m+kBlockSize-1)/kBlockSize;
@@ -222,6 +253,7 @@ class DeviceStressTopology
         // changes; scalar storage remains indexed by the persistent IDs.
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,
             rootFlags,liveIslands,&state->islandCount,b.n,captureStream), "compact resident stress components");
+        componentOrder();
 #endif
         flagDeviceStressRows<<<bondBlocks,kBlockSize,0,captureStream>>>(b.bondIsland,b.m,b.activeFlags);
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,b.activeFlags,b.activeBonds,b.activeCounts,b.m,captureStream), "compact device stress bonds");
@@ -257,18 +289,25 @@ public:
         cudaFree(parent); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys);
         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
+        cudaFree(componentNodes); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
     }
     void init(cudaStream_t stream)
     {
         allocate(parent,b.n); allocate(rootFlags,b.n); allocate(identity,std::max(b.n,b.m));
         allocate(batch,1); allocate(state,1);
 #ifdef PHYSX_RESIDENT_DESTRUCTION
-        allocate(liveIslands,b.n);
+        allocate(liveIslands,b.n); allocate(componentNodes,b.n);
+        allocate(largeIslands,b.n); allocate(largeCount,1); allocate(componentResults,b.n);
+        allocate(sortedKeys,b.n); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n);
+        checkCuda(cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,b.nodeIsland,sortedKeys,
+            identity,componentNodes,b.n), "size resident component sorting");
+        checkCuda(cudaMalloc(&sortScratch,sortBytes), "allocate resident component sort scratch");
 #endif
         checkCuda(cudaMemsetAsync(state,0,sizeof(*state),stream), "initialize stress topology status");
         checkCuda(cudaMemsetAsync(&state->solvedGeneration,0xff,sizeof(state->solvedGeneration),stream), "invalidate stress solved generation");
         checkCuda(cudaStreamCreateWithFlags(&captureStream,cudaStreamNonBlocking), "create stress topology capture stream");
         if (deterministicReductionsEnabled()) {
+            if(componentNodes)throw std::runtime_error("Integrated component solver requires native reductions");
             allocate(sortedKeys,std::max(b.n,b.m)); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n); allocate(tileCounts,b.n+1);
             size_t nodeBytes=0,bondBytes=0;
             checkCuda(cub::DeviceRadixSort::SortPairs(nullptr,nodeBytes,b.nodeIsland,sortedKeys,identity,b.orders[1].deviceOrder,b.n), "size node island sorting");
@@ -286,4 +325,6 @@ public:
     }
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
     const unsigned* islandIds() const { return liveIslands; }
+    ResidentStressComponentView components() const
+    { return {liveIslands,&state->islandCount,componentNodes,rangeBegin,rangeEnd,largeIslands,largeCount,componentResults}; }
 };

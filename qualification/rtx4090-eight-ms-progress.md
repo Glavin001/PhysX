@@ -446,3 +446,20 @@ The runtime, production-kernel analytic tests and reference topology consumers r
 The small scene passes all 18,000 measured steps under 8 ms. Neither large scene passes the 8 ms peak gate. The bombardment mean is descriptive, not qualified identical-trajectory speedup: repeated histories differ after the impact peak, before and after this change. All compared captures retain matching fracture/correction/cluster counters through their worst step. CPU ownership/lifecycle changes and full resimulation still dominate that fracture spike. No worst-case bombardment improvement is claimed.
 
 A separate reporting fix aggregates the peak cluster count across all measured repeats, with 26 reporter tests passing. It does not change simulation.
+
+## Independent GPU component iteration
+
+GPU topology now builds stable component node ranges and selects components larger than 1,024 nodes for cooperative iteration. Smaller components run independent loops within one CUDA thread block. They share the existing mathematical operator, recurrence and convergence bodies. Their iteration counters and completion state are local; GPU status merging preserves failure from either size specialization. Hot vectors remain in persistent GPU storage; further caching/layout work remains. No CPU topology construction or per-component host submission was introduced.
+
+Nine focused tests passed, including analytic columns through 131,072 nodes / 98,304 bonds, mixed 12/1,024/1,028-node components, sparse IDs, empty topology, warm starts, iteration-cap rejection, native correction/publication and memory checking. The frozen 444-chunk / 896-bond 10-second penetration audit preserves 398 supported chunks, 46 detached chunks, 199 broken bonds and its existing exact topology signature. Separate 10-second motion/ownership audits pass for 28,416 chunks / 57,344 bonds / one projectile and 113,664 chunks / 229,376 bonds / 256 projectiles. They do not replace full momentum or render-buffer audits.
+
+[Generated timings and phase breakdowns](component-stress-scaling/report.html) · [Validation and comparisons](component-stress-validation.json). All timings include the complete advance, use timestep 1/60, correction limit one and sleeping disabled; rendering is excluded.
+
+- penetration: 444 chunks / 896 bonds / 1 projectile(s), 5 × 60 seconds. Mean 2.895 → 2.917 ms; peak 7.041 → 7.881 ms; steps above 8 ms 0 → 0.
+- world-256: 113,664 chunks / 229,376 bonds / 1 projectile(s), 2 × 10 seconds. Mean 6.110 → 3.621 ms; peak 14.647 → 9.898 ms; steps above 8 ms 93 → 3.
+- impacts-256: 113,664 chunks / 229,376 bonds / 256 projectile(s), 2 × 10 seconds. Mean 23.701 → 19.734 ms; peak 98.298 → 92.772 ms; steps above 8 ms 1038 → 1038.
+- New timing gate: 64 buildings, 28,416 chunks / 57,344 bonds / one unchanged projectile; five × 60 seconds, 3.037 ms mean, 7.122 ms worst, 0 missed 8 ms deadlines. This increases retained world complexity, not the amount of simultaneous destruction. It is a passing measured workload, not a completed maximum-size frontier search.
+
+The 256-building cases still fail the 8 ms peak target. World-size counter histories match their baseline. Bombardment repetitions match each other here, but differ from one previous repeat after its impact peak; no full physical parity or identical-trajectory speedup is claimed for that comparison. CPU ownership changes, full correction, and remaining GPU stress cost still need work.
+
+**Additional validation issue retained:** unfiltered synccheck reports CUB DeviceSelect barrier errors in both resident and reference topology tests. A standalone reproducer passes eager/ordinary graph checking and uninstrumented conditional execution, but fails conditional execution under the checker. Root cause remains unresolved. Scoped resident-kernel synccheck and new-kernel racecheck pass; this is not a passing full synchronization audit. See [reproducer and logs](component-stress-cub-synccheck/README.md).

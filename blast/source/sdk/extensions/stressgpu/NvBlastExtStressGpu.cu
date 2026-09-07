@@ -740,6 +740,7 @@ struct IslandReductionOrder
 
 
 #include "detail/StressResidentIteration.cuh"
+#include "detail/StressComponentIteration.cuh"
 class ExtStressGpuSolverImpl final : public ExtStressGpuSolver
 {
 public:
