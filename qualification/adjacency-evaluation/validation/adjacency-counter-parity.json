@@ -1,0 +1,17 @@
+{
+  "steps": 180,
+  "fields": [
+    "bodies",
+    "awake_bodies",
+    "logical_clusters",
+    "contacts_frame",
+    "stress_active_nodes",
+    "stress_active_bonds",
+    "stress_islands",
+    "stress_iterations",
+    "bonds_broken",
+    "resim_passes",
+    "stress_converged"
+  ],
+  "differences": []
+}

@@ -516,7 +516,8 @@
         "operator",
         "native topology",
         "work report"
-      ]
+      ],
+      "follow_up": "Experiment follow-up: stable device CSR compaction passed numerical/penetration tests and eliminated dead operator visits, but did not establish a complete-step peak gain in the 256-building benchmark. Reverted from production; patch and automated report are in qualification/adjacency-evaluation. Prioritize stronger retained-component preconditioning."
     },
     {
       "section": "Stress arithmetic, layout and scheduling",
