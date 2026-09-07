@@ -396,6 +396,25 @@ def complete_step_metrics(run):
     require(abs(max(values)-run['summary']['complete_step_ms_max'])<0.0002,'Peak counter mismatch')
     return stats(values)
 
+def render_physics_task_details(doc,data,peak):
+    # These task spans can nest and overlap. They explain their parent physics
+    # pass but are deliberately not added to the disjoint complete-step table.
+    for prefix,title in [('trialDetail.','Trial physics tasks'),('detail.','Correction physics tasks')]:
+        rows=[]
+        for key,label in DETAILS.items():
+            entry=data.get('detail',{}).get(prefix+key)
+            if not entry:continue
+            values=entry['observed_wall_ms']
+            if not any(values):continue
+            owner='CPU task; elapsed includes any GPU submission/dependency waits'
+            if key in ('preallocateContactManagers','registerContactManagers','registerInteractions','registerSceneInteractions','islandInsertion'):
+                owner='CPU contact/interaction lifecycle bookkeeping'
+            rows.append([label,owner,fmt(mean(values)),fmt(values[peak])])
+        if rows:
+            doc.title(title+' — overlapping diagnostic spans')
+            doc.text('These are existing CPU task wall scopes, not GPU kernel durations. They may nest or execute concurrently; do not sum them or add them to the complete advance. Means include all measured steps, including steps with no correction. The peak column uses the same scoped complete-step peak as the parent table.')
+            doc.table(['Task','Owner / responsibility','All-step mean ms','At scoped peak ms'],rows)
+
 def render_complete_gate(manifest,runs,out):
     doc=Document();doc.title('🎯 Complete PhysX destruction advance — 8 ms gate',1)
     doc.text('60 Hz physical timestep. Timer includes commands, projectile insertion, simulate/fetch, destruction/correction and mandatory completion. All measured steps, including startup, remain. Rendering and report output are outside the bracket.')
@@ -451,6 +470,7 @@ def render_complete_gate(manifest,runs,out):
             doc.table(['GPU stream stage','Mean ms','At scoped peak ms'],[
                 [label,fmt(mean([v.get(key,0) for v in data['cuda_stages']])),fmt(data['cuda_stages'][peak].get(key,0))]
                 for key,label in STAGES.items()])
+            render_physics_task_details(doc,data,peak)
             doc.text(f"Scoped peak: repeat 1, step {peak}, complete advance {float(frames[peak]['complete_step_ms']):.3f} ms. CUDA-event timings measure stream intervals, including gaps; they do not establish SM utilization or hardware bandwidth limits.")
             reference=runs[case['id']]['plain'][0]
             plain_means=[mean([float(f['complete_step_ms']) for f in r['frames']]) for r in runs[case['id']]['plain']]

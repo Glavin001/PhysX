@@ -120,6 +120,7 @@ def render(captures,output,phase_captures=()):
             doc.table(['Operation','CPU / GPU responsibility','Mean ms','At scoped peak ms'],[
                 [t.LABELS[k][0],t.LABELS[k][1],t.fmt(t.mean([v[k] for v in data['wall_partition']])),t.fmt(data['wall_partition'][peak][k])]
                 for k in data['wall_partition'][0]])
+            t.render_physics_task_details(doc,data,peak)
             doc.table(['GPU stream stage','Mean ms','At scoped peak ms'],[
                 [label,t.fmt(t.mean([v.get(k,0) for v in data['cuda_stages']])),t.fmt(data['cuda_stages'][peak].get(k,0))]
                 for k,label in t.STAGES.items()])
