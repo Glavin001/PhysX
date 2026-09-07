@@ -297,5 +297,71 @@ void unevenComponents(bool warmStart)
         components,nodes.size(),bonds.size(),unsigned(warmStart));
 }
 
+void largeToSmallComponents()
+{
+    // An initially cooperative component splits into CTA-sized components.
+    // Permuted authored IDs force every neighbour lookup to use the current
+    // topology mapping. Cuts carry exactly zero force in the analytic mode,
+    // so every surviving response remains known independently of the solver.
+    constexpr unsigned n=1040;
+    auto id=[](unsigned i){return (i*17u)%n;};
+    std::vector<ExtStressGpuNode> nodes(n);
+    std::vector<ExtStressGpuBond> bonds(n-1);
+    std::vector<ExtStressGpuImpulse> loads(n),actual(n-1);
+    std::vector<unsigned> alive(n-1,1u);
+    for(unsigned i=0;i<n;++i) {
+        nodes[id(i)]={{0,float(i),0},1.f,.5f};
+        if(i) {
+            auto& b=bonds[i-1];b.node0=id(i-1);b.node1=id(i);
+            b.centroid[1]=float(i)-.5f;b.normal[1]=1;
+        }
+    }
+    std::unique_ptr<ExtStressGpuSolver,Release> solver(ExtStressGpuSolver::create(
+        nodes.data(),n,bonds.data(),bonds.size()));
+    require(bool(solver) && solver->enableDeviceTopology(),"transition initialization failed");
+    unsigned* mask=nullptr;std::uint64_t* generation=nullptr;
+    cudaStream_t producer;cudaEvent_t ready;
+    check(cudaMalloc(&mask,alive.size()*sizeof(*mask)));check(cudaMalloc(&generation,sizeof(*generation)));
+    check(cudaStreamCreateWithFlags(&producer,cudaStreamNonBlocking));
+    check(cudaEventCreateWithFlags(&ready,cudaEventDisableTiming));
+    ExtStressGpuSolveParams params;params.maxIterations=128;params.tolerance=1e-5f;
+    for(std::uint64_t gen=0;gen<3;++gen) {
+        auto view=solver->deviceView();
+        check(cudaStreamWaitEvent(producer,reinterpret_cast<cudaEvent_t>(view.readyEvent),0));
+        if(gen) {
+            alive[519]=0;
+            if(gen==2)alive[259]=alive[779]=0;
+            check(cudaMemcpyAsync(mask,alive.data(),alive.size()*sizeof(*mask),cudaMemcpyHostToDevice,producer));
+            check(cudaMemcpyAsync(generation,&gen,sizeof(gen),cudaMemcpyHostToDevice,producer));
+            check(cudaEventRecord(ready,producer));
+            require(solver->updateDeviceTopologyAsync(mask,alive.size(),generation,nullptr,ready),"transition split failed");
+        }
+        for(unsigned revision:{1u,0u,3u,2u}) {
+            for(unsigned i=0;i<n;++i)loads[id(i)].linear.y=float(revision)*(i%4==0 || i%4==3?1.f:-1.f);
+            view=solver->deviceView();
+            check(cudaStreamWaitEvent(producer,reinterpret_cast<cudaEvent_t>(view.readyEvent),0));
+            check(cudaMemcpyAsync(view.nodeInputs,loads.data(),n*sizeof(loads[0]),cudaMemcpyHostToDevice,producer));
+            check(cudaEventRecord(ready,producer));
+            require(solver->solveDeviceAsync(view.nodeInputs,n,params,ready),"transition solve rejected");
+            view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+            ExtStressGpuDeviceStatus status{};ExtStressGpuDeviceTopologyStatus topology{};
+            check(cudaMemcpy(&status,view.status,sizeof(status),cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(&topology,view.topologyStatus,sizeof(topology),cudaMemcpyDeviceToHost));
+            require(status.converged && status.iterations<=params.maxIterations,"transition did not converge");
+            require(!topology.error && topology.islandCount==(1u<<gen) && topology.generation==gen,"transition topology incorrect");
+            check(cudaMemcpy(actual.data(),view.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+            for(unsigned i=0;i<actual.size();++i) {
+                const auto f=actual[i];const float expected=alive[i] && i%2==0 ? float(revision) : 0.f;
+                for(float value:{f.linear.x,f.linear.y,f.linear.z,f.angular.x,f.angular.y,f.angular.z})
+                    require(std::isfinite(value),"nonfinite transition force");
+                require(std::max({std::abs(std::abs(f.linear.y)-expected),std::abs(f.linear.x),std::abs(f.linear.z),
+                    std::abs(f.angular.x),std::abs(f.angular.y),std::abs(f.angular.z)})<2e-4f,"transition analytic force failed");
+            }
+        }
+    }
+    check(cudaEventDestroy(ready));check(cudaStreamDestroy(producer));check(cudaFree(mask));check(cudaFree(generation));
+    std::printf("resident topology transition: nodes=1040 bonds=1039 components=1->2->4 permuted IDs, twelve quiet/load solves passed\n");
 }
-int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+
+}
+int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);largeToSmallComponents();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

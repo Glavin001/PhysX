@@ -678,3 +678,28 @@ Final complete-advance measurements: two untraced 10-second runs per scene plus 
 There is no material overall throughput improvement established by these runs, and the 8 ms peak gate remains unmet. Further work includes the CPU fragment/contact compatibility lifecycle, GPU correction work selection, stress/preconditioning, sleep/joint support and full endurance/deadline qualification.
 
 Generated reports: [full primary breakdown](warp-incremental-impacts-256/report.html), [GPU execution versus CPU waiting](warp-incremental-gpu/report.html), [same-input comparison](warp-incremental-comparison/report.html), [three-scene scaling](warp-incremental-scaling/report.html), [validation](warp-incremental-evidence/validation.json).
+
+## Rejected residual caching and worker-count experiments; stronger topology regression
+
+The primary workload remains 256 buildings, 113,664 chunks, 229,376 bonds and 256 simultaneous aerial projectiles. Each implementation below ran two untraced 10-second repetitions plus a separate phase capture, timestep 1/60, correction limit one, sleeping disabled. Complete advance includes commands, physics, stress/destruction, correction, runtime growth and mandatory completion. Initialization/rendering/report generation remain separate and every measured peak is retained.
+
+Four alternatives were tested and removed: an array-of-structures shared residual, a coordinate-separated shared residual, maximum occupancy-sized resident workers, and one worker per multiprocessor. The shared layouts rebuilt an inverse chunk order only on GPU topology changes and used the existing operator, recurrence and reductions. The worker variants changed only integer dispatch capacity. Neither layout nor worker change improved this workload. All four patches are retained as rejected evidence, not selectable production paths.
+
+Complete-step means were 13.486 ms (shared AoS), 13.149 ms (shared SoA), 12.462 ms (maximum workers) and 11.571 ms (one worker), compared with the rebuilt original's 11.379 ms. The rebuilt original's maximum was 51.781 ms, with 1,038 of 1,200 steps exceeding 8 ms. Its separate phase capture attributes 5.537 ms average stream time to stress. These are diagnostic measurements, not a five-by-60-second or endurance qualification. No speedup is claimed; the production solver is fully restored. Higher worker occupancy and shared-memory placement are not, by themselves, evidence of faster complete simulation.
+
+All alternatives and the restored implementation passed CPU numerical parity, resident analytic tests and CUDA memory checking. Their frozen 444-chunk / 896-bond single-projectile wall audits preserve 398 supported chunks, 46 detached chunks, 199 broken bonds, exact topology signature, clearance step 39, entry/exit holes and zero collision/render position mismatch. All 6,000 candidate/restored large-scene steps compared against the earlier retained build match fracture, correction, cluster, body and contact counters; this is narrower than full large-scene trajectory or exact bond-identity equivalence.
+
+The retained code change is an analytic regression: a free 1,040-chunk / 1,039-bond structure with permuted authored IDs transitions from one cooperative component to two 520-chunk components and then four 260-chunk components. Twelve warm/quiet/load solves check exact topology generations, convergence and analytic surviving-bond forces at the existing 2e-4 absolute tolerance. Cuts carry zero force in the independent analytic mode; no solver-generated expected forces are used. This protects future GPU component layouts and preconditioning across splitting.
+
+Next structural priorities remain GPU-resident multilevel preconditioning and the CPU fragment/contact lifecycle migration. Normal native solves currently reject settled-result skipping, so simply bypassing components based on previous activity is not a valid optimization under the current fidelity contract. The performance, sleep/joint, lifecycle, selective-correction and endurance requirements remain incomplete.
+
+[Generated implementation comparison](component-residency-comparison/report.html) · [Restored primary timing breakdown](component-restored-impacts-256/report.html) · [Validation and rejected patches](component-residual-evidence/validation.json).
+
+Reproduce the retained numerical regression and diagnostic benchmark:
+
+```sh
+cmake --build out/destruction-sdk --target gpu_resident_stress_test gpu_resident_stress_parity_test -j4
+ctest --test-dir out/destruction-sdk -R '^blast_stress_gpu_resident_(analytic|cpu_parity|memory)$' --output-on-failure
+python3 tools/scripts/run-destruction-penetration-regression.py out/NEW-wall-quality
+python3 tools/scripts/run-destruction-timing.py out/NEW-bombardment --config tools/profiles/destruction-scaling.json --case impacts-256 --trials 2 --seconds 10 --gate-only --phase-scopes --report-output qualification/NEW-bombardment
+```

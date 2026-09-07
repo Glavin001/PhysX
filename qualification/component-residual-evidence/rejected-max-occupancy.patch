@@ -1,0 +1,19 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+index 08a96585..ec4190bd 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+@@ -255,7 +255,13 @@
+             components=m_deviceTopology->components();
+             // The device list controls the live work; a bounded persistent
+             // grid distributes independent components without a host count.
+-            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);
++            int componentBlocksPerSm=0;
++            checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&componentBlocksPerSm,
++                componentStressSolve,kBlockSize,0),"component stress occupancy");
++            if(componentBlocksPerSm<=0)
++                throw std::runtime_error("Component stress launch has no legal residency");
++            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*componentBlocksPerSm)),
++                kBlockSize,0,m_stream>>>(args,components);
+             args.islandIds=components.largeIds;
+             args.liveIslandCount=components.largeCount;
+             args.largeComponentsOnly=true;
