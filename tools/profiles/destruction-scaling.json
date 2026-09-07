@@ -79,6 +79,20 @@
       ]
     },
     {
+      "id": "world-144",
+      "label": "144 buildings, one unchanged wall impact",
+      "args": [
+        "--grid",
+        "12",
+        "--layout",
+        "impact-corridor",
+        "--workload",
+        "single-impact",
+        "--shot-path",
+        "through-wall"
+      ]
+    },
+    {
       "id": "world-256",
       "label": "256 buildings, one unchanged wall impact",
       "args": [

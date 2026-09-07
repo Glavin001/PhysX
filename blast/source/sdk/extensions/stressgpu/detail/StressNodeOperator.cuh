@@ -1,5 +1,10 @@
 // Private implementation fragment; included once inside the owning .cu namespace.
 // BEGIN UNCHANGED SOURCE
+// Global float atomics flush subnormal operands; preserve that behavior
+// before combining nonnegative node contributions in a block-local tree.
+__device__ __forceinline__ float stressSquaredContribution(float value)
+{ return (__float_as_uint(value)&0x7f800000u)==0u ? 0.0f : value; }
+
 /// ---------------------------------------------------------------------------
 /// NODE-SPACE CGLS
 ///
@@ -71,7 +76,8 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
     // periodic explicit recomputation of q = L pi which keeps the recurrence
     // q = w + beta q from drifting (the pipelined-CG trade).
     const std::uint32_t* iterationPtr,
-    std::uint32_t refreshEvery, unsigned logicalBlock)
+    std::uint32_t refreshEvery, unsigned logicalBlock,
+    float* nodeContribution = nullptr)
 {
     if (refreshEvery != 0u && (*iterationPtr % refreshEvery) != 0u)
     {
@@ -187,11 +193,12 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
     w[node].angular = mul(accAng, inv.angular);
     w[node].linear = mul(accLin, inv.linear);
 
-    if (zSqSlots != nullptr && myIsland != kNoIsland)
+    if ((zSqSlots != nullptr || nodeContribution != nullptr) && myIsland != kNoIsland)
     {
         // Zero slots selects an exclusive per-node output. Its reduction is
         // a separate fixed-order pass; no floating atomic participates.
-        if (slotCount == 0u) zSqSlots[node] = zSq;
+        if (nodeContribution) *nodeContribution = stressSquaredContribution(zSq);
+        else if (slotCount == 0u) zSqSlots[node] = zSq;
         else if (zSq > 0.0f)
             atomicAdd(&zSqSlots[myIsland * slotCount + (slot & (slotCount - 1u))], zSq);
     }

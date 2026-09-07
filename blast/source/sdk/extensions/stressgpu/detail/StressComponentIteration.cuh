@@ -1,5 +1,20 @@
 // Private native specialization, included after the shared resident arguments.
 #ifdef PHYSX_RESIDENT_DESTRUCTION
+// Every warp produces one fully overwritten partial. No floating atomics
+// or scratch-clearing pass is needed; all lanes participate, including zero
+// contributions from out-of-range or already converged rows.
+__device__ __forceinline__ float componentSquaredNorm(float value)
+{
+    __shared__ float warpSums[kBlockSize/32];
+    for(unsigned offset=16;offset;offset>>=1)
+        value+=__shfl_down_sync(0xffffffffu,value,offset);
+    if((threadIdx.x&31u)==0)warpSums[threadIdx.x/32]=value;
+    __syncthreads();
+    float sum=0;
+    if(threadIdx.x==0)for(unsigned warp=0;warp<kBlockSize/32;++warp)sum+=warpSums[warp];
+    return sum;
+}
+
 // Each CTA owns all iterations of one component at a time. Stable sorted node
 // ranges make every vector/scalar write exclusive to that component; static
 // boundary rows are read-only. No grid rendezvous or global loop counter is
@@ -9,6 +24,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
 {
     __shared__ unsigned counts[2], iteration, activeCount;
     __shared__ SolveStatus status;
+    __shared__ float reduceValue;
     for(unsigned slot=blockIdx.x;slot<*c.count;slot+=gridDim.x) {
         const unsigned id=c.ids[slot], begin=c.begin[id], count=c.end[id]-begin;
         if(count>kResidentComponentMaxNodes)continue;
@@ -19,29 +35,35 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         __syncthreads();
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
         do {
-            for(unsigned i=threadIdx.x;i<a.slots;i+=blockDim.x)
-                a.m_reduceSlots[id*a.slots+i]=0;
-            __syncthreads();
-            for(unsigned block=0;block<nodeBlocks;++block)
+            float squared=0;
+            for(unsigned block=0;block<nodeBlocks;++block) {
+                float contribution=0;
                 nodeSpaceMatvecBody(a.m_nsW,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,
                     a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
-                    nullptr,a.m_nodeIsland,a.m_islandActive,true,a.m_reduceSlots,a.slots,c.nodes+begin,
-                    counts,&iteration,0u,block);
+                    nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,
+                    counts,&iteration,0u,block,&contribution);
+                squared+=contribution;
+            }
+            const float numerator=componentSquaredNorm(squared);
+            if(threadIdx.x==0)reduceValue=numerator;
             __syncthreads();
-            finalizeAndCheckConvergenceBody(a.m_reduceSlots,a.m_gradientSquared,a.slots,
-                a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot);
+            finalizeAndCheckConvergenceBody(&reduceValue,a.m_gradientSquared,1u,
+                a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
             __syncthreads();
-            for(unsigned i=threadIdx.x;i<a.slots;i+=blockDim.x)
-                a.m_reduceSlots[id*a.slots+i]=0;
-            __syncthreads();
-            for(unsigned block=0;block<nodeBlocks;++block)
+            squared=0;
+            for(unsigned block=0;block<nodeBlocks;++block) {
+                float contribution=0;
                 nodeSpaceUpdateDirectionBody(a.m_nsPi,a.m_nsQ,a.m_residual,a.m_nsW,
                     a.m_gradientSquared,a.m_previousGradientSquared,a.m_nodeIsland,a.m_islandActive,
-                    a.m_reduceSlots,a.slots,c.nodes+begin,counts,&iteration,block);
+                    nullptr,1u,c.nodes+begin,counts,&iteration,block,&contribution);
+                squared+=contribution;
+            }
+            const float denominator=componentSquaredNorm(squared);
+            if(threadIdx.x==0)reduceValue=denominator;
             __syncthreads();
-            finalizeAndRetireBody(a.m_reduceSlots,a.m_projectedDirectionSquared,a.slots,
+            finalizeAndRetireBody(&reduceValue,a.m_projectedDirectionSquared,1u,
                 a.m_islandActive,a.m_previousGradientSquared,a.m_gradientSquared,&status,&activeCount,1u,
-                &iteration,1u,0,a.maxIterations,nullptr,0u,c.ids+slot);
+                &iteration,1u,0,a.maxIterations,nullptr,0u,c.ids+slot,id);
             __syncthreads();
             for(unsigned block=0;block<nodeBlocks;++block)
                 nodeSpaceUpdateSolutionBody(&iteration,a.maxIterations,a.m_nsMu,a.m_residual,a.m_nsPi,

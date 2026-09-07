@@ -1,0 +1,10 @@
+========= COMPUTE-SANITIZER
+resident columns: topology=asset nodes=12 bonds=9 worst relative error=0
+resident columns: topology=asset nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=asset nodes=131072 bonds=98304 worst relative error=0
+resident columns: topology=GPU nodes=12 bonds=9 worst relative error=0
+resident columns: topology=GPU nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=GPU nodes=131072 bonds=98304 worst relative error=0
+resident mixed components: nodes=2064 bonds=2061 sizes=12,1024,1028 interleaved=0 analytic forces and iteration-cap rejection passed
+resident mixed components: nodes=2064 bonds=2061 sizes=12,1024,1028 interleaved=1 analytic forces and iteration-cap rejection passed
+========= ERROR SUMMARY: 0 errors

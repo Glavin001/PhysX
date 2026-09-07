@@ -19,7 +19,8 @@ __device__ __forceinline__ void nodeSpaceUpdateDirectionBody(
     std::uint32_t slotCount,
     const std::uint32_t* activeNodes,
     const std::uint32_t* activeCounts,
-    const std::uint32_t* iteration, unsigned logicalBlock)
+    const std::uint32_t* iteration, unsigned logicalBlock,
+    float* nodeContribution = nullptr)
 {
     const std::uint32_t slot = logicalBlock * blockDim.x + threadIdx.x;
     if (slot >= activeCounts[1])
@@ -49,7 +50,8 @@ __device__ __forceinline__ void nodeSpaceUpdateDirectionBody(
     q[node].linear = ql;
     const float qSq = qa.x * qa.x + qa.y * qa.y + qa.z * qa.z
                     + ql.x * ql.x + ql.y * ql.y + ql.z * ql.z;
-    if (slotCount == 0u) qSqSlots[node] = qSq;
+    if (nodeContribution) *nodeContribution = stressSquaredContribution(qSq);
+    else if (slotCount == 0u) qSqSlots[node] = qSq;
     else atomicAdd(&qSqSlots[island * slotCount + (slot & (slotCount - 1u))], qSq);
 }
 

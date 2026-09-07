@@ -161,25 +161,28 @@ void columns(unsigned n, bool deviceTopology){
     check(cudaEventDestroy(ready));check(cudaStreamDestroy(producer));
     std::printf("resident columns: topology=%s nodes=%u bonds=%zu worst relative error=%g\n",deviceTopology?"GPU":"asset",n,bonds.size(),worst);
 }
-void mixedComponentSizes()
+void mixedComponentSizes(bool interleaved)
 {
     // The middle component fits one block's specialization; the last one
     // crosses its size boundary and must use cooperative iteration.
     const unsigned sizes[]={12u,1024u,1028u};
     const unsigned starts[]={0u,12u,1036u};
     const unsigned n=2064u;
+    // 5 and 2064 are coprime: this is a bijection that interleaves authored
+    // IDs without changing geometry, bond order, material or physical loads.
+    auto nodeId=[&](unsigned i){return interleaved?(i*5u)%n:i;};
     std::vector<ExtStressGpuNode> nodes(n);
     std::vector<ExtStressGpuBond> bonds;
     std::vector<ExtStressGpuImpulse> loads(n);
     for(unsigned component=0;component<3;++component) {
         const unsigned start=starts[component],count=sizes[component];
         for(unsigned j=0;j<count;++j) {
-            const unsigned i=start+j;
+            const unsigned i=nodeId(start+j);
             nodes[i]={{float(component)*4,float(j),0},1.f,.5f};
             // Exact eigenvector of the free path Laplacian, eigenvalue two.
             // Its prefix sums give bond forces 1,0,-1,0,... analytically.
             loads[i].linear.y=(j%4==0 || j%4==3)?1.f:-1.f;
-            if(j) { ExtStressGpuBond b{};b.node0=i-1;b.node1=i;
+            if(j) { ExtStressGpuBond b{};b.node0=nodeId(start+j-1);b.node1=i;
                 b.centroid[0]=nodes[i].position[0];b.centroid[1]=float(j)-.5f;
                 b.normal[1]=1;bonds.push_back(b); }
         }
@@ -209,14 +212,24 @@ void mixedComponentSizes()
     // solve, even when every component handled by the other one converges.
     params.maxIterations=2;
     for(unsigned component:{0u,2u}) {
-        const unsigned first=starts[component],last=first+sizes[component]-1;
+        const unsigned first=nodeId(starts[component]),last=nodeId(starts[component]+sizes[component]-1);
         loads[first].linear.y+=2;loads[last].linear.y-=2;
         const auto status=solve();
         require(!status.converged && status.active && status.iterations==2,"component failure was hidden by merged status");
         loads[first].linear.y-=2;loads[last].linear.y+=2;
     }
-    std::printf("resident mixed components: nodes=%u bonds=%zu sizes=12,1024,1028 analytic forces and iteration-cap rejection passed\n",n,bonds.size());
+    // These squared contributions are individually subnormal. Global float
+    // atomics flush each one before adding; a shared accumulator must not
+    // accidentally collect them into a normal value and change convergence.
+    for(auto& load:loads)load.linear.y*=1e-20f;
+    params.maxIterations=128;
+    const auto tiny=solve();
+    require(tiny.converged && tiny.iterations==0,"subnormal reduction changed global-atomic convergence semantics");
+    check(cudaMemcpy(actual.data(),solver->deviceView().bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+    for(const auto& f:actual)for(float value:{f.linear.x,f.linear.y,f.linear.z,f.angular.x,f.angular.y,f.angular.z})
+        require(value==0,"subnormal reduction changed global-atomic force response");
+    std::printf("resident mixed components: nodes=%u bonds=%zu sizes=12,1024,1028 interleaved=%u analytic forces and iteration-cap rejection passed\n",n,bonds.size(),unsigned(interleaved));
 }
 
 }
-int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
