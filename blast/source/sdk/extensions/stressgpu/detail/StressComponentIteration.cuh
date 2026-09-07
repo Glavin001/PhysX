@@ -48,12 +48,14 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             status={1u,a.maxIterations,0u};
         }
         __syncthreads();
+        retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
         do {
+            if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id);
             float squared=0;
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
-                nodeSpaceMatvecBody(a.m_nsW,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,
+                nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,
                     a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
                     nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,
                     counts,&iteration,0u,block,&contribution);
@@ -66,21 +68,18 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
             __syncthreads();
             float localGamma=0;
-            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,cycleShared);
+            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration,cycleShared);
             const float gamma=componentSquaredNorm(localGamma);
             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
             __syncthreads();
-            for(unsigned block=0;block<nodeBlocks;++block)
-                nodeSpaceMatvecBody(a.hierarchy.lg,a.hierarchy.g,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,
-                    a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,
-                    nullptr,1u,c.nodes+begin,counts,&iteration,0u,block);
+            for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeDirection(a,c.nodes[begin+i],id,iteration);
             __syncthreads();
             squared=0;
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
-                nodeSpaceUpdateDirectionBody(a.m_nsPi,a.m_nsQ,a.hierarchy.g,a.hierarchy.lg,
-                    a.hierarchy.gamma,a.hierarchy.previous,a.m_nodeIsland,a.m_islandActive,
-                    nullptr,1u,c.nodes+begin,counts,&iteration,block,&contribution);
+                nodeSpaceMatvecBody(a.m_nsQ,a.m_nsPi,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,
+                    a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,
+                    nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution);
                 squared+=contribution;
             }
             const float denominator=componentSquaredNorm(squared);
@@ -90,19 +89,16 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 a.m_islandActive,a.hierarchy.previous,a.hierarchy.gamma,&status,&activeCount,1u,
                 &iteration,1u,0,a.maxIterations,nullptr,0u,c.ids+slot,id);
             __syncthreads();
-            for(unsigned block=0;block<nodeBlocks;++block)
-                nodeSpaceUpdateSolutionBody(&iteration,a.maxIterations,a.m_nsMu,a.m_residual,a.m_nsPi,
-                    a.m_nsQ,a.hierarchy.gamma,a.m_projectedDirectionSquared,a.m_nodeIsland,
-                    a.m_islandActive,c.nodes+begin,counts,block);
+            for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeStressSolution(a,c.nodes[begin+i],id,iteration);
             __syncthreads();
 #ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
-            if(!threadIdx.x && count==1024 && (iteration&(iteration-1))==0)printf("native history id=%u iteration=%u residual2=%g gamma=%g q2=%g g0=%g mu0=%g\n",id,iteration,a.m_gradientSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id],a.hierarchy.g[c.nodes[begin]].linear.y,a.m_nsMu[c.nodes[begin]].linear.y);
+            if(!threadIdx.x && count==1024 && (iteration&(iteration-1))==0)printf("native history id=%u iteration=%u residual2=%g gamma=%g direction_energy=%g g0=%g mu0=%g\n",id,iteration,a.m_gradientSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id],a.hierarchy.g[c.nodes[begin]].linear.y,a.hierarchy.solution[c.nodes[begin]].linear.y);
 #endif
         } while(status.active && iteration<a.maxIterations);
         if(threadIdx.x==0) {
             if(a.hierarchy.failed[id] || !a.m_islandConverged[id])status.converged=0;
 #ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
-            if(!status.converged)printf("native component id=%u nodes=%u iterations=%u active=%u failed=%u residual2=%g tolerance2=%g gamma=%g q2=%g\n",id,count,status.iterations,status.active,a.hierarchy.failed[id],a.m_gradientSquared[id],a.m_deltaSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id]);
+            if(!status.converged)printf("native component id=%u nodes=%u iterations=%u active=%u failed=%u residual2=%g tolerance2=%g gamma=%g direction_energy=%g\n",id,count,status.iterations,status.active,a.hierarchy.failed[id],a.m_gradientSquared[id],a.m_deltaSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id]);
 #endif
             c.results[id]=status;
             // The cooperative stage must never update a small component,

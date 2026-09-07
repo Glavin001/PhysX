@@ -30,6 +30,7 @@
 #include <vector>
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 #include "detail/StressHierarchyCycle.cuh"
+#include "detail/StressMotionModes.cuh"
 #endif
 
 namespace Nv

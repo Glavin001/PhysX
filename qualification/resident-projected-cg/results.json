@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "tests": [
+    {
+      "name": "Native analytic regression",
+      "scope": "Up to 131,072 nodes / 98,304 bonds; mixed components; 769 uneven components; 1\u21922\u21924 split/load transitions",
+      "command": "out/destruction-sdk/reference/gpu_resident_stress_test",
+      "exit_code": 0,
+      "log": "logs/native-initial-direction-analytic.log",
+      "log_sha256": "2c870945b9dc629ba453e67a824b85e7295ff676a274fee6a148c9f8e30a86e6",
+      "required_markers": [
+        "twelve quiet/load solves passed",
+        "warm=1 six quiet/load transitions passed"
+      ],
+      "passed": true
+    },
+    {
+      "name": "3D independent CPU comparison",
+      "scope": "18 and 1,058 nodes / 33 and 2,553 bonds, free/supported, force/torque and warm zero-load transitions",
+      "command": "out/destruction-sdk/reference/gpu_resident_stress_3d_test",
+      "exit_code": 1,
+      "log": "logs/native-projected-3d-final.log",
+      "log_sha256": "f1ca214f53ac83dd0a53b2058f5db8e5b6c9ec474c57d5906c323d94b62f6493",
+      "required_markers": [],
+      "passed": false
+    },
+    {
+      "name": "Native motion modes and exact-zero certificates",
+      "scope": "Up to 100,000 nodes / 199,997 bonds; native forest; generations, cycle moments, support, balanced/subnormal loads and rejected transactions",
+      "command": "out/destruction-sdk/reference/gpu_resident_motion_modes_test",
+      "exit_code": 0,
+      "log": "logs/native-projected-modes-final.log",
+      "log_sha256": "c36bc75717f97464c4263ee1f85b6933c73c6bd0214a9bb82f907e6c8007aba5",
+      "required_markers": [
+        "nodes=100000 bonds=199997 generation=3",
+        "GPU motion rejection/recovery nodes=100000"
+      ],
+      "passed": true
+    },
+    {
+      "name": "Memory/leak sanitizer",
+      "scope": "Full native analytic regression; up to 131,072 nodes / 98,304 bonds",
+      "command": "/usr/local/cuda/bin/compute-sanitizer --tool memcheck --leak-check full --error-exitcode 99 out/destruction-sdk/reference/gpu_resident_stress_test",
+      "exit_code": 0,
+      "log": "logs/native-projected-memcheck.log",
+      "log_sha256": "d245c23974a1556f85a2fd644e35a8ad8c63701532e2f1bb34f4c46393104b1f",
+      "required_markers": [
+        "ERROR SUMMARY: 0 errors",
+        "LEAK SUMMARY: 0 bytes leaked"
+      ],
+      "passed": true
+    },
+    {
+      "name": "Synchronization sanitizer",
+      "scope": "Full native analytic regression; up to 131,072 nodes / 98,304 bonds",
+      "command": "/usr/local/cuda/bin/compute-sanitizer --tool synccheck --error-exitcode 99 out/destruction-sdk/reference/gpu_resident_stress_test",
+      "exit_code": 0,
+      "log": "logs/native-projected-synccheck.log",
+      "log_sha256": "283f194ebb2a3991c8902121970ba6321471f15cdc7e6dbc6957b81ed5a3a4e9",
+      "required_markers": [
+        "ERROR SUMMARY: 0 errors"
+      ],
+      "passed": true
+    },
+    {
+      "name": "Race sanitizer",
+      "scope": "Full native analytic regression; instrumented target exits 11 before test completion",
+      "command": "/usr/local/cuda/bin/compute-sanitizer --tool racecheck --error-exitcode 99 out/destruction-sdk/reference/gpu_resident_stress_test",
+      "exit_code": 11,
+      "log": "logs/native-projected-racecheck.log",
+      "log_sha256": "c30ec7ce3862c72a9514fc5b9eade96f24579ff5cbdc3309d3a4efdb4b430881",
+      "required_markers": [],
+      "passed": false
+    },
+    {
+      "name": "Race sanitizer narrowed diagnostic",
+      "scope": "2,064 nodes / 2,061 bonds; same instrumented-target exit 11",
+      "command": "/usr/local/cuda/bin/compute-sanitizer --tool racecheck --error-exitcode 99 out/destruction-sdk/reference/gpu_resident_stress_test mixed",
+      "exit_code": 11,
+      "log": "logs/native-projected-racecheck-mixed.log",
+      "log_sha256": "c30ec7ce3862c72a9514fc5b9eade96f24579ff5cbdc3309d3a4efdb4b430881",
+      "required_markers": [],
+      "passed": false
+    },
+    {
+      "name": "Reference API equivalence only",
+      "scope": "64 nodes / 112 bonds; CPU and GPU 25-iteration capped answers; does NOT enable native device topology",
+      "command": "out/destruction-sdk/reference/gpu_resident_stress_parity_test",
+      "exit_code": 0,
+      "log": "logs/native-projected-reference-parity.log",
+      "log_sha256": "0c2c98891aca2666be385cd3e490be951437bb35e23a15ef78879f51ae1be7bd",
+      "required_markers": [
+        "damage: compactBreaks=112"
+      ],
+      "passed": true
+    }
+  ],
+  "all_test_gates_passed": false,
+  "full_plan_qualified": false,
+  "performance_improvement_established": false
+}

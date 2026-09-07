@@ -1,0 +1,5 @@
+native 3D nodes=18 bonds=33 supported=0 amplitude=0.5 iterations=9 converged=1 topology_error=0 CPU_iterations=27
+native 3D all-force/moment maximum_relative_error=9.68459062e-07
+native 3D nodes=18 bonds=33 supported=0 amplitude=1 iterations=9 converged=1 topology_error=0 CPU_iterations=26
+native 3D all-force/moment maximum_relative_error=1.03749335e-06
+3D independent CPU oracle did not converge

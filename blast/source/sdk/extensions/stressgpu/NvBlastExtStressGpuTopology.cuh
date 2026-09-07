@@ -33,12 +33,12 @@ __global__ void chooseDeviceStressRebuild(const ExtStressGpuDeviceTopologyStatus
 { cudaGraphSetConditional(rebuild, !status->error); }
 __global__ void initializeDeviceStressTopology(const DeviceStressTopologyBatch* batch,
     const Inertia* inertia, unsigned* parent, unsigned* identity, unsigned* rootFlags,
-    float* health, unsigned n, unsigned m)
+    float* health, unsigned n, unsigned m, unsigned* forest)
 {
     const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < max(n, m)) identity[i] = i;
     if (i < n) { parent[i] = inertia[i].linear > 0 ? i : kNoIsland; rootFlags[i] = 0; }
-    if (i < m && batch->mask && !batch->mask[i]) health[i] = 0;
+    if (i < m) { if(forest)forest[i]=0; if(batch->mask && !batch->mask[i])health[i]=0; }
 }
 __device__ unsigned deviceStressRoot(unsigned* parents, unsigned node)
 {
@@ -47,7 +47,7 @@ __device__ unsigned deviceStressRoot(unsigned* parents, unsigned node)
     return node;
 }
 __global__ void connectDeviceStressTopology(const unsigned* node0, const unsigned* node1,
-    const float* health, const Inertia* inertia, unsigned m, unsigned* parent)
+    const float* health, const Inertia* inertia, unsigned m, unsigned* parent, unsigned* forest)
 {
     const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= m || health[i] <= 0) return;
@@ -58,7 +58,12 @@ __global__ void connectDeviceStressTopology(const unsigned* node0, const unsigne
         a = deviceStressRoot(parent, a); b = deviceStressRoot(parent, b);
         if (a == b) return;
         const unsigned hi = max(a, b), lo = min(a, b);
-        if (atomicCAS(parent + hi, hi, lo) == hi) return;
+        if (atomicCAS(parent + hi, hi, lo) == hi) {
+            // The successful union's original bond is a spanning-tree edge.
+            // This producer is the only writer of its flag. Consumers execute
+            // after the connectivity kernel, so no extra atomic or wait is needed.
+            if(forest)forest[i]=1;return;
+        }
     }
 }
 __global__ void flattenDeviceStressTopology(unsigned* parent, unsigned n)
@@ -175,7 +180,7 @@ class DeviceStressTopology
 #ifdef PHYSX_RESIDENT_DESTRUCTION
     std::unique_ptr<NativeStressHierarchy> nativeHierarchy;
 #endif
-    unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr;
+    unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr, *forest=nullptr;
     unsigned *rangeBegin=nullptr, *rangeEnd=nullptr, *tileCounts=nullptr;
     unsigned* liveIslands=nullptr;
     unsigned *componentNodes=nullptr, *largeIslands=nullptr, *largeCount=nullptr;
@@ -249,8 +254,8 @@ class DeviceStressTopology
         auto body=conditional(validation,prior,rebuild);
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
         beginDeviceStressRebuild<<<1,1,0,captureStream>>>(state);
-        initializeDeviceStressTopology<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(batch,b.inertia,parent,identity,rootFlags,b.health,b.n,b.m);
-        connectDeviceStressTopology<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,b.m,parent);
+        initializeDeviceStressTopology<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(batch,b.inertia,parent,identity,rootFlags,b.health,b.n,b.m,forest);
+        connectDeviceStressTopology<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,b.m,parent,forest);
         flattenDeviceStressTopology<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,b.n);
         labelDeviceStressBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,parent,rootFlags,b.bondIsland,b.m);
         labelDeviceStressNodes<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,rootFlags,b.nodeIsland,b.n,state);
@@ -293,11 +298,11 @@ class DeviceStressTopology
         StressHierarchy::Input input{b.n,b.m,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
             b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->generation,nullptr};
         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
-        nativeHierarchy.reset(new NativeStressHierarchy(input,state,ownerStream));
+        nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,ownerStream));
         nativeHierarchy->append(body,completed);
         // This status publication is outside the rebuild condition so a prior
         // failed hierarchy cannot appear healthy on an unchanged submission.
-        kernel(graph,rootTail,(void*)publishNativeHierarchyStatus,1,1,nativeHierarchy->status(),state);
+        kernel(graph,rootTail,(void*)publishNativeHierarchyStatus,1,1,nativeHierarchy->status(),nativeHierarchy->modeStatus(),state);
 #endif
         checkCuda(cudaGraphInstantiate(&exec,graph,0), "instantiate stress topology graph");
     }
@@ -311,7 +316,7 @@ public:
         nativeHierarchy.reset();
 #endif
         if (captureStream) cudaStreamDestroy(captureStream);
-        cudaFree(parent); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys);
+        cudaFree(parent); cudaFree(forest); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys);
         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
         cudaFree(componentNodes); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
@@ -322,7 +327,7 @@ public:
         allocate(parent,b.n); allocate(rootFlags,b.n); allocate(identity,std::max(b.n,b.m));
         allocate(batch,1); allocate(state,1);
 #ifdef PHYSX_RESIDENT_DESTRUCTION
-        allocate(liveIslands,b.n); allocate(componentNodes,b.n);
+        allocate(forest,b.m); allocate(liveIslands,b.n); allocate(componentNodes,b.n);
         allocate(largeIslands,b.n); allocate(largeCount,1); allocate(componentResults,b.n);
         allocate(componentWorkCursor,1);
         allocate(sortedKeys,b.n); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n);

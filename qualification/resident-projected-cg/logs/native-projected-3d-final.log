@@ -1,0 +1,26 @@
+native 3D nodes=18 bonds=33 supported=0 amplitude=0.5 iterations=10 converged=1 topology_error=0 CPU_iterations=27
+native 3D all-force/moment maximum_relative_error=8.65431502e-07
+native 3D nodes=18 bonds=33 supported=0 amplitude=1 iterations=9 converged=1 topology_error=0 CPU_iterations=27
+native 3D all-force/moment maximum_relative_error=2.88244337e-06
+native 3D nodes=18 bonds=33 supported=0 amplitude=0 iterations=33 converged=1 topology_error=0 CPU_iterations=0
+native 3D all-force/moment maximum_relative_error=1.8084295e-08
+native 3D nodes=18 bonds=33 supported=0 amplitude=-0.75 iterations=10 converged=1 topology_error=0 CPU_iterations=27
+native 3D all-force/moment maximum_relative_error=1.30431727e-06
+native 3D nodes=18 bonds=33 supported=1 amplitude=0.5 iterations=13 converged=1 topology_error=0 CPU_iterations=66
+native 3D all-force/moment maximum_relative_error=1.1920929e-06
+native 3D nodes=18 bonds=33 supported=1 amplitude=1 iterations=13 converged=1 topology_error=0 CPU_iterations=66
+native 3D all-force/moment maximum_relative_error=1.01327896e-06
+native 3D nodes=18 bonds=33 supported=1 amplitude=0 iterations=37 converged=1 topology_error=0 CPU_iterations=0
+native 3D all-force/moment maximum_relative_error=1.14678278e-06
+native 3D nodes=18 bonds=33 supported=1 amplitude=-0.75 iterations=13 converged=1 topology_error=0 CPU_iterations=70
+native 3D all-force/moment maximum_relative_error=1.04308128e-06
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=0.5 iterations=103 converged=1 topology_error=0 CPU_iterations=377
+native 3D all-force/moment maximum_relative_error=7.73742795e-06
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=1 iterations=100 converged=1 topology_error=0 CPU_iterations=377
+native 3D all-force/moment maximum_relative_error=9.29832458e-06
+native cooperative id=0 iterations=256 active=1 failed=0 residual2=7.27922e-27 tolerance2=0 gamma=2.44756e-13 direction_energy=98.2348
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=0 iterations=256 converged=0 topology_error=0 CPU_iterations=0
+3D fixture extent=23 supported=0 failed: 3D native solve did not converge
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=0.5 iterations=135 converged=1 topology_error=0 CPU_iterations=1586
+native 3D all-force/moment maximum_relative_error=0.000443489291
+3D fixture extent=23 supported=1 failed: 3D native bond forces differ from independent CPU oracle

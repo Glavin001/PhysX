@@ -110,8 +110,8 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
         // Static: annihilated on both sides of L, so its row is identically
         // zero. Also the high-degree terrain node, which would otherwise walk
         // thousands of bonds to produce zero.
-        w[node].angular = Vec4{0.0f, 0.0f, 0.0f, 0.0f};
-        w[node].linear = Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+        if(w){w[node].angular = Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+            w[node].linear = Vec4{0.0f, 0.0f, 0.0f, 0.0f};}
         return;
     }
 
@@ -178,20 +178,22 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
         }
 
         // (D C S^2 t)_node, the same accumulation gatherRightMultiply performs.
-        if (!isSecond)
+        if (w && !isSecond)
         {
             accAng = add(accAng, sub(tAng, cross(o0, tLin)));
             accLin = add(accLin, tLin);
         }
-        else
+        else if(w)
         {
             accAng = add(accAng, sub(cross(o1, tLin), tAng));
             accLin = sub(accLin, tLin);
         }
     }
 
-    w[node].angular = mul(accAng, inv.angular);
-    w[node].linear = mul(accLin, inv.linear);
+    // Native projected CG needs the original convergence norm, but not L*r.
+    // A null destination removes the unused accumulation and output writes.
+    if(w){w[node].angular = mul(accAng, inv.angular);
+        w[node].linear = mul(accLin, inv.linear);}
 
     if ((zSqSlots != nullptr || nodeContribution != nullptr) && myIsland != kNoIsland)
     {

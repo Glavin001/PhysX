@@ -943,6 +943,15 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
                 PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
         endforeach()
     endforeach()
+    add_executable(gpu_resident_motion_modes_test EXCLUDE_FROM_ALL tests/gpu_resident_motion_modes_test.cu)
+    target_include_directories(gpu_resident_motion_modes_test PRIVATE
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
+    target_compile_definitions(gpu_resident_motion_modes_test PRIVATE PHYSX_RESIDENT_DESTRUCTION)
+    set_target_properties(gpu_resident_motion_modes_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_compile_options(gpu_resident_motion_modes_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+    target_link_libraries(gpu_resident_motion_modes_test PRIVATE CUDA::cudart CUDA::cuda_driver)
+    add_test(NAME blast_stress_gpu_resident_motion_modes COMMAND gpu_resident_motion_modes_test)
+    set_tests_properties(blast_stress_gpu_resident_motion_modes PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     add_library(gpu_resident_stress_test_core OBJECT EXCLUDE_FROM_ALL
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu")
     target_include_directories(gpu_resident_stress_test_core PUBLIC
@@ -960,6 +969,15 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
     target_compile_definitions(gpu_resident_stress_parity_test PRIVATE
         STRESS_SOLVER_FORCE_SCALAR STRESS_SOLVER_NO_SIMD STRESS_SOLVER_NO_DEVICE_QUERY)
     target_link_libraries(gpu_resident_stress_parity_test PRIVATE gpu_resident_stress_test_core blast_stress_core)
+    add_executable(gpu_resident_stress_3d_test EXCLUDE_FROM_ALL tests/gpu_resident_stress_3d_test.cpp)
+    target_include_directories(gpu_resident_stress_3d_test PRIVATE
+        "${BLAST_ROOT}/source/shared" "${BLAST_ROOT}/source/shared/stress_solver"
+        "${BLAST_ROOT}/include/shared/NvFoundation")
+    target_compile_definitions(gpu_resident_stress_3d_test PRIVATE
+        STRESS_SOLVER_FORCE_SCALAR STRESS_SOLVER_NO_SIMD STRESS_SOLVER_NO_DEVICE_QUERY)
+    target_link_libraries(gpu_resident_stress_3d_test PRIVATE gpu_resident_stress_test_core blast_stress_core)
+    add_test(NAME blast_stress_gpu_resident_3d COMMAND gpu_resident_stress_3d_test)
+    set_tests_properties(blast_stress_gpu_resident_3d PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     add_test(NAME blast_stress_gpu_resident_cpu_parity COMMAND gpu_resident_stress_parity_test)
     add_test(NAME blast_stress_gpu_resident_analytic COMMAND gpu_resident_stress_test)
     set_tests_properties(blast_stress_gpu_resident_analytic PROPERTIES TIMEOUT 120)

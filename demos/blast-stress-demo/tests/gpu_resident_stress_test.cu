@@ -347,6 +347,7 @@ void largeToSmallComponents()
             ExtStressGpuDeviceStatus status{};ExtStressGpuDeviceTopologyStatus topology{};
             check(cudaMemcpy(&status,view.status,sizeof(status),cudaMemcpyDeviceToHost));
             check(cudaMemcpy(&topology,view.topologyStatus,sizeof(topology),cudaMemcpyDeviceToHost));
+            if(!status.converged)std::fprintf(stderr,"transition failure generation=%llu load_revision=%u iterations=%u\n",static_cast<unsigned long long>(gen),revision,status.iterations);
             require(status.converged && status.iterations<=params.maxIterations,"transition did not converge");
             require(!topology.error && topology.islandCount==(1u<<gen) && topology.generation==gen,"transition topology incorrect");
             check(cudaMemcpy(actual.data(),view.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
@@ -354,8 +355,10 @@ void largeToSmallComponents()
                 const auto f=actual[i];const float expected=alive[i] && i%2==0 ? float(revision) : 0.f;
                 for(float value:{f.linear.x,f.linear.y,f.linear.z,f.angular.x,f.angular.y,f.angular.z})
                     require(std::isfinite(value),"nonfinite transition force");
-                require(std::max({std::abs(std::abs(f.linear.y)-expected),std::abs(f.linear.x),std::abs(f.linear.z),
-                    std::abs(f.angular.x),std::abs(f.angular.y),std::abs(f.angular.z)})<2e-4f,"transition analytic force failed");
+                const float error=std::max({std::abs(std::abs(f.linear.y)-expected),std::abs(f.linear.x),std::abs(f.linear.z),
+                    std::abs(f.angular.x),std::abs(f.angular.y),std::abs(f.angular.z)});
+                if(!(error<2e-4f))std::fprintf(stderr,"transition force generation=%llu load_revision=%u edge=%u expected=%g actual_y=%g error=%g iterations=%u\n",static_cast<unsigned long long>(gen),revision,i,expected,f.linear.y,error,status.iterations);
+                require(error<2e-4f,"transition analytic force failed");
             }
         }
     }
