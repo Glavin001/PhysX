@@ -106,7 +106,8 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     const bool gpuBounds = scene.isDirectGPUAPIInitialized()
         && !(body.getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU)
         && !(body.getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16));
-    if(gpuBounds && !scene.getSimulationController()->setGpuShapeBoundsRefresh(getElementID(), true))
+    // Native correction consumes the GPU rigid-to-shape view instead of a host list.
+    if(gpuBounds && !deviceOwnerTransaction && !scene.getSimulationController()->setGpuShapeBoundsRefresh(getElementID(), true))
     {
         // Refiltering has already changed BP bookkeeping. Do not let a failed
         // allocation turn this into an accepted step with mismatched owners.

@@ -2943,21 +2943,15 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         mQueuedContactPairHeaders.clear();
         mTriggerBufferAPI.clear();mTriggerBufferExtraData->clear();
         clearBrokenConstraintBuffer();clearSleepWakeBodies();releaseConstraints(true);
-        Sc::ShapeSimBase** shapes=mSimulationController->getShapeSims();
-        const PxU32 count=mSimulationController->getNbShapes();
-        for(PxU32 i=0;i<count;++i)if(shapes[i] && shapes[i]->isInBroadPhase()) {
-            // Affected shapes were already refiltered by the ownership
-            // transaction. Reused pairs keep their IDs; CUDA invalidates their
-            // caches and the corrected pass regenerates collision/solver rows.
-            if(!mSimulationController->preservesDestructionContactPairs())shapes[i]->onResetFiltering();
-            if(shapes[i]->getRbSim().isDynamicRigid()
-                && !mSimulationController->setGpuShapeBoundsRefresh(shapes[i]->getElementID(),true)) {
-                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native correction could not queue every required collision bound");
-#if PX_SUPPORT_GPU_PHYSX
-                getCudaContextManager()->getCudaContext()->setAbortMode(true);
-#endif
-                return; // incomplete step; never accept a truncated collision refresh
-            }
+        // Full correction refreshes every live rigid shape from the GPU's
+        // sorted ownership index. No CPU bounds-list walk/upload is required.
+        // CPU interaction invalidation remains necessary when pair reuse is
+        // invalid; this is not the work set for GPU geometry refresh.
+        if(!mSimulationController->preservesDestructionContactPairs()) {
+            Sc::ShapeSimBase** shapes=mSimulationController->getShapeSims();
+            const PxU32 count=mSimulationController->getNbShapes();
+            for(PxU32 i=0;i<count;++i)
+                if(shapes[i] && shapes[i]->isInBroadPhase())shapes[i]->onResetFiltering();
         }
         }
         PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);

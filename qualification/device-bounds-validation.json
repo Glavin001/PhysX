@@ -1,0 +1,91 @@
+{
+  "base_revision": "3a618b610148a0ddb41a13690665af0b2abbc3d8",
+  "change": "Full native correction refreshes bounds from the existing sorted GPU rigid-to-shape index. Removes CPU world-shape bounds-list construction/upload and native per-shape bounds requests. Ordinary public rebind and required CPU contact invalidation remain.",
+  "physical_equations_changed": false,
+  "source_sha256": {
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "c07f01a8f7570a1fd715ee9cac699234af34c323e9f136747853bbd7dfb8a904",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationCore.h": "51545d3770c3af954020c092b2d3e59c22ab41ee9ce17eb3d7bf919d0ec3cc6d",
+    "physx/source/gpusimulationcontroller/src/CUDA/updateBodiesAndShapes.cu": "d4e95d008e94a480fc9165d030d41c5a993a660485c555a69b99d27cdd653cc3",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "d059e757d37221ee9144c15b63ac179ae93f57f3cfe8c146704d66e9ad303ab8",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp": "9de991f7bdc3ef0d894d155b76a967ab42eab7c728318c99b157b383ce21ebf8",
+    "physx/source/simulationcontroller/src/ScPipeline.cpp": "4bcd2097c85fb72039e8861b4042afa6f4114af4a5e8b42bbc004580371cea78",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.cpp": "a4cdc8d08d94320458ff4109941238a3de885927eb600c6a784c636af4a90152"
+  },
+  "focused_ctest": "qualification/device-bounds-ctest.log",
+  "focused_tests_passed": 12,
+  "quality": "qualification/device-bounds-quality.json",
+  "quality_topology_identity": "e589eb8317c456147287443232209bb950514a75b5e4fb6783e2de5fe7486d4c",
+  "baseline_deadline_report": "qualification/device-bounds-qualified/report.html",
+  "large_scene_report": "qualification/device-bounds-large-scenes/report.html",
+  "report_command": [
+    "python3",
+    "tools/scripts/report-destruction-scaling.py",
+    "out/device-bounds-qualified",
+    "out/device-bounds-world-256",
+    "out/device-bounds-impacts-64",
+    "out/device-bounds-impacts-256",
+    "--output",
+    "/root/workspace/physx-2/qualification/device-bounds-large-scenes",
+    "--phase-capture",
+    "out/device-bounds-world-256",
+    "--phase-capture",
+    "out/device-bounds-impacts-64",
+    "--phase-capture",
+    "out/device-bounds-impacts-256"
+  ],
+  "prior_counter_comparisons": [
+    {
+      "case": "world-256",
+      "before": "out/scaling-world-256/world-256-plain-0",
+      "after": "out/device-bounds-world-256/world-256-plain-0",
+      "fields": [
+        "step",
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": true,
+      "first_differing_step": null,
+      "full_physical_qualification": false
+    },
+    {
+      "case": "impacts-64",
+      "before": "out/native-remap-impacts64/impacts-64-plain-0",
+      "after": "out/device-bounds-impacts-64/impacts-64-plain-0",
+      "fields": [
+        "step",
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": true,
+      "first_differing_step": null,
+      "full_physical_qualification": false
+    },
+    {
+      "case": "impacts-256",
+      "before": "out/scaling-impacts-256/impacts-256-plain-0",
+      "after": "out/device-bounds-impacts-256/impacts-256-plain-0",
+      "fields": [
+        "step",
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "compared_steps": 600,
+      "matches": true,
+      "first_differing_step": null,
+      "full_physical_qualification": false
+    }
+  ],
+  "full_plan_complete": false,
+  "remaining": [
+    "CPU fragment allocation and ownership/contact lifecycle bridge",
+    "Component-local stress and GPU multilevel preconditioning",
+    "Selective correction scheduling",
+    "Sleeping qualification, supported joints and full lifecycle endurance",
+    "Five-run 8 ms qualification for larger workloads"
+  ]
+}

@@ -121,6 +121,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     auto& controller=*static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController());
     auto& shapeManager=controller.getSimulationCore()->mPxgShapeSimManager;
     const auto initialShapeUploads=shapeManager.getUploadedShapeCount();
+    const auto initialBoundsUploads=controller.getSimulationCore()->getReboundShapeIndexUploadCount();
     auto& nativeShapes=static_cast<PxgNphaseImplementationContext*>(static_cast<NpScene&>(scene).getScScene().getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore()->mGpuShapesManager;
     const auto initialOwnerUploads=nativeShapes.mHostOwnerMappingUploads;
     const auto initialOwnerObservations=nativeShapes.mNativeOwnerObservations;
@@ -200,6 +201,8 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
             require(status.normalContacts && status.brokenBonds,"fracture was not driven by actual solved contact impulses");
             auto* runtime=static_cast<PxgDestructionRuntime*>(destruction);
             require(runtime->correctionBodyCount()==2,"CPU owner bridge included unchanged clusters");
+            require(controller.getSimulationCore()->getReboundShapeIndexUploadCount()==initialBoundsUploads,
+                "native correction built/uploaded a CPU shape-bounds list");
             require(shapeManager.getUploadedShapeCount()==initialShapeUploads,
                 "native correction re-uploaded persistent chunk geometry");
             PxgShapeSim resident;

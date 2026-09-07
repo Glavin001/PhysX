@@ -277,3 +277,56 @@ partition. CPU fragment allocation, shape lifecycle/refiltering, bounds-request
 metadata, component-local stress/preconditioning, selective correction and
 endurance remain unfinished. This change removes one duplicated ownership route;
 it does not complete GPU ownership of the entire PhysX lifecycle.
+
+
+## GPU correction bounds and larger 60-second workloads
+
+Full native correction now reads PhysX's existing GPU-sorted rigid-to-shape
+index to refresh collision bounds. It no longer walks every CPU shape to build
+and upload a bounds list. The native split also stops queuing individual CPU
+bounds requests. The kernel selects the live ordinary-rigid prefix, including
+ordinary actors, and verifies the sorted owner against the current shape owner.
+Required CPU contact invalidation and the ordinary public-rebind path remain.
+This removes repeated work; it does not complete GPU lifecycle ownership.
+
+The updated CPU/GPU libraries and consumers build. Twelve focused tests pass,
+including a new assertion that native correction uploads no CPU shape-bounds
+indices. The ten-second penetration audit keeps the exact reference topology
+identity, projectile clearance, 398 supported chunks, 46 detached chunks and
+199 broken bonds for the 444-chunk/896-bond building. Physical equations and
+settings are unchanged. See [validation](device-bounds-validation.json) and
+[test log](device-bounds-ctest.log).
+
+[Generated larger-scene report](device-bounds-large-scenes/report.html) includes
+the five × 60-second small baseline and three larger workloads, each measured
+twice for 60 seconds plus a separate 60-second CPU/CUDA-event profile. The
+complete advance includes commands, insertion, physics, destruction, correction
+and mandatory completion. Initial asset/CUDA setup and rendering are excluded;
+initialization is separately reported. Every measured peak remains. Sleeping is
+disabled, timestep 1/60 and correction limit one throughout.
+
+The single-building baseline passes all 18,000 measured steps under 8 ms, with
+a 7.203 ms maximum. With 256 buildings (113,664 chunks, 229,376 bonds) and one
+unchanged projectile, the two larger runs average 6.370 ms and peak at 15.305 ms:
+all 7,200 advances fit 16.667 ms but 213 miss 8 ms. The 64-projectile case
+(28,416 chunks, 57,344 bonds) averages 8.060 ms and peaks at 26.188 ms. The
+256-projectile case (113,664 chunks, 229,376 bonds) averages 20.967 ms and peaks
+at 100.029 ms, reaching 14,128 destruction clusters and 62,640 broken bonds.
+Those simultaneous-impact workloads miss both strict peak targets.
+
+All untraced repeated counter histories match, and each separate scoped run
+matches its untraced history. The initial 600-step fracture/correction/cluster
+histories also match the previous captures at all three larger sizes. All
+recorded stress solves converged and correction remains at most one per step.
+These counters do not replace complete physical audits or ten-minute lifecycle
+endurance at the larger sizes. Only two repetitions were run for each larger
+case, so no larger five-run deadline qualification is claimed.
+
+The separate 256-impact scoped peak is 91.468 ms: CPU ownership/lifecycle takes
+40.879 ms, correction collision/solve 29.227 ms and CPU fragment reservation
+6.691 ms. Mean GPU stress-stream time over that 60-second capture is 16.487 ms;
+it overlaps host waiting and must not be added to the CPU wall partition.
+Priorities remain GPU lifecycle transactions and component-local resident
+stress/preconditioning, followed by validated correction work selection.
+These longer runs establish current scaling costs, not a speedup relative to
+previous ten-second captures or a hardware bandwidth/compute bound.

@@ -3215,11 +3215,12 @@ bool PxgSimulationCore::getD6JointData(void* data, const PxD6JointGPUIndex* gpuI
 	return success;
 }
 
-bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream)
+bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRigidShapes)
 {
     Cm::PinnableArray<PxU32>& indices = mPxgShapeSimManager.prepareGpuBoundsRefresh();
-    const PxU32 count = indices.size();
-    if(!count) return true;
+    const auto& ownership=mGpuContext->mGpuNpCore->mGpuShapesManager;
+    const PxU32 count=allRigidShapes ? PxU32(ownership.mMaxTransformCacheID+1) : indices.size();
+    if(!count){indices.clear();return true;}
 
     // Shape metadata was uploaded on the simulation stream. Geometry/cache
     // allocation and merges precede this call on NP's stream. Read only the
@@ -3227,11 +3228,18 @@ bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream)
     if(mCudaContext->eventRecord(mDmaEvent, mStream) != CUDA_SUCCESS
         || mCudaContext->streamWaitEvent(npStream, mDmaEvent, 0) != CUDA_SUCCESS)
         return false;
-    mReboundShapeIndices.allocate(PxU64(count) * sizeof(PxU32), PX_FL);
-    if(!mReboundShapeIndices.getDevicePtr()) return false;
-    const CUdeviceptr ids = mReboundShapeIndices.getDevicePtr();
-    if(mCudaContext->memcpyHtoDAsync(ids, indices.begin(), PxU64(count) * sizeof(PxU32), npStream) != CUDA_SUCCESS)
-        return false;
+    CUdeviceptr ids=ownership.mGpuShapeIndiceBuffer.getDevicePtr();
+    const PxNodeIndex* sortedNodes=nullptr;
+    if(allRigidShapes) {
+        if(ownership.mGpuShapeIndiceBuffer.getSize()<PxU64(count)*sizeof(PxU32)
+            || ownership.mGpuRigidIndiceBuffer.getSize()<PxU64(count)*sizeof(PxNodeIndex))return false;
+        sortedNodes=reinterpret_cast<const PxNodeIndex*>(ownership.mGpuRigidIndiceBuffer.getDevicePtr());
+    } else {
+        mReboundShapeIndices.allocate(PxU64(count) * sizeof(PxU32), PX_FL);
+        ids=mReboundShapeIndices.getDevicePtr();
+        if(!ids || mCudaContext->memcpyHtoDAsync(ids,indices.begin(),PxU64(count)*sizeof(PxU32),npStream)!=CUDA_SUCCESS)return false;
+        mReboundShapeIndexUploadCount+=count;
+    }
     const PxgShapeSim* shapes = mPxgShapeSimManager.getShapeSimsDeviceTypedPtr();
     const PxgBodySim* bodies = getBodySimBufferDeviceData().getPointer();
     const CUdeviceptr transforms = mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr();
@@ -3239,9 +3247,10 @@ bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream)
     const CUdeviceptr geometry = mGpuContext->mGpuNpCore->mGpuShapesManager.mGpuShapesBuffer.getDevicePtr();
     PxCudaKernelParam params[] = { PX_CUDA_KERNEL_PARAM(ids), PX_CUDA_KERNEL_PARAM(count),
         PX_CUDA_KERNEL_PARAM(shapes), PX_CUDA_KERNEL_PARAM(bodies), PX_CUDA_KERNEL_PARAM(transforms),
-        PX_CUDA_KERNEL_PARAM(bounds), PX_CUDA_KERNEL_PARAM(geometry) };
+        PX_CUDA_KERNEL_PARAM(bounds), PX_CUDA_KERNEL_PARAM(geometry), PX_CUDA_KERNEL_PARAM(sortedNodes) };
     const CUfunction kernel = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::REFRESH_REBOUND_SHAPE_BOUNDS);
-    const CUresult result = mCudaContext->launchKernel(kernel, (count + 255) / 256, 1, 1, 256, 1, 1,
+    const PxU32 blocks=PxMin(128u,(count+255)/256);
+    const CUresult result = mCudaContext->launchKernel(kernel, blocks, 1, 1, 256, 1, 1,
         0, npStream, params, sizeof(params), 0, PX_FL);
     // Refiltering already marked these persistent IDs in the BP changed map.
     // Keep pinned storage alive until fetch completes, just like shape uploads.

@@ -216,7 +216,8 @@ namespace physx
 		PxgArticulationBuffer** getArticulationDataBuffer() { return mArticulationDataBuffer.begin(); }
 		PxgTypedCudaBuffer<PxBounds3>*	getBoundArrayBuffer();
 
-        bool refreshReboundShapeBounds(CUstream npStream);
+        bool refreshReboundShapeBounds(CUstream npStream, bool allRigidShapes=false);
+        PxU64 getReboundShapeIndexUploadCount() const { return mReboundShapeIndexUploadCount; }
 		void gpuDmaUpdateData();
 		void initDirectGPUAPIDescriptor();
 
@@ -428,6 +429,7 @@ namespace physx
 
 		PxgTypedCudaBuffer<PxU32>	mUpdatedDirectBuffer;
         PxgTypedCudaBuffer<PxU32> mReboundShapeIndices;
+        PxU64 mReboundShapeIndexUploadCount=0;
 
 		// PT: new naming convention with "CudaBuffer" suffix and specific prefix for easier searching
 		PxgTypedCudaBuffer<PxgBodySim>	mBodySimCudaBuffer;						// PT: contains PxgBodySim structs.

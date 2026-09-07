@@ -1196,17 +1196,35 @@ extern "C" __global__ void refreshReboundShapeBounds(
     const PxU32* PX_RESTRICT indices, PxU32 count,
     const PxgShapeSim* PX_RESTRICT shapes, const PxgBodySim* PX_RESTRICT bodies,
     PxsCachedTransform* PX_RESTRICT transforms, PxBounds3* PX_RESTRICT bounds,
-    PxgShape* PX_RESTRICT geometry)
+    PxgShape* PX_RESTRICT geometry, const PxNodeIndex* PX_RESTRICT sortedNodes)
 {
-    const PxU32 i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i >= count) return;
-    const PxU32 index = indices[i];
-    const PxgShapeSim& shape = shapes[index];
-    assert(!shape.mBodySimIndex.isStaticBody() && !shape.mBodySimIndex.isArticulation());
-    const PxgBodySim& body = bodies[shape.mBodySimIndex.index()];
-    const PxTransform pose = getAbsPose(body.body2World.getTransform(), shape.mTransform,
-        body.body2Actor_maxImpulseW.getTransform());
-    updateCacheAndBound(pose, shape, index, transforms, bounds, geometry, true);
+    __shared__ PxU32 liveRigidEnd;
+    if(threadIdx.x==0) {
+        PxU32 lo=0,hi=count;
+        if(sortedNodes) {
+            // Valid ordinary rigid IDs precede static/deleted entries and
+            // articulation links in PhysX's 64-bit sorted ownership index.
+            // Full native correction excludes articulations at admission.
+            const PxU64 firstNonRigid=PxNodeIndex(PX_INVALID_NODE).getInd();
+            while(lo<hi) {
+                const PxU32 mid=lo+(hi-lo)/2;
+                if(sortedNodes[mid].getInd()<firstNonRigid)lo=mid+1;else hi=mid;
+            }
+        } else lo=count;
+        liveRigidEnd=lo;
+    }
+    __syncthreads();
+    for(PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;i<liveRigidEnd;i+=blockDim.x*gridDim.x) {
+        const PxU32 index=indices[i];
+        if(index==PX_INVALID_U32){asm volatile("trap;");return;}
+        const PxgShapeSim& shape=shapes[index];
+        if(shape.mBodySimIndex.isStaticBody() || shape.mBodySimIndex.isArticulation()
+            || (sortedNodes && !(shape.mBodySimIndex==sortedNodes[i]))) {asm volatile("trap;");return;}
+        const PxgBodySim& body=bodies[shape.mBodySimIndex.index()];
+        const PxTransform pose=getAbsPose(body.body2World.getTransform(),shape.mTransform,
+            body.body2Actor_maxImpulseW.getTransform());
+        updateCacheAndBound(pose,shape,index,transforms,bounds,geometry,true);
+    }
 }
 
 extern "C" __global__ void setRigidDynamicGlobalPose(

@@ -1118,7 +1118,7 @@ namespace physx
 			npCore->computeRigidsToShapes();
 		}
 
-        if (isDirectApiInitialized && !mSimulationCore->refreshReboundShapeBounds(npStream))
+        if (isDirectApiInitialized && !mSimulationCore->refreshReboundShapeBounds(npStream,mDestructionCorrecting))
         {
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
                 "Failed to refresh persistent shape bounds from GPU motion");
