@@ -65,3 +65,34 @@ python3 tools/scripts/run-destruction-timing.py out/NEW-profile --case penetrati
 Performance capture requires an otherwise unused GPU; the runner observes other
 processes and refuses conflicting work. It never stops services. Source repos
 remain read-only. Reports preserve executable hashes and recorded arguments.
+
+## Rejected shared-vector experiment
+
+On the same 444-chunk / 896-bond penetration fixture (one projectile, 1/60-second
+timestep, correction limit one), two 10-second untraced runs with five solver
+vectors staged in shared memory averaged 3.919 and 3.904 ms for the complete
+advance. The preceding two 10-second runs of the retained implementation
+averaged 3.193 and 3.194 ms. The experiment passed the physical audit but was
+slower, so its implementation was removed. Its measurements remain in
+[eight-ms-shared-smoke/report.html](eight-ms-shared-smoke/report.html). No shared-
+vector experiment switch remains in production.
+
+## Mechanical kernel split
+
+Kernel definitions were extracted into private implementation headers, still
+compiled by the original CUDA translation unit. Each new header is below 500
+lines. Expanding the includes reproduces the source at `00504a89` exactly;
+[the extraction record](stress-kernel-refactor.json) records the original and
+fragment hashes. Equations, order, kernel boundaries, public API and linkage
+were not deliberately changed. The existing host class remains a documented
+size exception to avoid combining a structural cleanup with control-flow edits.
+
+The subsequent host-section split extracts construction/release, buffer
+allocation, resident API, iteration dispatch, solve submission and graph
+execution into six named private member files (102–373 lines each). They remain
+inside the original class definition to preserve implicit inlining, member order
+and access. The main file is now 4,607 lines; other host topology, observation and
+reference scheduling methods remain there. Expanded source still matches
+`00504a89` exactly. Nine focused tests and the frozen 10-second, 444-chunk /
+896-bond penetration audit passed after this split. No new long performance
+campaign was run for the host-only extraction.

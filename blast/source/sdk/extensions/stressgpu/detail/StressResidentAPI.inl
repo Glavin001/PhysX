@@ -1,0 +1,102 @@
+// Private member definitions; included once inside ExtStressGpuSolverImpl.
+// BEGIN UNCHANGED SOURCE
+    bool prepareDeviceSolve() override
+    {
+        if (m_deviceTopology || m_deviceTopologyFailed) return false;
+        ContextGuard context(m_cudaContext);
+        if (m_topologyDirty) applyTopologyChange();
+        if (!m_bondCount) return false;
+        refreshActiveLists(false);
+        // Preparation is the asset/topology boundary, never the simulation path.
+        checkCuda(cudaStreamSynchronize(m_stream), "prepare resident stress solve");
+        m_activeBondCount = m_hostActiveCounts[0];
+        m_activeNodeCount = m_hostActiveCounts[1];
+        return true;
+    }
+
+    bool solveDeviceAsync(const ExtStressGpuImpulse* inputs, std::uint32_t count,
+        const ExtStressGpuSolveParams& params, void* producerReady, void* consumerDone) override
+    {
+        if (!inputs || count != m_nodeCount || !m_bondCount || !params.maxIterations
+            || !std::isfinite(params.tolerance) || params.tolerance <= 0
+            || params.skipSettledIslands || params.skipStableUnconverged || params.applyDamage
+            || m_topologyDirty || m_activeListsDirty || m_prevListsSkipping || m_deviceTopologyFailed)
+            return false;
+        ContextGuard context(m_cudaContext);
+        if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,
+            reinterpret_cast<cudaEvent_t>(consumerDone), 0), "wait stress consumer");
+        if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,
+            reinterpret_cast<cudaEvent_t>(producerReady), 0), "wait stress producer");
+        m_telemetry = {};
+        // The exact live island count is a device observation in this mode.
+        m_telemetry.islandCount = m_deviceTopology ? 0 : m_islandCount;
+        m_telemetry.deviceToDeviceBytes = inputs == m_input ? 0 : sizeof(*inputs) * std::uint64_t(count);
+        m_bendGainMax = params.bendGainMax;
+        m_skipStableUnconverged = false;
+        m_hostInputValid = false;
+        m_settledBaselineValid = false;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(inputs != m_input) throw std::runtime_error("Integrated destruction requires the shared resident input view");
+#else
+        if(inputs != m_input) checkCuda(cudaMemcpyAsync(m_input, inputs, sizeof(*inputs)*count,
+            cudaMemcpyDeviceToDevice, m_stream), "copy reference stress inputs");
+#endif
+        executeSolve(params);
+        exportPhysicalImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
+            m_impulses, m_colScales, m_devicePhysicalImpulses, m_bondCount,
+            m_lengthScale*m_lengthScale*m_massScale, m_lengthScale*m_massScale);
+        if (m_deviceTopology) markDeviceStressSolved<<<1,1,0,m_stream>>>(m_deviceTopology->status());
+        checkCuda(cudaGetLastError(), "export resident bond forces");
+        checkCuda(cudaEventRecord(m_statusReady, m_stream), "record resident stress completion");
+        m_hasWarmStart = true;
+        return true;
+    }
+
+    ExtStressGpuDeviceView deviceView() const override
+    {
+        return {m_devicePhysicalImpulses, m_status, m_bondCount, m_statusReady,
+            m_deviceTopology ? m_deviceTopology->status() : nullptr,
+            m_deviceTopology ? m_nodeIsland : nullptr, m_deviceTopology ? m_bondIsland : nullptr, m_input};
+    }
+
+    bool enableDeviceTopology() override
+    {
+        if (m_deviceTopologyFailed) return false;
+        if (m_deviceTopology) return true;
+        if (!prepareDeviceSolve()) return false;
+        ContextGuard context(m_cudaContext);
+        try {
+            DeviceStressTopologyBuffers buffers{m_nodeCount,m_bondCount,
+                m_node0,m_node1,m_nodeBondBegin,m_nodeBondRef,m_inertia,m_offset0,m_offset1,
+                m_colScales,m_health,m_nsJacobi,m_impulses,m_rhs,m_residual,m_projectedDirection,m_nodeIsland,m_bondIsland,
+                m_activeNodes,m_activeBonds,m_activeCounts,m_activeFlags,m_islandConverged,m_islandSkip,
+                m_selectScratch,m_selectScratchBytes,m_reductionOrder};
+            m_deviceTopology = new DeviceStressTopology(buffers);
+            m_deviceTopology->init(m_stream);
+            checkCuda(cudaStreamSynchronize(m_stream), "prepare device-owned stress topology");
+            // Sparse minimum-node island IDs need capacity-sized scalar launches.
+            // Active lists and deterministic tile counts remain device-sized.
+            m_islandCount = m_islandCapacity;
+            m_activeBondCount = m_bondCount; m_activeNodeCount = m_nodeCount;
+            m_graphParamsDirty = true;
+            m_hasWarmStart = false; m_settledBaselineValid = false; m_hostInputValid = false;
+            m_jacobiBuilt = true; // topology rebuild maintains it on the device
+            checkCuda(cudaEventRecord(m_statusReady,m_stream), "record device topology preparation");
+            return true;
+        } catch (...) { m_deviceTopologyFailed=true; return false; }
+    }
+
+    bool updateDeviceTopologyAsync(const std::uint32_t* mask, std::uint32_t count,
+        const std::uint64_t* generation, const std::uint32_t* accept,
+        void* producerReady, void* consumerDone) override
+    {
+        if (!m_deviceTopology || m_deviceTopologyFailed || !mask || !generation || count!=m_bondCount) return false;
+        ContextGuard context(m_cudaContext);
+        if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(consumerDone),0), "wait stress topology consumer");
+        if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(producerReady),0), "wait stress topology producer");
+        m_telemetry = {};
+        m_deviceTopology->submit({mask,generation,accept},m_stream);
+        checkCuda(cudaEventRecord(m_statusReady,m_stream), "record stress topology update");
+        return true;
+    }
+
