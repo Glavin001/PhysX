@@ -4,9 +4,9 @@
 #include "StressHierarchyPacking.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
 __device__ __forceinline__ Vector restrictPackedContribution(const Input& input,Buffers parent,
-                                                            unsigned root,const Vector* fine){
+                                                            unsigned root,const Vector* fine,unsigned lane=threadIdx.x&31u){
     Vector out{};const unsigned seed=parent.owner[root],items=1+input.begin[seed+1]-input.begin[seed];
-    for(unsigned item=threadIdx.x&31u;item<items;item+=32){
+    for(unsigned item=lane;item<items;item+=32){
         const unsigned node=memberAt(input,parent,seed,item);if(node==Invalid)continue;
         out=add(out,restrictValue(fine[node],shift(input,node,root),sourceInertia(input,node)));
     }

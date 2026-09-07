@@ -3,6 +3,9 @@
 #include "StressHierarchyResident.cuh"
 #include "StressHierarchyTransfers.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+__device__ unsigned long long cycleStageClocks[5];
+#endif
 struct CycleLevel {
     Input input;Buffers topology,diagonal;PackingBuffers child{};
     const Vector* rhs=nullptr;Vector *x=nullptr,*residual=nullptr;
@@ -13,8 +16,10 @@ template<bool Local> struct CycleWork {
     unsigned component;
     const unsigned* active=nullptr;
     __device__ bool enabled(const Input& a,unsigned node)const {return a.component[node]!=Invalid && (!active || active[a.component[node]]);}
-    __device__ unsigned first()const {if constexpr(Local)return threadIdx.x/32;else return (blockIdx.x*blockDim.x+threadIdx.x)/32;}
-    __device__ unsigned stride()const {if constexpr(Local)return blockDim.x/32;else return gridDim.x*(blockDim.x/32);}
+    __device__ unsigned first()const {if constexpr(Local)return threadIdx.x/8;else return (blockIdx.x*blockDim.x+threadIdx.x)/8;}
+    __device__ unsigned stride()const {if constexpr(Local)return blockDim.x/8;else return gridDim.x*(blockDim.x/8);}
+    __device__ unsigned threadFirst()const {if constexpr(Local)return threadIdx.x;else return blockIdx.x*blockDim.x+threadIdx.x;}
+    __device__ unsigned threadStride()const {if constexpr(Local)return blockDim.x;else return gridDim.x*blockDim.x;}
     __device__ unsigned count(const Input& a)const {if constexpr(Local)return a.partition.end[component]-a.partition.begin[component];else return a.nodes;}
     __device__ unsigned node(const Input& a,unsigned i)const {if constexpr(Local)return orderedNode(a,a.partition.begin[component]+i);else return i;}
     __device__ unsigned childCount(const PackingBuffers& b)const {if constexpr(Local)return b.componentEnd[component]-b.componentBegin[component];else return b.counts[0];}
@@ -29,38 +34,44 @@ __device__ __forceinline__ bool smoothedNode(const CycleLevel& d,TerminalBuffers
 }
 template<bool Local>
 __device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
-    const unsigned lane=threadIdx.x&31u;
-    for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+    for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
         const unsigned node=work.node(d.input,index);
-        if(!work.enabled(d.input,node)){if(!lane)d.x[node]={};continue;}
-        if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
-        const auto value=mul(solveFineDiagonal(d.diagonal,node,d.rhs[node]),.5);if(!lane)d.x[node]=value;
+        if(!work.enabled(d.input,node)){d.x[node]={};continue;}
+        if(!smoothedNode(d,pool,level,node))continue;
+        d.x[node]=mul(solveFineDiagonalThread(d.diagonal,node,d.rhs[node]),.5);
     }
 }
 template<bool Local>
 __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
-    const unsigned lane=threadIdx.x&31u;
+    const unsigned lane=threadIdx.x&7u;
     for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
         const unsigned node=work.node(d.input,index);
-        Vector value{};if(work.enabled(d.input,node) && smoothedNode(d,pool,level,node))value=levelRowContribution(d.input,node,d.x);
-        value=warpSum(value);if(!lane)d.residual[node]=work.enabled(d.input,node) && smoothedNode(d,pool,level,node)?sub(d.rhs[node],value):Vector{};
+        Vector a{},b{},c{},e{};if(work.enabled(d.input,node) && smoothedNode(d,pool,level,node)){
+            a=levelRowContribution(d.input,node,d.x,lane);b=levelRowContribution(d.input,node,d.x,lane+8);
+            c=levelRowContribution(d.input,node,d.x,lane+16);e=levelRowContribution(d.input,node,d.x,lane+24);}
+        const auto value=sumVirtualWarp(a,b,c,e);if(!lane)d.residual[node]=work.enabled(d.input,node) && smoothedNode(d,pool,level,node)?sub(d.rhs[node],value):Vector{};
     }
 }
 template<bool Local>
 __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs,CycleWork<Local> work){
-    const unsigned lane=threadIdx.x&31u;
+    const unsigned lane=threadIdx.x&7u;
     for(unsigned index=work.first();index<work.childCount(parent.child);index+=work.stride()){
         const unsigned node=work.childNode(parent.child,index);
-        Vector value{};if(!work.active || work.active[parent.child.component[node]])value=restrictPackedContribution(parent.input,parent.topology,parent.child.nodeSource[node],parent.residual);
-        value=warpSum(value);if(!lane)childRhs[node]=value;
+        Vector a{},b{},c{},e{};if(!work.active || work.active[parent.child.component[node]]){
+            const unsigned root=parent.child.nodeSource[node];
+            a=restrictPackedContribution(parent.input,parent.topology,root,parent.residual,lane);
+            b=restrictPackedContribution(parent.input,parent.topology,root,parent.residual,lane+8);
+            c=restrictPackedContribution(parent.input,parent.topology,root,parent.residual,lane+16);
+            e=restrictPackedContribution(parent.input,parent.topology,root,parent.residual,lane+24);}
+        const auto value=sumVirtualWarp(a,b,c,e);if(!lane)childRhs[node]=value;
     }
 }
 // B H^T e, where H=P^T B was retained during construction. Evaluating
 // this directly avoids expanding Pe and then rediscovering its strain through
 // L(Pe), which loses small differences between large fine coordinates.
-__device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX){
+__device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u){
     Vector sum{};
-    for(unsigned slot=parent.input.begin[node]+(threadIdx.x&31u);slot<parent.input.begin[node+1];slot+=32){
+    for(unsigned slot=parent.input.begin[node]+lane;slot<parent.input.begin[node+1];slot+=32){
         const unsigned ref=parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
         const auto e=parent.topology.coarse[edge];if(!retainedColumn(e))continue;
         Vector a{},b{},difference{};
@@ -75,38 +86,50 @@ __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned n
 }
 template<bool Local>
 __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffers pool,unsigned level,const Vector* childX,CycleWork<Local> work){
-    const unsigned lane=threadIdx.x&31u;
+    const unsigned lane=threadIdx.x&7u;
     for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
         const unsigned node=work.node(d.input,index);
         if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
-        auto effect=warpSum(cycleCoarseEffect(d,node,childX));
-        // warpSum's complete result lives in lane zero. The diagonal solver
-        // consumes a different coordinate in each lane, so broadcast first.
-        effect={{__shfl_sync(0xffffffffu,effect.angular.x,0),__shfl_sync(0xffffffffu,effect.angular.y,0),__shfl_sync(0xffffffffu,effect.angular.z,0)},
-                {__shfl_sync(0xffffffffu,effect.linear.x,0),__shfl_sync(0xffffffffu,effect.linear.y,0),__shfl_sync(0xffffffffu,effect.linear.z,0)}};
-        const auto post=mul(solveFineDiagonal(d.diagonal,node,sub(d.residual[node],effect)),.5);
-        if(!lane){Vector correction{};const unsigned root=d.topology.leader[node];
-            if(root!=Invalid && d.child.nodeMap[root]!=Invalid)correction=prolongValue(childX[d.child.nodeMap[root]],shift(d.input,node,root),sourceInertia(d.input,node));
-            d.x[node]=add(add(d.x[node],post),correction);
-        }
+        const auto a=cycleCoarseEffect(d,node,childX,lane),b=cycleCoarseEffect(d,node,childX,lane+8);
+        const auto c=cycleCoarseEffect(d,node,childX,lane+16),e=cycleCoarseEffect(d,node,childX,lane+24);
+        const auto effect=sumVirtualWarp(a,b,c,e);
+        // Finish the original warp reduction before handing independent
+        // diagonal systems to individual threads. This residual is dead after
+        // correction, so it is also the scratch for the producer/consumer handoff.
+        if(!lane)d.residual[node]=sub(d.residual[node],effect);
+    }
+    work.sync();
+    for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
+        const unsigned node=work.node(d.input,index);
+        if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
+        const auto post=mul(solveFineDiagonalThread(d.diagonal,node,d.residual[node]),.5);
+        Vector correction{};const unsigned root=d.topology.leader[node];
+        if(root!=Invalid && d.child.nodeMap[root]!=Invalid)correction=prolongValue(childX[d.child.nodeMap[root]],shift(d.input,node,root),sourceInertia(d.input,node));
+        d.x[node]=add(add(d.x[node],post),correction);
     }
 }
 template<bool Local>
 __device__ __forceinline__ void cyclePostsmooth(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
-    const unsigned lane=threadIdx.x&31u;
-    for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+    for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
         const unsigned node=work.node(d.input,index);
         if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
-        const auto correction=mul(solveFineDiagonal(d.diagonal,node,d.residual[node]),.5);
-        if(!lane)d.x[node]=add(d.x[node],correction);
+        const auto correction=mul(solveFineDiagonalThread(d.diagonal,node,d.residual[node]),.5);
+        d.x[node]=add(d.x[node],correction);
     }
 }
 template<bool Local=false>
 __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned depth,TerminalBuffers pool,TerminalShared& shared,const Vector* rhs,Vector* output,unsigned component=Invalid,const unsigned* active=nullptr){
     CycleWork<Local> work{component,active};unsigned last=0;
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+    unsigned long long phaseStart=0;if(!threadIdx.x)phaseStart=clock64();
+#define CYCLE_PROBE_END(index) work.sync();if(!threadIdx.x){atomicAdd(cycleStageClocks+index,clock64()-phaseStart);phaseStart=clock64();}work.sync();
+#else
+#define CYCLE_PROBE_END(index)
+#endif
     for(unsigned level=0;level<depth;++level){
         auto d=cycleView(levels,level,rhs,output);last=level;
         cyclePresmooth(d,pool,level,work);
+        CYCLE_PROBE_END(0)
         // Presmoothing skips terminal rows; these writes are disjoint and need
         // no global barrier between the two producer stages.
         if constexpr(Local)solveTerminalComponent(d.input,pool,shared,component,level,d.rhs,d.x);
@@ -115,15 +138,20 @@ __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned dept
             if(!active || active[id])solveTerminalComponent(d.input,pool,shared,id,level,d.rhs,d.x);__syncthreads();
         }
         work.sync();
+        CYCLE_PROBE_END(1)
         if(level+1==depth || (Local?pool.owner[component]==level:!d.child.counts[0]))break;
         cycleResidual(d,pool,level,work);work.sync();
+        CYCLE_PROBE_END(2)
         cycleRestrict(d,const_cast<Vector*>(levels[level+1].rhs),work);work.sync();
+        CYCLE_PROBE_END(3)
     }
     for(int level=int(last);level>=0;--level){
         auto d=cycleView(levels,unsigned(level),rhs,output);
         if(unsigned(level)<last){cycleCorrectAndSmooth(d,pool,unsigned(level),levels[level+1].x,work);work.sync();}
         else {cycleResidual(d,pool,unsigned(level),work);work.sync();cyclePostsmooth(d,pool,unsigned(level),work);work.sync();}
+        CYCLE_PROBE_END(4)
     }
+#undef CYCLE_PROBE_END
 }
 template<unsigned Passes>
 __global__ void applyCycle(const CycleLevel* levels,unsigned depth,TerminalBuffers pool,const Status* status,const Vector* rhs,Vector* output,Vector* intermediate){

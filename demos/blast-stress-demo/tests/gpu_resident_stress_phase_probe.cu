@@ -27,15 +27,16 @@ void run(unsigned buildings){
     auto view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
     check(cudaMemcpy(view.nodeInputs,inputs.data(),inputs.size()*sizeof(inputs[0]),cudaMemcpyHostToDevice));check(cudaStreamSynchronize(nullptr));
     ExtStressGpuSolveParams params;params.maxIterations=8192;params.tolerance=1e-5f;params.warmStart=true;
-    for(unsigned solve=0;solve<3;++solve){unsigned long long counters[9]{},subcounters[4]{};check(cudaMemcpyToSymbol(componentPreconditionClocks,subcounters,sizeof(subcounters)));check(cudaMemcpyToSymbol(componentPhaseClocks,counters,sizeof(counters)));check(cudaStreamSynchronize(nullptr));
+    for(unsigned solve=0;solve<3;++solve){unsigned long long counters[9]{},subcounters[4]{},cyclecounters[5]{};check(cudaMemcpyToSymbol(StressHierarchy::cycleStageClocks,cyclecounters,sizeof(cyclecounters)));check(cudaMemcpyToSymbol(componentPreconditionClocks,subcounters,sizeof(subcounters)));check(cudaMemcpyToSymbol(componentPhaseClocks,counters,sizeof(counters)));check(cudaStreamSynchronize(nullptr));
         const auto start=std::chrono::steady_clock::now();
         if(!solver->solveDeviceAsync(view.nodeInputs,nodes.size(),params))throw std::runtime_error("probe solve rejected");
         view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
         const double elapsed=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
         ExtStressGpuDeviceStatus status{};check(cudaMemcpy(&status,view.status,sizeof(status),cudaMemcpyDeviceToHost));check(cudaMemcpyFromSymbol(counters,componentPhaseClocks,sizeof(counters)));check(cudaMemcpyFromSymbol(subcounters,componentPreconditionClocks,sizeof(subcounters)));
+        check(cudaMemcpyFromSymbol(cyclecounters,StressHierarchy::cycleStageClocks,sizeof(cyclecounters)));
         unsigned long long sum=0;for(unsigned k=0;k<8;++k)sum+=counters[k];if(sum!=counters[8])throw std::runtime_error("probe cycle partition does not close");
         std::printf("{\"buildings\":%u,\"chunks\":%zu,\"bonds\":%zu,\"solve\":%u,\"iterations\":%u,\"converged\":%u,\"stress_submission_and_completion_ms\":%.6f,\"summed_CTA_cycles\":[",buildings,nodes.size(),bonds.size(),solve,status.iterations,status.converged,elapsed);
-        for(unsigned k=0;k<9;++k)std::printf("%s%llu",k?",":"",counters[k]);std::printf("],\"precondition_CTA_cycles\":[");for(unsigned k=0;k<4;++k)std::printf("%s%llu",k?",":"",subcounters[k]);std::printf("]}\n");std::fflush(stdout);
+        for(unsigned k=0;k<9;++k)std::printf("%s%llu",k?",":"",counters[k]);std::printf("],\"precondition_CTA_cycles\":[");for(unsigned k=0;k<4;++k)std::printf("%s%llu",k?",":"",subcounters[k]);std::printf("],\"cycle_CTA_cycles\":[");for(unsigned k=0;k<5;++k)std::printf("%s%llu",k?",":"",cyclecounters[k]);std::printf("]}\n");std::fflush(stdout);
         if(!status.converged)throw std::runtime_error("probe stress did not converge");
     }
 }

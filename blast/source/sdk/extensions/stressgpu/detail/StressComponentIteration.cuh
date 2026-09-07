@@ -71,6 +71,17 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
             __syncthreads();
             COMPONENT_PROBE_END(2)
+            // The complete convergence verdict is already known for this
+            // component. Retire directly instead of executing inactive gamma,
+            // direction, matrix-product and update stages plus their barriers.
+            // Preserve the final scratch/status writes of finalizeAndRetireBody.
+            if(!a.m_islandActive[id]){
+                if(!threadIdx.x){
+                    a.hierarchy.gamma[id]=0;a.m_projectedDirectionSquared[id]=0;
+                    status.active=0;status.converged=1;status.iterations=iteration;++iteration;
+                }
+                __syncthreads();break;
+            }
             float localGamma=0;
             if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration);
             const float gamma=componentSquaredNorm(localGamma);

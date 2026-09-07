@@ -1,0 +1,122 @@
+{
+  "full_goal_passed": false,
+  "performance_gate_passed": false,
+  "environment": {
+    "gpu": "RTX 4090",
+    "architecture": "sm_89",
+    "nvcc": "12.8.93"
+  },
+  "tests": {
+    "sparse-bitwise": {
+      "exit_code": 0,
+      "passed": true
+    },
+    "multilevel-cycle": {
+      "exit_code": 0,
+      "passed": true
+    },
+    "multilevel-memcheck": {
+      "exit_code": 0,
+      "passed": true
+    },
+    "multilevel-synccheck": {
+      "exit_code": 0,
+      "passed": true
+    },
+    "native-analytic": {
+      "exit_code": 0,
+      "passed": true
+    },
+    "native-3d": {
+      "exit_code": 1,
+      "passed": false
+    },
+    "native-memcheck": {
+      "exit_code": 0,
+      "passed": true
+    },
+    "native-synccheck": {
+      "exit_code": 0,
+      "passed": true
+    }
+  },
+  "cross_candidate_counter_parity": {
+    "steps": 180,
+    "mismatches": {
+      "step": 0,
+      "simulation_seconds": 0,
+      "bodies": 0,
+      "awake_bodies": 0,
+      "splits_total": 0,
+      "contacts_total": 0,
+      "resim_passes": 0,
+      "correction_status": 0,
+      "contacts_frame": 0,
+      "projectiles_active": 0,
+      "bonds_broken": 0,
+      "stress_iterations": 0,
+      "stress_converged": 0,
+      "logical_clusters": 0,
+      "native_dynamic_bodies": 0,
+      "native_kinematic_bodies": 0,
+      "active_dynamic_bodies": 0,
+      "active_kinematic_bodies": 0,
+      "contact_pairs": 0,
+      "contact_pairs_with_contacts": 0,
+      "solver_rows": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0,
+      "graph_d2h_bytes": 0,
+      "pre_solve_pairs": 0
+    },
+    "scope": "All recorded non-timing fields; not a full-trajectory equivalence claim."
+  },
+  "wall_quality_passed": true,
+  "racecheck_qualified": false,
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh": "1714f198d831ea50b515f4d26c02fa8b4350fb6e8d92bd96aa9279b2465d8161",
+    "blast/source/sdk/extensions/stressgpu/detail/StressCouplingKernels.cuh": "f9a5cba9022f228c1c077d5f50ba8328ce20a0fb6652df65352ea827e94820b2",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNodePreconditioner.cuh": "43d20f8a609c72ca1d3df277d801862e3f31340f5096db8c5bfec54d7123e744",
+    "blast/source/sdk/extensions/stressgpu/detail/StressTopologyUpdates.cuh": "e63bcdb0d277260d01bd3ee4e6ca4478d4c644c869c30afd2ee66f950b7ac058",
+    "blast/source/sdk/extensions/stressgpu/detail/StressIslandReduction.cuh": "6b26e7f02e98f3a9dd7570eba6d78753d3db2a67f9ced190e5d87c929486da20",
+    "blast/source/sdk/extensions/stressgpu/detail/StressBondIteration.cuh": "69367191b3d2ea7e08948bf15cde982067bb0d4058ab01a91fd91104fb69812b",
+    "blast/source/sdk/extensions/stressgpu/detail/StressDeviceIO.cuh": "125501e174b3785830068f6f8fbf9b298df549fe58f7f692f8e163d5a41dbf0d",
+    "blast/source/sdk/extensions/stressgpu/detail/StressMaterialKernels.cuh": "661ab3c08c45f51e03fe531b5d616cceb700b611fe061d18dfd0e83f243625e9",
+    "blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh": "04afb0d0f50e0c0ca84757fb490636528f4aa7bb7d9ebc12b738e1648573a252",
+    "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh": "19054ea495b9e11025208923d567767f4401115c535857d78c9c294c3eb7f408",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNodeIteration.cuh": "62cffe9ed6848c018b693fe1a99911462f84768758575db15a155c12585ea512",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh": "a3a5309df19b4495fbea4bce3d79022d20d909de696ac367fd775164d078c37c",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh": "e5c0130b72697b124abfacfd44aa39f63e7638167b3882a7c670d58be9de600f",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh": "e33efc1d4c3c384b0cbb8a752bb08d593ad098e899dd1dd75bb7a22fba5851fd",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh": "d75de8bb6b11cdae2a0c4610fc9399272b5cdfcf258a4f5f126bd596275fbdbd",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyDiagonal.cuh": "798c91aa2c25204013bc14187e4485c00b87435e6b120b44adb81da24d2f64b9",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh": "cbf16d1f0edf5b0c25358d2692d83e70fdedddc470530c4a837e5d817a66ef4e",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPacking.cuh": "a4ee7ff555b4eb20b6828c5af5a33aa88d7fb810c0be1def35c9ee2cc7fd839a",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackedLevel.cuh": "49bce8ce03ae6257d47d26eccfa9c17d1b290813554574ccf43ff1b96516d10b",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackingPrimitives.cuh": "9a81be5a36803c599a7c74be7a37abdbf81f67d1506418fbdd25b9cfaf4de409",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh": "0d2b16722738c707365cf676c777420563681f799e63b1fba58cdc00ca1f38bd",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTransfers.cuh": "37c599e2c4792395a08f1f62b377b6473dcfeb9a156ed0272e1eaf0c71844c87",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackingPartition.cuh": "1eae57ca44bb436bd0e7bc572145042bf1865b145eb16b25d61e884120a5df46",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminal.cuh": "057283a26a8a5591a82829bdadda8b21073bd83872423ea034513b27a1d9667e",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminalLevel.cuh": "ecd11dc131b24bb8afd89640bb473b1cdffcde6060c36f8327b4a9153e558ca3",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyRetirement.cuh": "c44b2e22d63ae12bc64caf89b0ff7199eeaa7ee1b1d058d0a5fbb5ac674a79ec",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyResident.cuh": "1a5aecb643036ae0b81c92c640677c3fc443b044226ad117f22a58fe429025fa",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchySmoother.cuh": "8ddfe62167e07e4d5481aac197a78970b82b12c45c69cf486b5d7ef8af13a35b",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh": "dd956768131f5e1e8d99ea982e550de250379cd891d5231a545545c7374dd13b",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh": "4b06d9826c63458a57c820b709f0466c9c9952e68ba6ae2bc9b22735934978a4",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh": "4815254e35a0914605182f1577a4543ffcda2ae0dc15fe36b31dc77fedf8bd07",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNativeNullspace.cuh": "b929e6832773d0d0f33b6277ddac7812b82596f237555e252ad65c2400ed2ac2",
+    "blast/source/sdk/extensions/stressgpu/detail/StressMotionForest.cuh": "ee85fb6ba9bb5f7abee191c943e6b3a3fb16fc47a7ffec6f4972842f78685f2e",
+    "blast/source/sdk/extensions/stressgpu/detail/StressMotionModes.cuh": "9758e3eef7ba591f2ad17d0764fb79926e6c4b93a3dbc50090366d78bacbc056",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNativeSolution.cuh": "9d0c224f73a12a1fb6f1a9f9a474d6ab306a90007fbba0311e218aa733cbd92c",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHomogeneousComponents.cuh": "adf211b5786665f47fe00ecd741f8236b34b0d219b613615b8b8f566641efe3d",
+    "blast/source/sdk/extensions/stressgpu/detail/StressComponentPhaseProbe.cuh": "9e9480631f08ae653072e18e160b497d6d1103de46015e4ab84f9abedb354bfb"
+  },
+  "rejected_experiment": {
+    "selection": "V-cycle for small components",
+    "reason": "Complete 256-building simulation slower than selected block diagonal preconditioner",
+    "report": "../eight-lane-vcycle-impacts-256/report.html"
+  },
+  "selected_report": "../retire-tail-impacts-256/report.html"
+}

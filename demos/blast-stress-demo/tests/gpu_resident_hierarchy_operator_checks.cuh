@@ -1,5 +1,15 @@
 // Independent host-side P, P^T and P^T L P oracle for the private GPU operators.
 #include "gpu_resident_diagonal_reference.cuh"
+__global__ void applyEightLaneLevel(Input input,const Status* status,const Vector* x,Vector* result){
+    input=resolvedInput(input);const unsigned lane=threadIdx.x&7u,node=(blockIdx.x*blockDim.x+threadIdx.x)/8;
+    if(node>=input.nodes)return;
+    Vector a{},b{},c{},d{};
+    if(usable(status) && input.component[node]!=Invalid){
+        a=levelRowContribution(input,node,x,lane);b=levelRowContribution(input,node,x,lane+8);
+        c=levelRowContribution(input,node,x,lane+16);d=levelRowContribution(input,node,x,lane+24);
+    }
+    const auto value=sumVirtualWarp(a,b,c,d);if(!lane)result[node]=value;
+}
 // Test only: all production transfers and matrix applications stay on device.
 Six pack(Vector a){return {a.angular.x,a.angular.y,a.angular.z,a.linear.x,a.linear.y,a.linear.z};}
 Vector unpack(Six a){return {{a[0],a[1],a[2]},{a[3],a[4],a[5]}};}
@@ -49,7 +59,7 @@ double compare(const std::vector<Vector>& actual,const std::vector<Six>& expecte
 }
 void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& graph,Input input,cudaStream_t stream){
     const unsigned n=unsigned(roots.size());if(!n)return;
-    Device<Vector> coarse(n),fine(n),prolonged(n),restricted(n),applied(n),diagonal(n),current(n),referenceDiagonal(n),threadDiagonal(n);
+    Device<Vector> coarse(n),fine(n),prolonged(n),restricted(n),applied(n),diagonal(n),current(n),referenceDiagonal(n),threadDiagonal(n),eightLane(n);
     std::vector<Vector> x(n),y(n);
     for(unsigned i=0;i<n;++i){
         Six a{},b{};for(unsigned k=0;k<6;++k){a[k]=(int((i*11+k*7)%23)-11)/8.;b[k]=(int((i*5+k*13)%31)-15)/16.;}
@@ -65,6 +75,7 @@ void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& 
     restrictResidual<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,restricted.data);
     applyCoarse<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),coarse.data,applied.data);
     applyLevel<<<(n+7)/8,256,0,stream>>>(input,graph.status(),fine.data,current.data);
+    applyEightLaneLevel<<<(n+31)/32,256,0,stream>>>(input,graph.status(),fine.data,eightLane.data);
     applyFineDiagonal<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,diagonal.data);
     applyReferenceDiagonal<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,referenceDiagonal.data);
     applyThreadDiagonal<<<(n+255)/256,256,0,stream>>>(input,buffers,graph.status(),fine.data,threadDiagonal.data);
@@ -77,6 +88,8 @@ void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& 
         const auto perThread=threadDiagonal.get(stream);
         require(!std::memcmp(perThread.data(),oldDiagonal.data(),n*sizeof(Vector)),"per-thread solve changed diagonal solve bits");
         verifyDiagonalSolve(f,y,actualDiagonal);
+        const auto oldRows=current.get(stream),smallGroups=eightLane.get(stream);
+        require(!std::memcmp(oldRows.data(),smallGroups.data(),n*sizeof(Vector)),"eight-lane sparse row changed original reduction bits");
         const auto expectedP=hostProlong(f,roots,x);
         std::vector<Six> fy(n);for(unsigned i=0;i<n;++i)fy[i]=pack(y[i]);
         compare(current.get(stream),hostFineOperator(f,fy),"current fine operator differs from original equations");

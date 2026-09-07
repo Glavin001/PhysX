@@ -51,6 +51,18 @@ __device__ __forceinline__ Vector warpSum(Vector v){
     return {{warpSum(v.angular.x),warpSum(v.angular.y),warpSum(v.angular.z)},
             {warpSum(v.linear.x),warpSum(v.linear.y),warpSum(v.linear.z)}};
 }
+// Four virtual lanes per physical lane preserve the original 32-lane tree.
+// Eight physical lanes own a row, allowing four independent rows in a warp.
+__device__ __forceinline__ double eightLaneSum(double value){
+    const unsigned mask=0xffu<<(threadIdx.x&24u);
+    for(unsigned offset=4;offset;offset>>=1)value+=__shfl_down_sync(mask,value,offset,8);
+    return value;
+}
+__device__ __forceinline__ Vector sumVirtualWarp(Vector a,Vector b,Vector c,Vector d){
+    const auto v=add(add(a,c),add(b,d));
+    return {{eightLaneSum(v.angular.x),eightLaneSum(v.angular.y),eightLaneSum(v.angular.z)},
+            {eightLaneSum(v.linear.x),eightLaneSum(v.linear.y),eightLaneSum(v.linear.z)}};
+}
 __global__ void prolongate(Input input,Buffers b,const Status* status,
                            const Vector* coarse,Vector* fine){
     input=resolvedInput(input);

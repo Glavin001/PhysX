@@ -4,9 +4,9 @@
 #include "StressHierarchyOperator.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
 __device__ __forceinline__ Vector scaledValue(Vector v,float2 d){return {mul(v.angular,d.x),mul(v.linear,d.y)};}
-__device__ __forceinline__ Vector levelRowContribution(const Input& input,unsigned node,const Vector* x){
+__device__ __forceinline__ Vector levelRowContribution(const Input& input,unsigned node,const Vector* x,unsigned lane=threadIdx.x&31u){
     Vector out{};
-    for(unsigned slot=input.begin[node]+(threadIdx.x&31u);slot<input.begin[node+1];slot+=32){
+    for(unsigned slot=input.begin[node]+lane;slot<input.begin[node+1];slot+=32){
         const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
         const unsigned edge=ref&0x7fffffffu;if(sourceHealth(input,edge)<=0)continue;
         const unsigned first=sourceFirst(input,edge),second=sourceSecond(input,edge);
