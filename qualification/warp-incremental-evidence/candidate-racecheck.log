@@ -1,0 +1,3 @@
+========= COMPUTE-SANITIZER
+PASS 120 production GPU transition cases; comparisons 1462232 -> 1044590; exact brute-force found/lost sets
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

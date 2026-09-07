@@ -1,0 +1,2 @@
+seed=51 n=17 mode=3 refilter=0 lost=0 actual=31 expected=33
+FAIL GPU transitions differ from brute-force geometry

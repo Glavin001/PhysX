@@ -445,6 +445,10 @@ void PxgCudaBroadPhaseSap::runCopyResultsKernel(PxgBroadPhaseDesc& desc)
 void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.gpuDMABack", mContextID);
+    // Capture routing before the asynchronous descriptor readback overwrites it.
+    const bool native = desc.rigidOwners != NULL;
+    const bool correction = desc.nativeOwnership.generation != 0;
+
 
 	//mCudaContext->eventRecord(mEvent, mStream);
 
@@ -466,6 +470,10 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 
 	{
 		PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.Synchronize", mContextID);
+        PxProfileScoped completionWait(native ? PxGetProfilerCallback() : NULL,
+            correction ? "GpuDestruction.detail.broadPhaseWait" : "GpuDestruction.trialDetail.broadPhaseWait",
+            false, mContextID);
+
 		//mCudaContext->streamSynchronize(mStream);
 		volatile PxU32* eventPtr = mEventMapped;
 

@@ -1510,7 +1510,6 @@ static __device__ PX_FORCE_INLINE void updatePair(PxU32 handle, PxU32 otherHandl
 
 extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// BP_INCREMENTAL_SAP
 {
-	const PxU32 WARP_PERBLOCK_SIZE = PxgBPKernelBlockDim::BP_INCREMENTAL_SAP / WARP_SIZE;
 	__shared__ PxU32 sTotalComparisons;
 	__shared__ const PxU32* sComparisonHistograms;
 	__shared__ const PxU32* sRanks;
@@ -1519,10 +1518,7 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 	__shared__ const PxgIntegerAABB* sAabbs[2];
 
 	//0 = created pairs, 1 = destroyed pairs
-	__shared__ PxU32 sFoundLostAccumulator[2][PxgBPKernelBlockDim::BP_INCREMENTAL_SAP];
-	__shared__ PxU32 sFoundAccum[2][WARP_PERBLOCK_SIZE];
 
-	__shared__ PxU32 sBaseWriteIndex[2];
 
 	__shared__ PxU32* sSharedPointers[2];
 
@@ -1573,7 +1569,6 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 	PxU32 blockId = blockIdx.x;
 
 	const PxU32 threadIndexInWarp = threadIdx.x&(WARP_SIZE-1);
-	const PxU32 warpIndex = threadIdx.x/WARP_SIZE;
 
 	PxU32 axis = blockIdx.y;
 	{
@@ -1602,7 +1597,11 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 			{
 				//Then we have something to do...
 				//Stage 1 -> work out which projection we're processing...
-				PxU32 index = binarySearch(histogram, nbProjections, workId);
+                const unsigned active = __activemask();
+                PxU32 index = threadIndexInWarp == 0 ? binarySearch(histogram, nbProjections, workId) : 0;
+                index = __shfl_sync(active, index, 0);
+                const PxU32 rangeEnd = index + 1 < nbProjections ? histogram[index + 1] : totalCmpsThisAxis;
+                if (workId >= rangeEnd) index = binarySearch(histogram, nbProjections, workId);
 
 				const PxU32 sortedHandle = sSortedHandles[index];
 
@@ -1676,47 +1675,22 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 				}
 			}
 
-			const PxU32 val0 = foundOrLostID == 0 ? foundOrLostPair : 0;
-			const PxU32 val1 = foundOrLostID == 0 ? 0 : foundOrLostPair;
-
-			const PxU32 res0 = warpScanAddWriteToSharedMem<WARP_SIZE>(FULL_MASK, threadIdx.x, threadIndexInWarp, sFoundLostAccumulator[0], val0, val0);
-			const PxU32 res1 = warpScanAddWriteToSharedMem<WARP_SIZE>(FULL_MASK, threadIdx.x, threadIndexInWarp, sFoundLostAccumulator[1], val1, val1);
-
-			if(threadIndexInWarp == (WARP_SIZE-1))
-			{
-				sFoundAccum[0][warpIndex] = res0 + val0;
-				sFoundAccum[1][warpIndex] = res1 + val1;
-			}
-			 
-			__syncthreads();
-
-			const unsigned mask_warpIndex = __ballot_sync(FULL_MASK, warpIndex < 2 && threadIndexInWarp < WARP_PERBLOCK_SIZE);
-			if(warpIndex < 2 && threadIndexInWarp < WARP_PERBLOCK_SIZE)
-			{
-				const PxU32 val = sFoundAccum[warpIndex][threadIndexInWarp];
-
-				const PxU32 totalAccum = warpScanAddWriteToSharedMem<WARP_PERBLOCK_SIZE>(mask_warpIndex, threadIndexInWarp, threadIndexInWarp, sFoundAccum[warpIndex], val, val) + val;
-
-				if(totalAccum > 0 && threadIndexInWarp == (WARP_PERBLOCK_SIZE-1))
-				{
-					//Atomic add and reserve space
-					sBaseWriteIndex[warpIndex] = atomicAdd(sSharedPointers[warpIndex], totalAccum);
-				}
-			}
-
-			__syncthreads();
-
-			//Now write out found/lost pairs...
-
-			if(foundOrLostPair)
-			{
-				const PxU32 writeIndex = sBaseWriteIndex[foundOrLostID] + sFoundLostAccumulator[foundOrLostID][threadIdx.x] + sFoundAccum[foundOrLostID][warpIndex];
-
-				if (writeIndex < max_found_lost_pair)
-					updatePair(handle, otherHandle, sFoundOrLost[foundOrLostID], writeIndex);
-			}
-
-			__syncthreads(); //Make sure all writes complete before we go round the loop again
+            for (PxU32 reportType = 0; reportType < 2; ++reportType)
+            {
+                const bool emit = foundOrLostPair && foundOrLostID == reportType;
+                const unsigned mask = __ballot_sync(FULL_MASK, emit);
+                if (mask)
+                {
+                    PxU32 base = threadIndexInWarp == 0 ? atomicAdd(sSharedPointers[reportType], __popc(mask)) : 0;
+                    base = __shfl_sync(FULL_MASK, base, 0);
+                    if (emit)
+                    {
+                        const PxU32 index = base + __popc(mask & ((1u << threadIndexInWarp) - 1u));
+                        if (index < max_found_lost_pair)
+                            updatePair(handle, otherHandle, sFoundOrLost[reportType], index);
+                    }
+                }
+            }
 		}
 
 		nbBlocksProcessed += nbBlocksRequired;
@@ -2059,11 +2033,14 @@ extern "C" __global__ void computeIncrementalComparisonHistograms_Stage1(const P
 			comparisons1 = isNewProjection(sortedHandle1) ? 0 : startEndAccum1[end1] - startEndAccum1[start1];
 			comparisons2 = isNewProjection(sortedHandle2) ? 0 : startEndAccum2[end2] - startEndAccum2[start2];*/
 
-			if(!isDeletedProjection(sortedHandle0))
+            // Ownership/refilter pairs are discovered by the insertion pass.
+            // Incremental SAP unconditionally rejects them. Do not schedule
+            // their endpoint-crossing work only to discard it in the consumer.
+			if(!isDeletedProjection(sortedHandle0) && !needsRefilter(bpDesc, getHandle(sortedHandle0)))
 				comparisons0 = startEndAccum0[end0] - startEndAccum0[start0];
-			if (!isDeletedProjection(sortedHandle1))
+			if(!isDeletedProjection(sortedHandle1) && !needsRefilter(bpDesc, getHandle(sortedHandle1)))
 				comparisons1 = startEndAccum1[end1] - startEndAccum1[start1];
-			if(!isDeletedProjection(sortedHandle2))
+			if(!isDeletedProjection(sortedHandle2) && !needsRefilter(bpDesc, getHandle(sortedHandle2)))
 				comparisons2 = startEndAccum2[end2] - startEndAccum2[start2];
 		}
 

@@ -654,3 +654,27 @@ Each timing case is two untraced 10-second runs plus a separate phase capture, d
 The comparison does not demonstrate a material end-to-end speedup. This step removes a CPU responsibility from the native data flow; it does not remove the dominant CPU contact creation/registration or fragment compatibility lifecycle. These remain the next structural migration targets. The 8 ms peak and full plan gates remain unmet.
 
 Generated reports: [primary 256-building breakdown](native-pairs-impacts-256/report.html), [same-input comparison](native-pairs-comparison/report.html), [three-scene scaling](native-pairs-scaling/report.html). Evidence: [validation](native-pairs-evidence/validation.json).
+
+## Broad-phase warp scheduling and explicit GPU wait accounting
+
+A synchronized 3-second diagnostic of the 256-building simultaneous bombardment (113,664 chunks, 229,376 bonds, 256 projectiles) showed that correction step 82 spent 7.943691 ms in GPU incremental SAP inside a 9.091029 ms CPU broad-phase scope. The CPU thread spent that interval largely spinning for GPU completion. It was incorrect to treat this entire span as CPU contact bookkeeping; the reports now explicitly expose the nested broad-phase wait. These diagnostic task/kernel durations do not replace untraced complete-step measurements.
+
+Deleted incremental comparison work for refiltered handles: those comparisons were already unconditionally rejected by the consumer and handled by the ownership/insertion discovery pass. This alone was not a useful large-scene speedup. The remaining incremental kernel now shares range lookup within warps and emits reports with warp ballots/aggregated allocation, removing block-wide report scratch/scans/barriers. The actual comparisons, filtering, geometry predicates and complete found/lost sets remain unchanged.
+
+A tempting shortcut that skipped unchanged endpoints failed the new independent brute-force oracle: seed 51, 17 AABBs, minimum/maximum-only movement, 31 found pairs instead of 33. It was removed before building the production SDK. The validated scheduling alternative passed 120 production GPU transition cases (2–257 AABBs, no stress bonds), memory/synchronization/race checks, 15 focused native tests and 30 accounting tests. The isolated candidate was validated before the initially rejected production application was re-reviewed and approved.
+
+The later 3-second trace measured 6.129073 ms for incremental SAP within a 7.408086 ms broad-phase span at the same correction step. This is about 23% less kernel time in that diagnostic comparison, not a proven equivalent reduction in full-step peak or mean. Hardware counters were denied by the host driver permissions; no bandwidth/occupancy classification is asserted.
+
+The final frozen wall audit preserves exact topology and hole identities, 398 supported chunks, 46 detached chunks, 199 broken bonds, clearance step 39, zero render/collision position mismatch and the prior COM tolerance. The 10-second large audit preserves 14,219 peak clusters, 62,728 broken bonds, 224 corrected steps, zero motion mismatch and 1,648 contact/island boundary audits with zero failures. It does not enable a full large-scene render/COM trace. All 3,600 compared counter-history steps across the following scenes match the prior build.
+
+Final complete-advance measurements: two untraced 10-second runs per scene plus separate phase captures; dt=1/60, correction limit one, sleeping disabled. Commands, insertion, physics, stress/destruction, correction and mandatory completion are included. Initialization/rendering/reporting are separate and every measured spike is retained.
+
+| Case | Chunks | Bonds | Projectiles | Mean complete ms | Maximum complete ms | >8 ms / 1,200 steps |
+|---|---:|---:|---:|---:|---:|---:|
+| One building, projectile penetration | 444 | 896 | 1 | 2.270760 | 6.194569 | 0 |
+| 16 buildings, simultaneous aerial impacts | 7104 | 14336 | 16 | 4.154065 | 9.428579 | 8 |
+| 256 buildings, simultaneous aerial impacts | 113664 | 229376 | 256 | 11.395363 | 49.174363 | 1038 |
+
+There is no material overall throughput improvement established by these runs, and the 8 ms peak gate remains unmet. Further work includes the CPU fragment/contact compatibility lifecycle, GPU correction work selection, stress/preconditioning, sleep/joint support and full endurance/deadline qualification.
+
+Generated reports: [full primary breakdown](warp-incremental-impacts-256/report.html), [GPU execution versus CPU waiting](warp-incremental-gpu/report.html), [same-input comparison](warp-incremental-comparison/report.html), [three-scene scaling](warp-incremental-scaling/report.html), [validation](warp-incremental-evidence/validation.json).

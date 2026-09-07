@@ -175,6 +175,20 @@ class TimingAccounting(unittest.TestCase):
     def test_complete_timer_rejects_escaped_work(self):
         run=self.complete_run([1]);run['frames'][0]['simulation_end_ns']=5
         with self.assertRaisesRegex(ValueError,'escaped'):r.complete_step_metrics(run)
+    def test_broadphase_wait_is_nested_not_extra_simulation_work(self):
+        spans={'correctedCollisionSolve':[(10,90)],'detail.postBroadPhase':[(10,80)],
+               'detail.broadPhaseWait':[(15,75)]}
+        base=r.partition([(0,100)],{'correctedCollisionSolve':[(10,90)]})
+        self.assertEqual(r.partition([(0,100)],spans),base)
+        doc=r.Document()
+        r.render_physics_task_details(doc,{'detail':{
+            'detail.postBroadPhase':{'observed_wall_ms':[7,9]},
+            'detail.broadPhaseWait':{'observed_wall_ms':[6,8]}}},1)
+        with tempfile.TemporaryDirectory() as d:
+            doc.save(Path(d));text=(Path(d)/'report.md').read_text()
+            self.assertIn('CPU spin/block awaiting GPU completion',text)
+            self.assertIn('do not sum',text)
+
     def test_gpu_overlap_identity(self):
         gpu=[(1,7),(3,8),(9,10)];kernel=[(1,7),(3,8)]
         active=r.a.length(gpu);kernels=r.a.length(kernel)

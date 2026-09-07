@@ -646,6 +646,16 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_allocation_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_gpu_body_allocation COMMAND native_gpu_allocation_test)
 
+    add_executable(native_gpu_incremental_pairs_test tests/native_gpu_incremental_pairs_test.cu
+        "${PHYSX_ROOT}/source/gpubroadphase/src/CUDA/broadphase.cu")
+    target_include_directories(native_gpu_incremental_pairs_test PRIVATE "${PHYSX_ROOT}/include"
+        "${PHYSX_ROOT}/source/gpubroadphase/include" "${PHYSX_ROOT}/source/gpucommon/include"
+        "${PHYSX_ROOT}/source/gpucommon/src/CUDA" "${PHYSX_ROOT}/source/lowlevelaabb/include")
+    target_compile_definitions(native_gpu_incremental_pairs_test PRIVATE NDEBUG)
+    set_target_properties(native_gpu_incremental_pairs_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(native_gpu_incremental_pairs_test PRIVATE CUDA::cudart)
+    add_test(NAME physx_native_gpu_incremental_pairs COMMAND native_gpu_incremental_pairs_test)
+
     add_executable(native_gpu_pairs_test tests/native_gpu_pairs_test.cu)
     target_include_directories(native_gpu_pairs_test PRIVATE "${PHYSX_ROOT}/include"
         "${PHYSX_ROOT}/source/gpucommon/include" "${PHYSX_ROOT}/source/gpubroadphase/include"

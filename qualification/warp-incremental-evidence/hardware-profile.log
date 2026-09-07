@@ -1,0 +1,8 @@
+==WARNING== Note: Running with uncontrolled GPU caches. Profiling results may be inconsistent.
+==WARNING== Note: Running with unmodified GPU clocks. If not controlled otherwise, profiling results may be inconsistent.
+==PROF== Connected to process 514515 (/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo)
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=19.25ms
+==ERROR== ERR_NVGPUCTRPERM - The user does not have permission to access NVIDIA GPU Performance Counters on the target device 0. For instructions on enabling permissions and to get more information see https://developer.nvidia.com/ERR_NVGPUCTRPERM
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=6.39ms
+native t=2.0 chunks=113664 bonds=229376 clusters=12121 shots=256 broken=57785 corrections=26 step=26.84ms
+==PROF== Disconnected from process 514515

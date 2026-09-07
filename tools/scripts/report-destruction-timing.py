@@ -88,6 +88,7 @@ DETAILS={
  'preallocateContactManagers':'Allocate contact-manager storage',
  'registerContactManagers':'Register contact managers','registerInteractions':'Register body/shape interactions',
  'registerSceneInteractions':'Register scene interactions','postBroadPhase':'Complete broad phase and callbacks',
+ 'broadPhaseWait':'Wait for GPU broad phase and pair publication',
  'postBroadPhaseStage2':'Broad-phase completion stage 2','postBroadPhaseStage3':'Broad-phase completion stage 3',
  'postNarrowPhase':'Complete narrow phase','islandInsertion':'Insert contact dependencies into islands',
  'islandGen':'Generate simulation islands','postIslandGen':'Finish island scheduling',
@@ -408,7 +409,9 @@ def render_physics_task_details(doc,data,peak):
             values=entry['observed_wall_ms']
             if not any(values):continue
             owner='CPU task; elapsed includes any GPU submission/dependency waits'
-            if key in ('preallocateContactManagers','registerContactManagers','registerInteractions','registerSceneInteractions','islandInsertion'):
+            if key=='broadPhaseWait':
+                owner='CPU spin/block awaiting GPU completion; overlaps GPU execution, not additional GPU work'
+            elif key in ('preallocateContactManagers','registerContactManagers','registerInteractions','registerSceneInteractions','islandInsertion'):
                 owner='CPU contact/interaction lifecycle bookkeeping'
             rows.append([label,owner,fmt(mean(values)),fmt(values[peak])])
         if rows:
