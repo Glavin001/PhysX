@@ -1,0 +1,17 @@
+{
+  "direct_cases": 16,
+  "native_max_direct_scaled_force_error": 1.1978200476853162e-05,
+  "reference_max_direct_scaled_force_error": 2.1500234197308066e-06,
+  "legacy_cpu_max_direct_scaled_force_error": 0.0007230857226701992,
+  "native_force_tolerance_unchanged": 0.0002,
+  "native_iterations_cap_unchanged": 256,
+  "native_relative_tolerance_unchanged": 1e-05,
+  "test_cpu_iterations_cap_unchanged": 4000,
+  "test_cpu_relative_tolerance_unchanged": 1e-07,
+  "rejected_experiments": {
+    "native-reliable16-3d.log": "Periodic residual replacement after 16 iterations rejected: regression in convergence/cap behavior; not in production.",
+    "native-reliable16-analytic.log": "Periodic residual replacement after 16 iterations rejected: regression in convergence/cap behavior; not in production."
+  },
+  "performance_gate": "FAILED; see ../guarded-residual-impacts-256/report.md",
+  "full_goal_complete": false
+}

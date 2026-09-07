@@ -36,6 +36,9 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         __syncthreads();
         if(slot>=*c.count)break;
         const unsigned id=c.ids[slot], begin=c.begin[id], count=c.end[id]-begin;
+        // Every live component publishes a defined verification flag before
+        // the subsequent cooperative kernel visits the shared active-node list.
+        if(!threadIdx.x)a.hierarchy.verification[id]=0;
         if(count>kResidentComponentMaxNodes) {
             // All readers must finish using the shared ticket before reuse.
             __syncthreads();continue;
@@ -66,6 +69,18 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             const float numerator=componentSquaredNorm(squared);
             if(threadIdx.x==0)reduceValue=numerator;
             __syncthreads();
+            if((iteration || a.warmStart) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]){
+                for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
+                if(!threadIdx.x)a.hierarchy.previous[id]=0;__syncthreads();
+                prepareNativeResidualComponent(a,c.nodes+begin,count,id);
+                float verified=0;
+                for(unsigned block=0;block<nodeBlocks;++block){float contribution=0;
+                    nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
+                        nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution);
+                    verified+=contribution;
+                }
+                const float norm=componentSquaredNorm(verified);if(!threadIdx.x)reduceValue=norm;__syncthreads();
+            }
             COMPONENT_PROBE_END(1)
             finalizeAndCheckConvergenceBody(&reduceValue,a.m_gradientSquared,1u,
                 a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);

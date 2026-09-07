@@ -138,7 +138,7 @@
             m_kernelProfile.begin("nodeSpaceReset", m_stream);
 #ifdef PHYSX_RESIDENT_DESTRUCTION
             if(m_deviceTopology)resetNativeStressSolution<<<(m_nodeCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(
-                m_deviceTopology->cycleView().solution,m_nsPi,m_nsQ,m_nodeCount);
+                m_deviceTopology->cycleView(),m_nsPi,m_nsQ,m_nodeCount,warmStart);
             else
 #endif
             nodeSpaceReset<<<

@@ -8,6 +8,8 @@ struct NativeStressCycleView {
     float *gamma=nullptr,*previous=nullptr;
     double* normalizer=nullptr;
     unsigned* failed=nullptr;
+    unsigned *verification=nullptr,*verificationCount=nullptr,*warmRangeKnown=nullptr;
+    std::uint64_t* warmRangeGeneration=nullptr;
     const ExtStressGpuDeviceTopologyStatus* topology=nullptr;
 };
 __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hierarchy,const StressHierarchy::Status* modes,ExtStressGpuDeviceTopologyStatus* topology){
@@ -19,14 +21,16 @@ class NativeStressHierarchy {
     std::unique_ptr<StressHierarchy::ResidentCycle> mCycle;
     NativeStressCycleView mView;cudaStream_t mStream;
     template<class T>static void allocate(T*& p,unsigned count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
-    void release()noexcept{cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);}
+    void release()noexcept{cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
 public:
     NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
         :mHierarchy(input,input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
         mView.topology=status;mView.modes=mModes.view();
         try{
             allocate(mView.rhs,input.nodes);allocate(mView.solution,input.nodes);allocate(mView.result,input.nodes);allocate(mView.g,input.nodes);
-            allocate(mView.gamma,input.nodes);allocate(mView.previous,input.nodes);allocate(mView.failed,input.nodes);allocate(mView.normalizer,input.nodes);
+            allocate(mView.gamma,input.nodes);allocate(mView.previous,input.nodes);allocate(mView.failed,input.nodes);allocate(mView.normalizer,input.nodes);allocate(mView.verification,input.nodes);allocate(mView.verificationCount,1);allocate(mView.warmRangeKnown,1);allocate(mView.warmRangeGeneration,1);
+            checkCuda(cudaMemsetAsync(mView.warmRangeKnown,0,sizeof(unsigned),stream),"initialize native warm-range proof");
+            checkCuda(cudaMemsetAsync(mView.warmRangeGeneration,0,sizeof(std::uint64_t),stream),"initialize native warm-range generation");
             // Boundary rows remain zero. Active rows are overwritten by their
             // owning component, inside the resident iteration, before any read.
             checkCuda(cudaMemsetAsync(mView.g,0,sizeof(AngLin)*input.nodes,stream),"initialize native hierarchy boundaries");

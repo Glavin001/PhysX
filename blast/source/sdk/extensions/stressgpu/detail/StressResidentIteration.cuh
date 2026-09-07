@@ -44,10 +44,13 @@ struct PersistentStressArgs {
     NativeStressCycleView hierarchy{};
     const ExtStressGpuImpulse* input=nullptr;
     AngLin* impulses=nullptr;
+    const AngLin* originalRhs=nullptr;
+    bool warmStart=false;
 };
 #include "StressComponentPhaseProbe.cuh"
 #include "StressNativePreconditioner.cuh"
 #include "StressNativeSolution.cuh"
+#include "StressReliableResidual.cuh"
 #include "StressHomogeneousComponents.cuh"
 template<bool Preconditioned>
 __global__ void persistentStressSolve(PersistentStressArgs a) {
@@ -83,6 +86,25 @@ __global__ void persistentStressSolve(PersistentStressArgs a) {
         for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
             nodeSpaceMatvecBody(Preconditioned?nullptr:a.m_nsW,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block);
         if(gridDim.x==1)__syncthreads();else grid.sync();
+        if constexpr(Preconditioned){
+            if(!lane)*a.hierarchy.verificationCount=0;grid.sync();
+            for(unsigned i=lane;i<islandCount;i+=stride){const auto id=a.islandIds[i];
+                const float norm=sumIslandPartials(a.m_reduceSlots,id,a.slots,nullptr);
+                const bool verify=(*a.m_iteration || a.warmStart) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && norm<=a.m_deltaSquared[id];
+                a.hierarchy.verification[id]=verify;if(verify)atomicAdd(a.hierarchy.verificationCount,1u);
+            }
+            grid.sync();
+            if(*a.hierarchy.verificationCount){
+                for(unsigned i=lane;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i];if(a.hierarchy.verification[a.m_nodeIsland[node]])rebuildNativeResidualNode(a,node);}
+                for(unsigned i=lane;i<islandCount;i+=stride)if(a.hierarchy.verification[a.islandIds[i]])a.hierarchy.previous[a.islandIds[i]]=0;
+                grid.sync();prepareNativeResidualGrid(a,a.hierarchy.verification);
+                for(unsigned i=lane;i<islandCount*a.slots;i+=stride){const auto id=a.islandIds[i/a.slots];if(a.hierarchy.verification[id])a.m_reduceSlots[id*a.slots+i%a.slots]=0;}
+                grid.sync();
+                for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
+                    nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.hierarchy.verification,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block);
+                grid.sync();
+            }
+        }
         for(unsigned block=blockIdx.x;block<islandBlocks;block+=gridDim.x)
             finalizeAndCheckConvergenceBody(a.m_reduceSlots,a.m_gradientSquared,a.slots,a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,a.m_blockActiveCounts,islandCount,nullptr,block,a.islandIds);
         if(gridDim.x==1)__syncthreads();else grid.sync();

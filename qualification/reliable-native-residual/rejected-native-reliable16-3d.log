@@ -1,0 +1,47 @@
+native 3D nodes=18 bonds=33 supported=0 amplitude=0.5 iterations=17 converged=1 topology_error=0 CPU_iterations=27
+published residual label=CPU rhs2=19.2937011719 residual2=18.6883873298 gradient2=1.51956810902e-12 threshold2=1.92937001971e-09
+published residual label=native rhs2=19.2937011719 residual2=18.6883873299 gradient2=3.94801258088e-10 threshold2=1.92937001971e-09
+native 3D all-force/moment maximum_relative_error=9.90927219e-07
+native 3D nodes=18 bonds=33 supported=0 amplitude=1 iterations=15 converged=1 topology_error=0 CPU_iterations=27
+published residual label=CPU rhs2=77.1748046875 residual2=74.7535493193 gradient2=6.07827243609e-12 threshold2=7.71748007883e-09
+published residual label=native rhs2=77.1748046875 residual2=74.7535493201 gradient2=3.90782862564e-09 threshold2=7.71748007883e-09
+native 3D all-force/moment maximum_relative_error=2.33389437e-06
+native 3D nodes=18 bonds=33 supported=0 amplitude=0 iterations=76 converged=1 topology_error=0 CPU_iterations=0
+published residual label=CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=1.33745491308e-30 gradient2=9.01543172722e-30 threshold2=0
+native 3D all-force/moment maximum_relative_error=3.18493254e-09
+native 3D nodes=18 bonds=33 supported=0 amplitude=-0.75 iterations=17 converged=1 topology_error=0 CPU_iterations=27
+published residual label=CPU rhs2=43.4108276367 residual2=42.0488714921 gradient2=2.67637326439e-12 threshold2=4.34108254434e-09
+published residual label=native rhs2=43.4108276367 residual2=42.0488714923 gradient2=8.92816668116e-10 threshold2=4.34108254434e-09
+native 3D all-force/moment maximum_relative_error=1.46776438e-06
+native 3D nodes=18 bonds=33 supported=1 amplitude=0.5 iterations=117 converged=1 topology_error=0 CPU_iterations=66
+published residual label=CPU rhs2=18.1628417969 residual2=2.96553025565e-11 gradient2=1.36651834415e-10 threshold2=1.81628408792e-09
+published residual label=native rhs2=18.1628417969 residual2=2.90644053034e-10 gradient2=1.40675360485e-09 threshold2=1.81628408792e-09
+native 3D all-force/moment maximum_relative_error=2.28625141e-06
+native 3D nodes=18 bonds=33 supported=1 amplitude=1 iterations=111 converged=1 topology_error=0 CPU_iterations=66
+published residual label=CPU rhs2=72.6513671875 residual2=1.18621210226e-10 gradient2=5.46607337662e-10 threshold2=7.26513635168e-09
+published residual label=native rhs2=72.6513671875 residual2=8.36595651786e-10 gradient2=3.24137643669e-09 threshold2=7.26513635168e-09
+native 3D all-force/moment maximum_relative_error=6.67572021e-06
+native component id=1 nodes=17 iterations=256 active=1 failed=0 residual2=4.78864e-19 tolerance2=0 gamma=7.56205e-10 direction_energy=11.8603
+native 3D nodes=18 bonds=33 supported=1 amplitude=0 iterations=256 converged=0 topology_error=0 CPU_iterations=0
+published residual label=CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=1.51589781036e-19 gradient2=6.85590964266e-19 threshold2=0
+3D fixture extent=3 supported=1 failed: 3D native solve did not converge
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=0.5 iterations=165 converged=1 topology_error=0 CPU_iterations=377
+published residual label=CPU rhs2=1132.22827148 residual2=1062.18875466 gradient2=1.59329634526e-09 threshold2=1.13222821428e-07
+published residual label=native rhs2=1132.22827148 residual2=1062.18875468 gradient2=1.09297878698e-07 threshold2=1.13222821428e-07
+native 3D all-force/moment maximum_relative_error=5.8086589e-06
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=1 iterations=148 converged=1 topology_error=0 CPU_iterations=377
+published residual label=CPU rhs2=4528.91308594 residual2=4248.75501866 gradient2=6.37318538103e-09 threshold2=4.52891285712e-07
+published residual label=native rhs2=4528.91308594 residual2=4248.75501872 gradient2=4.4132432312e-07 threshold2=4.52891285712e-07
+native 3D all-force/moment maximum_relative_error=1.44988298e-05
+native cooperative id=0 iterations=256 active=1 failed=0 residual2=4.87175e-10 tolerance2=0 gamma=2.26397e-05 direction_energy=11.4114
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=0 iterations=256 converged=0 topology_error=0 CPU_iterations=0
+published residual label=CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=9.76128689553e-11 gradient2=5.92297068623e-10 threshold2=0
+3D fixture extent=23 supported=0 failed: 3D native solve did not converge
+native cooperative id=1 iterations=256 active=1 failed=0 residual2=3.45207e-06 tolerance2=1.1311e-07 gamma=6.52425e-05 direction_energy=0.0108887
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=0.5 iterations=256 converged=0 topology_error=0 CPU_iterations=1586
+published residual label=CPU rhs2=1131.09741211 residual2=0.00120642884682 gradient2=0.006949744495 threshold2=1.13109735496e-07
+published residual label=native rhs2=1131.09741211 residual2=9.62075319103e-07 gradient2=6.12711939963e-06 threshold2=1.13109735496e-07
+3D fixture extent=23 supported=1 failed: 3D native solve did not converge

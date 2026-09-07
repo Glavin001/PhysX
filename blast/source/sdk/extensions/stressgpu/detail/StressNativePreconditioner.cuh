@@ -20,11 +20,11 @@ __device__ __forceinline__ void prepareNativeResidualComponent(const PersistentS
     projectNativeNullspace(a,id,nodes,count,a.hierarchy.rhs);
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)storeNativeProjectedResidual(a,nodes[i]);__syncthreads();
 }
-__device__ __forceinline__ void prepareNativeResidualGrid(const PersistentStressArgs& a){
+__device__ __forceinline__ void prepareNativeResidualGrid(const PersistentStressArgs& a,const unsigned* selected=nullptr){
     const auto grid=cooperative_groups::this_grid();const unsigned first=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
-    for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i];if(a.m_islandActive[a.m_nodeIsland[node]])nativeCycleRhs(a,node);}
-    grid.sync();projectNativeNullspacesGrid(a,a.hierarchy.rhs);
-    for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i];if(a.m_islandActive[a.m_nodeIsland[node]])storeNativeProjectedResidual(a,node);}grid.sync();
+    for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i];if(a.m_islandActive[a.m_nodeIsland[node]] && (!selected || selected[a.m_nodeIsland[node]]))nativeCycleRhs(a,node);}
+    grid.sync();projectNativeNullspacesGrid(a,a.hierarchy.rhs,selected);
+    for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i];if(a.m_islandActive[a.m_nodeIsland[node]] && (!selected || selected[a.m_nodeIsland[node]]))storeNativeProjectedResidual(a,node);}grid.sync();
 }
 __device__ __forceinline__ double nativeCycleMagnitude(StressHierarchy::Vector v){
     return fmax(fmax(fabs(v.angular.x),fabs(v.angular.y)),fmax(fabs(v.angular.z),fmax(fabs(v.linear.x),fmax(fabs(v.linear.y),fabs(v.linear.z)))));

@@ -1,8 +1,16 @@
 // Accumulate the node correction without losing small increments beside a
 // large warm-start cancellation. The physical operator and output stay the
 // established scaled bond formulation; convert once after lambda0 + B^T*mu.
-__global__ void resetNativeStressSolution(StressHierarchy::Vector* solution,AngLin* pi,AngLin* q,unsigned nodes){
-    const unsigned node=blockIdx.x*blockDim.x+threadIdx.x;if(node<nodes){solution[node]={};pi[node]={};q[node]={};}
+__global__ void resetNativeStressSolution(NativeStressCycleView h,AngLin* pi,AngLin* q,unsigned nodes,bool warm){
+    const unsigned node=blockIdx.x*blockDim.x+threadIdx.x;
+    if(!node){
+        // Native bond outputs are read-only to consumers. A cold start has no
+        // bond-space null stress, and every update is B^T times a node vector.
+        // Preserve that provenance only while the operator generation matches.
+        const bool same=*h.warmRangeKnown && *h.warmRangeGeneration==h.topology->generation;
+        *h.warmRangeKnown=h.topology->initialized && !h.topology->error && (!warm || same);*h.warmRangeGeneration=h.topology->generation;
+    }
+    if(node<nodes){h.solution[node]={};pi[node]={};q[node]={};}
 }
 __device__ __forceinline__ void updateNativeStressSolution(const PersistentStressArgs& a,unsigned node,unsigned id,unsigned iteration){
     if(iteration>a.maxIterations || !a.m_islandActive[id])return;

@@ -243,7 +243,7 @@
         // Residency is a launch constraint, not a physical-work limit. All
         // virtual node/island blocks are processed by the resident grid.
         const auto kernel=m_deviceTopology?persistentStressSolve<true>:persistentStressSolve<false>;
-        if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;}
+        if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;}
         int blocksPerSm=0,device=0,sms=0;
         checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSm,kernel,kBlockSize,0),"persistent stress occupancy");
         checkCuda(cudaGetDevice(&device),"persistent stress device");
