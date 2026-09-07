@@ -45,6 +45,10 @@ __device__ __forceinline__ double terminalCoefficient(const Input& a,unsigned no
 }
 __device__ __forceinline__ void constructTerminalComponent(const Input& a,TerminalBuffers b,Status* status,TerminalShared& s,unsigned component,unsigned level){
     const unsigned first=a.partition.begin[component],count=a.partition.end[component]-first;
+    // Kind 3 is owned by the independent native fine solver, not an exact
+    // zero terminal. Packing retires its unused coarse work; accidentally
+    // dispatching it through the multilevel solve is an explicit error.
+    if(componentUsesFineSolver(a,component)){if(!threadIdx.x){b.kind[component]=3;b.owner[component]=level;}return;}
     if(count>TerminalNodes){if(!threadIdx.x){b.kind[component]=0;b.owner[component]=Invalid;}return;}
     const unsigned size=6*count,entries=size*(size+1)/2;
     if(threadIdx.x<count)s.nodes[threadIdx.x]=terminalNode(a,first+threadIdx.x);
@@ -125,6 +129,7 @@ __global__ void constructTerminals(Input input,const Status* source,Status* stat
 __device__ __forceinline__ void solveTerminalComponent(const Input& a,TerminalBuffers b,TerminalShared& s,unsigned component,unsigned level,const Vector* rhs,Vector* result){
     if(b.owner[component]!=level)return;
     const unsigned kind=b.kind[component];if(!kind)return;
+    if(kind==3){__trap();return;}
     const unsigned first=a.partition.begin[component],count=a.partition.end[component]-first,size=6*count;
     if(threadIdx.x<count)s.nodes[threadIdx.x]=terminalNode(a,first+threadIdx.x);__syncthreads();
     if(threadIdx.x<size){const unsigned i=threadIdx.x,node=s.nodes[i/6];

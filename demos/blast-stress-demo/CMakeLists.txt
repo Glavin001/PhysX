@@ -881,6 +881,15 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
     set_target_properties(gpu_resident_hierarchy_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_compile_options(gpu_resident_hierarchy_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
     target_link_libraries(gpu_resident_hierarchy_test PRIVATE CUDA::cudart)
+    add_test(NAME blast_stress_gpu_fine_only_preparation COMMAND gpu_resident_hierarchy_test --fine-only)
+    set_tests_properties(blast_stress_gpu_fine_only_preparation PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
+    foreach(preparation_tool memcheck synccheck)
+        add_test(NAME blast_stress_gpu_fine_only_preparation_${preparation_tool}
+            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${preparation_tool}
+                    --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --fine-only)
+        set_tests_properties(blast_stress_gpu_fine_only_preparation_${preparation_tool}
+            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+    endforeach()
     add_test(NAME blast_stress_gpu_resident_hierarchy COMMAND gpu_resident_hierarchy_test)
     set_tests_properties(blast_stress_gpu_resident_hierarchy PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     foreach(hierarchy_tool memcheck synccheck racecheck)

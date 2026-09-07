@@ -29,6 +29,9 @@ struct Input {
     const unsigned* bondIdentity=nullptr;
     unsigned authoredNodes=0;
     Partition partition{};
+    // Fine components handled by the native block solver still need their
+    // exact fine factors, but never consume aggregates or coarse terminals.
+    unsigned componentSolverMaxNodes=0;
 };
 struct Status {
     std::uint64_t generation;
@@ -50,6 +53,10 @@ __device__ __forceinline__ bool retainedColumn(const CoarseBond& e){
         !(e.a==e.b && e.offset0.x==e.offset1.x && e.offset0.y==e.offset1.y && e.offset0.z==e.offset1.z);
 }
 #include "StressHierarchyViews.cuh"
+__device__ __forceinline__ bool componentUsesFineSolver(const Input& a,unsigned id){
+    return !a.levelBonds && a.componentSolverMaxNodes && id<sourceComponentCapacity(a)
+        && a.partition.end[id]-a.partition.begin[id]<=a.componentSolverMaxNodes;
+}
 __device__ __forceinline__ unsigned priority(unsigned node,unsigned round)
 {
     unsigned x=node+0x9e3779b9u*(round+1u);
@@ -102,13 +109,20 @@ __device__ __forceinline__ void initialize(const Input* input,Buffers b,Status* 
             if(bond>=input->bonds || sourceHealth(*input,bond)>0)atomicOr(&status->error,1u);
         }
     }
+    // Coarsening used to validate every live CSR reference while selecting
+    // seeds. Fine-only components skip that work, not the validation contract.
+    if(componentUsesFineSolver(*input,input->component[i])){
+        const unsigned begin=input->begin[i],end=input->begin[i+1];
+        if(begin>end || end>2ull*input->bonds)atomicOr(&status->error,1u);
+        else for(unsigned slot=begin;slot<end;++slot)(void)neighbour(*input,i,slot,status);
+    }
     if(!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z))atomicOr(&status->error,2u);
 }
 __device__ __forceinline__ void chooseSeeds(const Input* input,Buffers b,Status* status,unsigned logicalBlock)
 {
     const auto a=*input;const unsigned node=logicalBlock*blockDim.x+threadIdx.x;
     if(node>=a.nodes)return;b.seed[node]=0;
-    if(a.component[node]==Invalid || b.owner[node]!=Invalid)return;
+    if(a.component[node]==Invalid || b.owner[node]!=Invalid || componentUsesFineSolver(a,a.component[node]))return;
     const unsigned begin=a.begin[node],end=a.begin[node+1];
     if(begin>end || end>2ull*a.bonds || a.component[node]>=sourceComponentCapacity(a)){atomicOr(&status->error,1u);return;}
     // Prefer hubs so a star coarsens to one aggregate instead of losing only
@@ -127,7 +141,7 @@ __device__ __forceinline__ void chooseSeeds(const Input* input,Buffers b,Status*
 __device__ __forceinline__ void assignSeeds(const Input* input,Buffers b,Status* status,unsigned logicalBlock)
 {
     const auto a=*input;const unsigned node=logicalBlock*blockDim.x+threadIdx.x;unsigned pending=0;
-    if(node<a.nodes && a.component[node]!=Invalid && b.owner[node]==Invalid){
+    if(node<a.nodes && a.component[node]!=Invalid && b.owner[node]==Invalid && !componentUsesFineSolver(a,a.component[node])){
         unsigned owner=b.seed[node]?node:Invalid,memberBond=Invalid;
         const unsigned begin=a.begin[node],end=a.begin[node+1];
         if(begin<=end && end<=2ull*a.bonds && !b.seed[node])for(unsigned i=begin;i<end;++i){

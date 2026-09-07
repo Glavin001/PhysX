@@ -1,0 +1,96 @@
+independent cold CGLS iterations=26 true_gradient2=1.16863841318e-13 threshold2=1.92937016228e-13
+native 3D nodes=18 bonds=33 supported=0 amplitude=0.5 iterations=17 converged=1 topology_error=0 CPU_iterations=27
+published residual label=legacy CPU rhs2=19.2937011719 residual2=18.6883873298 gradient2=1.51956810902e-12 threshold2=1.92937001971e-09
+published residual label=precise CPU rhs2=19.2937011719 residual2=18.6883873298 gradient2=1.19975315059e-13 threshold2=1.92937001971e-09
+published residual label=native rhs2=19.2937011719 residual2=18.6883873299 gradient2=5.07157445409e-10 threshold2=1.92937001971e-09
+native 3D all-force/moment maximum_relative_error=7.65896402e-07
+independent cold CGLS iterations=26 true_gradient2=4.67455365272e-13 threshold2=7.71748064912e-13
+native 3D nodes=18 bonds=33 supported=0 amplitude=1 iterations=15 converged=1 topology_error=0 CPU_iterations=27
+published residual label=legacy CPU rhs2=77.1748046875 residual2=74.7535493193 gradient2=6.07827243609e-12 threshold2=7.71748007883e-09
+published residual label=precise CPU rhs2=77.1748046875 residual2=74.7535493193 gradient2=4.79901260234e-13 threshold2=7.71748007883e-09
+published residual label=native rhs2=77.1748046875 residual2=74.7535493201 gradient2=3.89972170513e-09 threshold2=7.71748007883e-09
+native 3D all-force/moment maximum_relative_error=2.34507024e-06
+independent cold CGLS iterations=0 true_gradient2=0 threshold2=0
+native 3D nodes=18 bonds=33 supported=0 amplitude=0 iterations=0 converged=1 topology_error=0 CPU_iterations=0
+published residual label=legacy CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=precise CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=0 gradient2=0 threshold2=0
+native 3D all-force/moment maximum_relative_error=0
+independent cold CGLS iterations=26 true_gradient2=2.62943642965e-13 threshold2=4.34108286513e-13
+native 3D nodes=18 bonds=33 supported=0 amplitude=-0.75 iterations=17 converged=1 topology_error=0 CPU_iterations=27
+published residual label=legacy CPU rhs2=43.4108276367 residual2=42.0488714921 gradient2=2.67637326439e-12 threshold2=4.34108254434e-09
+published residual label=precise CPU rhs2=43.4108276367 residual2=42.0488714921 gradient2=2.70707318671e-13 threshold2=4.34108254434e-09
+published residual label=native rhs2=43.4108276367 residual2=42.0488714923 gradient2=1.13773911399e-09 threshold2=4.34108254434e-09
+native 3D all-force/moment maximum_relative_error=1.14773866e-06
+independent cold CGLS iterations=63 true_gradient2=1.62769008116e-13 threshold2=1.81628422214e-13
+native 3D nodes=18 bonds=33 supported=1 amplitude=0.5 iterations=49 converged=1 topology_error=0 CPU_iterations=66
+published residual label=legacy CPU rhs2=18.1628417969 residual2=2.96553025565e-11 gradient2=1.36651834415e-10 threshold2=1.81628408792e-09
+published residual label=precise CPU rhs2=18.1628417969 residual2=4.35533073709e-13 gradient2=2.74020948969e-12 threshold2=1.81628408792e-09
+published residual label=native rhs2=18.1628417969 residual2=1.66068511176e-10 gradient2=8.56885767765e-10 threshold2=1.81628408792e-09
+native 3D all-force/moment maximum_relative_error=9.23871994e-07
+independent cold CGLS iterations=63 true_gradient2=6.51076032462e-13 threshold2=7.26513688855e-13
+native 3D nodes=18 bonds=33 supported=1 amplitude=1 iterations=48 converged=1 topology_error=0 CPU_iterations=66
+published residual label=legacy CPU rhs2=72.6513671875 residual2=1.18621210226e-10 gradient2=5.46607337662e-10 threshold2=7.26513635168e-09
+published residual label=precise CPU rhs2=72.6513671875 residual2=1.74213229483e-12 gradient2=1.09608379588e-11 threshold2=7.26513635168e-09
+published residual label=native rhs2=72.6513671875 residual2=7.69053535693e-10 gradient2=4.10812878545e-09 threshold2=7.26513635168e-09
+native 3D all-force/moment maximum_relative_error=2.20537186e-06
+independent cold CGLS iterations=0 true_gradient2=0 threshold2=0
+native 3D nodes=18 bonds=33 supported=1 amplitude=0 iterations=0 converged=1 topology_error=0 CPU_iterations=0
+published residual label=legacy CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=precise CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=0 gradient2=0 threshold2=0
+native 3D all-force/moment maximum_relative_error=0
+independent cold CGLS iterations=63 true_gradient2=3.66229419824e-13 threshold2=4.08663949981e-13
+native 3D nodes=18 bonds=33 supported=1 amplitude=-0.75 iterations=49 converged=1 topology_error=0 CPU_iterations=70
+published residual label=legacy CPU rhs2=40.866394043 residual2=6.62354784709e-11 gradient2=2.95048820335e-10 threshold2=4.08663919782e-09
+published residual label=precise CPU rhs2=40.866394043 residual2=1.02716066943e-12 gradient2=5.74507481356e-12 threshold2=4.08663919782e-09
+published residual label=native rhs2=40.866394043 residual2=3.82637805133e-10 gradient2=1.96488402073e-09 threshold2=4.08663919782e-09
+native 3D all-force/moment maximum_relative_error=1.43051147e-06
+independent cold CGLS iterations=371 true_gradient2=1.06989412044e-11 threshold2=1.13222829795e-11
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=0.5 iterations=103 converged=1 topology_error=0 CPU_iterations=377
+published residual label=legacy CPU rhs2=1132.22827148 residual2=1062.18875466 gradient2=1.59329634526e-09 threshold2=1.13222821428e-07
+published residual label=precise CPU rhs2=1132.22827148 residual2=1062.18875466 gradient2=1.1041638931e-11 threshold2=1.13222821428e-07
+published residual label=native rhs2=1132.22827148 residual2=1062.18875468 gradient2=9.58807603164e-08 threshold2=1.13222821428e-07
+native 3D all-force/moment maximum_relative_error=8.32229853e-06
+independent cold CGLS iterations=371 true_gradient2=4.27957648174e-11 threshold2=4.52891319179e-11
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=1 iterations=100 converged=1 topology_error=0 CPU_iterations=377
+published residual label=legacy CPU rhs2=4528.91308594 residual2=4248.75501866 gradient2=6.37318538103e-09 threshold2=4.52891285712e-07
+published residual label=precise CPU rhs2=4528.91308594 residual2=4248.75501866 gradient2=4.4166555724e-11 threshold2=4.52891285712e-07
+published residual label=native rhs2=4528.91308594 residual2=4248.75501871 gradient2=3.32006331766e-07 threshold2=4.52891285712e-07
+native 3D all-force/moment maximum_relative_error=1.05574727e-05
+independent cold CGLS iterations=0 true_gradient2=0 threshold2=0
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=0 iterations=0 converged=1 topology_error=0 CPU_iterations=0
+published residual label=legacy CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=precise CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=0 gradient2=0 threshold2=0
+native 3D all-force/moment maximum_relative_error=0
+independent cold CGLS iterations=371 true_gradient2=2.40726177098e-11 threshold2=2.54751367038e-11
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=-0.75 iterations=103 converged=1 topology_error=0 CPU_iterations=378
+published residual label=legacy CPU rhs2=2547.51361084 residual2=2389.92469799 gradient2=2.68762371374e-09 threshold2=2.54751348213e-07
+published residual label=precise CPU rhs2=2547.51361084 residual2=2389.92469799 gradient2=2.46867318068e-11 threshold2=2.54751348213e-07
+published residual label=native rhs2=2547.51361084 residual2=2389.92469803 gradient2=2.15665458476e-07 threshold2=2.54751348213e-07
+native 3D all-force/moment maximum_relative_error=1.24759972e-05
+independent cold CGLS iterations=984 true_gradient2=8.36495245037e-12 threshold2=1.13109743855e-11
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=0.5 iterations=149 converged=1 topology_error=0 CPU_iterations=1586
+published residual label=legacy CPU rhs2=1131.09741211 residual2=0.00120642884682 gradient2=0.006949744495 threshold2=1.13109735496e-07
+published residual label=precise CPU rhs2=1131.09741211 residual2=1.78098997661e-07 gradient2=1.15890510708e-06 threshold2=1.13109735496e-07
+published residual label=native rhs2=1131.09741211 residual2=4.58287703021e-07 gradient2=2.87291834499e-06 threshold2=1.13109735496e-07
+native 3D all-force/moment maximum_relative_error=8.58306885e-06
+independent cold CGLS iterations=984 true_gradient2=3.34598098015e-11 threshold2=4.52438975418e-11
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=1 iterations=142 converged=1 topology_error=0 CPU_iterations=1586
+published residual label=legacy CPU rhs2=4524.38964844 residual2=0.00482571538729 gradient2=0.02779897798 threshold2=4.52438941985e-07
+published residual label=precise CPU rhs2=4524.38964844 residual2=7.12395990646e-07 gradient2=4.63562042833e-06 threshold2=4.52438941985e-07
+published residual label=native rhs2=4524.38964844 residual2=1.64358815838e-06 gradient2=1.03128640174e-05 threshold2=4.52438941985e-07
+native 3D all-force/moment maximum_relative_error=8.58306885e-06
+independent cold CGLS iterations=0 true_gradient2=0 threshold2=0
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=0 iterations=0 converged=1 topology_error=0 CPU_iterations=0
+published residual label=legacy CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=precise CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=0 gradient2=0 threshold2=0
+native 3D all-force/moment maximum_relative_error=0
+independent cold CGLS iterations=984 true_gradient2=1.88215517359e-11 threshold2=2.54496923673e-11
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=-0.75 iterations=153 converged=1 topology_error=0 CPU_iterations=1625
+published residual label=legacy CPU rhs2=2544.96917725 residual2=0.000408088691276 gradient2=0.0024715337495 threshold2=2.54496904866e-07
+published residual label=precise CPU rhs2=2544.96917725 residual2=2.27018094132e-07 gradient2=1.515908184e-06 threshold2=2.54496904866e-07
+published residual label=native rhs2=2544.96917725 residual2=5.02166927263e-07 gradient2=2.85543681655e-06 threshold2=2.54496904866e-07
+native 3D all-force/moment maximum_relative_error=5.222857e-06

@@ -1,0 +1,416 @@
+START fixture=empty nodes=0 bonds=0
+START GPU hierarchy: nodes=0 bonds=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+recursive GPU level=1 source nodes=0 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+recursive GPU level=2 source nodes=0 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+recursive GPU level=3 source nodes=0 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+recursive GPU level=1 source nodes=0 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+recursive GPU level=2 source nodes=0 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+recursive GPU level=3 source nodes=0 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+GPU hierarchy: nodes=0 bonds=0 final aggregates=0 rounds=1 transitions=2 passed
+START fixture=singleton nodes=1 bonds=0
+START GPU hierarchy: nodes=1 bonds=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+recursive GPU level=1 source nodes=1 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+recursive GPU level=2 source nodes=1 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+recursive GPU level=3 source nodes=1 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+recursive GPU level=1 source nodes=1 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+recursive GPU level=2 source nodes=1 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+recursive GPU level=3 source nodes=1 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+GPU hierarchy: nodes=1 bonds=0 final aggregates=1 rounds=1 transitions=2 passed
+START fixture=isolated nodes=256 bonds=0
+START GPU hierarchy: nodes=256 bonds=0
+resident P/PT/coarse operator: nodes=256 bonds=0 max scaled error=1.9e-16 passed
+recursive GPU level=1 source nodes=256 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=2 source nodes=256 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=3 source nodes=256 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+resident P/PT/coarse operator: nodes=256 bonds=0 max scaled error=1.9e-16 passed
+recursive GPU level=1 source nodes=256 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=2 source nodes=256 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=3 source nodes=256 bonds=0 packed nodes=0 bonds=0 aggregates=0 passed
+GPU hierarchy: nodes=256 bonds=0 final aggregates=256 rounds=1 transitions=2 passed
+START fixture=supported nodes=24 bonds=33
+START GPU hierarchy: nodes=24 bonds=33
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=33 packed nodes=8 bonds=14 aggregates=3 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=33 packed nodes=3 bonds=5 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=33 packed nodes=2 bonds=4 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=33 packed nodes=8 bonds=14 aggregates=3 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=33 packed nodes=3 bonds=5 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=33 packed nodes=2 bonds=4 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=33 packed nodes=11 bonds=10 aggregates=6 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=33 packed nodes=3 bonds=4 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=33 packed nodes=2 bonds=3 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=33 packed nodes=11 bonds=10 aggregates=6 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=33 packed nodes=3 bonds=4 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=33 packed nodes=2 bonds=3 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=33 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=33 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=33 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=33 packed nodes=8 bonds=14 aggregates=3 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=33 packed nodes=3 bonds=5 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=33 packed nodes=2 bonds=4 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+GPU hierarchy: nodes=24 bonds=33 final aggregates=8 rounds=3 transitions=6 passed
+START fixture=path nodes=24 bonds=23
+START GPU hierarchy: nodes=24 bonds=23
+resident P/PT/coarse operator: nodes=24 bonds=23 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=23 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=23 packed nodes=10 bonds=9 aggregates=4 passed
+coarse factor full-basis check: nodes=24 bonds=23 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=23 packed nodes=4 bonds=3 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=23 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=23 packed nodes=2 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=24 bonds=23 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=23 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=23 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=23 packed nodes=10 bonds=9 aggregates=4 passed
+coarse factor full-basis check: nodes=24 bonds=23 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=23 packed nodes=4 bonds=3 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=23 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=23 packed nodes=2 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=24 bonds=23 max scaled error=0
+GPU hierarchy: nodes=24 bonds=23 final aggregates=10 rounds=3 transitions=2 passed
+START fixture=self nodes=2 bonds=1
+START GPU hierarchy: nodes=2 bonds=1
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=1 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=2 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=3 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=1 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=2 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=3 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=1 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=2 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=3 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=1 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=2 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=3 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=1 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=2 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=3 source nodes=2 bonds=1 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=1 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=2 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+recursive GPU level=3 source nodes=2 bonds=1 packed nodes=1 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+GPU hierarchy: nodes=2 bonds=1 final aggregates=1 rounds=1 transitions=6 passed
+START fixture=parallel nodes=6 bonds=10
+START GPU hierarchy: nodes=6 bonds=10
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=1 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=2 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=3 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=1 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=2 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=3 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=1 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=2 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=3 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=1 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=2 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=3 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=1 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=2 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=3 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=1 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=2 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+recursive GPU level=3 source nodes=6 bonds=10 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+GPU hierarchy: nodes=6 bonds=10 final aggregates=1 rounds=1 transitions=6 passed
+START fixture=omitted nodes=24 bonds=11
+START GPU hierarchy: nodes=24 bonds=11
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=11 packed nodes=5 bonds=4 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=11 packed nodes=2 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=11 packed nodes=5 bonds=4 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=11 packed nodes=2 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=11 packed nodes=6 bonds=3 aggregates=3 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=11 packed nodes=6 bonds=3 aggregates=3 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=1 source nodes=24 bonds=11 packed nodes=5 bonds=4 aggregates=2 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=2 source nodes=24 bonds=11 packed nodes=2 bonds=1 aggregates=1 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+recursive GPU level=3 source nodes=24 bonds=11 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+GPU hierarchy: nodes=24 bonds=11 final aggregates=5 rounds=2 transitions=6 passed
+START fixture=star nodes=257 bonds=256
+START GPU hierarchy: nodes=257 bonds=256
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+recursive GPU level=1 source nodes=257 bonds=256 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=2 source nodes=257 bonds=256 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=3 source nodes=257 bonds=256 packed nodes=0 bonds=0 aggregates=0 passed
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+recursive GPU level=1 source nodes=257 bonds=256 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=2 source nodes=257 bonds=256 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=3 source nodes=257 bonds=256 packed nodes=0 bonds=0 aggregates=0 passed
+GPU hierarchy: nodes=257 bonds=256 final aggregates=1 rounds=1 transitions=2 passed
+START fixture=fixed nodes=4 bonds=3
+START GPU hierarchy: nodes=4 bonds=3
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=1 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=2 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=3 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=1 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=2 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=3 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=1 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=2 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=3 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=1 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=2 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=3 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=1 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=2 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=3 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=1 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=2 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+recursive GPU level=3 source nodes=4 bonds=3 packed nodes=0 bonds=0 aggregates=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+GPU hierarchy: nodes=4 bonds=3 final aggregates=0 rounds=1 transitions=6 passed
+START fixture=mixed nodes=129 bonds=121
+START GPU hierarchy: nodes=129 bonds=121
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+recursive GPU level=1 source nodes=129 bonds=121 packed nodes=56 bonds=48 aggregates=26 passed
+recursive GPU level=2 source nodes=129 bonds=121 packed nodes=26 bonds=18 aggregates=11 passed
+recursive GPU level=3 source nodes=129 bonds=121 packed nodes=6 bonds=3 aggregates=3 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+recursive GPU level=1 source nodes=129 bonds=121 packed nodes=56 bonds=48 aggregates=26 passed
+recursive GPU level=2 source nodes=129 bonds=121 packed nodes=26 bonds=18 aggregates=11 passed
+recursive GPU level=3 source nodes=129 bonds=121 packed nodes=6 bonds=3 aggregates=3 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+recursive GPU level=1 source nodes=129 bonds=121 packed nodes=48 bonds=24 aggregates=24 passed
+recursive GPU level=2 source nodes=129 bonds=121 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=3 source nodes=129 bonds=121 packed nodes=0 bonds=0 aggregates=0 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+recursive GPU level=1 source nodes=129 bonds=121 packed nodes=48 bonds=24 aggregates=24 passed
+recursive GPU level=2 source nodes=129 bonds=121 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=3 source nodes=129 bonds=121 packed nodes=0 bonds=0 aggregates=0 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=1.9e-16 passed
+recursive GPU level=1 source nodes=129 bonds=121 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=2 source nodes=129 bonds=121 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=3 source nodes=129 bonds=121 packed nodes=0 bonds=0 aggregates=0 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+recursive GPU level=1 source nodes=129 bonds=121 packed nodes=56 bonds=48 aggregates=26 passed
+recursive GPU level=2 source nodes=129 bonds=121 packed nodes=26 bonds=18 aggregates=11 passed
+recursive GPU level=3 source nodes=129 bonds=121 packed nodes=6 bonds=3 aggregates=3 passed
+GPU hierarchy: nodes=129 bonds=121 final aggregates=56 rounds=2 transitions=6 passed
+START fixture=large nodes=100000 bonds=199997
+START GPU hierarchy: nodes=100000 bonds=199997
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+recursive GPU level=1 source nodes=100000 bonds=199997 packed nodes=27321 bonds=78816 aggregates=10833 passed
+recursive GPU level=2 source nodes=100000 bonds=199997 packed nodes=10833 bonds=32053 aggregates=4517 passed
+recursive GPU level=3 source nodes=100000 bonds=199997 packed nodes=4517 bonds=13496 aggregates=1927 passed
+recursive GPU level=4 source nodes=100000 bonds=199997 packed nodes=1927 bonds=5772 aggregates=824 passed
+recursive GPU level=5 source nodes=100000 bonds=199997 packed nodes=824 bonds=2468 aggregates=356 passed
+recursive GPU level=6 source nodes=100000 bonds=199997 packed nodes=356 bonds=1064 aggregates=152 passed
+recursive GPU level=7 source nodes=100000 bonds=199997 packed nodes=152 bonds=453 aggregates=66 passed
+recursive GPU level=8 source nodes=100000 bonds=199997 packed nodes=66 bonds=195 aggregates=30 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+recursive GPU level=1 source nodes=100000 bonds=199997 packed nodes=27321 bonds=78816 aggregates=10833 passed
+recursive GPU level=2 source nodes=100000 bonds=199997 packed nodes=10833 bonds=32053 aggregates=4517 passed
+recursive GPU level=3 source nodes=100000 bonds=199997 packed nodes=4517 bonds=13496 aggregates=1927 passed
+recursive GPU level=4 source nodes=100000 bonds=199997 packed nodes=1927 bonds=5772 aggregates=824 passed
+recursive GPU level=5 source nodes=100000 bonds=199997 packed nodes=824 bonds=2468 aggregates=356 passed
+recursive GPU level=6 source nodes=100000 bonds=199997 packed nodes=356 bonds=1064 aggregates=152 passed
+recursive GPU level=7 source nodes=100000 bonds=199997 packed nodes=152 bonds=453 aggregates=66 passed
+recursive GPU level=8 source nodes=100000 bonds=199997 packed nodes=66 bonds=195 aggregates=30 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+recursive GPU level=1 source nodes=100000 bonds=199997 packed nodes=33333 bonds=43373 aggregates=13677 passed
+recursive GPU level=2 source nodes=100000 bonds=199997 packed nodes=13677 bonds=15118 aggregates=5861 passed
+recursive GPU level=3 source nodes=100000 bonds=199997 packed nodes=5861 bonds=5941 aggregates=2522 passed
+recursive GPU level=4 source nodes=100000 bonds=199997 packed nodes=2522 bonds=2521 aggregates=1083 passed
+recursive GPU level=5 source nodes=100000 bonds=199997 packed nodes=1083 bonds=1082 aggregates=466 passed
+recursive GPU level=6 source nodes=100000 bonds=199997 packed nodes=466 bonds=465 aggregates=202 passed
+recursive GPU level=7 source nodes=100000 bonds=199997 packed nodes=202 bonds=201 aggregates=86 passed
+recursive GPU level=8 source nodes=100000 bonds=199997 packed nodes=86 bonds=85 aggregates=38 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+recursive GPU level=1 source nodes=100000 bonds=199997 packed nodes=33333 bonds=43373 aggregates=13677 passed
+recursive GPU level=2 source nodes=100000 bonds=199997 packed nodes=13677 bonds=15118 aggregates=5861 passed
+recursive GPU level=3 source nodes=100000 bonds=199997 packed nodes=5861 bonds=5941 aggregates=2522 passed
+recursive GPU level=4 source nodes=100000 bonds=199997 packed nodes=2522 bonds=2521 aggregates=1083 passed
+recursive GPU level=5 source nodes=100000 bonds=199997 packed nodes=1083 bonds=1082 aggregates=466 passed
+recursive GPU level=6 source nodes=100000 bonds=199997 packed nodes=466 bonds=465 aggregates=202 passed
+recursive GPU level=7 source nodes=100000 bonds=199997 packed nodes=202 bonds=201 aggregates=86 passed
+recursive GPU level=8 source nodes=100000 bonds=199997 packed nodes=86 bonds=85 aggregates=38 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=1.9e-16 passed
+recursive GPU level=1 source nodes=100000 bonds=199997 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=2 source nodes=100000 bonds=199997 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=3 source nodes=100000 bonds=199997 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=4 source nodes=100000 bonds=199997 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=5 source nodes=100000 bonds=199997 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=6 source nodes=100000 bonds=199997 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=7 source nodes=100000 bonds=199997 packed nodes=0 bonds=0 aggregates=0 passed
+recursive GPU level=8 source nodes=100000 bonds=199997 packed nodes=0 bonds=0 aggregates=0 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+recursive GPU level=1 source nodes=100000 bonds=199997 packed nodes=27321 bonds=78816 aggregates=10833 passed
+recursive GPU level=2 source nodes=100000 bonds=199997 packed nodes=10833 bonds=32053 aggregates=4517 passed
+recursive GPU level=3 source nodes=100000 bonds=199997 packed nodes=4517 bonds=13496 aggregates=1927 passed
+recursive GPU level=4 source nodes=100000 bonds=199997 packed nodes=1927 bonds=5772 aggregates=824 passed
+recursive GPU level=5 source nodes=100000 bonds=199997 packed nodes=824 bonds=2468 aggregates=356 passed
+recursive GPU level=6 source nodes=100000 bonds=199997 packed nodes=356 bonds=1064 aggregates=152 passed
+recursive GPU level=7 source nodes=100000 bonds=199997 packed nodes=152 bonds=453 aggregates=66 passed
+recursive GPU level=8 source nodes=100000 bonds=199997 packed nodes=66 bonds=195 aggregates=30 passed
+GPU hierarchy: nodes=100000 bonds=199997 final aggregates=27321 rounds=3 transitions=6 passed

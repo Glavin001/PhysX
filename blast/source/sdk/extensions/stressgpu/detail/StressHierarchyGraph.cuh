@@ -41,7 +41,8 @@ public:
     // No status readback, CPU numerical work, allocation or recapture occurs
     // here. Consumers must reject an error status and await device completion.
     void validate(Input input)const{
-        if(input.nodes!=mNodes || input.bonds!=mBonds || !input.generation || bool(input.levelBonds)!=mRecursive
+        if((input.componentSolverMaxNodes && (!input.partition.begin || !input.partition.end))
+            || input.nodes!=mNodes || input.bonds!=mBonds || !input.generation || bool(input.levelBonds)!=mRecursive
             || (mNodes && (!input.begin||!input.component||!input.position||(!input.levelBonds && !input.inertia)))
             || (input.levelBonds && (!input.identity || (mNodes && !input.authoredNodes)))
             || (mBonds && (!input.refs || (!input.levelBonds && (!input.node0||!input.node1||!input.health||!input.scale||!input.offset0||!input.offset1)))))

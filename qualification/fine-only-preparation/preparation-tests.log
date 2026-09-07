@@ -1,0 +1,72 @@
+Start testing: Sep 07 21:22 UTC
+----------------------------------------------------------
+83/132 Testing: blast_stress_gpu_fine_only_preparation
+83/132 Test: blast_stress_gpu_fine_only_preparation
+Command: "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test" "--fine-only"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_fine_only_preparation" start time: Sep 07 21:22 UTC
+Output:
+----------------------------------------------------------
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=2 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=3 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only malformed bond/endpoint/CSR rejection and recovery passed
+<end of output>
+Test time =   0.28 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_fine_only_preparation" end time: Sep 07 21:22 UTC
+"blast_stress_gpu_fine_only_preparation" time elapsed: 00:00:00
+----------------------------------------------------------
+
+84/132 Testing: blast_stress_gpu_fine_only_preparation_memcheck
+84/132 Test: blast_stress_gpu_fine_only_preparation_memcheck
+Command: "/usr/local/cuda/bin/compute-sanitizer" "--tool" "memcheck" "--error-exitcode" "99" "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test" "--fine-only"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_fine_only_preparation_memcheck" start time: Sep 07 21:22 UTC
+Output:
+----------------------------------------------------------
+========= COMPUTE-SANITIZER
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=2 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=3 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only malformed bond/endpoint/CSR rejection and recovery passed
+========= ERROR SUMMARY: 0 errors
+<end of output>
+Test time =   0.47 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_fine_only_preparation_memcheck" end time: Sep 07 21:22 UTC
+"blast_stress_gpu_fine_only_preparation_memcheck" time elapsed: 00:00:00
+----------------------------------------------------------
+
+85/132 Testing: blast_stress_gpu_fine_only_preparation_synccheck
+85/132 Test: blast_stress_gpu_fine_only_preparation_synccheck
+Command: "/usr/local/cuda/bin/compute-sanitizer" "--tool" "synccheck" "--error-exitcode" "99" "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test" "--fine-only"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_fine_only_preparation_synccheck" start time: Sep 07 21:22 UTC
+Output:
+----------------------------------------------------------
+========= COMPUTE-SANITIZER
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=2 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=3 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only malformed bond/endpoint/CSR rejection and recovery passed
+========= ERROR SUMMARY: 0 errors
+<end of output>
+Test time =   0.50 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_fine_only_preparation_synccheck" end time: Sep 07 21:22 UTC
+"blast_stress_gpu_fine_only_preparation_synccheck" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 07 21:22 UTC
+
+gpu =   1.25 sec*proc
+
+sanitizer =   0.97 sec*proc
+

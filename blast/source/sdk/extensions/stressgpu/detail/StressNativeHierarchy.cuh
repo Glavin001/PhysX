@@ -20,11 +20,12 @@ class NativeStressHierarchy {
     StressHierarchy::ResidentMotionModes mModes;
     std::unique_ptr<StressHierarchy::ResidentCycle> mCycle;
     NativeStressCycleView mView;cudaStream_t mStream;
+    static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
     template<class T>static void allocate(T*& p,unsigned count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
     void release()noexcept{cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
 public:
     NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
-        :mHierarchy(input,input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
+        :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
         mView.topology=status;mView.modes=mModes.view();
         try{
             allocate(mView.rhs,input.nodes);allocate(mView.solution,input.nodes);allocate(mView.result,input.nodes);allocate(mView.g,input.nodes);

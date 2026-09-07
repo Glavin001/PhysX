@@ -1,0 +1,16 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 83: blast_stress_gpu_fine_only_preparation
+1/3 Test #83: blast_stress_gpu_fine_only_preparation .............   Passed    0.28 sec
+    Start 84: blast_stress_gpu_fine_only_preparation_memcheck
+2/3 Test #84: blast_stress_gpu_fine_only_preparation_memcheck ....   Passed    0.47 sec
+    Start 85: blast_stress_gpu_fine_only_preparation_synccheck
+3/3 Test #85: blast_stress_gpu_fine_only_preparation_synccheck ...   Passed    0.50 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Label Time Summary:
+gpu          =   1.25 sec*proc (3 tests)
+sanitizer    =   0.97 sec*proc (2 tests)
+
+Total Test time (real) =   1.25 sec

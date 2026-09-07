@@ -231,8 +231,10 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
     }
     check(cudaStreamDestroy(stream));
 }
+#include "gpu_resident_hierarchy_fine_checks.cuh"
 }
 int main(int argc,char** argv){try{
+    if(argc==2 && std::string(argv[1])=="--fine-only"){verifyFineOnlyPreparation();return 0;}
     const bool assembled=argc>=2 && std::string(argv[1])=="--assembled",cycle=argc>=2 && std::string(argv[1])=="--cycle";
     require(argc==1 || (argc==2 && (assembled || cycle)) || ((argc==3 || argc==4) && cycle),"unknown hierarchy qualifier argument");
     const std::string selected=argc>=3?argv[2]:"";unsigned executed=0;
