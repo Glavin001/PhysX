@@ -207,6 +207,11 @@ bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, P
     Sc::BodySim* destination = target.getCore().getSim();
     if (!sim || !destination || !sim->isInBroadPhase()
         || scene->getBroadPhaseType() != PxBroadPhaseType::eGPU) return false;
+    if(nativeTransaction && isSceneQuery(s) && !scene->getNpSQ().supportsNativeGpuQueryRebind()) {
+        PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION,PX_FL,
+            "Native GPU destruction requires the built-in persistent query ownership implementation");
+        return false;
+    }
     const PxU32 index = s.getShapeManagerArrayIndex(a.mShapes);
     if (index == PX_INVALID_U32) return false;
     // Reserve the target compatibility slot before mutating simulation ownership.
@@ -220,14 +225,18 @@ bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, P
     }
     PxProfileScoped query(nativeTransaction?PxGetProfilerCallback():NULL,
         "GpuDestruction.migrateDetail.queryMirror",false,PxU64(reinterpret_cast<size_t>(scene)));
-    if (isSceneQuery(s)) scene->getSQAPI().removeSQShape(from, s);
+    if (isSceneQuery(s)) {
+        if(nativeTransaction) {
+            if(!scene->getNpSQ().rebindNativeGpuQuery(from,to,s))return false;
+        } else scene->getSQAPI().removeSQShape(from, s);
+    }
     void** ptrs = a.mShapes.getPtrs();
     const PxU32 last = a.mShapes.getCount() - 1;
     if (index != last) static_cast<NpShape*>(ptrs[last])->setShapeManagerArrayIndex(index);
     a.mShapes.replaceWithLast(index, storage);
     s.mExclusiveShapeActor = &to;
     s.setShapeManagerArrayIndex(targetIndex);
-    if (isSceneQuery(s)) b.setupSceneQuery_(scene->getSQAPI(), target, to, s);
+    if (isSceneQuery(s) && !nativeTransaction) b.setupSceneQuery_(scene->getSQAPI(), target, to, s);
     return true;
 }
 

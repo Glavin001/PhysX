@@ -1,0 +1,70 @@
+{
+  "baseline": "out/device-motion-slots-impacts-256/impacts-256-plain-0/native.frames.csv.gz",
+  "comparisons": [
+    {
+      "capture": "out/persistent-query-impacts-256/impacts-256-phases-0/native.frames.csv.gz",
+      "steps": 600,
+      "counter_mismatches": {
+        "step": 0,
+        "bonds_broken": 0,
+        "resim_passes": 0,
+        "logical_clusters": 0,
+        "bodies": 0,
+        "contacts_frame": 0,
+        "contact_pairs": 0,
+        "native_dynamic_bodies": 0,
+        "native_kinematic_bodies": 0
+      },
+      "stress_iteration_mismatches": 131
+    },
+    {
+      "capture": "out/persistent-query-impacts-256/impacts-256-plain-0/native.frames.csv.gz",
+      "steps": 600,
+      "counter_mismatches": {
+        "step": 0,
+        "bonds_broken": 0,
+        "resim_passes": 0,
+        "logical_clusters": 0,
+        "bodies": 0,
+        "contacts_frame": 0,
+        "contact_pairs": 0,
+        "native_dynamic_bodies": 0,
+        "native_kinematic_bodies": 0
+      },
+      "stress_iteration_mismatches": 139
+    },
+    {
+      "capture": "out/persistent-query-impacts-256/impacts-256-plain-1/native.frames.csv.gz",
+      "steps": 600,
+      "counter_mismatches": {
+        "step": 0,
+        "bonds_broken": 0,
+        "resim_passes": 0,
+        "logical_clusters": 0,
+        "bodies": 0,
+        "contacts_frame": 0,
+        "contact_pairs": 0,
+        "native_dynamic_bodies": 0,
+        "native_kinematic_bodies": 0
+      },
+      "stress_iteration_mismatches": 119
+    },
+    {
+      "capture": "out/persistent-query-impacts-256/impacts-256-warmup-0/native.frames.csv.gz",
+      "steps": 600,
+      "counter_mismatches": {
+        "step": 0,
+        "bonds_broken": 0,
+        "resim_passes": 0,
+        "logical_clusters": 0,
+        "bodies": 0,
+        "contacts_frame": 0,
+        "contact_pairs": 0,
+        "native_dynamic_bodies": 0,
+        "native_kinematic_bodies": 0
+      },
+      "stress_iteration_mismatches": 131
+    }
+  ],
+  "scope": "Per-step counters; exact controlled topology and independent contact/ownership audits additionally required."
+}

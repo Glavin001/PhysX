@@ -66,7 +66,11 @@ static PX_FORCE_INLINE NpShape* getShapeFromPayload(const PrunerPayload& payload
 
 static PX_FORCE_INLINE NpActor* getActorFromPayload(const PrunerPayload& payload)
 {
-	return reinterpret_cast<NpActor*>(payload.data[1]);
+	if(payload.data[1])return reinterpret_cast<NpActor*>(payload.data[1]);
+    // GPU exclusive shapes have persistent geometry identity independent of
+    // their current motion owner. Do not copy mutable ownership into pruner
+    // payload keys (secondary pruners may retain/hash those keys).
+    return &NpActor::getFromPxActor(*getShapeFromPayload(payload)->getActor());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -161,10 +165,10 @@ void NpSceneQueries::overlap(const PxGeometry& geometry, const PxTransform& pose
 }
 #endif
 
-static PX_FORCE_INLINE void setPayload(PrunerPayload& pp, const NpShape* npShape, const NpActor* npActor)
+static PX_FORCE_INLINE void setPayload(PrunerPayload& pp, const NpShape* npShape, const NpActor* npActor, bool gpuIdentity)
 {
 	pp.data[0] = size_t(npShape);
-	pp.data[1] = size_t(npActor);
+	pp.data[1] = gpuIdentity && npShape->isExclusiveFast() ? 0 : size_t(npActor);
 }
 static PX_FORCE_INLINE bool isDynamicActor(const PxRigidActor& actor)
 {
@@ -214,7 +218,7 @@ namespace
 										InternalPxSQ(const PxSceneDesc& desc, PVDCapture* pvd, PxU64 contextID, Pruner* staticPruner, Pruner* dynamicPruner) :
 											mQueries(pvd, contextID, staticPruner, dynamicPruner, desc.dynamicTreeRebuildRateHint, SQ_PRUNER_EPSILON, desc.limits, mAdapter),
 											mUpdateMode	(desc.sceneQueryUpdateMode),
-											mRefCount	(1)
+											mRefCount	(1), mGpuIdentity(bool(desc.flags & PxSceneFlag::eENABLE_GPU_DYNAMICS))
 										{}
 		virtual							~InternalPxSQ(){}
 
@@ -267,7 +271,7 @@ namespace
 			const NpActor& npActor = NpActor::getFromPxActor(actor);
 
 			PrunerPayload payload;
-			setPayload(payload, &npShape, &npActor);
+			setPayload(payload, &npShape, &npActor, mGpuIdentity);
 
 			const PrunerCompoundId pcid = compoundHandle ? PrunerCompoundId(*compoundHandle) : INVALID_COMPOUND_ID;
 
@@ -294,6 +298,24 @@ namespace
 			SQ().removePrunerShape(compoundId, data, NULL);
 		}
 
+        bool rebindNativeGpuQuery(const PxRigidActor& from,const PxRigidActor& to,const PxShape& shape) {
+            const auto& npShape=static_cast<const NpShape&>(shape);
+            if(!mGpuIdentity || &from==&to || !npShape.isExclusiveFast() || npShape.getActor()!=&from
+                || from.getConcreteType()!=PxConcreteType::eRIGID_DYNAMIC
+                || to.getConcreteType()!=PxConcreteType::eRIGID_DYNAMIC)return false;
+            const auto& source=NpActor::getFromPxActor(from);const auto& target=NpActor::getFromPxActor(to);
+            const auto sourceIndex=getQueryActorIndex(source),targetIndex=getQueryActorIndex(target);
+            const ActorShapeData data=mAdapter.mDatabase.find(sourceIndex,&source,&npShape);
+            if(getCompoundID(data)!=INVALID_COMPOUND_ID || getPrunerIndex(getPrunerData(data))!=PruningIndex::eDYNAMIC)return false;
+            // Insert the new lookup before deleting the old one. Geometry,
+            // transforms, dirty bounds, pruner handles and payloads all persist.
+            if(!mAdapter.mDatabase.add(targetIndex,&target,&npShape,data))return false;
+            if(!mAdapter.mDatabase.remove(sourceIndex,&source,&npShape,NULL)) {
+                mAdapter.mDatabase.remove(targetIndex,&target,&npShape,NULL);return false;
+            }
+            return true;
+        }
+
 		virtual		void				updateSQShape(const PxRigidActor& actor, const PxShape& shape, const PxTransform& transform) PX_OVERRIDE
 		{
 			const NpActor& npActor = NpActor::getFromPxActor(actor);
@@ -319,7 +341,7 @@ namespace
 
 			PX_ALLOCA(payloads, PrunerPayload, numSqShapes);
 			for(PxU32 i=0; i<numSqShapes; i++)
-				setPayload(payloads[i], static_cast<const NpShape*>(shapes[i]), &npActor);
+				setPayload(payloads[i], static_cast<const NpShape*>(shapes[i]), &npActor, mGpuIdentity);
 
 			const PxU32 actorIndex = npActor.getBaseIndex();
 			PX_ASSERT(actorIndex!=NP_UNUSED_BASE_INDEX);
@@ -434,6 +456,7 @@ namespace
 					NpSqAdapter						mAdapter;
 					PxSceneQueryUpdateMode::Enum	mUpdateMode;
 					PxU32							mRefCount;
+        bool mGpuIdentity;
 	};
 }
 
@@ -509,6 +532,7 @@ static PxSceneQuerySystem* getPxSQ(const PxSceneDesc& desc, PVDCapture* pvd, PxU
 
 NpSceneQueries::NpSceneQueries(const PxSceneDesc& desc, Vd::PvdSceneClient* pvd, PxU64 contextID) :
 	mSQ					(getPxSQ(desc, PVD_PARAM, contextID))
+    ,mNativeGpuQueries(!desc.sceneQuerySystem && (desc.flags & PxSceneFlag::eENABLE_GPU_DYNAMICS) ? mSQ : NULL)
 #if PX_SUPPORT_PVD
 	// PT: warning, pvd object not created yet at this point
 	,mPVDClient			(pvd)
@@ -517,6 +541,10 @@ NpSceneQueries::NpSceneQueries(const PxSceneDesc& desc, Vd::PvdSceneClient* pvd,
 {
 	PX_UNUSED(pvd);
 	PX_UNUSED(contextID);
+}
+
+bool NpSceneQueries::rebindNativeGpuQuery(const PxRigidActor& from,const PxRigidActor& to,const PxShape& shape) {
+    return supportsNativeGpuQueryRebind() && static_cast<InternalPxSQ*>(mNativeGpuQueries)->rebindNativeGpuQuery(from,to,shape);
 }
 
 NpSceneQueries::~NpSceneQueries()

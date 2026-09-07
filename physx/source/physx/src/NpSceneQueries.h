@@ -67,6 +67,12 @@ class NpSceneQueries : public Sc::SqBoundsSync
 	PX_FORCE_INLINE	PxSceneQuerySystem&			getSQAPI()			{ PX_ASSERT(mSQ);	return *mSQ;	}
 	PX_FORCE_INLINE	const PxSceneQuerySystem&	getSQAPI()	const	{ PX_ASSERT(mSQ);	return *mSQ;	}
 
+    // Native GPU ownership changes preserve query geometry. Custom query
+    // systems must explicitly support their own ownership transaction; no
+    // reconstruction fallback is used by integrated destruction.
+    bool supportsNativeGpuQueryRebind() const { return mNativeGpuQueries && mNativeGpuQueries==mSQ; }
+    bool rebindNativeGpuQuery(const PxRigidActor& from,const PxRigidActor& to,const PxShape& shape);
+
 	protected:
 	// SqBoundsSync
 	virtual			void						sync(PxU32 prunerIndex, const ScPrunerHandle* handles, const PxU32* boundsIndices, const PxBounds3* bounds,
@@ -75,6 +81,7 @@ class NpSceneQueries : public Sc::SqBoundsSync
 
 	public:
 					PxSceneQuerySystem*			mSQ;
+    PxSceneQuerySystem* mNativeGpuQueries;
 
 #if PX_SUPPORT_PVD
 					Vd::PvdSceneClient*			mPVDClient;

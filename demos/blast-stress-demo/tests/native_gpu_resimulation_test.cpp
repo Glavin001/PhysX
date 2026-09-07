@@ -134,6 +134,8 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     }
     scene.simulate(1.0f/60);require(scene.fetchResults(true),"warmup failed");events.advances=0;
     const auto identity=scene.getDirectGPUAPI().getShapeContactIndex(*shape);
+    auto& querySystem=static_cast<NpScene&>(scene).getSQAPI();
+    PxU32 originalPruner=0;const auto originalQueryHandle=querySystem.getHandle(*wall,*shape,originalPruner);
     auto& controller=*static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController());
     auto& shapeManager=controller.getSimulationCore()->mPxgShapeSimManager;
     const auto initialShapeUploads=shapeManager.getUploadedShapeCount();
@@ -318,12 +320,38 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         check(cuCtxSynchronize());check(cuMemcpyDtoH(&pose,value,sizeof(pose)));}
     // Explicit test observation: this checks query membership and lookup, not
     // automatic CPU pose freshness (outside the native awake-rigid MVP).
+    PxU32 acceptedPruner=0;
+    require(querySystem.getHandle(*fragment,*shape,acceptedPruner)==originalQueryHandle && acceptedPruner==originalPruner,
+        "native split replaced persistent query geometry identity");
     static_cast<NpScene&>(scene).getSQAPI().updateSQShape(*fragment,*shape,pose*shape->getLocalPose());
     for(bool cached:{false,true}) {
         PxRaycastBuffer hit;PxQueryCache cache;cache.actor=fragment;cache.shape=shape;
         require(scene.raycast((pose*shape->getLocalPose()).p+PxVec3(0,2,0),PxVec3(0,-1,0),3,hit,PxHitFlag::eDEFAULT,PxQueryFilterData(),nullptr,cached?&cache:nullptr)
             && hit.hasBlock && hit.block.actor==fragment && hit.block.shape==shape,"accepted fragment query lookup lost its private owner");
     }
+    struct OwnerFilter final:PxQueryFilterCallback {
+        const PxRigidActor* actor;const PxShape* shape;bool touching=false;
+        OwnerFilter(const PxRigidActor* a,const PxShape* s):actor(a),shape(s){}
+        PxQueryHitType::Enum preFilter(const PxFilterData&,const PxShape* s,const PxRigidActor* a,PxHitFlags&)override {
+            return a==actor && s==shape ? (touching?PxQueryHitType::eTOUCH:PxQueryHitType::eBLOCK) : PxQueryHitType::eNONE;
+        }
+        PxQueryHitType::Enum postFilter(const PxFilterData&,const PxQueryHit&,const PxShape*,const PxRigidActor*)override{return PxQueryHitType::eBLOCK;}
+    } ownerFilter(fragment,shape);
+    PxQueryFilterData filter;filter.flags|=PxQueryFlag::ePREFILTER;
+    const PxVec3 center=(pose*shape->getLocalPose()).p;
+    PxOverlapHit overlapHit;PxOverlapBuffer overlap(&overlapHit,1);ownerFilter.touching=true;
+    require(scene.overlap(PxSphereGeometry(.05f),PxTransform(center),overlap,filter,&ownerFilter)
+        && overlap.nbTouches==1 && overlapHit.actor==fragment && overlapHit.shape==shape,
+        "overlap/filter observed stale fragment query owner");
+    ownerFilter.touching=false;PxSweepBuffer sweep;
+    require(scene.sweep(PxSphereGeometry(.05f),PxTransform(center+PxVec3(0,2,0)),PxVec3(0,-1,0),3,sweep,
+        PxHitFlag::eDEFAULT,filter,&ownerFilter) && sweep.hasBlock && sweep.block.actor==fragment && sweep.block.shape==shape,
+        "sweep/filter observed stale fragment query owner");
+    querySystem.forceRebuildDynamicTree(acceptedPruner);
+    PxRaycastBuffer rebuiltHit;
+    require(scene.raycast(center+PxVec3(0,2,0),PxVec3(0,-1,0),3,rebuiltHit,PxHitFlag::eDEFAULT,filter,&ownerFilter)
+        && rebuiltHit.hasBlock && rebuiltHit.block.actor==fragment && rebuiltHit.block.shape==shape,
+        "pruner rebuild lost persistent fragment owner");
     require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3+quietCount+contactCount+unsigned(retainedShape),"query registration published a private fragment as a public actor");
     std::printf("native query ownership valid; largest impact allocation=%zu bytes\n",allocations.largest.load());
     const auto constructedPairs=controller.getDestructionContactInputCount();

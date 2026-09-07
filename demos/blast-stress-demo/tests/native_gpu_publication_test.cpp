@@ -58,5 +58,6 @@ void run(bool fracture,bool splitFetch,bool cpuControl=false) {
     else{require(!error,"accepted control failed");require(events.advances && events.wakes && events.breaks,"accepted control lost pose/wake/joint callbacks");require(joint->getConstraintFlags()&PxConstraintFlag::eBROKEN,"accepted control lost joint breakage");if(cpuControl)require(events.contacts && events.triggers,"CPU control lost contact/trigger callbacks");}
     if(stage)require(stage->clearStress(),"native cleanup failed");joint->release();jointed->release();trigger->release();triggerShape->release();ordinary->release();parent->release();for(auto* s:chunks)s->release();require(context.healthy(),"publication fixture GPU failure");
 }
+#include "native_query_controls.h"
 }
-int main(){try{run(false,false,true);run(false,true,true);run(false,false);run(true,false);run(false,true);run(true,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{queryControls(false,false);queryControls(false,true);queryControls(true,false);queryControls(true,true);run(false,false,true);run(false,true,true);run(false,false);run(true,false);run(false,true);run(true,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

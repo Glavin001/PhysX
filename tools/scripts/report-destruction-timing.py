@@ -72,7 +72,7 @@ LABELS={
  'migrateDetail.retireContacts':('Retire old-owner contact managers','CPU releases shape interactions, contact managers and lost-touch bookkeeping'),
  'migrateDetail.registerOwner':('Update narrow-phase ownership mirror','CPU updates persistent narrow-phase owner references; no geometry upload'),
  'migrateDetail.actorLinks':('Update shape/actor links and query-bound membership','CPU transfers element ownership and registers query-bound tracking'),
- 'migrateDetail.queryMirror':('Rebind CPU query and actor-shape records','CPU query removal/insertion and compatibility shape-array updates'),
+ 'migrateDetail.queryMirror':('Update persistent query-owner observation','CPU owner-lookup and compatibility shape-array updates; query geometry, handles and bounds persist'),
  'applyDetail.migrateShapes.other':('Other shape migration work','CPU validation, target storage and gaps around instrumented migration operations'),
  'applyBindings.other':('Other ownership bridge work','GPU-to-CPU metadata observation, completion waits and remaining host bookkeeping'),
  'restoreInstall':('Rewind and install fractured motion','CPU dispatch + GPU checkpoint restore and owner installation'),

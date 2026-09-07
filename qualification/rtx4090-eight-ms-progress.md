@@ -608,3 +608,29 @@ Timing: two ten-second untraced runs plus a separate ten-second phase capture pe
 The primary mean is effectively unchanged from 11.554 ms; the prior observed maximum was 54.048 ms. No end-to-end speedup is established. The separate instrumented peak is 60.003 ms: CPU compatibility-body construction 6.697 ms, CPU query/actor rebinding 5.896 ms, complete correction 30.318 ms and exceptional address growth 0.043 ms. Average stress-stream time is 5.487 ms. These phase values belong to the instrumented run, not the untraced 59.478 ms maximum.
 
 GPU motion-slot selection is complete for the present scene-lifetime allocation transaction. This is not full GPU fragment/contact lifecycle: CPU compatibility construction, ownership observations and contact/actor scheduling still remain. Slot storage is reclaimed at runtime clear; general per-asset retirement/reinsertion and generation/handle endurance remain unqualified. Next priorities remain device-owned lifecycle/contact dependencies, GPU correction work sets, resident preconditioning, validated sleeping/activity and the full scaling/endurance gates.
+
+
+## Delete query-geometry reconstruction during native splits
+
+GPU exclusive shapes now use immutable shape identity in the built-in CPU query pruner. Query hits resolve the current exclusive owner instead of copying mutable ownership into pruner payload keys. This preserves secondary-pruner hash/cache invariants. Native splits retain query handles, geometry, bounds, transforms and dirty registrations; they update only owner lookup and compatibility shape-array membership. The previous remove/reinsert and CPU bounds/transform reconstruction are deleted. Shared shapes and ordinary CPU scenes retain actor-specific payloads. Native destruction rejects unsupported custom query ownership implementations before shape mutation; it does not silently rebuild through a fallback.
+
+Twelve focused native tests and 29 timing-accounting tests pass. Real corrected impacts additionally check persistent query handles, cached/uncached raycasts, overlap, sweep, owner filtering and forced query-tree rebuild. Ordinary CPU/GPU controls check both exclusive and shared shapes, removal and rebuilding. GPU memory checks pass for native resimulation and simultaneous ownership/shape-buffer growth. This is not full resident conditional-graph synchronization qualification.
+
+Broader qualification exposed a bounds-growth failure. The GPU update-flag buffer could lag newly grown shape storage before the end-of-step descriptor reset. Separate commit `130f704c` grows that buffer while preserving pending commands, zeros only new capacity, and updates its existing device descriptor pointer with stream ordering. The strengthened regression combines 257 ownership requests, 1,100 new static shapes and an unrelated ordinary GPU pose-command collision. No assertion was weakened; the original failed test log remains in the evidence.
+
+The ten-second frozen penetration audit preserves the exact topology signature, 398 supported of 444 chunks, 46 detached chunks, 199 broken of 896 bonds, both wall holes and collision/render agreement. The separate ten-second 256-building audit covers 113,664 chunks, 229,376 bonds and 256 projectiles, reaching 14,219 clusters, 62,728 broken bonds and 224 corrected steps. Its chunk motion error is zero and all 1,648 contact/island boundary audits pass. Every recorded 600-step large fracture/correction/body/contact counter history matches the previous build. Full large-scene renderer/momentum, automatic CPU pose-query freshness and lifecycle endurance remain unqualified.
+
+[Generated scaling report](persistent-query-scaling/report.html) · [Primary detailed timing](persistent-query-impacts-256/report.html) · [Identical-workload comparison](persistent-query-comparison/report.html) · [Validation evidence](persistent-query-validation.json).
+
+Each timing case has two ten-second untraced runs and a separate ten-second instrumented capture: timestep 1/60, correction limit one, sleeping disabled. Complete advances include recorded commands, physics, destruction, correction, runtime growth and mandatory completion; initialization/rendering/report generation are excluded. Every measured step remains. These diagnostics do not establish five-by-60-second or endurance qualification.
+
+- One building, projectile penetration: 444 chunks / 896 bonds / 1 projectiles; mean 2.225 ms, worst 5.796 ms, 0 of 1,200 steps above 8 ms.
+
+- 16 buildings, simultaneous aerial impacts: 7,104 chunks / 14,336 bonds / 16 projectiles; mean 4.135 ms, worst 9.461 ms, 10 of 1,200 steps above 8 ms.
+
+- 256 buildings, simultaneous aerial impacts: 113,664 chunks / 229,376 bonds / 256 projectiles; mean 11.428 ms, worst 49.302 ms, 1,038 of 1,200 steps above 8 ms.
+
+
+The primary observed worst complete step decreases from 59.478 to 49.302 ms; means change from 11.548 to 11.428 ms. Both new repeats peak below both preceding repeats, but this is a short comparison, not a deadline guarantee. In the separate phase captures, worst-step query/owner cost decreases from 5.896 to 1.591 ms. The current scoped complete peak is 55.081 ms, including 6.764 ms CPU compatibility-body construction and 30.071 ms complete correction. Average GPU stress-stream time is 5.473 ms. Instrumented values are not subdivisions of the untraced peak.
+
+CPU fragment/contact lifecycle, remaining owner metadata observations and full correction still dominate split-time cost. This deletion preserves the intended separation of persistent geometry and changing motion ownership; it does not make CPU query mirrors GPU-resident or finish the native lifecycle migration. Device-owned contact/body scheduling, selective correction, resident preconditioning, validated sleep/activity and full scaling/endurance qualification remain active requirements.

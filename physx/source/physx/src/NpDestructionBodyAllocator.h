@@ -170,6 +170,8 @@ public:
             if(!shape || sim->getElementID()!=b.shape || shape->getActor()!=from || !shape->isExclusiveFast()
                 || shape->getCore().getExclusiveSim()!=sim || !sim->isInBroadPhase()
                 || shape->getFlagsFast().isSet(PxShapeFlag::eTRIGGER_SHAPE)
+                || (shape->getFlagsFast().isSet(PxShapeFlag::eSCENE_QUERY_SHAPE)
+                    && !mScene.getNpSQ().supportsNativeGpuQueryRebind())
                 || to->getAggregate() || to->getShapeManager().isSqCompound()
                 || to->getShapeManager().getPruningStructure())return false;
         }

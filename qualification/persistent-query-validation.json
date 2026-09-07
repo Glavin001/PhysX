@@ -1,0 +1,126 @@
+{
+  "base_revision": "3fe3339b",
+  "separate_capacity_fix": "130f704c",
+  "change": "Retain GPU exclusive shape query geometry and immutable payload identity across native ownership changes. Query hits resolve current exclusive ownership; only the actor/shape lookup and compatibility shape arrays change. Delete native query removal/reinsertion and CPU bounds/transform reconstruction.",
+  "physical_equations_changed": false,
+  "gpu_contact_or_fragment_lifecycle_complete": false,
+  "automatic_cpu_query_pose_freshness_qualified": false,
+  "source_sha256": {
+    "demos/blast-stress-demo/tests/native_gpu_publication_test.cpp": "1ffe5620857a85fc46c321119d0d8fbda37c3dc3422b47d2e259a117074c516c",
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "b1580372ec31e32e20c7d2dce0664536310f94ee694025cd5acd4a625cb07728",
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "deb2d36e36e36d5b1d99bffc83be800143d4e1c1227885621e18be85e6b15e25",
+    "physx/source/physx/src/NpSceneQueries.cpp": "42444c25d4e3a05faeeafe95a8bd0cb5845ff4b1a5b9f985a5e66b9ac7d4d849",
+    "physx/source/physx/src/NpSceneQueries.h": "36216d57efab4552f0a75ec89dc7fb25a01a0f2d11a961b56e05ee327eb42680",
+    "physx/source/physx/src/NpShapeManager.cpp": "8c3d9717c97102f2751d86a106b0b50a85a471397b4364aa6d30ff61ef360906",
+    "tools/scripts/report-destruction-timing.py": "77db3be82510584f26615bc3760f59c253ca32fc6af854c71955cb5477db76ce",
+    "demos/blast-stress-demo/tests/native_query_controls.h": "3750fdedccddd7bac690b37e60a3cf9b5a5db5a84fd2310ee149b232dd040509"
+  },
+  "native_tests_passed": 12,
+  "timing_tests_passed": 29,
+  "checks": [
+    "persistent query handle across actual impulse-driven fracture",
+    "cached/uncached raycast resolves accepted private owner",
+    "overlap and sweep with owner filter resolve accepted private owner",
+    "forced query-tree rebuild retains owner identity",
+    "ordinary CPU/GPU exclusive and shared shapes preserve query owner identity",
+    "ordinary query detach, removal and rebuild",
+    "existing GPU shape bounds, growth, host pose, contact lifecycle, resimulation and publication assertions"
+  ],
+  "sanitizers": {
+    "bounds_growth_memcheck": "zero errors",
+    "native_resimulation_memcheck": "zero errors",
+    "scope": "Does not qualify the full resident topology/conditional graph synchronization path."
+  },
+  "initial_failure": {
+    "test": "physx_persistent_shape_owner_gpu_bounds_growth",
+    "resolution": "Separate preserving GPU update-flag growth fix in 130f704c; assertions retained and unrelated ordinary pose-command contact coverage added."
+  },
+  "comparisons": [
+    {
+      "label": "GPU slots baseline",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "metrics": {
+        "max": 59.477526,
+        "mean": 11.548444981666666,
+        "min": 0.930504,
+        "n": 1200,
+        "p50": 9.771026,
+        "p95": 18.427837,
+        "p99": 27.315577
+      },
+      "missed_8ms": 1038
+    },
+    {
+      "label": "Persistent query geometry",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "metrics": {
+        "max": 49.301557,
+        "mean": 11.427863879166667,
+        "min": 0.91214,
+        "n": 1200,
+        "p50": 9.728121,
+        "p95": 18.065981,
+        "p99": 26.175516
+      },
+      "missed_8ms": 1038
+    }
+  ],
+  "performance_conclusion": "Two identical-input short runs show lower observed fracture peaks and substantially reduced query-owner phase cost. Complete-step mean improves slightly. Neither build passes the 8 ms primary gate; five-by-60-second/endurance qualification remains incomplete.",
+  "scoped_peak": {
+    "step": 82,
+    "complete_ms": 55.080738,
+    "partition_ms": {
+      "acceptCorrection": 0.443146,
+      "applyBindings.other": 0.101638,
+      "applyDetail.migrateShapes.other": 4.580515,
+      "applyDetail.scheduleOwners": 0.267469,
+      "applyDetail.validateOwners": 0.932198,
+      "checkpoint": 0.007384,
+      "collisionBindings": 0.11247,
+      "correctedCollisionSolve": 30.071046,
+      "correctionBodies": 0.079568,
+      "finishAndReserve.other": 0.006592,
+      "finishDetail.allocateNativeBodies": 6.763987,
+      "finishDetail.growMotionSlots": 0.040636,
+      "finishDetail.publishReservation": 0.021831,
+      "finishDetail.requestReadback": 0.183843,
+      "finishDetail.reserveBodies.other": 0.069519,
+      "finishDetail.uploadBindings": 0.0,
+      "finishDetail.waitForGpu": 3.606331,
+      "initializeReserved": 0.075541,
+      "migrateDetail.actorLinks": 0.508939,
+      "migrateDetail.queryMirror": 1.591054,
+      "migrateDetail.refilter": 0.297369,
+      "migrateDetail.registerOwner": 0.957865,
+      "migrateDetail.retireContacts": 0.737453,
+      "preparationCompletion": 0.17698,
+      "resetContactCaches": 0.006241,
+      "restoreInstall": 0.058259,
+      "submit": 0.180416,
+      "trial.other": 3.202448
+    },
+    "baseline_query_owner_ms": 5.896271,
+    "current_query_owner_ms": 1.591054,
+    "stress_stream_mean_ms": 5.473415146014167
+  },
+  "full_lifecycle_endurance_qualified": false,
+  "full_synccheck_qualified": false,
+  "evidence_hashes": {
+    "qualification/persistent-query-evidence/bombardment-audit.json": "f7f1d8a2b68a5d52859c9d5243e3296cdff1f872fe2ccb9afff10907c80ff86c",
+    "qualification/persistent-query-evidence/counter-histories.json": "70b20d9d43ccd141241e4dac33005d77aa21c8d5200767537eddaa7547029794",
+    "qualification/persistent-query-evidence/growth-memcheck.log": "c0f790b6f5787b40088ef111e9cad3883dc2bd9d5f441926992fbd88482ad6f4",
+    "qualification/persistent-query-evidence/initial-tests-with-growth-failure.log": "242debc9b60acbbef66a5672ae0711e95fa2843771cc3c358fa11fb96792f070",
+    "qualification/persistent-query-evidence/native-tests.log": "735a6c63e84fa473c6787bb57133182b2ae2813a1fc24e200468bde53f14bf75",
+    "qualification/persistent-query-evidence/penetration-quality.json": "0589b323db26bc620f614592ff292583730673def8945fced5f24da127e6de1c",
+    "qualification/persistent-query-evidence/resimulation-memcheck.log": "7ea56c1d829cfa0a501e46103f5b479d491deacc88e44380f74ec967ff6cbd85",
+    "qualification/persistent-query-evidence/timing-tests.log": "55652e427e1fb500449c45ad29e991d28787c2fbaa54a72f8db267890f240371"
+  }
+}
