@@ -77,7 +77,7 @@ void PostThirdPassTask::runInternal()
 	PX_PROFILE_ZONE("Basic.postThirdPassIslandGen", mContextID);
 
 	for (PxU32 a = 0; a < mIslandManager.mDestroyedNodes.size(); ++a)
-		mIslandManager.mNodeHandles.freeHandle(mIslandManager.mDestroyedNodes[a].index());
+		mIslandManager.reclaimNodeHandle(mIslandManager.mDestroyedNodes[a].index());
 
 	mIslandManager.mDestroyedNodes.clear();
 
@@ -120,6 +120,49 @@ PxNodeIndex SimpleIslandManager::addNode(bool isActive, bool isKinematic, Node::
 	mAccurateIslandManager		.addNode(isActive, isKinematic, type, nodeIndex, object);
 	mSpeculativeIslandManager	.addNode(isActive, isKinematic, type, nodeIndex, object);
 	return nodeIndex;
+}
+
+// CPU resource grant only. CUDA chooses which granted handle each new cluster
+// receives; a grant must not create solver nodes, BodySims or active-list entries.
+bool SimpleIslandManager::reserveNativeNodeHandles(PxU32 count, PxU32* handles)
+{
+    if(!mGPU || (count && !handles) || PxU64(mNodeHandles.getTotalHandles())+count+31>PX_INVALID_NODE)return false;
+    const PxU32 limit=mNodeHandles.getTotalHandles()+count;
+    if(!mReservedNativeNodes.resize(limit) || !mBoundNativeNodes.resize(limit))return false;
+    for(PxU32 i=0;i<count;++i) {
+        const PxU32 handle=mNodeHandles.getHandle();
+        PX_ASSERT(!mReservedNativeNodes.boundedTest(handle) && !mBoundNativeNodes.boundedTest(handle));
+        mReservedNativeNodes.set(handle);handles[i]=handle;
+    }
+    return true;
+}
+bool SimpleIslandManager::isUnusedNativeNodeHandle(PxU32 handle) const
+{
+    return mReservedNativeNodes.boundedTest(handle) && !mBoundNativeNodes.boundedTest(handle);
+}
+PxNodeIndex SimpleIslandManager::bindNativeNodeHandle(PxU32 handle, bool active, bool kinematic, void* object)
+{
+    PX_ASSERT(isUnusedNativeNodeHandle(handle));
+    mBoundNativeNodes.set(handle);
+    const PxNodeIndex index(handle);
+    mAccurateIslandManager.addNode(active,kinematic,Node::eRIGID_BODY_TYPE,index,object);
+    mSpeculativeIslandManager.addNode(active,kinematic,Node::eRIGID_BODY_TYPE,index,object);
+    return index;
+}
+void SimpleIslandManager::releaseNativeNodeHandles(PxU32 count, const PxU32* handles)
+{
+    for(PxU32 i=0;i<count;++i) {
+        const PxU32 handle=handles[i];PX_ASSERT(mReservedNativeNodes.boundedTest(handle));
+        mReservedNativeNodes.reset(handle);
+        // Bound nodes may still occur in deferred island/contact retirement.
+        // Their normal reclamation owns the eventual return to the shared pool.
+        if(!mBoundNativeNodes.boundedTest(handle))mNodeHandles.freeHandle(handle);
+    }
+}
+void SimpleIslandManager::reclaimNodeHandle(PxU32 handle)
+{
+    mBoundNativeNodes.boundedReset(handle);
+    if(!mReservedNativeNodes.boundedTest(handle))mNodeHandles.freeHandle(handle);
 }
 
 void SimpleIslandManager::removeNode(const PxNodeIndex index)
@@ -350,7 +393,7 @@ void SimpleIslandManager::secondPassIslandGenPart2()
 	mAccurateIslandManager.processLostEdges(mDestroyedNodes, false, false, mMaxDirtyNodesPerFrame);
 
 	for(PxU32 a = 0; a < mDestroyedNodes.size(); ++a)
-		mNodeHandles.freeHandle(mDestroyedNodes[a].index());
+		reclaimNodeHandle(mDestroyedNodes[a].index());
 
 	mDestroyedNodes.clear();
 	//mDestroyedEdges.clear();

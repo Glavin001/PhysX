@@ -43,7 +43,7 @@ def subtract(base,removed):
 TREE={
  'checkpoint':{},'submit':{},
  'finishAndReserve':{'finishDetail.waitForGpu':{},'finishDetail.reserveBodies':{
-     'finishDetail.requestReadback':{},'finishDetail.allocateNativeBodies':{},
+     'finishDetail.growMotionSlots':{},'finishDetail.requestReadback':{},'finishDetail.allocateNativeBodies':{},
      'finishDetail.uploadBindings':{},'finishDetail.publishReservation':{}}},
  'initializeReserved':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{},'applyBindings':{
      'applyDetail.validateOwners':{},'applyDetail.scheduleOwners':{},'applyDetail.migrateShapes':{
@@ -54,10 +54,11 @@ LABELS={
  'checkpoint':('Checkpoint moving-body state','CPU submission → GPU copy; save state for possible rewind'),
  'submit':('Submit contact loads and destruction','CPU queues GPU loads, stress, material and topology work'),
  'finishDetail.waitForGpu':('Wait for GPU destruction result','CPU blocked/spinning until required GPU work completes; not extra GPU work'),
- 'finishDetail.requestReadback':('Read fragment-allocation requests','GPU → CPU allocation metadata and completion dependency'),
- 'finishDetail.allocateNativeBodies':('Reserve native fragment bodies','CPU PhysX body/lifecycle allocation'),
+ 'finishDetail.growMotionSlots':('Grow native motion address capacity','CPU grants unused indices; GPU storage allocation/upload; no spare simulated bodies'),
+ 'finishDetail.requestReadback':('Assign GPU motion slots and observe compatibility requests','GPU compacts and assigns slots; GPU → CPU selected indices/metadata and completion dependency'),
+ 'finishDetail.allocateNativeBodies':('Create compatibility records for selected fragments','CPU PhysX body/lifecycle records at GPU-selected indices'),
  'finishDetail.uploadBindings':('Upload allocated body bindings','CPU → GPU indices for the reserved bodies'),
- 'finishDetail.publishReservation':('Publish reservation metadata','CPU bookkeeping and GPU status submission'),
+ 'finishDetail.publishReservation':('Validate compatibility registration','CPU dispatch → GPU failure merge; preserves device allocation verdict'),
  'finishDetail.reserveBodies.other':('Other reservation bookkeeping','Uninstrumented remainder within CPU reservation scope'),
  'finishAndReserve.other':('Other destruction completion bookkeeping','Remaining host scope around destruction completion'),
  'initializeReserved':('Submit fragment initialization','CPU dispatch/lifecycle; GPU initializes and validates without a stage-local readback'),

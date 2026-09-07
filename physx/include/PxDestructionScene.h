@@ -139,6 +139,12 @@ struct PxDestructionDeviceView {
     // Enabled correction restores inputs and makes accepted fragments scene-owned.
     const PxU32* trialBodyIndices = NULL;
     const PxDestructionBodyAllocationStatus* bodyAllocation = NULL;
+    // GPU allocation state and the immutable native-index capacity grant. Only
+    // committed entries are accepted motion owners. Pending entries are private;
+    // entries beyond committed + pending have no body. Reacquire after advance
+    // or capacity growth; clear invalidates this view.
+    const PxDestructionMotionSlotStatus* motionSlots = NULL;
+    const PxU32* motionSlotIndices = NULL;
     // GPU-prepared persistent shape edits for affected source clusters, in
     // authored chunk order. Only usable when collisionPreparation->valid;
     // preparation does not change collision, query or actor ownership.

@@ -2390,12 +2390,16 @@ void Sc::Scene::removeStatic(StaticCore& ro, PxInlineArray<const Sc::ShapeCore*,
 	}
 }
 
-void Sc::Scene::addBody(BodyCore& body, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* outBounds, bool compound)
+void Sc::Scene::addBody(BodyCore& body, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* outBounds, bool compound, PxNodeIndex nativeNode)
 {
 	// sim objects do all the necessary work of adding themselves to broad phase,
 	// activation, registering with the interaction system, etc
 
-	BodySim* sim = mBodySimPool->construct(*this, body, compound);
+    if(nativeNode.isValid() && (body.getActorCoreType()!=PxActorType::eRIGID_DYNAMIC || !mSimpleIslandManager->isUnusedNativeNodeHandle(nativeNode.index()))) {
+        PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION,PX_FL,"Native GPU body slot is not an unused reservation");
+        return;
+    }
+	BodySim* sim = mBodySimPool->construct(*this, body, compound, nativeNode);
 
 	const bool isArticulationLink = sim->isArticulationLink();
 

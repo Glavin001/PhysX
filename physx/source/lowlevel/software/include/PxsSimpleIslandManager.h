@@ -149,6 +149,10 @@ class AuxCpuData
 class SimpleIslandManager : public PxUserAllocated
 {
 	HandleManager<PxU32> mNodeHandles;		//! Handle manager for nodes
+    // Capacity leased to the native GPU motion allocator. No Node/BodySim exists
+    // until a GPU-selected handle is bound. Live includes deferred retirement.
+    PxBitMap mReservedNativeNodes, mBoundNativeNodes;
+    void reclaimNodeHandle(PxU32 handle);
 	HandleManager<EdgeIndex> mEdgeHandles;	//! Handle manager for edges
 
 	//An array of destroyed nodes
@@ -244,6 +248,10 @@ public:
 	~SimpleIslandManager();
 
 	PxNodeIndex	addNode(bool isActive, bool isKinematic, Node::NodeType type, void* object);
+    bool reserveNativeNodeHandles(PxU32 count, PxU32* handles);
+    void releaseNativeNodeHandles(PxU32 count, const PxU32* handles);
+    bool isUnusedNativeNodeHandle(PxU32 handle) const;
+    PxNodeIndex bindNativeNodeHandle(PxU32 handle, bool active, bool kinematic, void* object);
 	void		removeNode(const PxNodeIndex index);
 
 	// PT: these two functions added for multithreaded implementation of Sc::Scene::islandInsertion

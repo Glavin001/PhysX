@@ -646,6 +646,15 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_allocation_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_gpu_body_allocation COMMAND native_gpu_allocation_test)
 
+    add_executable(native_gpu_motion_slots_test tests/native_gpu_motion_slots_test.cu)
+    target_include_directories(native_gpu_motion_slots_test PRIVATE "${PHYSX_ROOT}/include"
+        "${PHYSX_ROOT}/source/lowlevel/software/include" "${PHYSX_ROOT}/source/gpudestruction/src")
+    target_compile_definitions(native_gpu_motion_slots_test PRIVATE NDEBUG)
+    set_target_properties(native_gpu_motion_slots_test PROPERTIES CUDA_ARCHITECTURES 89)
+    target_link_libraries(native_gpu_motion_slots_test PRIVATE CUDA::cudart)
+    add_test(NAME physx_native_gpu_motion_slots COMMAND native_gpu_motion_slots_test)
+
+
     add_executable(native_gpu_collision_test tests/native_gpu_collision_test.cpp physx_scene.cpp)
     get_target_property(NATIVE_COLLISION_TEST_INCLUDES native_gpu_allocation_test INCLUDE_DIRECTORIES)
     target_include_directories(native_gpu_collision_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES}

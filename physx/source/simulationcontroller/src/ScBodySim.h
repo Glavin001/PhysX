@@ -63,7 +63,7 @@ namespace Sc
 	class BodySim : public RigidSim
 	{
 	public:
-												BodySim(Scene&, BodyCore&, bool);
+												BodySim(Scene&, BodyCore&, bool, PxNodeIndex nativeNode=PxNodeIndex());
 		virtual									~BodySim();
 
 						void					switchToKinematic(bool deviceOwnerTransaction = false);

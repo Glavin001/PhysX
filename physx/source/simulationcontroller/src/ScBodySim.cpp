@@ -54,7 +54,7 @@ static void updateBPGroup(ActorSim* sim)
 	}
 }
 
-BodySim::BodySim(Scene& scene, BodyCore& core, bool compound) :
+BodySim::BodySim(Scene& scene, BodyCore& core, bool compound, PxNodeIndex nativeNode) :
 	RigidSim		(scene, core),
 	mLLBody			(&core.getCore(), PX_FREEZE_INTERVAL),
 	mSimStateData	(NULL),
@@ -87,7 +87,9 @@ BodySim::BodySim(Scene& scene, BodyCore& core, bool compound) :
 	IG::SimpleIslandManager* simpleIslandManager = scene.getSimpleIslandManager();
 	if(!isArticulationLink())
 	{
-		mNodeIndex = simpleIslandManager->addNode(isAwake, isKine, IG::Node::eRIGID_BODY_TYPE, &mLLBody);
+        mNodeIndex = nativeNode.isValid()
+            ? simpleIslandManager->bindNativeNodeHandle(nativeNode.index(),isAwake,isKine,&mLLBody)
+            : simpleIslandManager->addNode(isAwake,isKine,IG::Node::eRIGID_BODY_TYPE,&mLLBody);
 	}
 	else
 	{

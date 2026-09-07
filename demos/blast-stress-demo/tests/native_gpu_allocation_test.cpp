@@ -64,10 +64,13 @@ void run(bool sleeping,bool accelerations) {
         require(!stage->configureStress(invalid),"unallocated GPU body index accepted as a source");
     };
     auto observe=[&](unsigned n){
-        const auto view=stage->getDeviceView();require(view.bodyAllocation && view.trialBodyIndices,"allocation device view missing");
-        PxDestructionBodyAllocationStatus status;PxDestructionTopologyStatus accepted;std::vector<PxU32> indices(n);
+        const auto view=stage->getDeviceView();require(view.bodyAllocation && view.trialBodyIndices && view.motionSlots && view.motionSlotIndices,"allocation device view missing");
+        PxDestructionMotionSlotStatus slots;PxDestructionBodyAllocationStatus status;PxDestructionTopologyStatus accepted;std::vector<PxU32> indices(n);
         {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.readyEvent));
             check(cuMemcpyDtoH(&status,reinterpret_cast<CUdeviceptr>(view.bodyAllocation),sizeof(status)));
+            check(cuMemcpyDtoH(&slots,CUdeviceptr(view.motionSlots),sizeof(slots)));
+            require(!slots.error && !slots.committed && slots.pending==n-1 && slots.capacity>=slots.pending,
+                "GPU motion slot transaction committed early or lost capacity");
             check(cuMemcpyDtoH(&accepted,reinterpret_cast<CUdeviceptr>(view.acceptedTopology.status),sizeof(accepted)));
             require(status.valid && !status.error && status.count==n && status.reserved==n-1 && status.initialized==n-1 && !status.initializationError && status.generation==1,"native reservation batch mismatch");
             check(cuMemcpyDtoH(indices.data(),reinterpret_cast<CUdeviceptr>(view.trialBodyIndices),n*sizeof(PxU32)));
@@ -268,6 +271,24 @@ void membership() {
     std::vector<PxvDestructionBodyRequest> requests(count);std::vector<PxU32> ids(count);
     for(PxU32 i=0;i<count;++i)requests[i]={i,parent->getGPUIndex(),1,1,i};
     for(unsigned cycle=0;cycle<3;++cycle) {
+        const PxU32* granted=nullptr;
+        auto& islands=internal.getScScene().getSimpleIslandManager()->getAccurateIslandSim();
+        const auto active=islands.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+        const auto nodes=islands.getNbNodes();
+        require(!allocator.reserveNodeCapacity(PX_INVALID_U32,granted),"overflowing native capacity grant accepted");
+        require(allocator.reserveNodeCapacity(count+1,granted),"native address capacity grant failed");
+        require(!allocator.size() && scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==1
+            && islands.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE)==active && islands.getNbNodes()==nodes,
+            "address capacity created simulation bodies");
+        for(PxU32 i=0;i<count;++i)ids[i]=granted[i];
+        const auto selected=ids;
+        ids.back()=parent->getGPUIndex();
+        require(!allocator.prepare(requests.data(),count,ids.data()) && !allocator.size(),
+            "ordinary body address accepted as a fragment slot");
+        ids=selected;ids.back()=ids.front();
+        require(!allocator.prepare(requests.data(),count,ids.data()) && !allocator.size(),
+            "duplicate fragment address accepted");
+        ids=selected;
         require(allocator.prepare(requests.data(),count,ids.data()),"membership reservations failed");
         for(auto id:ids)require(!allocator.isValidSource(id),"uncommitted reservation accepted as a source");
         const auto reserved=ids;
@@ -277,10 +298,11 @@ void membership() {
         require(allocator.applyBindings(nullptr,0,nullptr,nullptr,0),"membership acceptance storage failed");
         allocator.acceptReservations();
         for(auto id:ids)require(allocator.isValidSource(id),"accepted private owner missing from source lookup");
-        const PxvDestructionBodyRequest child{count,ids.back(),1,1,count};PxU32 childID;
+        const PxvDestructionBodyRequest child{count,ids.back(),1,1,count};PxU32 childID=granted[count];
         require(allocator.prepare(&child,1,&childID),"accepted fragment could not source another split");
         require(!allocator.isValidSource(childID),"new child inherited accepted membership");
         allocator.discardReservations();
+        require(!allocator.prepare(&child,1,&childID),"native address reused before deferred node retirement");
         require(!allocator.isValidSource(childID),"discarded child retained source membership");
         for(auto id:ids)require(allocator.isValidSource(id),"discarding reservations erased an accepted owner");
         allocator.clear();
@@ -314,6 +336,7 @@ void bindingIdentityValidation() {
     parent->detachShape(*removed);removed->release();step(scene);
     NpDestructionBodyAllocator allocator(internal);
     PxvDestructionBodyRequest request{0,parent->getGPUIndex(),1,1,0};PxU32 target=PX_INVALID_U32;
+    const PxU32* granted=nullptr;require(allocator.reserveNodeCapacity(1,granted),"identity-test address grant failed");target=granted[0];
     require(allocator.prepare(&request,1,&target),"identity-test reservation failed");
     const auto source=parent->getGPUIndex();
     const PxDestructionCollisionBinding valid{0,ownedID,source,target};

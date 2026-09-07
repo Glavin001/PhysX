@@ -584,3 +584,27 @@ Each diagnostic uses two ten-second untraced runs plus a separate ten-second pha
 - Primary bombardment: 113,664 chunks / 229,376 bonds / 256 projectiles; mean 11.554 ms, worst 54.048 ms, 1,038 of 1,200 steps above 8 ms. The identical-input preceding build measured 11.578 ms mean and 60.016 ms worst. The mean is effectively unchanged; two repeats do not establish a reliable peak improvement.
 
 The separate scoped primary peak is 62.630 ms: CPU body reservation 6.298 ms, CPU query/actor rebinding 5.722 ms and complete correction 33.822 ms. Average GPU stress-stream time is 5.455 ms. These are not subdivisions of the untraced peak. This increment removes an intermediate host decision; it does not remove CPU fragment allocation, contact/actor lifecycle, the final completion wait or full correction. Persistent contact reuse through ownership changes requires coordinated actor, edge, filtering and solver-reference updates; retaining old managers alone would leave stale dependencies. Those migrations, selective correction, GPU preconditioning, sleeping and full qualification remain unfinished.
+
+
+## GPU-selected native motion addresses
+
+CUDA now assigns stable compact fragment requests to a persistent native-address grant and commits consumption only after accepted correction. CPU resource growth grants indices without constructing nodes, BodySims or active bodies. The remaining CPU compatibility bridge constructs records at the exact GPU-selected indices; it cannot choose replacements. The CPU-selected index upload and host overwrite of GPU allocation status are deleted. Capacity growth has its own timing row and remains inside complete-step timing. The public device view distinguishes committed, pending and unused capacity.
+
+Nine native tests and 29 timing-accounting tests pass. New checks cover stable assignment, rejected capacity/mapping/registration, retry without double consumption, deferred retirement, duplicate/ordinary address rejection and overflow before allocation. Native allocation and standalone production allocation kernels pass GPU memory checking; the allocation-kernel fixture also passes synchronization checking. This does not resolve the separate resident topology CUB/conditional graph synchronization qualification gap.
+
+The final ten-second penetration audit preserves the exact frozen topology signature, 398 retained of 444 chunks, 46 detached chunks and 199 broken of 896 bonds, both wall holes, projectile clearance and collision/render agreement. The final 256-building audit covers 113,664 chunks, 229,376 bonds and 256 projectiles for 600 steps, with 14,219 peak clusters, 62,728 broken bonds, 224 corrected steps, zero chunk motion error and zero failures across 1,648 contact/island boundary audits. Every recorded large-scene fracture/correction/body/contact counter history matches the preceding build; stress iteration counts retain baseline variation. Full large-scene renderer/momentum and lifecycle endurance qualification remain open.
+
+[Generated scaling report](device-motion-slots-scaling/report.html) · [Primary detailed phases](device-motion-slots-impacts-256/report.html) · [Identical-workload comparison](device-motion-slots-comparison/report.html) · [Validation evidence](device-motion-slots-validation.json).
+
+Timing: two ten-second untraced runs plus a separate ten-second phase capture per case, timestep 1/60, correction limit one, sleeping disabled. Complete advance includes commands, physics, destruction, correction, capacity growth and mandatory completion; preparation/rendering/report output are excluded. Every measured step remains. One-building and sixteen-building idle controls are also included. These short diagnostics do not establish five-by-60-second or endurance qualification.
+
+- One building, projectile penetration: 444 chunks / 896 bonds / 1 projectiles; mean 2.234 ms, worst 6.382 ms, 0 of 1,200 steps above 8 ms.
+
+- 16 buildings, simultaneous aerial impacts: 7,104 chunks / 14,336 bonds / 16 projectiles; mean 4.111 ms, worst 9.416 ms, 11 of 1,200 steps above 8 ms.
+
+- 256 buildings, simultaneous aerial impacts: 113,664 chunks / 229,376 bonds / 256 projectiles; mean 11.548 ms, worst 59.478 ms, 1,038 of 1,200 steps above 8 ms.
+
+
+The primary mean is effectively unchanged from 11.554 ms; the prior observed maximum was 54.048 ms. No end-to-end speedup is established. The separate instrumented peak is 60.003 ms: CPU compatibility-body construction 6.697 ms, CPU query/actor rebinding 5.896 ms, complete correction 30.318 ms and exceptional address growth 0.043 ms. Average stress-stream time is 5.487 ms. These phase values belong to the instrumented run, not the untraced 59.478 ms maximum.
+
+GPU motion-slot selection is complete for the present scene-lifetime allocation transaction. This is not full GPU fragment/contact lifecycle: CPU compatibility construction, ownership observations and contact/actor scheduling still remain. Slot storage is reclaimed at runtime clear; general per-asset retirement/reinsertion and generation/handle endurance remain unqualified. Next priorities remain device-owned lifecycle/contact dependencies, GPU correction work sets, resident preconditioning, validated sleeping/activity and the full scaling/endurance gates.

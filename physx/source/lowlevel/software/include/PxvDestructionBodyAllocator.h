@@ -14,7 +14,12 @@ public:
     virtual bool supportsGpuIslandRepair() const { return false; }
 
     virtual bool isValidSource(PxU32 body) const = 0;
-    virtual bool prepare(const PxvDestructionBodyRequest* requests,PxU32 count,PxU32* indices) = 0;
+    // Exceptional capacity grant, containing indices only. No solver bodies are
+    // created here. The returned immutable prefix survives until clear().
+    virtual bool reserveNodeCapacity(PxU32 capacity,const PxU32*& indices) = 0;
+    // Materialize compatibility records at indices already selected by CUDA.
+    // This bridge cannot choose or replace a requested native index.
+    virtual bool prepare(const PxvDestructionBodyRequest* requests,PxU32 count,const PxU32* indices) = 0;
     // Host metadata bridge only: all decisions and body mass/motion were computed
     // on device. Called at the internal post-solve barrier, never via public API.
     virtual bool applyBindings(const PxDestructionCollisionBinding*, PxU32,

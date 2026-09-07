@@ -343,7 +343,7 @@ namespace Sc
 					void						addStatic(StaticCore&, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* uninflatedBounds);
 					void						removeStatic(StaticCore&, PxInlineArray<const ShapeCore*,64>& removedShapes, bool wakeOnLostTouch);
 
-					void						addBody(BodyCore&, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* uninflatedBounds, bool compound);
+					void						addBody(BodyCore&, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* uninflatedBounds, bool compound, PxNodeIndex nativeNode=PxNodeIndex());
 					void						removeBody(BodyCore&, PxInlineArray<const ShapeCore*,64>& removedShapes, bool wakeOnLostTouch);
 
 					// Batch insertion API.

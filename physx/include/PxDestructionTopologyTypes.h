@@ -49,6 +49,12 @@ struct PxDestructionBodyAllocationStatus {
     std::uint32_t count, reserved, valid, error;
     std::uint32_t initialized, initializationError; // 1 invalid mapping, 2 CUDA/storage failure
 };
+// GPU-owned native motion index allocation. Capacity contains granted addresses,
+// not independently simulated bodies. Pending entries are private to correction;
+// committed advances only with an accepted step. Clear invalidates this view.
+struct PxDestructionMotionSlotStatus {
+    std::uint32_t capacity, committed, pending, error;
+};
 // Persistent shape edits in stable authored chunk order. A target of
 // UINT32_MAX removes collision for a destroyed chunk. A retained target still
 // needs its changed cluster mass/COM and solver rows handled by correction.
