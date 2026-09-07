@@ -1,0 +1,57 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh
+index 214aaa86..dbc0858a 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh
+@@ -16,7 +16,7 @@ __device__ __noinline__ void buildNativeFineInverse(NativeStressCycleView h,unsi
+     }
+     h.inverseGeneration[node]=h.topology->generation;h.inverseValid[node]=1;
+ }
+-__device__ __forceinline__ StressHierarchy::Vector applyNativeFineInverse(NativeStressCycleView h,unsigned node,StressHierarchy::Vector value){
++__device__ __forceinline__ StressHierarchy::Vector applyNativeFineInverse(const double* inverse,unsigned stride,unsigned node,StressHierarchy::Vector value){
+     const double rhs[6]={value.angular.x,value.angular.y,value.angular.z,value.linear.x,value.linear.y,value.linear.z};
+     double out[6]{};
+ #pragma unroll
+@@ -24,7 +24,11 @@ __device__ __forceinline__ StressHierarchy::Vector applyNativeFineInverse(Native
+ #pragma unroll
+         for(unsigned column=0;column<6;++column){
+             const unsigned entry=StressHierarchy::triangle(row>column?row:column,row>column?column:row);
+-            out[row]=fma(h.fineInverse[size_t(entry)*h.inverseStride+node],rhs[column],out[row]);
++            const double coefficient=inverse[size_t(entry)*stride+node];
++            // Authored axis-aligned geometry often produces exact structural
++            // zeros. Retain every nonzero coefficient, however small; this is
++            // sparse evaluation of the cached operator, not a drop tolerance.
++            if(coefficient!=0.0)out[row]=fma(coefficient,rhs[column],out[row]);
+         }
+     }
+     return {{out[0],out[1],out[2]},{out[3],out[4],out[5]}};
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+index 4eda6c55..331a9383 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+@@ -35,11 +35,11 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
+     auto* local=a.hierarchy.result;
+     auto* result=a.hierarchy.cycle.intermediate;
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+-        local[node]=applyNativeFineInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
++        local[node]=applyNativeFineInverse(a.hierarchy.fineInverse,a.hierarchy.inverseStride,node,a.hierarchy.rhs[node]);}
+     __syncthreads();
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+         const auto off=nativeOffDiagonal(input,node,local);
+-        result[node]=sub(mul(local[node],diagonal),mul(applyNativeFineInverse(a.hierarchy,node,off),coupling));}
++        result[node]=sub(mul(local[node],diagonal),mul(applyNativeFineInverse(a.hierarchy.fineInverse,a.hierarchy.inverseStride,node,off),coupling));}
+     // One disjoint destination per node. Readers consume this completed view;
+     // there is no product buffer, copy back or second launch inside iteration.
+     __syncthreads();return result;
+diff --git a/demos/blast-stress-demo/tests/native_fine_inverse_test.cuh b/demos/blast-stress-demo/tests/native_fine_inverse_test.cuh
+index edecd242..1b799372 100644
+--- a/demos/blast-stress-demo/tests/native_fine_inverse_test.cuh
++++ b/demos/blast-stress-demo/tests/native_fine_inverse_test.cuh
+@@ -4,7 +4,7 @@ namespace MotionModeTest {
+ __global__ void checkFineInverse(NativeStressCycleView h,const Vector* rhs,Vector* actual,Vector* reference,unsigned n){
+     const unsigned node=blockIdx.x*blockDim.x+threadIdx.x;if(node>=n)return;
+     buildNativeFineInverse(h,node);
+-    actual[node]=applyNativeFineInverse(h,node,rhs[node]);
++    actual[node]=applyNativeFineInverse(h.fineInverse,h.inverseStride,node,rhs[node]);
+     reference[node]=solveFineDiagonalThread(h.cycle.levels[0].diagonal,node,rhs[node]);
+ }
+ void fineInverseCache(){

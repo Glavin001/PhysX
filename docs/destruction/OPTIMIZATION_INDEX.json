@@ -469,7 +469,8 @@
         "inverse",
         "preconditioner",
         "inverse evidence"
-      ]
+      ],
+      "follow_up": "Exact-zero coefficient skipping was tested and reverted after the independent polynomial GPU memory check failed. No full-scene timing was attempted. See qualification/exact-zero-inverse-rejected/README.md."
     },
     {
       "section": "Stress arithmetic, layout and scheduling",
@@ -524,7 +525,7 @@
       "id": "N11",
       "status": "🧪",
       "optimization": "Tensor Core / lower precision preconditioning",
-      "current_and_action": "Not a qualified production optimization. Experiment only if authoritative residual and final physical outputs pass and complete-step time improves. Sparse irregular outer operator is not automatically suitable for dense GEMM.",
+      "current_and_action": "No qualified production precision reduction. A compensated FP32 inverse passed its isolated accuracy threshold but was slower than native FP64 and was rejected. Tensor Core preconditioning remains unqualified. Original residual and physical-output checks remain mandatory.",
       "evidence": [
         "preconditioner",
         "residual"
