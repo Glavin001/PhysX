@@ -825,3 +825,8 @@ affected-component reuse remain before benchmarking a candidate. The primary
 ## Compact hierarchy transfers and current-level operator
 
 Direct GPU transfers now address compact level vectors without an intermediate copy. The current-level CSR operator passes independent original-fine-equation checks, including recursive self-edge moments. Correctness/memory/synchronization/race checks and the frozen 10-second 444-chunk / 896-bond wall regression pass. See `resident-hierarchy-transfers/report.md`. Production integration remains unfinished; no new 256-building performance claim.
+
+
+## Native component-order contract for resident coarse levels
+
+Packing consumes the GPU partition and retains component-contiguous coarse vectors/ranges without another sort. Exact equations/transfers, corruption/recovery, CUDA memory/synchronization/race audits, and the frozen 10-second 444-chunk / 896-bond penetration regression pass. See `resident-hierarchy-partitions/report.md`. Terminal factors, V-cycle and production binding remain; no 256-building speedup is claimed.

@@ -8,6 +8,11 @@ namespace Nv { namespace Blast { namespace StressHierarchy {
 constexpr unsigned Invalid=0xffffffffu, Threads=256;
 struct CoarseBond;
 struct Status;
+// Borrowed native component order. Packed levels own contiguous successors.
+struct Partition {
+    const unsigned *nodes=nullptr,*ids=nullptr,*begin=nullptr,*end=nullptr;
+    const unsigned *nodeCount=nullptr,*count=nullptr;
+};
 struct Input {
     unsigned nodes,bonds;
     const unsigned *begin,*refs,*node0,*node1,*component;
@@ -23,6 +28,7 @@ struct Input {
     const Status* sourceStatus=nullptr;
     const unsigned* bondIdentity=nullptr;
     unsigned authoredNodes=0;
+    Partition partition{};
 };
 struct Status {
     std::uint64_t generation;

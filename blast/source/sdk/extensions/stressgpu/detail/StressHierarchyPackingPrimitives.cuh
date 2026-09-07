@@ -11,10 +11,11 @@ struct PackingShared {
 };
 __device__ __forceinline__ void localPackingScan(const Input& input,Buffers parent,PackingBuffers b,
                                                 PackingShared& shared,unsigned block,bool bonds){
-    const unsigned i=block*Threads+threadIdx.x,count=bonds?input.bonds:input.nodes;
-    unsigned flag=0;if(i<count)flag=bonds?retainedColumn(parent.coarse[i]):(parent.leader[i]==i && parent.coarseActive[i]);
+    const unsigned i=block*Threads+threadIdx.x,count=bonds?input.bonds:*input.partition.nodeCount;
+    unsigned flag=0;if(i<count){const unsigned node=(!bonds && input.partition.nodes)?input.partition.nodes[i]:i;
+        flag=bonds?retainedColumn(parent.coarse[i]):(parent.leader[node]==node && parent.coarseActive[node]);}
     unsigned prefix,total;PackingScan(shared.temp.scan).ExclusiveSum(flag,prefix,total);
-    if(i<count)(bonds?b.bondMap:b.nodeMap)[i]=prefix;
+    if(i<count)(bonds?b.bondMap:b.orderedPrefix)[i]=prefix;
     if(!threadIdx.x)b.partial[block]=total;
     __syncthreads();
 }
@@ -28,7 +29,7 @@ __device__ __forceinline__ void prefixPackingBlocks(PackingBuffers b,PackingShar
         if(i<blocks)b.partial[i]=Maximum?max(shared.carry,prefix):shared.carry+prefix;
         __syncthreads();if(!threadIdx.x)shared.carry=Maximum?max(shared.carry,total):shared.carry+total;__syncthreads();
     }
-    if(!threadIdx.x && kind<2)b.counts[kind]=shared.carry;
+    if(!threadIdx.x && kind<3)b.counts[kind]=shared.carry;
 }
 __device__ __forceinline__ void localRowPrefix(PackingBuffers b,PackingShared& shared,unsigned block,unsigned nodes){
     const unsigned i=block*Threads+threadIdx.x,value=i<=nodes?b.begin[i]:0;unsigned prefix,total;

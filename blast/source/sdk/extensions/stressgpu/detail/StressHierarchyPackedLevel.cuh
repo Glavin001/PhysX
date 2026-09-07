@@ -12,11 +12,15 @@ class PackedLevel {
     void release()noexcept{
         cudaFree(mBuffers.nodeMap);cudaFree(mBuffers.nodeSource);cudaFree(mBuffers.bondMap);cudaFree(mBuffers.identity);cudaFree(mBuffers.component);cudaFree(mBuffers.bondIdentity);
         cudaFree(mBuffers.begin);cudaFree(mBuffers.refs);cudaFree(mBuffers.counts);cudaFree(mBuffers.partial);cudaFree(mBuffers.localBegin);
+        cudaFree(mBuffers.orderedPrefix);cudaFree(mBuffers.componentIds);cudaFree(mBuffers.componentBegin);cudaFree(mBuffers.componentEnd);
         cudaFree(mBuffers.keys);cudaFree(mBuffers.sorted);cudaFree(mBuffers.bonds);cudaFree(mStatus);cudaFree(mWork);
     }
 public:
     PackedLevel(Input input,const Graph& parent,cudaStream_t stream):mInput(input),mParent(parent.buffers()),mParentStatus(parent.status()),mStream(stream){
         if(input.nodes>(1u<<29) || input.bonds>(1u<<29))throw std::runtime_error("Resident packed level exceeds scan index capacity");
+        const auto partition=input.partition;
+        if(!partition.ids || !partition.begin || !partition.end || !partition.nodeCount || !partition.count || (!input.levelBonds && !partition.nodes))
+            throw std::runtime_error("Resident packing requires the native GPU component partition");
         mTiles=(2*input.bonds+SortTile-1)/SortTile;
         try {
             int device=0,sms=0,blocks=0,cooperative=0;check(cudaGetDevice(&device));
@@ -27,13 +31,16 @@ public:
             const unsigned required=std::max(2u,(std::max(input.nodes,input.bonds)+Threads-1)/Threads);
             mBlocks=std::min(required,unsigned(sms*blocks));
             if(mBlocks<2)throw std::runtime_error("Resident packing requires at least two resident blocks");
-            allocate(mBuffers.nodeMap,input.nodes);allocate(mBuffers.nodeSource,input.nodes);allocate(mBuffers.bondMap,input.bonds);
+            allocate(mBuffers.nodeMap,input.nodes);allocate(mBuffers.nodeSource,input.nodes);allocate(mBuffers.bondMap,std::max(input.nodes,input.bonds));
             allocate(mBuffers.identity,input.nodes);allocate(mBuffers.component,input.nodes);allocate(mBuffers.bondIdentity,input.bonds);
-            allocate(mBuffers.begin,size_t(input.nodes)+1);allocate(mBuffers.refs,2*size_t(input.bonds));allocate(mBuffers.counts,2);
+            allocate(mBuffers.begin,size_t(input.nodes)+1);allocate(mBuffers.refs,2*size_t(input.bonds));allocate(mBuffers.counts,3);
+            allocate(mBuffers.orderedPrefix,size_t(input.nodes)+1);allocate(mBuffers.componentIds,input.nodes);
+            const unsigned componentCapacity=input.authoredNodes?input.authoredNodes:input.nodes;
+            allocate(mBuffers.componentBegin,componentCapacity);allocate(mBuffers.componentEnd,componentCapacity);
             allocate(mBuffers.keys,size_t(mTiles)*SortTile);allocate(mBuffers.sorted,size_t(mTiles)*SortTile);allocate(mBuffers.bonds,input.bonds);
             allocate(mBuffers.partial,std::max(size_t(RadixBins)*mTiles,size_t((std::max(input.nodes+1,input.bonds)+Threads-1)/Threads)));
             allocate(mBuffers.localBegin,size_t(RadixBins)*mTiles);allocate(mStatus,1);allocate(mWork,1);
-            check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));check(cudaMemsetAsync(mBuffers.counts,0,2*sizeof(unsigned),stream));
+            check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));check(cudaMemsetAsync(mBuffers.counts,0,3*sizeof(unsigned),stream));
         } catch(...){release();throw;}
     }
     ~PackedLevel(){cudaStreamSynchronize(mStream);release();}
@@ -50,7 +57,8 @@ public:
         Input next{};next.nodes=mInput.nodes;next.bonds=mInput.bonds;next.begin=mBuffers.begin;next.refs=mBuffers.refs;
         next.component=mBuffers.component;next.position=mInput.position;next.generation=mInput.generation;next.accept=mInput.accept;
         next.levelBonds=mBuffers.bonds;next.identity=mBuffers.identity;next.counts=mBuffers.counts;next.sourceStatus=mStatus;
-        next.authoredNodes=mInput.authoredNodes?mInput.authoredNodes:mInput.nodes;next.bondIdentity=mBuffers.bondIdentity;return next;
+        next.authoredNodes=mInput.authoredNodes?mInput.authoredNodes:mInput.nodes;next.bondIdentity=mBuffers.bondIdentity;
+        next.partition={nullptr,mBuffers.componentIds,mBuffers.componentBegin,mBuffers.componentEnd,mBuffers.counts,mBuffers.counts+2};return next;
     }
     Input parentInput()const{return mInput;}
     Buffers parentBuffers()const{return mParent;}

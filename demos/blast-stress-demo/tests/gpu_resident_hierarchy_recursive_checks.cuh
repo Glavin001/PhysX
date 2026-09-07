@@ -43,10 +43,21 @@ void verifyRecursive(const Fixture& f,RecursiveChain& chain,std::vector<unsigned
         require(ps.initialized && gs.initialized && !ps.error && !gs.error && ps.generation==generation && gs.generation==generation,"recursive level did not commit");
         std::vector<unsigned> roots,map(leaders.size(),Invalid),active(leaders.size());
         for(const auto e:coarse)if(nonzeroColumn(e)){if(e.a!=Invalid)active[e.a]=1;if(e.b!=Invalid)active[e.b]=1;}
-        for(unsigned i=0;i<leaders.size();++i)if(leaders[i]==i && active[i]){map[i]=unsigned(roots.size());roots.push_back(i);}
+        for(unsigned i=0;i<leaders.size();++i)if(leaders[i]==i && active[i])roots.push_back(i);
+        std::sort(roots.begin(),roots.end(),[&](unsigned a,unsigned b){return std::make_pair(components[a],a)<std::make_pair(components[b],b);});
+        for(unsigned i=0;i<roots.size();++i)map[roots[i]]=i;
         require(n==roots.size(),"packed node count differs from canonical roots");
         const auto ids=download(b.identity,n,stream),parts=download(b.component,n,stream),origins=download(b.bondIdentity,m,stream);
         for(unsigned i=0;i<n;++i)require(ids[i]==identity[roots[i]] && parts[i]==components[roots[i]],"packed identity/component changed");
+        const unsigned partCount=download(b.counts+2,1,stream)[0];
+        const auto partIds=download(b.componentIds,partCount,stream);
+        const auto partBegin=download(b.componentBegin,original,stream),partEnd=download(b.componentEnd,original,stream);
+        unsigned partCursor=0;
+        for(unsigned i=0;i<n;++i){
+            if(!i || parts[i]!=parts[i-1]){require(partCursor<partCount && partIds[partCursor++]==parts[i] && partBegin[parts[i]]==i,"compact component start/order incorrect");}
+            if(i+1==n || parts[i]!=parts[i+1])require(partEnd[parts[i]]==i+1,"compact component end incorrect");
+        }
+        require(partCursor==partCount,"compact component count contains stale work");
         const auto bonds=download(b.bonds,m,stream);unsigned next=0;
         for(unsigned i=0;i<coarse.size();++i)if(nonzeroColumn(coarse[i])){
             require(next<m,"packed bond capacity truncated");auto expected=coarse[i];

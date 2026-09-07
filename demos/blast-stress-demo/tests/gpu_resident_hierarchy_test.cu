@@ -118,17 +118,28 @@ void verifyPartition(const Fixture& f,const std::vector<unsigned>& leaders,unsig
 }
 #include "gpu_resident_hierarchy_operator_checks.cuh"
 #include "gpu_resident_hierarchy_recursive_checks.cuh"
+#include "gpu_resident_hierarchy_partition_checks.cuh"
 void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=Invalid){
     f.csr();f.partition();const auto n=f.positions.size(),m=f.a.size();
     std::printf("START GPU hierarchy: nodes=%zu bonds=%zu\n",n,m);std::fflush(stdout);cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     {
-        Device<unsigned> begin(n+1),refs(2*m),a(m),b(m),component(n),accept(1);
+        Device<unsigned> begin(n+1),refs(2*m),a(m),b(m),component(n),accept(1),partNodes(n),partIds(n),partBegin(n),partEnd(n),partCounts(2);
         Device<float2> inertia(n);inertia.put(f.inverse,stream);
         Device<float> health(m),scale(m);Device<float4> position(n),offset0(m),offset1(m);Device<std::uint64_t> generation(1);
         Graph graph(n,m,stream);begin.put(f.begin,stream);refs.put(f.refs,stream);a.put(f.a,stream);b.put(f.b,stream);
         scale.put(f.scale,stream);position.put(f.positions,stream);offset0.put(f.offset0,stream);offset1.put(f.offset1,stream);
         Input input{unsigned(n),unsigned(m),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,
             position.data,offset0.data,offset1.data,inertia.data,generation.data,accept.data};
+        input.partition={partNodes.data,partIds.data,partBegin.data,partEnd.data,partCounts.data,partCounts.data+1};
+        // Test-only oracle supplies the partition owned by native GPU topology
+        // in production. No CPU partition construction is part of the solver.
+        auto uploadPartition=[&](){
+            std::vector<unsigned> nodes(n,Invalid),ids(n,Invalid),first(n),last(n);unsigned count=0,parts=0;
+            for(unsigned i=0;i<n;++i)if(f.component[i]!=Invalid)nodes[count++]=i;
+            std::sort(nodes.begin(),nodes.begin()+count,[&](unsigned a,unsigned b){return std::make_pair(f.component[a],a)<std::make_pair(f.component[b],b);});
+            for(unsigned i=0;i<count;++i){const unsigned id=f.component[nodes[i]];if(!i || f.component[nodes[i-1]]!=id){ids[parts++]=id;first[id]=i;}last[id]=i+1;}
+            partNodes.put(nodes,stream);partIds.put(ids,stream);partBegin.put(first,stream);partEnd.put(last,stream);partCounts.put({count,parts},stream);
+        };
         cudaGraph_t captured=nullptr;cudaGraphExec_t executable=nullptr;
         check(cudaGraphCreate(&captured,0));auto priorNode=graph.append(captured,nullptr,input);
         RecursiveChain recursive;recursive.append(captured,priorNode,input,graph,stream,n>1000?8:3);
@@ -140,7 +151,7 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
             f.health=originalHealth;
             if(step==2 || step==3)for(unsigned i=0;i<m;++i)if(i%3==0)f.health[i]=0;
             if(step==4)std::fill(f.health.begin(),f.health.end(),0);
-            f.partition();health.put(f.health,stream);component.put(f.component,stream);
+            f.partition();health.put(f.health,stream);component.put(f.component,stream);uploadPartition();
             const std::uint64_t gen=step==1?0:step;generation.put({gen},stream);accept.put({1},stream);launch();
             Status status;std::vector<unsigned> leaders(n);std::vector<CoarseBond> coarse(m);
             check(cudaMemcpyAsync(&status,graph.status(),sizeof(status),cudaMemcpyDeviceToHost,stream));
@@ -157,6 +168,8 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
             if(step==5 && n){require(status.aggregates<=n,"restored graph aggregate overflow");}
             prior=leaders;old=status;
         }
+        verifyPackingPartitionFailures(input,graph,stream);
+        for(unsigned level=0;level<recursive.inputs.size();++level)verifyPackingPartitionFailures(recursive.inputs[level],*recursive.graphs[level],stream);
         verifyRecursiveFailures(recursive,stream);
         const auto acceptedRecursive=recursiveState(recursive,stream);
         // Rejected transaction must leave committed GPU outputs untouched.

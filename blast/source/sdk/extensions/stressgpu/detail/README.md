@@ -157,3 +157,22 @@ double coarse coefficients, including both contributions of nonzero self
 edges. This supplies the residual operation required by a resident V-cycle;
 `applyCoarse` remains the next-level Galerkin qualification operator. Tests
 compare both directly against independently composed original fine equations.
+
+
+The hierarchy now borrows `Input::partition` from native topology: ordered
+nodes, live component IDs, ranges, and device counts. Fine packing requires
+this view; it never constructs a duplicate component order. Recursive packing
+retains roots in component order, carries their range endpoints through the
+same prefix, and compacts nonempty IDs. Its published rows are contiguous by
+component, so subsequent levels need no node-order indirection or component
+sort. IDs remain authored/component identities; the layout is separate from
+physical rigid-cluster membership.
+
+`StressHierarchyPackingPartition.cuh` validates counts, sorted unique nodes,
+component boundaries/coverage, and retained-root completeness. Error bit 64
+rejects malformed partitions. A frozen grid decision prevents partial stage
+execution on validation failure. Counts and ranges remain GPU-owned; tests
+provide independent partition inputs solely as an oracle. The production
+bridge must bind the existing `ResidentStressComponentView` and active-node
+count, after the native topology task commits that generation. This binding
+and the terminal factor/V-cycle remain unfinished.
