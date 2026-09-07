@@ -28,9 +28,32 @@ class TimingAccounting(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Overlapping'):
             r.partition([(0,100)],dict(by,preparationCompletion=[(19,70)]))
 
+    def test_repeated_shape_lifecycle_scopes_replace_parent(self):
+        by={'applyBindings':[(0,100)],'applyDetail.validateOwners':[(0,10)],
+            'applyDetail.scheduleOwners':[(10,20)],'applyDetail.migrateShapes':[(20,90)],
+            'migrateDetail.retireContacts':[(21,25),(45,50)],
+            'migrateDetail.queryMirror':[(26,30),(51,55)]}
+        p=r.partition([(0,100)],by)
+        self.assertAlmostEqual(sum(p.values()),.0001)
+        self.assertAlmostEqual(p['migrateDetail.retireContacts'],.000009)
+        self.assertAlmostEqual(p['migrateDetail.queryMirror'],.000008)
+        self.assertAlmostEqual(p['applyDetail.migrateShapes.other'],.000053)
+        self.assertAlmostEqual(p['applyBindings.other'],.00001)
+        self.assertTrue(set(p)<=set(r.LABELS))
+        with self.assertRaisesRegex(ValueError,'Overlapping'):
+            r.partition([(0,100)],dict(by,**{'migrateDetail.queryMirror':[(24,30)]}))
+        with self.assertRaisesRegex(ValueError,'escapes'):
+            r.partition([(0,100)],dict(by,**{'migrateDetail.queryMirror':[(89,95)]}))
+
     def test_overlapping_siblings_rejected(self):
         with self.assertRaisesRegex(ValueError,'Overlapping'):
             r.partition([(0,100)],{'submit':[(0,20)],'finishAndReserve':[(10,40)]})
+    def test_wall_only_leaf_does_not_erase_parent_cpu_time(self):
+        def row(name,start,end,cpu):
+            return dict(phase=name,start_ns=start,end_ns=end,thread='7',end_thread='7',detached='0',thread_cpu_ms=cpu)
+        rows=[row('parent',0,100,10),row('wall-only',10,60,-1),row('measured-child',20,40,2)]
+        self.assertEqual(r.a.exclusive_cpu(rows),{'parent':8,'measured-child':2})
+
     def test_child_outside_parent_rejected(self):
         with self.assertRaisesRegex(ValueError,'escapes'):
             r.partition([(0,100)],{'finishAndReserve':[(10,30)],'finishDetail.waitForGpu':[(5,20)]})
@@ -125,6 +148,21 @@ class TimingAccounting(unittest.TestCase):
     def test_complete_peak_keeps_every_spike(self):
         run=self.complete_run([1]*599+[8.00001]);metric=r.complete_step_metrics(run)
         self.assertEqual(metric['max'],8.00001);self.assertEqual(run['summary']['missed_8ms'],1)
+    def test_profiler_serialization_must_be_outside_complete_steps(self):
+        run=self.complete_run([1,1]);run['summary']['phase_output_timing_schema']=1
+        run['frames'][0].update(phase_output_start_ns=4,phase_output_end_ns=5)
+        run['frames'][1].update(complete_start_ns=6,simulation_start_ns=7,simulation_end_ns=8,complete_end_ns=9,phase_output_start_ns=9,phase_output_end_ns=10)
+        r.complete_step_metrics(run)
+        run['frames'][0]['phase_output_start_ns']=3
+        with self.assertRaisesRegex(ValueError,'overlaps complete-step'):
+            r.complete_step_metrics(run)
+        run['frames'][0].update(phase_output_start_ns=4,phase_output_end_ns=7)
+        with self.assertRaisesRegex(ValueError,'overlaps next'):
+            r.complete_step_metrics(run)
+        run['frames'][0].pop('phase_output_start_ns')
+        with self.assertRaisesRegex(ValueError,'Missing profiler'):
+            r.complete_step_metrics(run)
+
     def test_complete_timer_rejects_old_bracket(self):
         run=self.complete_run([1]);run['summary'].pop('complete_timer_schema')
         with self.assertRaisesRegex(ValueError,'timer required'):r.complete_step_metrics(run)

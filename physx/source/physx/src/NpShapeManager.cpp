@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "NpShapeManager.h"
+#include "foundation/PxProfiler.h"
 #include "NpPtrTableStorageManager.h"
 #include "NpRigidDynamic.h"
 #include "NpArticulationLink.h"
@@ -217,6 +218,8 @@ bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, P
         b.mShapes.replaceWithLast(targetIndex, storage);
         return false;
     }
+    PxProfileScoped query(nativeTransaction?PxGetProfilerCallback():NULL,
+        "GpuDestruction.migrateDetail.queryMirror",false,PxU64(reinterpret_cast<size_t>(scene)));
     if (isSceneQuery(s)) scene->getSQAPI().removeSQShape(from, s);
     void** ptrs = a.mShapes.getPtrs();
     const PxU32 last = a.mShapes.getCount() - 1;

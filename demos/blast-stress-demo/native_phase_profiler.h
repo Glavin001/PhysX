@@ -16,7 +16,7 @@
 namespace blast_demo {
 class NativePhaseProfiler final : public physx::PxProfilerCallback {
     using Clock=std::chrono::steady_clock;
-    struct Token {Clock::time_point start;const char* name;uint64_t context;unsigned step;bool detached;uint64_t stamp,cpu;uint32_t tid;};
+    struct Token {Clock::time_point start;const char* name;uint64_t context;unsigned step;bool detached,wallOnly;uint64_t stamp,cpu;uint32_t tid;};
     struct Row {std::string name;uint64_t context;unsigned step;bool detached;double ms;uint64_t start,end;uint32_t tid,endTid;double cpu;};
     struct DeviceRow {std::string name;uint64_t context;unsigned step;float ms;};
     std::ofstream mFile,mDeviceFile;
@@ -26,6 +26,12 @@ class NativePhaseProfiler final : public physx::PxProfilerCallback {
     std::mutex mMutex;
     std::vector<Row> mRows;
     bool mEnabled=false;
+    static uint32_t threadId() {
+        // An OS thread's ID is constant for its lifetime. Deep per-shape scopes
+        // must not issue two gettid syscalls for every tiny operation.
+        thread_local const uint32_t id=nativeThreadId();
+        return id;
+    }
 public:
     // Declare before the scene/context: the callback must outlive tasks and
     // incomplete-correction teardown. Registration itself needs no foundation.
@@ -45,17 +51,22 @@ public:
     void begin(unsigned step){mStep=step;}
     void* zoneStart(const char* name,bool detached,uint64_t context) override {
         if(std::strncmp(name,"GpuDestruction.",15)!=0 || mStep==~0u)return nullptr;
-        auto* token=new(std::nothrow) Token{Clock::now(),name,context,mStep.load(),detached,nativeProfileTimestamp(),nativeThreadCpuNs(),nativeThreadId()};
+        // Leaves need wall intervals; their parent retains the CPU clock,
+        // including collection cost. -1 means leaf CPU time is not measured.
+        // Never subtract estimated instrumentation overhead.
+        const bool wallOnly=!detached && std::strncmp(name,"GpuDestruction.migrateDetail.",28)==0;
+        auto* token=new(std::nothrow) Token{wallOnly?Clock::time_point{}:Clock::now(),name,context,mStep.load(),detached,wallOnly,nativeProfileTimestamp(),wallOnly?0:nativeThreadCpuNs(),threadId()};
         if(!token)mFailed=true;
         return token;
     }
     void zoneEnd(void* data,const char* name,bool detached,uint64_t context) override {
         if(!data)return;
         auto* token=static_cast<Token*>(data);
-        const auto end=nativeProfileTimestamp(),cpu=nativeThreadCpuNs();const auto tid=nativeThreadId();
-        const double elapsed=std::chrono::duration<double,std::milli>(Clock::now()-token->start).count();
+        const auto end=nativeProfileTimestamp(),cpu=token->wallOnly?0:nativeThreadCpuNs();const auto tid=threadId();
+        const double elapsed=token->wallOnly?double(end-token->stamp)/1e6:std::chrono::duration<double,std::milli>(Clock::now()-token->start).count();
+        if(end<token->stamp)mFailed=true;
         if(token->name!=name || token->context!=context || token->detached!=detached)mFailed=true;
-        try {std::lock_guard<std::mutex> lock(mMutex);mRows.push_back({token->name,context,token->step,detached,elapsed,token->stamp,end,token->tid,tid,tid==token->tid?double(cpu-token->cpu)/1e6:-1.0});}
+        try {std::lock_guard<std::mutex> lock(mMutex);mRows.push_back({token->name,context,token->step,detached,elapsed,token->stamp,end,token->tid,tid,!token->wallOnly && tid==token->tid?double(cpu-token->cpu)/1e6:-1.0});}
         catch(...){mFailed=true;}
         delete token;
     }

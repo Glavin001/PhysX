@@ -520,3 +520,13 @@ Six focused tests pass: native bombardment contacts, resimulation and publicatio
 - impacts-256: 113,664 chunks / 229,376 bonds / 256 projectile(s), 2 × 10 seconds. Mean 12.145 → 11.603 ms; peak 63.634 → 63.182 ms; steps above 8 ms 1038 → 1038.
 
 Separate bombardment phase captures show average GPU stress time falling from 6.009 to 5.451 ms. The large-scene peak remains far above 8 ms; CPU fragment lifecycle/ownership and correction still dominate that spike. The next primary responsibility to migrate is native fragment lifecycle, not further tuning of its temporary CPU bridge.
+
+## Reliable fragment-lifecycle timing
+
+Detailed shape migration scopes initially exposed a measurement defect: the demo serialized profiler CSV inside the complete-step timer. That cost is now outside the timer, with recorded per-step timestamps and regression checks rejecting overlap with the current or following step. Tiny migration leaves record wall intervals without repeated thread-clock/ID syscalls; parent scopes retain CPU-clock accounting. The generated table includes commands and mandatory completion and explicitly compares instrumented versus untraced runs. No simulation equations or lifecycle behavior changed.
+
+All 29 timing-accounting tests and three focused native correction/publication/bombardment tests pass. The frozen ten-second penetration quality audit passes unchanged. [Evidence](lifecycle-timing-validation.json) and [generated primary-workload breakdown](lifecycle-verified-impacts-256/report.html).
+
+For 256 buildings / 113,664 chunks / 229,376 bonds / 256 projectiles, two ten-second untraced runs average 11.564–11.668 ms and peak at 63.496–67.850 ms. The separate ten-second instrumented run averages 11.714 ms and peaks at 62.732 ms. Timings cover commands through accepted physics/destruction/correction and mandatory status, with dt 1/60, correction limit one and sleep disabled. These are separate runs, not a decomposition of an untraced peak. Counter histories match; the 8 ms gate still fails.
+
+At the scoped impact peak, CPU reservation takes 5.503 ms, owner/shape validation 6.803 ms, query/actor records 5.563 ms, and complete correction 29.800 ms. Inspection found that validation reconstructs a shape-ID hash table from source actors even though PhysX already owns a persistent shape-ID index. Deleting that copied representation is the next concrete deletion; it does not by itself remove the CPU allocation/ownership bridge. GPU lifecycle migration, selective correction, sleep, endurance and full qualification remain open.

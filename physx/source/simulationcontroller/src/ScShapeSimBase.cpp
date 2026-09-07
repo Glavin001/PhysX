@@ -31,6 +31,7 @@
 #include "CmTransformUtils.h"
 #include "ScShapeInteraction.h"
 #include "ScArticulationSim.h"
+#include "foundation/PxProfiler.h"
 
 #if PX_SUPPORT_GPU_PHYSX
 	#include "cudamanager/PxCudaContextManager.h"
@@ -101,7 +102,12 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     BodySim& body = static_cast<BodySim&>(owner);
     const Bp::FilterGroup::Enum group = deviceOwnerTransaction ? Bp::FilterGroup::eINVALID
         : Bp::getFilterGroup(false, owner.getActorID(), body.isKinematic() && !body.hasForcedKinematicNotif());
-    if (!scene.getAABBManager()->refilterBounds(getElementID(), group, deviceOwnerTransaction)) return false;
+    PxProfilerCallback* profiler=deviceOwnerTransaction?PxGetProfilerCallback():NULL;
+    const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(&scene));
+    {
+        PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.refilter",false,profileContext);
+        if (!scene.getAABBManager()->refilterBounds(getElementID(), group, deviceOwnerTransaction)) return false;
+    }
     // Fresh public bodies have not reached the GPU yet. Native destruction
     // candidates initialized in the GPU pool have already cleared FIRST_COPY.
     const bool gpuBounds = scene.isDirectGPUAPIInitialized()
@@ -120,9 +126,14 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     }
     PxvNphaseImplementationContext* np = scene.getLowLevelContext()->getNphaseImplementationContext();
     PxsContactManagerOutputIterator outputs = np->getContactManagerOutputs();
-    scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
+    {
+        PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.retireContacts",false,profileContext);
+        scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
+    }
     // ShapeSim, contact/transform index, geometry registration and shape refcount
     // all persist. Only incompatible contact rows and ownership maps change.
+    {
+    PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.registerOwner",false,profileContext);
     if (!np->rebindShapeInstance(body.getNodeIndex(), getCore(), getElementID(), owner.getPxActor(), deviceOwnerTransaction))
     {
         PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Persistent shape owner update failed in GPU narrowphase");
@@ -131,6 +142,8 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
 #endif
         return false;
     }
+    }
+    PxProfileScoped links(profiler,"GpuDestruction.migrateDetail.actorLinks",false,profileContext);
     destroySqBounds();
     rebindActor(owner);
     mShapeCore->setTransform(shapeToActor);

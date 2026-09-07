@@ -9,6 +9,7 @@
 #include "PxsSimpleIslandManager.h"
 #include "PxsSimulationController.h"
 #include "foundation/PxHashMap.h"
+#include "foundation/PxProfiler.h"
 namespace physx {
 // Only scene finalization and between-step teardown call this allocator. It
 // never relaxes the application's API access guards or publishes candidates in
@@ -117,6 +118,10 @@ public:
         PxHashMap<PxU32,NpRigidDynamic*> owners;
         PxHashMap<PxU32,NpShape*> shapes;
         PxHashMap<PxU32,PxU32> seen;
+        PxProfilerCallback* profiler=PxGetProfilerCallback();
+        const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
+        {
+        PxProfileScoped profile(profiler,"GpuDestruction.applyDetail.validateOwners",false,profileContext);
         for(PxU32 i=0;i<bodies;++i) {
             auto* parent=source(requests[i].sourceBody);
             auto* target=source(targets[i],true);
@@ -140,8 +145,11 @@ public:
                 || to->getAggregate() || to->getShapeManager().isSqCompound()
                 || to->getShapeManager().getPruningStructure())return false;
         }
+        }
         // These are scheduler/type metadata changes. Authoritative mass, COM,
         // velocities and applied forces are installed separately on the GPU.
+        {
+        PxProfileScoped profile(profiler,"GpuDestruction.applyDetail.scheduleOwners",false,profileContext);
         for(PxU32 i=0;i<bodies;++i) {
             auto* target=source(targets[i],true);auto& core=target->getCore();auto flags=core.getFlags();
             if(requests[i].supported)flags|=PxRigidBodyFlag::eKINEMATIC;
@@ -156,10 +164,14 @@ public:
                 core.getSim()->notifyNotReadyForSleeping();
             }
         }
+        }
+        {
+        PxProfileScoped profile(profiler,"GpuDestruction.applyDetail.migrateShapes",false,profileContext);
         for(PxU32 i=0;i<count;++i) {
             const auto b=bindings[i];auto* shape=shapes.find(b.shape)->second;
             if(!NpShapeManager::rebindShapeInternal(*source(b.sourceBody),*source(b.targetBody,true),
                 *shape,shape->getLocalPoseFast(),true))return false;
+        }
         }
         return true;
     }

@@ -45,7 +45,10 @@ TREE={
  'finishAndReserve':{'finishDetail.waitForGpu':{},'finishDetail.reserveBodies':{
      'finishDetail.requestReadback':{},'finishDetail.allocateNativeBodies':{},
      'finishDetail.uploadBindings':{},'finishDetail.publishReservation':{}}},
- 'initializeReserved':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{},'applyBindings':{},
+ 'initializeReserved':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{},'applyBindings':{
+     'applyDetail.validateOwners':{},'applyDetail.scheduleOwners':{},'applyDetail.migrateShapes':{
+         'migrateDetail.refilter':{},'migrateDetail.retireContacts':{},'migrateDetail.registerOwner':{},
+         'migrateDetail.actorLinks':{},'migrateDetail.queryMirror':{}}},
  'restoreInstall':{},'resetContactCaches':{},'correctedCollisionSolve':{},'acceptCorrection':{}}
 LABELS={
  'checkpoint':('Checkpoint moving-body state','CPU submission → GPU copy; save state for possible rewind'),
@@ -62,6 +65,15 @@ LABELS={
  'correctionBodies':('Prepare corrected motion states','CPU dispatch + GPU cluster/body preparation'),
  'preparationCompletion':('Observe prepared correction verdicts','GPU → CPU compact validation status at the remaining ownership bridge; includes completion wait'),
  'applyBindings':('Apply ownership/lifecycle changes','CPU PhysX ownership and lifecycle bridge'),
+ 'applyDetail.validateOwners':('Validate fragment owners and shape identities','CPU validates the migration batch against compatibility actors and persistent shapes'),
+ 'applyDetail.scheduleOwners':('Activate fragment scheduler metadata','CPU updates kinematic/dynamic type and wake/island bookkeeping; physical state is GPU-owned'),
+ 'migrateDetail.refilter':('Mark changed collision filtering','CPU broad-phase lifecycle bookkeeping for migrating persistent shapes'),
+ 'migrateDetail.retireContacts':('Retire old-owner contact managers','CPU releases shape interactions, contact managers and lost-touch bookkeeping'),
+ 'migrateDetail.registerOwner':('Update narrow-phase ownership mirror','CPU updates persistent narrow-phase owner references; no geometry upload'),
+ 'migrateDetail.actorLinks':('Update shape/actor links and query-bound membership','CPU transfers element ownership and registers query-bound tracking'),
+ 'migrateDetail.queryMirror':('Rebind CPU query and actor-shape records','CPU query removal/insertion and compatibility shape-array updates'),
+ 'applyDetail.migrateShapes.other':('Other shape migration work','CPU validation, target storage and gaps around instrumented migration operations'),
+ 'applyBindings.other':('Other ownership bridge work','GPU-to-CPU metadata observation, completion waits and remaining host bookkeeping'),
  'restoreInstall':('Rewind and install fractured motion','CPU dispatch + GPU checkpoint restore and owner installation'),
  'resetContactCaches':('Invalidate incompatible contact caches','CPU dispatch + GPU contact/friction cache reset'),
  'correctedCollisionSolve':('Resimulate changed interaction','CPU task scheduling + GPU collision, constraints and motion solve'),
@@ -373,6 +385,12 @@ def complete_step_metrics(run):
         require(all(math.isfinite(v) and v>=0 for v in [total,command,completion,physics]) and total>0,'Invalid complete-step duration')
         require(abs(total-command-completion-physics)<0.0002,'Complete-step phases do not add up')
         require(int(f['complete_start_ns'])<=int(f['simulation_start_ns'])<int(f['simulation_end_ns'])<=int(f['complete_end_ns']),'Simulation escaped complete-step bracket')
+        if run['summary'].get('phase_output_timing_schema')==1:
+            require('phase_output_start_ns' in f and 'phase_output_end_ns' in f,'Missing profiler output timestamps')
+            start,end=int(f['phase_output_start_ns']),int(f['phase_output_end_ns'])
+            require((start==end==0) or int(f['complete_end_ns'])<=start<=end,'Profiler output overlaps complete-step timer')
+            if len(values)+1<len(run['frames']) and end:
+                require(end<=int(run['frames'][len(values)+1]['complete_start_ns']),'Profiler output overlaps next complete step')
         values.append(total)
     require(sum(v>8.0 for v in values)==run['summary']['missed_8ms'],'Deadline counter mismatch')
     require(abs(max(values)-run['summary']['complete_step_ms_max'])<0.0002,'Peak counter mismatch')
@@ -418,17 +436,26 @@ def render_complete_gate(manifest,runs,out):
     for case in manifest['config']['cases']:
         for run in runs[case['id']]['phases']:
             data=run['profile'];frames=run['frames']
+            complete_step_metrics(run)
             peak=max(range(len(frames)),key=lambda i:float(frames[i]['complete_step_ms']))
             doc.title('Separate phase capture: '+case['label'])
             doc.text('This is a separate instrumented run. CPU elapsed regions form a partition; CUDA stream stages overlap that partition and must not be added to it. The peak column below refers only to this scoped run, not the untraced peak above.')
-            doc.table(['Operation','Owner / responsibility','Mean elapsed ms','At scoped peak ms'],[
-                [LABELS[key][0],LABELS[key][1],fmt(mean([v[key] for v in data['wall_partition']])),fmt(data['wall_partition'][peak][key])]
-                for key in data['wall_partition'][0]])
+            phase_rows=[['Apply recorded commands','CPU submission and GPU command execution',fmt(mean([float(f['command_ms']) for f in frames])),fmt(float(frames[peak]['command_ms']))]]
+            phase_rows += [[LABELS[key][0],LABELS[key][1],fmt(mean([v[key] for v in data['wall_partition']])),fmt(data['wall_partition'][peak][key])]
+                for key in data['wall_partition'][0]]
+            phase_rows += [['Mandatory completion and status','CPU completion boundary and compact GPU status observation',fmt(mean([float(f['completion_ms']) for f in frames])),fmt(float(frames[peak]['completion_ms']))],
+                ['TOTAL complete advance','Commands through accepted state and mandatory status',fmt(mean([float(f['complete_step_ms']) for f in frames])),fmt(float(frames[peak]['complete_step_ms']))]]
+            doc.table(['Operation','Owner / responsibility','Mean elapsed ms','At scoped peak ms'],phase_rows)
+            if not run['summary'].get('phase_output_outside_complete_timer',False):
+                doc.text('⚠️ Legacy diagnostic capture: profiler CSV serialization was included in completion time. This scoped complete-step measurement includes report-output overhead; use untraced runs for performance. No estimated cost is subtracted.')
             doc.table(['GPU stream stage','Mean ms','At scoped peak ms'],[
                 [label,fmt(mean([v.get(key,0) for v in data['cuda_stages']])),fmt(data['cuda_stages'][peak].get(key,0))]
                 for key,label in STAGES.items()])
             doc.text(f"Scoped peak: repeat 1, step {peak}, complete advance {float(frames[peak]['complete_step_ms']):.3f} ms. CUDA-event timings measure stream intervals, including gaps; they do not establish SM utilization or hardware bandwidth limits.")
             reference=runs[case['id']]['plain'][0]
+            plain_means=[mean([float(f['complete_step_ms']) for f in r['frames']]) for r in runs[case['id']]['plain']]
+            plain_peaks=[max(float(f['complete_step_ms']) for f in r['frames']) for r in runs[case['id']]['plain']]
+            doc.text(f"Observer comparison: scoped mean {mean([float(f['complete_step_ms']) for f in frames]):.3f} ms versus untraced repeat means {min(plain_means):.3f}–{max(plain_means):.3f} ms; scoped peak {float(frames[peak]['complete_step_ms']):.3f} ms versus untraced peaks {min(plain_peaks):.3f}–{max(plain_peaks):.3f} ms. This includes run variation and observer effects, not a correction factor. Thread CPU time for detailed migration leaves is intentionally unmeasured; the enclosing scope retains it.")
             full_match=run['signature_rows']==reference['signature_rows']
             prefix_match=run['signature_rows'][:peak+1]==reference['signature_rows'][:peak+1]
             doc.text(f"Scoped versus first untraced counter history: complete run {'matches' if full_match else 'differs'}; through the scoped peak {'matches' if prefix_match else 'differs'}. Broken bonds: scoped {run['summary']['broken_bonds']}, first untraced {reference['summary']['broken_bonds']}. These are separate trajectories, not a decomposition of the same measured peak.")
