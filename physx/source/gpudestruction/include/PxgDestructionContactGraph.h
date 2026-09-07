@@ -5,6 +5,23 @@
 namespace physx {
 struct PxsContactManagerOutput;
 struct PxgShapeSim;
+// Borrowed solved NP streams, valid until this scene's destruction consumer
+// completes. CPU-address bases are tokens for offsets, never dereferenced on
+// device. The producer records readyEvent after the streams' last writers;
+// no compacted PxGpuContactPair array or count buffer is materialized.
+struct PxgDestructionSolvedContacts {
+    const PxgContactManagerInput* inputs=NULL;
+    const PxsContactManagerOutput* outputs=NULL;
+    const PxNodeIndex* shapeToRigid=NULL;
+    const PxU8* cpuPatches=NULL;
+    const PxU8* cpuPoints=NULL;
+    const PxReal* cpuForces=NULL;
+    const PxU8* patches=NULL;
+    const PxU8* points=NULL;
+    const PxReal* forces=NULL;
+    const PxU8* friction=NULL;
+    PxU32 pairCount=0;
+};
 // Bit values from PxcNpWorkUnitFlag, checked at the host integration boundary.
 struct PxgDestructionContactFlags {
     enum { eARTICULATION = (1u<<3)|(1u<<4), eSOFT_BODY=1u<<7,

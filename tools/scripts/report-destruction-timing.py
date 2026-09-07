@@ -241,16 +241,25 @@ def render(manifest,runs,out):
     d=Document();d.title('PhysX GPU destruction — measured timing breakdown',1)
     cases=manifest['config']['cases'];p=runs['penetration'];plain=p['plain'];phase=p['phases'][0];trace=p['gpu'][0]
     pooled=[float(f['physics_step_ms']) for r in plain for f in r['frames']];s=stats(pooled)
-    base=mean([r['metrics']['post_startup']['mean'] for r in runs['idle-1']['plain']]);big=mean([r['metrics']['post_startup']['mean'] for r in runs['idle-16']['plain']])
     stress=mean([v['stress'] for v in phase['profile']['cuda_stages']]);interval=mean([sum(v.values()) for v in phase['profile']['wall_partition']])
-    d.text(f"The penetration scene averages {s['mean']:.3f} ms per simulation/destruction step across {len(plain)} untraced repeats; the worst measured step is {s['max']:.3f} ms. {sum(x<1 for x in pooled)}/{len(pooled)} steps are below 1 ms. GPU stress occupies a mean {stress:.3f} ms of destruction-stream elapsed time in the separate host-scope capture ({100*stress/interval:.1f}% of its simulation bracket; this overlaps submission/wait).")
-    d.text(f"The intact one-building control costs {base:.3f} ms after its first step; 16 intact buildings cost {big:.3f} ms ({big/base:.2f}× for 16× geometry). This measures an idle baseline of the current implementation, not a fundamental GPU latency floor. Idle controls do not establish active-destruction scalability.")
+    d.text(f"The penetration simulate/fetch subinterval averages {s['mean']:.3f} ms per step across {len(plain)} untraced repeats; the worst measured step is {s['max']:.3f} ms. {sum(x<1 for x in pooled)}/{len(pooled)} steps are below 1 ms. GPU stress occupies a mean {stress:.3f} ms of destruction-stream elapsed time in the separate host-scope capture ({100*stress/interval:.1f}% of its simulation bracket; this overlaps submission/wait).")
+    if 'idle-1' in runs and 'idle-16' in runs:
+        base=mean([r['metrics']['post_startup']['mean'] for r in runs['idle-1']['plain']]);big=mean([r['metrics']['post_startup']['mean'] for r in runs['idle-16']['plain']])
+        d.text(f"The intact one-building control costs {base:.3f} ms after its first step; 16 intact buildings cost {big:.3f} ms ({big/base:.2f}× for 16× geometry). This measures an idle baseline of the current implementation, not a fundamental GPU latency floor. Idle controls do not establish active-destruction scalability.")
+    if all(r['summary'].get('complete_timer_schema')==1 for r in plain):
+        d.title('🎯 Authoritative complete advance — commands through committed completion')
+        complete_rows=[]
+        for i,r in enumerate(plain):
+            metric=complete_step_metrics(r);frames=r['frames'];peak=max(frames,key=lambda f:float(f['complete_step_ms']))
+            complete_rows.append([i+1,len(frames),fmt(metric['mean']),fmt(metric['max']),sum(float(f['complete_step_ms'])>8 for f in frames),peak['step'],fmt(float(peak['command_ms'])),fmt(float(peak['physics_step_ms'])),fmt(float(peak['completion_ms']))])
+        d.table(['Untraced repeat','Steps','Mean ms','Peak ms','>8 ms','Peak step','CPU commands at peak ms','PhysX/destruction at peak ms','Completion at peak ms'],complete_rows)
+        d.text('This is the deadline timer. It includes commands, insertion and mandatory completion in addition to simulate/fetch. The detailed CPU/GPU tables below subdivide simulate/fetch in separate profiling captures. These short runs do not establish the five × 60-second gate.')
     d.title('Measurement contract and validity')
     matches=all(all(r['signature_rows']==runs[c['id']]['plain'][0]['signature_rows'][:len(r['frames'])] for mode in ['plain','phases','gpu'] for r in runs[c['id']][mode]) for c in cases)
     d.table(['Check','Result'],[
         ['Capture completeness / recorded file hashes','PASS — every input capture hashed and validated'],
         ['Stress convergence / correction limit','PASS — every accepted step converged; at most one correction per step'],
-        ['Fracture/topology signatures across repetitions and trace modes','MATCH across full-duration untraced, host-scope and GPU captures' if matches else 'DIFFER — comparisons below are workload-level; inspect report.json.gz signatures'],
+        ['Fracture/cluster counter histories across repetitions and trace modes','MATCH across full-duration untraced, host-scope and GPU captures' if matches else 'DIFFER — comparisons below are workload-level; inspect report.json.gz signatures'],
         ['CPU observations / rendering / video encoding','Disabled in measured runs; compact SDK status observation remains outside simulate/fetch'],
         ['Wall-time partition / GPU overlap accounting','PASS — disjoint scope tree closes; GPU interval unions remain inside the measured bracket'],
         ['CUPTI loss / malformed timestamps','PASS — every full-duration GPU repetition has zero dropped records and zero invalid timestamps'],
@@ -258,13 +267,13 @@ def render(manifest,runs,out):
         ['GPU process isolation evidence',manifest['monitor']],
         ['Determinism','Same input configuration and stable report generation. GPU timings are not deterministic; repeated measurements retain variation.']])
     d.text(f"Hardware: {manifest['runs'][0]['samples'][0]['devices'][0]['name']}; driver {manifest['runs'][0]['samples'][0]['driver']}. Revision {manifest['revision']}. {manifest['warmup']} All modes advance {manifest['seconds']} simulated seconds; {manifest.get('gpu_trials',1)} complete CUPTI repetitions per scene, at 60 Hz. This short diagnostic campaign is not the planned five × 60-second scale qualification.")
-    d.text('Timing starts immediately before scene.simulate and ends after blocking scene.fetchResults, including embedded destruction and correction. Scene construction, projectile creation before the step, compact post-step status observation, CSV output and GPU activity flush are outside this bracket. This is simulation cost, not the complete application tick. CPU profiling callbacks and concurrent CUPTI collection can still perturb the measured interval.')
+    d.text('The detailed profiling bracket starts immediately before scene.simulate and ends after blocking scene.fetchResults, including embedded destruction and correction. Scene construction, projectile creation before the step, compact post-step status observation, CSV output and GPU activity flush are outside this bracket. This is simulation cost, not the complete application tick. CPU profiling callbacks and concurrent CUPTI collection can still perturb the measured interval.')
     failures=manifest.get('prior_failure_evidence',{}).get('attempts',[])+manifest.get('failed_attempts',[])
     if failures:
         d.title('Earlier failed captures — excluded from measurements')
         d.text(f'{len(failures)} earlier capture attempts failed. Their recorded errors and activity status are retained below and in the machine-readable data. No failed capture contributes timings. Every GPU capture used below passed full-duration validation. Historical failure records alone do not establish their cause; consult the separate capture qualification record.')
         d.table(['Failed attempt','Exit','Step','Recorded error','Invalid activity timestamps'],[[r['name'],r.get('exit_code','interrupted'),r.get('failure_step','unknown'),r.get('error_line',r.get('campaign_error','See captured log')),r.get('activity_status',{}).get('invalid_timestamps','unknown')] for r in failures])
-    d.title('Untraced simulation cost — authoritative elapsed-time measurements')
+    d.title('Untraced simulate/fetch cost — subinterval of the complete advance')
     rows=[]
     for case in cases:
         rr=runs[case['id']]['plain'];values=[float(f['physics_step_ms']) for r in rr for f in r['frames']];v=stats(values)
@@ -355,6 +364,44 @@ def render(manifest,runs,out):
     d.text('Percentiles use nearest rank ceil(p × N), with 1-based ranks. Means pool equally long untraced runs; maxima retain all measured spikes. Event windows overlap and must not be added. Zero-size windows are omitted. Rounded display values can differ from the exact total by rounding; raw JSON preserves full precision.')
     d.save(out)
 
+def complete_step_metrics(run):
+    require(run['summary'].get('complete_timer_schema')==1,'Complete-step timer required; old simulate/fetch timing cannot qualify')
+    values=[]
+    for f in run['frames']:
+        total=float(f['complete_step_ms']);command=float(f['command_ms']);completion=float(f['completion_ms']);physics=float(f['physics_step_ms'])
+        require(all(math.isfinite(v) and v>=0 for v in [total,command,completion,physics]) and total>0,'Invalid complete-step duration')
+        require(abs(total-command-completion-physics)<0.0002,'Complete-step phases do not add up')
+        require(int(f['complete_start_ns'])<=int(f['simulation_start_ns'])<int(f['simulation_end_ns'])<=int(f['complete_end_ns']),'Simulation escaped complete-step bracket')
+        values.append(total)
+    require(sum(v>8.0 for v in values)==run['summary']['missed_8ms'],'Deadline counter mismatch')
+    require(abs(max(values)-run['summary']['complete_step_ms_max'])<0.0002,'Peak counter mismatch')
+    return stats(values)
+
+def render_complete_gate(manifest,runs,out):
+    doc=Document();doc.title('🎯 Complete PhysX destruction advance — 8 ms gate',1)
+    doc.text('60 Hz physical timestep. Timer includes commands, projectile insertion, simulate/fetch, destruction/correction and mandatory completion. All measured steps, including startup, remain. Rendering and report output are outside the bracket.')
+    rows=[];failures=0;gates=[]
+    for case in manifest['config']['cases']:
+        previous=None
+        for i,run in enumerate(runs[case['id']]['plain']):
+            metric=complete_step_metrics(run);frames=run['frames'];worst=max(range(len(frames)),key=lambda n:float(frames[n]['complete_step_ms']));f=frames[worst]
+            misses=sum(float(f['complete_step_ms'])>8 for f in frames);failures+=misses
+            if case['id']=='penetration':require(run['summary']['broken_bonds']==199 and run['summary']['corrections']==3 and run['summary']['peak_clusters']==43,'Frozen wall topology counters changed')
+            if previous is not None:require(run['signature_rows']==previous,'Controlled fixture topology signature changed across repetitions')
+            previous=run['signature_rows']
+            rows.append([case['label'],i+1,len(frames),fmt(metric['min']),fmt(metric['mean']),fmt(metric['p95']),fmt(metric['p99']),fmt(metric['max']),misses,worst,fmt(float(f['command_ms'])),fmt(float(f['physics_step_ms'])),fmt(float(f['completion_ms']))])
+            gates.append(dict(case=case['id'],repeat=i+1,metrics=metric,misses=misses,worst_step=worst))
+    enough=manifest['seconds']>=60 and manifest['trials']>=5
+    doc.text(('❌ Deadline failed' if failures else '✅ Measured deadlines passed')+f': {failures} steps exceeded 8.0 ms. '+('Five × 60-second duration requirement met.' if enough else 'Diagnostic only: five × 60-second qualification duration not met.'))
+    doc.text('This timing gate checks convergence, correction limit, frozen wall counters and repeated counter histories. It does not substitute for the independent trajectory/hole/momentum audit or the 10-minute endurance gate; overall plan qualification remains incomplete until those pass.')
+    doc.table(['Scene','Repeat','Steps','Min ms','Mean ms','p95 ms','p99 ms','Peak ms','Misses','Peak step','Commands at peak ms','Physics/destruction at peak ms','Completion at peak ms'],rows)
+    doc.text('Commands and completion timings are disjoint from simulate/fetch. Detailed CPU/GPU subdivisions require a separate profiling capture; they must not be inferred from another run’s maximum. No percentile or outlier removal changes the deadline verdict.')
+    doc.save(out)
+    payload=dict(schema=1,deadline_ms=8.0,deadline_pass=failures==0,duration_pass=enough,quality_endurance_qualified=False,runs=gates,manifest=manifest)
+    with (out/'report.json.gz').open('wb') as raw:
+        with gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0) as z:z.write((json.dumps(payload,indent=2,sort_keys=True)+'\n').encode())
+    return failures==0 and enough
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('capture',type=Path);parser.add_argument('--output',type=Path,required=True);args=parser.parse_args()
     manifest=json.loads((args.capture/'campaign.json').read_text());require(manifest['status']=='complete','Campaign incomplete')
@@ -367,6 +414,11 @@ def main():
         validate_duration(manifest,r['frames'])
         if rec['mode'] in ['phases','gpu']:r['profile']=profile(directory,r,catalog)
         runs[rec['case']][rec['mode']].append(r)
+    if manifest.get('gate_only'):
+        for case in runs.values():require(len(case['plain'])==manifest['trials'],'Missing untraced repetition')
+        passed=render_complete_gate(manifest,runs,args.output)
+        print(args.output/'report.html')
+        raise SystemExit(0 if passed else 2)
     require(manifest['gpu_seconds']==manifest['seconds'],'Partial-duration GPU capture cannot qualify this report')
     for case in runs.values():require(len(case['plain'])==manifest['trials'] and len(case['phases'])==1 and len(case['gpu'])==manifest.get('gpu_trials',1),'Missing repeat or profile capture')
     render(manifest,runs,args.output)

@@ -1,0 +1,10 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 76: blast_stress_gpu_resident_cpu_parity
+1/2 Test #76: blast_stress_gpu_resident_cpu_parity ...   Passed    0.27 sec
+    Start 77: blast_stress_gpu_resident_analytic
+2/2 Test #77: blast_stress_gpu_resident_analytic .....   Passed    0.26 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.53 sec

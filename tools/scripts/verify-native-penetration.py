@@ -5,12 +5,14 @@ This reads audit output after simulation; it never supplies loads or fracture de
 """
 import argparse
 import csv
+import gzip
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
 
 
-def verify(capture):
+def verify(capture, golden=None):
     summary=json.loads((capture/'native.summary.json').read_text())
     frames=list(csv.DictReader((capture/'native.frames.csv').open()))
     assert summary['status']=='completed' and summary['shot_path']=='through-wall'
@@ -34,12 +36,16 @@ def verify(capture):
     assert exits and exits[0]>broken[0], 'no verified rear-wall clearance after fracture'
     # Frames store accepted end-of-step state, so index 0 is t=1/60, not t=0.
     exit_step=exits[0]
-    initial={};at_two_seconds={};final={}
-    for row in csv.DictReader((capture/'native.motion.csv').open()):
+    initial={};at_two_seconds={};final={};identities=[]
+    motion_path=capture/'native.motion.csv'
+    motion_stream=motion_path.open() if motion_path.exists() else gzip.open(str(motion_path)+'.gz','rt')
+    for row in csv.DictReader(motion_stream):
         step=int(row['step']);chunk=int(row['chunk'])
+        identities.append([step,chunk,int(row['root']),int(row['cluster_chunks']),int(row['supported'])])
         if step==0:initial[chunk]=row
         if step==119:at_two_seconds[chunk]=row
         if step==len(frames)-1:final[chunk]=row
+    motion_stream.close()
     assert len(initial)==len(at_two_seconds)==len(final)==444
     groups={int(r['root']):(int(r['cluster_chunks']),int(r['supported'])) for r in final.values()}
     assert sum(n for n,s in groups.values())==444
@@ -59,7 +65,7 @@ def verify(capture):
                 ids.append(chunk)
         assert len(ids)==4
         holes[side]=ids
-    return dict(projectile_clearance_step=exit_step,projectile_clearance_seconds=(exit_step+1)/60,
+    result=dict(topology_identity_sha256=hashlib.sha256(json.dumps(identities,separators=(',',':')).encode()).hexdigest(),projectile_clearance_step=exit_step,projectile_clearance_seconds=(exit_step+1)/60,
                 projectile_position_at_clearance=ball[exit_step].tolist(),
                 corrected_steps=corrected,fracture_steps=broken,corrections_per_step_max=1,
                 largest_connected_cluster=largest,supported_chunks=supported,
@@ -68,12 +74,20 @@ def verify(capture):
                 all_stress_steps_converged=True,max_render_collision_position_error=summary['max_motion_position_error'],
                 max_cluster_com_error=summary['max_cluster_com_error'],
                 physics_ms={k:summary['physics_ms_'+k] for k in ['min','mean','p50','p95','p99','max']})
+    if golden:
+        expected=json.loads(golden.read_text())
+        assert len(frames)==expected['frames'], 'regression duration changed'
+        for key in ['topology_identity_sha256','broken_bonds','supported_chunks','detached_chunks','final_cluster_count']:
+            assert result[key]==expected[key], f'Frozen quality fixture changed: {key}'
+        result['frozen_identity_gate_passed']=True
+        result['golden_sha256']=hashlib.sha256(golden.read_bytes()).hexdigest()
+    return result
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('capture',type=Path);parser.add_argument('--output',type=Path)
-    args=parser.parse_args();result=verify(args.capture)
+    parser.add_argument('capture',type=Path);parser.add_argument('--output',type=Path);parser.add_argument('--golden',type=Path)
+    args=parser.parse_args();result=verify(args.capture,args.golden)
     text=json.dumps(result,indent=2)+'\n'
     if args.output:args.output.write_text(text)
     print(text)

@@ -781,13 +781,14 @@ namespace physx
         bool ok;
         {
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
-        const PxU32 pairs = mNpContext->getGpuNarrowphaseCore()->mTotalNumPairs;
-        ok = mDestruction->prepareFrame(pairs);
-        CUevent ready = mDestruction->inputEvent();
-        if(ok && pairs)
-            ok = copyContactData(mDestruction->contactPairs(), mDestruction->contactCount(), pairs, ready, ready);
+        ok = mDestruction->prepareFrame();
+        PxgDestructionSolvedContacts contacts;
+        const PxU32 streamIndex=1-mDynamicContext->getCurrentContactStreamIndex();
+        if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
+            contacts,mDestruction->inputEvent(),mDynamicContext->getPatchStream(streamIndex),
+            mDynamicContext->getContactStream(streamIndex),mNpContext->getContext().mForceAndIndiceStreamPool->mDataStream);
         if(ok) ok = mDestruction->advance(dt, gravity,
-            mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
+            mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream(),contacts);
         }
         // Complete before contact buffers can be recycled or the scene is
         // published. Only compact new-body allocation metadata and status leave

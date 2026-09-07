@@ -9460,6 +9460,28 @@ bool PxgGpuNarrowphaseCore::evaluateSDFDistances(PxVec4* PX_RESTRICT localGradie
 	return success;
 }
 
+bool PxgGpuNarrowphaseCore::borrowDestructionSolvedContacts(PxgDestructionSolvedContacts& view,
+    CUevent readyEvent, PxU8* basePatches, PxU8* basePoints, PxU8* baseForces)
+{
+    PxScopedCudaLock lock(*mCudaContextManager);
+    if(mCudaContext->isInAbortMode() || !readyEvent)return false;
+    // Join consumer preparation and all NP work without a host wait. The rigid
+    // solver's final writer is joined separately by the destruction runtime.
+    if(mCudaContext->streamWaitEvent(mStream,readyEvent)!=CUDA_SUCCESS)return false;
+    const auto& managers=*mGpuContactManagers[GPU_BUCKET_ID::eConvex];
+    view.inputs=managers.mContactManagers.mContactManagerInputData.getTypedPtr();
+    view.outputs=managers.mContactManagers.mContactManagerOutputData.getTypedPtr();
+    view.shapeToRigid=reinterpret_cast<const PxNodeIndex*>(mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr());
+    view.cpuPatches=basePatches;view.cpuPoints=basePoints;
+    view.cpuForces=reinterpret_cast<const PxReal*>(baseForces);
+    view.patches=reinterpret_cast<const PxU8*>(mPatchStream);
+    view.points=reinterpret_cast<const PxU8*>(mContactStream);
+    view.forces=reinterpret_cast<const PxReal*>(mForceAndIndiceStream);
+    view.friction=reinterpret_cast<const PxU8*>(mGpuContext->mGpuSolverCore->mFrictionPatches.getDevicePtr());
+    view.pairCount=mTotalNumPairs;
+    return mCudaContext->eventRecord(readyEvent,mStream)==CUDA_SUCCESS;
+}
+
 bool PxgGpuNarrowphaseCore::copyContactData(void* PX_RESTRICT data, PxU32* PX_RESTRICT numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent finishEvent, PxU8* PX_RESTRICT baseContactPatches, PxU8* PX_RESTRICT baseContactPoints, PxU8* PX_RESTRICT baseContactForces)
 {
 	PxScopedCudaLock lock(*mCudaContextManager);

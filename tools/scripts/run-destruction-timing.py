@@ -43,16 +43,18 @@ def main():
     p.add_argument('--config',type=Path,default=ROOT/'tools/profiles/wall-penetration-timing.json')
     p.add_argument('--binary',type=Path,default=ROOT/'out/destruction-sdk/reference/native_destruction_demo')
     p.add_argument('--resume',action='store_true');p.add_argument('--trials',type=int,default=5);p.add_argument('--seconds',type=int,default=10);p.add_argument('--gpu-trials',type=int,default=3);p.add_argument('--gpu-trace-buffer-mb',type=int,default=512)
+    p.add_argument('--gate-only',action='store_true',help='Untraced complete-step deadline runs, without expensive profiler captures')
+    p.add_argument('--case',choices=['penetration','idle-1','idle-16'],help='Select one versioned fixture')
     p.add_argument('--report-output',type=Path,help='Generated report directory (default: CAPTURE/report)')
     p.add_argument('--failure-campaign',type=Path,help='Retain failed earlier capture attempts as explicit report evidence')
     args=p.parse_args()
     if args.trials<2 or args.seconds<3 or args.gpu_trials<1 or not 16<=args.gpu_trace_buffer_mb<=4096:raise ValueError('At least two trials and three seconds required')
     args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=args.resume)
-    config=json.loads(args.config.read_text());binary=args.binary.resolve()
+    config=json.loads(args.config.read_text());config['cases']=[c for c in config['cases'] if not args.case or c['id']==args.case];binary=args.binary.resolve()
     linked=subprocess.check_output(['ldd',str(binary)],text=True)
     libs=[Path(line.split('=>',1)[1].strip().split()[0]) for line in linked.splitlines() if '=>' in line and line.split('=>',1)[1].strip().startswith('/')]
     artifacts=sorted(set([binary,*libs,*list((ROOT/'physx/bin/linux.x86_64/release').glob('*.so'))]))
-    manifest={'schema':1,'config':config,'config_sha256':sha(args.config),'seconds':args.seconds,'gpu_seconds':args.seconds,'gpu_trials':args.gpu_trials,'gpu_trace_buffer_mb':args.gpu_trace_buffer_mb,'trials':args.trials,
+    manifest={'schema':1,'config':config,'config_sha256':sha(args.config),'seconds':args.seconds,'gpu_seconds':args.seconds,'gpu_trials':args.gpu_trials,'gpu_trace_buffer_mb':args.gpu_trace_buffer_mb,'trials':args.trials,'gate_only':args.gate_only,'deadline_ms':8.0,
       'revision':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
       'git_status':subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True),
       'binary':str(binary),'artifacts':{str(f):sha(f) for f in artifacts},'ldd':linked,
@@ -66,7 +68,7 @@ def main():
     manifest_path=args.output/'campaign.json'
     if args.resume:
         previous=json.loads(manifest_path.read_text())
-        if any(previous[k]!=manifest[k] for k in ['config','seconds','gpu_seconds','gpu_trials','gpu_trace_buffer_mb','trials','artifacts']):raise RuntimeError('Resume inputs or executable artifacts changed')
+        if any(previous[k]!=manifest[k] for k in ['config','seconds','gpu_seconds','gpu_trials','gpu_trace_buffer_mb','trials','gate_only','artifacts']):raise RuntimeError('Resume inputs or executable artifacts changed')
         previous.setdefault('runner_revisions',[]).append(manifest['runner_sha256'])
         failed=[r for r in previous['runs'] if r.get('exit_code')!=0]
         for r in failed:
@@ -82,8 +84,9 @@ def main():
     def save():manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
     modes=[('warmup',0,c) for c in config['cases']]
     modes += [('plain',i,c) for i in range(args.trials) for c in config['cases']]
-    modes += [('phases',0,c) for c in config['cases']]
-    modes += [('gpu',i,c) for i in range(args.gpu_trials) for c in config['cases']]
+    if not args.gate_only:
+        modes += [('phases',0,c) for c in config['cases']]
+        modes += [('gpu',i,c) for i in range(args.gpu_trials) for c in config['cases']]
     save()
     try:
         for mode,trial,case in modes:
@@ -150,6 +153,7 @@ def main():
     except BaseException as e:
         manifest['status']='failed';manifest['error']=str(e);save();raise
     print('CAPTURE COMPLETE',manifest_path,flush=True)
-    subprocess.run([sys.executable,str(ROOT/'tools/scripts/report-destruction-timing.py'),str(args.output),'--output',str(args.report_output or args.output/'report')],check=True)
+    result=subprocess.run([sys.executable,str(ROOT/'tools/scripts/report-destruction-timing.py'),str(args.output),'--output',str(args.report_output or args.output/'report')])
+    if result.returncode:raise SystemExit(result.returncode)
 
 if __name__=='__main__':main()

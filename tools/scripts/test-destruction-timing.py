@@ -74,6 +74,23 @@ class TimingAccounting(unittest.TestCase):
             self.assertFalse(source.exists());self.assertEqual(gzip.decompress(first),raw)
             compressed.unlink();source.write_bytes(raw);runner.compress_csv(directory)
             self.assertEqual(first,compressed.read_bytes())
+    def complete_run(self,values):
+        return dict(summary=dict(complete_timer_schema=1,missed_8ms=sum(v>8 for v in values),complete_step_ms_max=max(values)),frames=[dict(complete_step_ms=v,command_ms=.1,physics_step_ms=v-.2,completion_ms=.1,complete_start_ns=1,simulation_start_ns=2,simulation_end_ns=3,complete_end_ns=4) for v in values])
+    def test_complete_peak_keeps_every_spike(self):
+        run=self.complete_run([1]*599+[8.00001]);metric=r.complete_step_metrics(run)
+        self.assertEqual(metric['max'],8.00001);self.assertEqual(run['summary']['missed_8ms'],1)
+    def test_complete_timer_rejects_old_bracket(self):
+        run=self.complete_run([1]);run['summary'].pop('complete_timer_schema')
+        with self.assertRaisesRegex(ValueError,'timer required'):r.complete_step_metrics(run)
+    def test_complete_timer_rejects_missing_cost(self):
+        run=self.complete_run([1]);run['frames'][0]['completion_ms']=0
+        with self.assertRaisesRegex(ValueError,'add up'):r.complete_step_metrics(run)
+    def test_complete_timer_rejects_wrong_deadline_count(self):
+        run=self.complete_run([9]);run['summary']['missed_8ms']=0
+        with self.assertRaisesRegex(ValueError,'counter mismatch'):r.complete_step_metrics(run)
+    def test_complete_timer_rejects_escaped_work(self):
+        run=self.complete_run([1]);run['frames'][0]['simulation_end_ns']=5
+        with self.assertRaisesRegex(ValueError,'escaped'):r.complete_step_metrics(run)
     def test_gpu_overlap_identity(self):
         gpu=[(1,7),(3,8),(9,10)];kernel=[(1,7),(3,8)]
         active=r.a.length(gpu);kernels=r.a.length(kernel)

@@ -141,15 +141,30 @@ __device__ void contactRate(PxU32 a,PxU32 b,const PxGpuContactPair& pair,const P
         if(cb && chunks[b].volume>0)atomicMax(reinterpret_cast<unsigned*>(rates+b),__float_as_uint(closing/cbrtf(chunks[b].volume)));
     }
 }
-__global__ void routeContacts(const PxGpuContactPair* pairs, const PxU32* count,
-    PxU32 capacity, const Lookup* map, PxU32 maps, const PxDestructionStressChunk* chunks,
+__global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Lookup* map, PxU32 maps, const PxDestructionStressChunk* chunks,
     const PxTransform* poses, float invDt, PxDestructionVectorPair* inputs,
     PxDestructionSurfaceLoad* surface, PxDestructionStageStatus* status,
     const PxgBodySim* bodies,const PxDestructionMaterial* materials,float* rates) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(i==0 && *count>capacity)atomicOr(&status->error,1u);
-    if(i>=*count || i>=capacity)return;
-    const auto p=pairs[i];
+    if(i>=contacts.pairCount)return;
+    const auto& output=contacts.outputs[i];
+    if(!output.nbContacts)return;
+    const auto& input=contacts.inputs[i];
+    // Resolve a descriptor in registers; never export/store an adapter payload.
+    PxGpuContactPair p{};
+    p.transformCacheRef0=input.transformCacheRef0;p.transformCacheRef1=input.transformCacheRef1;
+    p.nodeIndex0=contacts.shapeToRigid[p.transformCacheRef0];
+    p.nodeIndex1=contacts.shapeToRigid[p.transformCacheRef1];
+    const size_t patchOffset=reinterpret_cast<size_t>(output.contactPatches)-reinterpret_cast<size_t>(contacts.cpuPatches);
+    const size_t pointOffset=reinterpret_cast<size_t>(output.contactPoints)-reinterpret_cast<size_t>(contacts.cpuPoints);
+    p.contactPatches=const_cast<PxU8*>(contacts.patches+patchOffset);
+    p.contactPoints=const_cast<PxU8*>(contacts.points+pointOffset);
+    if(output.contactForces) {
+        const size_t forceOffset=reinterpret_cast<size_t>(output.contactForces)-reinterpret_cast<size_t>(contacts.cpuForces);
+        p.contactForces=reinterpret_cast<PxReal*>(const_cast<PxU8*>(reinterpret_cast<const PxU8*>(contacts.forces)+forceOffset));
+    }
+    p.frictionPatches=const_cast<PxU8*>(contacts.friction+patchOffset/sizeof(PxContactPatch)*sizeof(PxFrictionPatch));
+    p.nbPatches=output.nbPatches;p.nbContacts=output.nbContacts;
     const PxU32 a=findChunk(map,maps,p.transformCacheRef0), b=findChunk(map,maps,p.transformCacheRef1);
     if(a==PX_INVALID_U32 && b==PX_INVALID_U32)return;
     if(p.nbContacts && p.contactPatches && p.contactPoints && p.contactForces) {
@@ -417,8 +432,8 @@ class Runtime final : public PxgDestructionRuntime {
     ExtStressGpuSolver* mSolver{}; ExtStressGpuSolveParams mParams;
     PxDestructionStressChunk* mChunks{}; PxDestructionStressCluster* mClusters{};
     PxTransform* mPoses{}; PxVec3* mAngular{};
-    Lookup* mMap{}; PxU32 mMapCount{},mN{},mM{},mC{},mCapacity{};
-    PxGpuContactPair* mPairs{}; PxU32* mCount{};
+    Lookup* mMap{}; PxU32 mMapCount{},mN{},mM{},mC{};
+    bool mOwnInputs=false;
     PxDestructionVectorPair* mInputs{}; PxDestructionSurfaceLoad* mSurface{};
     PxDestructionStageStatus* mStatus{}; PxDestructionStageStatus* mHostStatus{};
     PxDestructionMaterial* mMaterials{};PxDestructionStressBond* mBonds{};
@@ -507,7 +522,7 @@ public:
         check(cudaEventCreateWithFlags(&mGraphReady,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mPreReady,cudaEventDisableTiming));
         check(cudaEventRecord(mPreReady,mStream));
-        allocate(mCount,1); allocate(mStatus,1);
+        allocate(mStatus,1);
         check(cudaMallocHost(&mHostStatus,sizeof(*mHostStatus)));*mHostStatus={};
         check(cudaMemset(mStatus,0,sizeof(*mStatus)));
         check(cudaEventRecord(mReady,mStream));
@@ -812,7 +827,7 @@ public:
     void release() override { delete this; }
     ~Runtime() override {
         Context current(mContext); cudaStreamSynchronize(mStream);clear();
-        cudaFree(mCount);cudaFree(mStatus);cudaFree(mPairs);cudaFreeHost(mHostStatus);
+        cudaFree(mStatus);cudaFreeHost(mHostStatus);
         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
@@ -879,7 +894,7 @@ public:
         if(mSolver)mSolver->release();mSolver=nullptr;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
         cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
-        cudaFree(mMap);mMap=nullptr;cudaFree(mInputs);mInputs=nullptr;cudaFree(mSurface);mSurface=nullptr;
+        cudaFree(mMap);mMap=nullptr;if(mOwnInputs)cudaFree(mInputs);mInputs=nullptr;mOwnInputs=false;cudaFree(mSurface);mSurface=nullptr;
         cudaFree(mMaterials);mMaterials=nullptr;cudaFree(mBonds);mBonds=nullptr;
         cudaFree(mHealth);mHealth=nullptr;cudaFree(mRates);mRates=nullptr;
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
@@ -981,7 +996,10 @@ public:
             }
             allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));
             allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,map.size());
-            allocate(mInputs,d.chunkCount);allocate(mSurface,d.chunkCount);
+            if(mSolver) mInputs=reinterpret_cast<PxDestructionVectorPair*>(mSolver->deviceView().nodeInputs);
+            else {allocate(mInputs,d.chunkCount);mOwnInputs=true;}
+            if(!mInputs)throw std::runtime_error("missing resident destruction inputs");
+            allocate(mSurface,d.chunkCount);
             check(cudaMemcpy(mChunks,d.chunks,sizeof(*mChunks)*d.chunkCount,cudaMemcpyHostToDevice));
             check(cudaMemcpy(mClusters,d.clusters,sizeof(*mClusters)*d.clusterCount,cudaMemcpyHostToDevice));
             if(!map.empty())check(cudaMemcpy(mMap,map.data(),sizeof(*mMap)*map.size(),cudaMemcpyHostToDevice));
@@ -1067,12 +1085,9 @@ public:
     }
     void setConsumerEvent(CUevent e) override {if(mWriteAllowed(mScene))mConsumer=e;}
     PxDestructionStageStatus getLastStatus() const override {return *mHostStatus;}
-    bool prepareFrame(PxU32 n) override {
+    bool prepareFrame() override {
         try {Context current(mContext);if(!configured() || mPending)return false;
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
-            if(n>mCapacity) {check(cudaStreamSynchronize(mStream));PxGpuContactPair* fresh=nullptr;
-                allocate(fresh,n);cudaFree(mPairs);mPairs=fresh;mCapacity=n;}
-            check(cudaMemsetAsync(mCount,0,sizeof(*mCount),mStream));
             startFrame<<<1,1,0,mStream>>>(mStatus);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;
@@ -1084,12 +1099,11 @@ public:
             check(cudaEventRecord(mInput,mStream));return true;
         }catch(...){mFailed=true;return false;}
     }
-    PxGpuContactPair* contactPairs() const override {return mPairs;}
-    PxU32* contactCount() const override {return mCount;}
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
-    bool advance(PxReal dt,const PxVec3& gravity,const PxgBodySim* bodyStates,CUstream producerStream) override {
+    bool advance(PxReal dt,const PxVec3& gravity,const PxgBodySim* bodyStates,CUstream producerStream,
+        const PxgDestructionSolvedContacts& contacts) override {
         try {Context current(mContext);if(!configured() || dt<=0 || !bodyStates || !producerStream)return false;
-            // Join contact extraction and the native body's last writer before
+            // Join borrowed NP streams and the native body's last writer before
             // reading either. Recording the existing input event on the body
             // producer preserves the previous API-gather ordering without
             // those kernels or a CPU completion wait.
@@ -1098,7 +1112,7 @@ public:
             check(cudaStreamWaitEvent(mStream,mInput,0));stageMarker(0);
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
-            if(mCapacity)routeContacts<<<(mCapacity+127)/128,128,0,mStream>>>(mPairs,mCount,mCapacity,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
+            if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
             check(cudaEventRecord(mReady,mStream));
             stageMarker(1);
             const PxDestructionVectorPair* forces=nullptr;

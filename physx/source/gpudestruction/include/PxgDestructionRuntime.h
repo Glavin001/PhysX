@@ -54,14 +54,13 @@ public:
     // that reused pre-existing holes. The future correction task owns that order.
     virtual bool restoreRigidState(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 generation, CUstream stream) = 0;
-    virtual bool prepareFrame(PxU32 contactCapacity) = 0;
-    virtual PxGpuContactPair* contactPairs() const = 0;
-    virtual PxU32* contactCount() const = 0;
+    virtual bool prepareFrame() = 0;
     virtual CUevent inputEvent() const = 0;
     // The producer stream owns the native body pool. Runtime orders its reads
-    // after this stream and contact extraction; no Direct GPU API gather or
+    // after this stream and borrowed NP streams; no Direct GPU API gather or
     // second body-index binding is needed inside the simulation.
-    virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgBodySim* bodyStates, CUstream producerStream) = 0;
+    virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgBodySim* bodyStates, CUstream producerStream,
+        const PxgDestructionSolvedContacts& contacts) = 0;
     virtual bool finish() = 0;
     // Compact CPU allocation IDs only; no physical state readback. Slots remain
     // private/inactive until the correction transaction commits.

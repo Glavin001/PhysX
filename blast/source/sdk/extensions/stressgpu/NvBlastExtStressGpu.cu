@@ -13,6 +13,7 @@
 #include <cub/iterator/counting_input_iterator.cuh>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cooperative_groups.h>
 
 #include <algorithm>
 #include <chrono>
@@ -234,11 +235,15 @@ static bool bondStressFibreBending()
 
 static bool kernelProfileEnabled()
 {
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    return false;
+#else
     static const bool enabled = [] {
         const char* raw = std::getenv("BLAST_GPU_KERNEL_PROFILE");
         return raw != nullptr && std::string(raw) != "0";
     }();
     return enabled;
+#endif
 }
 
 static bool gatherRightMultiplyEnabled()
@@ -312,11 +317,15 @@ std::uint32_t conditionalLoopChunk()
 /// rather than assume it. Also the smoother a multigrid V-cycle would need.
 bool jacobiEnabled()
 {
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    return false;
+#else
     static const bool enabled = []() {
         const char* raw = std::getenv("BLAST_GPU_JACOBI");
         return raw != nullptr && std::string(raw) != "0";
     }();
     return enabled;
+#endif
 }
 
 /// Skip within-solve converged islands in the matvec. A/B switch: it saves the
@@ -341,11 +350,15 @@ bool deterministicReductionsEnabled()
 
 bool nodeSpaceEnabled()
 {
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    return true;
+#else
     static const bool enabled = []() {
         const char* raw = std::getenv("BLAST_GPU_NODE_SPACE");
         return raw == nullptr || std::string(raw) != "0";
     }();
     return enabled;
+#endif
 }
 
 /// Relabel a separated piece locally instead of repartitioning the whole graph.
@@ -478,11 +491,15 @@ static bool stableGraphEnabled()
 
 static bool graphUpdateEnabled()
 {
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    return false;
+#else
     static const bool enabled = [] {
         const char* raw = std::getenv("BLAST_GPU_GRAPH_UPDATE");
         return raw == nullptr || raw[0] != '0';
     }();
     return enabled;
+#endif
 }
 
 static bool wholeResetOnTopology()
@@ -1075,7 +1092,7 @@ __global__ void initializeStatus(
 /// endpoint rather than stored. The workload is ~2 flops/byte on a machine that
 /// does 80, so recomputing is free and it removes a whole bond-length vector
 /// from the loop.
-__global__ void nodeSpaceMatvec(
+__device__ __forceinline__ void nodeSpaceMatvecBody(
     AngLin* w,
     const AngLin* rho,
     const Inertia* inertia,
@@ -1101,13 +1118,13 @@ __global__ void nodeSpaceMatvec(
     // periodic explicit recomputation of q = L pi which keeps the recurrence
     // q = w + beta q from drifting (the pipelined-CG trade).
     const std::uint32_t* iterationPtr,
-    std::uint32_t refreshEvery)
+    std::uint32_t refreshEvery, unsigned logicalBlock)
 {
     if (refreshEvery != 0u && (*iterationPtr % refreshEvery) != 0u)
     {
         return;
     }
-    const std::uint32_t slot = blockIdx.x * blockDim.x + threadIdx.x;
+    const std::uint32_t slot = logicalBlock * blockDim.x + threadIdx.x;
     if (slot >= activeCounts[1])
     {
         return;
@@ -1226,6 +1243,35 @@ __global__ void nodeSpaceMatvec(
             atomicAdd(&zSqSlots[myIsland * slotCount + (slot & (slotCount - 1u))], zSq);
     }
 }
+
+__global__ void nodeSpaceMatvec(
+    AngLin* w,
+    const AngLin* rho,
+    const Inertia* inertia,
+    const std::uint32_t* nodeBondBegin,
+    const std::uint32_t* nodeBondRef,
+    const std::uint32_t* node0,
+    const std::uint32_t* node1,
+    const Vec4* offset0,
+    const Vec4* offset1,
+    const float* health,
+    const float* colScale,
+    const std::uint32_t* bondIsland,
+    const std::uint32_t* islandSkip,
+    const std::uint32_t* nodeIsland,
+    const std::uint32_t* islandActive,
+    bool skipConverged,
+    float* zSqSlots,
+    std::uint32_t slotCount,
+    const std::uint32_t* activeNodes,
+    const std::uint32_t* activeCounts,
+    // Refresh mode: when non-zero, this launch only does work on iterations
+    // divisible by `refreshEvery`, and skips the z_sq accumulation. That is the
+    // periodic explicit recomputation of q = L pi which keeps the recurrence
+    // q = w + beta q from drifting (the pipelined-CG trade).
+    const std::uint32_t* iterationPtr,
+    std::uint32_t refreshEvery)
+{ nodeSpaceMatvecBody(w, rho, inertia, nodeBondBegin, nodeBondRef, node0, node1, offset0, offset1, health, colScale, bondIsland, islandSkip, nodeIsland, islandActive, skipConverged, zSqSlots, slotCount, activeNodes, activeCounts, iterationPtr, refreshEvery, blockIdx.x); }
 
 /// Assemble and invert the 6x6 diagonal block of L per node: block-Jacobi.
 ///
@@ -1412,7 +1458,7 @@ __global__ void nodeSpaceApplyJacobi(
 /// This kernel already has the new q in registers, so reducing it here removes
 /// a whole separate pass that re-read q from memory (32 B/node) plus its kernel
 /// launch, every iteration.
-__global__ void nodeSpaceUpdateDirection(
+__device__ __forceinline__ void nodeSpaceUpdateDirectionBody(
     AngLin* pi,
     AngLin* q,
     const AngLin* rho,
@@ -1425,9 +1471,9 @@ __global__ void nodeSpaceUpdateDirection(
     std::uint32_t slotCount,
     const std::uint32_t* activeNodes,
     const std::uint32_t* activeCounts,
-    const std::uint32_t* iteration)
+    const std::uint32_t* iteration, unsigned logicalBlock)
 {
-    const std::uint32_t slot = blockIdx.x * blockDim.x + threadIdx.x;
+    const std::uint32_t slot = logicalBlock * blockDim.x + threadIdx.x;
     if (slot >= activeCounts[1])
     {
         return;
@@ -1459,8 +1505,24 @@ __global__ void nodeSpaceUpdateDirection(
     else atomicAdd(&qSqSlots[island * slotCount + (slot & (slotCount - 1u))], qSq);
 }
 
+__global__ void nodeSpaceUpdateDirection(
+    AngLin* pi,
+    AngLin* q,
+    const AngLin* rho,
+    const AngLin* w,
+    const float* zSq,
+    const float* zSqPrev,
+    const std::uint32_t* nodeIsland,
+    const std::uint32_t* islandActive,
+    float* qSqSlots,
+    std::uint32_t slotCount,
+    const std::uint32_t* activeNodes,
+    const std::uint32_t* activeCounts,
+    const std::uint32_t* iteration)
+{ nodeSpaceUpdateDirectionBody(pi, q, rho, w, zSq, zSqPrev, nodeIsland, islandActive, qSqSlots, slotCount, activeNodes, activeCounts, iteration, blockIdx.x); }
+
 /// mu += alpha pi ;  rho -= alpha q
-__global__ void nodeSpaceUpdateSolution(
+__device__ __forceinline__ void nodeSpaceUpdateSolutionBody(
     const std::uint32_t* iterationPtr,
     std::uint32_t maxIterations,
     AngLin* mu,
@@ -1472,13 +1534,13 @@ __global__ void nodeSpaceUpdateSolution(
     const std::uint32_t* nodeIsland,
     const std::uint32_t* islandActive,
     const std::uint32_t* activeNodes,
-    const std::uint32_t* activeCounts)
+    const std::uint32_t* activeCounts, unsigned logicalBlock)
 {
     if (*iterationPtr > maxIterations)
     {
         return;   // chunked-loop overshoot guard; see the bond-space twin
     }
-    const std::uint32_t slot = blockIdx.x * blockDim.x + threadIdx.x;
+    const std::uint32_t slot = logicalBlock * blockDim.x + threadIdx.x;
     if (slot >= activeCounts[1])
     {
         return;
@@ -1500,6 +1562,21 @@ __global__ void nodeSpaceUpdateSolution(
     rho[node].angular = sub(rho[node].angular, mul(q[node].angular, alpha));
     rho[node].linear = sub(rho[node].linear, mul(q[node].linear, alpha));
 }
+
+__global__ void nodeSpaceUpdateSolution(
+    const std::uint32_t* iterationPtr,
+    std::uint32_t maxIterations,
+    AngLin* mu,
+    AngLin* rho,
+    const AngLin* pi,
+    const AngLin* q,
+    const float* zSq,
+    const float* qSq,
+    const std::uint32_t* nodeIsland,
+    const std::uint32_t* islandActive,
+    const std::uint32_t* activeNodes,
+    const std::uint32_t* activeCounts)
+{ nodeSpaceUpdateSolutionBody(iterationPtr, maxIterations, mu, rho, pi, q, zSq, qSq, nodeIsland, islandActive, activeNodes, activeCounts, blockIdx.x); }
 
 /// lambda += W mu, i.e. one C^T D pass, run once at the end of the solve.
 __global__ void nodeSpaceApplySolution(
@@ -1793,7 +1870,7 @@ __global__ void finalizeIslandReduction(
 /// and the three kernels measured 3.5-4.6 us EACH per launch against ~10-25 us
 /// for the kernels that do real work. Fusing the pairs that were already
 /// adjacent and share a grid shape removes two launches per CG iteration.
-__global__ void finalizeAndCheckConvergence(
+__device__ __forceinline__ void finalizeAndCheckConvergenceBody(
     const float* perIslandSlots,
     float* result,
     std::uint32_t slots,
@@ -1802,11 +1879,11 @@ __global__ void finalizeAndCheckConvergence(
     const float* deltaSquared,
     std::uint32_t* blockActiveCounts,
     std::uint32_t islandCount,
-    const std::uint32_t* partialBegin)
+    const std::uint32_t* partialBegin, unsigned logicalBlock)
 {
     __shared__ std::uint32_t partial[kBlockSize];
     const std::uint32_t tid = threadIdx.x;
-    const std::uint32_t id = blockIdx.x * blockDim.x + tid;
+    const std::uint32_t id = logicalBlock * blockDim.x + tid;
 
     float sum = 0.0f;
     if (id < islandCount)
@@ -1840,12 +1917,24 @@ __global__ void finalizeAndCheckConvergence(
     }
     if (tid == 0)
     {
-        blockActiveCounts[blockIdx.x] = partial[0];
+        blockActiveCounts[logicalBlock] = partial[0];
     }
 }
 
+__global__ void finalizeAndCheckConvergence(
+    const float* perIslandSlots,
+    float* result,
+    std::uint32_t slots,
+    std::uint32_t* islandActive,
+    std::uint32_t* islandConverged,
+    const float* deltaSquared,
+    std::uint32_t* blockActiveCounts,
+    std::uint32_t islandCount,
+    const std::uint32_t* partialBegin)
+{ finalizeAndCheckConvergenceBody(perIslandSlots, result, slots, islandActive, islandConverged, deltaSquared, blockActiveCounts, islandCount, partialBegin, blockIdx.x); }
+
 /// Slot-sum + degenerate retirement + loop control, in one launch.
-__global__ void finalizeAndRetire(
+__device__ __forceinline__ void finalizeAndRetireBody(
     const float* perIslandSlots,
     float* result,
     std::uint32_t slots,
@@ -1859,9 +1948,9 @@ __global__ void finalizeAndRetire(
     std::uint32_t islandCount,
     cudaGraphConditionalHandle loopHandle,
     std::uint32_t maxIterations,
-    const std::uint32_t* partialBegin)
+    const std::uint32_t* partialBegin, unsigned logicalBlock)
 {
-    const std::uint32_t id = blockIdx.x * blockDim.x + threadIdx.x;
+    const std::uint32_t id = logicalBlock * blockDim.x + threadIdx.x;
     if (id < islandCount)
     {
         const float sum = sumIslandPartials(perIslandSlots, id, slots, partialBegin);
@@ -1876,7 +1965,7 @@ __global__ void finalizeAndRetire(
         }
     }
 
-    if (blockIdx.x == 0 && threadIdx.x == 0)
+    if (logicalBlock == 0 && threadIdx.x == 0)
     {
         const std::uint32_t iteration = *iterationPtr;
         std::uint32_t active = 0;
@@ -1899,6 +1988,23 @@ __global__ void finalizeAndRetire(
         }
     }
 }
+
+__global__ void finalizeAndRetire(
+    const float* perIslandSlots,
+    float* result,
+    std::uint32_t slots,
+    std::uint32_t* islandActive,
+    float* previousNumerator,
+    const float* numerator,
+    SolveStatus* status,
+    const std::uint32_t* blockActiveCounts,
+    std::uint32_t blockCount,
+    std::uint32_t* iterationPtr,
+    std::uint32_t islandCount,
+    cudaGraphConditionalHandle loopHandle,
+    std::uint32_t maxIterations,
+    const std::uint32_t* partialBegin)
+{ finalizeAndRetireBody(perIslandSlots, result, slots, islandActive, previousNumerator, numerator, status, blockActiveCounts, blockCount, iterationPtr, islandCount, loopHandle, maxIterations, partialBegin, blockIdx.x); }
 
 __global__ void checkConvergencePerIsland(
     std::uint32_t* islandActive,
@@ -2794,6 +2900,74 @@ struct IslandReductionOrder
 
 #include "NvBlastExtStressGpuTopology.cuh"
 
+
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+// The iteration's mathematical stages are shared with the reference kernels.
+// One cooperative launch owns all iterations; virtual block ranges cover any
+// scene size without requiring the entire data set to be resident at once.
+struct PersistentStressArgs {
+    AngLin* m_nsW;
+    AngLin* m_residual;
+    Inertia* m_inertia;
+    std::uint32_t* m_nodeBondBegin;
+    std::uint32_t* m_nodeBondRef;
+    std::uint32_t* m_node0;
+    std::uint32_t* m_node1;
+    Vec4* m_offset0;
+    Vec4* m_offset1;
+    float* m_health;
+    float* m_colScales;
+    std::uint32_t* m_bondIsland;
+    std::uint32_t* m_nodeIsland;
+    std::uint32_t* m_islandActive;
+    float* m_reduceSlots;
+    std::uint32_t slots;
+    std::uint32_t* m_activeNodes;
+    std::uint32_t* m_activeCounts;
+    std::uint32_t* m_iteration;
+    float* m_gradientSquared;
+    std::uint32_t* m_islandConverged;
+    float* m_deltaSquared;
+    std::uint32_t* m_blockActiveCounts;
+    std::uint32_t m_islandCount;
+    AngLin* m_nsPi;
+    AngLin* m_nsQ;
+    float* m_previousGradientSquared;
+    float* m_projectedDirectionSquared;
+    SolveStatus* m_status;
+    std::uint32_t islandBlocks;
+    std::uint32_t maxIterations;
+    AngLin* m_nsMu;
+    unsigned nodeBlocks;
+};
+__global__ void persistentStressSolve(PersistentStressArgs a) {
+    const auto grid=cooperative_groups::this_grid();
+    const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
+    const unsigned stride=gridDim.x*blockDim.x;
+    do {
+        for(unsigned i=lane;i<a.m_islandCount*a.slots;i+=stride)a.m_reduceSlots[i]=0;
+        if(gridDim.x==1)__syncthreads();else grid.sync();
+        for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
+            nodeSpaceMatvecBody(a.m_nsW,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block);
+        if(gridDim.x==1)__syncthreads();else grid.sync();
+        for(unsigned block=blockIdx.x;block<a.islandBlocks;block+=gridDim.x)
+            finalizeAndCheckConvergenceBody(a.m_reduceSlots,a.m_gradientSquared,a.slots,a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,a.m_blockActiveCounts,a.m_islandCount,nullptr,block);
+        if(gridDim.x==1)__syncthreads();else grid.sync();
+        for(unsigned i=lane;i<a.m_islandCount*a.slots;i+=stride)a.m_reduceSlots[i]=0;
+        if(gridDim.x==1)__syncthreads();else grid.sync();
+        for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
+            nodeSpaceUpdateDirectionBody(a.m_nsPi,a.m_nsQ,a.m_residual,a.m_nsW,a.m_gradientSquared,a.m_previousGradientSquared,a.m_nodeIsland,a.m_islandActive,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,block);
+        if(gridDim.x==1)__syncthreads();else grid.sync();
+        for(unsigned block=blockIdx.x;block<a.islandBlocks;block+=gridDim.x)
+            finalizeAndRetireBody(a.m_reduceSlots,a.m_projectedDirectionSquared,a.slots,a.m_islandActive,a.m_previousGradientSquared,a.m_gradientSquared,a.m_status,a.m_blockActiveCounts,a.islandBlocks,a.m_iteration,a.m_islandCount,0,a.maxIterations,nullptr,block);
+        if(gridDim.x==1)__syncthreads();else grid.sync();
+        for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
+            nodeSpaceUpdateSolutionBody(a.m_iteration,a.maxIterations,a.m_nsMu,a.m_residual,a.m_nsPi,a.m_nsQ,a.m_gradientSquared,a.m_projectedDirectionSquared,a.m_nodeIsland,a.m_islandActive,a.m_activeNodes,a.m_activeCounts,block);
+        if(gridDim.x==1)__syncthreads();else grid.sync();
+    } while(a.m_status->active && *a.m_iteration<a.maxIterations);
+}
+#endif
+
 class ExtStressGpuSolverImpl final : public ExtStressGpuSolver
 {
 public:
@@ -2821,6 +2995,13 @@ public:
         }
         m_materialCount = static_cast<std::uint32_t>(m_hostMaterials.size());
         ContextGuard context(m_cudaContext);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        int device=0;cudaDeviceProp properties{};
+        checkCuda(cudaGetDevice(&device), "query destruction device");
+        checkCuda(cudaGetDeviceProperties(&properties, device), "query destruction capabilities");
+        if(properties.major!=8 || properties.minor!=9 || std::string(properties.name)!="NVIDIA GeForce RTX 4090" || !properties.cooperativeLaunch)
+            throw std::runtime_error("Integrated destruction is compatible only with RTX 4090 sm_89 and cooperative CUDA execution");
+#endif
         prepare(nodes, bonds);
 computeIslands();
         buildNodeBondCsr();
@@ -3082,13 +3263,17 @@ uploadIslands();
         m_telemetry = {};
         // The exact live island count is a device observation in this mode.
         m_telemetry.islandCount = m_deviceTopology ? 0 : m_islandCount;
-        m_telemetry.deviceToDeviceBytes = sizeof(*inputs) * std::uint64_t(count);
+        m_telemetry.deviceToDeviceBytes = inputs == m_input ? 0 : sizeof(*inputs) * std::uint64_t(count);
         m_bendGainMax = params.bendGainMax;
         m_skipStableUnconverged = false;
         m_hostInputValid = false;
         m_settledBaselineValid = false;
-        checkCuda(cudaMemcpyAsync(m_input, inputs, sizeof(*inputs)*count,
-            cudaMemcpyDeviceToDevice, m_stream), "copy resident stress inputs");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(inputs != m_input) throw std::runtime_error("Integrated destruction requires the shared resident input view");
+#else
+        if(inputs != m_input) checkCuda(cudaMemcpyAsync(m_input, inputs, sizeof(*inputs)*count,
+            cudaMemcpyDeviceToDevice, m_stream), "copy reference stress inputs");
+#endif
         executeSolve(params);
         exportPhysicalImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
             m_impulses, m_colScales, m_devicePhysicalImpulses, m_bondCount,
@@ -3104,7 +3289,7 @@ uploadIslands();
     {
         return {m_devicePhysicalImpulses, m_status, m_bondCount, m_statusReady,
             m_deviceTopology ? m_deviceTopology->status() : nullptr,
-            m_deviceTopology ? m_nodeIsland : nullptr, m_deviceTopology ? m_bondIsland : nullptr};
+            m_deviceTopology ? m_nodeIsland : nullptr, m_deviceTopology ? m_bondIsland : nullptr, m_input};
     }
 
     bool enableDeviceTopology() override
@@ -6952,11 +7137,39 @@ private:
     ///
     /// Both call the same launchIterationBody, so there is one implementation
     /// of the iteration and no chance of the two shapes drifting apart.
+    void launchPersistentStress(const ExtStressGpuSolveParams& params) {
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(deterministicReductionsEnabled())throw std::runtime_error("Reference reduction override is not supported by the integrated solver");
+        const unsigned nodeBlocks=(m_graphNodeCap+kBlockSize-1)/kBlockSize;
+        const unsigned islandBlocks=(m_islandCount+kBlockSize-1)/kBlockSize;
+        const unsigned slots=reductionSlots(m_graphNodeCap),maxIterations=params.maxIterations;
+        PersistentStressArgs args{m_nsW,m_residual,m_inertia,m_nodeBondBegin,m_nodeBondRef,m_node0,m_node1,m_offset0,m_offset1,m_health,m_colScales,m_bondIsland,m_nodeIsland,m_islandActive,m_reduceSlots,slots,m_activeNodes,m_activeCounts,m_iteration,m_gradientSquared,m_islandConverged,m_deltaSquared,m_blockActiveCounts,m_islandCount,m_nsPi,m_nsQ,m_previousGradientSquared,m_projectedDirectionSquared,m_status,islandBlocks,maxIterations,m_nsMu,nodeBlocks};
+        // Residency is a launch constraint, not a physical-work limit. All
+        // virtual node/island blocks are processed by the resident grid.
+        int blocksPerSm=0,device=0,sms=0;
+        checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSm,persistentStressSolve,kBlockSize,0),"persistent stress occupancy");
+        checkCuda(cudaGetDevice(&device),"persistent stress device");
+        checkCuda(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device),"persistent stress multiprocessors");
+        if(blocksPerSm<=0 || sms<=0)throw std::runtime_error("Persistent stress cooperative launch has no legal residency");
+        // Small complete problems remain within one block: shared-block
+        // barriers avoid cross-SM rendezvous for a few hundred nodes.
+        const unsigned blocks=m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks,islandBlocks),unsigned(blocksPerSm*sms));
+        void* arguments[]={&args};
+        checkCuda(cudaLaunchCooperativeKernel((void*)persistentStressSolve,dim3(blocks),dim3(kBlockSize),arguments,0,m_stream),"capture persistent stress solve");
+#else
+        (void)params;
+#endif
+    }
+
     void launchConditionalLoop(
         const ExtStressGpuSolveParams& params,
         const std::uint32_t* islandSkip,
         std::uint32_t maxCap)
     {
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        launchPersistentStress(params);return;
+#else
+
         if (conditionalLoopEnabled())
         {
             cudaStreamCaptureStatus captureStatus = cudaStreamCaptureStatusNone;
@@ -6988,6 +7201,7 @@ private:
             // the two paths share one kernel signature. Bump it per copy.
             launchIterationBody(params, islandSkip, maxCap, m_stream, 0);
         }
+#endif
     }
 
     /// Build the while-node. Returns false if anything is unsupported, leaving

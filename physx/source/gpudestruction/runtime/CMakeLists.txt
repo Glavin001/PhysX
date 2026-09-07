@@ -3,6 +3,9 @@
 find_package(CUDAToolkit 12.3 REQUIRED)
 get_filename_component(DESTRUCTION_REPO_ROOT "${PHYSX_ROOT_DIR}/.." ABSOLUTE)
 set(PX_DESTRUCTION_CUDA_ARCHITECTURES "89" CACHE STRING "Native destruction CUDA architectures")
+if(NOT PX_DESTRUCTION_CUDA_ARCHITECTURES STREQUAL "89" OR CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "12.8")
+    message(FATAL_ERROR "Integrated destruction requires CUDA >= 12.8 and RTX 4090 architecture 89")
+endif()
 # Match the reference stress compiler's arithmetic, independently of upstream
 # PhysX's fast-math switches. Explicit user CUDA flags still apply.
 get_property(CMAKE_CUDA_FLAGS CACHE CMAKE_CUDA_FLAGS PROPERTY VALUE)
@@ -21,7 +24,7 @@ target_include_directories(PhysXDestructionGpuRuntime PRIVATE
     ${PHYSX_SOURCE_DIR}/gpucommon/include
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stressgpu
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stress)
-target_compile_definitions(PhysXDestructionGpuRuntime PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
+target_compile_definitions(PhysXDestructionGpuRuntime PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PHYSX_RESIDENT_DESTRUCTION)
 set_target_properties(PhysXDestructionGpuRuntime PROPERTIES
     CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED YES CUDA_RUNTIME_LIBRARY Static
     CUDA_ARCHITECTURES "${PX_DESTRUCTION_CUDA_ARCHITECTURES}"

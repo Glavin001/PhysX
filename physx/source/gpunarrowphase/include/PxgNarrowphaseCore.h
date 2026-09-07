@@ -92,6 +92,7 @@ namespace physx
 
 
     struct PxgDestructionPreSolveContacts;
+    struct PxgDestructionSolvedContacts;
 	struct PxgContactManagers : public PxsContactManagerBase
 	{
 		PxgContactManagers(const PxU32 bucketId, Cm::VirtualAllocatorCallback& hostAlloc) : PxsContactManagerBase(bucketId), 
@@ -676,6 +677,11 @@ namespace physx
 		void registerParticleMaterial(const PxsPBDMaterialCore& materialCore);
 		void updateParticleMaterial(const PxsPBDMaterialCore& materialCore);
 		void unregisterParticleMaterial(const PxsPBDMaterialCore& materialCore);
+
+        // Scene-internal read lease. The caller must complete destruction before
+        // recycling NP streams; public contact export remains independent.
+        bool borrowDestructionSolvedContacts(PxgDestructionSolvedContacts& view,
+            CUevent readyEvent, PxU8* basePatches, PxU8* basePoints, PxU8* baseForces);
 
 		//direct gpu contact access  
 		bool copyContactData(void* data, PxU32* numContactPairs, const PxU32 maxContactPairs, CUevent startEvent,

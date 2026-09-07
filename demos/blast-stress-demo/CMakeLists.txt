@@ -830,3 +830,28 @@ if(BLAST_ENABLE_CUDA_STRESS)
         NvBlastExtStressGpu
         blast_stress_core)
 endif()
+
+# Standalone analytic qualification of the production CUDA specialization.
+# No reference-backend library is linked into this executable.
+if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+    add_library(gpu_resident_stress_test_core OBJECT EXCLUDE_FROM_ALL
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu")
+    target_include_directories(gpu_resident_stress_test_core PUBLIC
+        "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
+    target_compile_definitions(gpu_resident_stress_test_core PRIVATE PHYSX_RESIDENT_DESTRUCTION)
+    set_target_properties(gpu_resident_stress_test_core PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(gpu_resident_stress_test_core PUBLIC CUDA::cudart CUDA::cuda_driver)
+    add_executable(gpu_resident_stress_test EXCLUDE_FROM_ALL tests/gpu_resident_stress_test.cu)
+    set_target_properties(gpu_resident_stress_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(gpu_resident_stress_test PRIVATE gpu_resident_stress_test_core)
+    add_executable(gpu_resident_stress_parity_test EXCLUDE_FROM_ALL tests/gpu_stress_test.cpp)
+    target_include_directories(gpu_resident_stress_parity_test PRIVATE
+        "${BLAST_ROOT}/source/shared" "${BLAST_ROOT}/source/shared/stress_solver"
+        "${BLAST_ROOT}/include/shared/NvFoundation")
+    target_compile_definitions(gpu_resident_stress_parity_test PRIVATE
+        STRESS_SOLVER_FORCE_SCALAR STRESS_SOLVER_NO_SIMD STRESS_SOLVER_NO_DEVICE_QUERY)
+    target_link_libraries(gpu_resident_stress_parity_test PRIVATE gpu_resident_stress_test_core blast_stress_core)
+    add_test(NAME blast_stress_gpu_resident_cpu_parity COMMAND gpu_resident_stress_parity_test)
+    add_test(NAME blast_stress_gpu_resident_analytic COMMAND gpu_resident_stress_test)
+    set_tests_properties(blast_stress_gpu_resident_analytic PROPERTIES TIMEOUT 120)
+endif()

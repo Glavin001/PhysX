@@ -288,6 +288,10 @@ struct ExtStressGpuDeviceView
     const ExtStressGpuDeviceTopologyStatus* topologyStatus{nullptr};
     const std::uint32_t* nodeIslands{nullptr}; // minimum dynamic-node ID; static/isolated = UINT32_MAX
     const std::uint32_t* bondIslands{nullptr};
+    // Writable resident input: producer must wait for the previous solve/consumer
+    // before writing, then pass its completion event to solveDeviceAsync.
+    // Owned by this solver; stable until destruction. No caller frees this buffer.
+    ExtStressGpuImpulse* nodeInputs{nullptr};
 };
 
 class ExtStressGpuSolver
