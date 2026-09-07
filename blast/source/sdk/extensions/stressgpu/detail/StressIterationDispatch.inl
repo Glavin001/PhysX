@@ -242,8 +242,10 @@
         PersistentStressArgs args{m_nsW,m_residual,m_inertia,m_nodeBondBegin,m_nodeBondRef,m_node0,m_node1,m_offset0,m_offset1,m_health,m_colScales,m_bondIsland,m_nodeIsland,m_islandActive,m_reduceSlots,slots,m_activeNodes,m_activeCounts,m_iteration,m_gradientSquared,m_islandConverged,m_deltaSquared,m_blockActiveCounts,m_islandCount,m_nsPi,m_nsQ,m_previousGradientSquared,m_projectedDirectionSquared,m_status,islandBlocks,maxIterations,m_nsMu,nodeBlocks,m_deviceTopology ? m_deviceTopology->islandIds() : nullptr,m_deviceTopology ? &m_deviceTopology->status()->islandCount : nullptr,false};
         // Residency is a launch constraint, not a physical-work limit. All
         // virtual node/island blocks are processed by the resident grid.
+        const auto kernel=m_deviceTopology?persistentStressSolve<true>:persistentStressSolve<false>;
+        if(m_deviceTopology)args.hierarchy=m_deviceTopology->cycleView();
         int blocksPerSm=0,device=0,sms=0;
-        checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSm,persistentStressSolve,kBlockSize,0),"persistent stress occupancy");
+        checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSm,kernel,kBlockSize,0),"persistent stress occupancy");
         checkCuda(cudaGetDevice(&device),"persistent stress device");
         checkCuda(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device),"persistent stress multiprocessors");
         if(blocksPerSm<=0 || sms<=0)throw std::runtime_error("Persistent stress cooperative launch has no legal residency");
@@ -261,7 +263,7 @@
             args.largeComponentsOnly=true;
         }
         void* arguments[]={&args};
-        checkCuda(cudaLaunchCooperativeKernel((void*)persistentStressSolve,dim3(blocks),dim3(kBlockSize),arguments,0,m_stream),"capture persistent stress solve");
+        checkCuda(cudaLaunchCooperativeKernel((void*)kernel,dim3(blocks),dim3(kBlockSize),arguments,0,m_stream),"capture persistent stress solve");
         if(m_deviceTopology)
             finishComponentStress<<<1,kBlockSize,0,m_stream>>>(args,components);
 #else

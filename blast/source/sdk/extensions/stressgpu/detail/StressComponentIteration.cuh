@@ -24,6 +24,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
 {
     __shared__ unsigned counts[2], iteration, activeCount, slot;
     __shared__ SolveStatus status;
+    __shared__ StressHierarchy::TerminalShared cycleShared;
     __shared__ float reduceValue;
     // Components have very different convergence costs after fracture. A CTA
     // claims its next independent component only when its previous one finishes;
@@ -38,7 +39,11 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             // All readers must finish using the shared ticket before reuse.
             __syncthreads();continue;
         }
+        if(!nativeHierarchyReady(a.hierarchy)){
+            if(!threadIdx.x){c.results[id]={1u,a.maxIterations,0u};a.m_islandActive[id]=0;}__syncthreads();continue;
+        }
         if(threadIdx.x==0) {
+            a.hierarchy.previous[id]=0;a.hierarchy.failed[id]=0;
             counts[0]=0;counts[1]=count;iteration=0;activeCount=0;
             status={1u,a.maxIterations,0u};
         }
@@ -60,11 +65,21 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             finalizeAndCheckConvergenceBody(&reduceValue,a.m_gradientSquared,1u,
                 a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
             __syncthreads();
+            float localGamma=0;
+            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,cycleShared);
+            const float gamma=componentSquaredNorm(localGamma);
+            if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
+            __syncthreads();
+            for(unsigned block=0;block<nodeBlocks;++block)
+                nodeSpaceMatvecBody(a.hierarchy.lg,a.hierarchy.g,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,
+                    a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,
+                    nullptr,1u,c.nodes+begin,counts,&iteration,0u,block);
+            __syncthreads();
             squared=0;
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
-                nodeSpaceUpdateDirectionBody(a.m_nsPi,a.m_nsQ,a.m_residual,a.m_nsW,
-                    a.m_gradientSquared,a.m_previousGradientSquared,a.m_nodeIsland,a.m_islandActive,
+                nodeSpaceUpdateDirectionBody(a.m_nsPi,a.m_nsQ,a.hierarchy.g,a.hierarchy.lg,
+                    a.hierarchy.gamma,a.hierarchy.previous,a.m_nodeIsland,a.m_islandActive,
                     nullptr,1u,c.nodes+begin,counts,&iteration,block,&contribution);
                 squared+=contribution;
             }
@@ -72,16 +87,23 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             if(threadIdx.x==0)reduceValue=denominator;
             __syncthreads();
             finalizeAndRetireBody(&reduceValue,a.m_projectedDirectionSquared,1u,
-                a.m_islandActive,a.m_previousGradientSquared,a.m_gradientSquared,&status,&activeCount,1u,
+                a.m_islandActive,a.hierarchy.previous,a.hierarchy.gamma,&status,&activeCount,1u,
                 &iteration,1u,0,a.maxIterations,nullptr,0u,c.ids+slot,id);
             __syncthreads();
             for(unsigned block=0;block<nodeBlocks;++block)
                 nodeSpaceUpdateSolutionBody(&iteration,a.maxIterations,a.m_nsMu,a.m_residual,a.m_nsPi,
-                    a.m_nsQ,a.m_gradientSquared,a.m_projectedDirectionSquared,a.m_nodeIsland,
+                    a.m_nsQ,a.hierarchy.gamma,a.m_projectedDirectionSquared,a.m_nodeIsland,
                     a.m_islandActive,c.nodes+begin,counts,block);
             __syncthreads();
+#ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
+            if(!threadIdx.x && count==1024 && (iteration&(iteration-1))==0)printf("native history id=%u iteration=%u residual2=%g gamma=%g q2=%g g0=%g mu0=%g\n",id,iteration,a.m_gradientSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id],a.hierarchy.g[c.nodes[begin]].linear.y,a.m_nsMu[c.nodes[begin]].linear.y);
+#endif
         } while(status.active && iteration<a.maxIterations);
         if(threadIdx.x==0) {
+            if(a.hierarchy.failed[id] || !a.m_islandConverged[id])status.converged=0;
+#ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
+            if(!status.converged)printf("native component id=%u nodes=%u iterations=%u active=%u failed=%u residual2=%g tolerance2=%g gamma=%g q2=%g\n",id,count,status.iterations,status.active,a.hierarchy.failed[id],a.m_gradientSquared[id],a.m_deltaSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id]);
+#endif
             c.results[id]=status;
             // The cooperative stage must never update a small component,
             // including one that exhausted its iteration budget. Its failed

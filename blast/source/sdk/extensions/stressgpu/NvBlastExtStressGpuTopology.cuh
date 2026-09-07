@@ -151,6 +151,8 @@ struct ResidentStressComponentView
     unsigned* workCursor; // reset by solve initialization, never observed by the host
 };
 
+
+#include "detail/StressNativeHierarchy.cuh"
 struct DeviceStressTopologyBuffers
 {
     unsigned n, m;
@@ -165,10 +167,14 @@ struct DeviceStressTopologyBuffers
     void* selectScratch;
     size_t selectBytes;
     IslandReductionOrder* orders;
+    const float4* positions=nullptr;
 };
 class DeviceStressTopology
 {
     DeviceStressTopologyBuffers b;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    std::unique_ptr<NativeStressHierarchy> nativeHierarchy;
+#endif
     unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr;
     unsigned *rangeBegin=nullptr, *rangeEnd=nullptr, *tileCounts=nullptr;
     unsigned* liveIslands=nullptr;
@@ -228,7 +234,7 @@ class DeviceStressTopology
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,
             b.activeFlags,largeIslands,largeCount,b.n,captureStream), "compact large stress components");
     }
-    void build()
+    void build(cudaStream_t ownerStream)
     {
         const unsigned nodeBlocks=(b.n+kBlockSize-1)/kBlockSize, bondBlocks=(b.m+kBlockSize-1)/kBlockSize;
         cudaGraphConditionalHandle work=0, rebuild=0;
@@ -237,7 +243,7 @@ class DeviceStressTopology
         checkCuda(cudaGraphConditionalHandleCreate(&rebuild,graph,0,cudaGraphCondAssignDefault), "create stress rebuild condition");
         cudaGraphNode_t prior=nullptr;
         kernel(graph,prior,(void*)beginDeviceStressTopology,1,1,batch,state,work);
-        auto validation=conditional(graph,prior,work); prior=nullptr;
+        auto validation=conditional(graph,prior,work); cudaGraphNode_t rootTail=prior;prior=nullptr;
         kernel(validation,prior,(void*)validateDeviceStressMask,bondBlocks,kBlockSize,batch,b.health,b.m,state);
         kernel(validation,prior,(void*)chooseDeviceStressRebuild,1,1,state,rebuild);
         auto body=conditional(validation,prior,rebuild);
@@ -277,8 +283,22 @@ class DeviceStressTopology
             nodeSpaceBuildJacobi<<<nodeBlocks,kBlockSize,0,captureStream>>>(b.jacobi,b.inertia,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.offset0,b.offset1,b.health,b.colScales,b.n,b.m);
         if (deterministicReductionsEnabled()) { reductionOrder(0); reductionOrder(1); }
         finishDeviceStressRebuild<<<1,1,0,captureStream>>>(batch,state,b.activeCounts);
-        cudaGraph_t captured=nullptr;
+        cudaStreamCaptureStatus captureStatus;const cudaGraphNode_t* dependencies=nullptr;size_t dependencyCount=0;
+        checkCuda(cudaStreamGetCaptureInfo(captureStream,&captureStatus,nullptr,nullptr,&dependencies,&dependencyCount),"get stress topology completion dependency");
+        if(dependencyCount!=1)throw std::runtime_error("Native topology requires a single committed completion dependency");
+        cudaGraphNode_t completed=dependencies[0];cudaGraph_t captured=nullptr;
         checkCuda(cudaStreamEndCapture(captureStream,&captured), "finish stress topology capture");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        static_assert(sizeof(Inertia)==sizeof(float2) && sizeof(Vec4)==sizeof(float4),"native operator view layout");
+        StressHierarchy::Input input{b.n,b.m,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
+            b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->generation,nullptr};
+        input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
+        nativeHierarchy.reset(new NativeStressHierarchy(input,state,ownerStream));
+        nativeHierarchy->append(body,completed);
+        // This status publication is outside the rebuild condition so a prior
+        // failed hierarchy cannot appear healthy on an unchanged submission.
+        kernel(graph,rootTail,(void*)publishNativeHierarchyStatus,1,1,nativeHierarchy->status(),state);
+#endif
         checkCuda(cudaGraphInstantiate(&exec,graph,0), "instantiate stress topology graph");
     }
 public:
@@ -287,6 +307,9 @@ public:
     {
         if (exec) cudaGraphExecDestroy(exec);
         if (graph) cudaGraphDestroy(graph);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        nativeHierarchy.reset();
+#endif
         if (captureStream) cudaStreamDestroy(captureStream);
         cudaFree(parent); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys);
         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
@@ -320,7 +343,7 @@ public:
             checkCuda(cub::DeviceScan::ExclusiveSum(nullptr,scanBytes,tileCounts,b.orders[0].devicePartialBegin,b.n+1), "size stress tile scan");
             checkCuda(cudaMalloc(&scanScratch,scanBytes), "allocate stress tile scan scratch");
         }
-        build(); submit({nullptr,nullptr,nullptr},stream);
+        build(stream); submit({nullptr,nullptr,nullptr},stream);
     }
     void submit(DeviceStressTopologyBatch input,cudaStream_t stream)
     {
@@ -329,6 +352,9 @@ public:
     }
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
     const unsigned* islandIds() const { return liveIslands; }
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    NativeStressCycleView cycleView()const{return nativeHierarchy->view();}
+#endif
     ResidentStressComponentView components() const
     { return {liveIslands,&state->islandCount,componentNodes,rangeBegin,rangeEnd,largeIslands,largeCount,componentResults,componentWorkCursor}; }
 };

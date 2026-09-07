@@ -152,6 +152,9 @@ uploadIslands();
         cudaFree(m_areas);
         cudaFree(m_normals);
         cudaFree(m_inertia);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        cudaFree(m_positions);
+#endif
         cudaFree(m_offset1);
         cudaFree(m_offset0);
         cudaFree(m_node1);

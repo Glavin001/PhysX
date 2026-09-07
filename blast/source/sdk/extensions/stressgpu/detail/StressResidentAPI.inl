@@ -71,6 +71,9 @@
                 m_colScales,m_health,m_nsJacobi,m_impulses,m_rhs,m_residual,m_projectedDirection,m_nodeIsland,m_bondIsland,
                 m_activeNodes,m_activeBonds,m_activeCounts,m_activeFlags,m_islandConverged,m_islandSkip,
                 m_selectScratch,m_selectScratchBytes,m_reductionOrder};
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+            buffers.positions=m_positions;
+#endif
             m_deviceTopology = new DeviceStressTopology(buffers);
             m_deviceTopology->init(m_stream);
             checkCuda(cudaStreamSynchronize(m_stream), "prepare device-owned stress topology");

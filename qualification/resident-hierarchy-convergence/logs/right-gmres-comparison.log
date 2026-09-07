@@ -1,0 +1,8 @@
+{'nodes': 24, 'bonds': 23, 'smoothed': False, 'iterations': 12, 'info': 0, 'residual_squared': 3.7116785306667354e-12, 'threshold_squared': 4.8e-09, 'max_force_error': 1.0645779167095526e-06}
+{'nodes': 24, 'bonds': 23, 'smoothed': True, 'iterations': 7, 'info': 0, 'residual_squared': 3.245699745551267e-11, 'threshold_squared': 4.8e-09, 'max_force_error': 3.6738442021899687e-06}
+{'nodes': 128, 'bonds': 127, 'smoothed': False, 'iterations': 21, 'info': 0, 'residual_squared': 8.980137704136264e-11, 'threshold_squared': 2.56e-08, 'max_force_error': 2.951650465687905e-05}
+{'nodes': 128, 'bonds': 127, 'smoothed': True, 'iterations': 10, 'info': 0, 'residual_squared': 3.2923597218259434e-11, 'threshold_squared': 2.56e-08, 'max_force_error': 8.681715561786874e-06}
+{'nodes': 1024, 'bonds': 1023, 'smoothed': False, 'iterations': 29, 'info': 0, 'residual_squared': 4.735340689301998e-10, 'threshold_squared': 2.048e-07, 'max_force_error': 0.00013885541511815536}
+{'nodes': 1024, 'bonds': 1023, 'smoothed': True, 'iterations': 11, 'info': 0, 'residual_squared': 1.2226110444863502e-09, 'threshold_squared': 2.048e-07, 'max_force_error': 2.8824262178095417e-05}
+{'nodes': 1028, 'bonds': 1027, 'smoothed': False, 'iterations': 29, 'info': 0, 'residual_squared': 4.733809026726265e-10, 'threshold_squared': 2.0560000000000001e-07, 'max_force_error': 0.00013864552498366045}
+{'nodes': 1028, 'bonds': 1027, 'smoothed': True, 'iterations': 11, 'info': 0, 'residual_squared': 1.2183601173375186e-09, 'threshold_squared': 2.0560000000000001e-07, 'max_force_error': 2.8801836261138636e-05}

@@ -1,0 +1,14 @@
+{
+  "native_mixed_exit_code": 1,
+  "archived_candidate_exit_code": 1,
+  "archived_log_byte_equal": true,
+  "new_production_benchmark": false,
+  "runtime_rebuilt": false,
+  "executables": {
+    "out/destruction-sdk/reference/gpu_resident_stress_test": "9beb793b9a023f5ff89d5b0d7c88aeee61df4cf375479f77a70e81084eba25d6",
+    "out/rejected-resident-krylov/gpu_resident_krylov_test": "10d82d03d57c6bb6e46fab6a17fbe4ddd77dea6fa96bd56e2ea8e85238763aa8"
+  },
+  "squared_cycle.py_reproduction_equal": true,
+  "projected_cg.py_reproduction_equal": true,
+  "right_gmres.py_reproduction_equal": true
+}

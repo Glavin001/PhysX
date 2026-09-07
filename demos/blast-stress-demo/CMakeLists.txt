@@ -947,7 +947,7 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu")
     target_include_directories(gpu_resident_stress_test_core PUBLIC
         "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
-    target_compile_definitions(gpu_resident_stress_test_core PRIVATE PHYSX_RESIDENT_DESTRUCTION)
+    target_compile_definitions(gpu_resident_stress_test_core PRIVATE PHYSX_RESIDENT_DESTRUCTION BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC)
     set_target_properties(gpu_resident_stress_test_core PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_link_libraries(gpu_resident_stress_test_core PUBLIC CUDA::cudart CUDA::cuda_driver)
     add_executable(gpu_resident_stress_test EXCLUDE_FROM_ALL tests/gpu_resident_stress_test.cu)

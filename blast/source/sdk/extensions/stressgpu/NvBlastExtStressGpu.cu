@@ -28,6 +28,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+#include "detail/StressHierarchyCycle.cuh"
+#endif
 
 namespace Nv
 {
@@ -3510,6 +3513,9 @@ private:
         m_hostOffset0.resize(m_bondCount);
         m_hostOffset1.resize(m_bondCount);
         m_hostInertia.resize(m_nodeCount);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        m_hostPositions.resize(m_nodeCount);
+#endif
         m_hostNormals.resize(m_bondCount);
         m_hostAreas.resize(m_bondCount);
         m_hostColScale.resize(m_bondCount);
@@ -3632,6 +3638,9 @@ private:
             m_lengthScale = 1.0f;
         }
         const float reciprocalLength = 1.0f / m_lengthScale;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        for(unsigned i=0;i<m_nodeCount;++i)m_hostPositions[i]=make_float4(nodes[i].position[0]*reciprocalLength,nodes[i].position[1]*reciprocalLength,nodes[i].position[2]*reciprocalLength,0);
+#endif
         for (std::uint32_t i = 0; i < m_bondCount; ++i)
         {
             m_hostOffset0[i] = mul(m_hostOffset0[i], reciprocalLength);
@@ -4048,6 +4057,9 @@ private:
         stageUpload(m_offset0, m_hostOffset0.data(), sizeof(Vec4) * m_bondCount, "upload offset0");
         stageUpload(m_offset1, m_hostOffset1.data(), sizeof(Vec4) * m_bondCount, "upload offset1");
         stageUpload(m_inertia, m_hostInertia.data(), sizeof(Inertia) * m_nodeCount, "upload inertia");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        stageUpload(m_positions,m_hostPositions.data(),sizeof(float4)*m_nodeCount,"upload normalized chunk positions");
+#endif
         stageUpload(m_normals, m_hostNormals.data(), sizeof(Vec4) * m_bondCount, "upload normals");
         stageUpload(m_areas, m_hostAreas.data(), sizeof(float) * m_bondCount, "upload areas");
         stageUpload(m_colScales, m_hostColScale.data(), sizeof(float) * m_bondCount, "upload compliance weights");
@@ -4240,6 +4252,10 @@ private:
     PinnedVector<Vec4> m_hostOffset0;
     PinnedVector<Vec4> m_hostOffset1;
     PinnedVector<Inertia> m_hostInertia;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    PinnedVector<float4> m_hostPositions;
+    float4* m_positions=nullptr;
+#endif
     PinnedVector<Vec4> m_hostNormals;
     PinnedVector<float> m_hostAreas;
     /// Per-bond compliance weight, the CPU processor's column scale.

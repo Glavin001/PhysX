@@ -1,0 +1,3 @@
+[ 50%] Building CUDA object CMakeFiles/gpu_resident_krylov_test.dir/candidate/gpu_resident_krylov_test.cu.o
+[100%] Linking CUDA executable gpu_resident_krylov_test
+[100%] Built target gpu_resident_krylov_test

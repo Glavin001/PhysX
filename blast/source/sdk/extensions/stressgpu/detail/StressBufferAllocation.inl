@@ -19,6 +19,9 @@
         allocateDevice(m_offset0, m_bondCount, "allocate offset0");
         allocateDevice(m_offset1, m_bondCount, "allocate offset1");
         allocateDevice(m_inertia, m_nodeCount, "allocate inertia");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        allocateDevice(m_positions,m_nodeCount,"allocate persistent chunk positions");
+#endif
         allocateDevice(m_normals, m_bondCount, "allocate normals");
         allocateDevice(m_areas, m_bondCount, "allocate areas");
         allocateDevice(m_colScales, m_bondCount, "allocate compliance weights");
