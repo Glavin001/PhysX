@@ -1,0 +1,135 @@
+{
+  "case": "impacts-256",
+  "schema": 1,
+  "scoped": [
+    {
+      "peak_complete_ms": 67.921624,
+      "peak_cuda_stages": {
+        "commitAndStressTopology": 0.03788800165,
+        "contactLoads": 0.1351359934,
+        "materials": 0.06742399931,
+        "stress": 20.13507271,
+        "topologyAndCandidates": 0.4843519926
+      },
+      "peak_step": 103,
+      "peak_work": {
+        "awake_bodies": "12072",
+        "bodies": "12072",
+        "bonds_broken": "7300",
+        "contacts_frame": "109383",
+        "logical_clusters": "11816",
+        "resim_passes": "1",
+        "stress_active_bonds": "143980",
+        "stress_active_nodes": "87306",
+        "stress_islands": "1842",
+        "stress_iterations": "537"
+      },
+      "rows": [
+        {
+          "all_mean_ms": 11.839880116666667,
+          "key": "stress",
+          "label": "\ud83e\uddee Destruction submission and completion dependency",
+          "owner": "Our CUDA stress/load/topology pipeline; inspect CUDA stages below",
+          "peak_ms": 20.890947,
+          "top_mean_ms": 18.3859372
+        },
+        {
+          "all_mean_ms": 2.2274409222222222,
+          "key": "correction",
+          "label": "\u23ea Correction orchestration and repeated interaction",
+          "owner": "Optimize our work selection/reuse; keep NVIDIA collision/solve kernels",
+          "peak_ms": 25.120888,
+          "top_mean_ms": 14.084729300000001
+        },
+        {
+          "all_mean_ms": 2.8603606722222223,
+          "key": "trial",
+          "label": "\ud83d\udff0 Trial physics and unassigned scene tasks",
+          "owner": "Control/context; not a recommendation to rewrite NVIDIA kernels",
+          "peak_ms": 9.067382,
+          "top_mean_ms": 6.1801977
+        },
+        {
+          "all_mean_ms": 0.5353462999999999,
+          "key": "ownership",
+          "label": "\ud83d\ude9a Fragment ownership and lifecycle bridge",
+          "owner": "Our integration: allocation, registration, ownership, filtering and query mirrors",
+          "peak_ms": 9.93332,
+          "top_mean_ms": 5.3539769999999995
+        },
+        {
+          "all_mean_ms": 1.1948685944444444,
+          "key": "commit",
+          "label": "\ud83d\udce4 Accepted-state publication",
+          "owner": "Our correction completion and publication",
+          "peak_ms": 2.828136,
+          "top_mean_ms": 2.8100147
+        },
+        {
+          "all_mean_ms": 0.05630555000000006,
+          "key": "completion",
+          "label": "\u2705 Mandatory completion",
+          "owner": "Application completion/status boundary",
+          "peak_ms": 0.07123299999999233,
+          "top_mean_ms": 0.062335200000001124
+        },
+        {
+          "all_mean_ms": 0.012968583333333334,
+          "key": "checkpoint",
+          "label": "\ud83d\udcbe Checkpoint",
+          "owner": "Our checkpoint selection/submission",
+          "peak_ms": 0.011191,
+          "top_mean_ms": 0.0405837
+        },
+        {
+          "all_mean_ms": 0.07774095555555556,
+          "key": "commands",
+          "label": "\ud83d\udce5 Recorded commands",
+          "owner": "Command application including runtime insertion",
+          "peak_ms": 0.00012,
+          "top_mean_ms": 7.8e-05
+        }
+      ],
+      "top_steps": [
+        103,
+        82,
+        102,
+        101,
+        99,
+        85,
+        104,
+        106,
+        107,
+        84
+      ]
+    }
+  ],
+  "source_sha256": "2f618fbe703ff804ce1c5eb75099f6d21e4050d2289793078455a5c599f286ad",
+  "untraced": [
+    {
+      "mean_ms": 18.455348772222223,
+      "missed_60hz": 99,
+      "missed_8ms": 99,
+      "peak_ms": 62.034967,
+      "peak_step": 103,
+      "steps": 180
+    },
+    {
+      "mean_ms": 18.626081733333333,
+      "missed_60hz": 99,
+      "missed_8ms": 99,
+      "peak_ms": 63.596027,
+      "peak_step": 103,
+      "steps": 180
+    }
+  ],
+  "workload": {
+    "bonds": 229376,
+    "buildings": 256,
+    "chunks": 113664,
+    "correction_limit": 1,
+    "projectiles": 256,
+    "seconds": 3,
+    "sleeping": false
+  }
+}
