@@ -1,0 +1,3 @@
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=7.07ms
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=1.14ms
+native t=2.0 chunks=113664 bonds=229376 clusters=11855 shots=256 broken=56885 corrections=28 step=24.11ms

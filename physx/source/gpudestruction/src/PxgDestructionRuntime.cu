@@ -383,7 +383,6 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
             {atomicOr(&status->error,4u);return;}
         target=candidateBodies[slot];
         if(target==PX_INVALID_U32) {atomicOr(&status->error,4u);return;}
-        if(target!=source)atomicAdd(&status->migrating,1u);
     } else atomicAdd(&status->removed,1u);
     bindings[i]={i,shapeId,source,target};
 }
@@ -403,8 +402,16 @@ __global__ void installNativeCollisionOwners(const PxDestructionCollisionBinding
         {asm volatile("trap;");return;}
     shape.mBodySimIndex=PxNodeIndex(b.targetBody);
     shapeToBody[b.shape]=shape.mBodySimIndex;
-    ownerGenerations[b.shape]=generation;
+    // Broad phase's NEW flag assumes old pair managers were removed. Only
+    // migrating shapes require that lifecycle; retained owners keep their
+    // existing pairs while the correction resets their solver/contact caches.
+    if(b.sourceBody!=b.targetBody)ownerGenerations[b.shape]=generation;
 }
+struct HasMigratingCollisionBinding {
+    __host__ __device__ bool operator()(const PxDestructionCollisionBinding& b) const {
+        return b.shape!=PX_INVALID_U32 && b.targetBody!=PX_INVALID_U32 && b.sourceBody!=b.targetBody;
+    }
+};
 struct HasCollisionBinding {
     __host__ __device__ bool operator()(const PxDestructionCollisionBinding& b) const {return b.shape!=PX_INVALID_U32;}
 };
@@ -470,6 +477,9 @@ class Runtime final : public PxgDestructionRuntime {
     std::vector<PxU32> mHostReservedIndices;
     PxU32* mAffectedClusters{};PxU32* mCandidateSlots{};
     PxDestructionCollisionBinding *mCollisionBindings{},*mCompactCollisionBindings{};
+    // Compact observation for the remaining CPU ownership mirror. Retained
+    // shapes stay exclusively in the complete GPU collision transaction.
+    PxDestructionCollisionBinding* mMigratingCollisionBindings{};
     PxU64* mShapeOwnerGenerations{};
     PxU32 mShapeOwnerCapacity{};
     PxU64 mInstalledOwnerGeneration{};
@@ -895,6 +905,7 @@ public:
         mHostReservedIndices.clear();mHostBodyAllocation={};mHostCollisionPreparation={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
+        cudaFree(mMigratingCollisionBindings);mMigratingCollisionBindings=nullptr;
         cudaFree(mShapeOwnerGenerations);mShapeOwnerGenerations=nullptr;
         mShapeOwnerCapacity=0;mInstalledOwnerGeneration=0;
         cudaFree(mCollisionPreparation);mCollisionPreparation=nullptr;cudaFree(mCollisionScratch);mCollisionScratch=nullptr;mCollisionScratchBytes=0;
@@ -1043,9 +1054,14 @@ public:
                 allocate(mTopologyAccept,1);
                 allocate(mAffectedClusters,d.chunkCount);allocate(mCandidateSlots,d.chunkCount);
                 allocate(mCollisionBindings,d.chunkCount);allocate(mCompactCollisionBindings,d.chunkCount);allocate(mCollisionPreparation,1);
+                allocate(mMigratingCollisionBindings,d.chunkCount);
                 check(cudaMemset(mCollisionPreparation,0,sizeof(*mCollisionPreparation)));
                 check(cub::DeviceSelect::If(nullptr,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
                     &mCollisionPreparation->count,d.chunkCount,HasCollisionBinding{},mStream));
+                size_t migratingScratchBytes=0;
+                check(cub::DeviceSelect::If(nullptr,migratingScratchBytes,mCollisionBindings,mMigratingCollisionBindings,
+                    &mCollisionPreparation->migrating,d.chunkCount,HasMigratingCollisionBinding{},mStream));
+                mCollisionScratchBytes=std::max(mCollisionScratchBytes,migratingScratchBytes);
                 check(cudaMalloc(&mCollisionScratch,mCollisionScratchBytes));
                 allocate(mCorrectionOwnerRequests,d.chunkCount);allocate(mCorrectionOwnerTargets,d.chunkCount);
                 allocate(mCorrectionBodies,d.chunkCount);allocate(mCompactCorrectionBodies,d.chunkCount);allocate(mCorrectionPreparation,1);
@@ -1357,6 +1373,11 @@ public:
             check(cudaGetLastError());
             check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
                 &mCollisionPreparation->count,mN,HasCollisionBinding{},stream));
+            // Stable compaction keeps authored order at the CPU observation boundary.
+            // The full GPU binding list still updates retained shapes, including
+            // bounds, COM and contact-cache validity; only migrations rebuild pairs.
+            check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mMigratingCollisionBindings,
+                &mCollisionPreparation->migrating,mN,HasMigratingCollisionBinding{},stream));
             finishCollisionPreparation<<<1,1,0,stream>>>(mCollisionPreparation,mBodyAllocation,mStatus);
             check(cudaGetLastError());
             check(cudaEventRecord(mReady,stream));mCollisionPreparationSubmitted=true;
@@ -1462,7 +1483,7 @@ public:
             || mHostCollisionPreparation.removed || !mBodyAllocator)return false;
         try {
             Context current(mContext);check(cudaEventSynchronize(mReady));
-            std::vector<PxDestructionCollisionBinding> bindings(mHostCollisionPreparation.count);
+            std::vector<PxDestructionCollisionBinding> bindings(mHostCollisionPreparation.migrating);
             // CUDA has already selected every retained/new owner whose source
             // changed. Unchanged clusters need neither CPU ownership updates nor
             // a physical-state readback. Full rigid checkpoint replay remains
@@ -1473,7 +1494,7 @@ public:
             if(count) gatherCorrectionOwnerMetadata<<<(count+127)/128,128,0,mStream>>>(
                 mCompactCorrectionBodies,count,mCandidateSlots,mBodyRequests,mCorrectionOwnerRequests,mCorrectionOwnerTargets);
             check(cudaGetLastError());
-            if(!bindings.empty())check(cudaMemcpyAsync(bindings.data(),mCompactCollisionBindings,bindings.size()*sizeof(bindings[0]),cudaMemcpyDeviceToHost,mStream));
+            if(!bindings.empty())check(cudaMemcpyAsync(bindings.data(),mMigratingCollisionBindings,bindings.size()*sizeof(bindings[0]),cudaMemcpyDeviceToHost,mStream));
             if(count) {
                 check(cudaMemcpyAsync(requests.data(),mCorrectionOwnerRequests,count*sizeof(requests[0]),cudaMemcpyDeviceToHost,mStream));
                 check(cudaMemcpyAsync(mHostCorrectionTargets.data(),mCorrectionOwnerTargets,count*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));

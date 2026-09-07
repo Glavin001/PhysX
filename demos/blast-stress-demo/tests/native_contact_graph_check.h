@@ -10,6 +10,7 @@
 #include "PxsSimpleIslandManager.h"
 #include <cuda.h>
 #include <map>
+#include <string>
 #include <vector>
 #include <stdexcept>
 namespace nativeGraphTest {
@@ -84,12 +85,21 @@ inline void verify(PxScene& scene,PxCudaContextManager& cuda) {
     const auto associate=[](std::map<PxU32,PxU32>& map,PxU32 from,PxU32 to){
         const auto result=map.emplace(from,to);return result.second || result.first->second==to;
     };
+    std::map<PxU64,PxU32> shapePairs;
     for(PxU32 p=0;p<view.pairCount;++p) {
         if(retired[p>>5]&(1u<<(p&31)))continue;
         const auto* interaction=manager.getInteractionFromEdgeIndex(identities[p].edgeIndex);
         require(interaction,"GPU contact edge lacks a CPU interaction");
         const auto a=interaction->getActorSim0().getNodeIndex(),b=interaction->getActorSim1().getNodeIndex();
         const auto& input=inputs[p];
+        const PxU32 lo=PxMin(input.transformCacheRef0,input.transformCacheRef1);
+        const PxU32 hi=PxMax(input.transformCacheRef0,input.transformCacheRef1);
+        const auto inserted=shapePairs.emplace((PxU64(lo)<<32)|hi,p);
+        if(!inserted.second)throw std::runtime_error(
+            "two live contact managers resolve to the same persistent shape pair: shapes="
+            +std::to_string(lo)+","+std::to_string(hi)+" rows="+std::to_string(inserted.first->second)+","+std::to_string(p)
+            +" edges="+std::to_string(identities[inserted.first->second].edgeIndex)+","+std::to_string(identities[p].edgeIndex)
+            +" graph-generation="+std::to_string(view.generation));
         require(input.transformCacheRef0<view.shapeCapacity && input.transformCacheRef1<view.shapeCapacity,"GPU graph has invalid shape references");
         require(shapes[input.transformCacheRef0].mBodySimIndex==a && shapes[input.transformCacheRef1].mBodySimIndex==b,"GPU graph resolved stale cluster ownership");
         for(const auto node:{a,b}) {

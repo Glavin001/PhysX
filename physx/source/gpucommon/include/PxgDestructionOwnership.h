@@ -4,8 +4,9 @@
 
 namespace physx {
 // Borrowed by broad phase for one ordered correction. The ownership-install
-// kernel stamps affected persistent shapes, including retained motion owners
-// whose mass/COM changed. No bitmap construction, copy or per-step clear.
+// kernel stamps migrating persistent shapes. Retained motion owners keep their
+// pair identities: mass/COM-dependent caches are reset separately, and corrected
+// bounds are refreshed for all live shapes. No bitmap construction/copy/clear.
 // Zero disables the view; old generations cannot affect later simulation.
 struct PxgDestructionOwnershipView {
     const PxU64* shapeGenerations = NULL;

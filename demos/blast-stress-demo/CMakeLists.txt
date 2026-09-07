@@ -756,6 +756,11 @@ if(BLAST_ENABLE_CUDA_STRESS)
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_retained_contact_test.py $<TARGET_FILE:native_destruction_demo> $<TARGET_FILE:native_gpu_resimulation_test>)
 
 
+    add_test(NAME physx_native_gpu_bombardment_contacts COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_bombardment_contacts_test.py $<TARGET_FILE:native_destruction_demo>)
+    set_tests_properties(physx_native_gpu_bombardment_contacts PROPERTIES
+        RUN_SERIAL TRUE TIMEOUT 300 LABELS "gpu;integration")
+
     add_executable(native_gpu_resimulation_test tests/native_gpu_resimulation_test.cpp physx_scene.cpp)
     target_compile_definitions(native_gpu_resimulation_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_gpu_resimulation_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}

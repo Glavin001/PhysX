@@ -6,6 +6,7 @@
 #include "PxgDestructionRuntime.h"
 #include "PxgContext.h"
 #include "tests/native_pre_solve_check.h"
+#include "tests/native_contact_graph_check.h"
 #include "PxgSolverCore.h"
 #include "cudamanager/PxCudaContextManager.h"
 #include <algorithm>
@@ -75,6 +76,9 @@ inline void requireNativeGraphAudit(physx::PxScene& scene,const std::string& pat
     auto& sc=static_cast<NpScene&>(scene).getScScene();
     auto& gpu=*static_cast<PxgGpuContext*>(sc.getDynamicsContext());
     nativePreSolveTest::verify(gpu,*scene.getCudaContextManager());
+    // Explicit heavy observation only: also reject duplicate persistent shape
+    // pairs and stale motion ownership in the accepted contact graph.
+    nativeGraphTest::verify(scene,*scene.getCudaContextManager());
     const bool gpuProduced=gpu.getGpuSolverCore()->mPreSolveIslandIds!=0;
     const auto& ids=gpu.getExpectedSolverIslandIds();const auto& touches=gpu.getExpectedSolverStaticTouches();
     std::vector<PxU32> actualIds(ids.size()),actualTouches(touches.size());

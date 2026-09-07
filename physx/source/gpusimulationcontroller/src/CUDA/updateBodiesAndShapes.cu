@@ -1196,7 +1196,8 @@ extern "C" __global__ void refreshReboundShapeBounds(
     const PxU32* PX_RESTRICT indices, PxU32 count,
     const PxgShapeSim* PX_RESTRICT shapes, const PxgBodySim* PX_RESTRICT bodies,
     PxsCachedTransform* PX_RESTRICT transforms, PxBounds3* PX_RESTRICT bounds,
-    PxgShape* PX_RESTRICT geometry, const PxNodeIndex* PX_RESTRICT sortedNodes)
+    PxgShape* PX_RESTRICT geometry, const PxNodeIndex* PX_RESTRICT sortedNodes,
+    PxU32* PX_RESTRICT updated, PxU32 updatedCapacity)
 {
     __shared__ PxU32 liveRigidEnd;
     if(threadIdx.x==0) {
@@ -1216,7 +1217,7 @@ extern "C" __global__ void refreshReboundShapeBounds(
     __syncthreads();
     for(PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;i<liveRigidEnd;i+=blockDim.x*gridDim.x) {
         const PxU32 index=indices[i];
-        if(index==PX_INVALID_U32){asm volatile("trap;");return;}
+        if(index==PX_INVALID_U32 || index>=updatedCapacity || !updated){asm volatile("trap;");return;}
         const PxgShapeSim& shape=shapes[index];
         if(shape.mBodySimIndex.isStaticBody() || shape.mBodySimIndex.isArticulation()
             || (sortedNodes && !(shape.mBodySimIndex==sortedNodes[i]))) {asm volatile("trap;");return;}
@@ -1224,6 +1225,10 @@ extern "C" __global__ void refreshReboundShapeBounds(
         const PxTransform pose=getAbsPose(body.body2World.getTransform(),shape.mTransform,
             body.body2Actor_maxImpulseW.getTransform());
         updateCacheAndBound(pose,shape,index,transforms,bounds,geometry,true);
+        // Refreshing coordinates alone leaves SAP endpoints stale. Join the
+        // ordinary GPU bounds-update bitmap without treating retained shapes
+        // as new volumes or destroying their persistent contact managers.
+        updated[index]=1;
     }
 }
 

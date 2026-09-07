@@ -71,7 +71,7 @@ struct NoContactModification:PxContactModifyCallback {
     void onContactModify(PxContactModifyPair* const,PxU32)override{}
 };
 struct Result {float projectileVelocity;unsigned corrections,contacts;PxU64 constructedPairs=0;std::vector<PxVec3> contactMotion;PxU64 reuseFallbacks=0;};
-Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned quietCount=0,bool reuse=false,unsigned contactCount=0,bool forceReportingFallback=false,bool massFrameWake=false) {
+Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned quietCount=0,bool reuse=false,unsigned contactCount=0,bool forceReportingFallback=false,bool massFrameWake=false,bool retainedShape=false) {
     NoContactModification modify;Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,true,true,false,false);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
@@ -85,7 +85,14 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     auto* shape=physics.createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);
     shape->setLocalPose(PxTransform(authoredOffset));
     wall->setCMassLocalPose(PxTransform(authoredOffset));
-    require(wall->attachShape(*shape),"wall shape attachment failed");scene.addActor(*wall);
+    require(wall->attachShape(*shape),"wall shape attachment failed");
+    PxShape* retained=nullptr;
+    if(retainedShape) {
+        retained=physics.createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);
+        retained->setLocalPose(PxTransform(authoredOffset+PxVec3(0,-1,0)));
+        require(wall->attachShape(*retained),"retained support shape attachment failed");
+    }
+    scene.addActor(*wall);
     auto* shot=physics.createRigidDynamic(PxTransform(PxVec3(-2,5,0)));
     auto* sphere=physics.createShape(PxSphereGeometry(.2f),context.material(),true);
     require(shot->attachShape(*sphere),"projectile shape attachment failed");
@@ -96,6 +103,15 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     scene.addActor(*shot);
     auto* sentinel=physics.createRigidDynamic(PxTransform(PxVec3(-50,50,0)));
     sentinel->setLinearDamping(0);sentinel->setAngularDamping(0);scene.addActor(*sentinel);
+    PxRigidDynamic* retainedTouch=nullptr;
+    if(retainedShape) {
+        // A persistent contact on the retained owner catches broad-phase NEW
+        // flags incorrectly recreating a pair whose manager is still live.
+        retainedTouch=PxCreateDynamic(physics,PxTransform(PxVec3(0,4,.75f)),PxSphereGeometry(.3f),context.material(),1);
+        require(retainedTouch,"retained-contact probe creation failed");
+        retainedTouch->setMass(0);retainedTouch->setMassSpaceInertiaTensor(PxVec3(0));
+        scene.addActor(*retainedTouch);
+    }
     std::vector<PxRigidDynamic*> quiet;
     for(unsigned i=0;i<quietCount;++i) {
         auto* owner=physics.createRigidDynamic(PxTransform(PxVec3(100+float(i)*3,50,0)));
@@ -153,6 +169,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         clusters[0].centerOfMass=authoredOffset;
     }
     PxDestructionStressBond bond{0,1,authoredOffset+PxVec3(0,-.5f,0),PxVec3(0,1,0),1,1,1};
+    if(retained)chunks[0].contactIndex=scene.getDirectGPUAPI().getShapeContactIndex(*retained);
     PxDestructionMaterial material;if(gravity){material.compressionElasticLimit=100;material.compressionFatalLimit=200;}if(!fracture){material.compressionElasticLimit=1e12f;material.compressionFatalLimit=2e12f;}
     PxDestructionStressDesc desc;desc.chunks=chunks.data();desc.chunkCount=PxU32(chunks.size());desc.chunkMassProperties=mass.data();
     desc.clusters=clusters.data();desc.clusterCount=PxU32(clusters.size());desc.bonds=&bond;desc.bondCount=1;
@@ -169,9 +186,9 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     auto cleanup=[&](){
         {PxScopedCudaLock lock(cuda);check(cuEventDestroy(inputsReady));check(cuMemFree(index));check(cuMemFree(value));}
         require(destruction->clearStress(),"native accepted-fragment teardown failed");
-        for(auto* owner:quiet)owner->release();
+        for(auto* owner:quiet)owner->release();if(retainedTouch)retainedTouch->release();
         for(auto* body:contactBodies)body->release();if(contactFloor)contactFloor->release();
-        wall->release();shot->release();sentinel->release();shape->release();sphere->release();
+        wall->release();shot->release();sentinel->release();shape->release();sphere->release();if(retained)retained->release();
         require(context.healthy(),"native impact GPU health failed");
     };
     AllocationAudit allocations;
@@ -208,6 +225,22 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
             require(status.normalContacts && status.brokenBonds,"fracture was not driven by actual solved contact impulses");
             auto* runtime=static_cast<PxgDestructionRuntime*>(destruction);
             require(runtime->correctionBodyCount()==2,"CPU owner bridge included unchanged clusters");
+            if(retained) {
+                const auto view=destruction->getDeviceView();
+                PxDestructionCollisionPreparationStatus prep{};
+                {PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(&prep,CUdeviceptr(view.collisionPreparation),sizeof(prep)));}
+                require(prep.count==2 && prep.migrating==1,"fixture must retain one shape and migrate one shape");
+                require(retained->getActor()==wall,"retained collision shape lost its CPU owner");
+                require(nativeShapes.mNativeOwnerObservations-initialOwnerObservations==1,
+                    "retained GPU collision owner unnecessarily crossed CPU ownership bridge");
+                const auto retainedId=scene.getDirectGPUAPI().getShapeContactIndex(*retained);
+                const auto ownership=runtime->collisionOwnershipView();PxU64 generation=0;PxgShapeSim kept;
+                {PxScopedCudaLock lock(cuda);
+                    check(cuMemcpyDtoH(&generation,CUdeviceptr(ownership.shapeGenerations+retainedId),sizeof(generation)));
+                    check(cuMemcpyDtoH(&kept,shapeManager.getShapeSimsDevicePtr()+retainedId*sizeof(kept),sizeof(kept)));}
+                require(generation!=ownership.generation && kept.mBodySimIndex.index()==wall->getGPUIndex(),
+                    "retained shape must preserve its GPU owner without recreating existing pairs");
+            }
             require(controller.getSimulationCore()->getReboundShapeIndexUploadCount()==initialBoundsUploads,
                 "native correction built/uploaded a CPU shape-bounds list");
             require(shapeManager.getUploadedShapeCount()==initialShapeUploads,
@@ -292,7 +325,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         require(scene.raycast((pose*shape->getLocalPose()).p+PxVec3(0,2,0),PxVec3(0,-1,0),3,hit,PxHitFlag::eDEFAULT,PxQueryFilterData(),nullptr,cached?&cache:nullptr)
             && hit.hasBlock && hit.block.actor==fragment && hit.block.shape==shape,"accepted fragment query lookup lost its private owner");
     }
-    require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3+quietCount+contactCount,"query registration published a private fragment as a public actor");
+    require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==3+quietCount+contactCount+unsigned(retainedShape),"query registration published a private fragment as a public actor");
     std::printf("native query ownership valid; largest impact allocation=%zu bytes\n",allocations.largest.load());
     const auto constructedPairs=controller.getDestructionContactInputCount();
     const auto reuseFallbacks=controller.getDestructionContactReuseFallbackCount();
@@ -432,6 +465,10 @@ void unconvergedStress() {
 }
 }
 int main(int argc,char** argv){try {
+    if(argc==2 && std::string(argv[1])=="--retained-owner") {
+        impact(true,false,false,0,true,0,false,false,true);
+        std::puts("Retained owner: unique persistent contact pairs, one GPU-only retained shape and one CPU migration passed");return 0;
+    }
     if(argc==2 && std::string(argv[1])=="--retained-fracture") {
         repeatedImpacts(true,true,true,true,true,true,true);
         std::puts("Real fracture with deterministic retained speculative edges and exact graph audits passed");return 0;
@@ -454,6 +491,10 @@ int main(int argc,char** argv){try {
     std::printf("native pair reuse: reference constructions=%llu reuse=%llu; 32 friction participants match over all 30 steps\n",
         (unsigned long long)rebuilt.constructedPairs,(unsigned long long)reused.constructedPairs);
     impact(true,true,false,0,true,0,false,true);
+    const auto retainedFull=impact(true,false,false,0,false,0,false,false,true);
+    const auto retainedReuse=impact(true,false,false,0,true,0,false,false,true);
+    require(std::abs(retainedFull.projectileVelocity-retainedReuse.projectileVelocity)<.02f,
+        "GPU-only retained ownership changed corrected projectile response");
     const auto repeatReference=repeatedImpacts(false),repeatReuse=repeatedImpacts(true);
     // Once the first projectile/fragment contact separates, a falling fragment
     // must keep integrating gravity. Inactive allocation flags used to freeze it.

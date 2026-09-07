@@ -3245,14 +3245,18 @@ bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRig
     const CUdeviceptr transforms = mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr();
     const CUdeviceptr bounds = getBoundArrayBuffer()->getDevicePtr();
     const CUdeviceptr geometry = mGpuContext->mGpuNpCore->mGpuShapesManager.mGpuShapesBuffer.getDevicePtr();
+    PxU32* updated=mUpdatedDirectBuffer.getTypedPtr();
+    const PxU32 updatedCapacity=PxU32(mUpdatedDirectBuffer.getSize()/sizeof(PxU32));
+    if(!updated || updatedCapacity<PxU32(ownership.mMaxTransformCacheID+1))return false;
     PxCudaKernelParam params[] = { PX_CUDA_KERNEL_PARAM(ids), PX_CUDA_KERNEL_PARAM(count),
         PX_CUDA_KERNEL_PARAM(shapes), PX_CUDA_KERNEL_PARAM(bodies), PX_CUDA_KERNEL_PARAM(transforms),
-        PX_CUDA_KERNEL_PARAM(bounds), PX_CUDA_KERNEL_PARAM(geometry), PX_CUDA_KERNEL_PARAM(sortedNodes) };
+        PX_CUDA_KERNEL_PARAM(bounds), PX_CUDA_KERNEL_PARAM(geometry), PX_CUDA_KERNEL_PARAM(sortedNodes),
+        PX_CUDA_KERNEL_PARAM(updated), PX_CUDA_KERNEL_PARAM(updatedCapacity) };
     const CUfunction kernel = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::REFRESH_REBOUND_SHAPE_BOUNDS);
     const PxU32 blocks=PxMin(128u,(count+255)/256);
     const CUresult result = mCudaContext->launchKernel(kernel, blocks, 1, 1, 256, 1, 1,
         0, npStream, params, sizeof(params), 0, PX_FL);
-    // Refiltering already marked these persistent IDs in the BP changed map.
+    // The existing pre-BP merge consumes the GPU-written update flags.
     // Keep pinned storage alive until fetch completes, just like shape uploads.
     indices.clear();
     return result == CUDA_SUCCESS;

@@ -110,6 +110,8 @@ public:
         const PxU32 required=mAcceptedBodies.size()+mBodies.size();
         mAcceptedBodies.reserve(required);
         if(mAcceptedBodies.capacity()<required)return false;
+        // Only actual migrations cross this observation boundary. Retained owners
+        // are updated by the GPU collision transaction and cache invalidation.
         // Validate the complete metadata batch before changing ownership. Shape
         // identity lookup is built once per source, not once per migrating chunk.
         PxHashMap<PxU32,NpRigidDynamic*> owners;
@@ -131,7 +133,7 @@ public:
         for(PxU32 i=0;i<count;++i) {
             const auto b=bindings[i];const auto* found=shapes.find(b.shape);
             auto* from=source(b.sourceBody);auto* to=source(b.targetBody,true);
-            if(!found || !from || !to || !seen.insert(b.shape,i))return false;
+            if(!found || !from || !to || from==to || !seen.insert(b.shape,i))return false;
             auto* shape=found->second;auto* sim=shape->getCore().getExclusiveSim();
             if(shape->getActor()!=from || !shape->isExclusiveFast() || !sim || !sim->isInBroadPhase()
                 || shape->getFlagsFast().isSet(PxShapeFlag::eTRIGGER_SHAPE)
