@@ -113,10 +113,14 @@ public:
         if(mAcceptedBodies.capacity()<required)return false;
         // Only actual migrations cross this observation boundary. Retained owners
         // are updated by the GPU collision transaction and cache invalidation.
-        // Validate the complete metadata batch before changing ownership. Shape
-        // identity lookup is built once per source, not once per migrating chunk.
+        // PhysX already owns a persistent element-ID index. Reconstructing a
+        // second shape map by walking source actors is unnecessary, including
+        // for chunks that do not migrate. Keep batch validation before mutation.
+        auto* controller=mScene.getScScene().getSimulationController();
+        auto** shapes=controller->getShapeSims();
+        const PxU32 shapeCapacity=controller->getNbShapes();
+        if(count && !shapes)return false;
         PxHashMap<PxU32,NpRigidDynamic*> owners;
-        PxHashMap<PxU32,NpShape*> shapes;
         PxHashMap<PxU32,PxU32> seen;
         PxProfilerCallback* profiler=PxGetProfilerCallback();
         const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
@@ -129,18 +133,16 @@ public:
             if(owners.insert(requests[i].sourceBody,parent)) {
                 const auto& manager=parent->getShapeManager();
                 if(parent->getAggregate() || manager.isSqCompound() || manager.getPruningStructure())return false;
-                for(PxU32 j=0;j<manager.getNbShapes();++j) {
-                    auto* shape=manager.getShapes()[j];auto* sim=shape->getCore().getExclusiveSim();
-                    if(sim)shapes.insert(sim->getElementID(),shape);
-                }
             }
         }
         for(PxU32 i=0;i<count;++i) {
-            const auto b=bindings[i];const auto* found=shapes.find(b.shape);
+            const auto b=bindings[i];
             auto* from=source(b.sourceBody);auto* to=source(b.targetBody,true);
-            if(!found || !from || !to || from==to || !seen.insert(b.shape,i))return false;
-            auto* shape=found->second;auto* sim=shape->getCore().getExclusiveSim();
-            if(shape->getActor()!=from || !shape->isExclusiveFast() || !sim || !sim->isInBroadPhase()
+            if(!from || !to || from==to || !owners.find(b.sourceBody) || b.shape>=shapeCapacity
+                || !shapes[b.shape] || !seen.insert(b.shape,i))return false;
+            auto* sim=shapes[b.shape];auto* shape=static_cast<NpShape*>(sim->getPxShape());
+            if(!shape || sim->getElementID()!=b.shape || shape->getActor()!=from || !shape->isExclusiveFast()
+                || shape->getCore().getExclusiveSim()!=sim || !sim->isInBroadPhase()
                 || shape->getFlagsFast().isSet(PxShapeFlag::eTRIGGER_SHAPE)
                 || to->getAggregate() || to->getShapeManager().isSqCompound()
                 || to->getShapeManager().getPruningStructure())return false;
@@ -168,7 +170,7 @@ public:
         {
         PxProfileScoped profile(profiler,"GpuDestruction.applyDetail.migrateShapes",false,profileContext);
         for(PxU32 i=0;i<count;++i) {
-            const auto b=bindings[i];auto* shape=shapes.find(b.shape)->second;
+            const auto b=bindings[i];auto* shape=static_cast<NpShape*>(shapes[b.shape]->getPxShape());
             if(!NpShapeManager::rebindShapeInternal(*source(b.sourceBody),*source(b.targetBody,true),
                 *shape,shape->getLocalPoseFast(),true))return false;
         }

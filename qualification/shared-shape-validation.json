@@ -1,0 +1,74 @@
+{
+  "base_revision": "7e7c8e95",
+  "change": "Delete temporary shape-ID hash reconstruction and source actor shape traversal. Read existing bounded PhysX shape index. Preserve pre-mutation validation and migration order; allocate no new lookup representation.",
+  "physical_equations_changed": false,
+  "gpu_kernels_changed": false,
+  "cpu_bridge_removed": false,
+  "source_sha256": {
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "59e6607a6c20192984817676b1da59e27fe8268fbd13ec43c216ef78bf2b1da7",
+    "demos/blast-stress-demo/tests/native_gpu_allocation_test.cpp": "1bb5e61cae962532ae5bae77f87fc8f7211c59a3b8decbfa358cbe8979a76bcb"
+  },
+  "native_tests_passed": 6,
+  "timing_tests_passed": 29,
+  "new_negative_checks": [
+    "out-of-range element IDs",
+    "removed element slots",
+    "foreign shape owner",
+    "source outside request batch",
+    "duplicate shape IDs",
+    "invalid later binding cannot partially apply earlier binding",
+    "replacement shape ownership after removal/reinsertion"
+  ],
+  "comparisons": [
+    {
+      "label": "Reconstructed index",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "metrics": {
+        "max": 67.850196,
+        "mean": 11.616431923333334,
+        "min": 0.920778,
+        "n": 1200,
+        "p50": 9.767087,
+        "p95": 18.459328,
+        "p99": 28.104597
+      },
+      "missed_8ms": 1038
+    },
+    {
+      "label": "Shared PhysX index",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "metrics": {
+        "max": 55.571877,
+        "mean": 11.529153815833332,
+        "min": 0.908136,
+        "n": 1200,
+        "p50": 9.726781,
+        "p95": 18.4953,
+        "p99": 27.352404
+      },
+      "missed_8ms": 1038
+    }
+  ],
+  "scoped_impact_validation_ms": {
+    "baseline": 6.803,
+    "candidate": 0.741
+  },
+  "full_lifecycle_endurance_qualified": false,
+  "full_synccheck_qualified": false,
+  "evidence_hashes": {
+    "qualification/shared-shape-evidence/bombardment-audit.json": "211d9c5e4d1fcab822eb66f8507e9c92e009698d7d32b29e7756eb6f13eec12b",
+    "qualification/shared-shape-evidence/counter-histories.json": "e7437288de6c51a290b0f28032d1359a9bb1bcfb4322639394e777e87946d83c",
+    "qualification/shared-shape-evidence/native-tests.log": "c7a7257016998baaa13331c651d4b89f1dc90051aad7e25d20f2593a8a9e7891",
+    "qualification/shared-shape-evidence/collision-tests.log": "ad8e9951896a7fc996ad2c2ad7ef9d7ba6d315667bb7176e63ece0d7445f7fd9",
+    "qualification/shared-shape-evidence/report-tests.log": "686b78c81979337ecb608a01830db1dc3a044c124f47361802dca737959017e3",
+    "qualification/shared-shape-evidence/penetration-quality.json": "174aba51b5a94efa4fbaf74f4a676a769282063be90d9de0b3480449e72ccc99"
+  }
+}

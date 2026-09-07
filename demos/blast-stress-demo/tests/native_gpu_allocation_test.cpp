@@ -292,6 +292,54 @@ void membership() {
     std::puts("native membership: reservations, acceptance, fragment sources, discard, clear and reuse passed");
 }
 
+// The shared PhysX index contains ordinary actors and empty/reused entries as
+// well as destruction chunks. None may bypass all-or-nothing batch validation.
+void bindingIdentityValidation() {
+    blast_demo::SceneCapacity capacity;
+    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,true,false,false);
+    auto& scene=context.scene();auto& internal=static_cast<NpScene&>(scene);
+    auto* parent=context.physics().createRigidDynamic(PxTransform(PxVec3(0,10,0)));
+    auto* foreign=context.physics().createRigidDynamic(PxTransform(PxVec3(20,10,0)));
+    parent->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
+    foreign->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
+    auto addShape=[&](PxRigidDynamic& actor) {
+        auto* shape=context.physics().createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);
+        require(shape && actor.attachShape(*shape),"identity-test shape creation failed");return shape;
+    };
+    auto* owned=addShape(*parent);auto* removed=addShape(*parent);auto* other=addShape(*foreign);
+    scene.addActor(*parent);scene.addActor(*foreign);step(scene);
+    const auto ownedID=scene.getDirectGPUAPI().getShapeContactIndex(*owned);
+    const auto removedID=scene.getDirectGPUAPI().getShapeContactIndex(*removed);
+    const auto otherID=scene.getDirectGPUAPI().getShapeContactIndex(*other);
+    parent->detachShape(*removed);removed->release();step(scene);
+    NpDestructionBodyAllocator allocator(internal);
+    PxvDestructionBodyRequest request{0,parent->getGPUIndex(),1,1,0};PxU32 target=PX_INVALID_U32;
+    require(allocator.prepare(&request,1,&target),"identity-test reservation failed");
+    const auto source=parent->getGPUIndex();
+    const PxDestructionCollisionBinding valid{0,ownedID,source,target};
+    auto reject=[&](const PxDestructionCollisionBinding* bindings,PxU32 count) {
+        require(!allocator.applyBindings(bindings,count,&request,&target,1),"invalid shape identity batch accepted");
+        require(owned->getActor()==parent && other->getActor()==foreign && parent->getNbShapes()==1,
+            "rejected batch partially changed ownership");
+        require(!allocator.isValidSource(target),"rejected batch committed its reservation");
+    };
+    auto invalid=valid;invalid.shape=PX_INVALID_U32;reject(&invalid,1);
+    invalid.shape=removedID;reject(&invalid,1); // null persistent-index entry
+    invalid.shape=otherID;reject(&invalid,1); // live shape with another owner
+    invalid.sourceBody=foreign->getGPUIndex();reject(&invalid,1); // owner not in request batch
+    PxDestructionCollisionBinding duplicate[2]={valid,valid};reject(duplicate,2);
+    PxDestructionCollisionBinding lateInvalid[2]={valid,invalid};reject(lateInvalid,2);
+    allocator.discardReservations();step(scene);
+    // Reuse through the real shape lifecycle must expose the new owner, never a
+    // cached pointer to the old chunk. Reuse order itself is allocator-defined.
+    auto* replacement=addShape(*foreign);step(scene);
+    require(allocator.prepare(&request,1,&target),"identity-test second reservation failed");
+    invalid={0,scene.getDirectGPUAPI().getShapeContactIndex(*replacement),source,target};reject(&invalid,1);
+    allocator.clear();parent->release();foreign->release();owned->release();other->release();replacement->release();
+    require(context.healthy(),"identity validation GPU health failed");
+    std::puts("native identity validation: bounds, removed slots, foreign/reused shapes, duplicate and partially invalid batches passed");
+}
+
 void teardown() {
     // Leave an uncommitted reservation alive through scene teardown. Scene must
     // release it while BodySim/island/controller pools still exist.
@@ -309,4 +357,4 @@ void teardown() {
     parent->release();
 }
 }
-int main(){try{membership();run(true,false);run(false,false);run(true,true);run(false,true);moving(PxSolverType::eTGS);moving(PxSolverType::ePGS);teardown();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{bindingIdentityValidation();membership();run(true,false);run(false,false);run(true,true);run(false,true);moving(PxSolverType::eTGS);moving(PxSolverType::ePGS);teardown();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
