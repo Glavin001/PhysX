@@ -1,5 +1,6 @@
 // Independent connectivity and B^T P / Galerkin checks for GPU construction.
 #include "StressHierarchyGraph.cuh"
+#include "StressHierarchyOperator.cuh"
 #include <array>
 #include <cstdio>
 #include <vector>
@@ -105,16 +106,18 @@ void verifyPartition(const Fixture& f,const std::vector<unsigned>& leaders,unsig
         require(reached==members[root],"aggregate is disconnected");
     }
 }
+#include "gpu_resident_hierarchy_operator_checks.cuh"
 void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=Invalid){
     f.csr();f.partition();const auto n=f.positions.size(),m=f.a.size();
     std::printf("START GPU hierarchy: nodes=%zu bonds=%zu\n",n,m);std::fflush(stdout);cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     {
         Device<unsigned> begin(n+1),refs(2*m),a(m),b(m),component(n),accept(1);
+        Device<float2> inertia(n);inertia.put(f.inverse,stream);
         Device<float> health(m),scale(m);Device<float4> position(n),offset0(m),offset1(m);Device<std::uint64_t> generation(1);
         Graph graph(n,m,stream);begin.put(f.begin,stream);refs.put(f.refs,stream);a.put(f.a,stream);b.put(f.b,stream);
         scale.put(f.scale,stream);position.put(f.positions,stream);offset0.put(f.offset0,stream);offset1.put(f.offset1,stream);
         Input input{unsigned(n),unsigned(m),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,
-            position.data,offset0.data,offset1.data,generation.data,accept.data};
+            position.data,offset0.data,offset1.data,inertia.data,generation.data,accept.data};
         cudaGraph_t captured=nullptr;cudaGraphExec_t executable=nullptr;
         check(cudaStreamBeginCapture(stream,cudaStreamCaptureModeThreadLocal));graph.enqueue(input);
         check(cudaStreamEndCapture(stream,&captured));check(cudaGraphInstantiate(&executable,captured,0));
@@ -133,7 +136,7 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
             if(m)check(cudaMemcpyAsync(coarse.data(),graph.coarseBonds(),m*sizeof(CoarseBond),cudaMemcpyDeviceToHost,stream));
             check(cudaStreamSynchronize(stream));
             require(!status.error && status.initialized && status.generation==gen,"hierarchy did not commit");
-            verifyPartition(f,leaders,status.aggregates);if(step==0 && expectedInitial!=Invalid)require(status.aggregates==expectedInitial,"hub aggregation failed to coarsen");if(factorCheck)verifyFactor(f,leaders,coarse);
+            verifyPartition(f,leaders,status.aggregates);verifyOperators(f,leaders,graph,input,stream);if(step==0 && expectedInitial!=Invalid)require(status.aggregates==expectedInitial,"hub aggregation failed to coarsen");if(factorCheck)verifyFactor(f,leaders,coarse);
             if(step==0)initial=leaders;
             if(step==5)require(leaders==initial,"restored physical graph changed aggregate identities");
             if(step==1){require(status.builds==old.builds && status.rounds==old.rounds,"unchanged generation rebuilt");require(leaders==prior,"unchanged generation changed mapping");}
@@ -158,6 +161,15 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
             generation.put({101},stream);launch();check(cudaMemcpyAsync(&rejected,graph.status(),sizeof(rejected),cudaMemcpyDeviceToHost,stream));
             check(cudaStreamSynchronize(stream));require(rejected.error==2 && rejected.generation!=101,"nonfinite coarse coefficient committed");
         }
+        if(n){
+            a.put(f.a,stream);scale.put(f.scale,stream);health.put(f.health,stream);component.put(f.component,stream);
+            auto bad=f.inverse;bad[0].x=std::numeric_limits<float>::quiet_NaN();inertia.put(bad,stream);
+            generation.put({102},stream);launch();check(cudaMemcpyAsync(&rejected,graph.status(),sizeof(rejected),cudaMemcpyDeviceToHost,stream));
+            check(cudaStreamSynchronize(stream));require(rejected.error==8 && rejected.generation!=102,"invalid inertia committed");
+            inertia.put(f.inverse,stream);generation.put({103},stream);launch();
+            check(cudaMemcpyAsync(&rejected,graph.status(),sizeof(rejected),cudaMemcpyDeviceToHost,stream));
+            check(cudaStreamSynchronize(stream));require(!rejected.error && rejected.generation==103,"failed construction did not recover");
+        }
         check(cudaGraphExecDestroy(executable));check(cudaGraphDestroy(captured));
         std::printf("GPU hierarchy: nodes=%zu bonds=%zu final aggregates=%u rounds=%u transitions=%u passed\n",n,m,old.aggregates,old.rounds,transitions?6:2);
     }
@@ -172,6 +184,8 @@ int main(){try{
     // One static boundary may support otherwise disconnected components.
     small.edge(0,13);run(small,true,true);
     Fixture self(2);self.edge(0,1);self.offset1[0].x+=.03125f;run(self,true,true);
+    Fixture parallel(6);for(unsigned i=1;i<6;++i){parallel.edge(0,i);parallel.edge(0,i);}
+    run(parallel,true,true,1);
     Fixture star(257);for(unsigned i=1;i<257;++i)star.edge(0,i);run(star,false,false,1);
     Fixture fixed(4);for(auto& inv:fixed.inverse)inv=make_float2(0,0);for(unsigned i=1;i<4;++i)fixed.edge(i-1,i);run(fixed,true,true,0);
     Fixture mixed(129);for(unsigned i=1;i<129;++i)if(i%17)mixed.edge(i-1,i);run(mixed,true,false);

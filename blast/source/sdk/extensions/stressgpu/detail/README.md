@@ -65,3 +65,20 @@ The test independently checks connectivity, minimum IDs, full-basis factor
 equality, static boundaries, restore/split generations, rejected transactions,
 explicit invalid-input errors and a 100,000-node sparse graph. This verifies
 construction, not preconditioning convergence or an end-to-end speedup.
+
+`StressHierarchyOperator.cuh` now provides resident prolongation, transpose
+restriction and sparse coarse application. Each star member records one bond
+back to its seed during aggregation. Traversing the seed's existing adjacency
+then enumerates members exactly once, including with parallel bonds. This avoids
+a sorted membership copy and floating atomic sums. Warp reductions follow fixed
+CSR order; nonleader rows are overwritten with zero by their owning warp.
+Coarse application gathers the original adjacency and exact coarse factors,
+without a temporary per-bond vector. It retains rounded self-edge contributions.
+
+Construction validates borrowed mass scaling and position data before committing
+the generation. Operators read the same accepted views without changing shared
+status. Inputs/output must be distinct, and the caller must preserve all borrowed
+views until stream completion. The independent test checks P, P^T, P^T L P,
+adjointness, nonnegative energy, repeatability and six coherent free rigid modes
+with 2e-12 scaled comparisons. This is still an integration foundation: no native
+preconditioner or simulation speedup is claimed.

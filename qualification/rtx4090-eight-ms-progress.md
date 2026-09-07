@@ -733,3 +733,30 @@ selective correction and endurance/8 ms peak gates remain incomplete.
 [Construction validation](resident-hierarchy-construction/validation.json) ·
 [Automated test results](resident-hierarchy-construction/tests.log) ·
 [Frozen wall regression](resident-hierarchy-construction/wall-quality.json).
+
+## Resident transfers and sparse coarse application
+
+The first-level hierarchy now applies its rigid prolongation P, restriction P^T
+and exact sparse coarse operator P^T L P on the GPU. It reuses seed adjacency
+instead of constructing/sorting a second membership CSR, handles parallel bonds
+without duplicate contributions, and uses deterministic warp sums rather than
+floating-point atomics. No CPU assembly, numerical transfer, per-application
+allocation or temporary per-bond response vector is required. Construction
+validates shared inertia/positions; operator kernels read accepted state.
+
+The captured-graph correctness, memory/leak, synchronization and race checks all
+pass. Independent small-fixture full-basis comparisons and large-fixture vector
+checks use 2e-12 scaled tolerance. Tests include six free rigid modes, adjointness,
+nonnegative energy, repeatability, invalid mass scaling and recovery, plus six
+topology transitions on 100,000 nodes / 199,997 bonds. This is a sparse algebra
+fixture, not the 256-building simulation. The frozen ten-second 444-chunk /
+896-bond, one-projectile penetration regression remains exact with correction
+limit one: 398 supported chunks, 46 detached and 199 broken bonds.
+
+This code is still independent of production CGLS. Next are smoothing, recursive
+coarsening/coarse solve, native integration and primary-workload qualification.
+No new simulation performance result or full-plan completion is claimed.
+
+[Operator validation](resident-hierarchy-operator/validation.json) ·
+[Tests](resident-hierarchy-operator/tests.log) ·
+[Wall audit](resident-hierarchy-operator/wall-quality.json).

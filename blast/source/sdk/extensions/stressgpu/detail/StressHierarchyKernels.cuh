@@ -11,6 +11,7 @@ struct Input {
     const unsigned *begin,*refs,*node0,*node1,*component;
     const float *health,*scale;
     const float4 *position,*offset0,*offset1;
+    const float2* inertia;
     const std::uint64_t* generation;
     const unsigned* accept;
 };
@@ -25,7 +26,7 @@ struct CoarseBond {
     double scale;
 };
 struct Buffers {
-    unsigned *owner,*seed,*minimum,*leader,*pending;
+    unsigned *owner,*seed,*minimum,*leader,*pending,*memberBond;
     CoarseBond* coarse;
 };
 __device__ __forceinline__ unsigned priority(unsigned node,unsigned round)
@@ -60,10 +61,14 @@ __device__ __forceinline__ void beginBuild(const Input& a,Status* status,Work* w
     if(run){status->error=0;status->rounds=0;status->aggregates=0;}
     work->active=work->pending=unsigned(run);
 }
-__device__ __forceinline__ void initialize(const Input* input,Buffers b,unsigned logicalBlock)
+__device__ __forceinline__ void initialize(const Input* input,Buffers b,Status* status,unsigned logicalBlock)
 {
     const unsigned i=logicalBlock*blockDim.x+threadIdx.x;if(i>=input->nodes)return;
-    b.owner[i]=b.minimum[i]=b.leader[i]=Invalid;b.seed[i]=0;
+    b.owner[i]=b.minimum[i]=b.leader[i]=b.memberBond[i]=Invalid;b.seed[i]=0;
+    const auto d=input->inertia[i];const auto p=input->position[i];
+    const bool fixed=input->component[i]==Invalid;
+    if(!isfinite(d.x)||!isfinite(d.y)||(fixed ? d.x!=0||d.y!=0 : d.x<=0||d.y<=0))atomicOr(&status->error,8u);
+    if(!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.z))atomicOr(&status->error,2u);
 }
 __device__ __forceinline__ void chooseSeeds(const Input* input,Buffers b,Status* status,unsigned logicalBlock)
 {
@@ -89,13 +94,17 @@ __device__ __forceinline__ void assignSeeds(const Input* input,Buffers b,Status*
 {
     const auto a=*input;const unsigned node=logicalBlock*blockDim.x+threadIdx.x;unsigned pending=0;
     if(node<a.nodes && a.component[node]!=Invalid && b.owner[node]==Invalid){
-        unsigned owner=b.seed[node]?node:Invalid;
+        unsigned owner=b.seed[node]?node:Invalid,memberBond=Invalid;
         const unsigned begin=a.begin[node],end=a.begin[node+1];
         if(begin<=end && end<=2ull*a.bonds && !b.seed[node])for(unsigned i=begin;i<end;++i){
             const unsigned other=neighbour(a,node,i,status);
-            if(other!=Invalid && b.seed[other])owner=min(owner,other);
+            if(other!=Invalid && b.seed[other]){
+                const unsigned bond=a.refs[i]&0x7fffffffu;
+                if(other<owner){owner=other;memberBond=bond;}
+                else if(other==owner)memberBond=min(memberBond,bond);
+            }
         }
-        b.owner[node]=owner;pending=owner==Invalid;
+        b.owner[node]=owner;b.memberBond[node]=memberBond;pending=owner==Invalid;
     }
     // Convergence needs only whether any node remains, not a global sum.
     const unsigned remaining=__syncthreads_or(pending!=0);
@@ -160,7 +169,7 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
     const unsigned bonds=(input.bonds+Threads-1)/Threads;
     if(!blockIdx.x && !threadIdx.x)beginBuild(input,status,work);
     grid.sync();if(!work->active)return;
-    for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)initialize(&input,buffers,block);
+    for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)initialize(&input,buffers,status,block);
     grid.sync();
     while(work->pending){
         for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)chooseSeeds(&input,buffers,status,block);
