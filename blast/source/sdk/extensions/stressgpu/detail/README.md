@@ -36,3 +36,32 @@ Subsequent numerical/performance edits are qualified separately from the initial
 mechanical split. The native allocation path now omits unused bond-space and
 Jacobi work arrays; `nodeSpaceReset` accepts a null optional Jacobi vector. The
 original extraction hashes describe the extraction commit, not later edits.
+
+## Resident multilevel construction (integration in progress)
+
+`StressHierarchyKernels.cuh` and `StressHierarchyGraph.cuh` are private headers
+with their own `Nv::Blast::StressHierarchy` namespace. They are currently compiled
+by the independent qualification target, not the production solver.
+
+One cooperative kernel builds connected star aggregates and their sparse coarse
+factor entirely on the GPU. Minimum member IDs identify aggregates; these are
+preconditioner groups, not physical rigid clusters. Fixed nodes never merge
+otherwise independent dynamic components. Device generation and acceptance
+control rebuilds; unchanged/rejected transactions do not modify committed output.
+A failed build sets an error and does not advance the generation; consumers must
+reject its output. Buffers are persistent and execution is CUDA-graph capturable.
+
+For the existing operator `L = B B^T`, `B = D C S`, prolongation `P` maps a coarse
+rigid basis at the aggregate origin into mass-scaled fine coordinates. Thus
+`D P` is the rigid basis, and the stored coarse factor is exactly `B^T P`: shifted
+bond offsets, original column scale and unit coarse inertia. Keep internal
+self-edges because rounded fine offsets can leave nonzero coupling. Coefficients
+are stored in double precision; this construction does not change the native
+solver's arithmetic. The caller must advance the operator generation for changes
+to topology, support, geometry, scales or inertia; its exact GPU component labels
+and immutable CSR must describe the same accepted state.
+
+The test independently checks connectivity, minimum IDs, full-basis factor
+equality, static boundaries, restore/split generations, rejected transactions,
+explicit invalid-input errors and a 100,000-node sparse graph. This verifies
+construction, not preconditioning convergence or an end-to-end speedup.

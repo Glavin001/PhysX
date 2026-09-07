@@ -703,3 +703,33 @@ ctest --test-dir out/destruction-sdk -R '^blast_stress_gpu_resident_(analytic|cp
 python3 tools/scripts/run-destruction-penetration-regression.py out/NEW-wall-quality
 python3 tools/scripts/run-destruction-timing.py out/NEW-bombardment --config tools/profiles/destruction-scaling.json --case impacts-256 --trials 2 --seconds 10 --gate-only --phase-scopes --report-output qualification/NEW-bombardment
 ```
+
+## GPU hierarchy construction foundation (not yet a solver speedup)
+
+A single cooperative CUDA kernel now builds connected preconditioner aggregates
+and the exact coarse sparse factor from resident CSR, component labels and bond
+coefficients. Persistent device generations control construction; unchanged
+accepted graphs skip rebuilding. Rejected transactions preserve outputs, while
+invalid builds fail explicitly. No CPU matrix assembly or numerical readback is
+used. This code is currently qualified independently, not linked into the native
+production solve; transfer/application and multilevel integration remain next.
+
+Captured-graph correctness, memory/leak, synchronization and race checks all pass.
+Fixtures include static boundaries, singleton/empty graphs, split/restore states,
+internal coarse self-edges, a 257-node star and a 100,000-node / 199,997-bond graph.
+Small fixtures check every coarse basis column against an independent B^T P
+calculation at 2e-12 scaled tolerance. The large fixture verifies connectivity
+and canonical ownership, not every basis column. A multi-kernel conditional
+construction was rejected after sanitizer failures; the retained cooperative
+implementation passes the complete checks without filtering or suppressions.
+
+The frozen ten-second single-projectile regression (444 chunks, 896 bonds,
+dt=1/60, one correction maximum) passes: 398 supported chunks, 46 detached,
+199 broken bonds, exact topology/hole identities and clearance step 39.
+The production solver remains unchanged, so no simulation speedup is claimed.
+The 256-building benchmark, full GPU lifecycle migration, sleep/joint support,
+selective correction and endurance/8 ms peak gates remain incomplete.
+
+[Construction validation](resident-hierarchy-construction/validation.json) ·
+[Automated test results](resident-hierarchy-construction/tests.log) ·
+[Frozen wall regression](resident-hierarchy-construction/wall-quality.json).
