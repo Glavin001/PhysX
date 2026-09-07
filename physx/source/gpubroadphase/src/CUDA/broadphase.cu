@@ -380,7 +380,8 @@ extern "C" __global__ void markUpdatedPairsLaunch(const PxgBroadPhaseDesc* bpDes
 	for(PxU32 handle = globalThreadIdx; handle < numElements; handle += blockDim.x*gridDim.x)
 	{
 		const PxU32 word = handle / 32;
-		const PxU32 mask = changedAABBMgrHandles[word];
+		const PxU32 mask = changedAABBMgrHandles[word]
+            | (needsRefilter(bpDesc, handle) ? (1u << threadIndexInWarp) : 0u);
 
 		//printf("mask %i\n", mask);
 
@@ -1918,7 +1919,7 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 
 extern "C" __global__ void clearNewFlagLaunch(const PxgBroadPhaseDesc* bpDesc)	// BP_CLEAR_NEWFLAG //###ONESHOT
 {
-    if (bpDesc->refilterWordCount)
+    if (hasRefiltering(bpDesc))
     {
         const PxU32 count = 2u * (bpDesc->numPreviousHandles + bpDesc->numCreatedHandles - bpDesc->numRemovedHandles);
         for (PxU32 i=threadIdx.x + blockDim.x*blockIdx.x; i<count; i+=blockDim.x*gridDim.x)

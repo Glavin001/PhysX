@@ -1093,6 +1093,11 @@ namespace physx
 
 		PxgGpuNarrowphaseCore* npCore = mDynamicContext->getNarrowphaseCore();
 		CUstream npStream = npCore->getStream();
+        // Broad phase borrows GPU-written ownership generations only for the
+        // corrected pass. NP's producer event below and its ordinary BP stream
+        // dependency order these reads; no host bitmap or additional upload.
+        static_cast<PxgAABBManager&>(aabbManager).setNativeOwnershipView(
+            mDestructionCorrecting ? mDestruction->collisionOwnershipView() : PxgDestructionOwnershipView{});
 		const bool hasShapeInstanceChanged = npCore->mGpuShapesManager.mHasShapeInstanceChanged; // we reset it in updateNarrowPhaseShape, but cache for computeRigidsToShapes.
 
 		// we are in Pxg-land, so GPU NP and dynamics is implied. Upload to GPU if dirty.

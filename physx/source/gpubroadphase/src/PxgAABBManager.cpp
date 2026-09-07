@@ -425,7 +425,7 @@ bool PxgAABBManager::addBounds(BoundsIndex index, PxReal contactDistance, Filter
 	return true;
 }
 
-bool PxgAABBManager::refilterBounds(BoundsIndex index, FilterGroup::Enum group)
+bool PxgAABBManager::refilterBounds(BoundsIndex index, FilterGroup::Enum group, bool deviceOwnerTransaction)
 {
     // Aggregate pair persistence needs its own invalidation transaction. Keep
     // the legacy reset path until that integration is available; do not create
@@ -433,10 +433,15 @@ bool PxgAABBManager::refilterBounds(BoundsIndex index, FilterGroup::Enum group)
     if (mNbAggregates || index >= mVolumeData.size() || !mVolumeData[index].isSingleActor()
         || mGroups[index] == FilterGroup::eINVALID || group == FilterGroup::eINVALID)
         return false;
-    mRefilterHandleMap.growAndSet(index);
-    mRefilterPending = true;
+    if(!deviceOwnerTransaction) {
+        mRefilterHandleMap.growAndSet(index);
+        mRefilterPending = true;
+        mChangedHandleMap.growAndSet(index);
+        ++mHostRefilterRequests;
+    }
+    // CPU group/type observation remains for the current lifecycle bridge.
+    // Native overlap discovery and changed projections consume GPU owner stamps.
     mGroups[index] = group;
-    mChangedHandleMap.growAndSet(index);
     mPersistentStateChanged = true;
     mGPUStateChanged = true;
     return true;
@@ -840,6 +845,7 @@ void PxgAABBManager::preBpUpdate_GPU()
     if (mRefilterPending)
     {
         Local::dmaBitmap(mCudaContext, bpStream, mRefilterHandlesBuf, mRefilterHandleMap);
+        mHostRefilterUploadWords+=mRefilterHandleMap.getWordCount();
     }
 
 	//KS - skip pre broad phase 

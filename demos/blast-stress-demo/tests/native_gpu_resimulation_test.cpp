@@ -8,6 +8,7 @@
 #include "native_contact_graph_check.h"
 #include "native_pre_solve_check.h"
 #include "native_owner_observation_check.h"
+#include "native_refilter_check.h"
 #include "PxgNphaseImplementationContext.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxsContactManager.h"
@@ -122,6 +123,9 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
     auto& shapeManager=controller.getSimulationCore()->mPxgShapeSimManager;
     const auto initialShapeUploads=shapeManager.getUploadedShapeCount();
     const auto initialBoundsUploads=controller.getSimulationCore()->getReboundShapeIndexUploadCount();
+    nativeRefilterTest::Audit refilterAudit(scene);
+    PxShape* projectileShape=nullptr;shot->getShapes(&projectileShape,1);
+    const auto projectileShapeId=scene.getDirectGPUAPI().getShapeContactIndex(*projectileShape);
     auto& nativeShapes=static_cast<PxgNphaseImplementationContext*>(static_cast<NpScene&>(scene).getScScene().getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore()->mGpuShapesManager;
     const auto initialOwnerUploads=nativeShapes.mHostOwnerMappingUploads;
     const auto initialOwnerObservations=nativeShapes.mNativeOwnerObservations;
@@ -197,7 +201,10 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
             observedNativeContacts+=nativeOwnerTest::observe(scene,cuda,identity,shape->getActor()->is<PxRigidDynamic>(),nativeShapes);
         // Track the entire contact trajectory, including persistence after correction.
         for(auto* body:contactBodies)contactMotion.push_back(velocity(*body));
+        if(!status.correctionPasses)refilterAudit.verifyOrdinaryPass();
         if(status.correctionPasses) {
+            refilterAudit.verify(*static_cast<PxgDestructionRuntime*>(destruction),cuda,identity,projectileShapeId,
+                reuse && !controller.getDestructionContactReuseFallbackCount());
             require(status.normalContacts && status.brokenBonds,"fracture was not driven by actual solved contact impulses");
             auto* runtime=static_cast<PxgDestructionRuntime*>(destruction);
             require(runtime->correctionBodyCount()==2,"CPU owner bridge included unchanged clusters");

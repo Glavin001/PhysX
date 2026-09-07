@@ -5,6 +5,7 @@
 #include "PxDestructionScene.h"
 #include "PxContact.h"
 #include "PxgDestructionContactGraph.h"
+#include "PxgDestructionOwnership.h"
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
@@ -106,6 +107,8 @@ public:
 
     // Install GPU-selected cluster ownership without re-uploading immutable geometry.
     virtual bool installCollisionOwners(PxgShapeSim* shapes, PxU32 capacity, PxNodeIndex* shapeToBody, PxU32 remapCapacity, CUstream stream) = 0;
+    // readyEvent orders this borrowed view after GPU ownership installation.
+    virtual PxgDestructionOwnershipView collisionOwnershipView() const = 0;
     virtual bool preserveUnchangedContactPairs() const = 0;
 };
 }

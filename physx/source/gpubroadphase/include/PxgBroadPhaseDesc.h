@@ -30,6 +30,7 @@
 #define PXG_BROADPHASE_DESC_H
 
 #include "foundation/PxSimpleTypes.h"
+#include "PxgDestructionOwnership.h"
 
 // PT: the GPU AABB manager apparently DMAs the updated handles' *bitmap* to the GPU directly, bypassing the
 // BP API. This creates coupling between the GPU BP and the GPU AABB manager, i.e. the GPU BP cannot be used
@@ -74,6 +75,7 @@ namespace physx
 
         const PxU32* refilterHandleMap;
         PxU32 refilterWordCount;
+        PxgDestructionOwnershipView nativeOwnership;
 
 		PxBounds3*				updateData_fpBounds;					// PT: copy of updateData buffer in device memory
 		PxReal*					updateData_contactDistances;			// PT: copy of updateData buffer in device memory
@@ -156,10 +158,16 @@ namespace physx
 		bool 					found_lost_pairs_overflow_flags;
 	};
 
+    PX_FORCE_INLINE PX_CUDA_CALLABLE bool hasRefiltering(const PxgBroadPhaseDesc* desc)
+    {
+        return desc->refilterWordCount || desc->nativeOwnership.generation;
+    }
+
     PX_FORCE_INLINE PX_CUDA_CALLABLE bool needsRefilter(const PxgBroadPhaseDesc* desc, PxU32 handle)
     {
         const PxU32 word = handle >> 5;
-        return word < desc->refilterWordCount && (desc->refilterHandleMap[word] & (1u << (handle & 31)));
+        return desc->nativeOwnership.contains(handle)
+            || (word < desc->refilterWordCount && (desc->refilterHandleMap[word] & (1u << (handle & 31))));
     }
 
 	PX_FORCE_INLINE PX_CUDA_CALLABLE PxU32 createHandle(const PxU32 handle, const bool isStart, const bool isNew)

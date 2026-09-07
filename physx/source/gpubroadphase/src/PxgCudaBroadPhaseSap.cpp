@@ -489,7 +489,7 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
         // Ownership refresh cannot accept a truncated set of new interactions.
         // Fail the step explicitly; capacity growth/retry belongs to the scene
         // correction transaction. Ordinary upstream overflow policy is retained.
-        if (desc.refilterWordCount) mCudaContext->setAbortMode(true);
+        if (hasRefiltering(&desc)) mCudaContext->setAbortMode(true);
 	}
 
 	// AD: safety in case copyReports did not run due to abort mode
@@ -848,7 +848,7 @@ void PxgCudaBroadPhaseSap::computeRegionHistogramKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.computeRegionHistogramKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize || mBpDesc.get().refilterWordCount)
+	if(mUpdateData_CreatedHandleSize || hasRefiltering(&mBpDesc.get()))
 	{
 		const PxU32 nbProjections = (mNumOfBoxes + mUpdateData_RemovedHandleSize) * 2; 
 		const PxU32 totalNbProjectionRegions = (nbProjections*64 + 3)&(~3);
@@ -878,7 +878,7 @@ void PxgCudaBroadPhaseSap::computeStartAndActiveHistogramKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.computeStartAndActiveHistogramKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize || mBpDesc.get().refilterWordCount)
+	if(mUpdateData_CreatedHandleSize || hasRefiltering(&mBpDesc.get()))
 	{
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
 		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd) };
@@ -908,7 +908,7 @@ void PxgCudaBroadPhaseSap::generateNewPairsKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.generateNewPairsKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize || mBpDesc.get().refilterWordCount)
+	if(mUpdateData_CreatedHandleSize || hasRefiltering(&mBpDesc.get()))
 	{
 		//Need to generate pairs for created handles...
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
@@ -927,7 +927,7 @@ void PxgCudaBroadPhaseSap::clearNewFlagKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.clearNewFlagKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize || mBpDesc.get().refilterWordCount)
+	if(mUpdateData_CreatedHandleSize || hasRefiltering(&mBpDesc.get()))
 	{
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
 		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd) };
@@ -995,8 +995,10 @@ void PxgCudaBroadPhaseSap::updateDescriptor(PxgBroadPhaseDesc& desc)
 	desc.numRemovedHandles = mUpdateData_RemovedHandleSize;
 	
 	// PT: TODO: replace with adapter? I think this won't work without the bitmaps anyway?
+	desc.nativeOwnership = {};
 	if(mAABBManager)
 	{
+		desc.nativeOwnership = mAABBManager->getNativeOwnershipView();
 		// PT: this data is used in:
 		// - markUpdatedPairsLaunch (BP_UPDATE_UPDATEDPAIRS)
 		{

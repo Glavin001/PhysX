@@ -330,3 +330,46 @@ Priorities remain GPU lifecycle transactions and component-local resident
 stress/preconditioning, followed by validated correction work selection.
 These longer runs establish current scaling costs, not a speedup relative to
 previous ten-second captures or a hardware bandwidth/compute bound.
+
+
+## GPU-generated broad-phase refilter selection
+
+The ownership-install kernel now stamps affected persistent shapes with the
+current correction generation. Broad phase borrows that GPU array through the
+existing NP-to-BP stream dependency and consumes it for updated projections,
+newly eligible pair discovery, cache-refilter selection and overflow failure.
+Native shape migration no longer constructs or uploads a CPU refilter bitmap.
+Ordinary public rebind and required full contact invalidation remain supported.
+No extra normal-step kernel or per-step generation clear is introduced; storage
+uses eight bytes per shape, with explicit allocation/growth inside the complete
+timer. Generation zero disables the view on later ordinary passes.
+
+Twelve focused tests pass. New assertions cover the affected shape's current
+GPU stamp, an unmarked ordinary projectile, exact borrowed-view publication,
+zero native CPU refilter requests/uploads on valid reuse, and disabling stale
+generations on subsequent ordinary steps. Existing bounds, allocation, contact,
+correction and public overflow checks remain intact. The ten-second penetration
+audit matches the reference topology identity, clearance and retained structure.
+See [validation](native-refilter-validation.json) and [test log](native-refilter-ctest.log).
+
+[Generated timing report](native-refilter-scaling/report.html) includes the
+444-chunk/896-bond, one-projectile baseline: five 60-second runs, all 18,000
+complete advances below 8 ms; mean 3.026 ms and peak
+6.762 ms. Two larger diagnostics each use 113,664 chunks and
+229,376 bonds, two ten-second measured runs plus a separate ten-second phase
+capture. One projectile averages 6.797 ms, peaks at
+15.634 ms; 256 simultaneous aerial projectiles average
+24.684 ms, peak at 98.047 ms.
+Larger workloads still fail the 8 ms gate and are not five-run qualified.
+Commands, insertion, physics, destruction, correction and completion are timed;
+rendering and initial setup are excluded. Timestep remains 1/60, correction one,
+and sleeping disabled. Every measured peak is retained.
+
+Both large workloads preserve the first 600-step fracture/correction/cluster
+histories from the preceding 60-second captures. These history checks do not
+replace full physical/endurance qualification at scale. No material end-to-end
+speedup is claimed from this deletion; sustained stress work and the CPU
+ownership/lifecycle bridge remain the dominant measured responsibilities.
+In particular, CPU group/type observation and its group upload still remain.
+The final GPU lifecycle, component-local stress/preconditioning and validated
+correction work selection are still required before the full plan is complete.

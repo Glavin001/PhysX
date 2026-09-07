@@ -212,7 +212,7 @@ namespace Bp
         // Caller has invalidated all interactions for this volume. Re-evaluate
         // current overlaps without changing the persistent element identity.
         // CPU/aggregate implementations may reject without side effects.
-        virtual bool refilterBounds(BoundsIndex, Bp::FilterGroup::Enum) { return false; }
+        virtual bool refilterBounds(BoundsIndex, Bp::FilterGroup::Enum, bool = false) { return false; }
 
 						void					reserveSpaceForBounds(BoundsIndex index);
 

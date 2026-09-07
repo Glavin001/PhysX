@@ -390,7 +390,8 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
 // The native transaction preserves authored shape-to-actor coordinates. Only
 // the motion owner changes; geometry, local bounds and registration stay resident.
 __global__ void installNativeCollisionOwners(const PxDestructionCollisionBinding* bindings,
-    PxU32 count,PxgShapeSim* shapes,PxU32 capacity,PxNodeIndex* shapeToBody,PxU32 remapCapacity) {
+    PxU32 count,PxgShapeSim* shapes,PxU32 capacity,PxNodeIndex* shapeToBody,PxU32 remapCapacity,
+    PxU64* ownerGenerations,PxU64 generation) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bindings[i];
     if(b.shape>=capacity || b.shape>=remapCapacity || b.targetBody==PX_INVALID_U32) {asm volatile("trap;");return;}
@@ -402,6 +403,7 @@ __global__ void installNativeCollisionOwners(const PxDestructionCollisionBinding
         {asm volatile("trap;");return;}
     shape.mBodySimIndex=PxNodeIndex(b.targetBody);
     shapeToBody[b.shape]=shape.mBodySimIndex;
+    ownerGenerations[b.shape]=generation;
 }
 struct HasCollisionBinding {
     __host__ __device__ bool operator()(const PxDestructionCollisionBinding& b) const {return b.shape!=PX_INVALID_U32;}
@@ -468,6 +470,9 @@ class Runtime final : public PxgDestructionRuntime {
     std::vector<PxU32> mHostReservedIndices;
     PxU32* mAffectedClusters{};PxU32* mCandidateSlots{};
     PxDestructionCollisionBinding *mCollisionBindings{},*mCompactCollisionBindings{};
+    PxU64* mShapeOwnerGenerations{};
+    PxU32 mShapeOwnerCapacity{};
+    PxU64 mInstalledOwnerGeneration{};
     PxDestructionCollisionPreparationStatus* mCollisionPreparation{};
     PxDestructionCollisionPreparationStatus mHostCollisionPreparation{};
     void* mCollisionScratch{};size_t mCollisionScratchBytes{};
@@ -890,6 +895,8 @@ public:
         mHostReservedIndices.clear();mHostBodyAllocation={};mHostCollisionPreparation={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
+        cudaFree(mShapeOwnerGenerations);mShapeOwnerGenerations=nullptr;
+        mShapeOwnerCapacity=0;mInstalledOwnerGeneration=0;
         cudaFree(mCollisionPreparation);mCollisionPreparation=nullptr;cudaFree(mCollisionScratch);mCollisionScratch=nullptr;mCollisionScratchBytes=0;
         if(mBodyAllocator)mBodyAllocator->clear();
         cudaFree(mCompactBodyRequests);mCompactBodyRequests=nullptr;
@@ -1098,6 +1105,7 @@ public:
     PxDestructionStageStatus getLastStatus() const override {return *mHostStatus;}
     bool prepareFrame() override {
         try {Context current(mContext);if(!configured() || mPending)return false;
+            mInstalledOwnerGeneration=0;
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
             startFrame<<<1,1,0,mStream>>>(mStatus);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
@@ -1333,6 +1341,15 @@ public:
             if(!stream || mHostBodyAllocation.initializationError || mHostBodyAllocation.initialized!=mHostBodyAllocation.reserved)
                 throw std::runtime_error("collision preparation requires initialized candidate bodies");
             check(cudaStreamWaitEvent(stream,mReady,0));
+            if(shapeCapacity>mShapeOwnerCapacity) {
+                // Exceptional capacity growth is inside the complete-step timer.
+                // No previous-generation contents are needed by this correction.
+                PxU64* next=nullptr;allocate(next,shapeCapacity);
+                try {check(cudaMemsetAsync(next,0,size_t(shapeCapacity)*sizeof(PxU64),stream));}
+                catch(...) {cudaFree(next);throw;}
+                check(cudaFree(mShapeOwnerGenerations));mShapeOwnerGenerations=next;
+                mShapeOwnerCapacity=shapeCapacity;
+            }
             check(cudaMemsetAsync(mCandidateSlots,0xff,mN*sizeof(PxU32),stream));
             indexCandidateRoots<<<std::max(1u,(mHostBodyAllocation.count+127)/128),128,0,stream>>>(mTopology->trial(),mCandidateSlots);
             preparePersistentCollisionBindings<<<(mN+127)/128,128,0,stream>>>(mChunks,mN,mClusters,mAffectedClusters,
@@ -1420,14 +1437,20 @@ public:
     bool installCollisionOwners(PxgShapeSim* shapes,PxU32 capacity,PxNodeIndex* shapeToBody,PxU32 remapCapacity,CUstream coreStream) override {
         if(mFailed || !mCorrectionEnabled || mHostStatus->error!=8u || !mHostCollisionPreparation.valid
             || mHostCollisionPreparation.removed || !mHostCorrectionPreparation.valid || !coreStream
-            || (mHostCollisionPreparation.count && (!shapes || !capacity || !shapeToBody || remapCapacity<capacity)))return false;
+            || (mHostCollisionPreparation.count && (!shapes || !capacity || !shapeToBody || remapCapacity<capacity
+                || !mShapeOwnerGenerations || mShapeOwnerCapacity<capacity || !mCheckpointGeneration)))return false;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mReady,0));
             const PxU32 count=mHostCollisionPreparation.count;
-            if(count)installNativeCollisionOwners<<<(count+127)/128,128,0,stream>>>(mCompactCollisionBindings,count,shapes,capacity,shapeToBody,remapCapacity);
-            check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
+            if(count)installNativeCollisionOwners<<<(count+127)/128,128,0,stream>>>(mCompactCollisionBindings,count,shapes,capacity,shapeToBody,remapCapacity,
+                mShapeOwnerGenerations,mCheckpointGeneration);
+            check(cudaGetLastError());check(cudaEventRecord(mReady,stream));
+            mInstalledOwnerGeneration=count?mCheckpointGeneration:0;return true;
         }catch(...){mFailed=true;return false;}
+    }
+    PxgDestructionOwnershipView collisionOwnershipView() const override {
+        return {mShapeOwnerGenerations,mInstalledOwnerGeneration,mShapeOwnerCapacity};
     }
     bool preserveUnchangedContactPairs() const override { return mPreserveContactPairs; }
     bool correctionEnabled() const override { return mCorrectionEnabled; }
