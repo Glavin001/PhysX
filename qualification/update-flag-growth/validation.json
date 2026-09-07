@@ -1,0 +1,16 @@
+{
+  "change": "Grow the GPU broad-phase update flags before ownership refresh, preserve pending command flags, zero new capacity only, and update the existing device descriptor pointer on the ordered simulation stream.",
+  "trigger": "257 ownership refresh requests alongside 1,100 new static shapes and an unrelated ordinary GPU pose command.",
+  "stress_graph": false,
+  "stress_bonds": 0,
+  "test": "physx_persistent_shape_owner_gpu_bounds_growth",
+  "original_failure": "Failed to refresh persistent shape bounds from GPU motion",
+  "original_guard_revision": "6edb408d",
+  "original_failure_scope": "Observed during broader qualification of the persistent-query work; no isolated old-build execution was performed. The rejecting whole-world capacity guard predates the query change.",
+  "physical_equations_changed": false,
+  "quality_assertions_weakened": false,
+  "gpu_memcheck_errors": 0,
+  "evidence": {
+    "log_sha256": "c0f790b6f5787b40088ef111e9cad3883dc2bd9d5f441926992fbd88482ad6f4"
+  }
+}

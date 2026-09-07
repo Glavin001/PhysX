@@ -3222,6 +3222,24 @@ bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRig
     const PxU32 count=allRigidShapes ? PxU32(ownership.mMaxTransformCacheID+1) : indices.size();
     if(!count){indices.clear();return true;}
 
+    // Shape insertion may grow NP before the end-of-step Direct GPU descriptor
+    // reset. Preserve pending command flags while extending this shared buffer;
+    // resetting its prefix would lose ordinary actors' broad-phase updates.
+    const PxU64 required=PxU64(ownership.mMaxTransformCacheID)+1;
+    if(required>PX_MAX_U32)return false;
+    const PxU64 oldBytes=mUpdatedDirectBuffer.getSize();
+    if(oldBytes<required*sizeof(PxU32)) {
+        mUpdatedDirectBuffer.allocateCopyOldDataAsync(required*sizeof(PxU32),mCudaContext,mStream,PX_FL);
+        const PxU64 newBytes=mUpdatedDirectBuffer.getSize();
+        if(!mUpdatedDirectBuffer.getDevicePtr() || newBytes<required*sizeof(PxU32)
+            || newBytes/sizeof(PxU32)>PX_MAX_U32)return false;
+        if(mCudaContext->memsetD32Async(mUpdatedDirectBuffer.getDevicePtr()+oldBytes,0,
+            (newBytes-oldBytes)/sizeof(PxU32),mStream)!=CUDA_SUCCESS)return false;
+        auto& descriptor=mUpdatedActorDataDesc.get();descriptor.mUpdated=mUpdatedDirectBuffer.getTypedPtr();
+        if(mCudaContext->memcpyHtoDAsync(mUpdatedActorDescBuffer.getDevicePtr()+PX_OFFSET_OF(PxgUpdateActorDataDesc,mUpdated),
+            &descriptor.mUpdated,sizeof(descriptor.mUpdated),mStream)!=CUDA_SUCCESS)return false;
+    }
+
     // Shape metadata was uploaded on the simulation stream. Geometry/cache
     // allocation and merges precede this call on NP's stream. Read only the
     // current GPU pointers, without changing the Direct GPU API descriptor.

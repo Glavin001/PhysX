@@ -200,6 +200,14 @@ void growth() {
         body->setMass(1);body->setMassSpaceInertiaTensor(PxVec3(1.0f/6));body->setLinearDamping(0);body->setAngularDamping(0);
         bodies.push_back(body);scene.addActor(*body);
     }
+    // An ordinary GPU pose command must survive update-flag capacity growth.
+    // This pair is outside the destruction/rebinding request set.
+    auto* marker=physics.createRigidDynamic(PxTransform(PxVec3(1490,40,0)));
+    auto* anchor=physics.createRigidDynamic(PxTransform(PxVec3(1500,40,0)));
+    anchor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
+    auto* markerShape=makeShape(context,0);auto* anchorShape=makeShape(context,0);
+    require(marker->attachShape(*markerShape) && anchor->attachShape(*anchorShape),"ordinary growth control setup failed");
+    scene.addActor(*marker);scene.addActor(*anchor);
     scene.addActor(*original);step(scene);
     auto& gpu=scene.getDirectGPUAPI();auto& cuda=*context.cudaContextManager();
     std::vector<PxU32> ids{original->getGPUIndex()},firstIDs,secondIDs;std::vector<PxTransform> poses{gpuPose};
@@ -227,7 +235,10 @@ void growth() {
         auto* shape=makeShape(context,0);shape->setLocalPose(PxTransform(PxVec3(3.0f*i,0,0)));
         require(fresh->attachShape(*shape),"growth static setup failed");shape->release();
     }
+    setGpuPoses(gpu,cuda,{marker->getGPUIndex()},{PxTransform(PxVec3(1499.8f,40,0))});
     scene.addActor(*fresh);step(scene);
+    require(contactCount(gpu,cuda,gpu.getShapeContactIndex(*markerShape),gpu.getShapeContactIndex(*anchorShape),marker,anchor)>0,
+        "bounds capacity growth lost an ordinary GPU pose command update");
     require((original->getGlobalPose().p-cpuPose.p).magnitude()<1e-6f,"growth fixture published CPU poses");
     for(unsigned i=0;i<count;++i) {
         require(gpu.getShapeContactIndex(*first[i])==firstIDs[i] && gpu.getShapeContactIndex(*second[i])==secondIDs[i],"growth changed persistent shape identity");
@@ -237,7 +248,8 @@ void growth() {
     // Cancel every outstanding refresh by releasing the actual geometry before
     // upload, then advance again to exercise empty compaction after growth.
     original->release();for(auto* body:bodies)body->release();
-    for(auto* shape:first)shape->release();for(auto* shape:second)shape->release();fresh->release();step(scene);
+    for(auto* shape:first)shape->release();for(auto* shape:second)shape->release();fresh->release();
+    marker->release();anchor->release();markerShape->release();anchorShape->release();step(scene);
     require(context.healthy(),"grown GPU ownership scene failed");
     std::puts("persistent GPU bounds: 1-to-257 queue growth, repeated edits, simultaneous shape storage growth and cancelled teardown passed");
 }
