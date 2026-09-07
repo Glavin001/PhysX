@@ -1,0 +1,122 @@
+{
+  "base_revision": "4949de3abad4931d841619b4601695b12c2603a1",
+  "change": "When the convergence finalizer handles zero or one component, its single producer writes the complete active tally directly. The existing caller barrier or kernel dependency orders consumption. The generic multi-component integer reduction remains.",
+  "physical_equations_changed": false,
+  "floating_reduction_order_changed": false,
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressIslandReduction.cuh": "6b26e7f02e98f3a9dd7570eba6d78753d3db2a67f9ced190e5d87c929486da20"
+  },
+  "timestep": 0.016666666666666666,
+  "correction_limit": 1,
+  "focused_tests_passed": 6,
+  "targeted_component_synccheck_passed": true,
+  "targeted_component_racecheck_passed": true,
+  "unfiltered_memory_test_passed": true,
+  "full_synccheck_qualified": false,
+  "existing_full_synccheck_issue": "component-stress-cub-synccheck/README.md",
+  "comparisons": [
+    {
+      "case": "penetration",
+      "chunks": 444,
+      "bonds": 896,
+      "projectiles": 1,
+      "trials": 5,
+      "seconds": 60,
+      "before_mean_ms": 2.3182397545,
+      "after_mean_ms": 2.060838240333333,
+      "mean_change_percent": -11.103317233129905,
+      "before_peak_ms": 6.511654,
+      "after_peak_ms": 5.982901,
+      "before_missed_8ms": 0,
+      "after_missed_8ms": 0
+    },
+    {
+      "case": "impacts-16",
+      "chunks": 7104,
+      "bonds": 14336,
+      "projectiles": 16,
+      "trials": 2,
+      "seconds": 10,
+      "before_mean_ms": 4.6300592358333335,
+      "after_mean_ms": 4.09319202,
+      "mean_change_percent": -11.595255880926247,
+      "before_peak_ms": 10.357722,
+      "after_peak_ms": 9.495878,
+      "before_missed_8ms": 39,
+      "after_missed_8ms": 7
+    },
+    {
+      "case": "impacts-256",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "before_mean_ms": 12.144868251666667,
+      "after_mean_ms": 11.603044180833333,
+      "mean_change_percent": -4.461341692685538,
+      "before_peak_ms": 63.633812,
+      "after_peak_ms": 63.182085,
+      "before_missed_8ms": 1038,
+      "after_missed_8ms": 1038
+    }
+  ],
+  "counter_histories": [
+    {
+      "run": "plain-0",
+      "steps": 600,
+      "fields": {
+        "bonds_broken": null,
+        "resim_passes": null,
+        "logical_clusters": null,
+        "stress_iterations": 97,
+        "stress_converged": null,
+        "contacts_frame": null,
+        "bodies": null,
+        "awake_bodies": null
+      }
+    },
+    {
+      "run": "plain-1",
+      "steps": 600,
+      "fields": {
+        "bonds_broken": null,
+        "resim_passes": null,
+        "logical_clusters": null,
+        "stress_iterations": 121,
+        "stress_converged": null,
+        "contacts_frame": null,
+        "bodies": null,
+        "awake_bodies": null
+      }
+    },
+    {
+      "run": "phases-0",
+      "steps": 600,
+      "fields": {
+        "bonds_broken": null,
+        "resim_passes": null,
+        "logical_clusters": null,
+        "stress_iterations": 97,
+        "stress_converged": null,
+        "contacts_frame": null,
+        "bodies": null,
+        "awake_bodies": null
+      }
+    }
+  ],
+  "iteration_variation_note": "All measured 600-step fracture, correction, cluster, contact and body histories match the baseline. Stress iteration counts vary between runs, including baseline repeats. This does not prove bit-identical trajectories.",
+  "large_audit_render_buffer": false,
+  "large_audit_full_momentum": false,
+  "evidence": "qualification/component-tally-evidence",
+  "full_plan_complete": false,
+  "remaining": [
+    "GPU fragment/body allocation and migrating-shape lifecycle",
+    "Removal of intermediate host decisions",
+    "Selective correction with complete validity checks",
+    "Resident multilevel preconditioning and affected topology updates",
+    "Validated sleep/wake and structural reuse",
+    "Full physical/lifecycle endurance and unsupported-environment gates",
+    "Five 60-second 256-building bombardment runs at or below 8 ms"
+  ]
+}

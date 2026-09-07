@@ -183,6 +183,14 @@ __device__ __forceinline__ void finalizeAndCheckConvergenceBody(
             active = 1;
         }
     }
+    // A resident component owns exactly one active flag. Its single producer
+    // already has the complete integer tally; the caller provides the barrier
+    // before consuming it. Keep the same convergence calculation above.
+    if (islandCount <= 1u)
+    {
+        if (tid == 0) blockActiveCounts[logicalBlock] = active;
+        return;
+    }
     partial[tid] = active;
     __syncthreads();
     for (std::uint32_t stride = blockDim.x / 2; stride > 0; stride >>= 1)

@@ -506,3 +506,17 @@ The frozen 444-chunk / 896-bond penetration audit retains 398 supported chunks, 
 - impacts-256: 113,664 chunks / 229,376 bonds / 256 projectile(s), 2 × 10 seconds. Mean 18.661 → 12.145 ms; peak 63.505 → 63.634 ms; steps above 8 ms 1038 → 1038.
 
 The bombardment average improves substantially, but its worst-step deadline remains failed. Separate profiling shows average stress time falling from 12.352 to 6.009 ms; the CPU lifecycle bridge and correction still dominate the largest fracture spike. Next deletion: the single-component convergence path need not perform a block-wide integer tally of one active flag. Full GPU lifecycle migration and correction work selection remain larger requirements.
+
+## Delete the single-component convergence reduction
+
+A resident CUDA block solves one component. Its convergence finalizer already produces the complete active count in one thread, so reducing that one flag through a block-wide shared-memory tree was unnecessary. The finalizer now publishes the flag directly for zero/one-component work; the caller's existing barrier preserves ordering. Floating-point operators, summation order, tolerance, material laws and correction limit are unchanged.
+
+Six focused tests pass: native bombardment contacts, resimulation and publication; CPU numerical parity; resident analytic tests; and unfiltered GPU memory checking. Targeted component synchronization and race checks pass. The existing full CUB/conditional-graph synchronization issue remains unresolved. The frozen 444-chunk / 896-bond penetration audit preserves the existing topology signature, 398 supported chunks, 46 detached chunks and 199 broken bonds. The ten-second 256-building audit (113,664 chunks, 229,376 bonds, 256 projectiles) passes unique shape pairs, contact ownership/connectivity and collision/motion agreement. Every measured 600-step fracture/correction/contact/body count history matches the previous build. Stress iteration counts vary between repetitions; no bit-identical physical trajectory or full renderer/momentum/endurance qualification is claimed.
+
+[Generated three-scene timing and phase report](component-tally-scaling/report.html) · [Bombardment comparison](component-tally-comparison/report.html) · [Validation](component-tally-validation.json). Timings cover commands through accepted physics/destruction/correction and mandatory completion, with timestep 1/60, correction limit one and sleeping disabled. Rendering is excluded.
+
+- penetration: 444 chunks / 896 bonds / 1 projectile(s), 5 × 60 seconds. Mean 2.318 → 2.061 ms; peak 6.512 → 5.983 ms; steps above 8 ms 0 → 0.
+- impacts-16: 7,104 chunks / 14,336 bonds / 16 projectile(s), 2 × 10 seconds. Mean 4.630 → 4.093 ms; peak 10.358 → 9.496 ms; steps above 8 ms 39 → 7.
+- impacts-256: 113,664 chunks / 229,376 bonds / 256 projectile(s), 2 × 10 seconds. Mean 12.145 → 11.603 ms; peak 63.634 → 63.182 ms; steps above 8 ms 1038 → 1038.
+
+Separate bombardment phase captures show average GPU stress time falling from 6.009 to 5.451 ms. The large-scene peak remains far above 8 ms; CPU fragment lifecycle/ownership and correction still dominate that spike. The next primary responsibility to migrate is native fragment lifecycle, not further tuning of its temporary CPU bridge.
