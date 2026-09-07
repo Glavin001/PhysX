@@ -366,7 +366,8 @@ void largeToSmallComponents()
     std::printf("resident topology transition: nodes=1040 bonds=1039 components=1->2->4 permuted IDs, twelve quiet/load solves passed\n");
 }
 
+#include "resident_unaffected_warm_test.cuh"
 }
 int main(int argc,char** argv){std::setvbuf(stdout,nullptr,_IOLBF,0);try{
     if(argc==2){const std::string fixture=argv[1];require(fixture=="mixed","unknown resident fixture");mixedComponentSizes(false);mixedComponentSizes(true);return 0;}
-    require(argc==1,"invalid resident fixture arguments");for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);largeToSmallComponents();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+    require(argc==1,"invalid resident fixture arguments");for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);largeToSmallComponents();unaffectedWarmColumn();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

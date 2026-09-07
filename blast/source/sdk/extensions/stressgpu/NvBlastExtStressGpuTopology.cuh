@@ -174,6 +174,9 @@ struct DeviceStressTopologyBuffers
     IslandReductionOrder* orders;
     const float4* positions=nullptr;
 };
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+#include "detail/StressTopologyWarmStart.cuh"
+#endif
 class DeviceStressTopology
 {
     DeviceStressTopologyBuffers b;
@@ -253,6 +256,13 @@ class DeviceStressTopology
         kernel(validation,prior,(void*)chooseDeviceStressRebuild,1,1,state,rebuild);
         auto body=conditional(validation,prior,rebuild);
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        // Validation already accepted this transaction. Reuse existing flag
+        // storage, and consume old component identities before relabeling.
+        checkCuda(cudaMemsetAsync(rootFlags,0,sizeof(unsigned)*b.n,captureStream), "clear changed stress component flags");
+        markChangedStressComponents<<<bondBlocks,kBlockSize,0,captureStream>>>(batch,state,b.health,b.bondIsland,rootFlags,b.m);
+        clearChangedStressWarmStart<<<bondBlocks,kBlockSize,0,captureStream>>>(state,b.bondIsland,rootFlags,b.impulses,b.m);
+#endif
         beginDeviceStressRebuild<<<1,1,0,captureStream>>>(state);
         initializeDeviceStressTopology<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(batch,b.inertia,parent,identity,rootFlags,b.health,b.n,b.m,forest);
         connectDeviceStressTopology<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,b.m,parent,forest);
@@ -272,10 +282,12 @@ class DeviceStressTopology
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,b.activeFlags,b.activeBonds,b.activeCounts,b.m,captureStream), "compact device stress bonds");
         flagDeviceStressRows<<<nodeBlocks,kBlockSize,0,captureStream>>>(b.nodeIsland,b.n,b.activeFlags);
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,b.activeFlags,b.activeNodes,b.activeCounts+1,b.n,captureStream), "compact device stress nodes");
-        // Match the reference's cold restart on topology changes. Alive/dead
-        // constraints, disconnected convergence state and Jacobi blocks all
-        // change together; no stale force can keep a broken bond coupled.
+        // Reference cold-restarts globally. Native already cold-restarted each
+        // affected old component before relabeling. All recurrence/convergence
+        // scratch below is recomputed, even for preserved initial guesses.
+#ifndef PHYSX_RESIDENT_DESTRUCTION
         checkCuda(cudaMemsetAsync(b.impulses,0,sizeof(AngLin)*b.m,captureStream), "invalidate stress warm start");
+#endif
         // Static and newly isolated rows are absent from the active list.
         // Keep their boundary vectors zero rather than retaining old values
         // that a surviving neighbor's matvec could otherwise read.

@@ -1,0 +1,452 @@
+{
+  "aggregates": {
+    "baseline": {
+      "mean_ms": 17.95753162777778,
+      "median_run_peak_ms": 60.16533,
+      "runs": 9,
+      "worst_ms": 64.134718
+    },
+    "candidate": {
+      "mean_ms": 17.351611495238096,
+      "median_run_peak_ms": 60.445325,
+      "runs": 7,
+      "worst_ms": 62.260108
+    }
+  },
+  "frozen_quality": {
+    "all_stress_steps_converged": true,
+    "artifacts": {
+      "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "87e7dd738819aa3e3f03b49cf8803c6cbdebac4721d0ff1ea158b4e09fd375c3",
+      "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "481eab6a7fca0d8c22aef03152bd685d84cdbe7369e7ffa3e0e9846de45b43f4",
+      "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "f3920e6a9dbc0a5e699800e27fc547d6587b0a3a4640274c91554be3cfb52afa"
+    },
+    "broken_bonds": 199,
+    "capture": "/root/workspace/physx-2/out/affected-warm-wall-quality",
+    "corrected_steps": [
+      17,
+      32,
+      33
+    ],
+    "corrections_per_step_max": 1,
+    "detached_chunks": 46,
+    "displaced_wall_chunks": {
+      "entry": [
+        243,
+        244,
+        271,
+        272
+      ],
+      "exit": [
+        263,
+        264,
+        291,
+        292
+      ]
+    },
+    "final_cluster_count": 43,
+    "fracture_steps": [
+      17,
+      30,
+      32,
+      33
+    ],
+    "frozen_identity_gate_passed": true,
+    "golden_sha256": "25887814484a49c7db82f3a3e36f7adb408764c928a4f64236baf466871947da",
+    "largest_connected_cluster": 398,
+    "max_cluster_com_error": 3.93221307604108e-06,
+    "max_render_collision_position_error": 0,
+    "physics_ms": {
+      "max": 12.610037,
+      "mean": 7.023005383333333,
+      "min": 0.554343,
+      "p50": 6.906594,
+      "p95": 9.144927,
+      "p99": 9.461557
+    },
+    "projectile_clearance_seconds": 0.6666666666666666,
+    "projectile_clearance_step": 39,
+    "projectile_position_at_clearance": [
+      0.012902067974209785,
+      6.492729187011719,
+      4.746237754821777
+    ],
+    "supported_chunks": 398,
+    "topology_identity_sha256": "e589eb8317c456147287443232209bb950514a75b5e4fb6783e2de5fe7486d4c"
+  },
+  "input_report_hashes": {
+    "qualification/affected-warm-baseline-control/report.json.gz": "2bd728e0bca3292b6dc482e6f5577ff4612ad8e9db6788f4b08cf989d8ba9c59",
+    "qualification/affected-warm-impacts-256/report.json.gz": "0cd6221fcca986007ee1b62c930dab4c0fa2e32c4dec745249b9ea8346829c7d",
+    "qualification/affected-warm-repeat-256/report.json.gz": "1eb77eb72fe6e3d9c4557f55f3241201fa02c99db970dffcb6f7208313703842",
+    "qualification/polynomial2-impacts-256/report.json.gz": "a8a470133c856d16832aea6012d92cb039900c0cb2c7a7adf80ff61622c65f63",
+    "qualification/polynomial2-repeat-impacts-256/report.json.gz": "f03f9d4363dd3cebd1d2295182e3540ddbda30974e144c3f1d33af704da616e8"
+  },
+  "iteration_step_comparisons_changed": 482,
+  "phase_peaks": {
+    "baseline": {
+      "peak_complete_ms": 62.213861,
+      "peak_cuda_stages": {
+        "commitAndStressTopology": 0.03884800151,
+        "contactLoads": 0.1380800009,
+        "materials": 0.06656000018,
+        "stress": 17.83603287,
+        "topologyAndCandidates": 0.4874880016
+      },
+      "peak_step": 103,
+      "peak_work": {
+        "awake_bodies": "12072",
+        "bodies": "12072",
+        "bonds_broken": "7300",
+        "contacts_frame": "109383",
+        "logical_clusters": "11816",
+        "resim_passes": "1",
+        "stress_active_bonds": "143980",
+        "stress_active_nodes": "87306",
+        "stress_islands": "1842",
+        "stress_iterations": "280"
+      },
+      "rows": [
+        {
+          "all_mean_ms": 11.242708633333333,
+          "key": "stress",
+          "label": "\ud83e\uddee Destruction submission and completion dependency",
+          "owner": "Our CUDA stress/load/topology pipeline; inspect CUDA stages below",
+          "peak_ms": 18.598288,
+          "top_mean_ms": 17.2186327
+        },
+        {
+          "all_mean_ms": 2.214978822222222,
+          "key": "correction",
+          "label": "\u23ea Correction orchestration and repeated interaction",
+          "owner": "Optimize our work selection/reuse; keep NVIDIA collision/solve kernels",
+          "peak_ms": 24.017791,
+          "top_mean_ms": 13.4877734
+        },
+        {
+          "all_mean_ms": 2.9166359777777777,
+          "key": "trial",
+          "label": "\ud83d\udff0 Trial physics and unassigned scene tasks",
+          "owner": "Control/context; not a recommendation to rewrite NVIDIA kernels",
+          "peak_ms": 7.924863,
+          "top_mean_ms": 5.9022621
+        },
+        {
+          "all_mean_ms": 0.5033710444444445,
+          "key": "ownership",
+          "label": "\ud83d\ude9a Fragment ownership and lifecycle bridge",
+          "owner": "Our integration: allocation, registration, ownership, filtering and query mirrors",
+          "peak_ms": 8.764777999999998,
+          "top_mean_ms": 4.9709433
+        },
+        {
+          "all_mean_ms": 1.1931984166666667,
+          "key": "commit",
+          "label": "\ud83d\udce4 Accepted-state publication",
+          "owner": "Our correction completion and publication",
+          "peak_ms": 2.83774,
+          "top_mean_ms": 2.8088619
+        },
+        {
+          "all_mean_ms": 0.014931827777777778,
+          "key": "checkpoint",
+          "label": "\ud83d\udcbe Checkpoint",
+          "owner": "Our checkpoint selection/submission",
+          "peak_ms": 0.009979,
+          "top_mean_ms": 0.0715304
+        },
+        {
+          "all_mean_ms": 0.05532094999999984,
+          "key": "completion",
+          "label": "\u2705 Mandatory completion",
+          "owner": "Application completion/status boundary",
+          "peak_ms": 0.062065000000004034,
+          "top_mean_ms": 0.06354219999999984
+        },
+        {
+          "all_mean_ms": 0.07663970555555556,
+          "key": "commands",
+          "label": "\ud83d\udce5 Recorded commands",
+          "owner": "Command application including runtime insertion",
+          "peak_ms": 0.00011,
+          "top_mean_ms": 9.53e-05
+        }
+      ],
+      "top_steps": [
+        103,
+        82,
+        102,
+        85,
+        101,
+        104,
+        84,
+        99,
+        160,
+        108
+      ]
+    },
+    "candidate": {
+      "peak_complete_ms": 62.387647,
+      "peak_cuda_stages": {
+        "commitAndStressTopology": 0.03993599862,
+        "contactLoads": 0.136191994,
+        "materials": 0.06668800116,
+        "stress": 18.39718437,
+        "topologyAndCandidates": 0.4801279902
+      },
+      "peak_step": 103,
+      "peak_work": {
+        "awake_bodies": "12072",
+        "bodies": "12072",
+        "bonds_broken": "7300",
+        "contacts_frame": "109383",
+        "logical_clusters": "11816",
+        "resim_passes": "1",
+        "stress_active_bonds": "143980",
+        "stress_active_nodes": "87306",
+        "stress_islands": "1842",
+        "stress_iterations": "276"
+      },
+      "rows": [
+        {
+          "all_mean_ms": 10.706615594444445,
+          "key": "stress",
+          "label": "\ud83e\uddee Destruction submission and completion dependency",
+          "owner": "Our CUDA stress/load/topology pipeline; inspect CUDA stages below",
+          "peak_ms": 19.154747,
+          "top_mean_ms": 16.659119099999998
+        },
+        {
+          "all_mean_ms": 2.16635975,
+          "key": "correction",
+          "label": "\u23ea Correction orchestration and repeated interaction",
+          "owner": "Optimize our work selection/reuse; keep NVIDIA collision/solve kernels",
+          "peak_ms": 24.117887999999997,
+          "top_mean_ms": 13.3100142
+        },
+        {
+          "all_mean_ms": 2.839862088888889,
+          "key": "trial",
+          "label": "\ud83d\udff0 Trial physics and unassigned scene tasks",
+          "owner": "Control/context; not a recommendation to rewrite NVIDIA kernels",
+          "peak_ms": 8.337992,
+          "top_mean_ms": 5.8877716
+        },
+        {
+          "all_mean_ms": 0.5036031777777777,
+          "key": "ownership",
+          "label": "\ud83d\ude9a Fragment ownership and lifecycle bridge",
+          "owner": "Our integration: allocation, registration, ownership, filtering and query mirrors",
+          "peak_ms": 7.834604,
+          "top_mean_ms": 4.849468699999999
+        },
+        {
+          "all_mean_ms": 1.1963760333333333,
+          "key": "commit",
+          "label": "\ud83d\udce4 Accepted-state publication",
+          "owner": "Our correction completion and publication",
+          "peak_ms": 2.836307,
+          "top_mean_ms": 2.8192102
+        },
+        {
+          "all_mean_ms": 0.05262657222222227,
+          "key": "completion",
+          "label": "\u2705 Mandatory completion",
+          "owner": "Application completion/status boundary",
+          "peak_ms": 0.09515700000000038,
+          "top_mean_ms": 0.07376329999999812
+        },
+        {
+          "all_mean_ms": 0.01299458888888889,
+          "key": "checkpoint",
+          "label": "\ud83d\udcbe Checkpoint",
+          "owner": "Our checkpoint selection/submission",
+          "peak_ms": 0.012263,
+          "top_mean_ms": 0.0714703
+        },
+        {
+          "all_mean_ms": 0.06479731111111112,
+          "key": "commands",
+          "label": "\ud83d\udce5 Recorded commands",
+          "owner": "Command application including runtime insertion",
+          "peak_ms": 0.000171,
+          "top_mean_ms": 9.92e-05
+        }
+      ],
+      "top_steps": [
+        103,
+        82,
+        102,
+        85,
+        101,
+        104,
+        99,
+        105,
+        107,
+        84
+      ]
+    }
+  },
+  "physical_counter_differences": 0,
+  "rows": [
+    {
+      "arm": "baseline",
+      "batch": "polynomial2-impacts-256",
+      "mean_ms": 18.045391877777778,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 57.798429,
+      "peak_step": 103,
+      "repeat": 1
+    },
+    {
+      "arm": "baseline",
+      "batch": "polynomial2-impacts-256",
+      "mean_ms": 17.99247183888889,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 64.134718,
+      "peak_step": 103,
+      "repeat": 2
+    },
+    {
+      "arm": "baseline",
+      "batch": "polynomial2-repeat-impacts-256",
+      "mean_ms": 17.923976727777777,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 60.16533,
+      "peak_step": 103,
+      "repeat": 1
+    },
+    {
+      "arm": "baseline",
+      "batch": "polynomial2-repeat-impacts-256",
+      "mean_ms": 17.89635235,
+      "misses_60hz": 98,
+      "misses_8ms": 99,
+      "peak_ms": 59.94489,
+      "peak_step": 103,
+      "repeat": 2
+    },
+    {
+      "arm": "baseline",
+      "batch": "polynomial2-repeat-impacts-256",
+      "mean_ms": 17.999739694444443,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 61.584907,
+      "peak_step": 103,
+      "repeat": 3
+    },
+    {
+      "arm": "baseline",
+      "batch": "polynomial2-repeat-impacts-256",
+      "mean_ms": 17.923892305555555,
+      "misses_60hz": 98,
+      "misses_8ms": 99,
+      "peak_ms": 59.958229,
+      "peak_step": 103,
+      "repeat": 4
+    },
+    {
+      "arm": "baseline",
+      "batch": "polynomial2-repeat-impacts-256",
+      "mean_ms": 17.853961327777778,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 60.697016,
+      "peak_step": 103,
+      "repeat": 5
+    },
+    {
+      "arm": "candidate",
+      "batch": "affected-warm-impacts-256",
+      "mean_ms": 17.301611205555556,
+      "misses_60hz": 98,
+      "misses_8ms": 99,
+      "peak_ms": 60.561142,
+      "peak_step": 103,
+      "repeat": 1
+    },
+    {
+      "arm": "candidate",
+      "batch": "affected-warm-impacts-256",
+      "mean_ms": 17.262731,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 58.819896,
+      "peak_step": 103,
+      "repeat": 2
+    },
+    {
+      "arm": "candidate",
+      "batch": "affected-warm-repeat-256",
+      "mean_ms": 17.323856872222223,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 59.049804,
+      "peak_step": 103,
+      "repeat": 1
+    },
+    {
+      "arm": "candidate",
+      "batch": "affected-warm-repeat-256",
+      "mean_ms": 17.49830233333333,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 62.058823,
+      "peak_step": 82,
+      "repeat": 2
+    },
+    {
+      "arm": "candidate",
+      "batch": "affected-warm-repeat-256",
+      "mean_ms": 17.46840452777778,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 62.260108,
+      "peak_step": 103,
+      "repeat": 3
+    },
+    {
+      "arm": "candidate",
+      "batch": "affected-warm-repeat-256",
+      "mean_ms": 17.428097033333334,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 60.407204,
+      "peak_step": 103,
+      "repeat": 4
+    },
+    {
+      "arm": "candidate",
+      "batch": "affected-warm-repeat-256",
+      "mean_ms": 17.178277494444444,
+      "misses_60hz": 98,
+      "misses_8ms": 99,
+      "peak_ms": 60.445325,
+      "peak_step": 103,
+      "repeat": 5
+    },
+    {
+      "arm": "baseline",
+      "batch": "affected-warm-baseline-control",
+      "mean_ms": 17.952551144444445,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 59.469907,
+      "peak_step": 103,
+      "repeat": 1
+    },
+    {
+      "arm": "baseline",
+      "batch": "affected-warm-baseline-control",
+      "mean_ms": 18.029447383333334,
+      "misses_60hz": 99,
+      "misses_8ms": 99,
+      "peak_ms": 60.821225,
+      "peak_step": 82,
+      "repeat": 2
+    }
+  ],
+  "schema": 1
+}
