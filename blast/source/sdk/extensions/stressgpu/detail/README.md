@@ -111,7 +111,7 @@ nonfinite geometry/bond coefficients, 4 for a stale generation, 8 for invalid
 mass scaling, and 16 for an unfactorable local diagonal. Multiple errors may be
 combined. Consumers must reject an error before using any hierarchy result.
 The local factors alone do not constitute the multilevel preconditioner: its
-recursive levels/coarse solve and production CGLS wiring remain unfinished.
+full V-cycle and production CGLS wiring remain unfinished.
 
 ## Recursive packed levels
 
@@ -134,10 +134,10 @@ error flag; all blocks must take the same grid exit. Coarse input generations
 must match their committed upstream status. The private `Graph` distinguishes
 fine and recursive roles so fine-only diagonal storage is not allocated for
 recursive levels. Calling the fine-only diagonal kernel on a coarse view fails
-explicitly. Terminal/coarse factors are not implemented yet.
+explicitly. Terminal factors are independently implemented and qualified below; coarse smoothers remain.
 
-Remaining integration work: classify terminal components on the GPU, construct
-and apply small null-space-safe factors, build coarse smoothers, and run a symmetric resident V-cycle twice in
+Remaining integration work: retire terminal components from deeper levels,
+share their factor storage, build coarse smoothers, and run a symmetric resident V-cycle twice in
 the preconditioned CGLS recurrence. Its authoritative fine operator and stopping
 test must remain unchanged. Fine inertia/position normalization must match the
 existing asset-preparation scale. Native convergence/fracture and full-step
@@ -175,4 +175,37 @@ execution on validation failure. Counts and ranges remain GPU-owned; tests
 provide independent partition inputs solely as an oracle. The production
 bridge must bind the existing `ResidentStressComponentView` and active-node
 count, after the native topology task commits that generation. This binding
-and the terminal factor/V-cycle remain unfinished.
+and the V-cycle remain unfinished.
+
+
+`StressHierarchyTerminal.cuh` constructs and applies per-component terminal
+preconditioners for at most six nodes (36 coordinates). It consumes the shared
+partition and exact fine/coarse coupling views on GPU. Each component gets its
+own lower Cholesky factor; no dense inverse or matrix spanning components is
+constructed. Larger components remain nonterminal. A truly zero operator
+produces a zero response.
+
+For supported components the factored operator is the original component L.
+For free components, a positive diagonal lift on one node's six coordinates
+makes the preconditioner definite. This is a numerical preconditioner only; it
+adds no physical support and never changes the authoritative L or stopping
+criterion. It avoids assuming/projecting six exact authored null modes when
+rounded/self-edge moments retain real coupling. Independent tests require
+compatible coherent free loads to satisfy the original unlifted equations,
+and check full factors, solve backward residuals, symmetry, positivity and
+retained inconsistent-offset coupling at the established 2e-12 tolerance.
+
+Factors use diagonal equilibration and double precision. Each authored-node
+slot holds 111 factor entries plus six row scales; a six-node component's
+lower factor needs exactly 666 entries. `TerminalLevel` currently owns its
+qualification workspace (117 doubles/node plus six lift diagnostics and one
+kind per component-ID capacity). Construction is cooperative and device
+generation-controlled; application consumes resident factors without host
+decisions. Error 128 rejects failed numerical factors; source/partition errors
+retain their existing codes. Rejected commands preserve committed status.
+
+Remaining before production: stop coarsening terminal components and share
+the factor pool across their disjoint authored origins, build coarse smoothers,
+compose the symmetric V-cycle, and bind the native CGLS path. Standalone
+terminal qualification does not establish V-cycle convergence, production
+speed, or the 8 ms peak gate.

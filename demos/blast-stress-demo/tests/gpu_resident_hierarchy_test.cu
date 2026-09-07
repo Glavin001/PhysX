@@ -4,6 +4,7 @@
 #include "StressHierarchyPackedLevel.cuh"
 #include "StressHierarchyLevelOperator.cuh"
 #include "StressHierarchyTransfers.cuh"
+#include "StressHierarchyTerminalLevel.cuh"
 #include <memory>
 #include <array>
 #include <cstdio>
@@ -119,6 +120,7 @@ void verifyPartition(const Fixture& f,const std::vector<unsigned>& leaders,unsig
 #include "gpu_resident_hierarchy_operator_checks.cuh"
 #include "gpu_resident_hierarchy_recursive_checks.cuh"
 #include "gpu_resident_hierarchy_partition_checks.cuh"
+#include "gpu_resident_hierarchy_terminal_checks.cuh"
 void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=Invalid){
     f.csr();f.partition();const auto n=f.positions.size(),m=f.a.size();
     std::printf("START GPU hierarchy: nodes=%zu bonds=%zu\n",n,m);std::fflush(stdout);cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
@@ -160,7 +162,11 @@ void run(Fixture f,bool transitions,bool factorCheck,unsigned expectedInitial=In
             check(cudaStreamSynchronize(stream));
             require(!status.error && status.initialized && status.generation==gen,"hierarchy did not commit");
             verifyPartition(f,leaders,status.aggregates);verifyOperators(f,leaders,graph,input,stream);
-            verifyRecursive(f,recursive,leaders,coarse,gen,stream);if(step==0 && expectedInitial!=Invalid)require(status.aggregates==expectedInitial,"hub aggregation failed to coarsen");if(factorCheck)verifyFactor(f,leaders,coarse);
+            verifyRecursive(f,recursive,leaders,coarse,gen,stream);
+            verifyTerminals(f,input,graph.status(),stream);
+            verifyTerminalFactorFailure(f,input,graph.status(),stream);
+            for(unsigned level=0;level<recursive.inputs.size();++level)verifyTerminals(f,recursive.inputs[level],recursive.graphs[level]->status(),stream);
+            if(step==0 && expectedInitial!=Invalid)require(status.aggregates==expectedInitial,"hub aggregation failed to coarsen");if(factorCheck)verifyFactor(f,leaders,coarse);
             if(step==0)initial=leaders;
             if(step==5)require(leaders==initial,"restored physical graph changed aggregate identities");
             if(step==1){require(status.builds==old.builds && status.rounds==old.rounds,"unchanged generation rebuilt");require(leaders==prior,"unchanged generation changed mapping");}

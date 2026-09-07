@@ -1,0 +1,118 @@
+{
+  "scope": "GPU terminal factors and solves; resident V-cycle and production integration remain incomplete",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyDiagonal.cuh": "798c91aa2c25204013bc14187e4485c00b87435e6b120b44adb81da24d2f64b9",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh": "e33efc1d4c3c384b0cbb8a752bb08d593ad098e899dd1dd75bb7a22fba5851fd",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh": "e5c0130b72697b124abfacfd44aa39f63e7638167b3882a7c670d58be9de600f",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh": "5709f68cee7416b2a8287300f7b20b3c07f227f46c67b81be8298857ecae5db8",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh": "032df477f4f3adb667b1c810cbd87d670cfdf1157f24e9885118a3387d86e648",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackedLevel.cuh": "95b95f163aca5d2da09213aab819024c2bbff6ec193be39f2d2f5ac42bfeb10f",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPacking.cuh": "d521935ff353bfd5a48ed69a46cad4d06e6ab116ee93bd3b6a22859b53dcb0a4",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackingPartition.cuh": "1eae57ca44bb436bd0e7bc572145042bf1865b145eb16b25d61e884120a5df46",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackingPrimitives.cuh": "019a12b00202a7c149d678f6a7ed7342316735163407c0fe1bdc842f4af39f38",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminal.cuh": "2e9f8196ed166300c47f2a1e8a4b68572d5794eba20ecf6a92ee3f135bc78e54",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminalLevel.cuh": "5d4d80b496570ab20f9f339c09dfb761e42389c443488c3e87b2ae9f91eaff0f",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTransfers.cuh": "c6681de4dbadb0130e1eba8d7e53bfb9604568956553c5f22a821560f3697802",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh": "cbf16d1f0edf5b0c25358d2692d83e70fdedddc470530c4a837e5d817a66ef4e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_diagonal_checks.cuh": "79bfe9d885b7d3b1a799110d3655e4b2f051ec2db2bc303a724a3156eb24bd6e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_operator_checks.cuh": "4ead8720e175c3ee11a0eef406dbef9665eab021cd3fab25e03e9872803c3f8c",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_partition_checks.cuh": "c87356e0b816388e9d450de1f6ea37b9a671c7e93633263c7b964bdcda171eef",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_recursive_checks.cuh": "953a583378ae35b6dfc0363e58b058438bda92a5bd5913484eec4b337cf0cce1",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_terminal_checks.cuh": "8bf347632c3b706ad1a344c6991849940dabedac1119e7a0780ed4b33ba335dd",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu": "dfe9a55aa6783dfe860a18bf2e6900ea9833ed426914eddf7a4938aa07708c7f",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_transfer_checks.cuh": "6758cbe55adcbd27c4645b20a83edec76c5b89a3b5d8f5f76a734401f068e274"
+  },
+  "binary_sha256": "cc0d863d19e6e2b3ca230018747043f3a387923af5c94e358559fb243bb05009",
+  "fixtures": [
+    {
+      "nodes": 0,
+      "bonds": 0
+    },
+    {
+      "nodes": 1,
+      "bonds": 0
+    },
+    {
+      "nodes": 2,
+      "bonds": 1
+    },
+    {
+      "nodes": 4,
+      "bonds": 3
+    },
+    {
+      "nodes": 6,
+      "bonds": 10
+    },
+    {
+      "nodes": 24,
+      "bonds": 11
+    },
+    {
+      "nodes": 24,
+      "bonds": 33
+    },
+    {
+      "nodes": 129,
+      "bonds": 121
+    },
+    {
+      "nodes": 256,
+      "bonds": 0
+    },
+    {
+      "nodes": 257,
+      "bonds": 256
+    },
+    {
+      "nodes": 100000,
+      "bonds": 199997
+    }
+  ],
+  "terminal_max_nodes": 6,
+  "terminal_max_dofs": 36,
+  "tolerance": 2e-12,
+  "tests": {
+    "correctness": "pass",
+    "memcheck_with_leaks": "pass",
+    "synccheck": "pass",
+    "racecheck": "pass",
+    "coverage": [
+      "independent full matrix reconstruction and solve backward residual for small terminal components",
+      "symmetric positive response, compatible coherent free-body physical equations",
+      "parallel bonds, fixed supports, retained inconsistent-offset moment terms",
+      "zero operator gives zero response; larger components are not truncated",
+      "captured application and byte-repeatability",
+      "large-batch application on 100000-node hierarchy and topology transitions",
+      "unchanged generation skip, rejected transaction preservation, stale source rejection and recovery",
+      "finite unfactorable two-endpoint case returns error 128 and recovers"
+    ],
+    "large_fixture_scope": "Existing 100000-node / 199997-bond hierarchy; terminal construction/application scheduling, finite/repeated output and nonterminal preservation. Detailed independent dense checks run on levels with at most 257 nodes."
+  },
+  "wall_regression": {
+    "seconds": 10,
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "timestep": "1/60",
+    "correction_limit": 1,
+    "exact_frozen_gate": "pass",
+    "production_artifact_hashes_unchanged": true
+  },
+  "memory_layout": {
+    "factor_entries_per_authored_node": 111,
+    "row_scales_per_authored_node": 6,
+    "lift_diagnostics_per_component_id": 6,
+    "kind_per_component_id": 1,
+    "current_scope": "Qualification workspace owned per TerminalLevel; disjoint terminal retirement and shared pool remain to implement."
+  },
+  "new_simulation_performance_claim": null,
+  "remaining": [
+    "terminal component retirement and shared factor storage",
+    "coarse smoothers and symmetric resident V-cycle",
+    "native partition binding and CGLS integration",
+    "256-building full-step quality/performance campaign",
+    "remaining GPU lifecycle, sleep, selective correction, scaling and endurance gates"
+  ],
+  "test_fixture_correction": "A one-sided extreme offset did not provoke factor failure. The finite ill-conditioning rejection fixture now stresses both endpoint blocks; tolerance and rejection assertion were not weakened."
+}

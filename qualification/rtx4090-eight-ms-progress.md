@@ -830,3 +830,8 @@ Direct GPU transfers now address compact level vectors without an intermediate c
 ## Native component-order contract for resident coarse levels
 
 Packing consumes the GPU partition and retains component-contiguous coarse vectors/ranges without another sort. Exact equations/transfers, corruption/recovery, CUDA memory/synchronization/race audits, and the frozen 10-second 444-chunk / 896-bond penetration regression pass. See `resident-hierarchy-partitions/report.md`. Terminal factors, V-cycle and production binding remain; no 256-building speedup is claimed.
+
+
+## Resident small-component terminal factors and solves
+
+GPU terminal factors/triangular solves now pass independent equations, symmetry, free-body and explicit failure/recovery checks at the existing tolerance. All CUDA safety audits pass, including large application scheduling within the 100,000-node / 199,997-bond hierarchy. The frozen 10-second 444-chunk / 896-bond wall fixture remains exact. See `resident-hierarchy-terminals/report.md`. Terminal retirement/shared storage, coarse smoothers, V-cycle and production CGLS integration remain; no new production performance result is claimed.
