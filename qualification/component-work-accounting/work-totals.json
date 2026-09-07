@@ -1,0 +1,62 @@
+[
+  {
+    "component_updates": 86,
+    "components": 1,
+    "fixture": "one",
+    "operator_csr_visits": 267960,
+    "operator_live_directed_visits": 267960,
+    "operator_node_visits": 66120,
+    "record": "component_work_total",
+    "solve": 0
+  },
+  {
+    "component_updates": 0,
+    "components": 1,
+    "fixture": "one",
+    "operator_csr_visits": 3080,
+    "operator_live_directed_visits": 3080,
+    "operator_node_visits": 760,
+    "record": "component_work_total",
+    "solve": 1
+  },
+  {
+    "component_updates": 0,
+    "components": 1,
+    "fixture": "one",
+    "operator_csr_visits": 3080,
+    "operator_live_directed_visits": 3080,
+    "operator_node_visits": 760,
+    "record": "component_work_total",
+    "solve": 2
+  },
+  {
+    "component_updates": 22016,
+    "components": 256,
+    "fixture": "256",
+    "operator_csr_visits": 68597760,
+    "operator_live_directed_visits": 68597760,
+    "operator_node_visits": 16926720,
+    "record": "component_work_total",
+    "solve": 0
+  },
+  {
+    "component_updates": 0,
+    "components": 256,
+    "fixture": "256",
+    "operator_csr_visits": 788480,
+    "operator_live_directed_visits": 788480,
+    "operator_node_visits": 194560,
+    "record": "component_work_total",
+    "solve": 1
+  },
+  {
+    "component_updates": 0,
+    "components": 256,
+    "fixture": "256",
+    "operator_csr_visits": 788480,
+    "operator_live_directed_visits": 788480,
+    "operator_node_visits": 194560,
+    "record": "component_work_total",
+    "solve": 2
+  }
+]

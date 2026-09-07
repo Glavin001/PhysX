@@ -1,0 +1,11 @@
+========= COMPUTE-SANITIZER
+{"buildings":1,"chunks":444,"bonds":896,"solve":0,"iterations":86,"converged":1,"stress_submission_and_completion_ms":116.362157,"summed_CTA_cycles":[53269034,47787605,2200614,51886578,7953535,45256672,19894989,6707591,234956618],"precondition_CTA_cycles":[28832928,631004,6069665,12784964],"cycle_CTA_cycles":[0,0,0,0,0]}
+{"record":"component_work","solve":0,"id":64,"nodes":380,"dynamic_nodes":380,"csr_refs_per_sweep":1540,"live_directed_refs_per_sweep":1540,"residual_sweeps":87,"verification_sweeps":1,"direction_sweeps":86,"iterations":86,"converged":1,"cta":89,"cta_cycles":228181299}
+{"record":"component_work_total","solve":0,"components":1,"operator_node_visits":66120,"operator_csr_visits":267960,"operator_live_directed_visits":267960,"component_updates":86}
+{"buildings":1,"chunks":444,"bonds":896,"solve":1,"iterations":0,"converged":1,"stress_submission_and_completion_ms":13.480516,"summed_CTA_cycles":[29378672,2230413,29931,0,0,0,0,6690870,38329886],"precondition_CTA_cycles":[0,0,0,0],"cycle_CTA_cycles":[0,0,0,0,0]}
+{"record":"component_work","solve":1,"id":64,"nodes":380,"dynamic_nodes":380,"csr_refs_per_sweep":1540,"live_directed_refs_per_sweep":1540,"residual_sweeps":1,"verification_sweeps":1,"direction_sweeps":0,"iterations":0,"converged":1,"cta":111,"cta_cycles":31573568}
+{"record":"component_work_total","solve":1,"components":1,"operator_node_visits":760,"operator_csr_visits":3080,"operator_live_directed_visits":3080,"component_updates":0}
+{"buildings":1,"chunks":444,"bonds":896,"solve":2,"iterations":0,"converged":1,"stress_submission_and_completion_ms":13.401859,"summed_CTA_cycles":[29367448,2210452,30040,0,0,0,0,6762907,38370847],"precondition_CTA_cycles":[0,0,0,0],"cycle_CTA_cycles":[0,0,0,0,0]}
+{"record":"component_work","solve":2,"id":64,"nodes":380,"dynamic_nodes":380,"csr_refs_per_sweep":1540,"live_directed_refs_per_sweep":1540,"residual_sweeps":1,"verification_sweeps":1,"direction_sweeps":0,"iterations":0,"converged":1,"cta":122,"cta_cycles":31544475}
+{"record":"component_work_total","solve":2,"components":1,"operator_node_visits":760,"operator_csr_visits":3080,"operator_live_directed_visits":3080,"component_updates":0}
+========= ERROR SUMMARY: 0 errors

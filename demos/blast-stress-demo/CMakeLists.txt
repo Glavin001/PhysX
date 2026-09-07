@@ -960,6 +960,12 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
     set_target_properties(gpu_resident_stress_phase_probe PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_compile_options(gpu_resident_stress_phase_probe PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
     target_link_libraries(gpu_resident_stress_phase_probe PRIVATE CUDA::cudart CUDA::cuda_driver)
+    foreach(work_buildings 1 256)
+        add_test(NAME blast_stress_component_work_${work_buildings}
+            COMMAND gpu_resident_stress_phase_probe ${work_buildings})
+        set_tests_properties(blast_stress_component_work_${work_buildings}
+            PROPERTIES TIMEOUT 60 LABELS "gpu;diagnostic" RUN_SERIAL TRUE)
+    endforeach()
     add_executable(gpu_resident_motion_modes_test EXCLUDE_FROM_ALL tests/gpu_resident_motion_modes_test.cu)
     target_include_directories(gpu_resident_motion_modes_test PRIVATE
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")

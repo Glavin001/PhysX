@@ -1,0 +1,15 @@
+{
+  "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh": "d616d8dc811498f6ec5bf187cc48110de7a46367a4d6808f6098da97cd1e08f1",
+  "blast/source/sdk/extensions/stressgpu/detail/StressComponentWorkProbe.cuh": "4a5b6dfeedaa374136c884250a467ced271524053eafa7c13edc6b831df5fe9a",
+  "demos/blast-stress-demo/tests/component_work_probe.cuh": "7822324ef3d2253a07c2f6ba7eed9942f143fe2ca8619e41a94aaafc577f7727",
+  "qualification/component-work-accounting/256.jsonl.gz": "468db9638e397854106d945fd8bc8511f11f421379d27d8fa1c1a36ba7c449d8",
+  "qualification/component-work-accounting/README.md": "aaef32073d500e55ef0acc5129fc27477fe5d73f33833d72d9524f003ac331ab",
+  "qualification/component-work-accounting/ctest.log": "5af8417b8a0419b219720a0266739a1cdf54ea460d606a4d4352a86bb5b384dd",
+  "qualification/component-work-accounting/memcheck.log": "89e6f7f4ca296cfe96872df337733176ddeb928bd945de576d4aa3a5c8ef1023",
+  "qualification/component-work-accounting/one.jsonl.gz": "cf24a4023540d7a9b3672d2a2fbc3aeae7246291e54114d8ee1a93eca229a557",
+  "qualification/component-work-accounting/production-token-check.json": "45b739ccf92f4d43e6fc320c9012f5ebe899ae43e757a61e4a2e69faf65103db",
+  "qualification/component-work-accounting/synccheck.log": "cff290cd468ea4ebda2a7c29f7e03fc673f51a5c2933e5abc3f23100ce6fc643",
+  "qualification/component-work-accounting/wall-capture.json": "aa68a6fcd4f31e5e9cf91225c20224e944bd504d35af0737b1d04ee2beaf189e",
+  "qualification/component-work-accounting/wall-quality.json": "f8878e35551bd7cc34eccbca4fa70c056cc514fda80d0750c7b76cdc3243dfa3",
+  "qualification/component-work-accounting/work-totals.json": "0743d574cd9e4ea82b4d5a1abb9a907967539ec89eb56bac7c8945c541cee63f"
+}

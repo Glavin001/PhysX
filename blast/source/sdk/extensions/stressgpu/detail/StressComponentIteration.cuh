@@ -1,4 +1,5 @@
 #include "StressComponentPhaseProbe.cuh"
+#include "StressComponentWorkProbe.cuh"
 // Private native specialization, included after the shared resident arguments.
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 // Every warp produces one fully overwritten partial. No floating atomics
@@ -40,6 +41,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         // the subsequent cooperative kernel visits the shared active-node list.
         if(!threadIdx.x)a.hierarchy.verification[id]=0;
         if(count>kResidentComponentMaxNodes) {
+            COMPONENT_WORK_UNMEASURED(id,count)
             // All readers must finish using the shared ticket before reuse.
             __syncthreads();continue;
         }
@@ -52,6 +54,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             status={1u,a.maxIterations,0u};
         }
         __syncthreads();
+        COMPONENT_WORK_BEGIN(a,c,id,begin,count)
         // Cache validity belongs to each built operator, independently of a
         // solve's success. Each node has one writer in this owning component.
         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeFineInverse(a.hierarchy,c.nodes[begin+i]);
@@ -61,6 +64,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         do {
             if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id);
             COMPONENT_PROBE_END(0)
+            COMPONENT_WORK_SWEEP(a,id,residualSweeps)
             float squared=0;
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
@@ -77,6 +81,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                 if(!threadIdx.x)a.hierarchy.previous[id]=0;__syncthreads();
                 prepareNativeResidualComponent(a,c.nodes+begin,count,id);
+                COMPONENT_WORK_SWEEP(a,id,verificationSweeps)
                 float verified=0;
                 for(unsigned block=0;block<nodeBlocks;++block){float contribution=0;
                     nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
@@ -110,6 +115,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeDirection(a,c.nodes[begin+i],id,iteration);
             __syncthreads();
             COMPONENT_PROBE_END(4)
+            COMPONENT_WORK_SWEEP(a,id,directionSweeps)
             squared=0;
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
@@ -138,6 +144,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
 #ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
             if(!status.converged)printf("native component id=%u nodes=%u iterations=%u active=%u failed=%u residual2=%g tolerance2=%g gamma=%g direction_energy=%g\n",id,count,status.iterations,status.active,a.hierarchy.failed[id],a.m_gradientSquared[id],a.m_deltaSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id]);
 #endif
+            COMPONENT_WORK_END(id,status)
             c.results[id]=status;
             // The cooperative stage must never update a small component,
             // including one that exhausted its iteration budget. Its failed
