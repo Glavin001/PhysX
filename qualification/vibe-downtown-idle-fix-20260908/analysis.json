@@ -1,0 +1,622 @@
+{
+  "final-baseline-idle": {
+    "report": {
+      "asset_instances": 1,
+      "backend": "physx_embedded_cuda",
+      "bonds": 74543,
+      "buildings": 27,
+      "chunks": 24105,
+      "direct_gpu_api": false,
+      "gate_60hz_misses": 600,
+      "gate_8ms_misses": 600,
+      "initialization_ms": 695.669097,
+      "instrumented": false,
+      "iterations_max": 8192,
+      "manifest_hash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
+      "max_correction": 1,
+      "max_stress_passes": 2,
+      "minimum_fragment_com_y": null,
+      "peak_step": {
+        "accepted_status_and_snapshots_ms": 0.00012100000000000001,
+        "awake_fragment_bodies": 0,
+        "broken_bonds": 0,
+        "commands_and_pre_step_ms": 0.00015,
+        "complete_step_ms": 2907.1027470000004,
+        "fragment_bodies": 0,
+        "game_observation_events_ms": 0.986163,
+        "native_corrections": 0,
+        "native_counts": {
+          "native_bonds": 74543.0,
+          "native_chunks": 24105.0,
+          "native_clusters": 27.0,
+          "native_correction_passes": 0.0,
+          "native_corrections_total": 0.0,
+          "native_embedded": 1.0,
+          "native_stress_iterations": 149.0,
+          "native_stress_passes": 1.0
+        },
+        "native_physics_and_destruction_ms": 2906.116313,
+        "normal_contacts": 0,
+        "projectiles": 0,
+        "tick": 0
+      },
+      "phases_ms": {
+        "accepted_status_and_snapshots_ms": {
+          "max": 0.000341,
+          "mean": 5.502500000000012e-05,
+          "min": 4e-05,
+          "p99": 0.000101
+        },
+        "commands_and_pre_step_ms": {
+          "max": 0.0007109999999999999,
+          "mean": 0.00013682666666666682,
+          "min": 4e-05,
+          "p99": 0.000561
+        },
+        "complete_step_ms": {
+          "max": 2907.1027470000004,
+          "mean": 43.67393485000001,
+          "min": 38.611241,
+          "p99": 39.404641999999996
+        },
+        "game_observation_events_ms": {
+          "max": 0.986163,
+          "mean": 0.12263526666666666,
+          "min": 0.035396,
+          "p99": 0.44953000000000004
+        },
+        "native_physics_and_destruction_ms": {
+          "max": 2906.116313,
+          "mean": 43.55110773166666,
+          "min": 38.549586,
+          "p99": 39.333019
+        }
+      },
+      "projectiles": 0,
+      "qualification": "short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
+      "schema": 1,
+      "seconds": 10.0,
+      "sleeping": true,
+      "source_asset": "fractured-downtown.json",
+      "status": "complete",
+      "steps": 600,
+      "timestep_seconds": 0.016666666666666666,
+      "timing_scope": "commands + native physics/stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
+      "tolerance": 1e-05,
+      "unique_broken_bonds": 0,
+      "waves": 0
+    },
+    "stats": {
+      "min": 38.611241,
+      "mean": 43.67393485,
+      "median": 38.833796,
+      "maximum": 2907.1027470000004,
+      "first": 2907.1027470000004,
+      "after_first_max": 58.148943,
+      "missed_60hz": 600,
+      "impact_peak": null,
+      "fracture_peak": null
+    },
+    "last": {
+      "accepted_status_and_snapshots_ms": 8e-05,
+      "awake_fragment_bodies": 0,
+      "broken_bonds": 0,
+      "commands_and_pre_step_ms": 0.00016999999999999999,
+      "complete_step_ms": 38.861056,
+      "fragment_bodies": 0,
+      "game_observation_events_ms": 0.080931,
+      "native_corrections": 0,
+      "native_counts": {
+        "native_bonds": 74543.0,
+        "native_chunks": 24105.0,
+        "native_clusters": 27.0,
+        "native_correction_passes": 0.0,
+        "native_corrections_total": 0.0,
+        "native_embedded": 1.0,
+        "native_stress_iterations": 3.0,
+        "native_stress_passes": 1.0
+      },
+      "native_physics_and_destruction_ms": 38.779875,
+      "normal_contacts": 0,
+      "projectiles": 0,
+      "tick": 599
+    },
+    "commands": []
+  },
+  "final-candidate-idle": {
+    "report": {
+      "asset_instances": 1,
+      "backend": "physx_embedded_cuda",
+      "bonds": 74543,
+      "buildings": 27,
+      "chunks": 24105,
+      "direct_gpu_api": false,
+      "gate_60hz_misses": 1,
+      "gate_8ms_misses": 1,
+      "initialization_ms": 664.420877,
+      "instrumented": false,
+      "iterations_max": 8192,
+      "manifest_hash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
+      "max_correction": 1,
+      "max_stress_passes": 2,
+      "minimum_fragment_com_y": null,
+      "peak_step": {
+        "accepted_status_and_snapshots_ms": 4e-05,
+        "awake_fragment_bodies": 0,
+        "broken_bonds": 0,
+        "commands_and_pre_step_ms": 7.000000000000001e-05,
+        "complete_step_ms": 615.273229,
+        "fragment_bodies": 0,
+        "game_observation_events_ms": 0.8998510000000001,
+        "native_corrections": 0,
+        "native_counts": {
+          "native_bonds": 74543.0,
+          "native_chunks": 24105.0,
+          "native_clusters": 27.0,
+          "native_correction_passes": 0.0,
+          "native_corrections_total": 0.0,
+          "native_embedded": 1.0,
+          "native_stress_iterations": 149.0,
+          "native_stress_passes": 1.0
+        },
+        "native_physics_and_destruction_ms": 614.373268,
+        "normal_contacts": 0,
+        "projectiles": 0,
+        "tick": 0
+      },
+      "phases_ms": {
+        "accepted_status_and_snapshots_ms": {
+          "max": 7.1e-05,
+          "mean": 4.2905000000000315e-05,
+          "min": 2.9999999999999997e-05,
+          "p99": 6.1000000000000005e-05
+        },
+        "commands_and_pre_step_ms": {
+          "max": 0.000531,
+          "mean": 7.502166666666665e-05,
+          "min": 2.9999999999999997e-05,
+          "p99": 0.00023099999999999998
+        },
+        "complete_step_ms": {
+          "max": 615.273229,
+          "mean": 5.232875351666663,
+          "min": 4.124172,
+          "p99": 4.5100430000000005
+        },
+        "game_observation_events_ms": {
+          "max": 0.8998510000000001,
+          "mean": 0.05425476333333329,
+          "min": 0.033992999999999995,
+          "p99": 0.28386999999999996
+        },
+        "native_physics_and_destruction_ms": {
+          "max": 614.373268,
+          "mean": 5.1785026616666645,
+          "min": 4.086021,
+          "p99": 4.358229
+        }
+      },
+      "projectiles": 0,
+      "qualification": "short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
+      "schema": 1,
+      "seconds": 10.0,
+      "sleeping": true,
+      "source_asset": "fractured-downtown.json",
+      "status": "complete",
+      "steps": 600,
+      "timestep_seconds": 0.016666666666666666,
+      "timing_scope": "commands + native physics/stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
+      "tolerance": 1e-05,
+      "unique_broken_bonds": 0,
+      "waves": 0
+    },
+    "stats": {
+      "min": 4.124172,
+      "mean": 5.232875351666666,
+      "median": 4.201026000000001,
+      "maximum": 615.273229,
+      "first": 615.273229,
+      "after_first_max": 6.506061,
+      "missed_60hz": 1,
+      "impact_peak": null,
+      "fracture_peak": null
+    },
+    "last": {
+      "accepted_status_and_snapshots_ms": 4e-05,
+      "awake_fragment_bodies": 0,
+      "broken_bonds": 0,
+      "commands_and_pre_step_ms": 4e-05,
+      "complete_step_ms": 4.188422,
+      "fragment_bodies": 0,
+      "game_observation_events_ms": 0.06503099999999999,
+      "native_corrections": 0,
+      "native_counts": {
+        "native_bonds": 74543.0,
+        "native_chunks": 24105.0,
+        "native_clusters": 27.0,
+        "native_correction_passes": 0.0,
+        "native_corrections_total": 0.0,
+        "native_embedded": 1.0,
+        "native_stress_iterations": 3.0,
+        "native_stress_passes": 1.0
+      },
+      "native_physics_and_destruction_ms": 4.123311,
+      "normal_contacts": 0,
+      "projectiles": 0,
+      "tick": 599
+    },
+    "commands": []
+  },
+  "final-baseline-impact": {
+    "report": {
+      "asset_instances": 1,
+      "backend": "physx_embedded_cuda",
+      "bonds": 74543,
+      "buildings": 27,
+      "chunks": 24105,
+      "direct_gpu_api": false,
+      "gate_60hz_misses": 600,
+      "gate_8ms_misses": 600,
+      "initialization_ms": 671.007684,
+      "instrumented": false,
+      "iterations_max": 8192,
+      "manifest_hash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
+      "max_correction": 1,
+      "max_stress_passes": 2,
+      "minimum_fragment_com_y": 0.014499664306640625,
+      "peak_step": {
+        "accepted_status_and_snapshots_ms": 8.999999999999999e-05,
+        "awake_fragment_bodies": 0,
+        "broken_bonds": 0,
+        "commands_and_pre_step_ms": 8e-05,
+        "complete_step_ms": 2899.945165,
+        "fragment_bodies": 0,
+        "game_observation_events_ms": 0.987595,
+        "native_corrections": 0,
+        "native_counts": {
+          "native_bonds": 74543.0,
+          "native_chunks": 24105.0,
+          "native_clusters": 27.0,
+          "native_correction_passes": 0.0,
+          "native_corrections_total": 0.0,
+          "native_embedded": 1.0,
+          "native_stress_iterations": 149.0,
+          "native_stress_passes": 1.0
+        },
+        "native_physics_and_destruction_ms": 2898.9574000000002,
+        "normal_contacts": 0,
+        "projectiles": 0,
+        "tick": 0
+      },
+      "phases_ms": {
+        "accepted_status_and_snapshots_ms": {
+          "max": 0.000611,
+          "mean": 6.725666666666674e-05,
+          "min": 2.9999999999999997e-05,
+          "p99": 0.00023
+        },
+        "commands_and_pre_step_ms": {
+          "max": 0.038201000000000006,
+          "mean": 0.00040085666666666664,
+          "min": 4e-05,
+          "p99": 0.000932
+        },
+        "complete_step_ms": {
+          "max": 2899.945165,
+          "mean": 591.2839210799993,
+          "min": 21.590514000000002,
+          "p99": 1434.02156
+        },
+        "game_observation_events_ms": {
+          "max": 1.4141519999999999,
+          "mean": 0.11907118833333336,
+          "min": 0.036608,
+          "p99": 1.09709
+        },
+        "native_physics_and_destruction_ms": {
+          "max": 2898.9574000000002,
+          "mean": 591.1643817783333,
+          "min": 21.459208,
+          "p99": 1432.8928030000002
+        }
+      },
+      "projectiles": 3,
+      "qualification": "short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
+      "schema": 1,
+      "seconds": 10.0,
+      "sleeping": true,
+      "source_asset": "fractured-downtown.json",
+      "status": "complete",
+      "steps": 600,
+      "timestep_seconds": 0.016666666666666666,
+      "timing_scope": "commands + native physics/stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
+      "tolerance": 1e-05,
+      "unique_broken_bonds": 481,
+      "waves": 0
+    },
+    "stats": {
+      "min": 21.590514000000002,
+      "mean": 591.28392108,
+      "median": 624.159774,
+      "maximum": 2899.945165,
+      "first": 2899.945165,
+      "after_first_max": 2450.004679,
+      "missed_60hz": 600,
+      "impact_peak": 2450.004679,
+      "fracture_peak": 2450.004679
+    },
+    "last": {
+      "accepted_status_and_snapshots_ms": 5.9999999999999995e-05,
+      "awake_fragment_bodies": 1,
+      "broken_bonds": 481,
+      "commands_and_pre_step_ms": 0.00015,
+      "complete_step_ms": 600.758914,
+      "fragment_bodies": 32,
+      "game_observation_events_ms": 0.075872,
+      "native_corrections": 0,
+      "native_counts": {
+        "native_bonds": 74543.0,
+        "native_chunks": 24105.0,
+        "native_clusters": 61.0,
+        "native_correction_passes": 0.0,
+        "native_corrections_total": 6.0,
+        "native_embedded": 1.0,
+        "native_stress_iterations": 52.0,
+        "native_stress_passes": 1.0
+      },
+      "native_physics_and_destruction_ms": 600.6828320000001,
+      "normal_contacts": 9,
+      "projectiles": 3,
+      "tick": 599
+    },
+    "commands": [
+      {
+        "mass": 18000,
+        "positions": [
+          [
+            -52.513511657714844,
+            5.8960700035095215,
+            -84.7431411743164
+          ]
+        ],
+        "radius": 0.5,
+        "tick": 30,
+        "velocity": [
+          0,
+          0,
+          40
+        ]
+      },
+      {
+        "mass": 18000,
+        "positions": [
+          [
+            -52.513511657714844,
+            5.8960700035095215,
+            -84.7431411743164
+          ]
+        ],
+        "radius": 0.5,
+        "tick": 180,
+        "velocity": [
+          0,
+          0,
+          40
+        ]
+      },
+      {
+        "mass": 18000,
+        "positions": [
+          [
+            -52.513511657714844,
+            5.8960700035095215,
+            -84.7431411743164
+          ]
+        ],
+        "radius": 0.5,
+        "tick": 330,
+        "velocity": [
+          0,
+          0,
+          40
+        ]
+      }
+    ]
+  },
+  "final-candidate-impact": {
+    "report": {
+      "asset_instances": 1,
+      "backend": "physx_embedded_cuda",
+      "bonds": 74543,
+      "buildings": 27,
+      "chunks": 24105,
+      "direct_gpu_api": false,
+      "gate_60hz_misses": 542,
+      "gate_8ms_misses": 542,
+      "initialization_ms": 677.129429,
+      "instrumented": false,
+      "iterations_max": 8192,
+      "manifest_hash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
+      "max_correction": 1,
+      "max_stress_passes": 2,
+      "minimum_fragment_com_y": 0.014499664306640625,
+      "peak_step": {
+        "accepted_status_and_snapshots_ms": 4.9999999999999996e-05,
+        "awake_fragment_bodies": 25,
+        "broken_bonds": 469,
+        "commands_and_pre_step_ms": 0.000161,
+        "complete_step_ms": 726.606001,
+        "fragment_bodies": 29,
+        "game_observation_events_ms": 1.171578,
+        "native_corrections": 1,
+        "native_counts": {
+          "native_bonds": 74543.0,
+          "native_chunks": 24105.0,
+          "native_clusters": 58.0,
+          "native_correction_passes": 1.0,
+          "native_corrections_total": 3.0,
+          "native_embedded": 1.0,
+          "native_stress_iterations": 87.0,
+          "native_stress_passes": 2.0
+        },
+        "native_physics_and_destruction_ms": 725.434212,
+        "normal_contacts": 283,
+        "projectiles": 2,
+        "tick": 199
+      },
+      "phases_ms": {
+        "accepted_status_and_snapshots_ms": {
+          "max": 0.00023099999999999998,
+          "mean": 6.104666666666683e-05,
+          "min": 2.9999999999999997e-05,
+          "p99": 0.00014000000000000001
+        },
+        "commands_and_pre_step_ms": {
+          "max": 0.032750999999999995,
+          "mean": 0.0003320266666666667,
+          "min": 2.9999999999999997e-05,
+          "p99": 0.000772
+        },
+        "complete_step_ms": {
+          "max": 726.606001,
+          "mean": 63.970133278333314,
+          "min": 3.7194860000000003,
+          "p99": 371.619174
+        },
+        "game_observation_events_ms": {
+          "max": 1.290029,
+          "mean": 0.11907939333333337,
+          "min": 0.043902000000000004,
+          "p99": 1.1048939999999998
+        },
+        "native_physics_and_destruction_ms": {
+          "max": 725.434212,
+          "mean": 63.85066081166668,
+          "min": 3.647111,
+          "p99": 370.496247
+        }
+      },
+      "projectiles": 3,
+      "qualification": "short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
+      "schema": 1,
+      "seconds": 10.0,
+      "sleeping": true,
+      "source_asset": "fractured-downtown.json",
+      "status": "complete",
+      "steps": 600,
+      "timestep_seconds": 0.016666666666666666,
+      "timing_scope": "commands + native physics/stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
+      "tolerance": 1e-05,
+      "unique_broken_bonds": 481,
+      "waves": 0
+    },
+    "stats": {
+      "min": 3.7194860000000003,
+      "mean": 63.970133278333336,
+      "median": 62.719507,
+      "maximum": 726.606001,
+      "first": 617.280429,
+      "after_first_max": 726.606001,
+      "missed_60hz": 542,
+      "impact_peak": 726.606001,
+      "fracture_peak": 726.606001
+    },
+    "last": {
+      "accepted_status_and_snapshots_ms": 5.9999999999999995e-05,
+      "awake_fragment_bodies": 1,
+      "broken_bonds": 481,
+      "commands_and_pre_step_ms": 7.000000000000001e-05,
+      "complete_step_ms": 59.653359,
+      "fragment_bodies": 32,
+      "game_observation_events_ms": 0.056676,
+      "native_corrections": 0,
+      "native_counts": {
+        "native_bonds": 74543.0,
+        "native_chunks": 24105.0,
+        "native_clusters": 61.0,
+        "native_correction_passes": 0.0,
+        "native_corrections_total": 6.0,
+        "native_embedded": 1.0,
+        "native_stress_iterations": 52.0,
+        "native_stress_passes": 1.0
+      },
+      "native_physics_and_destruction_ms": 59.596553,
+      "normal_contacts": 9,
+      "projectiles": 3,
+      "tick": 599
+    },
+    "commands": [
+      {
+        "mass": 18000,
+        "positions": [
+          [
+            -52.513511657714844,
+            5.8960700035095215,
+            -84.7431411743164
+          ]
+        ],
+        "radius": 0.5,
+        "tick": 30,
+        "velocity": [
+          0,
+          0,
+          40
+        ]
+      },
+      {
+        "mass": 18000,
+        "positions": [
+          [
+            -52.513511657714844,
+            5.8960700035095215,
+            -84.7431411743164
+          ]
+        ],
+        "radius": 0.5,
+        "tick": 180,
+        "velocity": [
+          0,
+          0,
+          40
+        ]
+      },
+      {
+        "mass": 18000,
+        "positions": [
+          [
+            -52.513511657714844,
+            5.8960700035095215,
+            -84.7431411743164
+          ]
+        ],
+        "radius": 0.5,
+        "tick": 330,
+        "velocity": [
+          0,
+          0,
+          40
+        ]
+      }
+    ]
+  },
+  "physical_counter_differences": {
+    "broken_bonds": [
+      463,
+      464,
+      465
+    ],
+    "fragment_bodies": [
+      463,
+      464,
+      465
+    ],
+    "awake_fragment_bodies": [
+      463,
+      466
+    ],
+    "native_corrections": [
+      463,
+      466
+    ]
+  }
+}

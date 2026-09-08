@@ -3,6 +3,7 @@
 #include "StressHierarchyResident.cuh"
 #include "StressHierarchyTransfers.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
+#include "StressHierarchyCoarseReduction.cuh"
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
 __device__ unsigned long long cycleStageClocks[5];
 #endif
@@ -43,6 +44,15 @@ __device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool
 }
 template<bool Local>
 __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
+    if(coarseBlockRows(d.input)){
+        for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input);index+=Local?1u:gridDim.x){
+            const unsigned node=work.node(d.input,index);
+            const bool enabled=work.enabled(d.input,node) && smoothedNode(d,pool,level,node);
+            const auto value=coarseBlockSum(enabled?levelRowContribution(d.input,node,d.x,threadIdx.x,blockDim.x):Vector{});
+            if(!threadIdx.x)d.residual[node]=enabled?sub(d.rhs[node],value):Vector{};
+        }
+        return;
+    }
     const unsigned lane=threadIdx.x&7u;
     for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
         const unsigned node=work.node(d.input,index);
@@ -54,6 +64,15 @@ __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,
 }
 template<bool Local>
 __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs,CycleWork<Local> work){
+    if(coarseBlockRows(parent.input)){
+        for(unsigned index=Local?0u:blockIdx.x;index<work.childCount(parent.child);index+=Local?1u:gridDim.x){
+            const unsigned node=work.childNode(parent.child,index);
+            const bool enabled=!work.active || work.active[parent.child.component[node]];
+            const auto value=coarseBlockSum(enabled?restrictPackedContribution(parent.input,parent.topology,parent.child.nodeSource[node],parent.residual,threadIdx.x,blockDim.x):Vector{});
+            if(!threadIdx.x)childRhs[node]=value;
+        }
+        return;
+    }
     const unsigned lane=threadIdx.x&7u;
     for(unsigned index=work.first();index<work.childCount(parent.child);index+=work.stride()){
         const unsigned node=work.childNode(parent.child,index);
@@ -69,9 +88,9 @@ __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs
 // B H^T e, where H=P^T B was retained during construction. Evaluating
 // this directly avoids expanding Pe and then rediscovering its strain through
 // L(Pe), which loses small differences between large fine coordinates.
-__device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u){
+__device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u,unsigned width=32){
     Vector sum{};
-    for(unsigned slot=parent.input.begin[node]+lane;slot<parent.input.begin[node+1];slot+=32){
+    for(unsigned slot=parent.input.begin[node]+lane;slot<parent.input.begin[node+1];slot+=width){
         const unsigned ref=parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
         const auto e=parent.topology.coarse[edge];if(!retainedColumn(e))continue;
         Vector a{},b{},difference{};
@@ -86,17 +105,26 @@ __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned n
 }
 template<bool Local>
 __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffers pool,unsigned level,const Vector* childX,CycleWork<Local> work){
-    const unsigned lane=threadIdx.x&7u;
-    for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
-        const unsigned node=work.node(d.input,index);
-        if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
-        const auto a=cycleCoarseEffect(d,node,childX,lane),b=cycleCoarseEffect(d,node,childX,lane+8);
-        const auto c=cycleCoarseEffect(d,node,childX,lane+16),e=cycleCoarseEffect(d,node,childX,lane+24);
-        const auto effect=sumVirtualWarp(a,b,c,e);
-        // Finish the original warp reduction before handing independent
-        // diagonal systems to individual threads. This residual is dead after
-        // correction, so it is also the scratch for the producer/consumer handoff.
-        if(!lane)d.residual[node]=sub(d.residual[node],effect);
+    if(coarseBlockRows(d.input)){
+        for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input);index+=Local?1u:gridDim.x){
+            const unsigned node=work.node(d.input,index);
+            const bool enabled=work.enabled(d.input,node) && smoothedNode(d,pool,level,node);
+            const auto effect=coarseBlockSum(enabled?cycleCoarseEffect(d,node,childX,threadIdx.x,blockDim.x):Vector{});
+            if(!threadIdx.x && enabled)d.residual[node]=sub(d.residual[node],effect);
+        }
+    }else {
+        const unsigned lane=threadIdx.x&7u;
+        for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+            const unsigned node=work.node(d.input,index);
+            if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
+            const auto a=cycleCoarseEffect(d,node,childX,lane),b=cycleCoarseEffect(d,node,childX,lane+8);
+            const auto c=cycleCoarseEffect(d,node,childX,lane+16),e=cycleCoarseEffect(d,node,childX,lane+24);
+            const auto effect=sumVirtualWarp(a,b,c,e);
+            // Finish the original warp reduction before handing independent
+            // diagonal systems to individual threads. This residual is dead after
+            // correction, so it is also the scratch for the producer/consumer handoff.
+            if(!lane)d.residual[node]=sub(d.residual[node],effect);
+        }
     }
     work.sync();
     for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){

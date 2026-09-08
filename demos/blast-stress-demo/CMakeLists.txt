@@ -932,6 +932,8 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
         set_tests_properties(blast_stress_gpu_assembled_hierarchy_${hierarchy_tool}
             PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
     endforeach()
+    add_test(NAME blast_stress_gpu_coarse_long_rows COMMAND gpu_resident_hierarchy_test --cycle coarse-long-rows)
+    set_tests_properties(blast_stress_gpu_coarse_long_rows PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     add_test(NAME blast_stress_gpu_resident_cycle COMMAND gpu_resident_hierarchy_test --cycle)
     set_tests_properties(blast_stress_gpu_resident_cycle PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     foreach(hierarchy_tool memcheck synccheck)

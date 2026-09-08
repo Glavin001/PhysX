@@ -251,6 +251,14 @@ int main(int argc,char** argv){try{
     for(unsigned i=2;i<12;++i)small.edge(i-2,i);
     // One static boundary may support otherwise disconnected components.
     small.edge(0,13);runCase("supported",small,true,true);
+    // Coarse rows retain many parallel bond columns even as node count falls.
+    // Exercise the full-block reductions against the independent cycle oracle,
+    // including repeated workspace use, without changing any tolerances.
+    if(selected=="coarse-long-rows"){
+        Fixture dense(24);dense.inverse[0]=make_float2(0,0);
+        for(unsigned i=1;i<24;++i)for(unsigned repeat=0;repeat<64;++repeat)dense.edge(i-1,i);
+        runCase("coarse-long-rows",dense,false,false);
+    }
     Fixture path(24);for(unsigned i=1;i<24;++i)path.edge(i-1,i);runCase("path",path,false,true);
     Fixture self(2);self.edge(0,1);self.offset1[0].x+=.03125f;runCase("self",self,true,true);
     Fixture parallel(6);for(unsigned i=1;i<6;++i){parallel.edge(0,i);parallel.edge(0,i);}

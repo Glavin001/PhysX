@@ -391,3 +391,27 @@ completed. Both cache variants were reverted from production.
 - Do not replay whole campaigns for tiny edits without a new question. Inspect
   existing evidence, use focused tests and a short rejection screen, then spend
   long-run qualification on candidates that survived.
+
+## 2026-09-08: downtown idle — coarse-row parallelism
+
+The actual 27-building city (24,105 chunks, 74,543 bonds) exposed a different
+bottleneck from 256 independent small buildings. An isolated pristine-idle
+phase capture measured about 38.4 ms in GPU stress, with only three reported
+iterations. CUDA node tracing identified persistentStressSolve. Internal
+clock probes attributed its cost to coarse residual/restriction/correction
+reductions: one level retained 35,534 bond columns for only 21 nodes. Eight
+lanes per row serialized long rows; terminal triangular solves were small.
+
+The qualified change distributes coarse rows across full blocks, shares the
+schedule with the local cycle, and retains FP64/all contributions. A new
+24-node/1,472-bond fixture checks every basis against the dense oracle and
+exact local/cooperative equality. The first experimental schedule differed
+between local/cooperative summation orders and failed that equality; it was
+corrected without weakening assertions. No converged-result reuse, material
+change, iteration reduction or artificial sleeping was introduced.
+
+See `qualification/vibe-downtown-idle-fix-20260908/report.md` for paired idle
+and impact measurements and startup failures. The 256-building destruction
+peak remains outside real-time; do not present this as completion of that goal.
+Diagnostic probes and trace runtimes are archived under
+`out/vibe-idle-fix-20260908`; production contains no probe prints.

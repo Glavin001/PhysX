@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "transport": "webtransport",
+  "chunks": 24105,
+  "bonds": 74543,
+  "hash_mismatches": 0,
+  "orphaned_chunks": 0,
+  "final_settling": {
+    "chunk_bodies": 10,
+    "awake_bodies": 0,
+    "sleeping_bodies": 10,
+    "broken_bonds": 145,
+    "degraded": false
+  },
+  "reset_broken_bonds": 0,
+  "note": "Headless software rendering; browser frame rate is not a GPU simulation benchmark. Test rewrites the advertised WebTransport host/port to local loopback, retaining /game. Public URL remains unchanged."
+}

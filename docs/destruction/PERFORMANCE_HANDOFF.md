@@ -1,5 +1,19 @@
 # Dated performance handoff and implementation map
 
+## Latest override — 2026-09-08 downtown idle fix deployed
+
+The owned Vibe-land downtown demo now loads runtime SHA-256
+`007cf78206ac00abdacf5498d7244cd5fd1c3678597be9e67c57f2d8ca5e0372`.
+See [paired generated report](../../qualification/vibe-downtown-idle-fix-20260908/report.md).
+Coarse hierarchy rows now use full CUDA blocks; all contributions and existing
+convergence remain. The older convergence-exit and rigid-inverse changes are
+included and qualified by the recorded native/penetration/browser checks.
+Pristine idle improves substantially; startup and post-impact peaks still fail
+real-time. Do not claim the large-scale objective complete or conflate this
+with exact settled-stress reuse (still absent). Deployment was explicitly
+authorized for this owned demo; older broad exclusions below are historical.
+
+
 ## 2026-09-08: idle and destruction are mandatory paired measurements
 
 User explicitly requires both fresh intact idle and peak during destruction going
