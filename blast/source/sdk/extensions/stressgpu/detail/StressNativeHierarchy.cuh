@@ -7,6 +7,7 @@ struct NativeStressCycleView {
     AngLin *g=nullptr;
     float *gamma=nullptr,*previous=nullptr;
     double* normalizer=nullptr;
+    // Fine rigid block: six Schur-inverse coefficients, three coupling entries, reciprocal linear diagonal.
     double* fineInverse=nullptr;unsigned inverseStride=0;
     unsigned* inverseValid=nullptr;std::uint64_t* inverseGeneration=nullptr;
     unsigned* failed=nullptr;
@@ -30,7 +31,7 @@ public:
         :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
         mView.topology=status;mView.modes=mModes.view();mView.inverseStride=input.nodes;
         try{
-            allocate(mView.fineInverse,size_t(input.nodes)*StressHierarchy::DiagonalEntries);
+            allocate(mView.fineInverse,size_t(input.nodes)*10);
             allocate(mView.inverseValid,input.nodes);allocate(mView.inverseGeneration,input.nodes);
             checkCuda(cudaMemsetAsync(mView.inverseValid,0,sizeof(unsigned)*input.nodes,stream),"invalidate native local inverse cache");
             allocate(mView.rhs,input.nodes);allocate(mView.solution,input.nodes);allocate(mView.result,input.nodes);allocate(mView.g,input.nodes);

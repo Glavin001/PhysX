@@ -1,5 +1,5 @@
 #include "StressNativeNullspace.cuh"
-#include "StressNativeFineInverse.cuh"
+#include "StressNativeRigidInverse.cuh"
 #include "StressNativePolynomial.cuh"
 // Shared projected-CG/preconditioner boundary. Conversion is fused into the
 // resident producer/consumer, not a separate export/copy/reimport operation.

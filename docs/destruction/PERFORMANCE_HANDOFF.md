@@ -1,5 +1,43 @@
 # Dated performance handoff and implementation map
 
+## 2026-09-08: structured inverse screened; downtown consumer deployed on baseline
+
+The new `StressNativeRigidInverse.cuh` candidate stores ten coefficients for the
+physical block D=[A,-K;K,cI], applying its Schur block inverse instead of a full
+21-coefficient symmetric matrix. Same physical operator/precision/tolerances;
+general coarse solvers are unchanged. General dense-cache tests remain test-only.
+A new 257-physical-block oracle validates actual cache construction/application
+and cold/reuse/unknown/generation semantics. GPU memcheck reports zero errors;
+three resident suites, eight ordinary tests and the exact 10-second frozen wall
+signature all pass (398 supported / 46 detached chunks / 199 broken bonds).
+
+[Screening evidence](../../qualification/vibe-rigid-inverse-20260908/comparison/report.md):
+256 buildings / 113,664 chunks / 229,376 bonds / 768 physical rounds, two untraced
+600-step / 10-second runs per arm in baseline/candidate/candidate/baseline order.
+Baseline fracture peaks 145.893 / 140.909 ms; candidate 138.129 / 139.459 ms.
+Complete peaks overlap (baseline 151.165 / 149.301; candidate 150.722 / 150.594 ms).
+This is a promising short screen, not endurance or real-time qualification.
+Further phase attribution / qualification and the deployment decision are pending.
+Archives/runner: `out/vibe-rigid-inverse-20260908`, `/tmp/run-vibe-rigid-inverse.py`.
+The live library remains the qualified 45ae3488 behavior, SHA-256
+`1437bd31b875b71222331224aa6c3670a8d53bc812095727b7d67d60ec733f9e`.
+Candidate and baseline libraries are separately archived; do not accidentally
+replace the live library while the user is playing.
+
+The user steered this turn to a larger, more interesting playable city. Game
+commit `ad57f01` changes the launcher default to `fractured-downtown.json`, grid 1:
+27 connected building groups / 24,105 chunks / 74,543 bonds, mixed heights/hulls.
+Both grid 1 and grid 2 (108 groups / 96,420 chunks / 298,172 bonds) passed browser
+join, physical shooting, native correction, movement, ownership, 30 settling
+samples and reset. Grid 2 has excessive even-quiet server cost (~50–60 ms in the
+browser session); grid 1 is the playable default. Impact pauses remain in both.
+No real-time claim. All eleven detached bodies slept in the final grid-1 sample.
+Evidence: `vibe-land-2/docs/reports/embedded-downtown-2026-09-08/`.
+The browser uses local WT host/port routing, not independent external testing;
+the user separately confirmed the public demo works. Do not restart an occupied
+owned server or disturb another developer's process. Next work returns to the
+larger-scale peak objective while preserving the user's playable deployment.
+
 ## 2026-09-08: diagnostic census fixed; production remains 45ae3488 behavior
 
 Latest work is diagnostic-only: component work maps both evaluations per tick,

@@ -22,14 +22,21 @@ void polynomialOperator(){
                 for(unsigned d=0;d<3;++d){column[node*6+d]=sign*f.inertia[node].angular*moment[d];column[node*6+3+d]=sign*f.inertia[node].linear*force[d];}}
             for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col)matrix[row*size+col]+=column[row]*column[col];
         }
-        std::vector<double> packed(n*DiagonalEntries);std::vector<unsigned> labels(n,0),order;
+        std::vector<double> packed(n*10);std::vector<unsigned> labels(n,0),order;
         for(unsigned node=0;node<n;++node){
             if(anchored && !node){labels[node]=Invalid;continue;}order.push_back(node);
             long double work[6][12]{};
             for(unsigned row=0;row<6;++row){for(unsigned col=0;col<6;++col)work[row][col]=matrix[(node*6+row)*size+node*6+col];work[row][row+6]=1;}
             for(unsigned k=0;k<6;++k){const auto pivot=work[k][k];require(pivot>0,"polynomial oracle diagonal is not SPD");for(auto& x:work[k])x/=pivot;
                 for(unsigned row=0;row<6;++row)if(row!=k){const auto scale=work[row][k];for(unsigned col=0;col<12;++col)work[row][col]-=scale*work[k][col];}}
-            for(unsigned row=0;row<6;++row)for(unsigned col=0;col<6;++col){inverse[(node*6+row)*size+node*6+col]=work[row][col+6];if(row>=col)packed[size_t(row*(row+1)/2+col)*n+node]=double(work[row][col+6]);}
+            for(unsigned row=0;row<6;++row)for(unsigned col=0;col<6;++col){inverse[(node*6+row)*size+node*6+col]=work[row][col+6];if(row<3 && row>=col)packed[size_t(row*(row+1)/2+col)*n+node]=double(work[row][col+6]);}
+            // Pack the independent dense operator into the production rigid
+            // block layout. The long-double full polynomial oracle is unchanged.
+            const long double c=matrix[(node*6+3)*size+node*6+3];
+            packed[6*n+node]=double(matrix[(node*6+5)*size+node*6+1]/c);
+            packed[7*n+node]=double(matrix[(node*6+3)*size+node*6+2]/c);
+            packed[8*n+node]=double(matrix[(node*6+4)*size+node*6+0]/c);
+            packed[9*n+node]=double(1/c);
         }
         Device<unsigned> a(f.a.size()),b(f.b.size()),begin(f.begin.size()),refs(f.refs.size()),component(n),nodes(order.size());
         Device<float> health(f.health.size()),scale(f.scale.size());Device<float4> offset0(f.offset0.size()),offset1(f.offset1.size());Device<float2> inertia(n);

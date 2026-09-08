@@ -35,11 +35,11 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
     auto* local=a.hierarchy.result;
     auto* result=a.hierarchy.cycle.intermediate;
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-        local[node]=applyNativeFineInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
+        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
     __syncthreads();
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
         const auto off=nativeOffDiagonal(input,node,local);
-        result[node]=sub(mul(local[node],diagonal),mul(applyNativeFineInverse(a.hierarchy,node,off),coupling));}
+        result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverse(a.hierarchy,node,off),coupling));}
     // One disjoint destination per node. Readers consume this completed view;
     // there is no product buffer, copy back or second launch inside iteration.
     __syncthreads();return result;
