@@ -1,0 +1,97 @@
+{
+  "runtime_sha256": {
+    "baseline": "007cf78206ac00abdacf5498d7244cd5fd1c3678597be9e67c57f2d8ca5e0372",
+    "candidate": "695d96acd113f454da514e662f7e045720c5fe86d0defd0f53fc2680ecc42d07"
+  },
+  "commands": [
+    {
+      "name": "analytic",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "hierarchy-supported",
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "supported"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "hierarchy-long",
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "coarse-long-rows"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "wall-driver",
+      "command": [
+        "python3",
+        "tools/scripts/run-destruction-penetration-regression.py",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-b/wall"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "baseline-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-b/baseline-idle",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "baseline-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-b/baseline-shots",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json",
+        "/root/workspace/physx-2/out/vibe-idle-fix-20260908/downtown-commands.json"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "candidate-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-b/candidate-idle",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "candidate-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-b/candidate-shots",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json",
+        "/root/workspace/physx-2/out/vibe-idle-fix-20260908/downtown-commands.json"
+      ],
+      "exit": 0
+    }
+  ]
+}

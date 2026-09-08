@@ -2,12 +2,12 @@
 #pragma once
 #include "StressHierarchyTerminalLevel.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
-__device__ __forceinline__ void buildSmootherRow(Input input,Buffers buffers,TerminalBuffers terminals,unsigned level,Status* status,unsigned node){
+__device__ __forceinline__ void buildSmootherRow(Input input,Buffers buffers,TerminalBuffers terminals,unsigned level,Status* status,unsigned node,const double* coefficients=nullptr){
     const unsigned lane=threadIdx.x&31u,row=lane<1?0:lane<3?1:lane<6?2:lane<10?3:lane<15?4:5;
     const unsigned col=lane<DiagonalEntries?lane-row*(row+1)/2:0;
     if(input.component[node]==Invalid || terminals.owner[input.component[node]]==level)return;
     double coefficient=0;
-    if(lane<DiagonalEntries)coefficient=terminalCoefficient(input,node,row,node,col);
+    if(lane<DiagonalEntries)coefficient=coefficients?coefficients[lane]:terminalCoefficient(input,node,row,node,col);
     const bool coupled=__any_sync(0xffffffffu,coefficient!=0);
     if(coupled)for(unsigned k=0;k<6;++k){
         const double diagonal=__shfl_sync(0xffffffffu,coefficient,triangle(k,k));
@@ -30,7 +30,21 @@ __global__ void constructSmoother(Input input,const Status* source,Status* statu
         }
     }
     grid.sync();if(!work->active)return;input=resolvedInput(input);
-    for(unsigned node=lane/32;node<input.nodes;node+=gridDim.x*(blockDim.x/32))buildSmootherRow(input,buffers,terminals,level,status,node);
+    // Coarse diagonal assembly owns one node per CTA and one coefficient per
+    // warp. Avoid 21 independent serial traversals of a long coarse CSR row.
+    __shared__ double coefficients[DiagonalEntries];
+    for(unsigned node=blockIdx.x;node<input.nodes;node+=gridDim.x){
+        if(input.component[node]==Invalid || terminals.owner[input.component[node]]==level)continue;
+        for(unsigned entry=threadIdx.x/32;entry<DiagonalEntries;entry+=blockDim.x/32){
+            unsigned row=0;while(triangle(row+1,0)<=entry)++row;
+            const unsigned col=entry-triangle(row,0);
+            const double value=warpSum(terminalCoefficient(input,node,row,node,col,threadIdx.x&31u,32));
+            if(!(threadIdx.x&31u))coefficients[entry]=value;
+        }
+        __syncthreads();
+        if(threadIdx.x<32)buildSmootherRow(input,buffers,terminals,level,status,node,coefficients);
+        __syncthreads();
+    }
     grid.sync();if(!lane && !status->error){status->generation=source->generation;status->initialized=1;++status->builds;}
 }
 class LevelSmoother {

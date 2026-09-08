@@ -27,10 +27,11 @@ __device__ __forceinline__ double vectorCoordinate(Vector a,unsigned k){
     return k==0?a.angular.x:k==1?a.angular.y:k==2?a.angular.z:k==3?a.linear.x:k==4?a.linear.y:a.linear.z;
 }
 // Evaluate one matrix coefficient with the shared sparse coupling equations.
-// Rows are summed in immutable CSR order; no floating-point atomics occur.
-__device__ __forceinline__ double terminalCoefficient(const Input& a,unsigned node,unsigned row,unsigned columnNode,unsigned column){
+// Serial or strided immutable CSR order uses a fixed FP64 reduction tree;
+// no floating-point atomics occur.
+__device__ __forceinline__ double terminalCoefficient(const Input& a,unsigned node,unsigned row,unsigned columnNode,unsigned column,unsigned lane=0,unsigned width=1){
     const Vector x=scaledValue(basisVector(column),sourceInertia(a,columnNode));double value=0;
-    for(unsigned slot=a.begin[node];slot<a.begin[node+1];++slot){
+    for(unsigned slot=a.begin[node]+lane;slot<a.begin[node+1];slot+=width){
         const unsigned ref=a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
         if(sourceHealth(a,e)<=0)continue;
         Vector first{},second{};
@@ -53,9 +54,21 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
     const unsigned size=6*count,entries=size*(size+1)/2;
     if(threadIdx.x<count)s.nodes[threadIdx.x]=terminalNode(a,first+threadIdx.x);
     if(!threadIdx.x)s.anchored=s.failed=s.coupled=0;__syncthreads();
+    // Coarse rows retain many parallel bond columns. One warp cooperates on
+    // each coefficient; use the immutable strided CSR order and a fixed FP64
+    // reduction tree. Fine terminal rows retain their established schedule.
+    if(a.levelBonds){
+        const unsigned lane=threadIdx.x&31u;
+        for(unsigned entry=threadIdx.x/32;entry<entries;entry+=blockDim.x/32){
+            unsigned row=0;while(triangle(row+1,0)<=entry)++row;const unsigned col=entry-triangle(row,0);
+            const double value=warpSum(terminalCoefficient(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6,lane,32));
+            if(!lane)s.lower[entry]=value;
+        }
+    }else {
     for(unsigned entry=threadIdx.x;entry<entries;entry+=blockDim.x){
         unsigned row=0;while(triangle(row+1,0)<=entry)++row;const unsigned col=entry-triangle(row,0);
         s.lower[entry]=terminalCoefficient(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6);
+    }
     }
     if(threadIdx.x<count){const unsigned node=s.nodes[threadIdx.x];
         for(unsigned slot=a.begin[node];slot<a.begin[node+1];++slot){

@@ -9,7 +9,7 @@ __device__ unsigned long long cycleStageClocks[5];
 #endif
 struct CycleLevel {
     Input input;Buffers topology,diagonal;PackingBuffers child{};
-    const Vector* rhs=nullptr;Vector *x=nullptr,*residual=nullptr;
+    const Vector* rhs=nullptr;Vector *x=nullptr,*residual=nullptr,*rowPartials=nullptr;
 };
 // Work ownership changes the schedule only; all sparse numerical operations
 // below are shared by cooperative large-component and block-local execution.
@@ -42,8 +42,25 @@ __device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool
         d.x[node]=mul(solveFineDiagonalThread(d.diagonal,node,d.rhs[node]),.5);
     }
 }
+__device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u,unsigned width=32){
+    Vector sum{};
+    for(unsigned slot=parent.input.begin[node]+lane;slot<parent.input.begin[node+1];slot+=width){
+        const unsigned ref=parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
+        const auto e=parent.topology.coarse[edge];if(!retainedColumn(e))continue;
+        Vector a{},b{},difference{};
+        if(e.a!=Invalid && parent.child.nodeMap[e.a]!=Invalid)a=childX[parent.child.nodeMap[e.a]];
+        if(e.b!=Invalid && parent.child.nodeMap[e.b]!=Invalid)b=childX[parent.child.nodeMap[e.b]];
+        if(e.a==e.b)difference={make_double3(0,0,0),cross(sub(e.offset0,e.offset1),a.angular)};
+        else difference=sub(couple(a,e.offset0),couple(b,e.offset1));
+        const bool back=ref>>31;const auto flux=mul(difference,e.scale*sourceScale(parent.input,edge)*(back?-1.:1.));
+        sum=add(sum,scaledValue(transposeCouple(flux,sourceOffset(parent.input,edge,back)),sourceInertia(parent.input,node)));
+    }
+    return sum;
+}
+#include "StressHierarchyRowTiles.cuh"
 template<bool Local>
 __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
+    if(tiledCoarseRows(d.input)){cycleTiledRows<Local,false>(d,pool,level,work,nullptr);return;}
     if(coarseBlockRows(d.input)){
         for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input);index+=Local?1u:gridDim.x){
             const unsigned node=work.node(d.input,index);
@@ -88,24 +105,11 @@ __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs
 // B H^T e, where H=P^T B was retained during construction. Evaluating
 // this directly avoids expanding Pe and then rediscovering its strain through
 // L(Pe), which loses small differences between large fine coordinates.
-__device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u,unsigned width=32){
-    Vector sum{};
-    for(unsigned slot=parent.input.begin[node]+lane;slot<parent.input.begin[node+1];slot+=width){
-        const unsigned ref=parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
-        const auto e=parent.topology.coarse[edge];if(!retainedColumn(e))continue;
-        Vector a{},b{},difference{};
-        if(e.a!=Invalid && parent.child.nodeMap[e.a]!=Invalid)a=childX[parent.child.nodeMap[e.a]];
-        if(e.b!=Invalid && parent.child.nodeMap[e.b]!=Invalid)b=childX[parent.child.nodeMap[e.b]];
-        if(e.a==e.b)difference={make_double3(0,0,0),cross(sub(e.offset0,e.offset1),a.angular)};
-        else difference=sub(couple(a,e.offset0),couple(b,e.offset1));
-        const bool back=ref>>31;const auto flux=mul(difference,e.scale*sourceScale(parent.input,edge)*(back?-1.:1.));
-        sum=add(sum,scaledValue(transposeCouple(flux,sourceOffset(parent.input,edge,back)),sourceInertia(parent.input,node)));
-    }
-    return sum;
-}
 template<bool Local>
 __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffers pool,unsigned level,const Vector* childX,CycleWork<Local> work){
-    if(coarseBlockRows(d.input)){
+    if(tiledCoarseRows(d.input)){
+        cycleTiledRows<Local,true>(d,pool,level,work,childX);
+    }else if(coarseBlockRows(d.input)){
         for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input);index+=Local?1u:gridDim.x){
             const unsigned node=work.node(d.input,index);
             const bool enabled=work.enabled(d.input,node) && smoothedNode(d,pool,level,node);
@@ -213,7 +217,7 @@ class ResidentCycle {
     CycleLevel* mDevice=nullptr;Vector* mIntermediate=nullptr;unsigned mBlocks[2]{};
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident cycle: ")+cudaGetErrorString(e));}
     static Vector* allocate(unsigned count){Vector* p=nullptr;check(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(Vector)));return p;}
-    void release()noexcept{for(auto& d:mHost){cudaFree(const_cast<Vector*>(d.rhs));cudaFree(d.x);cudaFree(d.residual);}cudaFree(mIntermediate);cudaFree(mDevice);}
+    void release()noexcept{for(auto& d:mHost){cudaFree(const_cast<Vector*>(d.rhs));cudaFree(d.x);cudaFree(d.residual);cudaFree(d.rowPartials);}cudaFree(mIntermediate);cudaFree(mDevice);}
     template<unsigned Passes>unsigned blocks()const{
         int device=0,sms=0,resident=0,cooperative=0;check(cudaGetDevice(&device));check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));
         check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&resident,applyCycle<Passes>,Threads,0));
@@ -237,7 +241,7 @@ public:
         try{
             for(unsigned i=0;i<hierarchy.levels();++i){auto& d=mHost[i];d.input=hierarchy.input(i);d.topology=hierarchy.topology(i).buffers();d.diagonal=hierarchy.smoother(i).buffers();
                 if(i+1<hierarchy.levels())d.child=hierarchy.packed(i).buffers();
-                if(i){d.rhs=allocate(d.input.nodes);d.x=allocate(d.input.nodes);}d.residual=allocate(d.input.nodes);
+                if(i){d.rhs=allocate(d.input.nodes);d.x=allocate(d.input.nodes);}d.residual=allocate(d.input.nodes);if(i)d.rowPartials=allocate(CoarseTileNodes*CoarseRowTiles);
             }
             mIntermediate=allocate(hierarchy.input(0).nodes);check(cudaMalloc(&mDevice,mHost.size()*sizeof(CycleLevel)));
             check(cudaMemcpyAsync(mDevice,mHost.data(),mHost.size()*sizeof(CycleLevel),cudaMemcpyHostToDevice,mStream));mBlocks[0]=blocks<1>();mBlocks[1]=blocks<2>();
