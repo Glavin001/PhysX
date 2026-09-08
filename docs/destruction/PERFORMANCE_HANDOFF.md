@@ -2,6 +2,12 @@
 
 ## 2026-09-08: anchored residual cleanup retained after numerical and timing checks
 
+Engine `45ae3488` is deployed and passed browser join/shoot/move/settle/reset:
+444 chunks / 896 bonds, four 150 ms trigger holds, 265 broken bonds / 57 fragment
+bodies after shooting, 30 settling samples, then reset to zero broken/detached.
+Six known resource errors remain; local WT routing is used by browser tests.
+Evidence is in `qualification/vibe-anchored-residual-20260908/browser/`.
+
 The size-priority queue remains reverted. The only subsequent production change
 is a six-line guard in `detail/StressNativePreconditioner.cuh`, deleting identity
 FP32/FP64 residual rewrites and a barrier for a fully anchored component. The
