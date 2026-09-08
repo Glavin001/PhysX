@@ -1,3 +1,7 @@
+## 2026-09-08: three-block register budget rejected
+
+Lowering component registers 94 → 80 and allowing three blocks/SM worsens the 256-building / 113,664-chunk / 229,376-bond / 768-shot / 600-step mean 45.181 → 46.793 ms and fracture peak 133.936 → 139.979 ms against shared normalization. Numerical and exact wall gates pass, but idle also fails to improve. Reverted; nominal occupancy is not a performance result. [Evidence](../../qualification/component-residency3-20260908/README.md).
+
 ## 2026-09-08: share component normalization reciprocal
 
 One FP64 normalization reciprocal is now computed by the existing component reduction instead of repeated per node. Three 256-building / 113,664-chunk / 229,376-bond / 768-shot / 600-step runs per arm show lower means (44.155–44.881 vs 45.033–46.666 ms), with overlapping fracture peaks (132.604–138.325 vs 136.912–140.902 ms). Accepted as redundant-work deletion; no robust peak, real-time or external-baseline claim. Numerical bit-parity, frozen wall, eight ordinary checks and full every-tick large-scene mapping audit pass. [Evidence](../../qualification/shared-normalization-20260908/README.md). Not yet deployed.
