@@ -528,6 +528,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxgDestructionContactGraphView mGraphView{};
     const PxgContactGraphSequence* mContactSequence{}; // borrowed scene-lifetime device allocator
     PxU64 mGraphGeneration{};
+    void* mPreNodeStorage=nullptr;
     PxvPreSolveNode *mPreNodes{},*mPrePrevious{};
     PxvPreSolveNodeUpdate* mPreUpdates{};
     PxU32 mPreUpdateCapacity{};
@@ -584,7 +585,8 @@ public:
     bool canBuildPreSolveIslands() const override { return mBodyAllocator && mBodyAllocator->supportsGpuIslandRepair(); }
     const PxvPreSolveNode* preSolveNodeView() const override { return mPreNodes; }
     const PxU32* preSolveSupportView() const override { return mPreSupport; }
-    bool preSolveNodeSnapshotRequired(PxU32 count) const override { return !mPreRosterValid || count>mPreCapacity; }
+    bool preSolveNodeSnapshotRequired(PxU32) const override { return !mPreRosterValid; }
+#include "PxgPreSolveStorage.inl"
     bool buildPreSolveIslands(const PxvPreSolveNodeUpdate* updates,PxU32 updateCount,PxU32 count,bool fullSnapshot,
         const PxvPreSolveEdge* merges,PxU32 mergeCount,CUstream stream,
         const PxU32*& labels,const PxU32*& staticTouches,const PxgDestructionPreSolveContacts* contacts=nullptr) override {
@@ -606,16 +608,9 @@ public:
             if(mGraphView.generation)check(cudaStreamWaitEvent(cudaStream,mGraphReady,0));
             bool usable=mPrePreviousCount && mGraphView.generation && mGraphView.nodeCapacity>=mPrePreviousCount
                 && mPreSourceGraphGeneration!=~PxU64(0) && mGraphView.generation==mPreSourceGraphGeneration+1;
-            if(count>mPreCapacity) {
-                check(cudaEventSynchronize(mPreReady));
-                const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(count,2ull*mPreCapacity)));
-                cudaFree(mPreNodes);mPreNodes=nullptr;allocate(mPreNodes,capacity);
-                cudaFree(mPrePrevious);mPrePrevious=nullptr;allocate(mPrePrevious,capacity);
-                cudaFree(mPreLabels);mPreLabels=nullptr;allocate(mPreLabels,capacity);
-                cudaFree(mPreTouches);mPreTouches=nullptr;allocate(mPreTouches,capacity);
-                cudaFree(mPreSupport);mPreSupport=nullptr;allocate(mPreSupport,capacity);
-                mPreCapacity=capacity;usable=false; // Explicit native fallback initializes new storage.
-            }
+            // Growth preserves both rosters and the previous graph certificate.
+            // New handle holes are initialized below before applying deltas.
+            if(count>mPreCapacity)growPreSolveStorage(count,cudaStream);
             if(updateCount>mPreUpdateCapacity) {
                 check(cudaEventSynchronize(mPreReady));cudaFree(mPreUpdates);mPreUpdates=nullptr;
                 const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(updateCount,2ull*mPreUpdateCapacity)));
@@ -877,12 +872,12 @@ public:
     }
     void clear() {
         cudaEventSynchronize(mPreReady);
-        cudaFree(mPreNodes);mPreNodes=nullptr;cudaFree(mPrePrevious);mPrePrevious=nullptr;
+        cudaFree(mPreNodeStorage);mPreNodeStorage=nullptr;mPreNodes=nullptr;mPrePrevious=nullptr;
         cudaFree(mPreUpdates);mPreUpdates=nullptr;mPreUpdateCapacity=0;mPreRosterValid=false;
         cudaFree(mPreRetired);mPreRetired=nullptr;cudaFree(mPreRetiredMask);mPreRetiredMask=nullptr;
         cudaFree(mPreContactStatus);mPreContactStatus=nullptr;mPreRetiredCapacity=mPrePairCapacity=0;
         cudaFree(mPreMerges);mPreMerges=nullptr;cudaFree(mPreParents);mPreParents=nullptr;
-        cudaFree(mPreLabels);mPreLabels=nullptr;cudaFree(mPreTouches);mPreTouches=nullptr;cudaFree(mPreSupport);mPreSupport=nullptr;
+        mPreLabels=nullptr;mPreTouches=nullptr;mPreSupport=nullptr;
         mPreCapacity=mPrePreviousCount=mPreMergeCapacity=mPreParentCapacity=0;mPreSourceGraphGeneration=0;
         cudaEventSynchronize(mReady); // also orders private installation on the scene stream
         if(mGraphView.generation)cudaEventSynchronize(mGraphReady);

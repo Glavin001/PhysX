@@ -170,6 +170,21 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,
     require((producer && !sleeping?quietAfter.gpuProducedPasses>=quietBefore.gpuProducedPasses+8:quietAfter.quietPasses>=quietBefore.quietPasses+8) && quietAfter.hostToDeviceBytes==quietBefore.hostToDeviceBytes,
         "unchanged solver metadata still uploads");
     if(producer && !sleeping)require(gpu.getCudaPreSolveHostBytes()==nodeBytesBefore,"quiet CUDA roster still uploads node/merge records");
+    if(producer && contacts && support && !sleeping) {
+        // Force growth after a certified quiet GPU phase. The independent
+        // per-step audit above checks every preserved/new lifetime and component.
+        const PxU32 priorDomain=PxU32(gpu.getExpectedPreSolveNodes().size());
+        const auto snapshots=gpu.getCudaPreSolveFullSnapshots(),fallbacks=gpu.getCudaPreSolveFallbacks();
+        std::vector<PxRigidDynamic*> added;added.reserve(priorDomain+17);
+        for(PxU32 i=0;i<priorDomain+17;++i)added.push_back(add(6000+3*float(i)));
+        verify();verify();
+        require(gpu.getCudaPreSolveFullSnapshots()==snapshots,"GPU storage growth forced a full CPU roster snapshot");
+        require(gpu.getCudaPreSolveFallbacks()==fallbacks,"GPU storage growth discarded resident connectivity history");
+        std::printf("pre-solve growth retained GPU history: old domain=%u new domain=%zu, added bodies=%zu, no new full snapshots/fallbacks\n",
+            priorDomain,size_t(gpu.getExpectedPreSolveNodes().size()),added.size());
+        for(auto* body:added)body->release();verify();
+        auto* reused=add(6000);verify();reused->release();verify();
+    }
     if(producer && !sleeping) {
         auto* runtime=static_cast<PxgDestructionRuntime*>(f.stage);
         const PxU32 domain=PxU32(gpu.getExpectedPreSolveNodes().size());
@@ -216,7 +231,11 @@ void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,
     if(!producer || sleeping)require(sparse.pageUploads>quietAfter.pageUploads,"contact lifecycle never exercised sparse solver metadata uploads");
     const auto beforeGrowth=sparse.fullUploads;std::vector<PxRigidDynamic*> growth;
     for(unsigned i=0;i<300;++i)growth.push_back(add(5000+3*float(i)));
-    verify();require(gpu.getSolverIslandMetadataStats().fullUploads>beforeGrowth,"metadata domain growth did not refresh complete buffers");
+    verify();
+    if(producer && !sleeping)
+        require(gpu.getGpuSolverCore()->mPreSolveIslandIds && gpu.getSolverIslandMetadataStats().fullUploads==beforeGrowth,
+            "resident metadata growth fell back to a full CPU upload");
+    else require(gpu.getSolverIslandMetadataStats().fullUploads>beforeGrowth,"metadata domain growth did not refresh complete buffers");
     f.desc.gpuIslandRepair=false;f.configure();const auto referenceBefore=gpu.getSolverIslandMetadataStats().fullUploads;
     verify();verify();require(gpu.getSolverIslandMetadataStats().fullUploads>=referenceBefore+2,"reference solver metadata did not use full upload");
     f.desc.gpuIslandRepair=true;f.configure();verify();verify();

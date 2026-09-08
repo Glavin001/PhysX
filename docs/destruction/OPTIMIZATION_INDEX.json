@@ -828,7 +828,7 @@
       "id": "R06",
       "status": "🟡",
       "optimization": "Affected contact graph / pre-solve island work",
-      "current_and_action": "GPU contact graph and pre-solve metadata exist and are exercised. They do not imply a complete selective correction scheduler with all ordinary-body/joint/new-contact dependencies.",
+      "current_and_action": "GPU contact graph and pre-solve metadata are active. GPU roster/lifetime state survives allocation growth without a new full CPU snapshot or connectivity restore. Initial bootstrap and CPU lifecycle deltas remain; not a complete selective correction scheduler.",
       "evidence": [
         "contact graph",
         "presolve",
@@ -887,7 +887,7 @@
       "id": "R11",
       "status": "🟡",
       "optimization": "Capacity growth without simulated spare bodies",
-      "current_and_action": "Persistent slots/storage exist, but lifecycle/capacity handling must be qualified through growth, exhaustion and reuse. Include runtime growth in complete-step timing; never truncate events/contacts to fit a budget.",
+      "current_and_action": "Persistent storage exists; GPU pre-solve roster growth/removal/reuse passes focused tests. Growth cost stays in complete-step timing. Full capacity/exhaustion/endurance qualification remains; never truncate required work.",
       "evidence": [
         "slots",
         "runtime"
@@ -2131,8 +2131,8 @@
   ],
   "current_review": {
     "date": "2026-09-08",
-    "head": "3f3f49e3b706366cac543557d779130008832e85",
-    "scope": "Refreshed with tested exact per-node inverse invalidation candidate. Native suites, initcheck, frozen penetration and short matched bombardment evidence recorded; full peak/endurance gates remain unmet.",
+    "head": "5a74dba50ef17770557641dd5dfb7af19f044071",
+    "scope": "Reviewed source optimization inventory, with accepted GPU-preserving pre-solve storage growth and short-screen evidence. No full peak/endurance qualification.",
     "files": [
       {
         "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver-rs/src/rapier/optimization.rs",
@@ -2223,7 +2223,7 @@
         "sha256": "547cf799787163c7410147ad29da54ed0db18beace6e6bd0cc83ab183e3a734a",
         "bytes": 23745,
         "tracked": true,
-        "differs_from_head": true
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
@@ -2250,8 +2250,8 @@
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressInverseTopology.cuh",
         "sha256": "f942494398954841ad58d6124e5401f262e834b342df1515ac9669a774fef828",
         "bytes": 1564,
-        "tracked": false,
-        "differs_from_head": true
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl",
@@ -2348,8 +2348,8 @@
         "path": "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_inverse_topology_test.cuh",
         "sha256": "9cf77cc32d79ddd7d3d9edd11f86b755d87a353ff0f4d2e612f6c2c70045d1b8",
         "bytes": 2476,
-        "tracked": false,
-        "differs_from_head": true
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/physx/include/PxSceneDesc.h",
@@ -2395,10 +2395,10 @@
       },
       {
         "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
-        "sha256": "a0be4477d448b6396486ddd09e0482f6ea71e5c147c7001b414ead601b034dd7",
-        "bytes": 118024,
+        "sha256": "9636c12f0959007dec753f5eb025eb3ca921ad595a1bd27501a4e69561d1da7a",
+        "bytes": 117470,
         "tracked": true,
-        "differs_from_head": false
+        "differs_from_head": true
       },
       {
         "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTopology.cu",
@@ -2522,10 +2522,22 @@
     ],
     "runtime": {
       "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
-      "sha256": "46ed2ba419c93cdcddad8dfc04ecc8b985435d446ccba2265a60d3ed45662fe8",
-      "implementation": "polynomial preconditioning + unaffected warm starts + exact local inverse validity",
-      "full_peak_endurance_qualified": false
+      "sha256": "77cb67306d865ad3c3bea2f84f40879d397e96ca474cfb284b231e3c4c49fd0e",
+      "implementation": "polynomial preconditioning + unaffected warm starts + exact local inverse validity + GPU-preserving pre-solve storage growth",
+      "full_peak_endurance_qualified": false,
+      "qualification": "Focused metadata/lifecycle, memcheck, frozen penetration, independent bombardment island audit and matched short timing screens pass; full peak/endurance gates incomplete."
     },
-    "source_snapshot_hashes_unchanged": true
+    "source_snapshot_hashes_unchanged": true,
+    "work_in_progress": [],
+    "accepted_changes": [
+      {
+        "ids": [
+          "R06",
+          "R11"
+        ],
+        "evidence": "qualification/presolve-resident-growth/README.md",
+        "status": "Accepted after focused correctness and short performance screen; full architecture remains partial."
+      }
+    ]
   }
 }
