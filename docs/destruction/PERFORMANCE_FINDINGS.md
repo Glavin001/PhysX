@@ -1,5 +1,32 @@
 # Performance findings and experiment memory
 
+## 2026-09-08: delete identity residual rewrites for anchored components
+
+`prepareNativeResidualComponent` now returns after producing its RHS when the
+validated motion-mode certificate has dimension zero. The prior projection was
+already a no-op, but its float/double conversion round trip rewrote both vectors
+and synchronized again. Free components retain complete null-mode projection.
+Numerical acceptance, precision, iteration order and physical work are unchanged.
+Three resident tests, eight ordinary tests and exact frozen penetration pass.
+
+[Generated complete-step comparison](../../qualification/vibe-anchored-residual-20260908/comparison/report.md):
+256 buildings / 113,664 chunks / 229,376 bonds / 768 rounds, two 600-step
+(10 simulated second) untraced runs per arm. Direct GPU API off, sleeping on,
+correction <=1, stress <=2. Baseline complete peaks 158.171/152.782 ms;
+candidate 153.169/153.885 ms. Fracture peaks baseline 158.171/146.158 ms;
+candidate 146.181/151.395 ms. Ranges overlap; no robust whole-peak or real-time
+win is claimed from the lower worst observation. Retained as removal of
+redundant work, not an alternative implementation or runtime tuning branch.
+
+Separate instrumented first-split tick 48: CUDA stress over both evaluations
+35.978 -> 33.728 ms. Both show 10,449 fragments / 10,193 awake, 216,220 reported
+normal contacts, 57,788 broken bonds. Counted states first diverge at tick 76;
+this does not prove identical trajectories. See baseline/candidate phase reports
+beside the comparison. CUDA durations overlap CPU waits; do not sum them.
+Compiler registers/shared/stack footprint is unchanged. Full endurance, strict
+peak deadline and historical external-backend superiority remain unqualified.
+
+
 ## 2026-09-08: targeted report repair wins the native game-consumer screen
 
 Engine `69fe462a`, game `45b41d2`. The previous full-world refilter opportunity

@@ -19,6 +19,12 @@ __device__ __forceinline__ void storeNativeProjectedResidual(const PersistentStr
 // components can prevent a warm-started zero load from converging exactly.
 __device__ __forceinline__ void prepareNativeResidualComponent(const PersistentStressArgs& a,const unsigned* nodes,unsigned count,unsigned id){
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)nativeCycleRhs(a,nodes[i]);__syncthreads();
+    // A fully anchored component has no null motion to project. Its RHS is
+    // already the exact FP64 promotion of the FP32 residual. Rewriting both
+    // through FP32 would reproduce the same values, so omit that round trip
+    // and its trailing barrier. Free components retain the full projection.
+    // The mode certificate belongs to the current validated topology above.
+    if(!StressHierarchy::motionDimension(a.hierarchy.modes.components[id]))return;
     projectNativeNullspace(a,id,nodes,count,a.hierarchy.rhs);
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)storeNativeProjectedResidual(a,nodes[i]);__syncthreads();
 }

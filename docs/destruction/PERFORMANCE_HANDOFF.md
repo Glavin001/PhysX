@@ -1,5 +1,34 @@
 # Dated performance handoff and implementation map
 
+## 2026-09-08: anchored residual cleanup retained after numerical and timing checks
+
+The size-priority queue remains reverted. The only subsequent production change
+is a six-line guard in `detail/StressNativePreconditioner.cuh`, deleting identity
+FP32/FP64 residual rewrites and a barrier for a fully anchored component. The
+current validated motion-mode certificate makes this decision, not sleeping,
+convergence guesses or a user-selected alternate backend. Free components retain
+full projection. All focused numerical/ordinary and frozen-wall checks pass.
+
+[Evidence](../../qualification/vibe-anchored-residual-20260908/comparison/report.md).
+Matched game-consumer 256 buildings / 113,664 chunks / 229,376 bonds / 768 rounds,
+two 600-step/10-second untraced runs per arm: baseline fracture-peak range
+146.158–158.171 ms versus candidate 146.181–151.395 ms. These overlap, and means
+overlap too; do not call this a robust complete-peak improvement. Separate CUDA
+event captures at first split show stress 35.978 -> 33.728 ms over two evaluations,
+with matching reported work counts. Retained as deletion of redundant work, not
+an 8 ms/60 Hz or historical external-backend superiority qualification.
+
+Runtime archives and runners: `out/vibe-anchored-residual-20260908`,
+`out/vibe-anchored-residual-phases-20260908`,
+`/tmp/run-vibe-anchored-residual.py`, `/tmp/run-vibe-anchored-residual-phases.py`.
+Production candidate runtime hash is recorded in the receipt. The CPU-compatible
+body creation phase still creates `NpRigidDynamic` / `BodySim` and island nodes
+before correction; GPU slot assignment alone has not removed that dependence.
+Do not optimize these CPU mirrors as though that completes GPU-owned lifecycle.
+The current component-work diagnostic reporter still assumes one solve/tick;
+fix its mapping before using it with the present two-evaluation game consumer.
+
+
 ## 2026-09-08: size-priority stress dispatch rejected; deployed runtime unchanged
 
 A GPU-only descending-size permutation was added to the existing dynamic CTA
