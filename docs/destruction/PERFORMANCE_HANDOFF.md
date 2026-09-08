@@ -1,5 +1,34 @@
 # Dated performance handoff and implementation map
 
+## 2026-09-08: size-priority stress dispatch rejected; deployed runtime unchanged
+
+A GPU-only descending-size permutation was added to the existing dynamic CTA
+queue and tested, then reverted. It changed dispatch order only, preserving
+component/node identities and internal numerical order. Three resident suites,
+eight ordinary integration tests and the frozen penetration signature passed.
+
+Matched game consumer: 256 buildings / 113,664 chunks / 229,376 bonds / 768
+physical projectiles, 600 steps / 10 simulated seconds, two untraced runs per
+arm in baseline/candidate/candidate/baseline order. Direct GPU API off, sleeping
+on, correction <=1, stress evaluations <=2. Worst complete peaks 150.872 ->
+152.147 ms; worst fracture peaks 140.191 -> 143.766 ms. Lower averages are not a
+peak win. First fracture peak remains tick 48. Do not reactivate this experiment
+merely because its mean improved. Report includes baseline-to-baseline physical
+count divergence and all accepted samples; no endurance or 60 Hz claim.
+
+[Generated report](../../qualification/vibe-stress-order-20260908/comparison/report.md),
+[patch](../../qualification/vibe-stress-order-20260908/rejected-scheduling.patch).
+The benchmark comparison now supports repeated baseline runs and experiment
+notes, and removes hardcoded claims of passing tests or startup being the peak.
+Three reporter validation tests cover malformed/instrumented data, altered
+commands, retained first-step peaks and absence of invented qualification.
+Production code remains the targeted-report-repair runtime (69fe462a behavior).
+Remaining priority is reducing required stress work at the retained-building
+peaks and replacing CPU compatibility fragment creation with its final GPU
+owner, not another queue-order-only change. Existing phase evidence still
+applies; this experiment provides no hardware-counter bottleneck conclusion.
+
+
 ## 2026-09-08: targeted report repair wins the native game-consumer screen
 
 Engine `69fe462a`, game `45b41d2`. The previous full-world refilter opportunity

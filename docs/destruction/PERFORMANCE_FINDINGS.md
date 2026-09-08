@@ -290,6 +290,7 @@ scope. Do not retry the same mechanism merely under a different name.
 
 | Status | Experiment | What was learned / requirement before revisiting |
 |---|---|---|
+| ❌ | Descending component-size dispatch queue | Numerical/penetration tests pass and averages improve, but two matched native game-consumer runs per arm did not improve complete or fracture peaks. Reverted; see [screen and preserved patch](../../qualification/vibe-stress-order-20260908/comparison/report.md). This is not the earlier committed dynamic queue. |
 | ❌ | Four-stage polynomial | Fewer updates did not establish a whole-peak win. Additional preconditioner cost matters. See commit `ab30a85b` and its qualification artifacts. |
 | ❌ | Partial shared cache, unscaled polynomial vector | Cache lookup/shared-storage cost; short screen did not establish improvement. Native tests alone were insufficient. |
 | ❌ | Partial shared cache, scaled vector + CSR-local ordinals | Frozen wall passed; complete worst peak worsened in fresh controls. Local caching is not the same as making the full recurrence local. |
