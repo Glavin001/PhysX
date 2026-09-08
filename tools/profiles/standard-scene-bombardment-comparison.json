@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "description": "Load analogues for the newest resim=1 Vibe-land reports. Native procedural geometry and ballistic shots, not an exact city/input replay. Direct GPU disabled, native sleeping enabled; three waves over 12 seconds, retain late rubble.",
+  "common": [
+    "--waves",
+    "3",
+    "--launch-seconds",
+    "12",
+    "--stress-iterations",
+    "8192",
+    "--preserve-contact-pairs",
+    "1",
+    "--gpu-island-repair",
+    "1",
+    "--gpu-pre-solve-islands",
+    "1",
+    "--gpu-pre-solve-contacts",
+    "1",
+    "--gpu-pre-solve-support",
+    "1",
+    "--gpu-connectivity-owner",
+    "0",
+    "--projectile-mass",
+    "18000",
+    "--material-strength",
+    "24",
+    "--frame-strength",
+    "40",
+    "--record-state",
+    "0",
+    "--gpu-render",
+    "0",
+    "--audit-motion",
+    "0",
+    "--trace-motion",
+    "0",
+    "--standard-scene",
+    "1",
+    "--sleeping",
+    "1"
+  ],
+  "cases": [
+    {
+      "id": "sleeping-16",
+      "label": "16 buildings / 7104 chunks / 14336 bonds / 48 aerial projectiles",
+      "args": [
+        "--grid",
+        "4",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial"
+      ]
+    },
+    {
+      "id": "sleeping-64",
+      "label": "64 buildings / 28416 chunks / 57344 bonds / 192 aerial projectiles",
+      "args": [
+        "--grid",
+        "8",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial"
+      ]
+    },
+    {
+      "id": "sleeping-256",
+      "label": "256 buildings / 113664 chunks / 229376 bonds / 768 aerial projectiles",
+      "args": [
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial"
+      ]
+    }
+  ]
+}

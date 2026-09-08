@@ -29,6 +29,10 @@ def main():
     assert summary['status']=='completed' and summary['color_by_cluster']
     frames=list(csv.DictReader((args.capture/'native.frames.csv').open()))
     assert len(frames)==summary['frames']
+    timings=[float(row['complete_step_ms']) for row in frames]
+    assert all(math.isfinite(t) and t>0 for t in timings)
+    mean_ms=sum(timings)/len(timings)
+    missed=sum(t>1000/60 for t in timings)
     history={}
     if args.group_observations:
         current={};last=None;last_frame=-1
@@ -57,18 +61,18 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     events=[]
     for part in range(math.ceil(summary['seconds']*args.label_fps)):
         start=part/args.label_fps;end=min(summary['seconds'],start+1/args.label_fps);i=min(len(frames)-1,part*60//args.label_fps);row=frames[i]
-        top=(f"PHYSX GPU | Same color = same rigid group | White = projectile"
-            rf"\NProjectile {summary['projectile_mass_kg']:g} kg | {summary['chunks']} chunks / {summary['bonds']} bonds | t = {(i+1)/60:.2f} s"
-            rf"\N{row['logical_clusters']} groups | {cumulative[i]} broken bonds | resim {row['resim_passes']}/1 this step | {corrections[i]} corrected steps")
+        top=(f"PHYSX GPU | Direct GPU {'ON' if summary['direct_gpu_mode'] else 'OFF'} | Sleeping {'ON' if summary['sleeping'] else 'OFF'}"
+            rf"\N{summary['buildings']} buildings | {summary['projectiles']} shots | {summary['chunks']:,} chunks / {summary['bonds']:,} bonds | t = {(i+1)/60:.2f} s"
+            rf"\N{row['logical_clusters']} groups | {row['awake_bodies']} awake | {cumulative[i]} broken bonds | resim {row['resim_passes']}/1 this step")
         top+=rf"\N{'QUARTER SPEED' if start<args.slow_impact else '1x playback'} | Simulation time shown above; resim limit = 1 per step"
-        groups='Colors stay with stable cluster identity; splitting creates new group colors.'
+        groups='Same color = rigid group; white = projectile. Stable identities across splits.'
         if history:
             sample=history[max(k for k in history if k<=i)]
             supported=sum(n for n,s in sample.values() if s);detached=sum(n for n,s in sample.values() if not s)
             assert sum(n for n,s in sample.values())==summary['chunks']
             groups=f'{supported} chunks connected to support | {detached} detached chunks'
-        bottom=(groups+rf"\NSimulation ms: avg {summary['physics_ms_mean']:.2f} | min {summary['physics_ms_min']:.2f} | max {summary['physics_ms_max']:.2f}"
-            rf"\NOffline render; timing excludes observation/render/encoding.")
+        bottom=(groups+rf"\NComplete simulation ms: avg {mean_ms:.2f} | min {min(timings):.2f} | max {max(timings):.2f}"
+            rf"\N{missed}/{len(timings)} steps above 16.67 ms. Offline render/encoding excluded; video-run timings.")
         if summary.get('frame_strength_scale',1)>1:
             bottom+=rf"\NAuthored materials: wall strength x{summary['material_strength_scale']:g}; frame x{summary['frame_strength_scale']:g} wall. GPU stress verdict."
         for style,text in [('Top',top),('Bottom',bottom)]:events.append(f'Dialogue: 0,{stamp(start)},{stamp(end)},{style},,0,0,0,,{text}\n')
