@@ -1,0 +1,54 @@
+[  0%] Building CUDA object reference/CMakeFiles/gpu_resident_motion_modes_test.dir/tests/gpu_resident_motion_modes_test.cu.o
+[100%] Linking CUDA executable gpu_resident_motion_modes_test
+[100%] Built target gpu_resident_motion_modes_test
+[ 50%] Building CUDA object reference/CMakeFiles/gpu_resident_stress_test_core.dir/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu.o
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(285): warning #177-D: function "Nv::Blast::<unnamed>::conditionalLoopEnabled" was declared but never referenced
+  bool conditionalLoopEnabled()
+       ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(379): warning #177-D: function "Nv::Blast::<unnamed>::verifyPartitionEnabled" was declared but never referenced
+  bool verifyPartitionEnabled()
+       ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(558): warning #177-D: variable "Nv::Blast::<unnamed>::kQRefresh" was declared but never referenced
+  static constexpr std::uint32_t kQRefresh = 16u;
+                                 ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(3234): warning #177-D: function "Nv::Blast::<unnamed>::ExtStressGpuSolverImpl::verifyPartitionAgainstRebuild" was declared but never referenced
+      void verifyPartitionAgainstRebuild()
+           ^
+
+[ 50%] Built target gpu_resident_stress_test_core
+[ 50%] Linking CUDA executable gpu_resident_stress_test
+[100%] Built target gpu_resident_stress_test
+[  0%] Building CUDA object reference/CMakeFiles/NvBlastExtStressGpu.dir/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu.o
+[  8%] Built target gpu_resident_stress_test_core
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh(257): warning #177-D: variable "rootTail" was declared but never referenced
+          auto validation=conditional(graph,prior,work); cudaGraphNode_t rootTail=prior;prior=nullptr;
+                                                                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh(321): warning #177-D: variable "completed" was declared but never referenced
+          cudaGraphNode_t completed=dependencies[0];cudaGraph_t captured=nullptr;
+                          ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(379): warning #177-D: function "Nv::Blast::<unnamed>::verifyPartitionEnabled" was declared but never referenced
+  bool verifyPartitionEnabled()
+       ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(558): warning #177-D: variable "Nv::Blast::<unnamed>::kQRefresh" was declared but never referenced
+  static constexpr std::uint32_t kQRefresh = 16u;
+                                 ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(3234): warning #177-D: function "Nv::Blast::<unnamed>::ExtStressGpuSolverImpl::verifyPartitionAgainstRebuild" was declared but never referenced
+      void verifyPartitionAgainstRebuild()
+           ^
+
+[ 16%] Linking CUDA static library libNvBlastExtStressGpu.a
+[ 16%] Built target NvBlastExtStressGpu
+[ 91%] Built target blast_stress_core
+[ 91%] Linking CXX executable gpu_resident_stress_3d_test
+[100%] Built target gpu_resident_stress_3d_test

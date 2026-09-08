@@ -101,6 +101,9 @@ __global__ void flagDeviceStressRows(const unsigned* islands,unsigned count,unsi
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i<count)flags[i]=islands[i]!=kNoIsland;
 }
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+#include "detail/StressInverseTopology.cuh"
+#endif
 __global__ void beginDeviceStressRebuild(ExtStressGpuDeviceTopologyStatus* status)
 { status->islandCount = 0; }
 __global__ void finishDeviceStressRebuild(const DeviceStressTopologyBatch* batch,
@@ -255,8 +258,20 @@ class DeviceStressTopology
         kernel(validation,prior,(void*)validateDeviceStressMask,bondBlocks,kBlockSize,batch,b.health,b.m,state);
         kernel(validation,prior,(void*)chooseDeviceStressRebuild,1,1,state,rebuild);
         auto body=conditional(validation,prior,rebuild);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        static_assert(sizeof(Inertia)==sizeof(float2) && sizeof(Vec4)==sizeof(float4),"native operator view layout");
+        StressHierarchy::Input input{b.n,b.m,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
+            b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->generation,nullptr};
+        input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
+        nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,ownerStream));
+#endif
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
+        // The input operator is immutable except for the validated removal mask.
+        // Preserve each unchanged local inverse even if its component splits.
+        const auto inverse=nativeHierarchy->view();
+        refreshNativeInverseValidity<<<nodeBlocks,kBlockSize,0,captureStream>>>(batch,state,
+            b.nodeBondBegin,b.nodeBondRef,b.health,inverse.inverseValid,inverse.inverseGeneration,b.n);
         // Validation already accepted this transaction. Reuse existing flag
         // storage, and consume old component identities before relabeling.
         checkCuda(cudaMemsetAsync(rootFlags,0,sizeof(unsigned)*b.n,captureStream), "clear changed stress component flags");
@@ -306,11 +321,6 @@ class DeviceStressTopology
         cudaGraphNode_t completed=dependencies[0];cudaGraph_t captured=nullptr;
         checkCuda(cudaStreamEndCapture(captureStream,&captured), "finish stress topology capture");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
-        static_assert(sizeof(Inertia)==sizeof(float2) && sizeof(Vec4)==sizeof(float4),"native operator view layout");
-        StressHierarchy::Input input{b.n,b.m,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
-            b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->generation,nullptr};
-        input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
-        nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,ownerStream));
         nativeHierarchy->append(body,completed);
         // This status publication is outside the rebuild condition so a prior
         // failed hierarchy cannot appear healthy on an unchanged submission.

@@ -338,7 +338,7 @@
       "id": "S03",
       "status": "🟡",
       "optimization": "Warm start between timesteps",
-      "current_and_action": "Previous bond solutions are retained across timesteps and now across fractures in unrelated components. Changed old components cold-start before relabeling; current loads and true residuals are still checked. General settled reuse and per-component hierarchy/inverse preservation remain incomplete. See affected-warm-start qualification.",
+      "current_and_action": "Previous bond solutions are retained across timesteps and fractures in unrelated components. Changed old components cold-start before relabeling; current loads and true residuals are still checked. Unchanged local inverse caches also survive topology updates. General settled reuse and per-component hierarchy preservation remain incomplete.",
       "evidence": [
         "oldstress",
         "submission",
@@ -464,7 +464,7 @@
       "id": "N06",
       "status": "✅",
       "optimization": "Cached per-node 6×6 inverse preconditioning",
-      "current_and_action": "Active packed FP64 local inverse with validity/topology generation. Replaces repeated local triangular solves after the initial update; no global dense inverse. Qualified local implementation, not proof that all workloads meet deadline.",
+      "current_and_action": "Active packed FP64 local inverse. GPU topology transactions now invalidate only nodes with changed incident live bonds, retaining unchanged inverse coefficients byte-for-byte. Unknown/stale entries cannot gain validity. No new allocation or host decision; full peak/endurance gates remain unmet.",
       "evidence": [
         "inverse",
         "preconditioner",
@@ -624,7 +624,7 @@
       "id": "H09",
       "status": "🟡",
       "optimization": "Keep unaffected hierarchy and inverse caches across fractures",
-      "current_and_action": "Unchanged component bond solutions now survive unrelated fractures. Hierarchy and local-inverse caches still use global topology generations and invalidate too broadly. Per-component cache preservation needs exact handling of splits, supports and coefficient changes.",
+      "current_and_action": "Unchanged component bond solutions and unchanged per-node local inverses now survive unrelated fractures. An internal cut invalidates only its endpoint local operators, independently of component identity. Multilevel hierarchy, coarse caches and partition rebuilds still invalidate too broadly; affected-only hierarchy preservation remains TODO.",
       "evidence": [
         "inverse",
         "hierarchy",
@@ -2131,8 +2131,8 @@
   ],
   "current_review": {
     "date": "2026-09-08",
-    "head": "d2095b95a0d556215a8d8f0ae8fad015a8a6a9ae",
-    "scope": "Refreshed after corrected colored-sweep numerical/physical qualification and matched bombardment rejection. Production source and runtime restored; full peak and endurance gates remain unmet.",
+    "head": "3f3f49e3b706366cac543557d779130008832e85",
+    "scope": "Refreshed with tested exact per-node inverse invalidation candidate. Native suites, initcheck, frozen penetration and short matched bombardment evidence recorded; full peak/endurance gates remain unmet.",
     "files": [
       {
         "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver-rs/src/rapier/optimization.rs",
@@ -2220,10 +2220,10 @@
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh",
-        "sha256": "14231990fb59596a0f63dccc17712496eb264e36a90c3df7262b85800e01b3fc",
-        "bytes": 23209,
+        "sha256": "547cf799787163c7410147ad29da54ed0db18beace6e6bd0cc83ab183e3a734a",
+        "bytes": 23745,
         "tracked": true,
-        "differs_from_head": false
+        "differs_from_head": true
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
@@ -2245,6 +2245,13 @@
         "bytes": 3999,
         "tracked": true,
         "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressInverseTopology.cuh",
+        "sha256": "f942494398954841ad58d6124e5401f262e834b342df1515ac9669a774fef828",
+        "bytes": 1564,
+        "tracked": false,
+        "differs_from_head": true
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl",
@@ -2336,6 +2343,13 @@
         "bytes": 17904,
         "tracked": true,
         "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_inverse_topology_test.cuh",
+        "sha256": "9cf77cc32d79ddd7d3d9edd11f86b755d87a353ff0f4d2e612f6c2c70045d1b8",
+        "bytes": 2476,
+        "tracked": false,
+        "differs_from_head": true
       },
       {
         "path": "/root/workspace/physx-2/physx/include/PxSceneDesc.h",
@@ -2508,9 +2522,9 @@
     ],
     "runtime": {
       "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
-      "sha256": "481eab6a7fca0d8c22aef03152bd685d84cdbe7369e7ffa3e0e9846de45b43f4",
-      "source_experiment_qualified": false,
-      "source_experiment_status": "reverted after performance rejection; corrected numerical and frozen physical audit passed"
+      "sha256": "46ed2ba419c93cdcddad8dfc04ecc8b985435d446ccba2265a60d3ed45662fe8",
+      "implementation": "polynomial preconditioning + unaffected warm starts + exact local inverse validity",
+      "full_peak_endurance_qualified": false
     },
     "source_snapshot_hashes_unchanged": true
   }

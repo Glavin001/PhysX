@@ -189,6 +189,7 @@ void run(Fixture f,bool transitions){
 #include "native_polynomial_test.cuh"
 #include "native_direction_restart_test.cuh"
 #include "native_topology_warm_test.cuh"
+#include "native_inverse_topology_test.cuh"
 using namespace MotionModeTest;
 int main(int argc,char** argv){try{
     const bool small=argc==2 && std::string(argv[1])=="small";require(argc==1 || small,"usage: gpu_resident_motion_modes_test [small]");
@@ -198,6 +199,7 @@ int main(int argc,char** argv){try{
     firstDirectionWithoutHistory();
     warmRangeLifecycle();
     topologyWarmInvalidation();
+    inverseTopologyLifetime();
     run(Fixture(0),false);run(Fixture(1),false);
     for(unsigned kind=0;kind<5;++kind){Fixture f(24);for(unsigned i=1;i<f.n;++i)f.edge(i-1,i);
         if(kind==1)f.offset1[5].x+=.03125f; // Tree geometry differs from authoring, still six modes.
