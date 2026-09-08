@@ -227,7 +227,7 @@ extern "C" __global__ void mergeChangedAABBMgrHandlesLaunch(const PxgUpdateActor
 	const PxU32 gNumElements = updateActorDesc->mBitMapWordCounts * 32;
 
 	//This is Direct API changed handles
-	const PxU32* updated = updateActorDesc->mUpdated;
+	PxU32* updated = updateActorDesc->mUpdated;
 
 	//This is CPU API changed handles
 	PxU32* gChangedAABBMgrHandles = updateActorDesc->mChangedAABBMgrHandles;
@@ -239,6 +239,11 @@ extern "C" __global__ void mergeChangedAABBMgrHandlesLaunch(const PxgUpdateActor
 	for (PxU32 i = idx; i < gNumElements; i += blockDim.x * gridDim.x)
 	{
 		const PxU32 updateBit = updated[i];
+        // Consume this command after publishing it to the broad-phase bitmap.
+        // Native correction uses this buffer without Direct GPU API's end-of-
+        // fetch reset. Retaining bits would resurrect deleted shape handles on
+        // a later correction (e.g. reset the scene and fracture it again).
+        updated[i] = 0;
 
 		const PxU32 word = __ballot_sync(FULL_MASK, updateBit);
 

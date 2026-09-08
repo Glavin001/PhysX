@@ -367,7 +367,10 @@ void Sc::Scene::broadPhaseFirstPass(PxBaseTask* continuation)
 	
 	// AD: this combines the update flags of the normal pipeline with the update flags
 	// marking updated bounds for the direct-GPU API.
-	if (isDirectGPUAPIInitialized() || mDestructionCorrectionInProgress)
+	// Sleep rollback and native pose publication also write these flags on
+    // ordinary passes. Consume them before shape IDs can be retired/reused.
+    if (isDirectGPUAPIInitialized() || mDestructionCorrectionInProgress
+        || mSimulationController->usesDeviceDestructionContactInputs())
 	{
 		mSimulationController->mergeChangedAABBMgHandle();
 	}

@@ -2108,6 +2108,13 @@ void PxgSimulationCore::mergeChangedAABBMgHandle()
 	
 	CUstream stream = mGpuContext->getGpuBroadPhase()->getBpStream();
 
+    // Creation/removal and native observation can resize the buffers since
+    // the preceding fetch. Publish the current descriptor before BP consumes it.
+    gpuDmaUpdateData();
+    if(mCudaContext->eventRecord(mDmaEvent,mStream)!=CUDA_SUCCESS
+        || mCudaContext->streamWaitEvent(stream,mDmaEvent,0)!=CUDA_SUCCESS) {
+        mCudaContext->setAbortMode(true);return;
+    }
 	CUdeviceptr updatedActorDescd = mUpdatedActorDescBuffer.getDevicePtr();
 	CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::MERGE_AABBMGR_HANDLES);
 
@@ -3225,7 +3232,8 @@ bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRig
     // Shape insertion may grow NP before the end-of-step Direct GPU descriptor
     // reset. Preserve pending command flags while extending this shared buffer;
     // resetting its prefix would lose ordinary actors' broad-phase updates.
-    const PxU64 required=PxU64(ownership.mMaxTransformCacheID)+1;
+    const PxU64 required=PxMax(PxU64(ownership.mMaxTransformCacheID)+1,
+        PxU64(mGpuContext->mGpuBp->getAABBManager()->getChangedAABBMgrHandlesWordCount())*32);
     if(required>PX_MAX_U32)return false;
     const PxU64 oldBytes=mUpdatedDirectBuffer.getSize();
     if(oldBytes<required*sizeof(PxU32)) {
