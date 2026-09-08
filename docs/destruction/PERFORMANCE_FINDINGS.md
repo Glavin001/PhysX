@@ -1,3 +1,7 @@
+## 2026-09-08: share component normalization reciprocal
+
+One FP64 normalization reciprocal is now computed by the existing component reduction instead of repeated per node. Three 256-building / 113,664-chunk / 229,376-bond / 768-shot / 600-step runs per arm show lower means (44.155–44.881 vs 45.033–46.666 ms), with overlapping fracture peaks (132.604–138.325 vs 136.912–140.902 ms). Accepted as redundant-work deletion; no robust peak, real-time or external-baseline claim. Numerical bit-parity, frozen wall, eight ordinary checks and full every-tick large-scene mapping audit pass. [Evidence](../../qualification/shared-normalization-20260908/README.md). Not yet deployed.
+
 ## 2026-09-08: local multilevel retry rejected
 
 Modern coarse caches do not make small-component V-cycles faster: compact local rows still worsen the 256-building loaded peak 138.788 → 257.110 ms (113,664 chunks, 229,376 bonds, 768 shots, 600 steps per arm). The inherited cooperative tile schedule was still slower and stopped early. Exact wall passed for the compact variant; all production edits reverted. [Evidence](../../qualification/local-cycle-modern-20260908/README.md). Do not repeat without a cheaper local hierarchy design and a preserved numerical scheduling contract.

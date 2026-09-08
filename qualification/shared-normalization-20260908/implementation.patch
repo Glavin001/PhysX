@@ -1,0 +1,64 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+index 07843901..3abf9618 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+@@ -37,15 +37,16 @@ __device__ __forceinline__ void prepareNativeResidualGrid(const PersistentStress
+ __device__ __forceinline__ double nativeCycleMagnitude(StressHierarchy::Vector v){
+     return fmax(fmax(fabs(v.angular.x),fabs(v.angular.y)),fmax(fabs(v.angular.z),fmax(fabs(v.linear.x),fmax(fabs(v.linear.y),fabs(v.linear.z)))));
+ }
+-__device__ __forceinline__ double nativeComponentMaximum(double value){
+-    __shared__ double partial[kBlockSize/32];for(unsigned step=16;step;step>>=1)value=fmax(value,__shfl_down_sync(0xffffffffu,value,step));
++__device__ __forceinline__ double nativeComponentMaximum(double value,double& inverse){
++    __shared__ double partial[kBlockSize/32+1];for(unsigned step=16;step;step>>=1)value=fmax(value,__shfl_down_sync(0xffffffffu,value,step));
+     if(!(threadIdx.x&31u))partial[threadIdx.x/32]=value;__syncthreads();
+-    if(!threadIdx.x){double maximum=0;for(unsigned i=0;i<kBlockSize/32;++i)maximum=fmax(maximum,partial[i]);partial[0]=maximum;}
+-    __syncthreads();value=partial[0];__syncthreads();return value;
++    if(!threadIdx.x){double maximum=0;for(unsigned i=0;i<kBlockSize/32;++i)maximum=fmax(maximum,partial[i]);partial[0]=maximum;partial[kBlockSize/32]=1/maximum;}
++    __syncthreads();value=partial[0];inverse=partial[kBlockSize/32];__syncthreads();return value;
+ }
+-__device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a,unsigned node,unsigned id,double magnitude,const StressHierarchy::Vector* result){
++template<bool SharedInverse=false>
++__device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a,unsigned node,unsigned id,double magnitude,const StressHierarchy::Vector* result,double inverse=0){
+     if(!(magnitude>0) || !isfinite(magnitude)){atomicExch(a.hierarchy.failed+id,1u);return 0;}
+-    const auto v=StressHierarchy::mul(result[node],1/magnitude);
++    const auto v=StressHierarchy::mul(result[node],SharedInverse?inverse:1/magnitude);
+     const AngLin g{{float(v.angular.x),float(v.angular.y),float(v.angular.z),0},{float(v.linear.x),float(v.linear.y),float(v.linear.z),0}};
+     const auto w=a.hierarchy.rhs[node];a.hierarchy.g[node]=g;
+     const float gamma=w.angular.x*g.angular.x+w.angular.y*g.angular.y+w.angular.z*g.angular.z
+@@ -76,12 +77,14 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
+     projectNativeNullspace(a,id,nodes,count,result);
+     SUBPROBE_END(1)
+     double magnitude=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)magnitude=fmax(magnitude,nativeCycleMagnitude(result[nodes[i]]));
+-    magnitude=nativeComponentMaximum(magnitude);
++    // Normalize once per component, not once for every node. The same
++    // rounded FP64 reciprocal is broadcast with the existing reduction.
++    double inverse;magnitude=nativeComponentMaximum(magnitude,inverse);
+     SUBPROBE_END(2)
+     // A positive per-component scaling of g cancels in PCG's beta/alpha.
+     // Normalize before conversion to float so a tiny residual does not flush
+     // gamma or direction energy while the original convergence norm is live.
+-    float gamma=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)gamma+=nativeCycleResult(a,nodes[i],id,magnitude,result);
++    float gamma=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)gamma+=nativeCycleResult<true>(a,nodes[i],id,magnitude,result,inverse);
+     SUBPROBE_END(3)
+ #undef SUBPROBE_END
+     return gamma;
+diff --git a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+index 3e7c99b3..e68b57be 100644
+--- a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
++++ b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+@@ -194,6 +194,7 @@ void run(Fixture f,bool transitions){
+ #include "native_fine_inverse_test.cuh"
+ #include "native_rigid_inverse_test.cuh"
+ #include "native_polynomial_test.cuh"
++#include "native_normalization_test.cuh"
+ #include "native_direction_restart_test.cuh"
+ #include "native_cooperative_retirement_test.cuh"
+ #include "native_topology_warm_test.cuh"
+@@ -206,6 +207,7 @@ int main(int argc,char** argv){try{
+     fineInverseCache();
+     rigidInverseCache();
+     polynomialOperator();
++    normalizationBroadcast();
+     firstDirectionWithoutHistory();
+     cooperativeRetirement();
+     warmRangeLifecycle();

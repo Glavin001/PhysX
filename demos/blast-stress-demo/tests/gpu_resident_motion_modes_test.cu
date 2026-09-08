@@ -194,6 +194,7 @@ void run(Fixture f,bool transitions){
 #include "native_fine_inverse_test.cuh"
 #include "native_rigid_inverse_test.cuh"
 #include "native_polynomial_test.cuh"
+#include "native_normalization_test.cuh"
 #include "native_direction_restart_test.cuh"
 #include "native_cooperative_retirement_test.cuh"
 #include "native_topology_warm_test.cuh"
@@ -206,6 +207,7 @@ int main(int argc,char** argv){try{
     fineInverseCache();
     rigidInverseCache();
     polynomialOperator();
+    normalizationBroadcast();
     firstDirectionWithoutHistory();
     cooperativeRetirement();
     warmRangeLifecycle();
