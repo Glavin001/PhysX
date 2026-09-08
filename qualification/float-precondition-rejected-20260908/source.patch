@@ -1,0 +1,24 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+index a47925a9..83bb8434 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+@@ -1,3 +1,4 @@
++#include "StressNativeFloatPrecondition.cuh"
+ // Fixed two-step Chebyshev-Jacobi preconditioner for a resident component.
+ // Let L=D+E, with the same cached node-block inverse M=D^-1. The two Richardson
+ // weights give P=(a+b)M-abMLM=(a+b-ab)M-abMEM. Only the off-diagonal E needs
+@@ -35,11 +36,11 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
+     auto* local=a.hierarchy.result;
+     auto* result=a.hierarchy.cycle.intermediate;
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+-        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
++        local[node]=applyNativeFloatInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
+     __syncthreads();
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+-        const auto off=nativeOffDiagonal(input,node,local);
+-        result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverse(a.hierarchy,node,off),coupling));}
++        const auto off=nativeFloatOffDiagonal(input,node,local);
++        result[node]=sub(mul(local[node],diagonal),mul(applyNativeFloatInverse(a.hierarchy,node,off),coupling));}
+     // One disjoint destination per node. Readers consume this completed view;
+     // there is no product buffer, copy back or second launch inside iteration.
+     __syncthreads();return result;
