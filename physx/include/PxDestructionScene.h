@@ -71,7 +71,7 @@ struct PxDestructionStressDesc {
     const PxDestructionChunkMassProperties* chunkMassProperties = NULL;
     // Experimental internal rigid correction. 0 retains diagnostic preparation;
     // 1 permits one intact trial plus one full supported-scene corrected solve.
-    // Current support: rigid scenes with stationary kinematics, no joints,
+    // Current support: rigid scenes with CPU-authored kinematic targets, no joints,
     // articulations, CCD, custom filter callbacks or deformables. Crushing/removal
     // and unapportioned force commands on fractured sources reject explicitly.
     // Native sleeping is supported with ordinary CPU actor access (Direct GPU

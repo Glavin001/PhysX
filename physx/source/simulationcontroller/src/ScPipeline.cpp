@@ -2026,6 +2026,15 @@ void Sc::Scene::captureDestructionActivity()
     PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
         "GpuDestruction.task.activityCheckpoint",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
     mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
+    mDestructionTrialKinematics.clear();
+    if(mSimulationController->usesDeviceDestructionContactInputs()
+        && !(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)) {
+        for(PxU32 i=0;i<mActiveKinematicBodyCount;++i) {
+            auto* body=mActiveBodies[i];
+            if(body->getHasValidKinematicTarget())
+                mDestructionTrialKinematics.pushBack({body,body->getCore().body2World});
+        }
+    }
     if((mPublicFlags & (PxSceneFlag::eDISABLE_SLEEPING | PxSceneFlag::eENABLE_DIRECT_GPU_API))
         || !mSimulationController->usesDeviceDestructionContactInputs())return;
     for(PxU32 i=0;i<mSleepBodies.size();++i) {
@@ -2049,6 +2058,12 @@ void Sc::Scene::restoreDestructionActivity()
 {
     PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
         "GpuDestruction.task.activityRestore",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    for(const auto& saved:mDestructionTrialKinematics) {
+        saved.body->getCore().body2World=saved.startPose;
+        // kinematicsSetup uploads the restored pose and recomputes velocity
+        // against the unchanged user target during the corrected simulation.
+    }
+    mDestructionTrialKinematics.clear();
     for(const auto& saved:mDestructionTrialActivity) {
         auto& body=*saved.body;auto& rigid=body.getLowLevelBody();auto& core=rigid.getCore();
         // A changed cluster has already received its GPU-computed COM frame.
@@ -3022,8 +3037,11 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
     if(canCorrect) {
         PxBitMap::Iterator speculative(mSpeculativeCCDRigidBodyBitMap);
         canCorrect=speculative.getNext()==PxBitMap::Iterator::DONE;
-        for(PxU32 i=0;canCorrect && i<mActiveKinematicBodyCount;++i)
-            canCorrect=!mActiveBodies[i]->getHasValidKinematicTarget();
+        // CPU-authored targets are replayable after restoring the captured
+        // start pose. Direct GPU target commands are not captured here.
+        if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+            for(PxU32 i=0;canCorrect && i<mActiveKinematicBodyCount;++i)
+                canCorrect=!mActiveBodies[i]->getHasValidKinematicTarget();
     }
     // Trial CPU reporting/trigger state is not covered by device cache reset.
     // Keep the complete contact rebuild whenever that state needs correction.
@@ -3072,6 +3090,7 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         return;
     }
     mDestructionCorrectionInProgress=false;
+    mDestructionTrialKinematics.clear();
     mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
     publishDestructionQueryMembership();
 

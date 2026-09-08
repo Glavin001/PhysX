@@ -924,6 +924,11 @@ namespace Sc
                         PxU16 sleepFlags;
                         bool accurateReady, speculativeReady, wakeNotify;
                     };
+                    // Prescribed kinematic targets stay unchanged during a trial.
+                    // Restore their start poses so replay computes the same target
+                    // velocity, rather than a zero delta from the trial end pose.
+                    struct DestructionKinematic { BodyCore* body; PxTransform startPose; };
+                    PxArray<DestructionKinematic> mDestructionTrialKinematics;
                     PxArray<DestructionActivity> mDestructionTrialActivity;
                     PxArray<BodySim*> mDestructionTrialSleepNotifications;
                     PxBitMap mDestructionQueryDirty;
