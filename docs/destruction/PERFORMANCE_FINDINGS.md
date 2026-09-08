@@ -1,3 +1,7 @@
+## 2026-09-08: refreshed phase profile after committed deltas/normalization
+
+[Current profile](../../qualification/current-native-phases-20260908/README.md), 256 buildings / 113,664 chunks / 229,376 bonds / 768 rounds / 600 steps, API-v15 ordinary mode with sleeping: tick48 complete diagnostic151.620 ms; GPU stress30.929 overlaps wait32.180; CPU fragment compatibility21.146; correction52.336; GPU rewind copies0.019. Stress alone cannot close the complete-step gap. Investigate native lifecycle work, distinguishing new collision pairs from discarded reusable shape pairs. Actor references/island/report bookkeeping prevent simply retaining old interactions. Profiling is separate from untraced timing.
+
 ## 2026-09-08: three-block register budget rejected
 
 Lowering component registers 94 → 80 and allowing three blocks/SM worsens the 256-building / 113,664-chunk / 229,376-bond / 768-shot / 600-step mean 45.181 → 46.793 ms and fracture peak 133.936 → 139.979 ms against shared normalization. Numerical and exact wall gates pass, but idle also fails to improve. Reverted; nominal occupancy is not a performance result. [Evidence](../../qualification/component-residency3-20260908/README.md).
