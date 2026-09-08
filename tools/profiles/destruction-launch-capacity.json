@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "description": "Fixed 256-building physical workload; compare 256 simultaneous aerial launches with identical projectile count spread over 10 simulated seconds. Separate workload capacity experiment, not equal-input optimization evidence. Every complete step retained; sleeping remains disabled.",
+  "common": [
+    "--waves",
+    "1",
+    "--stress-iterations",
+    "8192",
+    "--preserve-contact-pairs",
+    "1",
+    "--gpu-island-repair",
+    "1",
+    "--gpu-pre-solve-islands",
+    "1",
+    "--gpu-pre-solve-contacts",
+    "1",
+    "--gpu-pre-solve-support",
+    "1",
+    "--gpu-connectivity-owner",
+    "1",
+    "--projectile-mass",
+    "18000",
+    "--material-strength",
+    "24",
+    "--frame-strength",
+    "40",
+    "--record-state",
+    "0",
+    "--gpu-render",
+    "0",
+    "--audit-motion",
+    "0",
+    "--trace-motion",
+    "0"
+  ],
+  "cases": [
+    {
+      "id": "stagger-256-10s",
+      "label": "256 buildings, 256 shots spread over 10 seconds (25.6 launches per simulated second)",
+      "args": [
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial",
+        "--launch-seconds",
+        "10"
+      ]
+    },
+    {
+      "id": "burst-256",
+      "label": "256 buildings, 256 simultaneous shots",
+      "args": [
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial",
+        "--launch-seconds",
+        "0"
+      ]
+    }
+  ]
+}

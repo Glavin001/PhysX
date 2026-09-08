@@ -1,0 +1,485 @@
+diff --git a/demos/blast-stress-demo/CMakeLists.txt b/demos/blast-stress-demo/CMakeLists.txt
+index 31adb211..6fa1667b 100644
+--- a/demos/blast-stress-demo/CMakeLists.txt
++++ b/demos/blast-stress-demo/CMakeLists.txt
+@@ -682,6 +682,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
+     target_link_options(native_gpu_collision_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+     target_link_libraries(native_gpu_collision_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
+     add_test(NAME physx_native_gpu_collision_preparation COMMAND native_gpu_collision_test)
++    add_test(NAME physx_native_gpu_contact_properties COMMAND native_gpu_collision_test --contact-properties)
+     add_test(NAME physx_native_gpu_retained_registry COMMAND native_gpu_collision_test --retained-registry)
+     add_test(NAME physx_native_gpu_contact_lifetime_exhaustion COMMAND native_gpu_collision_test --lifetime-exhaustion)
+     add_test(NAME physx_native_gpu_initialization_failure COMMAND native_gpu_collision_test --initialization-failure)
+diff --git a/demos/blast-stress-demo/tests/native_gpu_collision_test.cpp b/demos/blast-stress-demo/tests/native_gpu_collision_test.cpp
+index 47ff4d44..28be5422 100644
+--- a/demos/blast-stress-demo/tests/native_gpu_collision_test.cpp
++++ b/demos/blast-stress-demo/tests/native_gpu_collision_test.cpp
+@@ -275,7 +275,13 @@ void deviceContactInputs(bool enabled) {
+         f.context.physics().createShape(PxSphereGeometry(.5f),f.context.material(),false),
+         f.context.physics().createShape(PxCapsuleGeometry(.5f,.25f),f.context.material(),false),
+         f.context.physics().createShape(PxConvexMeshGeometry(mesh),f.context.material(),false)};
+-    for(auto* shape:shared)require(shape,"shared collision geometry creation failed");mesh->release();
++    for(unsigned i=0;i<4;++i) {
++        auto* shape=shared[i];require(shape,"shared collision geometry creation failed");
++        shape->setRestOffset(-.001f*float(i+1));
++        shape->setTorsionalPatchRadius(.02f*float(i+1));
++        shape->setMinTorsionalPatchRadius(.005f*float(4-i));
++    }
++    mesh->release();
+     auto* plane=PxCreatePlane(f.context.physics(),PxPlane(0,1,0,-39.6f),f.context.material());
+     require(plane,"contact-input plane fixture failed");f.scene.addActor(*plane);
+     std::vector<PxRigidDynamic*> actors;
+@@ -291,8 +297,11 @@ void deviceContactInputs(bool enabled) {
+     using PairKey=std::pair<PxU32,PxU32>;
+     std::map<PairKey,PxU64> previous;
+     std::set<PxU64> observedGenerations;
++    std::set<PairKey> propertyRefreshedPairs;
+ 
++    unsigned inspection=0;
+     auto inspect=[&](bool refreshed=false){
++        std::printf("contact property audit enabled=%u observation=%u refilter=%u\n",unsigned(enabled),++inspection,unsigned(refreshed));
+         if(static_cast<PxgDestructionRuntime*>(f.stage)->correctionEnabled())nativeGraphTest::verify(f.scene,f.cuda);
+         else require(!static_cast<PxgDestructionRuntime*>(f.stage)->getContactGraphView().generation,"disabled destruction exposes a stale contact graph");
+         PxScopedCudaLock lock(f.cuda);
+@@ -308,6 +317,10 @@ void deviceContactInputs(bool enabled) {
+             auto& host=np.getExistingContactManagers(GPU_BUCKET_ID::Enum(b));
+             auto& gpu=np.getExistingGpuContactManagers(GPU_BUCKET_ID::Enum(b));
+             const auto count=host.mCpuContactManagerMapping.size();if(!count)continue;
++            std::vector<PxReal> rest(count);
++            std::vector<PxsTorsionalFrictionData> torsional(count);
++            check(cuMemcpyDtoH(rest.data(),gpu.mRestDistances.getDevicePtr(),count*sizeof(rest[0])));
++            check(cuMemcpyDtoH(torsional.data(),gpu.mTorsionalProperties.getDevicePtr(),count*sizeof(torsional[0])));
+             std::vector<PxgContactManagerInput> inputs(count);
+             check(cuMemcpyDtoH(inputs.data(),gpu.mContactManagerInputData.getDevicePtr(),count*sizeof(inputs[0])));
+             std::vector<PxgContactGraphIdentity> identities(count),mergedIdentities(count);
+@@ -317,6 +330,14 @@ void deviceContactInputs(bool enabled) {
+             mergedOffset+=count;
+             for(PxU32 i=0;i<count;++i) {
+                 const auto& work=host.mCpuContactManagerMapping[i]->getWorkUnit();const auto input=inputs[i];
++                require(rest[i]==work.mRestDistance,"GPU contact rest distance differs from independent CPU pair law");
++                require(torsional[i].mTorsionalPatchRadius==work.mTorsionalPatchRadius
++                    && torsional[i].mMinTorsionalRadius==work.mMinTorsionalPatchRadius,
++                    "GPU contact torsional radii differ from independent CPU pair law");
++                if(controller.usesDeviceDestructionContactInputs())require(
++                    host.mRestDistances[i]==0 && host.mTorsionalProperties[i].mTorsionalPatchRadius==0
++                    && host.mTorsionalProperties[i].mMinTorsionalRadius==0,
++                    "native contacts retained CPU-derived scalar payloads");
+                 const auto& identity=identities[i];
+                 require(identity.generation && identity.edgeIndex!=PX_INVALID_U32 && identity.edgeIndex==work.mEdgeIndex,"GPU contact identity has stale or missing island edge");
+                 // There is no CPU generation mirror. Verify against independent
+@@ -325,7 +346,7 @@ void deviceContactInputs(bool enabled) {
+                 const PairKey key(work.mTransformCache0,work.mTransformCache1);
+                 require(current.emplace(key,identity.generation).second,"duplicate persistent contact pair");
+                 const auto old=previous.find(key);
+-                if(old!=previous.end() && !refreshed) {
++                if(old!=previous.end() && !refreshed && !propertyRefreshedPairs.count(key)) {
+                     require(old->second==identity.generation,"surviving contact identity changed during compaction/growth");
+                     ++stableIdentities;
+                 } else {
+@@ -341,9 +362,14 @@ void deviceContactInputs(bool enabled) {
+                 if(host.mGpuInputContactManagers[i].shapeRef0==PX_INVALID_U32 && host.mGpuInputContactManagers[i].shapeRef1==PX_INVALID_U32)++deviceOnly;
+             }
+         }
+-        previous=std::move(current);
++        previous=std::move(current);propertyRefreshedPairs.clear();
+     };
+     step(f.scene);inspect();
++    const auto initialPropertyBytes=np.mGpuShapesManager.mContactPropertyUploadBytes;
++    if(enabled)require(initialPropertyBytes>0,"native shape palette was not uploaded");
++    else require(!initialPropertyBytes,"ordinary PhysX uploaded unused native shape properties");
++    step(f.scene);inspect();
++    require(np.mGpuShapesManager.mContactPropertyUploadBytes==initialPropertyBytes,"unchanged shape properties were uploaded again");
+     const auto generated=controller.getDestructionContactInputCount();
+     require(inspected>=257,"shared-shape fixture did not create its required contact pairs");
+     require(enabled?(generated>=257 && deviceOnly>=257):(!generated && !deviceOnly),"native descriptor construction did not select the intended CPU/GPU path");
+@@ -352,6 +378,17 @@ void deviceContactInputs(bool enabled) {
+     // geometry-ref mirror; replacements must resolve current registrations.
+     for(unsigned i=1;i<actors.size();i+=4){actors[i]->release();actors[i]=nullptr;}
+     step(f.scene);inspect();
++    // The API permits changing these shared-shape scalar properties. Existing
++    // pair torsional snapshots remain unchanged; newly born pairs use the edit.
++    shared[0]->setTorsionalPatchRadius(.375f);
++    shared[0]->setMinTorsionalPatchRadius(.0625f);
++    PxShape* planeShape=nullptr;require(plane->getShapes(&planeShape,1)==1,"plane shape missing");
++    const auto planeId=planeShape->getGPUIndex();require(planeId!=PX_INVALID_U32,"plane has no persistent GPU identity");
++    // Rest-offset commands refresh exactly the pairs incident on this shape.
++    // All other surviving pairs must keep their original lifetime.
++    for(const auto& entry:previous)if(entry.first.first==planeId || entry.first.second==planeId)
++        propertyRefreshedPairs.insert(entry.first);
++    planeShape->setRestOffset(-.007f);
+     for(unsigned i=1;i<actors.size();i+=4)actors[i]=add(i);
+     step(f.scene);inspect();
+     if(enabled)require(controller.getDestructionContactInputCount()>generated,"reinserted pairs missed GPU descriptor construction");
+@@ -699,6 +736,7 @@ int main(int argc,char** argv){try{
+         if(mode=="--retained-registry"){gpuRetainedRegistryLifecycle();return 0;}
+         if(mode=="--sparse"){sparseAndGrowth(true,4,64);return 0;}
+         if(mode=="--island-repair"){contactComponentPartitions(true);gpuIslandCycleAndFallback();gpuComponentBoundaryAudit();gpuGraphReuseAndQuietObservation();gpuIslandSleepFallback();return 0;}
++        if(mode=="--contact-properties"){deviceContactInputs(false);deviceContactInputs(true);return 0;}
+         if(mode=="--reference"){deviceContactInputs(false);deviceContactInputs(true);contactComponentPartitions(false);sparseAndGrowth(true,4,64);sparseAndGrowth(false,4,64);sparseAndGrowth(true,257,0);rejection();crushRemoval();return 0;}
+         if(std::strcmp(argv[1],"--pre-solve-contacts")==0){solverMetadata(PxSolverType::ePGS,false,true,true);solverMetadata(PxSolverType::eTGS,false,true,true);solverMetadata(PxSolverType::eTGS,true,true,true);return 0;}
+         if(std::strcmp(argv[1],"--pre-solve-support")==0){solverMetadata(PxSolverType::ePGS,false,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true);return 0;}
+diff --git a/physx/source/gpudestruction/include/PxgDestructionRuntime.h b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+index 85d6c521..1c9ee089 100644
+--- a/physx/source/gpudestruction/include/PxgDestructionRuntime.h
++++ b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+@@ -11,6 +11,8 @@ namespace physx {
+ struct PxgBodySim;
+ class PxNodeIndex;
+ struct PxgShapeSim;
++struct PxgShapeContactProperties;
++struct PxsTorsionalFrictionData;
+ struct PxgContactManagerInput;
+ struct PxsContactManagerOutput;
+ struct PxgBodySimVelocities;
+@@ -89,7 +91,8 @@ public:
+     // Resolve persistent shape IDs into GPU narrowphase descriptors on the
+     // caller's ordered NP stream. Pair allocation/filtering is still separate.
+     virtual bool buildContactInputs(PxgContactManagerInput* inputs, PxU32 count,
+-        const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
++        const PxgShapeSim* shapes, PxU32 shapeCapacity, const PxgShapeContactProperties* properties, PxU32 propertyCapacity,
++        PxReal* restDistances, PxsTorsionalFrictionData* torsional, CUstream stream) = 0;
+ 
+     virtual bool buildContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+         const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxgShapeSim* shapes,
+diff --git a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+index 7b45d1f9..9a59e4a8 100644
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -8,6 +8,7 @@
+ #include "PxgBodySim.h"
+ #include "PxgShapeSim.h"
+ #include "PxgContactManager.h"
++#include "PxsContactManagerState.h"
+ #include "PxgDestructionContactGraph.cuh"
+ #include "PxgSolverIslandMetadata.cuh"
+ #include "PxgPreSolveIslands.cuh"
+@@ -60,7 +61,8 @@ __global__ void finishNativeCorrection(PxDestructionStageStatus* status) {status
+ // The descriptor's pair identities are persistent transform-cache/shape IDs.
+ // Geometry registration is resolved on device, independently of cluster motion.
+ __global__ void buildNativeContactInputs(PxgContactManagerInput* inputs,PxU32 count,
+-    const PxgShapeSim* shapes,PxU32 capacity) {
++    const PxgShapeSim* shapes,PxU32 capacity,const PxgShapeContactProperties* properties,PxU32 propertyCapacity,
++    PxReal* restDistances,PxsTorsionalFrictionData* torsional) {
+     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+     auto input=inputs[i];
+     if(input.transformCacheRef0>=capacity || input.transformCacheRef1>=capacity) {
+@@ -73,7 +75,13 @@ __global__ void buildNativeContactInputs(PxgContactManagerInput* inputs,PxU32 co
+     if(input.shapeRef0==PX_INVALID_U32 || input.shapeRef1==PX_INVALID_U32) {
+         asm volatile("trap;");return;
+     }
++    if(input.shapeRef0>=propertyCapacity || input.shapeRef1>=propertyCapacity){__trap();return;}
++    const auto a=properties[input.shapeRef0],b=properties[input.shapeRef1];
++    if(!a.valid || !b.valid){__trap();return;}
+     inputs[i]=input;
++    restDistances[i]=a.restOffset+b.restOffset;
++    torsional[i].mTorsionalPatchRadius=PxMax(a.torsionalRadius,b.torsionalRadius);
++    torsional[i].mMinTorsionalRadius=PxMax(a.minTorsionalRadius,b.minTorsionalRadius);
+ }
+ struct Lookup { PxU32 contact, chunk; };
+ __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
+@@ -574,11 +582,12 @@ public:
+     }
+     void setProfiler(PxProfilerCallback* callback,PxU64 context) override {mProfiler=callback;mProfileContext=context;}
+     bool buildContactInputs(PxgContactManagerInput* inputs,PxU32 count,
+-        const PxgShapeSim* shapes,PxU32 shapeCapacity,CUstream stream) override {
+-        if(mFailed || !mCorrectionEnabled || !stream || (count && (!inputs || !shapes || !shapeCapacity)))return false;
++        const PxgShapeSim* shapes,PxU32 shapeCapacity,const PxgShapeContactProperties* properties,PxU32 propertyCapacity,
++        PxReal* restDistances,PxsTorsionalFrictionData* torsional,CUstream stream) override {
++        if(mFailed || !mCorrectionEnabled || !stream || (count && (!inputs || !shapes || !shapeCapacity || !properties || !propertyCapacity || !restDistances || !torsional)))return false;
+         try {
+             Context current(mContext);
+-            if(count)buildNativeContactInputs<<<(count+127)/128,128,0,reinterpret_cast<cudaStream_t>(stream)>>>(inputs,count,shapes,shapeCapacity);
++            if(count)buildNativeContactInputs<<<(count+127)/128,128,0,reinterpret_cast<cudaStream_t>(stream)>>>(inputs,count,shapes,shapeCapacity,properties,propertyCapacity,restDistances,torsional);
+             check(cudaGetLastError());return true;
+         }catch(...){mFailed=true;return false;}
+     }
+diff --git a/physx/source/gpunarrowphase/include/PxgContactManager.h b/physx/source/gpunarrowphase/include/PxgContactManager.h
+index ab1f62eb..c57e0c6d 100644
+--- a/physx/source/gpunarrowphase/include/PxgContactManager.h
++++ b/physx/source/gpunarrowphase/include/PxgContactManager.h
+@@ -33,6 +33,12 @@
+ 
+ namespace physx
+ {
++    // Authored per-shape parameters, resident by geometry-registration identity.
++    // Contact creation combines these on GPU; ownership migration does not copy them.
++    struct PxgShapeContactProperties {
++        PxReal restOffset, torsionalRadius, minTorsionalRadius;
++        PxU32 valid;
++    };
+     // Scene-lifetime GPU allocator. Zero is invalid; exhaustion never wraps.
+     // Kept across destruction reconfiguration and pair-buffer compaction.
+     struct PxgContactGraphSequence {
+diff --git a/physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h b/physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h
+index c8716a7b..ef49bfb6 100644
+--- a/physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h
++++ b/physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h
+@@ -657,6 +657,7 @@ namespace physx
+         bool rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor, bool deviceOwnerTransaction);
+ 		void registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, const bool isFemCloth, PxActor* actor);
+ 		void updateShapeMaterial(const PxsShapeCore& shapeCore);
++        void updateShapeContactProperties(const PxsShapeCore& shape);
+ 		PxU32 getShapeIndex(const PxsShapeCore& shapeCore);
+ 		void unregisterShape(const PxsShapeCore& shapeCore, const PxU32 transformCacheID, const bool isFemCloth);
+ 
+diff --git a/physx/source/gpunarrowphase/include/PxgShapeManager.h b/physx/source/gpunarrowphase/include/PxgShapeManager.h
+index e7b66365..e5aa9d15 100644
+--- a/physx/source/gpunarrowphase/include/PxgShapeManager.h
++++ b/physx/source/gpunarrowphase/include/PxgShapeManager.h
+@@ -43,6 +43,7 @@
+ 
+ #include "PxgCudaBuffer.h"
+ #include "PxgConvexConvexShape.h"
++#include "PxgContactManager.h"
+ 
+ namespace physx
+ {
+@@ -76,6 +77,13 @@ namespace physx
+ 		void unregisterShape(const PxU32 shapeId);
+ 		void unregisterShapeInstance(const PxU32 transformCacheID);
+ 
++        void updateContactProperties(PxU32 shape, const PxgShapeContactProperties& properties);
++        void scheduleContactProperties(PxgCopyManager& copies, PxCudaContext* context, CUstream stream);
++        Cm::PinnableArray<PxgShapeContactProperties> mHostContactProperties;
++        PxgCudaBuffer mGpuContactProperties;
++        PxBitMap mDirtyContactProperties;
++        PxU64 mContactPropertyUploadBytes=0;
++
+ 		void updateShapeMaterial(const PxU32 materalIndex, const PxU32 id);
+ 
+ 
+diff --git a/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp b/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp
+index f42409f9..eaed3201 100644
+--- a/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp
++++ b/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp
+@@ -7675,6 +7675,9 @@ void PxgGpuNarrowphaseCore::uploadDataChunksToGpu()
+ 	CUstream stream = mStream;
+ 	mGeometryManager.scheduleCopyHtoD(mCopyMan, *mCudaContext, stream);
+ 	mGpuShapesManager.scheduleCopyHtoD(mCopyMan, mCudaContext, stream);
++    if(usesDeviceDestructionContactInputs(GPU_BUCKET_ID::eConvex)) {
++        mGpuShapesManager.scheduleContactProperties(mCopyMan,mCudaContext,stream);
++    }
+ 	mGpuMaterialManager.scheduleCopyHtoD(mCopyMan, mCudaContext, stream, sizeof(PxsMaterialData));
+ 	mGpuFEMClothMaterialManager.scheduleCopyHtoD(mCopyMan, mCudaContext, stream, sizeof(PxsDeformableSurfaceMaterialData));
+ 	mGpuFEMMaterialManager.scheduleCopyHtoD(mCopyMan, mCudaContext, stream, sizeof(PxsDeformableVolumeMaterialData));
+@@ -7934,6 +7937,7 @@ void PxgGpuNarrowphaseCore::registerShape(const PxNodeIndex& nodeIndex, const Px
+ 			}
+ 
+ 			mShapesMap->insert((size_t)&shapeCore, rec);
++            updateShapeContactProperties(shapeCore);
+ 
+ 		}
+ 		else
+@@ -7945,6 +7949,15 @@ void PxgGpuNarrowphaseCore::registerShape(const PxNodeIndex& nodeIndex, const Px
+ 	
+ }
+ 
++void PxgGpuNarrowphaseCore::updateShapeContactProperties(const PxsShapeCore& shape)
++{
++    const auto* registration=mShapesMap->find(size_t(&shape));
++    if(!registration)return;
++    mGpuShapesManager.updateContactProperties(registration->second.idx,
++        {shape.mRestOffset,shape.mTorsionalRadius,shape.mMinTorsionalPatchRadius,1u});
++    if(mGpuShapesManager.mAllocFailed)mCudaContext->setAbortMode(true);
++}
++
+ void PxgGpuNarrowphaseCore::updateShapeMaterial(const PxsShapeCore& shapeCore)
+ {
+ 	const PxGeometryType::Enum type = shapeCore.mGeometry.getType();
+@@ -8279,8 +8292,12 @@ void PxgGpuNarrowphaseCore::registerContactManagerInternal(PxsContactManager* cm
+ 	itOutputs.pushBack(output);
+ 	itCms.pushBack(cm);
+ 	itSI.pushBack(shapeInteraction);
+-	itR.pushBack(cm->getRestDistance());
+-	itTor.pushBack(PxsTorsionalFrictionData(workUnit.mTorsionalPatchRadius, workUnit.mMinTorsionalPatchRadius));
++    // These arrays retain indexing for ordinary-PhysX transitions, but native
++    // contacts have no CPU-derived parameter payload. The device producer owns it.
++    const bool native=usesDeviceDestructionContactInputs(newContactManagers.mBucketId);
++    itR.pushBack(native?0.0f:cm->getRestDistance());
++    itTor.pushBack(native?PxsTorsionalFrictionData(0,0):
++        PxsTorsionalFrictionData(workUnit.mTorsionalPatchRadius,workUnit.mMinTorsionalPatchRadius));
+ 	
+ 	PxU32 newSz = newContactManagers.mGpuOutputContactManagers.size();
+ 
+@@ -8630,7 +8647,9 @@ bool PxgGpuNarrowphaseCore::buildDestructionContactInputs(PxgGpuContactManagers&
+     // Shape upload is ordered before broadphase/NP by the existing scene graph.
+     // This launch follows pair-ID upload on NP's stream and precedes contact gen.
+     return mGpuContext->getSimulationController()->buildDestructionContactInputs(
+-        managers.mContactManagerInputData.getTypedPtr(),count,mStream);
++        managers.mContactManagerInputData.getTypedPtr(),count,
++        reinterpret_cast<PxReal*>(managers.mRestDistances.getDevicePtr()),
++        reinterpret_cast<PxsTorsionalFrictionData*>(managers.mTorsionalProperties.getDevicePtr()),mStream);
+ }
+ 
+ void PxgGpuNarrowphaseCore::initializeContactManagerIdentities(PxgGpuContactManagers& gpu,PxgNewContactManagers& host,
+@@ -8692,8 +8711,10 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gp
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerOutputData.getDevicePtr(), itOutputs.begin(), sizeof(PxsContactManagerOutput) * nbNewManagers, mStream);
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mCpuContactManagerMapping.getDevicePtr(), itCms.begin(), sizeof(PxsContactManager*) * nbNewManagers, mStream);
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mShapeInteractions.getDevicePtr(), itSI.begin(), sizeof(Sc::ShapeInteraction*) * nbNewManagers, mStream);
++    if(!usesDeviceDestructionContactInputs(gpuManagers.mBucketIndex)) {
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mRestDistances.getDevicePtr(), itR.begin(), sizeof(PxReal) * nbNewManagers, mStream);
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mTorsionalProperties.getDevicePtr(), itTor.begin(), sizeof(PxsTorsionalFrictionData) * nbNewManagers, mStream);
++    }
+ 
+     initializeContactManagerIdentities(gpuManagers,newManagers,sizeof(Manifold),CUdeviceptr(emptyManifold));
+ }
+@@ -8733,8 +8754,10 @@ void PxgGpuNarrowphaseCore::prepareTempContactManagers(PxgGpuContactManagers& gp
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mContactManagerOutputData.getDevicePtr(), itOutputs.begin(), sizeof(PxsContactManagerOutput) * nbNewManagers, mStream);
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mCpuContactManagerMapping.getDevicePtr(), itCms.begin(), sizeof(PxsContactManager*) * nbNewManagers, mStream);
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mShapeInteractions.getDevicePtr(), itSI.begin(), sizeof(Sc::ShapeInteraction*) * nbNewManagers, mStream);
++    if(!usesDeviceDestructionContactInputs(gpuManagers.mBucketIndex)) {
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mRestDistances.getDevicePtr(), itR.begin(), sizeof(PxReal) * nbNewManagers, mStream);
+ 	mCudaContext->memcpyHtoDAsync(gpuManagers.mTorsionalProperties.getDevicePtr(), itTor.begin(), sizeof(PxsTorsionalFrictionData) * nbNewManagers, mStream);
++    }
+     initializeContactManagerIdentities(gpuManagers,newManagers,0,0);
+ }
+ 
+diff --git a/physx/source/gpunarrowphase/src/PxgShapeManager.cpp b/physx/source/gpunarrowphase/src/PxgShapeManager.cpp
+index 789f638c..18697a10 100644
+--- a/physx/source/gpunarrowphase/src/PxgShapeManager.cpp
++++ b/physx/source/gpunarrowphase/src/PxgShapeManager.cpp
+@@ -34,8 +34,11 @@
+ #include "PxNodeIndex.h"
+ 
+ using namespace physx;
++#include "PxgShapeContactProperties.inl"
+ 
+ PxgShapeManager::PxgShapeManager(PxgAllocatorDesc& allocDesc) :
++    mHostContactProperties(allocDesc.hostMappedAlloc,PxsHeapStats::eNARROWPHASE,Cm::PinnableAllocatorFallback::eDISABLED),
++    mGpuContactProperties(allocDesc.deviceAlloc,PxsHeapStats::eNARROWPHASE),
+ 	mHostShapesMapped(allocDesc.hostMappedAlloc, PxsHeapStats::eNARROWPHASE, Cm::PinnableAllocatorFallback::eDISABLED),
+ 	mHostShapesRemapTableMapped(allocDesc.hostMappedAlloc, PxsHeapStats::eNARROWPHASE, Cm::PinnableAllocatorFallback::eDISABLED),
+ 	mHostTransformCacheIdToActorTableMapped(allocDesc.hostMappedAlloc, PxsHeapStats::eNARROWPHASE, Cm::PinnableAllocatorFallback::eDISABLED),
+@@ -243,6 +246,7 @@ void PxgShapeManager::unregisterShape(const PxU32 id)
+ 		return;
+ 	}
+ 
++	updateContactProperties(id,{});
+ 	mDirtyShapeMap.reset(id);
+ 	mIdPool.deferredFreeID(id);
+ 	mHasShapeChanged = true;
+diff --git a/physx/source/gpusimulationcontroller/include/PxgSimulationController.h b/physx/source/gpusimulationcontroller/include/PxgSimulationController.h
+index ff3f2b17..6d46ba30 100644
+--- a/physx/source/gpusimulationcontroller/include/PxgSimulationController.h
++++ b/physx/source/gpusimulationcontroller/include/PxgSimulationController.h
+@@ -46,6 +46,7 @@
+ 
+ namespace physx
+ {
++    struct PxsTorsionalFrictionData;
+ class PxProfilerCallback;
+ 	//this is needed to force PhysXSimulationControllerGpu linkage as Static Library!
+ 	void createPxgSimulationController();
+@@ -504,12 +505,13 @@ class PxProfilerCallback;
+         virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs) PX_OVERRIDE PX_FINAL;
+         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
+         virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
++        void updateGpuShapeContactProperties(const PxsShapeCore& shape) override;
+         bool usesDeviceDestructionContactInputs() const override;
+         bool usesGpuDestructionIslandRepair() const override;
+         PxgDestructionRuntime* getNativeDestructionRuntime() const { return mDestruction; }
+         PxU64 getDestructionContactGraphGeneration() const;
+         void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) override;
+-        bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
++        bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, PxReal* restDistances, PxsTorsionalFrictionData* torsional, CUstream stream);
+         bool buildDestructionContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+             const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream,const PxgContactGraphSequence* sequence);
+         PxU64 getDestructionContactInputCount() const { return mDestructionContactInputCount; }
+diff --git a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+index 39239354..e4f4e008 100644
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+@@ -672,16 +672,22 @@ namespace physx
+         }
+     }
+ 
++    void PxgSimulationController::updateGpuShapeContactProperties(const PxsShapeCore& shape)
++    {
++        mNpContext->getGpuNarrowphaseCore()->updateShapeContactProperties(shape);
++    }
+     bool PxgSimulationController::usesDeviceDestructionContactInputs() const
+     {
+         return mDestruction && mDestruction->configured() && mDestruction->correctionEnabled();
+     }
+ 
+-    bool PxgSimulationController::buildDestructionContactInputs(PxgContactManagerInput* inputs,PxU32 count,CUstream stream)
++    bool PxgSimulationController::buildDestructionContactInputs(PxgContactManagerInput* inputs,PxU32 count,PxReal* restDistances,PxsTorsionalFrictionData* torsional,CUstream stream)
+     {
+         if(!usesDeviceDestructionContactInputs())return false;
+         const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+-        const bool ok=mDestruction->buildContactInputs(inputs,count,shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),stream);
++        const auto& palette=mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuContactProperties;
++        const bool ok=mDestruction->buildContactInputs(inputs,count,shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),
++            reinterpret_cast<const PxgShapeContactProperties*>(palette.getDevicePtr()),PxU32(palette.getSize()/sizeof(PxgShapeContactProperties)),restDistances,torsional,stream);
+         if(ok)mDestructionContactInputCount+=count;
+         else {
+             mDestructionError=1;
+diff --git a/physx/source/lowlevel/software/include/PxsSimulationController.h b/physx/source/lowlevel/software/include/PxsSimulationController.h
+index ee070965..a5ba3b64 100644
+--- a/physx/source/lowlevel/software/include/PxsSimulationController.h
++++ b/physx/source/lowlevel/software/include/PxsSimulationController.h
+@@ -309,6 +309,7 @@ namespace physx
+         virtual bool advanceDestruction(PxReal, const PxVec3&, bool, bool) { return false; }
+         virtual PxU32 getDestructionError() const { return 0; }
+         virtual bool preservesDestructionContactPairs() const { return false; }
++        virtual void updateGpuShapeContactProperties(const PxsShapeCore&) {}
+         virtual bool usesDeviceDestructionContactInputs() const { return false; }
+         virtual bool usesGpuDestructionIslandRepair() const { return false; }
+         virtual void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) {}
+diff --git a/physx/source/physx/src/NpShape.cpp b/physx/source/physx/src/NpShape.cpp
+index 33723d52..f4224f05 100644
+--- a/physx/source/physx/src/NpShape.cpp
++++ b/physx/source/physx/src/NpShape.cpp
+@@ -27,6 +27,7 @@
+ // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
+ 
+ #include "NpShape.h"
++#include "PxsSimulationController.h"
+ #include "NpRigidStatic.h"
+ #include "NpRigidDynamic.h"
+ #include "NpArticulationLink.h"
+@@ -643,6 +644,20 @@ PxReal NpShape::getContactOffset() const
+ 	return mCore.getContactOffset();
+ }
+ 
++static void submitGpuShapeContactProperties(const PxsShapeCore& shape)
++{
++#if PX_SUPPORT_GPU_PHYSX
++    auto& physics=NpPhysics::getInstance();
++    PxMutex::ScopedLock lock(physics.getSceneAndMaterialMutex());
++    // Shared shapes have no exclusive actor. Resolve each scene registration,
++    // not every instance or contact. Execution is ordered with ordinary NP upload.
++    for(PxU32 i=0;i<physics.getNumScenes();++i)
++        physics.getScene(i)->getScScene().getSimulationController()->updateGpuShapeContactProperties(shape);
++#else
++    PX_UNUSED(shape);
++#endif
++}
++
+ void NpShape::setRestOffset(PxReal restOffset)
+ {
+ 	NpScene* npScene = getNpScene();
+@@ -654,6 +669,7 @@ void NpShape::setRestOffset(PxReal restOffset)
+ 	PX_CHECK_SCENE_API_WRITE_FORBIDDEN(npScene, "PxShape::setRestOffset() not allowed while simulation is running. Call will be ignored.")
+ 
+ 	mCore.setRestOffset(restOffset);
++    submitGpuShapeContactProperties(mCore);
+ 
+ 	notifyActorAndUpdatePVD(Sc::ShapeChangeNotifyFlag::eRESTOFFSET);
+ 
+@@ -699,6 +715,7 @@ void NpShape::setTorsionalPatchRadius(PxReal radius)
+ 
+ //	const PxShapeFlags oldShapeFlags = mShape.getFlags();
+ 	mCore.setTorsionalPatchRadius(radius);
++    submitGpuShapeContactProperties(mCore);
+ 
+ 	OMNI_PVD_SET(OMNI_PVD_CONTEXT_HANDLE, PxShape, torsionalPatchRadius, static_cast<PxShape &>(*this), radius);
+ 
+@@ -727,6 +744,7 @@ void NpShape::setMinTorsionalPatchRadius(PxReal radius)
+ 
+ //	const PxShapeFlags oldShapeFlags = mShape.getFlags();
+ 	mCore.setMinTorsionalPatchRadius(radius);
++    submitGpuShapeContactProperties(mCore);
+ 
+ 	OMNI_PVD_SET(OMNI_PVD_CONTEXT_HANDLE, PxShape, minTorsionalPatchRadius, static_cast<PxShape &>(*this), radius);
+ 

@@ -1,5 +1,9 @@
 # Building the destruction SDK
 
+For the current RTX 4090 optimization loop, use the
+[performance playbook](PERFORMANCE_PLAYBOOK.md); this document also covers
+historical reference/package consumers outside that loop.
+
 This checkout builds the PhysX GPU engine, imported destruction reference SDK,
 new GPU topology/motion primitives, and a native scene GPU stress stage. The
 engine-integrated destruction backend is still under implementation; the initial

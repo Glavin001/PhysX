@@ -1,5 +1,11 @@
 # Native destruction phase profiling
 
+> Historical profiling workflow and measurements. For the current complete-step
+> benchmark, build commands, frozen inputs and qualification rules, start with
+> [PERFORMANCE_PLAYBOOK.md](PERFORMANCE_PLAYBOOK.md) and
+> [PERFORMANCE_MEASUREMENT.md](PERFORMANCE_MEASUREMENT.md). Do not use older
+> simulate/fetch-only timings as the complete-step gate.
+
 The native destruction path emits optional `GpuDestruction.*` events through
 PhysX's existing `PxProfilerCallback`, including release builds. The standalone
 demo can collect them without an external profiler:

@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Accounting tests: peak selection, asynchronous scope movement, missing evidence."""
 import copy
+import csv
+import gzip
+import hashlib
+import io
+import json
+import tempfile
 import importlib.util
 import unittest
 from pathlib import Path
@@ -55,6 +61,54 @@ class PeakAccounting(unittest.TestCase):
         r=p.overview(fixture())
         self.assertEqual(r['steps'],12);self.assertEqual(r['missed_8ms'],1)
         self.assertEqual(r['missed_60hz'],1);self.assertEqual(r['peak_ms'],17)
+
+    def gate_capture(self, root):
+        value=fixture();value['summary'].update(status='completed',frames=12)
+        for row in value['frames']:row.update(stress_converged='1',correction_status='0')
+        records=[]
+        for mode in ('plain','phases'):
+            folder=root/mode;folder.mkdir()
+            stream=io.StringIO();writer=csv.DictWriter(stream,fieldnames=value['frames'][0])
+            writer.writeheader();writer.writerows(value['frames'])
+            (folder/'native.frames.csv.gz').write_bytes(gzip.compress(stream.getvalue().encode(),mtime=0))
+            (folder/'native.summary.json').write_text(json.dumps(value['summary']))
+            records.append(dict(mode=mode,name=mode,case='fixture',exit_code=0,command=['demo','--output','/missing/original/'+mode],
+                files={f.name:hashlib.sha256(f.read_bytes()).hexdigest() for f in folder.iterdir()}))
+        payload=dict(manifest=dict(status='complete',runs=records),runs=[],phase_captures=[dict(case='fixture',profile=value['profile'])])
+        report=root/'report.json';report.write_text(json.dumps(payload))
+        return report,payload
+
+    def test_current_gate_archive_preserves_peak(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);report,_=self.gate_capture(root)
+            result,_=p.load(report,root)
+            self.assertEqual(p.overview(result['runs']['fixture']['plain'][0]),p.overview(fixture()))
+            self.assertEqual(p.rank(result['runs']['fixture']['phases'][0]),p.rank(fixture()))
+
+    def test_gate_rejects_mutated_raw_sample(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);report,_=self.gate_capture(root)
+            with (root/'plain/native.frames.csv.gz').open('ab') as f:f.write(b'changed')
+            with self.assertRaisesRegex(ValueError,'Sample hash mismatch'):p.load(report,root)
+
+    def test_gate_rejects_incomplete_solve_even_with_valid_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);report,payload=self.gate_capture(root)
+            source=root/'plain/native.frames.csv.gz'
+            records=list(csv.DictReader(gzip.decompress(source.read_bytes()).decode().splitlines()))
+            records[0]['stress_converged']='0'
+            stream=io.StringIO();writer=csv.DictWriter(stream,fieldnames=records[0]);writer.writeheader();writer.writerows(records)
+            source.write_bytes(gzip.compress(stream.getvalue().encode(),mtime=0))
+            payload['manifest']['runs'][0]['files'][source.name]=hashlib.sha256(source.read_bytes()).hexdigest()
+            report.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError,'Incomplete solve'):p.load(report,root)
+
+    def test_gate_rejects_missing_phase_and_missing_raw(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);report,payload=self.gate_capture(root)
+            with self.assertRaisesRegex(ValueError,'Raw sample missing'):p.load(report)
+            payload['phase_captures']=[];report.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError,'Missing or ambiguous phase'):p.load(report,root)
 
     def test_html_escapes_and_renders_tables(self):
         result=p.render_html('# Title\n\n| Key | Value |\n|---|---|\n| <unsafe> | 10 |')

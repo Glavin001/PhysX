@@ -1,0 +1,43 @@
+// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
+#include <cstring>
+// Private shape-property command storage. Included by PxgShapeManager.cpp.
+void PxgShapeManager::updateContactProperties(PxU32 shape,const PxgShapeContactProperties& value)
+{
+    if(mAllocFailed)return;
+    if(shape==PX_INVALID_U32){mAllocFailed=true;return;}
+    if(shape>=mHostContactProperties.size()) {
+        const PxU32 old=mHostContactProperties.size();
+        const PxU64 needed=PxMax<PxU64>(PxU64(shape)+1,PxMax<PxU64>(128,2ull*old));
+        if(needed>PX_MAX_U32/sizeof(value) || !mHostContactProperties.resize(PxU32(needed))
+            || !mDirtyContactProperties.resize(PxU32(needed))){mAllocFailed=true;return;}
+        PxMemZero(mHostContactProperties.begin()+old,(PxU32(needed)-old)*sizeof(value));
+    }
+    if(!std::memcmp(&mHostContactProperties[shape],&value,sizeof(value)))return;
+    mHostContactProperties[shape]=value;mDirtyContactProperties.set(shape);
+}
+void PxgShapeManager::scheduleContactProperties(PxgCopyManager& copies,PxCudaContext* context,CUstream stream)
+{
+    if(mAllocFailed || !mHostContactProperties.size())return;
+    const PxU64 bytes=PxU64(mHostContactProperties.size())*sizeof(PxgShapeContactProperties);
+    if(mGpuContactProperties.getSize()<bytes) {
+        const PxU64 old=mGpuContactProperties.getSize();
+        mGpuContactProperties.allocateCopyOldDataAsync(bytes,context,stream,PX_FL);
+        if(mGpuContactProperties.getSize()<bytes || !mGpuContactProperties.getDevicePtr()){
+            mAllocFailed=true;context->setAbortMode(true);return;
+        }
+        context->memsetD32Async(mGpuContactProperties.getDevicePtr()+old,0,(bytes-old)/sizeof(PxU32),stream);
+    }
+    // Commands are batched by adjacent identity. No per-contact parameter upload.
+    PxBitMap::Iterator dirty(mDirtyContactProperties);
+    PxU32 index=dirty.getNext();
+    while(index!=PxBitMap::Iterator::DONE) {
+        const PxU32 begin=index;PxU32 end=begin+1;index=dirty.getNext();
+        while(index==end){++end;index=dirty.getNext();}
+        PxgCopyDesc copy;
+        copy.source=reinterpret_cast<size_t>(getMappedDevicePtr(context,mHostContactProperties.begin()+begin));
+        copy.dest=size_t(mGpuContactProperties.getDevicePtr())+size_t(begin)*sizeof(PxgShapeContactProperties);
+        copy.bytes=(end-begin)*sizeof(PxgShapeContactProperties);
+        copies.pushDeferredHtoD(copy);mContactPropertyUploadBytes+=copy.bytes;
+    }
+    mDirtyContactProperties.clear();
+}

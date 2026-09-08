@@ -1,5 +1,10 @@
 # Destruction optimization inventory — 2026-09-08
 
+Later shared-cache rejections, contact-property WIP and the 15-second staggered
+capacity experiment are summarized in [PERFORMANCE_FINDINGS.md](PERFORMANCE_FINDINGS.md).
+Use the [playbook](PERFORMANCE_PLAYBOOK.md) to reproduce current tests; this
+inventory retains the source snapshot and qualification scope stated below.
+
 **Yes: native stress islands and within-solve convergence skipping are active. No: the source’s general settled-island skipping across timesteps is not fully active.** Warm starts and narrower exact zero-load shortcuts exist. Any earlier shorthand saying “island skipping is ported” needs this distinction.
 
 This review updates documentation only; it does not change simulation code or run a new benchmark. It covers GPU stress, destruction integration, and the related optimizations in the two source repositories. ✅ means implemented/used for the stated responsibility; it does not mean the complete SDK or performance campaign is finished. Imported files and old flags are not evidence that a path executes in the native benchmark.

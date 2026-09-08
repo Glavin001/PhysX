@@ -1,0 +1,10 @@
+RUN stagger-256-10s-warmup-0
+RUN burst-256-warmup-0
+RUN stagger-256-10s-plain-0
+RUN burst-256-plain-0
+RUN stagger-256-10s-plain-1
+RUN burst-256-plain-1
+RUN stagger-256-10s-phases-0
+RUN burst-256-phases-0
+CAPTURE COMPLETE /root/workspace/physx-2/out/destruction-launch-capacity-15s/campaign.json
+qualification/destruction-launch-capacity/timing/report.html

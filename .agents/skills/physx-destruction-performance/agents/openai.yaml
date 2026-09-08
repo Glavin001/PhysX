@@ -1,0 +1,4 @@
+interface:
+  display_name: "PhysX Destruction Performance"
+  short_description: "Reproduce and improve verified destruction peaks"
+  default_prompt: "Use $physx-destruction-performance to measure complete simulation peaks, identify the largest justified optimization, and preserve fracture fidelity."

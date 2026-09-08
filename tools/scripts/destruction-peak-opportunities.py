@@ -2,6 +2,7 @@
 """Rank measured destruction peak costs; never infer hardware saturation or savings."""
 import argparse
 import gzip
+import csv
 import hashlib
 import html
 import json
@@ -104,11 +105,48 @@ def overview(run):
                 peak_step=int(run['frames'][peak]['step']),
                 missed_8ms=sum(x > 8 for x in values), missed_60hz=sum(x > 1000/60 for x in values))
 
-def load(path):
+def load(path, capture_root=None):
     raw = path.read_bytes()
     payload = json.loads(gzip.decompress(raw) if path.suffix == '.gz' else raw)
-    require(payload['manifest']['status'] == 'complete', 'Campaign is incomplete')
-    require('runs' in payload and isinstance(payload['runs'], dict), 'Full timing report required')
+    manifest = payload['manifest']
+    require(manifest['status'] == 'complete', 'Campaign is incomplete')
+    require('runs' in payload, 'Timing runs required')
+    if isinstance(payload['runs'], list):
+        # Gate reports retain summaries, with raw samples identified by the
+        # capture manifest. Normalize them to the existing analysis structure.
+        runs = {}
+        for record in manifest['runs']:
+            if record['mode'] not in ('plain', 'phases'):
+                continue
+            require(record.get('exit_code') == 0, 'Failed capture cannot be ranked')
+            command = record['command']
+            source = (capture_root / record['name'] if capture_root else
+                      Path(command[command.index('--output')+1]))
+            blobs = {}
+            for name in ('native.frames.csv.gz', 'native.summary.json'):
+                target = source / name
+                require(target.is_file(), 'Raw sample missing; supply --capture-root for an archived campaign: '+str(target))
+                blob = target.read_bytes()
+                require(hashlib.sha256(blob).hexdigest() == record['files'][name], 'Sample hash mismatch: '+str(target))
+                blobs[name] = blob
+            frames = list(csv.DictReader(gzip.decompress(blobs['native.frames.csv.gz']).decode().splitlines()))
+            summary = json.loads(blobs['native.summary.json'])
+            require(summary.get('status') == 'completed', 'Incomplete sample summary')
+            require(len(frames) == summary['frames'], 'Missing frame rows')
+            require([int(f['step']) for f in frames] == list(range(len(frames))), 'Step sequence changed')
+            require(all(int(f['stress_converged']) == 1 and 0 <= int(f['resim_passes']) <= 1
+                        and int(f['correction_status']) == 0 for f in frames), 'Incomplete solve or correction')
+            value = dict(summary=summary, frames=frames)
+            complete(value)
+            if record['mode'] == 'phases':
+                profiles = [c['profile'] for c in payload.get('phase_captures', []) if c['case'] == record['case']]
+                require(len(profiles) == 1, 'Missing or ambiguous phase capture')
+                value['profile'] = profiles[0]
+                rank(value)
+            runs.setdefault(record['case'], dict(plain=[], phases=[]))[record['mode']].append(value)
+        require(runs, 'No measured runs')
+        payload['runs'] = runs
+    require(isinstance(payload['runs'], dict), 'Unsupported timing report format')
     return payload, hashlib.sha256(raw).hexdigest()
 
 def document(payload, case, source_hash):
@@ -194,8 +232,10 @@ def render_html(text):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report',type=Path);parser.add_argument('--case',required=True)
-    parser.add_argument('--output',type=Path,required=True);args=parser.parse_args()
-    payload,digest=load(args.report);text,data=document(payload,args.case,digest)
+    parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--capture-root',type=Path,help='Archived campaign directory containing the original run folders')
+    args=parser.parse_args()
+    payload,digest=load(args.report,args.capture_root);text,data=document(payload,args.case,digest)
     args.output.mkdir(parents=True,exist_ok=True)
     (args.output/'report.md').write_text(text)
     (args.output/'report.json').write_text(json.dumps(data,indent=2,sort_keys=True)+'\n')

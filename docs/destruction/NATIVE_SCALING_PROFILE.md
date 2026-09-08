@@ -1,5 +1,11 @@
 # Native destruction timing and scaling diagnostics
 
+> Historical profiling workflow and measurements. For the current complete-step
+> benchmark, build commands, frozen inputs and qualification rules, start with
+> [PERFORMANCE_PLAYBOOK.md](PERFORMANCE_PLAYBOOK.md) and
+> [PERFORMANCE_MEASUREMENT.md](PERFORMANCE_MEASUREMENT.md). Do not use older
+> simulate/fetch-only timings as the complete-step gate.
+
 The native demo has optional CUPTI tracing that records concurrent GPU kernels,
 copies, memsets, and CUDA driver/runtime API intervals. It does not synchronize
 individual kernels or replay them. The host callback records timestamped scopes,
@@ -9,13 +15,14 @@ registered versus active body counts, contact-manager work, and stress topology.
 Build with CUDA CUPTI and zlib:
 
 ```sh
-python3 tools/scripts/build-destruction-sdk.py --jobs 4 --gpu-profiler
+python3 tools/scripts/fetch-destruction-cupti.py out/deps/cupti-13.2.86
+python3 tools/scripts/build-destruction-sdk.py --jobs 4 --gpu-renderer --gpu-profiler --cupti-root out/deps/cupti-13.2.86
 ```
 
 Or, for an already built SDK:
 
 ```sh
-cmake -S destruction -B out/destruction-sdk -DNATIVE_GPU_CUPTI=ON
+cmake -S destruction -B out/destruction-sdk -DNATIVE_GPU_CUPTI=ON -DNATIVE_GPU_CUPTI_ROOT="$PWD/out/deps/cupti-13.2.86"
 cmake --build out/destruction-sdk --target native_destruction_demo -j4
 ```
 

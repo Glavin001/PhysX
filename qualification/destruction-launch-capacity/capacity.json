@@ -1,0 +1,772 @@
+{
+  "schema": 1,
+  "source_manifest_sha256": "04601c056a4125725d9e84b672609db3e4008809e53d57a83ac4b81b5b3db626",
+  "source_manifest": "/root/workspace/physx-2/qualification/destruction-launch-capacity/capture/campaign.json",
+  "results": [
+    {
+      "case": "stagger-256-10s",
+      "run": "stagger-256-10s-plain-0",
+      "seconds": 15,
+      "launch_window_seconds": 10,
+      "first_launch_step": 0,
+      "last_launch_step": 598,
+      "mean_ms": 24.06820596888889,
+      "minimum_ms": 1.132611,
+      "worst_ms": 37.964717,
+      "peak_step": 702,
+      "missed_60hz": 794,
+      "missed_8ms": 819,
+      "frames": 900,
+      "first_60hz_miss_step": 90,
+      "peak_work": {
+        "bodies": 14670,
+        "awake_bodies": 14670,
+        "projectiles_active": 256,
+        "logical_clusters": 14414,
+        "contacts_frame": 218731,
+        "stress_active_nodes": 86278,
+        "stress_active_bonds": 134814,
+        "stress_islands": 3412,
+        "stress_iterations": 297,
+        "bonds_broken": 81,
+        "resim_passes": 1
+      },
+      "broken_bonds": 66480,
+      "new_clusters_net": 14399,
+      "destruction_steps": 672,
+      "destruction_step_mean_ms": 26.731914229166666,
+      "busiest_1s_start": 3.8333333333333335,
+      "busiest_1s_bonds_broken": 7462,
+      "busiest_1s_worst_ms": 28.805712,
+      "complete_simulation_realtime_fraction": 0.6924764848784483,
+      "initialization_ms": 1703.198786,
+      "per_second": [
+        {
+          "start_seconds": 0.0,
+          "worst_ms": 14.656208,
+          "bonds_broken": 0,
+          "awake_bodies_max": 26,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 1.0,
+          "worst_ms": 23.720316,
+          "bonds_broken": 2696,
+          "awake_bodies_max": 546,
+          "new_clusters_net": 479,
+          "corrections": 29
+        },
+        {
+          "start_seconds": 2.0,
+          "worst_ms": 24.808915,
+          "bonds_broken": 6196,
+          "awake_bodies_max": 1868,
+          "new_clusters_net": 1270,
+          "corrections": 55
+        },
+        {
+          "start_seconds": 3.0,
+          "worst_ms": 24.913039,
+          "bonds_broken": 6443,
+          "awake_bodies_max": 3252,
+          "new_clusters_net": 1333,
+          "corrections": 55
+        },
+        {
+          "start_seconds": 4.0,
+          "worst_ms": 28.805712,
+          "bonds_broken": 7435,
+          "awake_bodies_max": 4907,
+          "new_clusters_net": 1603,
+          "corrections": 56
+        },
+        {
+          "start_seconds": 5.0,
+          "worst_ms": 29.987043,
+          "bonds_broken": 6637,
+          "awake_bodies_max": 6444,
+          "new_clusters_net": 1486,
+          "corrections": 60
+        },
+        {
+          "start_seconds": 6.0,
+          "worst_ms": 30.812671,
+          "bonds_broken": 6220,
+          "awake_bodies_max": 7805,
+          "new_clusters_net": 1311,
+          "corrections": 56
+        },
+        {
+          "start_seconds": 7.0,
+          "worst_ms": 30.336835,
+          "bonds_broken": 6430,
+          "awake_bodies_max": 9227,
+          "new_clusters_net": 1369,
+          "corrections": 57
+        },
+        {
+          "start_seconds": 8.0,
+          "worst_ms": 30.564529,
+          "bonds_broken": 6913,
+          "awake_bodies_max": 10806,
+          "new_clusters_net": 1530,
+          "corrections": 58
+        },
+        {
+          "start_seconds": 9.0,
+          "worst_ms": 33.67787,
+          "bonds_broken": 6513,
+          "awake_bodies_max": 12314,
+          "new_clusters_net": 1456,
+          "corrections": 58
+        },
+        {
+          "start_seconds": 10.0,
+          "worst_ms": 35.758016,
+          "bonds_broken": 6978,
+          "awake_bodies_max": 13822,
+          "new_clusters_net": 1482,
+          "corrections": 58
+        },
+        {
+          "start_seconds": 11.0,
+          "worst_ms": 37.964717,
+          "bonds_broken": 3555,
+          "awake_bodies_max": 14710,
+          "new_clusters_net": 879,
+          "corrections": 52
+        },
+        {
+          "start_seconds": 12.0,
+          "worst_ms": 35.755842,
+          "bonds_broken": 412,
+          "awake_bodies_max": 14872,
+          "new_clusters_net": 162,
+          "corrections": 26
+        },
+        {
+          "start_seconds": 13.0,
+          "worst_ms": 33.593563,
+          "bonds_broken": 49,
+          "awake_bodies_max": 14909,
+          "new_clusters_net": 37,
+          "corrections": 15
+        },
+        {
+          "start_seconds": 14.0,
+          "worst_ms": 31.717607,
+          "bonds_broken": 3,
+          "awake_bodies_max": 14911,
+          "new_clusters_net": 2,
+          "corrections": 2
+        }
+      ],
+      "launch_sha256": "a18e2bb91591a2aa1959f2971912a1bed08203fd50837a5f133e8fdfdd14e5cd",
+      "frames_sha256": "4ea9e36f07ac969fbbc6ce91ac82c991e439b0b78955c0ae184783a13ebe2bab"
+    },
+    {
+      "case": "burst-256",
+      "run": "burst-256-plain-0",
+      "seconds": 15,
+      "launch_window_seconds": 0,
+      "first_launch_step": 0,
+      "last_launch_step": 0,
+      "mean_ms": 22.05662718,
+      "minimum_ms": 1.14832,
+      "worst_ms": 52.033782,
+      "peak_step": 103,
+      "missed_60hz": 819,
+      "missed_8ms": 819,
+      "frames": 900,
+      "first_60hz_miss_step": 0,
+      "peak_work": {
+        "bodies": 12072,
+        "awake_bodies": 12072,
+        "projectiles_active": 256,
+        "logical_clusters": 11816,
+        "contacts_frame": 109383,
+        "stress_active_nodes": 87306,
+        "stress_active_bonds": 143980,
+        "stress_islands": 1842,
+        "stress_iterations": 276,
+        "bonds_broken": 7300,
+        "resim_passes": 1
+      },
+      "broken_bonds": 62674,
+      "new_clusters_net": 13911,
+      "destruction_steps": 253,
+      "destruction_step_mean_ms": 30.106547794466405,
+      "busiest_1s_start": 1.3666666666666667,
+      "busiest_1s_bonds_broken": 57666,
+      "busiest_1s_worst_ms": 52.033782,
+      "complete_simulation_realtime_fraction": 0.7556307920813606,
+      "initialization_ms": 1704.394726,
+      "per_second": [
+        {
+          "start_seconds": 0.0,
+          "worst_ms": 22.100649,
+          "bonds_broken": 0,
+          "awake_bodies_max": 256,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 1.0,
+          "worst_ms": 52.033782,
+          "bonds_broken": 57572,
+          "awake_bodies_max": 12301,
+          "new_clusters_net": 11789,
+          "corrections": 26
+        },
+        {
+          "start_seconds": 2.0,
+          "worst_ms": 33.525156,
+          "bonds_broken": 903,
+          "awake_bodies_max": 12725,
+          "new_clusters_net": 424,
+          "corrections": 51
+        },
+        {
+          "start_seconds": 3.0,
+          "worst_ms": 34.362156,
+          "bonds_broken": 2996,
+          "awake_bodies_max": 13851,
+          "new_clusters_net": 1126,
+          "corrections": 58
+        },
+        {
+          "start_seconds": 4.0,
+          "worst_ms": 33.884135,
+          "bonds_broken": 847,
+          "awake_bodies_max": 14247,
+          "new_clusters_net": 396,
+          "corrections": 46
+        },
+        {
+          "start_seconds": 5.0,
+          "worst_ms": 31.362476,
+          "bonds_broken": 268,
+          "awake_bodies_max": 14377,
+          "new_clusters_net": 130,
+          "corrections": 25
+        },
+        {
+          "start_seconds": 6.0,
+          "worst_ms": 30.584567,
+          "bonds_broken": 34,
+          "awake_bodies_max": 14390,
+          "new_clusters_net": 13,
+          "corrections": 7
+        },
+        {
+          "start_seconds": 7.0,
+          "worst_ms": 30.041955,
+          "bonds_broken": 53,
+          "awake_bodies_max": 14422,
+          "new_clusters_net": 32,
+          "corrections": 11
+        },
+        {
+          "start_seconds": 8.0,
+          "worst_ms": 27.202155,
+          "bonds_broken": 1,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 1,
+          "corrections": 1
+        },
+        {
+          "start_seconds": 9.0,
+          "worst_ms": 23.293071,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 10.0,
+          "worst_ms": 23.096736,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 11.0,
+          "worst_ms": 22.904537,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 12.0,
+          "worst_ms": 22.731555,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 13.0,
+          "worst_ms": 23.728632,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 14.0,
+          "worst_ms": 22.518658,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        }
+      ],
+      "launch_sha256": "999560f3f0424bb9dd07557e4b7e7780020b68a8c17dfc73d2838eb74f7b08bc",
+      "frames_sha256": "21b0cf65f6ec5965f201608c5abc78fcd274edcc40f958cd23bbe64486536540"
+    },
+    {
+      "case": "stagger-256-10s",
+      "run": "stagger-256-10s-plain-1",
+      "seconds": 15,
+      "launch_window_seconds": 10,
+      "first_launch_step": 0,
+      "last_launch_step": 598,
+      "mean_ms": 24.09589478111111,
+      "minimum_ms": 1.131017,
+      "worst_ms": 37.176801,
+      "peak_step": 726,
+      "missed_60hz": 795,
+      "missed_8ms": 819,
+      "frames": 900,
+      "first_60hz_miss_step": 90,
+      "peak_work": {
+        "bodies": 14744,
+        "awake_bodies": 14744,
+        "projectiles_active": 256,
+        "logical_clusters": 14488,
+        "contacts_frame": 222378,
+        "stress_active_nodes": 86243,
+        "stress_active_bonds": 134578,
+        "stress_islands": 3451,
+        "stress_iterations": 288,
+        "bonds_broken": 17,
+        "resim_passes": 1
+      },
+      "broken_bonds": 66480,
+      "new_clusters_net": 14399,
+      "destruction_steps": 672,
+      "destruction_step_mean_ms": 26.805178748511906,
+      "busiest_1s_start": 3.8333333333333335,
+      "busiest_1s_bonds_broken": 7462,
+      "busiest_1s_worst_ms": 26.273895,
+      "complete_simulation_realtime_fraction": 0.6916807538407641,
+      "initialization_ms": 1714.818857,
+      "per_second": [
+        {
+          "start_seconds": 0.0,
+          "worst_ms": 13.917212,
+          "bonds_broken": 0,
+          "awake_bodies_max": 26,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 1.0,
+          "worst_ms": 22.489474,
+          "bonds_broken": 2696,
+          "awake_bodies_max": 546,
+          "new_clusters_net": 479,
+          "corrections": 29
+        },
+        {
+          "start_seconds": 2.0,
+          "worst_ms": 26.722331,
+          "bonds_broken": 6196,
+          "awake_bodies_max": 1868,
+          "new_clusters_net": 1270,
+          "corrections": 55
+        },
+        {
+          "start_seconds": 3.0,
+          "worst_ms": 25.10655,
+          "bonds_broken": 6443,
+          "awake_bodies_max": 3252,
+          "new_clusters_net": 1333,
+          "corrections": 55
+        },
+        {
+          "start_seconds": 4.0,
+          "worst_ms": 26.273895,
+          "bonds_broken": 7435,
+          "awake_bodies_max": 4907,
+          "new_clusters_net": 1603,
+          "corrections": 56
+        },
+        {
+          "start_seconds": 5.0,
+          "worst_ms": 29.978447,
+          "bonds_broken": 6637,
+          "awake_bodies_max": 6444,
+          "new_clusters_net": 1486,
+          "corrections": 60
+        },
+        {
+          "start_seconds": 6.0,
+          "worst_ms": 29.366337,
+          "bonds_broken": 6220,
+          "awake_bodies_max": 7805,
+          "new_clusters_net": 1311,
+          "corrections": 56
+        },
+        {
+          "start_seconds": 7.0,
+          "worst_ms": 29.211839,
+          "bonds_broken": 6430,
+          "awake_bodies_max": 9227,
+          "new_clusters_net": 1369,
+          "corrections": 57
+        },
+        {
+          "start_seconds": 8.0,
+          "worst_ms": 31.593979,
+          "bonds_broken": 6913,
+          "awake_bodies_max": 10806,
+          "new_clusters_net": 1530,
+          "corrections": 58
+        },
+        {
+          "start_seconds": 9.0,
+          "worst_ms": 33.798325,
+          "bonds_broken": 6513,
+          "awake_bodies_max": 12314,
+          "new_clusters_net": 1456,
+          "corrections": 58
+        },
+        {
+          "start_seconds": 10.0,
+          "worst_ms": 36.540806,
+          "bonds_broken": 6978,
+          "awake_bodies_max": 13822,
+          "new_clusters_net": 1482,
+          "corrections": 58
+        },
+        {
+          "start_seconds": 11.0,
+          "worst_ms": 35.726418,
+          "bonds_broken": 3555,
+          "awake_bodies_max": 14710,
+          "new_clusters_net": 879,
+          "corrections": 52
+        },
+        {
+          "start_seconds": 12.0,
+          "worst_ms": 37.176801,
+          "bonds_broken": 412,
+          "awake_bodies_max": 14872,
+          "new_clusters_net": 162,
+          "corrections": 26
+        },
+        {
+          "start_seconds": 13.0,
+          "worst_ms": 34.185727,
+          "bonds_broken": 49,
+          "awake_bodies_max": 14909,
+          "new_clusters_net": 37,
+          "corrections": 15
+        },
+        {
+          "start_seconds": 14.0,
+          "worst_ms": 32.036143,
+          "bonds_broken": 3,
+          "awake_bodies_max": 14911,
+          "new_clusters_net": 2,
+          "corrections": 2
+        }
+      ],
+      "launch_sha256": "a18e2bb91591a2aa1959f2971912a1bed08203fd50837a5f133e8fdfdd14e5cd",
+      "frames_sha256": "d104391592dbc586749caadc019850c413aea810bf29996ec3364b52955157db"
+    },
+    {
+      "case": "burst-256",
+      "run": "burst-256-plain-1",
+      "seconds": 15,
+      "launch_window_seconds": 0,
+      "first_launch_step": 0,
+      "last_launch_step": 0,
+      "mean_ms": 22.07923073888889,
+      "minimum_ms": 1.130577,
+      "worst_ms": 53.779636,
+      "peak_step": 103,
+      "missed_60hz": 819,
+      "missed_8ms": 819,
+      "frames": 900,
+      "first_60hz_miss_step": 0,
+      "peak_work": {
+        "bodies": 12072,
+        "awake_bodies": 12072,
+        "projectiles_active": 256,
+        "logical_clusters": 11816,
+        "contacts_frame": 109383,
+        "stress_active_nodes": 87306,
+        "stress_active_bonds": 143980,
+        "stress_islands": 1842,
+        "stress_iterations": 276,
+        "bonds_broken": 7300,
+        "resim_passes": 1
+      },
+      "broken_bonds": 62674,
+      "new_clusters_net": 13911,
+      "destruction_steps": 253,
+      "destruction_step_mean_ms": 30.096726782608695,
+      "busiest_1s_start": 1.3666666666666667,
+      "busiest_1s_bonds_broken": 57666,
+      "busiest_1s_worst_ms": 53.779636,
+      "complete_simulation_realtime_fraction": 0.7548572168916695,
+      "initialization_ms": 1716.144576,
+      "per_second": [
+        {
+          "start_seconds": 0.0,
+          "worst_ms": 26.727441,
+          "bonds_broken": 0,
+          "awake_bodies_max": 256,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 1.0,
+          "worst_ms": 53.779636,
+          "bonds_broken": 57572,
+          "awake_bodies_max": 12301,
+          "new_clusters_net": 11789,
+          "corrections": 26
+        },
+        {
+          "start_seconds": 2.0,
+          "worst_ms": 32.413014,
+          "bonds_broken": 903,
+          "awake_bodies_max": 12725,
+          "new_clusters_net": 424,
+          "corrections": 51
+        },
+        {
+          "start_seconds": 3.0,
+          "worst_ms": 33.230027,
+          "bonds_broken": 2996,
+          "awake_bodies_max": 13851,
+          "new_clusters_net": 1126,
+          "corrections": 58
+        },
+        {
+          "start_seconds": 4.0,
+          "worst_ms": 33.74665,
+          "bonds_broken": 847,
+          "awake_bodies_max": 14247,
+          "new_clusters_net": 396,
+          "corrections": 46
+        },
+        {
+          "start_seconds": 5.0,
+          "worst_ms": 31.072797,
+          "bonds_broken": 268,
+          "awake_bodies_max": 14377,
+          "new_clusters_net": 130,
+          "corrections": 25
+        },
+        {
+          "start_seconds": 6.0,
+          "worst_ms": 30.160537,
+          "bonds_broken": 34,
+          "awake_bodies_max": 14390,
+          "new_clusters_net": 13,
+          "corrections": 7
+        },
+        {
+          "start_seconds": 7.0,
+          "worst_ms": 29.481663,
+          "bonds_broken": 53,
+          "awake_bodies_max": 14422,
+          "new_clusters_net": 32,
+          "corrections": 11
+        },
+        {
+          "start_seconds": 8.0,
+          "worst_ms": 29.272904,
+          "bonds_broken": 1,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 1,
+          "corrections": 1
+        },
+        {
+          "start_seconds": 9.0,
+          "worst_ms": 23.188377,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 10.0,
+          "worst_ms": 23.493124,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 11.0,
+          "worst_ms": 23.288593,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 12.0,
+          "worst_ms": 22.882607,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 13.0,
+          "worst_ms": 24.502075,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        },
+        {
+          "start_seconds": 14.0,
+          "worst_ms": 22.6211,
+          "bonds_broken": 0,
+          "awake_bodies_max": 14423,
+          "new_clusters_net": 0,
+          "corrections": 0
+        }
+      ],
+      "launch_sha256": "999560f3f0424bb9dd07557e4b7e7780020b68a8c17dfc73d2838eb74f7b08bc",
+      "frames_sha256": "88398b49abb56df2a2db04e591a785d1abc321d20be6a6dfe61528c49b09cc99"
+    }
+  ],
+  "phase_samples": [
+    {
+      "case": "stagger-256-10s",
+      "step": 82,
+      "scope_ms": {
+        "stress": 4.988626,
+        "ownership": 0.8348150000000001,
+        "correction": 2.553669,
+        "commit": 2.343346,
+        "checkpoint": 0.009537,
+        "trial": 1.695199,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda_stress_ms": 4.474880219,
+      "bonds_broken": 110,
+      "awake_bodies": 55,
+      "active_stress_nodes": 97262,
+      "active_stress_bonds": 200594
+    },
+    {
+      "case": "stagger-256-10s",
+      "step": 702,
+      "scope_ms": {
+        "stress": 24.187288000000002,
+        "ownership": 0.533996,
+        "correction": 4.752495,
+        "commit": 2.376267,
+        "checkpoint": 0.008376,
+        "trial": 4.800746,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda_stress_ms": 23.30931282,
+      "bonds_broken": 81,
+      "awake_bodies": 14670,
+      "active_stress_nodes": 86278,
+      "active_stress_bonds": 134814
+    },
+    {
+      "case": "stagger-256-10s",
+      "step": 840,
+      "scope_ms": {
+        "stress": 21.25231,
+        "ownership": 0.008655000000000001,
+        "correction": 0.0,
+        "commit": 0.0,
+        "checkpoint": 0.013095,
+        "trial": 3.955691,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda_stress_ms": 20.8455677,
+      "bonds_broken": 0,
+      "awake_bodies": 14909,
+      "active_stress_nodes": 86128,
+      "active_stress_bonds": 134227
+    },
+    {
+      "case": "burst-256",
+      "step": 82,
+      "scope_ms": {
+        "stress": 8.300837,
+        "ownership": 17.113877000000002,
+        "correction": 27.948726,
+        "commit": 2.375988,
+        "checkpoint": 0.008657,
+        "trial": 3.394786,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda_stress_ms": 7.638016224,
+      "bonds_broken": 28160,
+      "awake_bodies": 5376,
+      "active_stress_nodes": 92672,
+      "active_stress_bonds": 172544
+    },
+    {
+      "case": "burst-256",
+      "step": 103,
+      "scope_ms": {
+        "stress": 18.906158,
+        "ownership": 8.150328999999997,
+        "correction": 17.581107999999997,
+        "commit": 2.277633,
+        "checkpoint": 0.009338,
+        "trial": 7.966723,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda_stress_ms": 18.13504028,
+      "bonds_broken": 7300,
+      "awake_bodies": 12072,
+      "active_stress_nodes": 87306,
+      "active_stress_bonds": 143980
+    },
+    {
+      "case": "burst-256",
+      "step": 840,
+      "scope_ms": {
+        "stress": 17.704449,
+        "ownership": 0.009287,
+        "correction": 0.0,
+        "commit": 0.0,
+        "checkpoint": 0.018655,
+        "trial": 4.00373,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda_stress_ms": 17.31891251,
+      "bonds_broken": 0,
+      "awake_bodies": 14423,
+      "active_stress_nodes": 85803,
+      "active_stress_bonds": 138030
+    }
+  ],
+  "timing_report_sha256": "e6fc2cb691153806f79bfbc9a28ca195d04ffe68b961522bdc075bf25cb70a3c"
+}

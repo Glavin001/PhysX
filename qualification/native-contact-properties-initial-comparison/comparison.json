@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "fixture": {
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "projectiles": 256,
+    "correction_limit": 1,
+    "sleeping": false
+  },
+  "rows": [
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-0",
+      "mean_ms": 16.790113505555556,
+      "peak_ms": 58.579417,
+      "peak_step": 82,
+      "misses_8ms": 99,
+      "misses_60hz": 99,
+      "peak_work": {
+        "bodies": "5376",
+        "awake_bodies": "5376",
+        "logical_clusters": "5120",
+        "contacts_frame": "1024",
+        "stress_active_nodes": "92672",
+        "stress_active_bonds": "172544",
+        "stress_islands": "512",
+        "bonds_broken": "28160",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "95"
+      }
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "mean_ms": 16.711706644444444,
+      "peak_ms": 53.27091,
+      "peak_step": 103,
+      "misses_8ms": 99,
+      "misses_60hz": 99,
+      "peak_work": {
+        "bodies": "12072",
+        "awake_bodies": "12072",
+        "logical_clusters": "11816",
+        "contacts_frame": "109383",
+        "stress_active_nodes": "87306",
+        "stress_active_bonds": "143980",
+        "stress_islands": "1842",
+        "bonds_broken": "7300",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "276"
+      }
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "mean_ms": 16.78389828888889,
+      "peak_ms": 53.766054,
+      "peak_step": 103,
+      "misses_8ms": 99,
+      "misses_60hz": 98,
+      "peak_work": {
+        "bodies": "12072",
+        "awake_bodies": "12072",
+        "logical_clusters": "11816",
+        "contacts_frame": "109383",
+        "stress_active_nodes": "87306",
+        "stress_active_bonds": "143980",
+        "stress_islands": "1842",
+        "bonds_broken": "7300",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "276"
+      }
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "mean_ms": 16.69533617777778,
+      "peak_ms": 58.068039,
+      "peak_step": 82,
+      "misses_8ms": 99,
+      "misses_60hz": 99,
+      "peak_work": {
+        "bodies": "5376",
+        "awake_bodies": "5376",
+        "logical_clusters": "5120",
+        "contacts_frame": "1024",
+        "stress_active_nodes": "92672",
+        "stress_active_bonds": "172544",
+        "stress_islands": "512",
+        "bonds_broken": "28160",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "95"
+      }
+    }
+  ],
+  "aggregates": {
+    "baseline": {
+      "runs": 2,
+      "mean_ms": 16.750910075,
+      "median_peak_ms": 55.9251635,
+      "worst_ms": 58.579417
+    },
+    "candidate": {
+      "runs": 2,
+      "mean_ms": 16.739617233333334,
+      "median_peak_ms": 55.9170465,
+      "worst_ms": 58.068039
+    }
+  },
+  "same_steps": {
+    "82": {
+      "baseline": {
+        "min": 51.605421,
+        "median": 55.092419,
+        "max": 58.579417
+      },
+      "candidate": {
+        "min": 51.570831,
+        "median": 54.819435,
+        "max": 58.068039
+      }
+    },
+    "103": {
+      "baseline": {
+        "min": 51.931636,
+        "median": 52.601273,
+        "max": 53.27091
+      },
+      "candidate": {
+        "min": 53.766054,
+        "median": 53.8224655,
+        "max": 53.878877
+      }
+    }
+  },
+  "physical_counter_differences": [],
+  "iteration_differences": [
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "step": "89",
+      "baseline": "179",
+      "observed": "180"
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "step": "161",
+      "baseline": "258",
+      "observed": "263"
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-phases-0",
+      "step": "89",
+      "baseline": "179",
+      "observed": "180"
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-phases-0",
+      "step": "155",
+      "baseline": "265",
+      "observed": "266"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "161",
+      "baseline": "258",
+      "observed": "262"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "128",
+      "baseline": "253",
+      "observed": "252"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "161",
+      "baseline": "258",
+      "observed": "262"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "126",
+      "baseline": "251",
+      "observed": "252"
+    }
+  ],
+  "source_reports": {
+    "baseline": {
+      "path": "/root/workspace/physx-2/qualification/native-contact-properties-baseline-control/report.json.gz",
+      "sha256": "bf40525fce18bd7828cebdeb13fe4b7823c7cea7fc31778b29c0498aa51d195f"
+    },
+    "candidate": {
+      "path": "/root/workspace/physx-2/qualification/native-contact-properties-impacts-256/report.json.gz",
+      "sha256": "a4832ea4fbc9cdb03ec0e36e5523136d4860ae5d7198a1ecd3c9387522dc064c"
+    }
+  }
+}

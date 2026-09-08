@@ -1,0 +1,18 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 51: physx_native_gpu_collision_preparation
+1/6 Test #51: physx_native_gpu_collision_preparation .........   Passed    4.81 sec
+    Start 52: physx_native_gpu_contact_properties
+2/6 Test #52: physx_native_gpu_contact_properties ............   Passed    0.87 sec
+    Start 53: physx_native_gpu_retained_registry
+3/6 Test #53: physx_native_gpu_retained_registry .............   Passed    0.47 sec
+    Start 54: physx_native_gpu_contact_lifetime_exhaustion
+4/6 Test #54: physx_native_gpu_contact_lifetime_exhaustion ...   Passed    0.82 sec
+    Start 55: physx_native_gpu_initialization_failure
+5/6 Test #55: physx_native_gpu_initialization_failure ........   Passed    0.46 sec
+    Start 60: physx_native_gpu_connectivity_owner
+6/6 Test #60: physx_native_gpu_connectivity_owner ............   Passed    1.35 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =   8.78 sec

@@ -1,0 +1,224 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh b/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
+index af6d9555..12d04e13 100644
+--- a/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
++++ b/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
+@@ -152,6 +152,22 @@ __global__ void flagLargeStressComponents(const unsigned* begin, const unsigned*
+     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+     if(i<count)flags[i]=(end[i]-begin[i])>kResidentComponentMaxNodes;
+ }
++// Stable identities remain external. This inverse permutation is rebuilt on
++// GPU only when the component order changes, for block-local vector gathers.
++__global__ void deviceStressComponentOrdinals(const unsigned* keys,const unsigned* nodes,
++    const unsigned* begin,unsigned* ordinals,unsigned count) {
++    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i<count && keys[i]!=kNoIsland)ordinals[nodes[i]]=i-begin[keys[i]];
++}
++__global__ void deviceStressReferenceOrdinals(const unsigned* refs,const unsigned* node0,
++    const unsigned* node1,const float* health,const unsigned* islands,const unsigned* ordinals,
++    unsigned* referenceOrdinals,unsigned count) {
++    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
++    const unsigned ref=refs[i];unsigned value=kNoIsland;
++    if(ref!=kNoIsland){const unsigned edge=ref&0x7fffffffu,other=ref>>31?node0[edge]:node1[edge];
++        if(health[edge]>0 && islands[other]!=kNoIsland)value=ordinals[other];}
++    referenceOrdinals[i]=value;
++}
+ struct ResidentStressComponentView
+ {
+     const unsigned *ids, *count, *nodes, *begin, *end, *largeIds, *largeCount;
+@@ -189,7 +205,7 @@ class DeviceStressTopology
+     unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr, *forest=nullptr;
+     unsigned *rangeBegin=nullptr, *rangeEnd=nullptr, *tileCounts=nullptr;
+     unsigned* liveIslands=nullptr;
+-    unsigned *componentNodes=nullptr, *largeIslands=nullptr, *largeCount=nullptr;
++    unsigned *componentNodes=nullptr, *componentOrdinals=nullptr, *referenceOrdinals=nullptr, *largeIslands=nullptr, *largeCount=nullptr;
+     SolveStatus* componentResults=nullptr;
+     unsigned* componentWorkCursor=nullptr;
+     void *sortScratch=nullptr, *scanScratch=nullptr;
+@@ -239,6 +255,10 @@ class DeviceStressTopology
+             sortedKeys,identity,componentNodes,b.n,0,32,captureStream), "order resident component nodes");
+         deviceStressReductionRanges<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
+             sortedKeys,b.n,rangeBegin,rangeEnd);
++        deviceStressComponentOrdinals<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
++            sortedKeys,componentNodes,rangeBegin,componentOrdinals,b.n);
++        deviceStressReferenceOrdinals<<<(2*b.m+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
++            b.nodeBondRef,b.node0,b.node1,b.health,b.nodeIsland,componentOrdinals,referenceOrdinals,2*b.m);
+         flagLargeStressComponents<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
+             rangeBegin,rangeEnd,b.activeFlags,b.n);
+         cub::CountingInputIterator<unsigned> indices(0u);
+@@ -263,7 +283,7 @@ class DeviceStressTopology
+         StressHierarchy::Input input{b.n,b.m,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
+             b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->generation,nullptr};
+         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
+-        nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,ownerStream));
++        nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,referenceOrdinals,ownerStream));
+ #endif
+         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
+@@ -341,7 +361,7 @@ public:
+         cudaFree(parent); cudaFree(forest); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys);
+         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
+         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
+-        cudaFree(componentNodes); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
++        cudaFree(componentNodes); cudaFree(componentOrdinals); cudaFree(referenceOrdinals); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
+         cudaFree(componentWorkCursor);
+     }
+     void init(cudaStream_t stream)
+@@ -349,7 +369,7 @@ public:
+         allocate(parent,b.n); allocate(rootFlags,b.n); allocate(identity,std::max(b.n,b.m));
+         allocate(batch,1); allocate(state,1);
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
+-        allocate(forest,b.m); allocate(liveIslands,b.n); allocate(componentNodes,b.n);
++        allocate(forest,b.m); allocate(liveIslands,b.n); allocate(componentNodes,b.n); allocate(componentOrdinals,b.n); allocate(referenceOrdinals,size_t(2)*b.m);
+         allocate(largeIslands,b.n); allocate(largeCount,1); allocate(componentResults,b.n);
+         allocate(componentWorkCursor,1);
+         allocate(sortedKeys,b.n); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+index 56992c6b..00f215c9 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+@@ -13,6 +13,7 @@ struct NativeStressCycleView {
+     unsigned *verification=nullptr,*verificationCount=nullptr,*warmRangeKnown=nullptr;
+     std::uint64_t* warmRangeGeneration=nullptr;
+     const ExtStressGpuDeviceTopologyStatus* topology=nullptr;
++    const unsigned* referenceOrdinals=nullptr;
+ };
+ __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hierarchy,const StressHierarchy::Status* modes,ExtStressGpuDeviceTopologyStatus* topology){
+     if(!hierarchy->initialized || hierarchy->error || hierarchy->generation!=topology->generation || !modes->initialized || modes->error || modes->generation!=topology->generation)topology->error|=8u;
+@@ -26,9 +27,9 @@ class NativeStressHierarchy {
+     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
+     void release()noexcept{cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
+ public:
+-    NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
++    NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const ExtStressGpuDeviceTopologyStatus* status,const unsigned* referenceOrdinals,cudaStream_t stream)
+         :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
+-        mView.topology=status;mView.modes=mModes.view();mView.inverseStride=input.nodes;
++        mView.topology=status;mView.referenceOrdinals=referenceOrdinals;mView.modes=mModes.view();mView.inverseStride=input.nodes;
+         try{
+             allocate(mView.fineInverse,size_t(input.nodes)*StressHierarchy::DiagonalEntries);
+             allocate(mView.inverseValid,input.nodes);allocate(mView.inverseGeneration,input.nodes);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+index 4eda6c55..2c7c912e 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+@@ -6,8 +6,18 @@
+ // two Chebyshev roots for [0.1,2.01]; P stays positive on [0,2], including the
+ // zero eigenvalue. No low mode or load is dropped. Outer projection, equations
+ // and authoritative residual acceptance remain unchanged.
++struct NativePolynomialGlobalView {
++    const StressHierarchy::Vector* values;
++    __device__ __forceinline__ bool scaled(const StressHierarchy::Input& input,unsigned node,
++        unsigned edge,bool back,unsigned,StressHierarchy::Vector& value)const {
++        const unsigned other=back?input.node0[edge]:input.node1[edge];
++        if(other==node || input.component[other]==StressHierarchy::Invalid)return false;
++        value=scaledValue(values[other],input.inertia[other]);return true;
++    }
++};
++template<class Values>
+ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
+-    const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* x)
++    const StressHierarchy::Input& input,unsigned node,Values x)
+ {
+     using namespace StressHierarchy;
+     Vector value{};
+@@ -15,16 +25,15 @@ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
+         const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
+         const unsigned edge=ref&0x7fffffffu;if(input.health[edge]<=0)continue;
+         const bool back=ref>>31;
+-        const unsigned other=back?input.node0[edge]:input.node1[edge];
+         // Fixed boundaries contribute to D, but have no off-diagonal motion.
+-        if(other==node || input.component[other]==Invalid)continue;
+-        const auto remote=couple(scaledValue(x[other],input.inertia[other]),sourceOffset(input,edge,!back));
++        Vector scaled{};if(!x.scaled(input,node,edge,back,slot,scaled))continue;
++        const auto remote=couple(scaled,sourceOffset(input,edge,!back));
+         const double scale=input.scale[edge];
+         value=add(value,scaledValue(transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)),input.inertia[node]));
+     }
+     return value;
+ }
+-__device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial(
++__device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomialGlobal(
+     const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
+ {
+     using namespace StressHierarchy;
+@@ -38,9 +47,58 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
+         local[node]=applyNativeFineInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
+     __syncthreads();
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+-        const auto off=nativeOffDiagonal(input,node,local);
++        const auto off=nativeOffDiagonal(input,node,NativePolynomialGlobalView{local});
+         result[node]=sub(mul(local[node],diagonal),mul(applyNativeFineInverse(a.hierarchy,node,off),coupling));}
+     // One disjoint destination per node. Readers consume this completed view;
+     // there is no product buffer, copy back or second launch inside iteration.
+     __syncthreads();return result;
+ }
++
++// A single cached vector fits without reducing the baseline's register-limited
++// two-block residency. Coordinates are separate shared arrays to keep adjacent
++// lanes' scalar accesses contiguous. Larger components retain the global view.
++constexpr unsigned kPolynomialSharedNodes=512;
++struct NativePolynomialSharedView {
++    const double* values;
++    const unsigned* ordinals;
++    __device__ __forceinline__ StressHierarchy::Vector local(unsigned i)const {
++        return {{values[i],values[kPolynomialSharedNodes+i],values[2*kPolynomialSharedNodes+i]},
++                {values[3*kPolynomialSharedNodes+i],values[4*kPolynomialSharedNodes+i],values[5*kPolynomialSharedNodes+i]}};
++    }
++    __device__ __forceinline__ bool scaled(const StressHierarchy::Input&,unsigned,unsigned,bool,
++        unsigned slot,StressHierarchy::Vector& value)const {
++        const unsigned i=ordinals[slot];if(i==StressHierarchy::Invalid)return false;
++        value=local(i);return true;
++    }
++};
++__device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomialShared(
++    const PersistentStressArgs& a,const unsigned* nodes,unsigned count) {
++    using namespace StressHierarchy;
++    __shared__ double cache[6*kPolynomialSharedNodes];
++    constexpr double lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
++    constexpr double coupling=lowWeight*highWeight,diagonal=lowWeight+highWeight-coupling;
++    const auto input=a.hierarchy.cycle.levels[0].input;
++    const NativePolynomialSharedView local{cache,a.hierarchy.referenceOrdinals};
++    auto* result=a.hierarchy.cycle.intermediate;
++    // Keep each lane's unscaled diagonal contribution in registers. Cache its
++    // scaled value once, so every neighboring gather avoids endpoint/inertia
++    // lookups and repeated scaling. The topology producer supplies CSR ordinals.
++    constexpr unsigned rows=(kPolynomialSharedNodes+kBlockSize-1)/kBlockSize;
++    Vector owned[rows];
++#pragma unroll
++    for(unsigned part=0;part<rows;++part){const unsigned i=threadIdx.x+part*kBlockSize;if(i>=count)continue;
++        const unsigned node=nodes[i];owned[part]=applyNativeFineInverse(a.hierarchy,node,a.hierarchy.rhs[node]);
++        const auto value=scaledValue(owned[part],input.inertia[node]);
++        cache[i]=value.angular.x;cache[kPolynomialSharedNodes+i]=value.angular.y;cache[2*kPolynomialSharedNodes+i]=value.angular.z;
++        cache[3*kPolynomialSharedNodes+i]=value.linear.x;cache[4*kPolynomialSharedNodes+i]=value.linear.y;cache[5*kPolynomialSharedNodes+i]=value.linear.z;}
++    __syncthreads();
++#pragma unroll
++    for(unsigned part=0;part<rows;++part){const unsigned i=threadIdx.x+part*kBlockSize;if(i>=count)continue;
++        const unsigned node=nodes[i];const auto off=nativeOffDiagonal(input,node,local);
++        result[node]=sub(mul(owned[part],diagonal),mul(applyNativeFineInverse(a.hierarchy,node,off),coupling));}
++    __syncthreads();return result;
++}
++__device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial(
++    const PersistentStressArgs& a,const unsigned* nodes,unsigned count) {
++    return count<=kPolynomialSharedNodes?preconditionNativePolynomialShared(a,nodes,count):preconditionNativePolynomialGlobal(a,nodes,count);
++}
+diff --git a/demos/blast-stress-demo/tests/native_polynomial_test.cuh b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+index 1981558f..3c1eebb2 100644
+--- a/demos/blast-stress-demo/tests/native_polynomial_test.cuh
++++ b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+@@ -31,13 +31,15 @@ void polynomialOperator(){
+                 for(unsigned row=0;row<6;++row)if(row!=k){const auto scale=work[row][k];for(unsigned col=0;col<12;++col)work[row][col]-=scale*work[k][col];}}
+             for(unsigned row=0;row<6;++row)for(unsigned col=0;col<6;++col){inverse[(node*6+row)*size+node*6+col]=work[row][col+6];if(row>=col)packed[size_t(row*(row+1)/2+col)*n+node]=double(work[row][col+6]);}
+         }
+-        Device<unsigned> a(f.a.size()),b(f.b.size()),begin(f.begin.size()),refs(f.refs.size()),component(n),nodes(order.size());
++        Device<unsigned> a(f.a.size()),b(f.b.size()),begin(f.begin.size()),refs(f.refs.size()),component(n),nodes(order.size()),ordinals(f.refs.size());
+         Device<float> health(f.health.size()),scale(f.scale.size());Device<float4> offset0(f.offset0.size()),offset1(f.offset1.size());Device<float2> inertia(n);
+         Device<double> factors(packed.size());Device<Vector> rhs(n),out(n),scratch(n),columns(size*n);Device<CycleLevel> level(1);
++        std::reverse(order.begin(),order.end());std::vector<unsigned> ordinal(n,Invalid);for(unsigned i=0;i<order.size();++i)ordinal[order[i]]=i;
++        std::vector<unsigned> refsOrdinal(f.refs.size(),Invalid);for(unsigned i=0;i<f.refs.size();++i){const auto ref=f.refs[i],e=ref&0x7fffffffu;refsOrdinal[i]=ordinal[ref>>31?f.a[e]:f.b[e]];}ordinals.put(refsOrdinal);
+         a.put(f.a);b.put(f.b);begin.put(f.begin);refs.put(f.refs);component.put(labels);nodes.put(order);health.put(f.health);scale.put(f.scale);offset0.put(f.offset0);offset1.put(f.offset1);factors.put(packed);
+         std::vector<float2> mass(n);for(unsigned i=0;i<n;++i)mass[i]={f.inertia[i].angular,f.inertia[i].linear};inertia.put(mass);
+         CycleLevel descriptor{};descriptor.input={n,unsigned(f.a.size()),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,nullptr,offset0.data,offset1.data,inertia.data,nullptr,nullptr};level.put({descriptor});
+-        PersistentStressArgs args{};args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
++        PersistentStressArgs args{};args.hierarchy.referenceOrdinals=ordinals.data;args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
+         for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n);
+         check(cudaGetLastError());check(cudaDeviceSynchronize());const auto observed=columns.get();
+         auto multiply=[&](const std::vector<long double>& m,const std::vector<long double>& x){std::vector<long double> y(size);for(unsigned r=0;r<size;++r)for(unsigned c=0;c<size;++c)y[r]+=m[r*size+c]*x[c];return y;};
