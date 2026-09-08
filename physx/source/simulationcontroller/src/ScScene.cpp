@@ -486,11 +486,16 @@ namespace
 
 			if(nbFrozenShapes || nbUnfrozenShapes)
 			{
-                PxProfileScoped profile(simulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
-                    "GpuDestruction.task.queryMembership",false,PxU64(reinterpret_cast<size_t>(simulationController)));
 				PxU32* unfrozenShapeIndices = simulationController->getUnfrozenShapes();
 				PxU32* frozenShapeIndices = simulationController->getFrozenShapes();
 
+                if(simulationController->usesDeviceDestructionContactInputs()) {
+                    if(!mScene->queueDestructionQueryMembership(frozenShapeIndices,nbFrozenShapes)
+                        || !mScene->queueDestructionQueryMembership(unfrozenShapeIndices,nbUnfrozenShapes)) {
+                        PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY,PX_FL,"Native query observation queue failed; simulation is incomplete");
+                        mScene->getCudaContextManager()->getCudaContext()->setAbortMode(true);
+                    }
+                } else {
 				Sc::ShapeSimBase** shapeSimsLL = simulationController->getShapeSims();
 	
 				for(PxU32 i=0; i<nbFrozenShapes; ++i)
@@ -506,6 +511,7 @@ namespace
 					PX_ASSERT(shape);
 					shape->createSqBounds();
 				}
+                }
 			}
 
 			if (simulationController->hasDeformableSurfaces())

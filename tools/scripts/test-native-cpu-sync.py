@@ -20,7 +20,7 @@ class CpuSyncReport(unittest.TestCase):
         with self.assertRaises(AssertionError):
             API['union_ms']([(2, 1)])
 
-    def capture(self, root, missing_wait=False, bad_cpu=False):
+    def capture(self, root, missing_wait=False, bad_cpu=False, deferred=False, early=False):
         d = root / 'simulation'; d.mkdir()
         (d / 'native.summary.json').write_text(json.dumps(dict(status='completed', frames=1, seconds=1/60,
             chunks=4, bonds=2, projectiles=1)))
@@ -35,6 +35,9 @@ class CpuSyncReport(unittest.TestCase):
                 ('task.bodyStatusWork', 6000000, 8000000, -1 if bad_cpu else 2),
                 ('task.bodyStatusWork', 7000000, 9000000, 2),
                 ('task.sleepCommit', 9500000, 9600000, .1)]
+        if deferred:
+            rows += [('task.queryMembershipQueue', 1000000, 1100000, .1),
+                     ('task.queryMembership', 2000000 if early else 9700000, 2100000 if early else 9800000, .1)]
         if missing_wait: rows.pop(2)
         with (d / 'native.phases.csv').open('w') as f:
             writer = csv.writer(f)
@@ -61,6 +64,19 @@ class CpuSyncReport(unittest.TestCase):
             with tempfile.TemporaryDirectory() as t:
                 root = Path(t); self.capture(root, **kwargs)
                 with self.assertRaises(AssertionError): API['report'](root)
+
+    def test_accepted_query_publication(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t); self.capture(root, deferred=True); API['report'](root)
+            data = json.loads((root / 'cpu-sync.json').read_text())
+            query = next(m for m in data['selections']['Largest replay']['measurements'] if m['scope'] == 'queryMembership')
+            self.assertEqual(query['after_ms'], .1)
+            self.assertEqual(query['replay_ms'], 0)
+
+    def test_trial_query_publication_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t); self.capture(root, deferred=True, early=True)
+            with self.assertRaisesRegex(AssertionError, 'trial query membership'): API['report'](root)
 
     def test_modified_evidence_rejected(self):
         with tempfile.TemporaryDirectory() as t:

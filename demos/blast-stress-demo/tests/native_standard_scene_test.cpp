@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <cstring>
+#include <atomic>
 using namespace physx;
 namespace {
 void require(bool ok,const char* message){if(!ok)throw std::runtime_error(message);}
@@ -42,12 +43,14 @@ struct BodyObserver {
             && PxAbs(observed.q.dot(expected.q))>1-1e-5f,"public GPU observation differs from ordinary actor pose");}
 };
 #include "native_post_correction_check.h"
+#include "native_query_publication_check.h"
 bool boundarySleep=false;
 PxVec3 boundaryPose(0),boundaryVelocity(0);
 void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=false,bool wakeBoundary=false,bool lateImpact=false,bool reports=true) {
     Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,false,!sleeping,false,false,PxSolverType::eTGS,false,reports);
     auto& scene=context.scene();auto& physics=context.physics();
+    QueryPublicationAudit queryAudit(static_cast<NpScene&>(scene).getScScene(),!reports);
     require(!(scene.getFlags()&PxSceneFlag::eENABLE_DIRECT_GPU_API),"fixture enabled Direct GPU");
     require(bool(scene.getFlags()&PxSceneFlag::eDISABLE_SLEEPING)==!sleeping,"wrong sleep mode");
     auto* wall=physics.createRigidDynamic(PxTransform(PxVec3(0,3,0)));
@@ -100,11 +103,12 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
         if(wakeBoundary && i==6) {
             resting->putToSleep();resting->addForce(PxVec3(0,4,0),PxForceMode::eVELOCITY_CHANGE);
         }
-        const auto before=events.advances;scene.simulate(1.0f/60);PxU32 error=0;
+        const auto before=events.advances;queryAudit.begin();scene.simulate(1.0f/60);PxU32 error=0;
         require(!observer.submit(*destruction),"public GPU observer accepted an uncommitted step");
         const bool complete=scene.fetchResults(true,&error);const auto status=destruction->getLastStatus();
         if(!complete||error||status.error)std::fprintf(stderr,"standard sleeping=%u step=%u complete=%u error=%u destruction=%u breaks=%u corrections=%u\n",sleeping,i,complete,error,status.error,status.brokenBonds,status.correctionPasses);
         require(complete&&!error&&!status.error,"standard scene rejected correction");
+        queryAudit.verify();
         require(status.correctionPasses<=1&&status.frame==i+1,"correction advanced time twice");
         require(status.stressPasses==1+status.correctionPasses,"missing post-correction stress evaluation or excess pass");
         require(events.advances<=before+1,"trial publication duplicated onAdvance");
@@ -167,7 +171,7 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
             incoming->addForce(PxVec3(12,0,0),PxForceMode::eVELOCITY_CHANGE);
             bool collisionWake=false;
             for(unsigned step=0;step<30;++step) {
-                scene.simulate(1.0f/60);require(scene.fetchResults(true) && !destruction->getLastStatus().error,"late impact failed");
+                queryAudit.begin();scene.simulate(1.0f/60);require(scene.fetchResults(true) && !destruction->getLastStatus().error,"late impact failed");queryAudit.verify();
                 if(step==0)require(PxAbs(incoming->getLinearVelocity().x-12)<1e-5f,"new-body velocity command applied more than once");
                 collisionWake|=!fragment->isSleeping() && fragment->getLinearVelocity().x>1;
                 observer.verify(*destruction,*fragment);
@@ -180,6 +184,7 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
             require(!fragment->isSleeping()&&fragment->getLinearVelocity().y>3&&events.wakes==wakeEvents+1,"ordinary force did not wake fragment exactly once");
         }
     }
+    queryAudit.exercised();
     if(!reports)require(!static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getDestructionContactReuseFallbackCount(),
         "no-report scene unexpectedly rebuilt correction contact pairs");
     if(deviceGraph)require(gpu.getCudaPreSolveSupportPasses()>0 && gpu.getIslandManager().getAccurateIslandSim().getGpuSplitCount()>0,"sleep fixture did not use GPU connectivity/split certificates");

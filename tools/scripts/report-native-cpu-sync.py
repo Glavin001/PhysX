@@ -13,6 +13,7 @@ PREFIX = 'GpuDestruction.'
 SCOPES = {
     'bodyDmaWait': 'Wait for GPU physics and readback completion',
     'bodyStatusWork': 'CPU wake/sleep body-status worker tasks',
+    'queryMembershipQueue': 'Collect changed identities for final CPU query observation',
     'queryMembership': 'CPU query-tree membership changes',
     'sleepCommit': 'Commit sleep transitions to GPU (CPU wall, includes waits)',
     'activityCheckpoint': 'CPU activity checkpoint',
@@ -67,6 +68,10 @@ def report(root):
         assert int(f['stress_passes']) == 1 + int(f['resim_passes']) <= 2
         assert f['stress_converged'] == '1' and f['correction_status'] == '0'
         assert len(scopes[i]['bodyDmaWait']) == int(f['stress_passes']), 'missing per-physics-pass wait'
+        if scopes[i]['queryMembershipQueue']:
+            assert len(scopes[i]['queryMembership']) == 1, 'query deltas must publish once'
+            if i in replay:
+                assert scopes[i]['queryMembership'][0][0] >= replay[i][1], 'trial query membership publication'
     peak = max(range(len(frames)), key=lambda i: float(frames[i]['complete_step_ms']))
     replay_peak = max(replay, key=lambda i: replay[i][1] - replay[i][0])
     wait_peak = max(scopes, key=lambda i: union_ms([(a,b) for a,b,_ in scopes[i]['bodyDmaWait']]))
@@ -101,7 +106,7 @@ def report(root):
             lines.append(f"| {description} | {entry['before_ms']:.6f} | {entry['replay_ms']:.6f} | {entry['after_ms']:.6f} | {entry['cpu_ms']:.6f} | {entry['calls']} |")
         output['selections'][label] = dict(step=i, frame=f, measurements=entries)
         lines += ['']
-    lines += ['The current body-status workers apply simulation sleep/readiness, not just user-facing mirrors. Deferring them requires provisional activity semantics. Query membership is observation work, but freeze/unfreeze deltas must survive trial rejection. Public scene publication already occurs once after acceptance.', '']
+    lines += ['The current body-status workers apply simulation sleep/readiness, not just user-facing mirrors. Deferring them requires provisional activity semantics. Query membership is observation work; queued freeze/unfreeze identities must survive trial rejection and publish once after replay. Public scene publication already occurs once after acceptance.', '']
     (root / 'cpu-sync.md').write_text('\n'.join(lines))
     (root / 'cpu-sync.json').write_text(json.dumps(output, indent=2) + '\n')
     print(root / 'cpu-sync.md')

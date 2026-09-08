@@ -553,6 +553,10 @@ namespace Sc
 		PX_FORCE_INLINE	BroadphaseManager&			getBroadphaseManager()						{ return mBroadphaseManager;			}
         // Trial notifications are not accepted results while native correction is incomplete.
         bool isSimulationResultAccepted() const;
+        // Explicit CPU query observer: accumulate provisional GPU deltas and
+        // reconcile only accepted ownership/activity, never trial transitions.
+        bool queueDestructionQueryMembership(const PxU32* indices, PxU32 count);
+        void publishDestructionQueryMembership();
 		PX_FORCE_INLINE	bool						fireOutOfBoundsCallbacks()
 													{
 														return isSimulationResultAccepted() && mBroadphaseManager.fireOutOfBoundsCallbacks(mAABBManager, *mElementIDPool, mContextId);
@@ -922,6 +926,8 @@ namespace Sc
                     };
                     PxArray<DestructionActivity> mDestructionTrialActivity;
                     PxArray<BodySim*> mDestructionTrialSleepNotifications;
+                    PxBitMap mDestructionQueryDirty;
+                    PxArray<PxU32> mDestructionQueryShapes;
                     void captureDestructionActivity();
                     void restoreDestructionActivity();
 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;

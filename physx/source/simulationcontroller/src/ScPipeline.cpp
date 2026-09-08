@@ -1987,6 +1987,40 @@ namespace
 	};
 }
 
+bool Sc::Scene::queueDestructionQueryMembership(const PxU32* indices, PxU32 count)
+{
+    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.queryMembershipQueue",false,
+        PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    for(PxU32 i=0;i<count;++i) {
+        const PxU32 id=indices[i];
+        if(mDestructionQueryDirty.boundedTest(id))continue;
+        if(!mDestructionQueryDirty.growAndSet(id))return false;
+        mDestructionQueryShapes.pushBack(id);
+    }
+    return true;
+}
+
+void Sc::Scene::publishDestructionQueryMembership()
+{
+    if(mDestructionQueryShapes.empty())return;
+    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.queryMembership",false,
+        PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    const bool accepted=isSimulationResultAccepted();
+    auto** shapes=mSimulationController->getShapeSims();
+    const PxU32 count=mSimulationController->getNbShapes();
+    for(const PxU32 id:mDestructionQueryShapes) {
+        mDestructionQueryDirty.reset(id);
+        if(!accepted || id>=count || !shapes[id])continue;
+        auto& shape=*shapes[id];
+        auto* body=shape.getBodySim();
+        // Final activity includes correction and final-pass ownership changes.
+        // The two GPU lists are deltas; their union must survive trial rejection.
+        if(!body || !body->isActive() || body->isFrozen())shape.destroySqBounds();
+        else shape.createSqBounds();
+    }
+    mDestructionQueryShapes.clear();
+}
+
 void Sc::Scene::captureDestructionActivity()
 {
     PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
@@ -3039,6 +3073,7 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
     }
     mDestructionCorrectionInProgress=false;
     mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
+    publishDestructionQueryMembership();
 
 	fireOnAdvanceCallback();  // placed here because it needs to be done after sleep check and after potential CCD passes
 

@@ -6,6 +6,39 @@ Revalidate against current source/runtime before applying them. See the
 [playbook](PERFORMANCE_PLAYBOOK.md) for commands and the
 [handoff](PERFORMANCE_HANDOFF.md) for outstanding implementation work.
 
+## Query membership now publishes once after acceptance
+
+Native GPU freeze/unfreeze callbacks collect a sparse union of changed shape
+identities. `finalizationPhase` reconciles their query membership from final
+body ownership/activity once, after both stress/fracture evaluations complete.
+Trial delta identities survive rejection. Ordinary non-destruction PhysX is
+unchanged. This is CPU query observation work; CPU physical activity rollback,
+body/shape DMA and ownership lifecycle are not removed by this change.
+[Implementation and limits](ACCEPTED_QUERY_OBSERVATION.md).
+
+One isolated **256-building / 113,664-chunk / 229,376-bond / 768-projectile /
+30-second / 1,800-step diagnostic**, Direct GPU OFF, sleeping ON, limit one
+correction/two stress evaluations, passes the per-step final-publication checks.
+Its complete peak is **113.891 ms** at step 396 (22,895 bodies / 17,348 awake).
+At that step, identity collection across both passes is **0.005139 ms**, final
+query membership is **0.005209 ms**, and query membership work inside replay is
+zero. These are instrumented intervals, not a matched peak speedup claim.
+[Generated phase report](../../qualification/native-query-publish/cpu-sync.md).
+
+Nine focused tests pass. The no-report sleep/late-impact fixture additionally
+requires actual queued transitions and at most one accepted query publication
+per tick while checking scene queries and body motion. Six CPU report tests,
+seven general phase tests and the unchanged frozen penetration golden pass.
+
+The two-run, 12-second untraced screen includes 767 shots per run (the final
+scheduled shot is beyond that duration). Baseline mean/worst **59.420 / 118.007
+ms** versus candidate **57.481 / 124.409 ms**: **no demonstrated peak gain**.
+The candidate's worst peak is higher. No every-step deadline passes. The
+comparator returns 1 because chaotic physical counter histories differ; all
+raw histories remain. This change is retained for accepted-observation data
+flow and controlled functional tests, not accepted as a verified peak-speed
+optimization. [Generated comparison](../../qualification/native-query-publish-comparison/comparison.md).
+
 ## CPU synchronization and activity rollback are different costs
 
 New explicit profiling scopes separate the GPU-completion/readback wait,
