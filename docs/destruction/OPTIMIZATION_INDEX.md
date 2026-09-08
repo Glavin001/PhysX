@@ -204,6 +204,10 @@ These rows extend the original core inventory to the source Rapier/Rust/render c
 
 Native analytic/3D/motion suites, initialization checks and the frozen wall audit pass. Matched short bombardment runs show a modest mean reduction with overlapping peak ranges; no large peak gain or real-time gate is claimed. The [automated comparison](/root/workspace/physx-2/qualification/local-inverse-validity/report.html) records the workload, raw samples, complete timing and CPU/GPU phase ownership. Global partition/hierarchy rebuilding, settled reuse, CPU lifecycle migration and selective correction remain unfinished.
 
+## Follow-up: four-stage polynomial rejected
+
+🧪 **H06:** Increasing the fixed polynomial from two to four stages passed the independent operator and native analytic/3D tests, but made the short 256-building bombardment slower despite fewer iterations. The candidate needed three sparse traversals and four inverse applications instead of one and two. Production and oracle changes were archived and reverted; the two-stage implementation remains active. [Generated comparison and scope](/root/workspace/physx-2/qualification/polynomial-four/README.md). This screen did not run the candidate frozen penetration or endurance gates.
+
 ## Configuration-name index
 
 The following index enumerates quoted `BLAST_*` / `VIBE_*` configuration names found in the four reviewed source entry points. It includes diagnostics and physical settings as well as optimizations. The linked row classifies the responsibility; it does **not** mean that the same environment variable is honored in native production. Multiple source occurrences are retained in JSON. Algorithms without flags are covered in the checklist above.

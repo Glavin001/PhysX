@@ -1,0 +1,11 @@
+{
+  "status": "rejected",
+  "base_commit": "1f06175a1b449a855c8f967e8ba4f089fb89c004",
+  "candidate_runtime_sha256": "a06c4ae2e60365507e9a66bdd77eecf159262087ab6c972f03f03f89e744baf5",
+  "baseline_runtime_sha256": "c9e09e4d05f9077928428137311cf665774e053e40c4a12d03d2c7a2790f1511",
+  "candidate_patch_sha256": "de7c64418143028241c4e783bad135927e0d2f91a775a3dcb08d1a3091dc224f",
+  "reason": "Reduced iterations but increased GPU stress time and whole-advance mean/peak in the short matched bombardment screen.",
+  "physical_counter_differences": 0,
+  "candidate_frozen_penetration_run": false,
+  "candidate_full_peak_endurance_qualified": false
+}

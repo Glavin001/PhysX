@@ -2131,8 +2131,8 @@
   ],
   "current_review": {
     "date": "2026-09-08",
-    "head": "d4bb32d958fc3b264598666256bc112cdbaa9051",
-    "scope": "Optimization inventory refreshed with tested device-conditional recursive hierarchy preparation. Source repositories remain unchanged; full peak/endurance qualification incomplete.",
+    "head": "1f06175a1b449a855c8f967e8ba4f089fb89c004",
+    "scope": "Confirmed production restored after rejecting a slower four-stage polynomial. Two-stage polynomial, GPU storage-preserving growth and conditional recursive hierarchy remain active; full goal qualification incomplete.",
     "files": [
       {
         "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver-rs/src/rapier/optimization.rs",
@@ -2545,6 +2545,15 @@
         ],
         "evidence": "qualification/hierarchy-tail-demand/README.md",
         "status": "Recursive hierarchy execution skipped on GPU when all components use fine block solver; reserved coarse capacity remains."
+      }
+    ],
+    "rejected_changes": [
+      {
+        "ids": [
+          "H06"
+        ],
+        "evidence": "qualification/polynomial-four/README.md",
+        "status": "Four-stage polynomial passed operator/native tests but increased stress and full-step time in short bombardment screen; source restored."
       }
     ]
   }
