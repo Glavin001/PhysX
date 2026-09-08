@@ -1,0 +1,33 @@
+{
+  "frame": {
+    "accepted_status_and_snapshots_ms": 5.9999999999999995e-05,
+    "awake_fragment_bodies": 25,
+    "broken_bonds": 469,
+    "commands_and_pre_step_ms": 0.000171,
+    "complete_step_ms": 119.80392400000001,
+    "fragment_bodies": 29,
+    "game_observation_events_ms": 0.070822,
+    "native_corrections": 0,
+    "native_counts": {
+      "native_bonds": 74543.0,
+      "native_chunks": 24105.0,
+      "native_clusters": 58.0,
+      "native_correction_passes": 0.0,
+      "native_corrections_total": 3.0,
+      "native_embedded": 1.0,
+      "native_stress_iterations": 109.0,
+      "native_stress_passes": 1.0
+    },
+    "native_physics_and_destruction_ms": 119.732871,
+    "normal_contacts": 79,
+    "projectiles": 2,
+    "tick": 200
+  },
+  "cuda_stages": {
+    "GpuDestruction.cuda.contactLoads": 0.0266239997,
+    "GpuDestruction.cuda.stress": 118.1132812,
+    "GpuDestruction.cuda.materials": 0.03071999922,
+    "GpuDestruction.cuda.topologyAndCandidates": 0.0266239997,
+    "GpuDestruction.cuda.commitAndStressTopology": 0.03379200026
+  }
+}
