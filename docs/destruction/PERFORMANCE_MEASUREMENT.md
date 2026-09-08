@@ -25,6 +25,29 @@ Profiler CSV flushing happens after the complete bracket, with explicit output
 timestamps. Intrusive profiling can still perturb execution; use separate
 untraced trials for the deadline.
 
+## Required paired regimes
+
+Every optimization campaign must capture both regimes on the same authored scene
+and physical settings, for baseline and candidate:
+
+- **Intact idle:** a fresh scene with no projectile/support-removal commands and
+  no broken bonds or detached fragments. Report complete-step min/mean/p50/p95/p99/
+  maximum, sample count and duration. Initialization stays separate; retain step
+  zero in the all-step maximum and show it explicitly. A later intact window can
+  be shown additionally, never substituted for the all-step gate.
+- **Destruction:** recorded physical impacts, reporting the worst complete step
+  during the impact/aftermath interval and the worst step with new fractures.
+  Retain command insertion, allocation, correction and late rubble spikes. Report
+  peak-step body/awake/contact/stress work, as available, alongside total chunks,
+  bonds and projectile commands.
+
+Zero awake fragments in an already-damaged scene is a useful aftermath measurement,
+not pristine idle. An idle run with spontaneous breakage fails the intact-idle
+regime check. Missing either regime leaves performance qualification incomplete.
+The dedicated downtown idle command is `embedded_city_bench FRESH 1 600 0
+fractured-downtown.json`; pair it with a recorded destruction run before drawing
+an optimization conclusion. Preserve the existing 256-building bombardment tape.
+
 ## What a metric means
 
 | Metric | Meaning / limitation |

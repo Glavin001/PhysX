@@ -42,9 +42,54 @@ class Comparison(unittest.TestCase):
         self.assertNotIn('tests pass',text);self.assertNotIn('Startup becomes',text)
         self.assertNotIn('contact-report repair',text)
 
+    def idle_capture(self,name):
+        path=self.capture(name)
+        rows=json.loads((path/'steps.json').read_text())
+        for row in rows:
+            row.update(native_corrections=0,native_counts={'native_stress_passes':1},
+                broken_bonds=0,fragment_bodies=0,awake_fragment_bodies=0,normal_contacts=0)
+        report=json.loads((path/'report.json').read_text())
+        report.update(waves=0,projectiles=0,unique_broken_bonds=0,peak_step=rows[0])
+        (path/'steps.json').write_text(json.dumps(rows));(path/'report.json').write_text(json.dumps(report))
+        (path/'commands.json').write_text('[]')
+        return path
+
+    def test_intact_idle_has_distribution_without_invented_fracture_peak(self):
+        a=self.idle_capture('a');b=self.idle_capture('b')
+        run=m.load(a)
+        self.assertTrue(run['intact_idle']);self.assertIsNone(run['fracture_peak'])
+        self.assertIsNone(run['loaded_peak'])
+        m.generate([a],[b],self.root/'report')
+        text=(self.root/'report/report.md').read_text()
+        self.assertIn('10.000 / 15.000 / 10.000 / 20.000 / 20.000 / 20.000',text)
+        self.assertIn('fracture-step peak reduction is not measured',text)
+        self.assertIn('qualification is incomplete',text)
+
+    def test_sleeping_aftermath_is_not_intact_idle(self):
+        a=self.idle_capture('a');rows=json.loads((a/'steps.json').read_text())
+        rows[1]['broken_bonds']=1;rows[1]['fragment_bodies']=1
+        (a/'steps.json').write_text(json.dumps(rows))
+        run=m.load(a)
+        self.assertFalse(run['intact_idle']);self.assertIsNotNone(run['fracture_peak'])
+
+    def test_impact_interval_excludes_pre_command_startup_but_keeps_it_in_all_peak(self):
+        run=m.load(self.capture('a',20))
+        self.assertEqual(run['loaded_peak']['tick'],1)
+        self.assertEqual(run['peak']['tick'],0)
+        self.assertFalse(run['intact_idle'])
+
     def test_changed_commands_fail_before_report_publication(self):
         a=self.capture('a');b=self.capture('b');(b/'commands.json').write_text('[]')
         with self.assertRaisesRegex(AssertionError,'commands changed'):m.generate([a],[b],self.root/'report')
+        self.assertFalse((self.root/'report').exists())
+
+    def test_same_counts_with_different_scene_identity_rejected(self):
+        a=self.capture('a');b=self.capture('b')
+        for path,value in [(a,'asset-a'),(b,'asset-b')]:
+            report=json.loads((path/'report.json').read_text());report['manifest_hash']=value
+            (path/'report.json').write_text(json.dumps(report))
+        with self.assertRaisesRegex(AssertionError,'scene identity changed'):
+            m.generate([a],[b],self.root/'report')
         self.assertFalse((self.root/'report').exists())
 
     def test_instrumented_or_malformed_capture_fails(self):

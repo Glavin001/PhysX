@@ -1,5 +1,17 @@
 # Dated performance handoff and implementation map
 
+## 2026-09-08: idle and destruction are mandatory paired measurements
+
+User explicitly requires both fresh intact idle and peak during destruction going
+forward. Persisted in AGENTS, the performance skill and measurement contract.
+Comparator now supports truly fracture-free runs, reports intact-idle distributions
+and impact/aftermath peaks alongside new-fracture and all-step peaks, and marks a
+single-regime comparison incomplete until its matching companion is attached.
+A zero-awake damaged scene is not labelled intact idle. First-step spikes remain
+in the all-step gate. Scene/manifest mismatches now reject comparison when metadata
+is supplied. Seven reporter tests pass; no GPU measurement or deployment occurred.
+This changes reporting, not either staged solver candidate's qualification status.
+
 ## 2026-09-08: user reports identify quiet-city cost; cooperative retirement WIP
 
 User asked to continue optimizing while they test the demo, then submitted two

@@ -10,6 +10,10 @@ workload is 256-building bombardment; sustained/staggered bombardment is a
 separate capacity axis. The physical timestep remains 1/60 second, with at most
 one internal correction. The targets are every step <=8 ms, and separately
 real-time at <=1000/60 ms. A low mean or a real-time-looking video is insufficient.
+Every campaign must measure both fresh intact idle (no destruction) and peak
+complete-step cost during destruction on matched scenes/settings. Keep startup
+spikes; zero awake debris after damage is not an intact-idle sample. Report
+missing regimes as incomplete qualification.
 
 This is a repository-local skill. Run its commands from the repository root;
 resolve the documentation below relative to this skill, not the shell cwd.

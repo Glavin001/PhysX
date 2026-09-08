@@ -15,6 +15,10 @@ maximum actual destruction within every-step 8 ms (16.67 ms reported separately)
 Preserve physical work and the GPU-resident destination. Source sibling checkouts
 `vibe-land-4` and `blast-stress-solver-2` stay read-only. Report complete-step peaks
 with workload/chunk/bond counts; do not substitute a narrow timer or average.
+Every performance comparison must measure both a fresh intact idle scene (no
+projectiles/destruction) and peak complete-step cost during recorded destruction.
+Keep initialization/first-step spikes visible; zero awake debris after damage is
+not an intact-idle measurement. Missing either regime means incomplete qualification.
 Run isolated GPU jobs sequentially without stopping other developers' services.
 These instructions apply to destruction work, not unrelated upstream modules.
 
