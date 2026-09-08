@@ -47,6 +47,7 @@
 #endif
 
 #include "ScShapeInteraction.h"
+#include "ScActorPair.h"
 #include "ScElementInteractionMarker.h"
 
 #if PX_SUPPORT_GPU_PHYSX
@@ -3058,6 +3059,16 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         // The full rigid checkpoint and new cluster inputs are installed. Drop
         // trial reporting, invalidate contact rows/caches, refresh all dynamic
         // bounds from GPU motion and rediscover newly eligible fragment pairs.
+        // Retained interactions survive correction, but their trial report
+        // allocations do not. Invalidate BOTH levels of report deduplication
+        // before recycling storage. Otherwise a retained actor/shape pair can
+        // reuse its trial bufferIndex/reportStreamIndex while a new corrected
+        // pair allocates over that memory. The public scene timestamp still
+        // advances once per accepted tick, not once per physics pass.
+        ActorPairReport*const* reportedPairs=mNPhaseCore->getContactReportActorPairs();
+        for(PxU32 i=0;i<mNPhaseCore->getNbContactReportActorPairs();++i)
+            reportedPairs[i]->streamResetStamp(~mTimeStamp);
+        ++mReportShapePairTimeStamp;
         mNPhaseCore->clearContactReportStream();
         mNPhaseCore->clearContactReportActorPairs(false);
         mQueuedContactPairHeaders.clear();

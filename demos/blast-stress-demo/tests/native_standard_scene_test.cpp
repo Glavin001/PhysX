@@ -16,12 +16,23 @@ using namespace physx;
 namespace {
 void require(bool ok,const char* message){if(!ok)throw std::runtime_error(message);}
 struct Events:PxSimulationEventCallback {
-    unsigned advances=0,wakes=0,sleeps=0;
+    unsigned advances=0,wakes=0,sleeps=0,contacts=0; bool invalidContactStream=false;
     void onAdvance(const PxRigidBody*const*,const PxTransform*,PxU32)override{++advances;}
     void onWake(PxActor**,PxU32 n)override{wakes+=n;}
     void onSleep(PxActor**,PxU32 n)override{sleeps+=n;}
     void onConstraintBreak(PxConstraintInfo*,PxU32)override{}
-    void onContact(const PxContactPairHeader&,const PxContactPair*,PxU32)override{}
+    void onContact(const PxContactPairHeader&,const PxContactPair* pairs,PxU32 count)override{
+        for(PxU32 i=0;i<count;++i) {
+            const auto& pair=pairs[i];
+            if(!pair.contactCount || pair.flags&(PxContactPairFlag::eREMOVED_SHAPE_0|PxContactPairFlag::eREMOVED_SHAPE_1))continue;
+            if(!pair.contactPatches || !pair.contactPoints || !pair.patchCount) {invalidContactStream=true;continue;}
+            std::vector<PxContactPairPoint> points(pair.contactCount);
+            const auto n=pair.extractContacts(points.data(),pair.contactCount);
+            if(n!=pair.contactCount)invalidContactStream=true;
+            for(const auto& point:points)if(!point.position.isFinite() || !point.normal.isFinite() || !point.impulse.isFinite())invalidContactStream=true;
+            contacts+=n;
+        }
+    }
     void onTrigger(PxTriggerPair*,PxU32)override{}
 };
 // The observer owns device buffers and establishes both CUDA event boundaries.
@@ -46,7 +57,7 @@ struct BodyObserver {
 #include "native_query_publication_check.h"
 bool boundarySleep=false;
 PxVec3 boundaryPose(0),boundaryVelocity(0);
-void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=false,bool wakeBoundary=false,bool lateImpact=false,bool reports=true) {
+void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=false,bool wakeBoundary=false,bool lateImpact=false,bool reports=true,bool retainReportedPairs=false) {
     Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,false,!sleeping,false,false,PxSolverType::eTGS,false,reports);
     auto& scene=context.scene();auto& physics=context.physics();
@@ -83,7 +94,7 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
     if(!fracture){material.compressionElasticLimit=1e12f;material.compressionFatalLimit=2e12f;}
     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=2;desc.chunkMassProperties=mass;
     desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=&bond;desc.bondCount=1;
-    desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.gpuIslandRepair=deviceGraph;desc.preserveUnchangedContactPairs=!reports;
+    desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.gpuIslandRepair=deviceGraph;desc.preserveUnchangedContactPairs=!reports||retainReportedPairs;
     require(destruction->configureStress(desc),"native configuration failed");
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(scene).getScScene().getDynamicsContext());
     if(deviceGraph) {
@@ -103,11 +114,14 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
         if(wakeBoundary && i==6) {
             resting->putToSleep();resting->addForce(PxVec3(0,4,0),PxForceMode::eVELOCITY_CHANGE);
         }
+        const auto timeBefore=scene.getTimestamp();
         const auto before=events.advances;queryAudit.begin();scene.simulate(1.0f/60);PxU32 error=0;
         require(!observer.submit(*destruction),"public GPU observer accepted an uncommitted step");
         const bool complete=scene.fetchResults(true,&error);const auto status=destruction->getLastStatus();
         if(!complete||error||status.error)std::fprintf(stderr,"standard sleeping=%u step=%u complete=%u error=%u destruction=%u breaks=%u corrections=%u\n",sleeping,i,complete,error,status.error,status.brokenBonds,status.correctionPasses);
         require(complete&&!error&&!status.error,"standard scene rejected correction");
+        require(scene.getTimestamp()==((timeBefore+1)&0x7fffffff),"correction advanced public scene timestamp twice");
+        require(!events.invalidContactStream,"accepted contact report contains invalid trial storage");
         queryAudit.verify();
         require(status.correctionPasses<=1&&status.frame==i+1,"correction advanced time twice");
         require(status.stressPasses==1+status.correctionPasses,"missing post-correction stress evaluation or excess pass");
@@ -185,6 +199,7 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
         }
     }
     queryAudit.exercised();
+    if(retainReportedPairs)require(events.contacts>0,"reported-pair reuse did not deliver contact points");
     if(!reports)require(!static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getDestructionContactReuseFallbackCount(),
         "no-report scene unexpectedly rebuilt correction contact pairs");
     if(deviceGraph)require(gpu.getCudaPreSolveSupportPasses()>0 && gpu.getIslandManager().getAccurateIslandSim().getGpuSplitCount()>0,"sleep fixture did not use GPU connectivity/split certificates");
@@ -193,4 +208,4 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
     std::printf("standard scene sleeping=%u passed: 2 chunks, 1 bond, %u projectiles, 1 resting control, corrections=%u\n",sleeping,lateImpact?2u:1u,corrections);
 }
 }
-int main(int argc,char** argv){try{if(argc>1&&!std::strcmp(argv[1],"--reuse")){run(true,false,true,false,false,true,false);return 0;}if(argc>1&&!std::strcmp(argv[1],"--post-correction")){postCorrectionFracture(true);postCorrectionFracture(false);return 0;}const bool boundary=argc>1&&!std::strcmp(argv[1],"--sleep-boundary");if(boundary)run(true,true,false);run(!(argc>1&&!std::strcmp(argv[1],"--awake")),boundary,true,argc>1&&!std::strcmp(argv[1],"--device-graph"),argc>1&&!std::strcmp(argv[1],"--wake-boundary"),argc>1&&!std::strcmp(argv[1],"--late-impact"));return 0;}catch(const std::exception& e){std::fprintf(stderr,"native_standard_scene_test: %s\n",e.what());return 1;}}
+int main(int argc,char** argv){try{if(argc>1&&!std::strcmp(argv[1],"--reported-reuse")){run(false,false,true,false,false,false,true,true);return 0;}if(argc>1&&!std::strcmp(argv[1],"--reuse")){run(true,false,true,false,false,true,false);return 0;}if(argc>1&&!std::strcmp(argv[1],"--post-correction")){postCorrectionFracture(true);postCorrectionFracture(false);return 0;}const bool boundary=argc>1&&!std::strcmp(argv[1],"--sleep-boundary");if(boundary)run(true,true,false);run(!(argc>1&&!std::strcmp(argv[1],"--awake")),boundary,true,argc>1&&!std::strcmp(argv[1],"--device-graph"),argc>1&&!std::strcmp(argv[1],"--wake-boundary"),argc>1&&!std::strcmp(argv[1],"--late-impact"));return 0;}catch(const std::exception& e){std::fprintf(stderr,"native_standard_scene_test: %s\n",e.what());return 1;}}
