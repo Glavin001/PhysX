@@ -1,5 +1,40 @@
 # Dated performance handoff and implementation map
 
+## 2026-09-08: user reports identify quiet-city cost; cooperative retirement WIP
+
+User asked to continue optimizing while they test the demo, then submitted two
+reports and asked why joining/idle is slow. Do not restart the live demo or run a
+competing large GPU benchmark while they play. Read-only diagnostics and CPU builds
+continue; only a tiny two-CTA correctness test + memcheck ran (both pass).
+
+Game analysis: `vibe-land-2/docs/reports/embedded-user-idle-2026-09-08/report.md`.
+Two reports at 16:38 UTC: 24,105 chunks / 74,543 bonds, 8/12 ordinary dynamic bodies,
+5/22 fragments (1/5 awake), 91/342 broken bonds. Client rendering ~2 ms; server
+rolling mean 50.021/87.671 ms and peak 734.120/978.840 ms. First ring contains
+204/300 ticks with zero awake fragments, median total 38.944 ms. These are post-shot
+reports, not pristine idle data. Smoothed GPU-wait values cannot be subtracted from
+current-step fetch durations. No claim that all cost is stress or pure GPU work.
+
+Confirmed source issues: native settled-island skip flags are rejected, so warm
+starts are still solved each tick; downtown has stress components >1,024 nodes
+using the costly cooperative multilevel path; its final converged iteration still
+traverses the inactive preconditioner. New `StressCooperativeRetirement.cuh` exits
+at the existing convergence boundary, preserving finalization writes. Focused
+GPU/memcheck pass; full physical parity and timing remain pending. See
+`qualification/vibe-cooperative-retirement-20260908/README.md`.
+
+Game `embedded_city_bench` now accepts optional SCENE_FILE only when waves=0;
+default 256-building tape remains unchanged. Reports count actual authored graph
+components and include manifest hash. Untraced binary is built; profiled binary is
+`out/vibe-native/diagnostics/embedded_scene_bench-downtown-profile`. Do not reuse the
+old fixed-four-building profile binary for the new optional scene argument.
+Example next isolated capture: `embedded_city_bench FRESH 1 600 0 fractured-downtown.json`.
+It uses the documented benchmark physical settings, not a user-input replay.
+
+Next after retirement qualification: exact unchanged-input/converged-result reuse,
+with operator/load/support/topology and damage accounting proofs. Preserve the
+user's live runtime; no new engine candidate was deployed this turn.
+
 ## 2026-09-08: structured inverse screened; downtown consumer deployed on baseline
 
 The new `StressNativeRigidInverse.cuh` candidate stores ten coefficients for the

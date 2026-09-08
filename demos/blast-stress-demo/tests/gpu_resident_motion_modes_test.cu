@@ -194,16 +194,19 @@ void run(Fixture f,bool transitions){
 #include "native_rigid_inverse_test.cuh"
 #include "native_polynomial_test.cuh"
 #include "native_direction_restart_test.cuh"
+#include "native_cooperative_retirement_test.cuh"
 #include "native_topology_warm_test.cuh"
 #include "native_inverse_topology_test.cuh"
 using namespace MotionModeTest;
 int main(int argc,char** argv){try{
-    const bool small=argc==2 && std::string(argv[1])=="small";require(argc==1 || small,"usage: gpu_resident_motion_modes_test [small]");
+    if(argc==2 && std::string(argv[1])=="retirement"){cooperativeRetirement();return 0;}
+    const bool small=argc==2 && std::string(argv[1])=="small";require(argc==1 || small,"usage: gpu_resident_motion_modes_test [small|retirement]");
     {Device<unsigned> result(3);checkPredicates<<<1,1>>>(result.data);check(cudaGetLastError());check(cudaDeviceSynchronize());for(auto value:result.get())require(value==1,"exact closure collinearity predicate failed");}
     fineInverseCache();
     rigidInverseCache();
     polynomialOperator();
     firstDirectionWithoutHistory();
+    cooperativeRetirement();
     warmRangeLifecycle();
     topologyWarmInvalidation();
     inverseTopologyLifetime();

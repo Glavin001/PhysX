@@ -52,6 +52,7 @@ struct PersistentStressArgs {
 #include "StressNativeSolution.cuh"
 #include "StressReliableResidual.cuh"
 #include "StressHomogeneousComponents.cuh"
+#include "StressCooperativeRetirement.cuh"
 template<bool Preconditioned>
 __global__ void persistentStressSolve(PersistentStressArgs a) {
     __shared__ StressHierarchy::TerminalShared cycleShared;
@@ -108,6 +109,9 @@ __global__ void persistentStressSolve(PersistentStressArgs a) {
         for(unsigned block=blockIdx.x;block<islandBlocks;block+=gridDim.x)
             finalizeAndCheckConvergenceBody(a.m_reduceSlots,a.m_gradientSquared,a.slots,a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,a.m_blockActiveCounts,islandCount,nullptr,block,a.islandIds);
         if(gridDim.x==1)__syncthreads();else grid.sync();
+        // Convergence has already been checked against the true residual.
+        // Do not enter a multilevel cycle with no remaining active component.
+        if constexpr(Preconditioned)if(retireConvergedStressGrid(a,islandBlocks,islandCount))break;
         if constexpr(Preconditioned)preconditionNativeGrid(a,cycleShared);
         for(unsigned i=lane;i<islandCount*a.slots;i+=stride) {
             const unsigned id=a.islandIds ? a.islandIds[i/a.slots] : i/a.slots;
