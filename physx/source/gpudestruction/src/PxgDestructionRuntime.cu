@@ -33,6 +33,7 @@ struct Context {
 void check(cudaError_t e) { if(e!=cudaSuccess) throw std::runtime_error(cudaGetErrorString(e)); }
 template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T)*std::max<size_t>(n,1))); }
 #include "PxgDestructionMaterial.cuh"
+#include "PxgDestructionCommittedChanges.cuh"
 // Rebind compact runtime cluster slots entirely on device after acceptance.
 __global__ void acceptClusterBindings(PxDestructionTopologyDeviceView topology,
     const PxU32* targets,PxDestructionStressCluster* clusters,const PxDestructionStageStatus* status) {
@@ -504,6 +505,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
     PxgDestructionTopologyTransaction* mTopology{};
+    committedChanges::Publication mChanges;
     PxDestructionClusterMotion* mProvisionalMotion{};
     PxDestructionClusterBodyState* mTrialBodies{};
     PxDestructionBodyPreparationStatus* mBodyPreparation{};
@@ -971,6 +973,7 @@ public:
         cudaFree(mBodyRequestScratch);mBodyRequestScratch=nullptr;mBodyRequestScratchBytes=0;
         cudaFree(mBodyRequests);mBodyRequests=nullptr;cudaFree(mTrialBodyIndices);mTrialBodyIndices=nullptr;
         cudaFree(mBodyAllocation);mBodyAllocation=nullptr;cudaFreeHost(mHostBodyPreparation);mHostBodyPreparation=nullptr;
+        mChanges.clear();
         if(mTopology)mTopology->release();mTopology=nullptr;
         cudaFree(mProvisionalMotion);mProvisionalMotion=nullptr;
         cudaFree(mTrialBodies);mTrialBodies=nullptr;cudaFree(mBodyPreparation);mBodyPreparation=nullptr;
@@ -1138,6 +1141,8 @@ public:
                 mEditCapacity=d.chunkCount+d.bondCount;
                 allocate(mProvisionalMotion,d.chunkCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
             }
+            if(mTopology)mChanges.initialize(mTopology->accepted(),mStatus,
+                mSolver?mSolver->deviceView().topologyStatus:nullptr,mStream);
             mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.warmStart=d.warmStart;
             check(cudaMemset(mStatus,0,sizeof(*mStatus)));*mHostStatus={};
             check(cudaEventRecord(mReady,mStream));return true;
@@ -1165,6 +1170,7 @@ public:
             v.stressNodeIslands=stress.nodeIslands;v.stressBondIslands=stress.bondIslands;
         }
         if(mTopology) {
+            v.committedChanges=mChanges.view();
             v.trialBodies=mTrialBodies;v.bodyPreparation=mBodyPreparation;
             v.trialBodyIndices=mTrialBodyIndices;v.bodyAllocation=mBodyAllocation;v.motionSlots=mMotionSlots;v.motionSlotIndices=mGrantedMotionIndices;
             v.trialCollisionBindings=mCompactCollisionBindings;v.collisionPreparation=mCollisionPreparation;
@@ -1186,6 +1192,7 @@ public:
             if(!postCorrection)mInstalledOwnerGeneration=0;
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
             startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,postCorrection);
+            if(mTopology && !postCorrection)mChanges.start(mTopology->accepted(),mStatus,mStream);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;
             mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
@@ -1201,6 +1208,7 @@ public:
         if(!mPostCorrection || mFailed || mPending || mHostStatus->error)return false;
         try {Context current(mContext);
             mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatus);
+            if(mTopology)mChanges.publish(mStream);
             check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             mPostCorrection=false;return !mHostStatus->error;
@@ -1261,6 +1269,7 @@ public:
                 beginUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopology->status(),mStatus,mTopologyAccept);
                 checkUnchangedMotionCommit<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mCollisionPreparation);
                 acceptUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopologyAccept,mStatus);
+                mChanges.commit(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mStream);
                 check(cudaEventRecord(mReady,mStream));
                 if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("native topology commit submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
@@ -1279,6 +1288,7 @@ public:
             if(!mTopology)stageMarker(4);
             if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus);
             stageMarker(5);
+            if(mTopology && !mPostCorrection)mChanges.publish(mStream);
             check(cudaGetLastError());
             if(mBodyPreparation)check(cudaMemcpyAsync(mHostBodyPreparation,mBodyPreparation,sizeof(*mBodyPreparation),cudaMemcpyDeviceToHost,mStream));
             check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
@@ -1605,6 +1615,7 @@ public:
             check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(coreStream)));
             check(cudaStreamWaitEvent(mStream,mInput,0));
             prepareNativeCorrectionAcceptance<<<1,1,0,mStream>>>(mStatus,mContactSequence,mTopologyAccept);
+            mChanges.commit(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mStream);
             check(cudaEventRecord(mReady,mStream));
             if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("corrected topology commit failed");
             check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));

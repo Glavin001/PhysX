@@ -1,0 +1,6 @@
+{
+  "out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0",
+  "out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "7c7fead20c47a2c92dec0d09d628df7ed4a09c7d2a8e7a5d6f89c7dfd9d82de3",
+  "out/vibe-committed-changes-20260908/web-fps-server": "88bc5c9e2175758396472ab806bb965ce46ad8ed9d05b80f0ae793976bc8145f",
+  "out/vibe-native/release/examples/embedded_city_bench": "bb1a3dbb36933b2a8d83f81684d1e99b71bce07a1909b66815e4df6221c60a12"
+}

@@ -118,6 +118,24 @@ struct PxDestructionTopologyDeviceView {
     std::uint32_t chunkCount, bondCount;
     void* readyEvent;
 };
+// Accepted per-tick observation delta, ordered by immutable chunk/bond index.
+// Every member of a changed source cluster is included, including retained
+// members whose cluster handle survived but whose COM/membership changed.
+struct PxDestructionChangedChunk {
+    std::uint64_t generation;
+    std::uint32_t chunk, root, slot, active;
+};
+struct PxDestructionCommittedChangesStatus {
+    std::uint64_t frame, topologyGeneration;
+    std::uint32_t chunkCount, bondCount, clusterCount, stressIslandCount;
+    std::uint32_t error, fullSnapshot;
+};
+struct PxDestructionCommittedChangesView {
+    const PxDestructionChangedChunk* chunks = nullptr;
+    const std::uint32_t* brokenBonds = nullptr;
+    const PxDestructionCommittedChangesStatus* status = nullptr;
+    std::uint32_t chunkCapacity = 0, bondCapacity = 0;
+};
 struct PxDestructionTopologyTransactionStatus {
     std::uint64_t rebuilds, commits;
     std::uint32_t prepared, error, changed, editCount;

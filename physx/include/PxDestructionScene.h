@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 14
+#define PX_DESTRUCTION_SCENE_VERSION 15
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -160,6 +160,11 @@ struct PxDestructionDeviceView {
     const PxDestructionStressTopologyStatus* stressTopology = NULL;
     const PxU32* stressNodeIslands = NULL; // minimum dynamic-node labels; support/isolated = invalid
     const PxU32* stressBondIslands = NULL;
+    // Valid only after successful fetchResults; readyEvent orders all rows.
+    // First frame is a full snapshot; later frames contain only committed
+    // changes from BOTH fracture evaluations. Consume every tick or request a
+    // full acceptedTopology observation after a missed tick. Clear invalidates.
+    PxDestructionCommittedChangesView committedChanges{};
     PxU32 chunkCount = 0, bondCount = 0;
     CUevent readyEvent = NULL;
 };
