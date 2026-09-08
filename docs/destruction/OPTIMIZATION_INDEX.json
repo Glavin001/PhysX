@@ -578,7 +578,7 @@
       "id": "H05",
       "status": "🟡",
       "optimization": "Resident multilevel hierarchy",
-      "current_and_action": "Device hierarchy construction/storage and a coarse path exist for large components. Small block-solved components use local inverses plus committed polynomial preconditioning in the qualified runtime, not multilevel acceleration. The retained-building workload therefore still lacks qualified multilevel acceleration.",
+      "current_and_action": "Device hierarchy construction/storage and a coarse path exist for large components. Small block-solved components use local inverses plus committed polynomial preconditioning in the qualified runtime, not multilevel acceleration. The retained-building workload therefore still lacks qualified multilevel acceleration. The GPU now skips the recursive construction tail when no component requires multilevel solving; fine factors/modes remain required. Reserved coarse capacity and affected-only hierarchy reuse remain incomplete.",
       "evidence": [
         "hierarchy",
         "preconditioner",
@@ -636,7 +636,7 @@
       "id": "H10",
       "status": "🟡",
       "optimization": "Persistent graph execution and scratch",
-      "current_and_action": "Native captures reusable device execution and topology graph structure. The original stable-graph/update helpers still exist; not all imported code has been removed. Remove abandoned production methods only with build/behavior checks.",
+      "current_and_action": "Native captures reusable device execution and topology graph structure. The original stable-graph/update helpers still exist; not all imported code has been removed. Remove abandoned production methods only with build/behavior checks. Recursive hierarchy scheduling now uses a device demand condition; no host decision or fracture-time recapture was added.",
       "evidence": [
         "graph",
         "native topology",
@@ -2131,8 +2131,8 @@
   ],
   "current_review": {
     "date": "2026-09-08",
-    "head": "5a74dba50ef17770557641dd5dfb7af19f044071",
-    "scope": "Reviewed source optimization inventory, with accepted GPU-preserving pre-solve storage growth and short-screen evidence. No full peak/endurance qualification.",
+    "head": "d4bb32d958fc3b264598666256bc112cdbaa9051",
+    "scope": "Optimization inventory refreshed with tested device-conditional recursive hierarchy preparation. Source repositories remain unchanged; full peak/endurance qualification incomplete.",
     "files": [
       {
         "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver-rs/src/rapier/optimization.rs",
@@ -2398,7 +2398,7 @@
         "sha256": "9636c12f0959007dec753f5eb025eb3ca921ad595a1bd27501a4e69561d1da7a",
         "bytes": 117470,
         "tracked": true,
-        "differs_from_head": true
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTopology.cu",
@@ -2522,10 +2522,10 @@
     ],
     "runtime": {
       "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
-      "sha256": "77cb67306d865ad3c3bea2f84f40879d397e96ca474cfb284b231e3c4c49fd0e",
-      "implementation": "polynomial preconditioning + unaffected warm starts + exact local inverse validity + GPU-preserving pre-solve storage growth",
+      "sha256": "c9e09e4d05f9077928428137311cf665774e053e40c4a12d03d2c7a2790f1511",
+      "implementation": "polynomial preconditioning + unaffected warm starts + exact local inverse validity + GPU-preserving pre-solve storage growth + demand-driven recursive hierarchy",
       "full_peak_endurance_qualified": false,
-      "qualification": "Focused metadata/lifecycle, memcheck, frozen penetration, independent bombardment island audit and matched short timing screens pass; full peak/endurance gates incomplete."
+      "qualification": "Native suites, fine-factor/transition tests, memory/init checks, frozen penetration and matched short screens pass. No full peak/endurance qualification."
     },
     "source_snapshot_hashes_unchanged": true,
     "work_in_progress": [],
@@ -2537,6 +2537,14 @@
         ],
         "evidence": "qualification/presolve-resident-growth/README.md",
         "status": "Accepted after focused correctness and short performance screen; full architecture remains partial."
+      },
+      {
+        "ids": [
+          "H05",
+          "H10"
+        ],
+        "evidence": "qualification/hierarchy-tail-demand/README.md",
+        "status": "Recursive hierarchy execution skipped on GPU when all components use fine block solver; reserved coarse capacity remains."
       }
     ]
   }

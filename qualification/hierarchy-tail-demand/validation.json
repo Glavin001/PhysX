@@ -1,0 +1,28 @@
+{
+  "base_commit": "d4bb32d958fc3b264598666256bc112cdbaa9051",
+  "files": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyDemand.cuh": "a4f9f104fddbe3b0e4a364bd1f8d289fc9ffd26974b80f53b94e92c011ce89b5",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyResident.cuh": "f20c1afbd640fffcf99902c16ebe5549316df3d844b4d90020523198c4f38274",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_fine_checks.cuh": "04139716a4ade5eafc4e40320f05334e2874611d4f373f83d231c67b18e2a9da",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu": "9c4dde8e7fea9bb840334d1cdd7cce34f938e82a322bebaa30a97a8602375eb3",
+    "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "c9e09e4d05f9077928428137311cf665774e053e40c4a12d03d2c7a2790f1511",
+    "out/destruction-sdk/reference/gpu_resident_hierarchy_test": "8e29dda4dddb3e7690527dd62f3e0700946bc1d208e6337ca1b3c7e93793f7d5",
+    "out/destruction-sdk/reference/gpu_resident_stress_test": "9f33eb2cc0d56563b8846384885d2fbabbc788174089d4ba787c67c166e6b870"
+  },
+  "evidence": {
+    "fine-only.log": "e1050db95fe598a8bbacdba5b78093b233b0a03612abe241ec2506653024ddc6",
+    "timing.log": "a9149d191d987c912c6231407b3600488b1659a987677bc42ac46c0223f10db1",
+    "fine-only-initcheck.log": "2ed4649075749bbe932822a010344ae9be75e437154edc696dc145970c3e408a",
+    "fine-only-initcheck-fixed.log": "60b52f3cedbf2af08631880b2b1c291a4bfdedab6f5533a9c2d37764e3af586d",
+    "wall.log": "ca91ed9f1e956ba531ee8b9f4138cee204cea774eef7a9fe7c937ff24e74d48c",
+    "native-tests.log": "0c8a9d5009d1735c545fc168f2fb7e8a65c76982cf956f4fb5252c2ecf26bb99",
+    "experiment.json": "71cde239724a30a4a17ec5d31ec1e42049e7b259656943916e2c7224e43ccb2f",
+    "isolated-timing.log": "04d4743713e4ba8ab9ddaef556cf44f53cd84f6de576b223ca045160eb08e169",
+    "baseline-timing.log": "6cb1ddf0bbe9be231c7d54948c805028c6dc2ed6a26982c5c0cee1f49b8b493f",
+    "comparison.json": "fb8265eed2cf5124bc1cbdb51564493148f8cc2f4a4d5f2c816352d2e940722d",
+    "native-initcheck.log": "2e0aa6d117fbec83b2db784ac0d8e36278e44d8a0639f56cb1d6da6dde99573c",
+    "fine-only-memcheck.log": "60b52f3cedbf2af08631880b2b1c291a4bfdedab6f5533a9c2d37764e3af586d",
+    "wall-quality.json": "b097013e0a0ca32f0e8ee0b505081f88306956255d7b6edfbc428af33009d734"
+  },
+  "full_peak_endurance_qualified": false
+}

@@ -1,6 +1,6 @@
 // Compare the selected fine-only partition against the original producer.
 // Physical component labels and fine Cholesky factors must remain identical.
-void verifyFineOnlyPreparation(){
+void verifyFineOnlyPreparation(bool initiallySmall=false){
     Fixture f(1034);for(unsigned i=1;i<1034;++i)if(i!=9)f.edge(i-1,i);
     f.csr();f.partition();const unsigned n=f.positions.size(),m=f.a.size();
     cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
@@ -14,9 +14,9 @@ void verifyFineOnlyPreparation(){
         Graph reference(n,m,stream);input.componentSolverMaxNodes=1024;
         ResidentHierarchy hierarchy(input,16,stream);cudaGraph_t graph;cudaGraphExec_t executable;
         check(cudaGraphCreate(&graph,0));hierarchy.append(graph,nullptr);check(cudaGraphInstantiate(&executable,graph,0));
-        const auto original=f.health;Status previous{};
+        const auto original=f.health;Status previous{};std::vector<Status> previousCoarse;
         for(unsigned step=0;step<4;++step){
-            f.health=original;if(step==2)f.health[520]=0;f.partition();
+            f.health=original;if((step==2)!=initiallySmall)f.health[520]=0;f.partition();
             std::vector<unsigned> order(n),parts(n,Invalid),first(n),last(n);std::iota(order.begin(),order.end(),0);
             std::sort(order.begin(),order.end(),[&](unsigned x,unsigned y){return std::make_pair(f.component[x],x)<std::make_pair(f.component[y],y);});
             unsigned partCount=0;for(unsigned i=0;i<n;++i){const unsigned id=f.component[order[i]];
@@ -31,7 +31,12 @@ void verifyFineOnlyPreparation(){
             const auto actual=download(hierarchy.topology(0).buffers().diagonal,n*DiagonalEntries,stream);
             require(!std::memcmp(expected.data(),actual.data(),actual.size()*sizeof(double)),"fine-only selection changed physical fine factors");
             require(component.get(stream)==f.component,"fine-only selection changed physical connectivity");
-            const auto owners=download(hierarchy.terminalBuffers().owner,n,stream),kinds=download(hierarchy.terminalBuffers().kind,n,stream);
+            // Only live component IDs own terminal output. Unused capacity is
+            // deliberately not initialized by producers and must not be read.
+            std::vector<unsigned> owners(n,Invalid),kinds(n,Invalid);
+            for(unsigned i=0;i<partCount;++i){const auto id=parts[i];
+                owners[id]=download(hierarchy.terminalBuffers().owner+id,1,stream)[0];
+                kinds[id]=download(hierarchy.terminalBuffers().kind+id,1,stream)[0];}
             const auto leaders=download(hierarchy.topology(0).leaders(),n,stream);
             const auto coarse=download(hierarchy.topology(0).coarseBonds(),m,stream);
             unsigned selected=0;for(unsigned i=0;i<partCount;++i){const auto id=parts[i];const bool small=last[id]-first[id]<=1024;
@@ -40,8 +45,19 @@ void verifyFineOnlyPreparation(){
                 else require(kinds[id]!=3,"large component lost its required multilevel solve");}
             for(unsigned e=0;e<m;++e)if(f.health[e]>0 && last[f.component[f.a[e]]]-first[f.component[f.a[e]]]<=1024)
                 require(coarse[e].a==Invalid && coarse[e].b==Invalid,"fine-only bond leaked into coarse packing");
-            if(selected==partCount)for(unsigned level=1;level<hierarchy.levels();++level){const auto live=download(hierarchy.input(level).counts,2,stream);
-                require(live[0]==0 && live[1]==0,"all-small scene retained coarse nodes or bonds");}
+            std::vector<Status> currentCoarse;
+            for(unsigned level=1;level<hierarchy.levels();++level) {
+                const auto state=download(hierarchy.topology(level).status(),1,stream)[0];
+                if(selected==partCount && previousCoarse.empty())
+                    require(!state.initialized && !state.builds,"initial all-small partition built unused recursive storage");
+                if(selected==partCount && !previousCoarse.empty())
+                    require(!std::memcmp(&state,&previousCoarse[level-1],sizeof(Status)),
+                        "all-small partition executed an unused recursive hierarchy build");
+                if(selected!=partCount)require(state.initialized && !state.error && state.generation==status.generation,
+                    "large component failed to refresh its recursive hierarchy after fine-only mode");
+                currentCoarse.push_back(state);
+            }
+            previousCoarse=currentCoarse;
             std::printf("fine-only preparation nodes=%u bonds=%u generation=%u fine_components=%u total_components=%u exact-factors/retirement passed\n",n,m,step==1?0u:step,selected,partCount);
         }
         for(unsigned failure=0;failure<3;++failure){

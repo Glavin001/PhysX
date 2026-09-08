@@ -3,6 +3,7 @@
 #include "StressHierarchyPackedLevel.cuh"
 #include "StressHierarchyTerminalLevel.cuh"
 #include "StressHierarchySmoother.cuh"
+#include "StressHierarchyDemand.cuh"
 #include <memory>
 #include <vector>
 namespace Nv { namespace Blast { namespace StressHierarchy {
@@ -42,7 +43,7 @@ public:
     ResidentHierarchy(const ResidentHierarchy&)=delete;ResidentHierarchy& operator=(const ResidentHierarchy&)=delete;
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
         if(mAppended)throw std::runtime_error("Resident hierarchy already appended");
-        Input input=mInput;
+        Input input=mInput;cudaGraphNode_t tailCompletion=nullptr;
         for(unsigned level=0;level<mDepth;++level){
             mInputs.push_back(input);mGraphs.emplace_back(new Graph(input.nodes,input.bonds,mStream,level!=0));
             prior=mGraphs.back()->append(graph,prior,input);
@@ -51,6 +52,22 @@ public:
             mSmoothers.emplace_back(new LevelSmoother(input,*mGraphs.back(),*mTerminals.back(),level,mStream));
             prior=mSmoothers.back()->append(graph,prior);
             if(level+1<mDepth){
+                if(!level && input.componentSolverMaxNodes) {
+                    // The fine producer and retirement remain unconditional:
+                    // local inverse and nullspace consumers still need them.
+                    // Only the recursive packing/coarse tail is demand-driven.
+                    cudaGraphConditionalHandle handle;
+                    check(cudaGraphConditionalHandleCreate(&handle,graph,0,cudaGraphCondAssignDefault));
+                    const Status* fine=mSmoothers.back()->status();auto pool=mPool.buffers();
+                    void* args[]={&input,&fine,&pool,&mStatus,&handle};
+                    cudaKernelNodeParams p{};p.func=(void*)chooseHierarchyTail;
+                    p.gridDim=dim3(1);p.blockDim=dim3(Threads);p.kernelParams=args;
+                    cudaGraphNode_t choose;check(cudaGraphAddKernelNode(&choose,graph,&prior,1,&p));
+                    cudaGraphNodeParams branch{};branch.type=cudaGraphNodeTypeConditional;
+                    branch.conditional.handle=handle;branch.conditional.type=cudaGraphCondTypeIf;branch.conditional.size=1;
+                    check(cudaGraphAddNode(&tailCompletion,graph,&choose,1,&branch));
+                    graph=branch.conditional.phGraph_out[0];prior=nullptr;
+                }
                 mPacked.emplace_back(new RetiringPackedLevel(input,*mGraphs.back(),mStream,TerminalRetirement{mPool.buffers().owner,level,mSmoothers.back()->status()}));
                 prior=mPacked.back()->append(graph,prior);input=mPacked.back()->view();
             }
@@ -58,7 +75,7 @@ public:
         const Status* terminal=mSmoothers.back()->status();auto buffers=mPool.buffers();unsigned last=mDepth-1;
         void* args[]={&input,&terminal,&buffers,&last,&mStatus};cudaKernelNodeParams params{};
         params.func=(void*)finalizeHierarchy;params.gridDim=dim3(1);params.blockDim=dim3(Threads);params.kernelParams=args;
-        cudaGraphNode_t final;check(cudaGraphAddKernelNode(&final,graph,&prior,1,&params));mAppended=true;return final;
+        cudaGraphNode_t final;check(cudaGraphAddKernelNode(&final,graph,&prior,1,&params));mAppended=true;return tailCompletion?tailCompletion:final;
     }
     const Status* status()const{return mStatus;}
     TerminalBuffers terminalBuffers()const{return mPool.buffers();}
