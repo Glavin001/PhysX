@@ -590,7 +590,7 @@
       "id": "H06",
       "status": "🟡",
       "optimization": "Stronger current-component preconditioning for retained buildings",
-      "current_and_action": "Fused two-stage resident polynomial preconditioning is committed in 13f038a4. Independent numerical and frozen penetration audits pass; short bombardment runs show lower repeated stress cost, but the absolute peak is nearly unchanged. Full peak/endurance qualification and multilevel work remain. An uncommitted colored symmetric-sweep replacement is WIP, not a qualified performance improvement. Shared-response multilevel acceleration was screened and reverted.",
+      "current_and_action": "Fused two-stage resident polynomial preconditioning is committed in 13f038a4. Independent numerical and frozen penetration audits pass; short bombardment runs show lower repeated stress cost, but the absolute peak is nearly unchanged. Full peak/endurance qualification and multilevel work remain. Colored-sweep and shared-response multilevel replacements were tested and reverted; neither established a peak improvement.",
       "evidence": [
         "work report",
         "hierarchy experiment",
@@ -2131,8 +2131,8 @@
   ],
   "current_review": {
     "date": "2026-09-08",
-    "head": "a62d9eec04f9a1e418b95bbfdf98bb7c4cc031c4",
-    "scope": "Source comparison and documentation-only refresh; separate qualified runtime from uncommitted colored-sweep source. No new simulation benchmark or qualification run.",
+    "head": "d2095b95a0d556215a8d8f0ae8fad015a8a6a9ae",
+    "scope": "Refreshed after corrected colored-sweep numerical/physical qualification and matched bombardment rejection. Production source and runtime restored; full peak and endurance gates remain unmet.",
     "files": [
       {
         "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver-rs/src/rapier/optimization.rs",
@@ -2227,10 +2227,10 @@
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
-        "sha256": "89749945a5ff05f08feabfddeaed54d27952cb79038ebb9dfa0d208a43f9e8d5",
-        "bytes": 11268,
+        "sha256": "d616d8dc811498f6ec5bf187cc48110de7a46367a4d6808f6098da97cd1e08f1",
+        "bytes": 11086,
         "tracked": true,
-        "differs_from_head": true
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressGraphExecution.inl",
@@ -2254,20 +2254,6 @@
         "differs_from_head": false
       },
       {
-        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeColoredSweep.cuh",
-        "sha256": "77590c58acc4ba7acf05d4a2ee7d73d24749b3a204529733b62dc183c8bcbc28",
-        "bytes": 2432,
-        "tracked": false,
-        "differs_from_head": true
-      },
-      {
-        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeColors.cuh",
-        "sha256": "f12e7d8538e5ccae10d678edd7fc77710d76ac0a238ad3b1387e47879bcaa622",
-        "bytes": 4174,
-        "tracked": false,
-        "differs_from_head": true
-      },
-      {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh",
         "sha256": "31ec12590ffe5a0306defec6e2c900ac3cab0f25568e278b0ff6b54d68f9c28c",
         "bytes": 2008,
@@ -2276,10 +2262,10 @@
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh",
-        "sha256": "766f314e1e60fac830120deba394b7dbcb07fb911e98114875eb03fbd4364baf",
-        "bytes": 4908,
+        "sha256": "06ca7a31c0e5da32583b1aa162c7f188702286753ddf979890f7be33a95375aa",
+        "bytes": 4602,
         "tracked": true,
-        "differs_from_head": true
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeNullspace.cuh",
@@ -2297,10 +2283,10 @@
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh",
-        "sha256": "f74a79c19acf0ffb895cfa101e8b379cc74c49c70d275d7544e15c8ec7130924",
-        "bytes": 9147,
+        "sha256": "c378cb850076a44c97178e6152b91351c747e88f06f045e0e7b83114e4b23fd1",
+        "bytes": 9040,
         "tracked": true,
-        "differs_from_head": true
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh",
@@ -2523,7 +2509,8 @@
     "runtime": {
       "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
       "sha256": "481eab6a7fca0d8c22aef03152bd685d84cdbe7369e7ffa3e0e9846de45b43f4",
-      "source_experiment_qualified": false
+      "source_experiment_qualified": false,
+      "source_experiment_status": "reverted after performance rejection; corrected numerical and frozen physical audit passed"
     },
     "source_snapshot_hashes_unchanged": true
   }

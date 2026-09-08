@@ -1,0 +1,327 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+index 275f653c..ce93be6b 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+@@ -24,7 +24,7 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
+ // same ones used by the cooperative large-component implementation.
+ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
+ {
+-    __shared__ unsigned counts[2], iteration, activeCount, slot;
++    __shared__ unsigned counts[2], iteration, activeCount, slot, colorCount;
+     __shared__ SolveStatus status;
+     __shared__ float reduceValue;
+     COMPONENT_PROBE_BEGIN
+@@ -50,10 +50,12 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
+         }
+         if(threadIdx.x==0) {
+             a.hierarchy.previous[id]=0;a.hierarchy.failed[id]=0;
+-            counts[0]=0;counts[1]=count;iteration=0;activeCount=0;
++            counts[0]=0;counts[1]=count;iteration=0;activeCount=0;colorCount=0;
+             status={1u,a.maxIterations,0u};
+         }
+         __syncthreads();
++        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)atomicMax(&colorCount,a.hierarchy.colors[c.nodes[begin+i]]+1u);
++        __syncthreads();
+         COMPONENT_WORK_BEGIN(a,c,id,begin,count)
+         // Cache validity belongs to each built operator, independently of a
+         // solve's success. Each node has one writer in this owning component.
+@@ -107,7 +109,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
+                 __syncthreads();break;
+             }
+             float localGamma=0;
+-            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration);
++            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration,colorCount);
+             const float gamma=componentSquaredNorm(localGamma);
+             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
+             __syncthreads();
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+index 56992c6b..3275b3eb 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+@@ -1,5 +1,6 @@
+ // Native ownership bridge: immutable/operator data are borrowed, never copied.
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
++#include "StressNativeColors.cuh"
+ struct NativeStressCycleView {
+     StressHierarchy::CycleDeviceView cycle{};
+     StressHierarchy::MotionModeView modes{};
+@@ -13,6 +14,7 @@ struct NativeStressCycleView {
+     unsigned *verification=nullptr,*verificationCount=nullptr,*warmRangeKnown=nullptr;
+     std::uint64_t* warmRangeGeneration=nullptr;
+     const ExtStressGpuDeviceTopologyStatus* topology=nullptr;
++    const unsigned *colors=nullptr,*colorsReady=nullptr;
+ };
+ __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hierarchy,const StressHierarchy::Status* modes,ExtStressGpuDeviceTopologyStatus* topology){
+     if(!hierarchy->initialized || hierarchy->error || hierarchy->generation!=topology->generation || !modes->initialized || modes->error || modes->generation!=topology->generation)topology->error|=8u;
+@@ -21,6 +23,7 @@ class NativeStressHierarchy {
+     StressHierarchy::ResidentHierarchy mHierarchy;
+     StressHierarchy::ResidentMotionModes mModes;
+     std::unique_ptr<StressHierarchy::ResidentCycle> mCycle;
++    std::unique_ptr<NativeStressColors> mColors;
+     NativeStressCycleView mView;cudaStream_t mStream;
+     static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
+     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
+@@ -30,6 +33,7 @@ public:
+         :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
+         mView.topology=status;mView.modes=mModes.view();mView.inverseStride=input.nodes;
+         try{
++            mColors.reset(new NativeStressColors(input,stream));mView.colors=mColors->colors();mView.colorsReady=mColors->ready();
+             allocate(mView.fineInverse,size_t(input.nodes)*StressHierarchy::DiagonalEntries);
+             allocate(mView.inverseValid,input.nodes);allocate(mView.inverseGeneration,input.nodes);
+             checkCuda(cudaMemsetAsync(mView.inverseValid,0,sizeof(unsigned)*input.nodes,stream),"invalidate native local inverse cache");
+@@ -45,7 +49,7 @@ public:
+     ~NativeStressHierarchy(){cudaStreamSynchronize(mStream);mCycle.reset();release();}
+     NativeStressHierarchy(const NativeStressHierarchy&)=delete;NativeStressHierarchy& operator=(const NativeStressHierarchy&)=delete;
+     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
+-        prior=mModes.append(graph,prior);prior=mHierarchy.append(graph,prior);mCycle.reset(new StressHierarchy::ResidentCycle(mHierarchy));mView.cycle=mCycle->deviceView();return prior;
++        prior=mColors->append(graph,prior);prior=mModes.append(graph,prior);prior=mHierarchy.append(graph,prior);mCycle.reset(new StressHierarchy::ResidentCycle(mHierarchy));mView.cycle=mCycle->deviceView();return prior;
+     }
+     NativeStressCycleView view()const{return mView;}
+     const StressHierarchy::Status* status()const{return mHierarchy.status();}
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+index 957004a6..53b42364 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+@@ -1,10 +1,11 @@
+ #include "StressNativeNullspace.cuh"
+ #include "StressNativeFineInverse.cuh"
+ #include "StressNativePolynomial.cuh"
++#include "StressNativeColoredSweep.cuh"
+ // Shared projected-CG/preconditioner boundary. Conversion is fused into the
+ // resident producer/consumer, not a separate export/copy/reimport operation.
+ __device__ __forceinline__ bool nativeHierarchyReady(const NativeStressCycleView& h){
+-    return h.cycle.status && h.modes.status && h.topology && StressHierarchy::usable(h.modes.status) && h.modes.status->generation==h.topology->generation && h.topology->initialized && !h.topology->error
++    return h.colorsReady && *h.colorsReady==1 && h.cycle.status && h.modes.status && h.topology && StressHierarchy::usable(h.modes.status) && h.modes.status->generation==h.topology->generation && h.topology->initialized && !h.topology->error
+         && StressHierarchy::usable(h.cycle.status) && h.cycle.status->generation==h.topology->generation;
+ }
+ __device__ __forceinline__ void nativeCycleRhs(const PersistentStressArgs& a,unsigned node){
+@@ -48,7 +49,7 @@ __device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a
+     return stressSquaredContribution(gamma);
+ }
+ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStressArgs& a,
+-    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration){
++    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration,unsigned colors){
+ #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+     unsigned long long subStart=0;if(!threadIdx.x)subStart=clock64();
+ #define SUBPROBE_END(index) __syncthreads();if(!threadIdx.x){atomicAdd(componentPreconditionClocks+index,clock64()-subStart);subStart=clock64();}__syncthreads();
+@@ -62,9 +63,9 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
+     auto* result=a.hierarchy.result;
+     if(!iteration){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
+     else {
+-        // Apply the fixed polynomial using cached local inverses.
++        // Apply symmetric colored sweeps using cached local inverses.
+         // Large components retain their cooperative multilevel schedule.
+-        result=preconditionNativePolynomial(a,nodes,count);
++        result=preconditionNativeColoredSweep(a,nodes,count,colors);
+     }
+     SUBPROBE_END(0)
+     projectNativeNullspace(a,id,nodes,count,result);
+diff --git a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+index 7dcbf577..702a0b77 100644
+--- a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
++++ b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+@@ -195,6 +195,7 @@ int main(int argc,char** argv){try{
+     {Device<unsigned> result(3);checkPredicates<<<1,1>>>(result.data);check(cudaGetLastError());check(cudaDeviceSynchronize());for(auto value:result.get())require(value==1,"exact closure collinearity predicate failed");}
+     fineInverseCache();
+     polynomialOperator();
++    polynomialOperator(true);
+     firstDirectionWithoutHistory();
+     warmRangeLifecycle();
+     topologyWarmInvalidation();
+diff --git a/demos/blast-stress-demo/tests/native_polynomial_test.cuh b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+index 1981558f..df982605 100644
+--- a/demos/blast-stress-demo/tests/native_polynomial_test.cuh
++++ b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+@@ -1,16 +1,16 @@
+ // Independent long-double assembled operator / polynomial oracle. Actual CUDA
+ // private implementation is called for every basis vector; no public test API.
+ namespace MotionModeTest {
+-__global__ void polynomialBasis(PersistentStressArgs a,const unsigned* nodes,unsigned count,unsigned column,Vector* matrix,unsigned stride){
++__global__ void polynomialBasis(PersistentStressArgs a,const unsigned* nodes,unsigned count,unsigned column,Vector* matrix,unsigned stride,bool colored,unsigned colors){
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];double x[6]{};if(column/6==node)x[column%6]=1;
+         a.hierarchy.rhs[node]={{x[0],x[1],x[2]},{x[3],x[4],x[5]}};}
+-    __syncthreads();const auto* result=preconditionNativePolynomial(a,nodes,count);
++    __syncthreads();const auto* result=colored?preconditionNativeColoredSweep(a,nodes,count,colors):preconditionNativePolynomial(a,nodes,count);
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];matrix[size_t(column)*stride+node]=result[node];}
+ }
+-void polynomialOperator(){
++void polynomialOperator(bool colored=false){
+     constexpr unsigned n=12,size=6*n;
+     for(unsigned anchored=0;anchored<2;++anchored){
+-        Fixture f(n);for(unsigned i=1;i<n;++i){f.edge(i-1,i);if(i>2)f.edge(i-3,i);}
++        Fixture f(n);for(unsigned i=1;i<n;++i){f.edge(i-1,i);if(i>2)f.edge(i-3,i);if(colored && i>1)f.edge(i-2,i);}
+         if(anchored)f.inertia[0]={0,0};f.csr();
+         std::vector<long double> matrix(size*size),inverse(size*size);
+         // Assemble B B^T directly from each independent physical bond column.
+@@ -38,14 +38,43 @@ void polynomialOperator(){
+         std::vector<float2> mass(n);for(unsigned i=0;i<n;++i)mass[i]={f.inertia[i].angular,f.inertia[i].linear};inertia.put(mass);
+         CycleLevel descriptor{};descriptor.input={n,unsigned(f.a.size()),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,nullptr,offset0.data,offset1.data,inertia.data,nullptr,nullptr};level.put({descriptor});
+         PersistentStressArgs args{};args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
+-        for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n);
++        std::unique_ptr<NativeStressColors> coloring;std::vector<unsigned> colors(n,Invalid);unsigned colorCount=0;
++        cudaGraph_t colorGraph=nullptr;cudaGraphExec_t colorExec=nullptr;
++        if(colored){
++            coloring.reset(new NativeStressColors(descriptor.input,nullptr));check(cudaGraphCreate(&colorGraph,0));cudaGraphNode_t root;
++            check(cudaGraphAddEmptyNode(&root,colorGraph,nullptr,0));coloring->append(colorGraph,root);check(cudaGraphInstantiate(&colorExec,colorGraph,0));
++            check(cudaGraphLaunch(colorExec,nullptr));check(cudaDeviceSynchronize());unsigned ready=0;
++            check(cudaMemcpy(&ready,coloring->ready(),sizeof(ready),cudaMemcpyDeviceToHost));require(ready==1,"color construction failed");
++            check(cudaMemcpy(colors.data(),coloring->colors(),n*sizeof(unsigned),cudaMemcpyDeviceToHost));
++            // Independent sequential first-fit oracle, including odd cycles.
++            std::vector<unsigned> expected(n,Invalid);
++            for(auto node:order){std::vector<bool> used(n,false);for(unsigned edge=0;edge<f.a.size();++edge){
++                const auto other=f.a[edge]==node?f.b[edge]:(f.b[edge]==node?f.a[edge]:Invalid);
++                if(other<node && expected[other]!=Invalid)used[expected[other]]=true;}
++                unsigned color=0;while(used[color])++color;expected[node]=color;colorCount=std::max(colorCount,color+1);}
++            require(colors==expected && colorCount>=3,"native colors differ from independent greedy coloring");
++            args.hierarchy.colors=coloring->colors();
++        }
++        for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n,colored,colorCount);
+         check(cudaGetLastError());check(cudaDeviceSynchronize());const auto observed=columns.get();
+         auto multiply=[&](const std::vector<long double>& m,const std::vector<long double>& x){std::vector<long double> y(size);for(unsigned r=0;r<size;++r)for(unsigned c=0;c<size;++c)y[r]+=m[r*size+c]*x[c];return y;};
+         long double worst=0,symmetry=0;std::vector<long double> actual(size*size);
+         for(unsigned column=anchored?6:0;column<size;++column){std::vector<long double> x(size),r(size);r[column]=1;
+-            const unsigned roots[2]={1,0};
+-            for(auto root:roots){const auto ax=multiply(matrix,x);for(unsigned i=0;i<size;++i)r[i]=(i==column?1:0)-ax[i];const auto z=multiply(inverse,r);
+-                const long double weight=1/(1.055L-.955L*cosl((2*root+1)*acosl(-1.L)/4));for(unsigned i=0;i<size;++i)x[i]+=weight*z[i];}
++            if(colored){
++                auto sorted=order;std::stable_sort(sorted.begin(),sorted.end(),[&](unsigned a,unsigned b){return colors[a]<colors[b];});
++                // Dense long-double block triangular substitution, independent
++                // of the device's sparse coupling and packed inverse helpers.
++                for(auto node:sorted){long double local[6]{};for(unsigned row=0;row<6;++row){local[row]=r[node*6+row];
++                    for(auto other:sorted)if(colors[other]<colors[node])for(unsigned k=0;k<6;++k)local[row]-=matrix[(node*6+row)*size+other*6+k]*x[other*6+k];}
++                    for(unsigned row=0;row<6;++row)for(unsigned k=0;k<6;++k)x[node*6+row]+=inverse[(node*6+row)*size+node*6+k]*local[k];}
++                for(auto it=sorted.rbegin();it!=sorted.rend();++it){const unsigned node=*it;long double local[6]{};
++                    for(unsigned row=0;row<6;++row)for(auto other:sorted)if(colors[other]>colors[node])for(unsigned k=0;k<6;++k)local[row]+=matrix[(node*6+row)*size+other*6+k]*x[other*6+k];
++                    for(unsigned row=0;row<6;++row)for(unsigned k=0;k<6;++k)x[node*6+row]-=inverse[(node*6+row)*size+node*6+k]*local[k];}
++            }else{
++                const unsigned roots[2]={1,0};
++                for(auto root:roots){const auto ax=multiply(matrix,x);for(unsigned i=0;i<size;++i)r[i]=(i==column?1:0)-ax[i];const auto z=multiply(inverse,r);
++                    const long double weight=1/(1.055L-.955L*cosl((2*root+1)*acosl(-1.L)/4));for(unsigned i=0;i<size;++i)x[i]+=weight*z[i];}
++            }
+             for(unsigned node=0;node<n;++node){auto y=unpack(observed[size_t(column)*n+node]);for(unsigned k=0;k<6;++k){const auto row=node*6+k;actual[row*size+column]=y[k];worst=std::max(worst,fabsl(y[k]-x[row])/(1+fabsl(x[row])));}}
+         }
+         for(unsigned row=anchored?6:0;row<size;++row)for(unsigned col=anchored?6:0;col<size;++col)symmetry=std::max(symmetry,fabsl(actual[row*size+col]-actual[col*size+row])/(1+fabsl(actual[row*size+col])));
+@@ -54,7 +83,14 @@ void polynomialOperator(){
+         // for a free component whose physical operator itself is singular.
+         for(unsigned k=anchored?6:0;k<size;++k){long double d=actual[k*size+k];for(unsigned j=anchored?6:0;j<k;++j)d-=actual[k*size+j]*actual[k*size+j];require(d>0,"polynomial not positive definite");actual[k*size+k]=sqrtl(d);
+             for(unsigned row=k+1;row<size;++row){long double v=actual[row*size+k];for(unsigned j=anchored?6:0;j<k;++j)v-=actual[row*size+j]*actual[k*size+j];actual[row*size+k]=v/actual[k*size+k];}}
+-        std::printf("polynomial oracle nodes=%u bonds=%zu anchored=%u all_basis=true relative_error=%.3Lg symmetry_error=%.3Lg SPD=true\n",n,f.a.size(),anchored,worst,symmetry);
++        if(colored){
++            // Removing edges must preserve the immutable coloring; no recapture.
++            auto cut=f.health;for(unsigned e=0;e<cut.size();e+=3)cut[e]=0;health.put(cut);
++            check(cudaGraphLaunch(colorExec,nullptr));check(cudaDeviceSynchronize());std::vector<unsigned> after(n);
++            check(cudaMemcpy(after.data(),coloring->colors(),n*sizeof(unsigned),cudaMemcpyDeviceToHost));require(after==colors,"bond removal rebuilt immutable colors");
++            check(cudaGraphExecDestroy(colorExec));check(cudaGraphDestroy(colorGraph));
++        }
++        std::printf("%s oracle nodes=%u bonds=%zu anchored=%u all_basis=true relative_error=%.3Lg symmetry_error=%.3Lg SPD=true\n",colored?"colored sweep":"polynomial",n,f.a.size(),anchored,worst,symmetry);
+     }
+ }
+ }
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeColors.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeColors.cuh
+new file mode 100644
+index 00000000..fe5b07e9
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeColors.cuh
+@@ -0,0 +1,62 @@
++// Immutable-graph coloring for resident block symmetric Gauss-Seidel.
++// Only lower authored IDs constrain a node's first-fit color. Every successful
++// assignment is final; later bond removals cannot invalidate a proper coloring.
++__global__ void constructNativeStressColors(StressHierarchy::Input input,unsigned* colors,unsigned* ready,unsigned* pending){
++    const auto grid=cooperative_groups::this_grid();
++    const unsigned first=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
++    if(*ready)return;
++    for(unsigned node=first;node<input.nodes;node+=stride)colors[node]=kNoIsland;
++    grid.sync();
++    for(unsigned round=0;round<input.nodes;++round){
++        if(!first)*pending=0;grid.sync();
++        for(unsigned node=first;node<input.nodes;node+=stride){
++            if(input.inertia[node].y<=0 || atomicAdd(colors+node,0u)!=kNoIsland)continue;
++            bool waiting=false;
++            for(unsigned slot=input.begin[node];slot<input.begin[node+1];++slot){
++                const unsigned ref=input.refs[slot];if(ref==kNoIsland)continue;
++                const unsigned edge=ref&0x7fffffffu;if(input.health[edge]<=0)continue;
++                const unsigned other=(ref>>31)?input.node0[edge]:input.node1[edge];
++                if(other<node && input.inertia[other].y>0 && atomicAdd(colors+other,0u)==kNoIsland){waiting=true;break;}
++            }
++            if(waiting){atomicAdd(pending,1u);continue;}
++            unsigned color=0;bool occupied;
++            do{occupied=false;
++                for(unsigned slot=input.begin[node];slot<input.begin[node+1];++slot){
++                    const unsigned ref=input.refs[slot];if(ref==kNoIsland)continue;
++                    const unsigned edge=ref&0x7fffffffu;if(input.health[edge]<=0)continue;
++                    const unsigned other=(ref>>31)?input.node0[edge]:input.node1[edge];
++                    if(other<node && input.inertia[other].y>0 && atomicAdd(colors+other,0u)==color){++color;occupied=true;break;}
++                }
++            }while(occupied);
++            atomicExch(colors+node,color);
++        }
++        grid.sync();const bool finished=*pending==0;
++        // All blocks must read this round's decision before the next round
++        // resets pending. Otherwise some blocks can retire while peers enter
++        // another grid barrier, permanently stalling the cooperative launch.
++        grid.sync();if(finished){if(!first)*ready=1;return;}
++    }
++    // Lower-ID dependencies are acyclic. Failure to finish is an internal error,
++    // never an instruction to use another numerical backend.
++    if(!first)*ready=2;
++}
++class NativeStressColors {
++    StressHierarchy::Input mInput;unsigned *mColors=nullptr,*mReady=nullptr,*mPending=nullptr;unsigned mBlocks=0;
++    static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Native stress colors: ")+cudaGetErrorString(e));}
++public:
++    NativeStressColors(StressHierarchy::Input input,cudaStream_t stream):mInput(input){
++        int device=0,sms=0,blocks=0;check(cudaGetDevice(&device));check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));
++        check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,constructNativeStressColors,kBlockSize,0));
++        if(blocks<=0 || sms<=0)throw std::runtime_error("Native stress coloring requires cooperative residency");
++        mBlocks=std::min(std::max(1u,(input.nodes+kBlockSize-1)/kBlockSize),unsigned(sms*blocks));
++        try{check(cudaMalloc(&mColors,std::max(1u,input.nodes)*sizeof(unsigned)));check(cudaMalloc(&mReady,sizeof(unsigned)));check(cudaMalloc(&mPending,sizeof(unsigned)));check(cudaMemsetAsync(mReady,0,sizeof(unsigned),stream));}
++        catch(...){cudaFree(mColors);cudaFree(mReady);cudaFree(mPending);throw;}
++    }
++    ~NativeStressColors(){cudaFree(mColors);cudaFree(mReady);cudaFree(mPending);}
++    cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
++        void* args[]={&mInput,&mColors,&mReady,&mPending};cudaKernelNodeParams p{};p.func=(void*)constructNativeStressColors;p.gridDim=dim3(mBlocks);p.blockDim=dim3(kBlockSize);p.kernelParams=args;
++        cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,&prior,1,&p));cudaKernelNodeAttrValue attr{};attr.cooperative=1;check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attr));return node;
++    }
++    const unsigned* colors()const{return mColors;}
++    const unsigned* ready()const{return mReady;}
++};
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeColoredSweep.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeColoredSweep.cuh
+new file mode 100644
+index 00000000..dfa5f6d9
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeColoredSweep.cuh
+@@ -0,0 +1,34 @@
++// Symmetric block Gauss-Seidel: (D+U)^-1 D (D+L)^-1, where ordering is by
++// immutable graph color. Same-color nodes have no off-diagonal coupling and
++// execute concurrently. D is the existing exact cached 6x6 local operator.
++// This changes only the preconditioner; the outer physical operator, nullspace
++// projection and authoritative residual acceptance are unchanged.
++template<bool Lower>
++__device__ __forceinline__ StressHierarchy::Vector coloredNeighborSum(const PersistentStressArgs& a,unsigned node,const StressHierarchy::Vector* x,unsigned color){
++    using namespace StressHierarchy;const auto input=a.hierarchy.cycle.levels[0].input;Vector sum{};
++    for(unsigned slot=input.begin[node];slot<input.begin[node+1];++slot){
++        const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
++        const unsigned edge=ref&0x7fffffffu;if(input.health[edge]<=0)continue;
++        const bool back=ref>>31;const unsigned other=back?input.node0[edge]:input.node1[edge];
++        if(other==node || input.component[other]==Invalid)continue;
++        const unsigned remoteColor=a.hierarchy.colors[other];
++        if(Lower?remoteColor>=color:remoteColor<=color)continue;
++        const auto remote=couple(scaledValue(x[other],input.inertia[other]),sourceOffset(input,edge,!back));const double scale=input.scale[edge];
++        sum=add(sum,scaledValue(transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)),input.inertia[node]));
++    }
++    return sum;
++}
++__device__ __forceinline__ StressHierarchy::Vector* preconditionNativeColoredSweep(const PersistentStressArgs& a,const unsigned* nodes,unsigned count,unsigned colors){
++    using namespace StressHierarchy;auto* x=a.hierarchy.result;
++    for(unsigned color=0;color<colors;++color){
++        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];if(a.hierarchy.colors[node]!=color)continue;
++            const auto rhs=sub(a.hierarchy.rhs[node],coloredNeighborSum<true>(a,node,x,color));x[node]=applyNativeFineInverse(a.hierarchy,node,rhs);}
++        __syncthreads();
++    }
++    for(int color=int(colors)-2;color>=0;--color){
++        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];if(a.hierarchy.colors[node]!=unsigned(color))continue;
++            x[node]=sub(x[node],applyNativeFineInverse(a.hierarchy,node,coloredNeighborSum<false>(a,node,x,unsigned(color))));}
++        __syncthreads();
++    }
++    return x;
++}
