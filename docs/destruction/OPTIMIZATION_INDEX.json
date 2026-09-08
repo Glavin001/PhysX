@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "date": "2026-09-07",
-  "scope": "GPU stress and destruction integration: listed source entry points and linked supporting implementations/docs; not all PhysX, game, Rust/WASM or renderer code",
+  "date": "2026-09-08",
+  "scope": "Inventory of destruction/stress optimization responsibilities and related source consumer optimizations, with qualified runtime, WIP and rejected work distinguished. Configuration enumeration is scoped to four recorded source entry points.",
   "repositories": {
     "/root/workspace/physx-2": "a896a8bd5fef57e8f9e1e9482229b0b9baaf7826",
     "/root/workspace/blast-stress-solver-2": "7c09837e7bea87099e85cccf81150f7811aa8346",
@@ -578,7 +578,7 @@
       "id": "H05",
       "status": "🟡",
       "optimization": "Resident multilevel hierarchy",
-      "current_and_action": "Device hierarchy construction/storage and a coarse path exist for large components. Small block-solved components use local inverses plus the current polynomial candidate, not multilevel acceleration. The retained-building workload therefore still lacks qualified multilevel acceleration.",
+      "current_and_action": "Device hierarchy construction/storage and a coarse path exist for large components. Small block-solved components use local inverses plus committed polynomial preconditioning in the qualified runtime, not multilevel acceleration. The retained-building workload therefore still lacks qualified multilevel acceleration.",
       "evidence": [
         "hierarchy",
         "preconditioner",
@@ -590,7 +590,7 @@
       "id": "H06",
       "status": "🟡",
       "optimization": "Stronger current-component preconditioning for retained buildings",
-      "current_and_action": "Fused two-stage resident polynomial preconditioning is committed in 13f038a4. Independent numerical and frozen penetration audits pass; short bombardment runs show lower repeated stress cost, but the absolute peak is nearly unchanged. Full peak/endurance qualification and multilevel work remain.",
+      "current_and_action": "Fused two-stage resident polynomial preconditioning is committed in 13f038a4. Independent numerical and frozen penetration audits pass; short bombardment runs show lower repeated stress cost, but the absolute peak is nearly unchanged. Full peak/endurance qualification and multilevel work remain. An uncommitted colored symmetric-sweep replacement is WIP, not a qualified performance improvement. Shared-response multilevel acceleration was screened and reverted.",
       "evidence": [
         "work report",
         "hierarchy experiment",
@@ -1077,6 +1077,80 @@
         "fidelity source",
         "material",
         "game"
+      ]
+    },
+    {
+      "section": "Other source optimizations and ownership boundaries",
+      "id": "X01",
+      "status": "🧪",
+      "optimization": "Hierarchical lazy collision leaves",
+      "current_and_action": "The source Rapier core has an authored spatial tree and predictive activation of exact collision leaves. This is not fracture prediction, but it is also not a qualified native PhysX optimization. The integrated path retains chunk geometry; any equivalent culling must live at PhysX collision ownership, preserve new-pair discovery/CCD, and demonstrate a benefit before replacing it.",
+      "evidence": [
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/rapier/collisionTree.ts",
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/rapier/destructible-core.ts"
+      ]
+    },
+    {
+      "section": "Other source optimizations and ownership boundaries",
+      "id": "X02",
+      "status": "🎮",
+      "optimization": "Unchanged render instances, opaque sort removal and intact proxies",
+      "current_and_action": "Source Three.js code caches instance transforms, disables opaque sorting and supports distance-based intact proxies. Keep these in renderer consumers; they do not reduce the measured physics/destruction step. Native GPU render consumption is O05; these CPU render techniques are not missing stress kernels.",
+      "evidence": [
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/three/destructible-adapter.ts",
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/three/intact-proxy.ts"
+      ]
+    },
+    {
+      "section": "Other source optimizations and ownership boundaries",
+      "id": "X03",
+      "status": "🚫",
+      "optimization": "WASM/SIMD and Rapier dependency optimizations",
+      "current_and_action": "CPU/WASM SIMD kernels, compiler flags and Rapier package selection are outside the single RTX 4090 native production path. Preserve independent physical oracles; do not add a compatibility branch or credit their older timings to native CUDA.",
+      "evidence": [
+        "/root/workspace/blast-stress-solver-2/blast/source/shared/stress_solver/simd/simd.h",
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/docs/perf-city-scale-roadmap.md"
+      ]
+    },
+    {
+      "section": "Other source optimizations and ownership boundaries",
+      "id": "X04",
+      "status": "🚫",
+      "optimization": "Debris TTL cleanup and small-body damping",
+      "current_and_action": "Rust compatibility options can delete debris or increase damping. They change the simulated workload or motion and cannot count as equal-work native performance improvements. They remain explicit consumer policies outside the frozen benchmark.",
+      "evidence": [
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver-rs/src/rapier/optimization.rs"
+      ]
+    },
+    {
+      "section": "Other source optimizations and ownership boundaries",
+      "id": "X05",
+      "status": "🟡",
+      "optimization": "Skip unchanged chunk transform reconstruction",
+      "current_and_action": "The source caches world transforms for unchanged rigid bodies. Native persistent chunk geometry and shared cluster motion eliminate the external host transform walk, but a complete dirty-only bypass of GPU preparation has not been qualified. Track remaining motion/topology-dependent transform work with S08 and R10.",
+      "evidence": [
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/rapier/destructible-core.ts"
+      ]
+    },
+    {
+      "section": "Other source optimizations and ownership boundaries",
+      "id": "X06",
+      "status": "🚫",
+      "optimization": "Precomputed splash-neighbor expansion",
+      "current_and_action": "Source Rapier precomputes neighbor indices/weights instead of rebuilding a spatial grid each contact step. Persistent adjacency is a useful layout principle already represented by H01/N01. Its radius-weighted splash forces are a different load model; do not add them to the native actual-contact wrench model merely to port an optimization.",
+      "evidence": [
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/rapier/destructible-core.ts"
+      ]
+    },
+    {
+      "section": "Other source optimizations and ownership boundaries",
+      "id": "X07",
+      "status": "🟡",
+      "optimization": "Avoid redundant rollback capture; capture only required state",
+      "current_and_action": "The source skips its final-pass snapshot recapture when another replay cannot occur. Native has GPU checkpoint storage and restore (R05), but currently copies contiguous body-state ranges. Affected/awake-only capture with wake correctness, and an audit of redundant correction-time copies, remain work at the internal checkpoint owner. Do not reintroduce CPU body snapshots.",
+      "evidence": [
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/rapier/destructible-core.ts",
+        "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/docs/perf-resim-findings.md"
       ]
     }
   ],
@@ -2056,190 +2130,401 @@
     }
   ],
   "current_review": {
-    "date": "2026-09-07",
-    "head": "13f038a49c4fa4cbcd7ab1a28817d67f4a58c8fa",
-    "scope": "Refreshed active-path inventory with committed polynomial and tested affected-component warm-start candidate; historical snapshots retained.",
+    "date": "2026-09-08",
+    "head": "a62d9eec04f9a1e418b95bbfdf98bb7c4cc031c4",
+    "scope": "Source comparison and documentation-only refresh; separate qualified runtime from uncommitted colored-sweep source. No new simulation benchmark or qualification run.",
     "files": [
       {
+        "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver-rs/src/rapier/optimization.rs",
+        "sha256": "f9082f31ac5750ea49fe3696cf7dfddcdfaafdae860170196086847735396814",
+        "bytes": 1731,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/docs/perf-city-scale-roadmap.md",
+        "sha256": "d3058b7d2b7adbddc8bfed15b103f8f142450d3d34956f38f361e3ab759ec25a",
+        "bytes": 15971,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/docs/perf-resim-findings.md",
+        "sha256": "e79b11de286f7c67f6c6b9e5cf6ed3451200f96ab47fc2c2883cce504cf1a249",
+        "bytes": 8347,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/rapier/collisionTree.ts",
+        "sha256": "3f76f40aba3cbe0b65a417bdf8ccb5dad6532131b07faae9daa78578ba8d4fa4",
+        "bytes": 4594,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/rapier/destructible-core.ts",
+        "sha256": "3fadd52106fd17dd150988b751bd8d6b8e64cb2a4c9185f15d394bf4e99d8165",
+        "bytes": 155657,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/three/destructible-adapter.ts",
+        "sha256": "fcef1ec850671b4c91c90ebab9b04ccfbc8e066690aa3a9ce8ce37df27f28d6d",
+        "bytes": 29476,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/blast-stress-solver-2/blast/blast-stress-solver/src/three/intact-proxy.ts",
+        "sha256": "f51345b48081347b6572c7d4bf465eb6d580b712e41686b9994082208c4faa18",
+        "bytes": 7569,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
         "path": "/root/workspace/blast-stress-solver-2/blast/include/extensions/stress/NvBlastExtStressSolver.h",
-        "sha256": "1d6d904d858c23952a2f65778b07cbaf43281f6c529180ffe63a938aa203e0d6"
+        "sha256": "1d6d904d858c23952a2f65778b07cbaf43281f6c529180ffe63a938aa203e0d6",
+        "bytes": 41280,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp",
-        "sha256": "ed62e2df05d0bcb06f9b8d7788a6bd88611f85c15c2bf9f2e4fd3d60c62bb640"
+        "sha256": "ed62e2df05d0bcb06f9b8d7788a6bd88611f85c15c2bf9f2e4fd3d60c62bb640",
+        "bytes": 275229,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/blast-stress-solver-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu",
-        "sha256": "1e3f625a21d1694c983c4a18b75a5f56d3f951bb8495ba1ea2bb3c05bf2b2226"
+        "sha256": "1e3f625a21d1694c983c4a18b75a5f56d3f951bb8495ba1ea2bb3c05bf2b2226",
+        "bytes": 326293,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/blast-stress-solver-2/blast/source/shared/stress_solver/simd/simd.h",
+        "sha256": "07e5509a254f41be51317e2a64e6354a071f147c5c3ec3c10b2594197beca258",
+        "bytes": 5930,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/blast-stress-solver-2/demos/blast-stress-demo/GPU_PIPELINE.md",
-        "sha256": "db655eb34135b7ad4a65e700464c080a2a137081fde87d6ed63d6b301b109ba6"
+        "sha256": "db655eb34135b7ad4a65e700464c080a2a137081fde87d6ed63d6b301b109ba6",
+        "bytes": 15736,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh",
-        "sha256": "14231990fb59596a0f63dccc17712496eb264e36a90c3df7262b85800e01b3fc"
+        "sha256": "14231990fb59596a0f63dccc17712496eb264e36a90c3df7262b85800e01b3fc",
+        "bytes": 23209,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
-        "sha256": "d616d8dc811498f6ec5bf187cc48110de7a46367a4d6808f6098da97cd1e08f1"
+        "sha256": "89749945a5ff05f08feabfddeaed54d27952cb79038ebb9dfa0d208a43f9e8d5",
+        "bytes": 11268,
+        "tracked": true,
+        "differs_from_head": true
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressGraphExecution.inl",
-        "sha256": "c3deecd6a1e64a06da0717020048ddee7568c14a891798a49ad42d3fb0efebfb"
+        "sha256": "c3deecd6a1e64a06da0717020048ddee7568c14a891798a49ad42d3fb0efebfb",
+        "bytes": 7616,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressHomogeneousComponents.cuh",
-        "sha256": "886d8fa35b6320e9ca74a69f3f31fda5f102c3c937703d4237db788b76fa8196"
+        "sha256": "886d8fa35b6320e9ca74a69f3f31fda5f102c3c937703d4237db788b76fa8196",
+        "bytes": 3999,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl",
-        "sha256": "ded0cbf0d91ef58fbee20530cfafd9910fb259ea31bbe885ca72caccaf722d8b"
+        "sha256": "ded0cbf0d91ef58fbee20530cfafd9910fb259ea31bbe885ca72caccaf722d8b",
+        "bytes": 18683,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeColoredSweep.cuh",
+        "sha256": "77590c58acc4ba7acf05d4a2ee7d73d24749b3a204529733b62dc183c8bcbc28",
+        "bytes": 2432,
+        "tracked": false,
+        "differs_from_head": true
+      },
+      {
+        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeColors.cuh",
+        "sha256": "f12e7d8538e5ccae10d678edd7fc77710d76ac0a238ad3b1387e47879bcaa622",
+        "bytes": 4174,
+        "tracked": false,
+        "differs_from_head": true
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh",
-        "sha256": "31ec12590ffe5a0306defec6e2c900ac3cab0f25568e278b0ff6b54d68f9c28c"
+        "sha256": "31ec12590ffe5a0306defec6e2c900ac3cab0f25568e278b0ff6b54d68f9c28c",
+        "bytes": 2008,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh",
-        "sha256": "06ca7a31c0e5da32583b1aa162c7f188702286753ddf979890f7be33a95375aa"
+        "sha256": "766f314e1e60fac830120deba394b7dbcb07fb911e98114875eb03fbd4364baf",
+        "bytes": 4908,
+        "tracked": true,
+        "differs_from_head": true
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativeNullspace.cuh",
-        "sha256": "fffe4ad7178211e5524bfe9e7eec7006cb680e2ccaf3a3780bdb490c0513bf00"
-      },
-      {
-        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh",
-        "sha256": "c378cb850076a44c97178e6152b91351c747e88f06f045e0e7b83114e4b23fd1"
-      },
-      {
-        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh",
-        "sha256": "a3a5309df19b4495fbea4bce3d79022d20d909de696ac367fd775164d078c37c"
-      },
-      {
-        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressReliableResidual.cuh",
-        "sha256": "2104ba55f106ece05c7e670eb5f950faf3510c8f4c91de9eb79e49bec9b0990d"
-      },
-      {
-        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressResidentAPI.inl",
-        "sha256": "248d40b5d988277c65719151f2f7b7269021a634df059f98f5f5922a504ef05a"
-      },
-      {
-        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
-        "sha256": "0498943f795acbfd9b36ec45c9395519cab23db1980f908414765095772a9356"
-      },
-      {
-        "path": "/root/workspace/physx-2/demos/blast-stress-demo/native_destruction_main.cpp",
-        "sha256": "4ed8236248d4affc4ae4c148d7fd586b2cd0a3b06352f8bc6daf79db5c23117b"
-      },
-      {
-        "path": "/root/workspace/physx-2/demos/blast-stress-demo/native_gpu_consumer.cpp",
-        "sha256": "79833ceb51684429a804dc55ba859c924599e7a4c6003ce731cd6cb1dd05fa54"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/include/PxSceneDesc.h",
-        "sha256": "2e9ee63b60189b789e2c59b5ce61e519e15cdf77140ce157b39af4d30d46df96"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/gpudestruction/runtime/CMakeLists.txt",
-        "sha256": "16e1198b6c4f5005ac3ad86e911dc6fd3734e64848ba4ea33ba73bfdbdaf25db"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh",
-        "sha256": "413acc34f565366b87dbd4031829ea101b48c26fd7fcb918370dd9491aa70bf4"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionCorrection.cuh",
-        "sha256": "e06a5f02dc72de3c171e8ecfa8e5e61caadab7944f368b34fb7f3b2ba5e7ae17"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionMaterial.cuh",
-        "sha256": "2112fe150dfe0b0b05caab4ede613b803dd1367d5fc6ef53770e0daaa6680c90"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionMotionSlots.cuh",
-        "sha256": "bef12ace1062d58d24a97ae31206fbb20281dbc6e7f1b643b98e98f915896a43"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
-        "sha256": "a0be4477d448b6396486ddd09e0482f6ea71e5c147c7001b414ead601b034dd7"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTopology.cu",
-        "sha256": "68cb50b477adb69cb04cffeb7deb98aa1b6a045078f7900f3b1c7361a3acc89f"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgPreSolveIslands.cuh",
-        "sha256": "f40758e0acb8c196130f39784c4ad86b20208a923597a583f8dcf7cec0c3a9f5"
-      },
-      {
-        "path": "/root/workspace/physx-2/physx/source/simulationcontroller/src/ScScene.cpp",
-        "sha256": "d2b43da445aafe9bed6bf7b6a21b7c6a9ce1b44f4b6f6b92c3407f8b17455e21"
-      },
-      {
-        "path": "/root/workspace/physx-2/qualification/component-work-bombardment-256/report.md",
-        "sha256": "94bdf3b1688bb3e91549917135a11587093d083b49066e842a5d0ae8ff5b0d61"
-      },
-      {
-        "path": "/root/workspace/physx-2/qualification/local-inverse-impacts-256/report.md",
-        "sha256": "eb33a359536fe734fe59ec9cdc349e4523ce8c6d5d221b4379c038ab993902c1"
-      },
-      {
-        "path": "/root/workspace/physx-2/qualification/local-inverse-peak-opportunities/report.md",
-        "sha256": "f58c3828b3ce0c5712370da41f83809ccd702604796965718032d6caca21000d"
-      },
-      {
-        "path": "/root/workspace/physx-2/tools/scripts/run-destruction-component-capture.py",
-        "sha256": "32f10951cf2c1069dd452c4ae79d12eab6565c2df428652e6bcdd73af804d3f5"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/docs/component-hierarchy-2026-09-06.md",
-        "sha256": "2276147a52bc2a89cf6e13948cad028a0fd7b43b913c3a42bcccd3c0e6bafb09"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/docs/direct-gpu-observation-2026-09-05.md",
-        "sha256": "eb34f3796eefe7ff7d5fe529b9a0cfda96335054dd1b666d83778840d1f71084"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/docs/direct-gpu-sleep-2026-09-05.md",
-        "sha256": "e1d29af9b4334ea82ca397b7dfbb30f44b116768a434dc8689b8f4dddbd2d6f1"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/docs/gpu-contact-order-2026-09-05.md",
-        "sha256": "d41bf97f19453369eef4e01ffa4b1480e34138582a5be2587546aeee34bf201b"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/docs/gpu-hierarchy-setup-2026-09-06.md",
-        "sha256": "22efc12ecdc2422af96e48fc11c2b22ed66ea78abc6e0909833991523bf48465"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/docs/gpu-lazy-readback-2026-09-05.md",
-        "sha256": "6136d006918ecfb9b74948a6dc8f5bf45c402ce72caeb1f2f70a92712e72ea6d"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/docs/gpu-rigid-projection-2026-09-06.md",
-        "sha256": "7d249f92335343d4e31e799d39b11b434e7b921d309bd5d56635ad6dd60cfd42"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/docs/simulation-fidelity-contract.md",
-        "sha256": "46a883f1cb18ba33cae960643fba9cfa960ed3e1a2f90da6dc15e9fb2e67c91d"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
-        "sha256": "0ec54474b773e272b954722e86bc15fc3614a4b6f5fbb87857cbee24fbad4be4"
-      },
-      {
-        "path": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
-        "sha256": "8a979048bfb264caa1deea1f3969a7369c7d042bc75ae2c27ddcfa629281cba0"
+        "sha256": "fffe4ad7178211e5524bfe9e7eec7006cb680e2ccaf3a3780bdb490c0513bf00",
+        "bytes": 1030,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh",
-        "sha256": "cf03a9ea81c8760bdc2fe3339db47a18335e3a55796a010545635622d4cde32c"
+        "sha256": "cf03a9ea81c8760bdc2fe3339db47a18335e3a55796a010545635622d4cde32c",
+        "bytes": 2787,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh",
+        "sha256": "f74a79c19acf0ffb895cfa101e8b379cc74c49c70d275d7544e15c8ec7130924",
+        "bytes": 9147,
+        "tracked": true,
+        "differs_from_head": true
+      },
+      {
+        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh",
+        "sha256": "a3a5309df19b4495fbea4bce3d79022d20d909de696ac367fd775164d078c37c",
+        "bytes": 10788,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressReliableResidual.cuh",
+        "sha256": "2104ba55f106ece05c7e670eb5f950faf3510c8f4c91de9eb79e49bec9b0990d",
+        "bytes": 2284,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressResidentAPI.inl",
+        "sha256": "248d40b5d988277c65719151f2f7b7269021a634df059f98f5f5922a504ef05a",
+        "bytes": 6335,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "sha256": "0498943f795acbfd9b36ec45c9395519cab23db1980f908414765095772a9356",
+        "bytes": 10279,
+        "tracked": true,
+        "differs_from_head": false
       },
       {
         "path": "/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressTopologyWarmStart.cuh",
-        "sha256": "badf9dd30e560e6f0c8f5561cb958a7c53a942daad439cdcceca2d1b1ad0c9e8"
+        "sha256": "badf9dd30e560e6f0c8f5561cb958a7c53a942daad439cdcceca2d1b1ad0c9e8",
+        "bytes": 1541,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/demos/blast-stress-demo/native_destruction_main.cpp",
+        "sha256": "4ed8236248d4affc4ae4c148d7fd586b2cd0a3b06352f8bc6daf79db5c23117b",
+        "bytes": 42493,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/demos/blast-stress-demo/native_gpu_consumer.cpp",
+        "sha256": "79833ceb51684429a804dc55ba859c924599e7a4c6003ce731cd6cb1dd05fa54",
+        "bytes": 17904,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/include/PxSceneDesc.h",
+        "sha256": "2e9ee63b60189b789e2c59b5ce61e519e15cdf77140ce157b39af4d30d46df96",
+        "bytes": 44962,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/gpudestruction/runtime/CMakeLists.txt",
+        "sha256": "16e1198b6c4f5005ac3ad86e911dc6fd3734e64848ba4ea33ba73bfdbdaf25db",
+        "bytes": 3832,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh",
+        "sha256": "413acc34f565366b87dbd4031829ea101b48c26fd7fcb918370dd9491aa70bf4",
+        "bytes": 9307,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionCorrection.cuh",
+        "sha256": "e06a5f02dc72de3c171e8ecfa8e5e61caadab7944f368b34fb7f3b2ba5e7ae17",
+        "bytes": 8171,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionMaterial.cuh",
+        "sha256": "2112fe150dfe0b0b05caab4ede613b803dd1367d5fc6ef53770e0daaa6680c90",
+        "bytes": 5736,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionMotionSlots.cuh",
+        "sha256": "bef12ace1062d58d24a97ae31206fbb20281dbc6e7f1b643b98e98f915896a43",
+        "bytes": 2290,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "sha256": "a0be4477d448b6396486ddd09e0482f6ea71e5c147c7001b414ead601b034dd7",
+        "bytes": 118024,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTopology.cu",
+        "sha256": "68cb50b477adb69cb04cffeb7deb98aa1b6a045078f7900f3b1c7361a3acc89f",
+        "bytes": 19182,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/gpudestruction/src/PxgPreSolveIslands.cuh",
+        "sha256": "f40758e0acb8c196130f39784c4ad86b20208a923597a583f8dcf7cec0c3a9f5",
+        "bytes": 5155,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/physx/source/simulationcontroller/src/ScScene.cpp",
+        "sha256": "d2b43da445aafe9bed6bf7b6a21b7c6a9ce1b44f4b6f6b92c3407f8b17455e21",
+        "bytes": 140833,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/qualification/component-work-bombardment-256/report.md",
+        "sha256": "94bdf3b1688bb3e91549917135a11587093d083b49066e842a5d0ae8ff5b0d61",
+        "bytes": 5194,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/qualification/local-inverse-impacts-256/report.md",
+        "sha256": "eb33a359536fe734fe59ec9cdc349e4523ce8c6d5d221b4379c038ab993902c1",
+        "bytes": 23105,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/qualification/local-inverse-peak-opportunities/report.md",
+        "sha256": "f58c3828b3ce0c5712370da41f83809ccd702604796965718032d6caca21000d",
+        "bytes": 6134,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/physx-2/tools/scripts/run-destruction-component-capture.py",
+        "sha256": "32f10951cf2c1069dd452c4ae79d12eab6565c2df428652e6bcdd73af804d3f5",
+        "bytes": 5996,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/docs/component-hierarchy-2026-09-06.md",
+        "sha256": "2276147a52bc2a89cf6e13948cad028a0fd7b43b913c3a42bcccd3c0e6bafb09",
+        "bytes": 8361,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/docs/direct-gpu-observation-2026-09-05.md",
+        "sha256": "eb34f3796eefe7ff7d5fe529b9a0cfda96335054dd1b666d83778840d1f71084",
+        "bytes": 9211,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/docs/direct-gpu-sleep-2026-09-05.md",
+        "sha256": "e1d29af9b4334ea82ca397b7dfbb30f44b116768a434dc8689b8f4dddbd2d6f1",
+        "bytes": 11062,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/docs/gpu-contact-order-2026-09-05.md",
+        "sha256": "d41bf97f19453369eef4e01ffa4b1480e34138582a5be2587546aeee34bf201b",
+        "bytes": 7876,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/docs/gpu-hierarchy-setup-2026-09-06.md",
+        "sha256": "22efc12ecdc2422af96e48fc11c2b22ed66ea78abc6e0909833991523bf48465",
+        "bytes": 9554,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/docs/gpu-lazy-readback-2026-09-05.md",
+        "sha256": "6136d006918ecfb9b74948a6dc8f5bf45c402ce72caeb1f2f70a92712e72ea6d",
+        "bytes": 8938,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/docs/gpu-rigid-projection-2026-09-06.md",
+        "sha256": "7d249f92335343d4e31e799d39b11b434e7b921d309bd5d56635ad6dd60cfd42",
+        "bytes": 10362,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/docs/simulation-fidelity-contract.md",
+        "sha256": "46a883f1cb18ba33cae960643fba9cfa960ed3e1a2f90da6dc15e9fb2e67c91d",
+        "bytes": 5454,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/physx-bridge/src/destruction.cc",
+        "sha256": "0ec54474b773e272b954722e86bc15fc3614a4b6f5fbb87857cbee24fbad4be4",
+        "bytes": 191318,
+        "tracked": true,
+        "differs_from_head": false
+      },
+      {
+        "path": "/root/workspace/vibe-land-4/physx-bridge/src/physx_bridge.cc",
+        "sha256": "8a979048bfb264caa1deea1f3969a7369c7d042bc75ae2c27ddcfa629281cba0",
+        "bytes": 165304,
+        "tracked": true,
+        "differs_from_head": false
       }
-    ]
+    ],
+    "runtime": {
+      "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+      "sha256": "481eab6a7fca0d8c22aef03152bd685d84cdbe7369e7ffa3e0e9846de45b43f4",
+      "source_experiment_qualified": false
+    },
+    "source_snapshot_hashes_unchanged": true
   }
 }
