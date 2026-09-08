@@ -256,6 +256,7 @@
         const unsigned blocks=m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks*8u,islandBlocks),unsigned(blocksPerSm*sms));
         ResidentStressComponentView components{};
         if(m_deviceTopology) {
+            initializeNativeWarmResidual<<<nodeBlocks,kBlockSize,0,m_stream>>>(args);
             components=m_deviceTopology->components();
             // The device list controls the live work; a bounded persistent
             // grid distributes independent components without a host count.

@@ -1,0 +1,78 @@
+{
+  "runtime_sha256": {
+    "baseline": "1fb2da375e8323de3301fc2dabf06d804ffe7915c774b583de106ab1e97e7dfb",
+    "candidate": "acae077756672825e93240d12ff4c32114a563610e226ec49b0430e0134cc172"
+  },
+  "commands": [
+    {
+      "name": "analytic",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "wall-driver",
+      "command": [
+        "python3",
+        "tools/scripts/run-destruction-penetration-regression.py",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-warm-residual/wall",
+        "--expected-runtime",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/warm-residual/libPhysXDestructionGpuRuntime_64.so"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "candidate-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-warm-residual/candidate-idle",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "candidate-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-warm-residual/candidate-shots",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json",
+        "/root/workspace/physx-2/out/vibe-idle-fix-20260908/downtown-commands.json"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "scale-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-warm-residual/scale-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "scale-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-warm-residual/scale-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    }
+  ]
+}

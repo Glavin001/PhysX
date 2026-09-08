@@ -140,6 +140,11 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
         }
         const std::uint32_t other = isSecond ? node0[bond] : node1[bond];
         const Inertia otherInv = inertia[other];
+        // Norm-only passes need the canonical endpoint's contribution once.
+        // Reject the duplicate before loading motion/offsets or forming the
+        // bond response. Matrix-vector passes still require both endpoints.
+        const bool owns = !isSecond || (otherInv.angular == 0.0f && otherInv.linear == 0.0f);
+        if (!w && !owns) continue;
         const AngLin otherRho = rho[other];
         const Vec4 otherAng = mul(otherRho.angular, otherInv.angular);
         const Vec4 otherLin = mul(otherRho.linear, otherInv.linear);
@@ -167,9 +172,6 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
 
         // Own the bond from the node-0 side, or from the dynamic side when
         // node 0 is static (that side never runs). Exactly once, either way.
-        const bool node0Dynamic =
-            !(inertia[node0[bond]].angular == 0.0f && inertia[node0[bond]].linear == 0.0f);
-        const bool owns = isSecond ? !node0Dynamic : true;
         if (owns)
         {
             // ||s_j t_j||^2 == |s_j^2 t_j|^2 / s_j^2

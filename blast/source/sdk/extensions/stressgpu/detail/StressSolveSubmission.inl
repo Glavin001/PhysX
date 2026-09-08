@@ -61,7 +61,13 @@
         // pulverizes" (3726 bonds vs a <=2028 band), T2 bodies (1087 vs <=707)
         // and T4 awake-declined (0.42 vs <=0.10). So the graph has to tolerate
         // the flip instead.
-        if (warmStart || stableGraphEnabled())
+        // Native solving initializes directly with its accurate verification
+        // operator after reset. Avoid the adapter's FP32 multiply/subtract pair.
+        bool nativeResidual = false;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        nativeResidual = m_deviceTopology != nullptr;
+#endif
+        if (!nativeResidual && (warmStart || stableGraphEnabled()))
         {
             rightMultiply(m_stream, m_impulses, m_projectedDirection, islandSkip);
             m_kernelProfile.begin("subtractResidual", m_stream);

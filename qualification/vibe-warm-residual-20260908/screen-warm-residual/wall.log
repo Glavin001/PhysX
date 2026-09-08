@@ -1,0 +1,10 @@
+native t=0.0 chunks=444 bonds=896 clusters=1 shots=1 broken=0 corrections=0 step=6.71ms
+native t=1.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=8.22ms
+native t=2.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=8.44ms
+native t=3.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=6.73ms
+native t=4.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=6.20ms
+native t=5.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=6.12ms
+native t=6.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=5.95ms
+native t=7.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=6.21ms
+native t=8.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=6.48ms
+native t=9.0 chunks=444 bonds=896 clusters=43 shots=1 broken=199 corrections=3 step=6.62ms

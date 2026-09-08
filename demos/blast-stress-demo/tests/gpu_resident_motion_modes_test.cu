@@ -190,6 +190,7 @@ void run(Fixture f,bool transitions){
 }
 }
 #include "native_warm_range_test.cuh"
+#include "native_warm_residual_test.cuh"
 #include "native_fine_inverse_test.cuh"
 #include "native_rigid_inverse_test.cuh"
 #include "native_polynomial_test.cuh"
@@ -208,6 +209,7 @@ int main(int argc,char** argv){try{
     firstDirectionWithoutHistory();
     cooperativeRetirement();
     warmRangeLifecycle();
+    accurateWarmResidual();
     topologyWarmInvalidation();
     inverseTopologyLifetime();
     run(Fixture(0),false);run(Fixture(1),false);

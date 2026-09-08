@@ -1,3 +1,7 @@
+## 2026-09-08: accurate warm initialization removes false idle work
+
+See [qualified short screen](../../qualification/vibe-warm-residual-20260908/implementation.md). Native warm starts now initialize with the existing FP64 true-residual operator, removing the adapter FP32 multiply/subtract pair. Native numerical, cancellation, ordinary lifecycle and exact frozen wall checks pass. Downtown pristine-idle mean improves 2.469 → 1.000 ms (27 buildings, 24,105 chunks, 74,543 bonds, 600 steps), with startup still 209.173 ms. The 256-building / 113,664-chunk / 229,376-bond / 768-shot screen does not establish a destruction peak gain (142.666 ms loaded peak versus 140.393 ms deployed). No tolerance or per-frame convergence change. General solved-state reuse remains absent.
+
 # Performance findings and experiment memory
 
 ## 2026-09-08 21:00 UTC: coarse self-response cache and deployed downtown gain
