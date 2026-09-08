@@ -19,6 +19,8 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <set>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -35,9 +37,12 @@ using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
     const auto initializationBegin=Clock::now();
+    bool standardScene=false,standardSleeping=true;
     unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
+        else if(flag=="--sleeping"){require(std::string(value)=="0" || std::string(value)=="1","--sleeping requires 0 or 1");standardSleeping=std::string(value)=="1";}
+        else if(flag=="--standard-scene"){require(std::string(value)=="0" || std::string(value)=="1","--standard-scene requires 0 or 1");standardScene=std::string(value)=="1";}
         else if(flag=="--gpu-trace-buffer-mb"){gpuTraceBufferMiB=std::stoul(value);require(gpuTraceBufferMiB>=16 && gpuTraceBufferMiB<=4096,"GPU trace buffer must be 16..4096 MiB");}
         else if(flag=="--gpu-connectivity-owner"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-connectivity-owner requires 0 or 1");deviceConnectivity=std::string(value)=="1";}
         else if(flag=="--color-by-cluster"){require(std::string(value)=="0" || std::string(value)=="1","--color-by-cluster requires 0 or 1");colorByCluster=std::string(value)=="1";}
@@ -78,6 +83,7 @@ int run(int argc,char** argv){
     require(workload=="idle" || workload=="single-impact" || workload=="bombardment","unknown workload");
     require(freeBodies<=100000 && (!freeBodies || workload=="idle"),"--free-bodies supports up to 100000 separated bodies in idle workload");
     require(launchSeconds==-1 || (std::isfinite(launchSeconds) && launchSeconds>=0),"invalid launch window");
+    require(!standardScene || !standardSleeping || !deviceConnectivity,"ordinary sleeping requires the GPU-repaired native sleep membership; use --gpu-connectivity-owner 0");
     require(!std::filesystem::exists(output),"capture output already exists");std::filesystem::create_directories(output);
     const unsigned buildings=grid*grid,frames=unsigned(std::lround(seconds*60));const float dt=1.0f/60;
     const unsigned recordStride=60/recordFps,recordFrames=(frames+recordStride-1)/recordStride;
@@ -91,7 +97,7 @@ int run(int argc,char** argv){
     capacity.maxContactPairs=std::max(65536u,capacity.maxShapes*16);
     NativeGpuActivity gpuActivity(profileGpu?output:"",uint64_t(gpuTraceBufferMiB)*1024*1024);
     NativePhaseProfiler phaseProfiler(profilePhases?output+"/native.phases.csv":"");
-    PhysXScene context(PhysicsMode::Gpu,true,capacity,nullptr,true,true,false,false);
+    PhysXScene context(PhysicsMode::Gpu,true,capacity,nullptr,!standardScene,!standardScene || !standardSleeping,false,false);
     auto& physics=context.physics();auto& scene=context.scene();auto& cuda=*context.cudaContextManager();
     require(context.gpuActive(),"native GPU physics is required");
     setNativeGraphAudit(scene,auditIslands);
@@ -140,7 +146,8 @@ int run(int argc,char** argv){
         actor->setLinearVelocity(PxVec3(.1f,0,0));scene.addActor(*actor);freeActors.push_back(actor);
     }
     scene.simulate(dt);require(scene.fetchResults(true),"native setup step failed");
-    for(unsigned i=0;i<chunks.size();++i)nodes[i].contactIndex=scene.getDirectGPUAPI().getShapeContactIndex(*chunks[i].shape);
+    auto* destruction=scene.getDestructionScene();require(destruction,"native destruction unavailable");
+    for(unsigned i=0;i<chunks.size();++i)nodes[i].contactIndex=destruction->getShapeContactIndex(*chunks[i].shape);
     for(unsigned i=0;i<parents.size();++i)clusters[i].body=parents[i]->getGPUIndex();
     PxDestructionMaterial material;material.compressionElasticLimit=250000;material.compressionFatalLimit=500000;
     material.tensionElasticLimit=30000;material.tensionFatalLimit=60000;material.shearElasticLimit=80000;material.shearFatalLimit=160000;
@@ -154,7 +161,7 @@ int run(int argc,char** argv){
     PxDestructionStressDesc desc;desc.chunks=nodes.data();desc.chunkCount=unsigned(nodes.size());desc.chunkMassProperties=properties.data();
     desc.clusters=clusters.data();desc.clusterCount=unsigned(clusters.size());desc.bonds=bonds.data();desc.bondCount=unsigned(bonds.size());
     desc.materials=materials;desc.materialCount=frameStrength>1?2:1;desc.maxIterations=stressIterations;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=preservePairs;desc.gpuIslandRepair=gpuIslandRepair;
-    auto* destruction=scene.getDestructionScene();require(destruction && destruction->configureStress(desc),"native destruction configuration failed");
+    require(destruction->configureStress(desc),"native destruction configuration failed");
     const PxVec3 center(float(grid-1)*8,4,float(grid-1)*8);std::array<Camera,4> cameras;
     for(unsigned i=0;i<4;++i){const float angle=float(i)*1.5707963f+.6f;cameras[i].eye=center+PxVec3(std::cos(angle)*float(grid)*24,float(grid)*13,std::sin(angle)*float(grid)*24);cameras[i].direction=(center-cameras[i].eye).getNormalized();}
     require(videoPath.empty() || gpuRender,"--gpu-video requires --gpu-render 1");
@@ -177,7 +184,8 @@ int run(int argc,char** argv){
         gpuView.direction=(focus-gpuView.eye).getNormalized();gpuView.fovDegrees=40;
     }
     require(!traceMotion || (gpuRender && auditMotion && recordFps==60),"motion trace requires GPU rendering, motion audit and 60 fps observation");
-    std::ofstream motionTrace;
+    std::ofstream motionTrace,bodyTrace;
+    if(traceMotion){bodyTrace.open(output+"/native.body-words.csv");bodyTrace<<"step,body";for(unsigned i=0;i<sizeof(PxgBodySim)/4;++i)bodyTrace<<",word"<<i;bodyTrace<<"\n";}
     if(traceMotion) {
         motionTrace.open(motionPath);require(bool(motionTrace),"motion trace creation failed");motionTrace<<std::setprecision(9);
         motionTrace<<"step,chunk,root,slot,generation,body,cluster_chunks,supported,render_x,render_y,render_z,physics_x,physics_y,physics_z,com_x,com_y,com_z,vx,vy,vz,wx,wy,wz,origin_x,origin_y,origin_z,qx,qy,qz,qw,local_x,local_y,local_z,com_local_x,com_local_y,com_local_z,correction\n";
@@ -266,7 +274,7 @@ int run(int argc,char** argv){
             VisualActor visual;visual.shape=VisualActor::Shape::Sphere;visual.parameters=PxVec3(.75f,0,0);visual.part=5;
             if(recordState)require(writer.defineActor(shots[id].visual,visual),"projectile visual definition failed");
         }
-        gpuConsumer.update(scene.getDirectGPUAPI());
+        gpuConsumer.update();
         const auto renderStart=Clock::now();
         std::vector<NativeGpuInstance> rendered;
         if(gpuRender && frame%recordStride==0)gpuConsumer.render(traceMotion?&rendered:nullptr);
@@ -277,7 +285,7 @@ int run(int argc,char** argv){
             read(membership,view.acceptedTopology.chunkCluster,chunks.size());read(slots,view.acceptedTopology.clusterSlots,chunks.size());read(motions,view.acceptedTopology.motions,view.acceptedTopology.slotCapacity);
             shotIds.clear();for(const auto& shot:shots)shotIds.push_back(shot.actor->getGPUIndex());shotPoses.resize(shots.size());
             if(!shots.empty()){check(cuMemcpyHtoD(deviceIds,shotIds.data(),shotIds.size()*sizeof(PxU32)));check(cuEventRecord(observationIdsReady,nullptr));
-                require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(shots.size()),observationIdsReady),"projectile observation failed");
+                require(destruction->readRigidBodyData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(shots.size()),observationIdsReady),"projectile observation failed");
                 check(cuCtxSynchronize());check(cuMemcpyDtoH(shotPoses.data(),devicePoses,shotPoses.size()*sizeof(PxTransform)));}}
         poses.clear();poses.reserve(chunks.size()+shots.size());observedChunkTop=0;
         for(unsigned i=0;i<chunks.size();++i){require(membership[i]<slots.size() && slots[membership[i]]<motions.size(),"invalid committed chunk membership");const auto& motion=motions[slots[membership[i]]];
@@ -292,7 +300,7 @@ int run(int argc,char** argv){
             std::vector<PxU32> owners;std::vector<PxTransform> physical(chunks.size());owners.reserve(chunks.size());
             for(const auto& chunk:chunks){const auto* owner=chunk.shape->getActor()->is<PxRigidDynamic>();require(owner,"chunk has no rigid owner");owners.push_back(owner->getGPUIndex());}
             {PxScopedCudaLock lock(cuda);check(cuMemcpyHtoD(deviceIds,owners.data(),owners.size()*sizeof(PxU32)));check(cuEventRecord(observationIdsReady,nullptr));
-                require(scene.getDirectGPUAPI().getRigidDynamicData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(owners.size()),observationIdsReady),"physical chunk pose audit failed");
+                require(destruction->readRigidBodyData(reinterpret_cast<void*>(devicePoses),reinterpret_cast<const PxU32*>(deviceIds),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,unsigned(owners.size()),observationIdsReady),"physical chunk pose audit failed");
                 check(cuCtxSynchronize());check(cuMemcpyDtoH(physical.data(),devicePoses,physical.size()*sizeof(PxTransform)));poseReadbackBytes+=physical.size()*sizeof(PxTransform);}
             std::vector<PxgBodySim> nativeBodies;std::vector<PxDestructionClusterMassProperties> clusterMass;
             std::vector<PxU64> generations;
@@ -300,6 +308,10 @@ int run(int argc,char** argv){
                 auto* core=static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getSimulationCore();
                 const auto count=*std::max_element(owners.begin(),owners.end())+1;
                 PxScopedCudaLock lock(cuda);read(nativeBodies,core->getBodySimBufferDevicePtr().getPointer(),count);
+                for(auto id:std::set<PxU32>(owners.begin(),owners.end())) {
+                    PxU32 words[sizeof(PxgBodySim)/4];std::memcpy(words,&nativeBodies[id],sizeof(words));
+                    bodyTrace<<frame<<','<<id;for(auto word:words)bodyTrace<<','<<word;bodyTrace<<'\n';
+                }
                 read(clusterMass,view.acceptedTopology.clusters,chunks.size());read(generations,view.acceptedTopology.slotGenerations,view.acceptedTopology.slotCapacity);
                 motionTraceReadbackBytes+=nativeBodies.size()*sizeof(PxgBodySim)+clusterMass.size()*sizeof(PxDestructionClusterMassProperties)+generations.size()*sizeof(PxU64)+rendered.size()*sizeof(NativeGpuInstance);
             }
@@ -359,7 +371,7 @@ int run(int argc,char** argv){
     require(context.healthy(),"native demo GPU health failed");
     std::ofstream manifest(output+"/native.summary.json");
     manifest<<std::setprecision(17);
-    manifest<<"{\n  \"complete_timer_schema\": 1,\n  \"phase_output_outside_complete_timer\": true,\n  \"phase_output_timing_schema\": 1,\n  \"complete_step_ms_max\": "<<completeMaximum<<",\n  \"complete_step_ms_mean\": "<<completeSum/frames<<",\n  \"missed_8ms\": "<<completeDeadlines<<",\n  \"initialization_ms\": "<<initializationMs<<",\n  \"frame_strength_scale\": "<<frameStrength<<",\n  \"layout\": \""<<layout<<"\",\n  \"shot_path\": \""<<shotPath<<"\",\n  \"material_strength_scale\": "<<materialStrength<<",\n  \"color_by_cluster\": "<<(colorByCluster?"true":"false")<<",\n  \"projectile_mass_kg\": "<<projectileMass<<",\n  \"motion_trace_enabled\": "<<(traceMotion?"true":"false")<<",\n  \"motion_trace_readback_bytes\": "<<motionTraceReadbackBytes<<",\n  \"max_cluster_com_error\": "<<maxComError<<",\n  \"gpu_connectivity_owner\": "<<(deviceConnectivity?"true":"false")<<",\n  \"workload\": \""<<workload<<"\",\n  \"profile_gpu\": "<<(profileGpu?"true":"false")<<",\n  \"free_bodies\": "<<freeBodies<<",\n  \"launch_seconds\": "<<launchWindow<<",\n  \"physics_ms_min\": "<<times.front()<<",\n  \"physics_ms_mean\": "<<sumStep/frames<<",\n  \"simulation_realtime_fraction\": "<<seconds*1000/sumStep<<",\n  \"gpu_render_submit_and_export_ms_mean\": "<<(gpuConsumer.renderedFrames()?sumRender/gpuConsumer.renderedFrames():0)<<",\n  \"gpu_render_submit_and_export_ms_max\": "<<maxRender<<",\n  \"stress_stats_readback_bytes\": "<<frames*sizeof(PxDestructionStressTopologyStatus)<<",\n  \"topology_stats_readback_bytes\": "<<frames*sizeof(PxDestructionTopologyStatus)<<",\n  \"gpu_rendered_frames\": "<<gpuConsumer.renderedFrames()<<",\n  \"gpu_renderer\": \""<<gpuConsumer.rendererName()<<"\",\n  \"consumer_pose_readback_bytes\": "<<poseReadbackBytes<<",\n  \"consumer_query_readback_bytes\": "<<gpuConsumer.queryReadbackBytes()<<",\n  \"export_pixel_readback_bytes\": "<<gpuConsumer.pixelReadbackBytes()<<",\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \""<<(shotPath=="aerial"?"gpu-clear-aerial-ballistic-v3":"gpu-clear-through-wall-ballistic-v1")<<"\",\n  \"island_boundary_audit_enabled\": "<<(auditIslands?"true":"false")<<",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"gpu_island_repair\": "<<(gpuIslandRepair?"true":"false")<<",\n  \"gpu_pre_solve_islands\": "<<(preSolveIslands?"true":"false")<<",\n  \"gpu_pre_solve_support\": "<<(preSolveSupport?"true":"false")<<",\n  \"gpu_pre_solve_contacts\": "<<(preSolveContacts?"true":"false")<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": false,\n  \"crushing_material_enabled\": false\n}\n";
+    manifest<<"{\n  \"complete_timer_schema\": 1,\n  \"phase_output_outside_complete_timer\": true,\n  \"phase_output_timing_schema\": 1,\n  \"complete_step_ms_max\": "<<completeMaximum<<",\n  \"complete_step_ms_mean\": "<<completeSum/frames<<",\n  \"missed_8ms\": "<<completeDeadlines<<",\n  \"initialization_ms\": "<<initializationMs<<",\n  \"frame_strength_scale\": "<<frameStrength<<",\n  \"layout\": \""<<layout<<"\",\n  \"shot_path\": \""<<shotPath<<"\",\n  \"material_strength_scale\": "<<materialStrength<<",\n  \"color_by_cluster\": "<<(colorByCluster?"true":"false")<<",\n  \"projectile_mass_kg\": "<<projectileMass<<",\n  \"motion_trace_enabled\": "<<(traceMotion?"true":"false")<<",\n  \"motion_trace_readback_bytes\": "<<motionTraceReadbackBytes<<",\n  \"max_cluster_com_error\": "<<maxComError<<",\n  \"gpu_connectivity_owner\": "<<(deviceConnectivity?"true":"false")<<",\n  \"workload\": \""<<workload<<"\",\n  \"profile_gpu\": "<<(profileGpu?"true":"false")<<",\n  \"free_bodies\": "<<freeBodies<<",\n  \"launch_seconds\": "<<launchWindow<<",\n  \"physics_ms_min\": "<<times.front()<<",\n  \"physics_ms_mean\": "<<sumStep/frames<<",\n  \"simulation_realtime_fraction\": "<<seconds*1000/sumStep<<",\n  \"gpu_render_submit_and_export_ms_mean\": "<<(gpuConsumer.renderedFrames()?sumRender/gpuConsumer.renderedFrames():0)<<",\n  \"gpu_render_submit_and_export_ms_max\": "<<maxRender<<",\n  \"stress_stats_readback_bytes\": "<<frames*sizeof(PxDestructionStressTopologyStatus)<<",\n  \"topology_stats_readback_bytes\": "<<frames*sizeof(PxDestructionTopologyStatus)<<",\n  \"gpu_rendered_frames\": "<<gpuConsumer.renderedFrames()<<",\n  \"gpu_renderer\": \""<<gpuConsumer.rendererName()<<"\",\n  \"consumer_pose_readback_bytes\": "<<poseReadbackBytes<<",\n  \"consumer_query_readback_bytes\": "<<gpuConsumer.queryReadbackBytes()<<",\n  \"export_pixel_readback_bytes\": "<<gpuConsumer.pixelReadbackBytes()<<",\n  \"backend\": \"native PhysX GPU task graph + resident CUDA destruction\",\n  \"status\": \"completed\",\n  \"frames\": "<<frames<<",\n  \"seconds\": "<<seconds<<",\n  \"buildings\": "<<buildings<<",\n  \"chunks\": "<<chunks.size()<<",\n  \"bonds\": "<<bonds.size()<<",\n  \"peak_clusters\": "<<peakClusters<<",\n  \"projectiles\": "<<shots.size()<<",\n  \"broken_bonds\": "<<totalBroken<<",\n  \"corrections\": "<<totalCorrections<<",\n  \"spawn_protocol\": \""<<(shotPath=="aerial"?"gpu-clear-aerial-ballistic-v3":"gpu-clear-through-wall-ballistic-v1")<<"\",\n  \"island_boundary_audit_enabled\": "<<(auditIslands?"true":"false")<<",\n  \"motion_audit_enabled\": "<<(auditMotion?"true":"false")<<",\n  \"max_motion_position_error\": "<<maxMotionError<<",\n  \"record_fps\": "<<recordFps<<",\n  \"gpu_island_repair\": "<<(gpuIslandRepair?"true":"false")<<",\n  \"gpu_pre_solve_islands\": "<<(preSolveIslands?"true":"false")<<",\n  \"gpu_pre_solve_support\": "<<(preSolveSupport?"true":"false")<<",\n  \"gpu_pre_solve_contacts\": "<<(preSolveContacts?"true":"false")<<",\n  \"preserve_contact_pairs\": "<<(preservePairs?"true":"false")<<",\n  \"recorded_state\": "<<(recordState?"true":"false")<<",\n  \"correction_limit\": 1,\n  \"physics_ms_p50\": "<<percentile(.5)<<",\n  \"physics_ms_p95\": "<<percentile(.95)<<",\n  \"physics_ms_p99\": "<<percentile(.99)<<",\n  \"physics_ms_max\": "<<maxStep<<",\n  \"missed_16_67ms\": "<<deadlines<<",\n  \"stress_included_in_physics_time\": true,\n  \"isolated_performance_qualification\": false,\n  \"sleeping\": "<<(standardScene && standardSleeping?"true":"false")<<",\n  \"direct_gpu_mode\": "<<(standardScene?"false":"true")<<",\n  \"crushing_material_enabled\": false\n}\n";
     return 0;
 }
 }

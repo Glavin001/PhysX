@@ -1,0 +1,8 @@
+========= COMPUTE-SANITIZER
+sleep boundary fracture=0 asleep=1 wake=0 velocityY=0
+sleep boundary fracture=1 asleep=1 wake=0 velocityY=0
+split step=6 asleep=0 wake=0.433333 fragment=(0.14317,3.00488,0.000105922) velocity=(5.66958,-0.031877,-0.00584592) shot=(5.59999,-0.222228,0.0041698)
+settled: fragment asleep=1 wake=0 velocity=0 rest asleep=1 wake=0 shot asleep=0 wake=0.333333 velocity=0.198339
+standard scene sleeping=1 passed: 2 chunks, 1 bond, 1 projectiles, 1 resting control, corrections=0
+standard scene sleeping=1 passed: 2 chunks, 1 bond, 1 projectiles, 1 resting control, corrections=1
+========= ERROR SUMMARY: 0 errors

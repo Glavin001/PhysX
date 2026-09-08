@@ -295,7 +295,8 @@ void BodySim::addSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 
 void BodySim::setSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 {
-    if(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+    if((mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS) || (!(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mScene.getSimulationController()->usesDeviceDestructionContactInputs()))
     {
         const PxU32 flags = (linAcc ? PxsRigidBody::eHOST_CLEAR_FORCE_GPU : 0)
             | (angAcc ? PxsRigidBody::eHOST_CLEAR_TORQUE_GPU : 0);
@@ -315,7 +316,8 @@ void BodySim::setSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 
 void BodySim::clearSpatialAcceleration(bool force, bool torque)
 {
-    if(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+    if((mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS) || (!(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mScene.getSimulationController()->usesDeviceDestructionContactInputs()))
     {
         if(!mSimStateData) setupSimStateData(false);
         const PxU32 flags = (force ? PxsRigidBody::eHOST_CLEAR_FORCE_GPU : 0)
@@ -721,7 +723,8 @@ bool BodySim::updateForces(PxReal dt, PxsRigidBody** updatedBodySims, PxU32* upd
 			angVelDt += velmod->getAngularVelModPerSec()*dt;
 		}
 
-        if(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+        if((mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS) || (!(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mScene.getSimulationController()->usesDeviceDestructionContactInputs()))
         {
             PX_ASSERT(externalAccelerations);
             // Preserve native integration ordering and rounding: these values

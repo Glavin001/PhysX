@@ -2235,7 +2235,7 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 		mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
 		mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
 	}
-	else
+    if(mGpuContext->getEnableDirectGPUAPI() || mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs())
 	{
 		//reset the changes in case they were made through cpu api and were already copied over
 		PxgBoundsArray& directGPUBoundsArray = static_cast<PxgBoundsArray&>(boundArray);
@@ -2314,7 +2314,9 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 #endif
 		}
 	};
-    if(!mGpuContext->getEnableDirectGPUAPI()) updateVelocities();
+    const bool residentDestruction=!mGpuContext->getEnableDirectGPUAPI()
+        && mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs();
+    if(!mGpuContext->getEnableDirectGPUAPI() && !residentDestruction) updateVelocities();
 
 	{
 		if (nbNewBodies > 0)
@@ -2328,7 +2330,7 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 			CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::UPDATE_BODIES);
 			// if direct GPU API is enabled, we must not write stale transform data to the GPU which the DIRECT_API kernel version implements
 			// this kernel will still write the full data in the first step - we check that inside the kernel. Otherwise this would not work with the immutability of the direct-GPU flag.
-			if(mGpuContext->getEnableDirectGPUAPI()) // AD: switch to initialization check as soon as possible, for now let's stay on the safe side.
+			if(mGpuContext->getEnableDirectGPUAPI() || residentDestruction) // AD: switch to initialization check as soon as possible, for now let's stay on the safe side.
 			{
 				kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::UPDATE_BODIES_DIRECT_API);
 			}
@@ -2345,7 +2347,7 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 #endif
 		}
 	}
-    if(mGpuContext->getEnableDirectGPUHostAccess()) updateVelocities();
+    if(mGpuContext->getEnableDirectGPUHostAccess() || residentDestruction) updateVelocities();
 }
 
 void PxgSimulationCore::updateArticulations(const PxU32 nbNewArticulations, PxgArticulationSimUpdate* updates, 
@@ -3220,8 +3222,6 @@ bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRig
     Cm::PinnableArray<PxU32>& indices = mPxgShapeSimManager.prepareGpuBoundsRefresh();
     const auto& ownership=mGpuContext->mGpuNpCore->mGpuShapesManager;
     const PxU32 count=allRigidShapes ? PxU32(ownership.mMaxTransformCacheID+1) : indices.size();
-    if(!count){indices.clear();return true;}
-
     // Shape insertion may grow NP before the end-of-step Direct GPU descriptor
     // reset. Preserve pending command flags while extending this shared buffer;
     // resetting its prefix would lose ordinary actors' broad-phase updates.
@@ -3239,6 +3239,10 @@ bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRig
         if(mCudaContext->memcpyHtoDAsync(mUpdatedActorDescBuffer.getDevicePtr()+PX_OFFSET_OF(PxgUpdateActorDataDesc,mUpdated),
             &descriptor.mUpdated,sizeof(descriptor.mUpdated),mStream)!=CUDA_SUCCESS)return false;
     }
+
+    // Native sleep setters also need this persistent update bitmap, even when
+    // no shape migrated. Allocating it must not read uninitialized motion slots.
+    if(!count){indices.clear();return true;}
 
     // Shape metadata was uploaded on the simulation stream. Geometry/cache
     // allocation and merges precede this call on NP's stream. Read only the

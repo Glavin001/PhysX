@@ -997,7 +997,8 @@ namespace physx
 		const PxU32 boundsArraySize = numBounds * sizeof(PxBounds3);
 		PxU32 totalTransformCacheSize = transformCache.getTotalSize();
 
-		if(mDynamicContext->getEnableDirectGPUAPI())
+        const bool resident=usesDeviceDestructionContactInputs();
+		if(mDynamicContext->getEnableDirectGPUAPI() || resident)
 		{
 			PxgBoundsArray& directGPUBoundsArray = static_cast<PxgBoundsArray&>(boundsArray);
 			const PxU32 numChanges = directGPUBoundsArray.getNumberOfChanges();
@@ -1019,8 +1020,10 @@ namespace physx
 												totalTransformCacheSize, numChanges, updatedActorDescd, npStream);
 			}
 		}
-		else
-		{
+        else
+        {
+            auto& tracked=static_cast<PxgBoundsArray&>(boundsArray);
+            if(tracked.isChangeTrackingEnabled())tracked.disableChangeTracking();
 			copyBoundsAndTransforms(boundsArray, transformCache, gpuTransformCache, boundsArraySize, totalTransformCacheSize,
 											   npStream);
 		}
@@ -1121,6 +1124,7 @@ namespace physx
         // allocation. The existing NP -> articulation -> BP event chain orders
         // reads on ordinary and corrected passes alike.
         const bool nativeGroups=mDestruction && mDestruction->configured();
+        const bool initializeNativeAccess=nativeGroups && !mDynamicContext->mEnableDirectGPUAPI && !mNativeShapeAccessInitialized;
         const auto& rigidOwners=npCore->mGpuShapesManager.mGpuShapesRemapTableBuffer;
         static_cast<PxgAABBManager&>(aabbManager).setRigidOwnershipView(
             nativeGroups ? reinterpret_cast<const PxNodeIndex*>(rigidOwners.getDevicePtr()) : NULL,
@@ -1134,13 +1138,16 @@ namespace physx
 
 		// AD TODO: remove this if again once we have the warm-start implemented, or find a way to avoid doing this alltogether.
 		// this needs to run even if direct-GPU API is not initialized, because it is part of the initialization.
-		if (mDynamicContext->mEnableDirectGPUAPI && hasShapeInstanceChanged)
+		if ((mDynamicContext->mEnableDirectGPUAPI || nativeGroups) && (hasShapeInstanceChanged || initializeNativeAccess))
 		{
 			//run in np stream
 			npCore->computeRigidsToShapes();
 		}
 
-        if (isDirectApiInitialized && !mSimulationCore->refreshReboundShapeBounds(npStream,mDestructionCorrecting))
+        // New actors still obtain initial geometry from their ordinary insertion.
+        // Their motion slots are uploaded later; never refresh them from the GPU
+        // merely to initialize the ownership index. Correction slots are ready.
+        if ((isDirectApiInitialized || nativeGroups) && !mSimulationCore->refreshReboundShapeBounds(npStream,mDestructionCorrecting))
         {
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
                 "Failed to refresh persistent shape bounds from GPU motion");
@@ -1148,6 +1155,9 @@ namespace physx
             return;
         }
 
+        mNativeShapeAccessInitialized=nativeGroups;
+        if(nativeGroups && !isDirectApiInitialized)
+            npCore->synchronizedStreams(static_cast<PxgCudaBroadPhaseSap*>(aabbManager.getBroadPhase())->getBpStream());
 		if (isDirectApiInitialized)
 		{
 			// we have a data-dependency between computeRigidsToShapes and updateArticulationsKinematic - so we need to make sure the articulation stream does not start too early.
@@ -1186,7 +1196,8 @@ namespace physx
         PxU32 liveCount = 0;
         for(PxU32 i = 0; i < pendingBodies.size(); ++i)
         {
-            if(mBodySimManager.mBodies[pendingBodies[i]]) pendingBodies[liveCount++] = pendingBodies[i];
+            if(mBodySimManager.mBodies[pendingBodies[i]] && (!mDestructionCorrecting || mDynamicContext->mEnableDirectGPUAPI
+                || mBodySimManager.mUpdatedMap.boundedTest(pendingBodies[i]))) pendingBodies[liveCount++] = pendingBodies[i];
         }
         pendingBodies.forceSize_Unsafe(liveCount);
 		const PxU32 nbNewBodies = mBodySimManager.mNewOrUpdatedBodySims.size();
@@ -2760,6 +2771,7 @@ namespace physx
 			bodySim.externalLinearAcceleration = make_float4(0.0f);
 			bodySim.externalAngularAcceleration = make_float4(0.0f);
 			if (!mDynamicContext->getEnableDirectGPUHostAccess()
+                && !(!mDynamicContext->mEnableDirectGPUAPI && usesDeviceDestructionContactInputs())
                 && mBodySimManager.mExternalAccelerations && mBodySimManager.mExternalAccelerations->hasAccelerations())
 			{
 				const PxsRigidBodyExternalAcceleration& acc = mBodySimManager.mExternalAccelerations->get(index);
@@ -3312,6 +3324,7 @@ namespace physx
         if(!reserveNativeTransitionBuffers(count)) return false;
         {
             PxScopedCudaLock lock(*mCudaContextManager);
+            mSimulationCore->gpuDmaUpdateData();
             PxCudaContext* cuda = mCudaContextManager->getCudaContext();
             if(cuda->memcpyHtoD(mNativeSleepIndices, indices, PxU64(count)*sizeof(PxU32)) != 0
                 || cuda->memsetD32(mNativeSleepZeros, 0, PxU64(count)*3) != 0

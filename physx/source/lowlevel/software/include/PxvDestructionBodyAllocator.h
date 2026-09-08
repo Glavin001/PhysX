@@ -2,7 +2,9 @@
 #pragma once
 #include "foundation/PxSimpleTypes.h"
 #include "PxDestructionTopologyTypes.h"
+#include "PxDirectGPUAPI.h"
 namespace physx {
+class PxShape;
 // GPU-produced allocation metadata only. Mass, motion and graph arrays remain
 // resident. A reservation is private/inactive until the correction transaction
 // initializes its solver state and transfers persistent collision ownership.
@@ -11,6 +13,11 @@ struct PxvDestructionBodyRequest {
 };
 class PxvDestructionBodyAllocator {
 public:
+    virtual PxU32 getShapeContactIndex(const PxShape&) const { return ~PxU32(0); }
+    virtual bool readRigidBodyData(void*,const PxRigidDynamicGPUIndex*,PxRigidDynamicGPUAPIReadType::Enum,
+        PxU32,CUevent,CUevent) const { return false; }
+    virtual bool needsHostProperties() const { return false; }
+    virtual bool publishCorrectionProperties(const PxDestructionCorrectionBody*,PxU32) { return false; }
     virtual bool supportsGpuIslandRepair() const { return false; }
 
     virtual bool isValidSource(PxU32 body) const = 0;

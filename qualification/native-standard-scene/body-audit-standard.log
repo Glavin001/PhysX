@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 85, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 79, in main
+    result=module.verify(out,golden)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/workspace/physx-2/tools/scripts/verify-native-penetration.py", line 81, in verify
+    assert result[key]==expected[key], f'Frozen quality fixture changed: {key}'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Frozen quality fixture changed: topology_identity_sha256

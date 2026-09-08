@@ -13,7 +13,7 @@ public:
     void setClusterColors(bool enabled);
     void addProjectile(physx::PxU32 body,const physx::PxTransform& initial);
     float launchHeight(physx::PxVec3 position,float radius);
-    void update(physx::PxDirectGPUAPI& api);
+    void update();
     // Optional OpenGL consumer. Simulation requires no EGL or pixel readback.
     void enableRenderer(unsigned width,unsigned height,const Camera& camera,const std::string& video,unsigned fps);
     // Explicit diagnostics only: observe the exact CUDA-written GL instances.

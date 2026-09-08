@@ -125,10 +125,10 @@ extern "C" __global__ void gatherNativeSleepPoses(PxTransform* poses, const PxU3
     {
         const PxU32 node = indices[i];
         const PxU32 solverIndex = solverIndices[node];
-        assert(solverIndex < desc->numSolverBodies);
-        const PxgSolverBodyData& data = desc->solverBodyDataPool[solverIndex];
-        assert(data.islandNodeIndex.index() == node);
         const PxgBodySim& body = desc->mBodySimBufferDeviceData[node];
-        poses[i] = (data.body2World * body.body2Actor_maxImpulseW.getInverse()).getTransform();
+        const bool solved=solverIndex<desc->numSolverBodies
+            && desc->solverBodyDataPool[solverIndex].islandNodeIndex.index()==node;
+        const auto world=solved?desc->solverBodyDataPool[solverIndex].body2World:body.body2World;
+        poses[i] = (world * body.body2Actor_maxImpulseW.getInverse()).getTransform();
     }
 }

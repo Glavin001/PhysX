@@ -845,10 +845,11 @@ Sc::Scene::Scene(const PxSceneDesc& desc, PxU64 contextID) :
 
 #if PX_SUPPORT_GPU_PHYSX
 	const bool directAPI = mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API;
-	if(directAPI)
+	if(directAPI || useGpuDynamics)
 	{
 		PX_ASSERT(mHeapMemoryAllocationManager);
-		// Direct pipeline needs mapped bounds: mergeBoundsAndTransformsChanges
+		// GPU dynamics can enable resident destruction later. Mapped bounds
+        // support its command-only updates without changing the public API mode.
 		mBoundsArray = PxvGetPhysXGpu(true)->createGpuBounds(*mHeapMemoryAllocationManager->mPinnedHostMappedMemoryAllocator);
 	}
 	else
@@ -2084,7 +2085,9 @@ Threading: called in the context of the user thread, but only after the physics 
 */
 bool Sc::Scene::finalizeGpuSleep(BodyCore* body)
 {
-    if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING) || mGpuSleepPendingBodies.size() == 0)
+    const bool nativeSleep=!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mSimulationController->usesDeviceDestructionContactInputs();
+    if((!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING) && !nativeSleep) || mGpuSleepPendingBodies.size() == 0)
         return true;
 #if PX_SUPPORT_GPU_PHYSX
     if(body && !mGpuSleepPendingBodies.contains(body)) return true;
@@ -2799,7 +2802,9 @@ void Sc::Scene::clearSleepWakeBodies()
 
 void Sc::Scene::onBodySleep(BodySim* body)
 {
-    if((mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING) && !body->isKinematic())
+    if(((mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+        || (!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API) && mSimulationController->usesDeviceDestructionContactInputs()))
+        && !body->isKinematic())
     {
         mGpuSleepPendingBodies.insert(&body->getBodyCore());
     }

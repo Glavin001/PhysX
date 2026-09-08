@@ -914,6 +914,16 @@ namespace Sc
 					Cm::DelegateTask<Scene, &Scene::finalizationPhase>			mFinalizationPhase;
                     Cm::DelegateTask<Scene, &Scene::finalizationPhase> mDestructionFinalizationPhase;
                     bool mDestructionCorrectionInProgress = false;
+                    struct DestructionActivity {
+                        BodySim* body;
+                        PxReal wakeCounter;
+                        PxU16 sleepFlags;
+                        bool accurateReady, speculativeReady, wakeNotify;
+                    };
+                    PxArray<DestructionActivity> mDestructionTrialActivity;
+                    PxArray<BodySim*> mDestructionTrialSleepNotifications;
+                    void captureDestructionActivity();
+                    void restoreDestructionActivity();
 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;
 
 					//multi-pass ccd stuff

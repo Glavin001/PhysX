@@ -367,7 +367,7 @@ void Sc::Scene::broadPhaseFirstPass(PxBaseTask* continuation)
 	
 	// AD: this combines the update flags of the normal pipeline with the update flags
 	// marking updated bounds for the direct-GPU API.
-	if (isDirectGPUAPIInitialized())
+	if (isDirectGPUAPIInitialized() || mDestructionCorrectionInProgress)
 	{
 		mSimulationController->mergeChangedAABBMgHandle();
 	}
@@ -1987,11 +1987,62 @@ namespace
 	};
 }
 
+void Sc::Scene::captureDestructionActivity()
+{
+    mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
+    if((mPublicFlags & (PxSceneFlag::eDISABLE_SLEEPING | PxSceneFlag::eENABLE_DIRECT_GPU_API))
+        || !mSimulationController->usesDeviceDestructionContactInputs())return;
+    for(PxU32 i=0;i<mSleepBodies.size();++i) {
+        auto* body=mSleepBodies.getEntries()[i]->getSim();
+        if(body && body->readInternalFlag(ActorSim::BF_SLEEP_NOTIFY))mDestructionTrialSleepNotifications.pushBack(body);
+    }
+    const auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+    const auto& speculative=mSimpleIslandManager->getSpeculativeIslandSim();
+    const auto* active=accurate.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    const PxU32 count=accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    mDestructionTrialActivity.reserve(count);
+    for(PxU32 i=0;i<count;++i) {
+        auto* rigid=getRigidBodyFromIG(accurate,active[i]);
+        auto* body=reinterpret_cast<BodySim*>(reinterpret_cast<PxU8*>(rigid)-BodySim::getRigidBodyOffset());
+        mDestructionTrialActivity.pushBack({body,rigid->getCore().wakeCounter,
+            PxU16(rigid->mInternalFlags & PxsRigidBody::eSLEEPING_FLAGS),
+            bool(accurate.getNode(active[i]).isReadyForSleeping()),bool(speculative.getNode(active[i]).isReadyForSleeping()),bool(body->readInternalFlag(ActorSim::BF_WAKEUP_NOTIFY))});
+    }
+}
+void Sc::Scene::restoreDestructionActivity()
+{
+    for(const auto& saved:mDestructionTrialActivity) {
+        auto& body=*saved.body;auto& rigid=body.getLowLevelBody();auto& core=rigid.getCore();
+        // A changed cluster has already received its GPU-computed COM frame.
+        // Unchanged bodies retain the first trial's pre-integration transform.
+        core.body2World=rigid.mLastTransform;
+        core.wakeCounter=core.solverWakeCounter=saved.wakeCounter;
+        body.setActive(true);
+        const auto id=body.getNodeIndex();
+        auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+        auto& speculative=mSimpleIslandManager->getSpeculativeIslandSim();
+        accurate.activateNode(id);speculative.activateNode(id);
+        // Keep activation queued while restoring readiness; deactivateNode()
+        // would cancel a queued activation and strand the CPU actor as active.
+        if(saved.accurateReady)accurate.deactivateNode_ForGPUSolver(id);
+        if(saved.speculativeReady)speculative.deactivateNode_ForGPUSolver(id);
+        rigid.mInternalFlags=PxU16((rigid.mInternalFlags & ~PxsRigidBody::eSLEEPING_FLAGS)|saved.sleepFlags);
+        // This restores the CPU scheduler, not a host physical command. The
+        // authoritative body/sleep accumulators were restored on the GPU.
+        mSimulationController->discardDestructionTrialBodyUpload(id.index());
+        if(saved.wakeNotify)onBodyWakeUp(&body);
+    }
+    for(auto* body:mDestructionTrialSleepNotifications)if(!body->isActive())onBodySleep(body);
+    mDestructionTrialSleepNotifications.clear();
+    mDestructionTrialActivity.clear();
+}
+
 void Sc::Scene::beforeSolver(PxBaseTask* continuation)
 {
     PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
         mDestructionCorrectionInProgress?"GpuDestruction.detail.beforeSolver":"GpuDestruction.trialDetail.beforeSolver",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.updateForces", mContextId);
+    if(!mDestructionCorrectionInProgress)captureDestructionActivity();
 
 	// Note: For contact notifications it is important that force threshold checks are done after new/lost touches have been processed
 	//       because pairs might get added to the list processed below
@@ -2439,7 +2490,6 @@ void Sc::Scene::unregisterInteractions(PxBaseTask*)
 bool Sc::Scene::canUseGpuDestructionIslandRepair() const
 {
     bool gpuRepair=mSimulationController->usesGpuDestructionIslandRepair()
-        && (mPublicFlags & PxSceneFlag::eDISABLE_SLEEPING)
         && !(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
         && !mArticulations.size() && !mConstraints.size() && !mFilterCallback
         && !getContactModifyCallback();
@@ -2734,7 +2784,8 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 		const PxNodeIndex*const deactivatingIndices = islandSim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
 
 		PxU32 previousNumBodiesToDeactivate = mNumDeactivatingNodes[IG::Node::eRIGID_BODY_TYPE];
-        if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+        if((mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+            || (!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API) && mSimulationController->usesDeviceDestructionContactInputs()))
         {
             // Include explicitly slept bodies: they may still have reached
             // the solver while accurate island generation ran in parallel.
@@ -2910,12 +2961,20 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
 	}
 #endif
 
+#if PX_SUPPORT_GPU_PHYSX
+    // Publish native sleep transitions on CUDA before stress observes motion or
+    // accepted topology is exposed. Only transition indices cross this boundary.
+    if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mSimulationController->usesDeviceDestructionContactInputs() && !finalizeGpuSleep()) {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native destruction sleep commit failed");
+        getCudaContextManager()->getCudaContext()->setAbortMode(true);
+    }
+#endif
     // The ordinary trial solve and integration have finished. Native stress
     // consumes solved impulses before the scene publishes its results.
     // First end-to-end rigid MVP excludes state whose rollback is not yet
     // implemented. Rejection remains explicit when such a scene fractures.
-    bool canCorrect=(mPublicFlags & PxSceneFlag::eDISABLE_SLEEPING)
-        && !(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+    bool canCorrect=!(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
         && !mArticulations.size() && !mConstraints.size() && !mFilterCallback;
 #if PX_SUPPORT_GPU_PHYSX
     canCorrect=canCorrect && !mDeformableSurfaces.size() && !mDeformableVolumes.size() && !mParticleSystems.size();
@@ -2950,10 +3009,18 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         if(!mSimulationController->preservesDestructionContactPairs()) {
             Sc::ShapeSimBase** shapes=mSimulationController->getShapeSims();
             const PxU32 count=mSimulationController->getNbShapes();
-            for(PxU32 i=0;i<count;++i)
-                if(shapes[i] && shapes[i]->isInBroadPhase())shapes[i]->onResetFiltering();
+            for(PxU32 i=0;i<count;++i) {
+                if(!shapes[i] || !shapes[i]->isInBroadPhase())continue;
+                const auto* body=shapes[i]->getBodySim();
+                // Fixed and sleeping geometry did not move. Removing its
+                // contacts would invent lost-touch wakeups in unrelated islands.
+                // Migrating shapes already retire incompatible contacts in the
+                // ownership transaction; active participants rebuild their rows.
+                if(body && body->isActive() && !body->isKinematic())shapes[i]->onResetFiltering();
+            }
         }
         }
+        restoreDestructionActivity();
         PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);
         // Use a separate finalization task: this trial finalization is still
         // running and must not have its continuation overwritten by the retry.
@@ -2965,6 +3032,7 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         return;
     }
     mDestructionCorrectionInProgress=false;
+    mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
 
 	fireOnAdvanceCallback();  // placed here because it needs to be done after sleep check and after potential CCD passes
 

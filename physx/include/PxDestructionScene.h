@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 12
+#define PX_DESTRUCTION_SCENE_VERSION 13
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -71,16 +71,19 @@ struct PxDestructionStressDesc {
     const PxDestructionChunkMassProperties* chunkMassProperties = NULL;
     // Experimental internal rigid correction. 0 retains diagnostic preparation;
     // 1 permits one intact trial plus one full supported-scene corrected solve.
-    // Current support: awake rigid scenes with stationary kinematics, no joints,
+    // Current support: rigid scenes with stationary kinematics, no joints,
     // articulations, CCD, custom filter callbacks or deformables. Crushing/removal
     // and unapportioned force commands on fractured sources reject explicitly.
+    // Native sleeping is supported with ordinary CPU actor access (Direct GPU
+    // mode disabled); Direct GPU sleeping plus correction remains unsupported.
     PxU32 internalCorrectionLimit = 0;
     // Experimental pair-lifecycle reuse during the full rigid correction.
     // Retain unchanged owners' pair registrations, clear GPU manifold/friction
     // caches and regenerate collision/constraint data. False is the reference.
     bool preserveUnchangedContactPairs = false;
-    // Use CUDA contact components for awake rigid island repair. Unsupported
-    // graph state retains the original CPU traversal. False is the reference.
+    // Use CUDA contact components for rigid island repair, including ordinary
+    // sleeping scenes. Native sleep scheduling still needs its membership mirror.
+    // Unsupported graph state retains the original traversal; false is the reference.
     bool gpuIslandRepair = false;
 };
 struct PxDestructionVectorPair {
@@ -166,11 +169,24 @@ struct PxDestructionDeviceView {
 // accepted gameplay output. Cycle cuts preserving every owner commit directly.
 // Scene-owned. The native task graph advances the GPU stage once per ordinary
 // timestep; consumers never call a separate solve or replay function. CPU work
-// is asset setup, task submission, allocation growth and a small completion/error
-// observation. Native ownership transactions also update CPU collision/island
-// metadata from compact device records. Graphs, loads and forces stay on the GPU.
+// includes asset setup, task submission, compatibility allocation and completion
+// observation. Ordinary actor mode also maintains CPU poses, queries and sleep
+// scheduling. Ownership transactions publish compact changed-cluster properties;
+// contact loads, structural solving and mass calculations stay on the GPU.
 class PxDestructionScene {
 public:
+    // Stable collision identity for an exclusive shape in this scene. Available
+    // outside simulation without enabling the public Direct GPU API.
+    virtual PxU32 getShapeContactIndex(const PxShape& shape) const = 0;
+    // Optional device-to-device observation of ordinary or destruction bodies.
+    // Call after a successful fetchResults. Uses current native GPU indices,
+    // with the same index lifetime as PxRigidDynamic::getGPUIndex(). Neither
+    // Direct GPU mode nor a CPU motion readback is required. The destination and
+    // index buffers are caller-owned CUDA buffers; consumer completion must be
+    // ordered before they are reused or the next simulation starts.
+    virtual bool readRigidBodyData(void* data, const PxRigidDynamicGPUIndex* indices,
+        PxRigidDynamicGPUAPIReadType::Enum type, PxU32 count,
+        CUevent startEvent=NULL, CUevent finishEvent=NULL) const = 0;
     virtual bool configureStress(const PxDestructionStressDesc& desc) = 0;
     virtual bool clearStress() = 0;
     // Borrow until reconfiguration/scene release. Order device consumers before

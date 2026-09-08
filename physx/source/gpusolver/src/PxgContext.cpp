@@ -629,13 +629,14 @@ namespace physx
 		PxU32 mNbBodies;
 		PxU32 mTotalBodies;
 		IG::IslandSim* mIslandSim;
+        bool mCorrection;
 
 	public:
 
 		PxgPostSolveWorkerTask(PxNodeIndex* nodeIndices, PxAlignedTransform* bodyToWorldPool, PxgSolverBodySleepData* solverBodySleepDataPool, float4* bodyVelocities, PxU32 nbBodies, PxU32 totalBodies,
-			IG::IslandSim* islandSim) : Cm::Task(0),
+			IG::IslandSim* islandSim,bool correction) : Cm::Task(0),
 			mNodeIndices(nodeIndices), mBodyToWorldPool(bodyToWorldPool), mSolverBodySleepDataPool(solverBodySleepDataPool), mBodyVelocities(bodyVelocities), mNbBodies(nbBodies), mTotalBodies(totalBodies),
-			mIslandSim(islandSim)
+			mIslandSim(islandSim),mCorrection(correction)
 		{
 		}
 
@@ -658,7 +659,7 @@ namespace physx
 
 				PxsBodyCore& bodyCore = originalBody.getCore();
 
-				originalBody.mLastTransform = bodyCore.body2World;
+				if(!mCorrection)originalBody.mLastTransform = bodyCore.body2World;
 				const PxAlignedTransform& body2World = mBodyToWorldPool[i];
 				bodyCore.body2World = body2World.getTransform();
 				const float4& linVel = mBodyVelocities[i];
@@ -671,7 +672,7 @@ namespace physx
 				// PT: set sleeping flags but preserve other non-sleeping-related flags (see similar code in DySleep.cpp)
 				PxU16 flags = originalBody.mInternalFlags;
 				flags &= ~PxsRigidBody::eSLEEPING_FLAGS;
-				flags |= sleepData.internalFlags;
+				flags |= sleepData.internalFlags & PxsRigidBody::eSLEEPING_FLAGS;
 				originalBody.mInternalFlags = flags;
 
 				PX_ASSERT(bodyCore.linearVelocity.isFinite());
@@ -949,7 +950,7 @@ namespace physx
 				PxgSolverBodySleepData* sleepData = &mSolverBodySleepDataPool[i];
 
 				PxgPostSolveWorkerTask* task = PX_PLACEMENT_NEW(mFlushPool.allocate(sizeof(PxgPostSolveWorkerTask)), PxgPostSolveWorkerTask)(nodeIndices + i, body2Worlds + i, sleepData, bodyVelocities + i,
-					PxMin(batchSize, totalNumBodies - i), totalNumBodies, accurateIslandSim);
+					PxMin(batchSize, totalNumBodies - i), totalNumBodies, accurateIslandSim,getSimulationController()->isDestructionCorrecting());
 
 				task->setContinuation(continuation);
 				task->removeReference();
@@ -2539,8 +2540,9 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
     mGpuSolverCore->setPreSolveIslands(0,0);mPreSolveNodeDevicePointer=0;mPreSolveSupportDevicePointer=0;mPreSolveNodesUseNativeSupport=true;
     if(mCudaPreSolveIslands && incremental) {
         auto* runtime=static_cast<PxgSimulationController*>(getSimulationController())->getNativeDestructionRuntime();
-        bool supported=runtime!=NULL && mPreSolveSleepingDisabled && runtime->canBuildPreSolveIslands();
-        // Keep unsupported sleeping/joint scenes on the qualified native path.
+        bool supported=runtime!=NULL && (mPreSolveSleepingDisabled || !mEnableDirectGPUAPI) && runtime->canBuildPreSolveIslands();
+        // Graph membership persists while bodies sleep; solver work still uses
+        // PhysX active-node lists. Joint/articulation graph ownership is separate.
         if(nbConstraints || islandSim.getNbActiveNodes(IG::Node::eARTICULATION_TYPE))supported=false;
         PxgDestructionPreSolveContacts contactView;contactView.deriveStaticSupport=mCudaPreSolveSupport;
         if(supported && mCudaPreSolveContacts) {

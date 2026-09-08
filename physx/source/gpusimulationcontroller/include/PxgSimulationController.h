@@ -507,6 +507,12 @@ class PxProfilerCallback;
         bool usesDeviceDestructionContactInputs() const override;
         bool usesGpuDestructionIslandRepair() const override;
         PxgDestructionRuntime* getNativeDestructionRuntime() const { return mDestruction; }
+        bool isDestructionCorrecting() const { return mDestructionCorrecting; }
+        void discardDestructionTrialBodyUpload(PxU32 id) override {
+            if(id<mBodySimManager.mBodies.size() && mBodySimManager.mBodies[id]) {
+                mBodySimManager.mUpdatedMap.reset(id);
+            }
+        }
         PxU64 getDestructionContactGraphGeneration() const;
         void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) override;
         bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
@@ -758,6 +764,7 @@ class PxProfilerCallback;
 
 		PxgCudaKernelWranglerManager*							mGpuWranglerManager;
         PxgDestructionRuntime* mDestruction = NULL;
+        bool mNativeShapeAccessInitialized = false;
         PxU32 mDestructionError = 0;
         bool mDestructionCorrecting = false;
         PxProfilerCallback* mDestructionCorrectionProfiler = NULL;

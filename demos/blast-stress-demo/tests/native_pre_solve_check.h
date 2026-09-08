@@ -44,7 +44,7 @@ inline void verify(physx::PxgGpuContext& gpu,physx::PxCudaContextManager& cuda) 
         if(label>=labels.size() || native>=expectedTouches.size())throw std::runtime_error("CUDA pre-solve producer omitted a live node");
         const auto a=nativeToGpu.emplace(native,label),b=gpuToNative.emplace(label,native);
         if((!a.second && a.first->second!=label) || (!b.second && b.first->second!=native))
-            throw std::runtime_error("CUDA pre-solve partition differs from native pre-solve partition");
+            throw std::runtime_error("CUDA pre-solve partition differs at node "+std::to_string(i)+", GPU label "+std::to_string(label)+", native label "+std::to_string(native)+", prior GPU label "+std::to_string(a.first->second)+", prior native label "+std::to_string(b.first->second));
         if(touches[label]!=expectedTouches[native])throw std::runtime_error("CUDA pre-solve static count differs at node "+std::to_string(i)+", GPU component "+std::to_string(label)+", native island "+std::to_string(native)+": actual "+std::to_string(touches[label])+", expected "+std::to_string(expectedTouches[native]));
     }
 }

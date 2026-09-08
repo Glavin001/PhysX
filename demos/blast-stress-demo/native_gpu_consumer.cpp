@@ -87,11 +87,11 @@ float NativeGpuConsumer::launchHeight(PxVec3 position,float radius){
     m->publish();check(cuEventSynchronize(m->consumed));float height;check(cuMemcpyDtoH(&height,m->height,sizeof(height)));m->queryBytes+=sizeof(height);
     require(std::isfinite(height),"invalid committed GPU launch query");return height;
 }
-void NativeGpuConsumer::update(PxDirectGPUAPI& api){
+void NativeGpuConsumer::update(){
     PxScopedCudaLock lock(m->cuda);m->view=m->stage.getDeviceView();require(m->view.chunkCount==m->chunkCount,"GPU visual asset was reconfigured");
     check(cuStreamWaitEvent(m->stream,m->view.readyEvent,0));
     if(m->shotCount){check(cuEventRecord(m->uploaded,m->stream));
-        require(api.getRigidDynamicData(reinterpret_cast<void*>(m->poses),reinterpret_cast<const PxU32*>(m->ids),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,m->shotCount,m->uploaded,m->shotsReady),"GPU projectile gathering failed");
+        require(m->stage.readRigidBodyData(reinterpret_cast<void*>(m->poses),reinterpret_cast<const PxU32*>(m->ids),PxRigidDynamicGPUAPIReadType::eGLOBAL_POSE,m->shotCount,m->uploaded,m->shotsReady),"GPU projectile gathering failed");
         check(cuStreamWaitEvent(m->stream,m->shotsReady,0));}
     m->publish();
 }

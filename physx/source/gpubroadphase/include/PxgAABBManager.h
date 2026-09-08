@@ -285,6 +285,7 @@ namespace physx
 			if(mAllocFailed)
 				return;
 
+            if(!mEnableChangeTracking) { BoundsArray::updateBounds(transform,geom,index,indexFrom);return; }
 			const bool isNew = indexFrom == index;
 
 			if(isNew) // new, needs to be copied from CPU
@@ -298,6 +299,7 @@ namespace physx
 			if(mAllocFailed)
 				return;
 
+            if(!mEnableChangeTracking) { BoundsArray::setBounds(bounds,index);return; }
 			mBounds[index] = bounds;
 			updateChanges(index, index, true);
 		}
@@ -317,6 +319,10 @@ namespace physx
 			mChangesMapped.clear();
 			mChangeMap.clear();
 		}
+
+        PX_FORCE_INLINE void disableChangeTracking() {
+            mEnableChangeTracking=false;resetChanges();mHasAnythingChanged=true;
+        }
 
 		PX_FORCE_INLINE bool isChangeTrackingEnabled() const
 		{ 

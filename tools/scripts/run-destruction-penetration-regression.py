@@ -30,6 +30,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output',type=Path)
     parser.add_argument('--binary',type=Path,default=ROOT/'out/destruction-sdk/reference/native_destruction_demo')
+    parser.add_argument('--standard-scene',action='store_true',help='Ordinary actor APIs, native sleeping, GPU-repaired sleep membership')
+    parser.add_argument('--sleeping',type=int,choices=[0,1],default=1,help='Sleeping setting for the ordinary-API control')
+    parser.add_argument('--video',action='store_true',help='Also encode the audited GPU-rendered penetration view')
     args=parser.parse_args();out=args.output.resolve();binary=args.binary.resolve()
     if out.exists():raise RuntimeError('Audit output already exists')
     out.parent.mkdir(parents=True,exist_ok=True)
@@ -38,11 +41,16 @@ def main():
     config=json.loads(config_path.read_text())
     case=next(c for c in config['cases'] if c['id']=='penetration')
     cmd=[str(binary),*config['common'],*case['args'],'--seconds','10','--output',str(out)]
+    if args.standard_scene:
+        cmd += ['--standard-scene','1','--sleeping',str(args.sleeping)]
+        cmd[cmd.index('--gpu-connectivity-owner')+1]='0'
+    if args.video:
+        cmd += ['--gpu-video',str(out/'native.mp4'),'--gpu-camera','penetration','--color-by-cluster','1']
     for option in ['--record-state','--gpu-render','--audit-motion','--trace-motion']:
         cmd[cmd.index(option)+1]='1'
     artifacts=[binary,ROOT/'physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so',ROOT/'physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so']
     record={'schema':1,'config_sha256':sha(config_path),'golden_sha256':sha(golden),
-            'artifacts':{str(p):sha(p) for p in artifacts},'performance_qualification':False}
+            'artifacts':{str(p):sha(p) for p in artifacts},'performance_qualification':False,'standard_scene':args.standard_scene}
     errors=[]
     with tempfile.TemporaryDirectory(prefix='penetration-observer-',dir=out.parent) as temp:
         fifo=Path(temp)/'motion.fifo';compressed=Path(temp)/'motion.csv.gz';os.mkfifo(fifo)

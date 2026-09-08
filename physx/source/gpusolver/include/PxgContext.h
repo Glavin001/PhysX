@@ -584,6 +584,8 @@ namespace physx
         CUdeviceptr mPreSolveSupportDevicePointer=0;
         PxU64 mCudaPreSolveSupportPasses=0;
         PxU64 mCudaPreSolveContactPasses=0,mCudaPreSolveContactPairs=0,mCudaPreSolveRetiredBytes=0;
+        // Ordinary sleeping consumes a GPU-repaired native membership mirror.
+        // Do not discard that mirror until the sleep scheduler consumes device components.
         bool mPreSolveSleepingDisabled;
         bool mCudaPreSolveIslands=false,mPreForceNodeSnapshot=true;
         PxU64 mCudaPreSolvePasses=0,mCudaPreSolveFallbacks=0,mCudaPreSolveHostBytes=0;

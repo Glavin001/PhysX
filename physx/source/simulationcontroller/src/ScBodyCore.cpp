@@ -91,7 +91,9 @@ void Sc::BodyCore::restoreDynamicData()
 
 static void markDirectGpuHostWrite(Sc::BodySim* sim, PxU32 flags)
 {
-    if(sim && (sim->getScene().getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS))
+    if(sim && ((sim->getScene().getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+        || ((sim->getScene().getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+            && !(sim->getScene().getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API))))
         sim->getLowLevelBody().mGpuHostDirty |= PxU16(flags >> 16);
 }
 

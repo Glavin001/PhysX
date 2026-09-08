@@ -6,6 +6,7 @@
 #include "NpScene.h"
 #include "ScBodySim.h"
 #include "ScShapeSim.h"
+#include "ScSimStateData.h"
 #include "PxsSimpleIslandManager.h"
 #include "PxsSimulationController.h"
 #include "foundation/PxHashMap.h"
@@ -69,6 +70,67 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         return body;
     }
 public:
+    PxU32 getShapeContactIndex(const PxShape& shape) const override {
+        if(mScene.isAPIWriteForbidden())return PX_INVALID_U32;
+        const auto& native=static_cast<const NpShape&>(shape);
+        if(!native.isExclusiveFast() || native.getNpScene()!=&mScene)return PX_INVALID_U32;
+        const auto* sim=native.getCore().getExclusiveSim();
+        return sim?sim->getTransformCacheID():PX_INVALID_U32;
+    }
+    bool readRigidBodyData(void* data,const PxRigidDynamicGPUIndex* indices,PxRigidDynamicGPUAPIReadType::Enum type,
+        PxU32 count,CUevent start,CUevent finish) const override {
+        if(mScene.isAPIWriteForbidden() || !mScene.getScScene().isSimulationResultAccepted() || !data || !indices)return false;
+        return mScene.getScScene().getSimulationController()->getRigidDynamicData(data,indices,type,count,start,finish);
+    }
+    bool needsHostProperties() const override {
+        return !(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API);
+    }
+    bool publishCorrectionProperties(const PxDestructionCorrectionBody* inputs,PxU32 count) override {
+        for(PxU32 i=0;i<count;++i)if(!source(inputs[i].targetBody,true) || !source(inputs[i].body.sourceBody,true))return false;
+        for(PxU32 i=0;i<count;++i) {
+            const auto& v=inputs[i].body;
+            auto& core=source(inputs[i].targetBody,true)->getCore();
+            auto& state=core.getCore();
+            const auto& origin=source(v.sourceBody,true)->getCore();
+            // Compatibility actors must inherit the source's physical settings.
+            // Otherwise a later ordinary metadata upload replaces the GPU's
+            // inherited damping/limits with allocation-placeholder defaults.
+            const PxReal linearDamping=origin.getLinearDamping(),angularDamping=origin.getAngularDamping();
+            const PxReal maxLinear=origin.getMaxLinVelSq(),maxAngular=origin.getMaxAngVelSq();
+            state.linearDamping=linearDamping;state.angularDamping=angularDamping;
+            state.maxLinearVelocitySq=maxLinear;state.maxAngularVelocitySq=maxAngular;
+            state.maxPenBias=origin.getCore().maxPenBias;state.maxContactImpulse=origin.getCore().maxContactImpulse;
+            state.contactReportThreshold=origin.getCore().contactReportThreshold;state.offsetSlop=origin.getCore().offsetSlop;
+            state.sleepThreshold=origin.getCore().sleepThreshold;state.freezeThreshold=origin.getCore().freezeThreshold;
+            state.disableGravity=origin.getCore().disableGravity;state.lockFlags=origin.getCore().lockFlags;
+            state.solverIterationCounts=origin.getCore().solverIterationCounts;
+            core.getSim()->getLowLevelBody().mGpuDynamicLimitsDamping=PxVec4(maxLinear,maxAngular,linearDamping,angularDamping);
+            // Kinematic solver inverses are zero. Ordinary actor getters expose
+            // the physical mass/inertia stored in their kinematic backup.
+            if(auto* simState=core.getSim()->getSimStateData(true)) {
+                auto* kine=simState->getKinematicData();
+                kine->backupLinearDamping=linearDamping;kine->backupAngularDamping=angularDamping;
+                kine->backupMaxLinVelSq=maxLinear;kine->backupMaxAngVelSq=maxAngular;
+                state.linearDamping=state.angularDamping=0;state.maxLinearVelocitySq=state.maxAngularVelocitySq=PX_MAX_REAL;
+                kine->backupInvMass=v.mass>0 ? 1.0f/v.mass : 0;
+                kine->backupInverseInertia=PxVec3(v.principalInertia[0]>0 ? 1.0f/v.principalInertia[0] : 0,
+                    v.principalInertia[1]>0 ? 1.0f/v.principalInertia[1] : 0,
+                    v.principalInertia[2]>0 ? 1.0f/v.principalInertia[2] : 0);
+            }
+            state.inverseMass=v.inverseMass;
+            state.inverseInertia=PxVec3(v.inverseInertia[0],v.inverseInertia[1],v.inverseInertia[2]);
+            state.setBody2Actor(PxTransform(PxVec3(v.bodyToActorPosition[0],v.bodyToActorPosition[1],v.bodyToActorPosition[2]),
+                PxQuat(v.bodyToActorOrientation[0],v.bodyToActorOrientation[1],v.bodyToActorOrientation[2],v.bodyToActorOrientation[3])));
+            state.body2World=PxTransform(PxVec3(v.bodyToWorldPosition[0],v.bodyToWorldPosition[1],v.bodyToWorldPosition[2]),
+                PxQuat(v.bodyToWorldOrientation[0],v.bodyToWorldOrientation[1],v.bodyToWorldOrientation[2],v.bodyToWorldOrientation[3]));
+            state.linearVelocity=PxVec3(v.linearVelocity[0],v.linearVelocity[1],v.linearVelocity[2]);
+            state.angularVelocity=PxVec3(v.angularVelocity[0],v.angularVelocity[1],v.angularVelocity[2]);
+            auto& body=core.getSim()->getLowLevelBody();
+            body.mLastTransform=state.body2World;
+            body.mInternalFlags|=PxsRigidBody::eDESTRUCTION_MASS_GPU;
+        }
+        return true;
+    }
     bool supportsGpuIslandRepair() const override { return mScene.getScScene().canUseGpuDestructionIslandRepair(); }
 
     explicit NpDestructionBodyAllocator(NpScene& scene):mScene(scene) {}

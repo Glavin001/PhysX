@@ -1,0 +1,40 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start 13: blast_stress_physx_gpu_activity
+ 1/15 Test #13: blast_stress_physx_gpu_activity ..........   Passed    9.41 sec
+      Start 51: physx_native_gpu_collision_preparation
+ 2/15 Test #51: physx_native_gpu_collision_preparation ...   Passed    4.51 sec
+      Start 52: physx_native_gpu_retained_registry
+ 3/15 Test #52: physx_native_gpu_retained_registry .......   Passed    0.47 sec
+      Start 56: physx_native_gpu_pre_solve_islands
+ 4/15 Test #56: physx_native_gpu_pre_solve_islands .......   Passed    1.23 sec
+      Start 57: physx_native_gpu_pre_solve_contacts
+ 5/15 Test #57: physx_native_gpu_pre_solve_contacts ......   Passed    1.22 sec
+      Start 58: physx_native_gpu_pre_solve_support
+ 6/15 Test #58: physx_native_gpu_pre_solve_support .......   Passed    1.27 sec
+      Start 59: physx_native_gpu_connectivity_owner
+ 7/15 Test #59: physx_native_gpu_connectivity_owner ......   Passed    1.31 sec
+      Start 74: physx_native_gpu_resimulation
+ 8/15 Test #74: physx_native_gpu_resimulation ............   Passed    7.71 sec
+      Start 75: physx_native_standard_awake
+ 9/15 Test #75: physx_native_standard_awake ..............   Passed    0.48 sec
+      Start 76: physx_native_standard_sleep
+10/15 Test #76: physx_native_standard_sleep ..............   Passed    0.86 sec
+      Start 77: physx_native_standard_sleep_boundary
+11/15 Test #77: physx_native_standard_sleep_boundary .....   Passed    1.55 sec
+      Start 78: physx_native_standard_gpu_islands
+12/15 Test #78: physx_native_standard_gpu_islands ........   Passed    0.99 sec
+      Start 79: physx_native_standard_wake_boundary
+13/15 Test #79: physx_native_standard_wake_boundary ......   Passed    0.85 sec
+      Start 80: physx_native_standard_late_impact
+14/15 Test #80: physx_native_standard_late_impact ........   Passed    0.85 sec
+      Start 82: physx_native_gpu_publication
+15/15 Test #82: physx_native_gpu_publication .............   Passed    2.10 sec
+
+100% tests passed, 0 tests failed out of 15
+
+Label Time Summary:
+gpu            =   5.58 sec*proc (6 tests)
+integration    =   5.58 sec*proc (6 tests)
+
+Total Test time (real) =  34.80 sec

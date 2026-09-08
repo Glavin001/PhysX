@@ -582,6 +582,14 @@ public:
             check(cudaGetLastError());return true;
         }catch(...){mFailed=true;return false;}
     }
+    PxU32 getShapeContactIndex(const PxShape& shape) const override {
+        return mBodyAllocator && mWriteAllowed(mScene)?mBodyAllocator->getShapeContactIndex(shape):PX_INVALID_U32;
+    }
+    bool readRigidBodyData(void* data,const PxRigidDynamicGPUIndex* indices,PxRigidDynamicGPUAPIReadType::Enum type,
+        PxU32 count,CUevent start,CUevent finish) const override {
+        return !mFailed && mWriteAllowed(mScene) && mBodyAllocator
+            && mBodyAllocator->readRigidBodyData(data,indices,type,count,start,finish);
+    }
     bool canBuildPreSolveIslands() const override { return mBodyAllocator && mBodyAllocator->supportsGpuIslandRepair(); }
     const PxvPreSolveNode* preSolveNodeView() const override { return mPreNodes; }
     const PxU32* preSolveSupportView() const override { return mPreSupport; }
@@ -1522,6 +1530,7 @@ public:
             // unchanged and still corrects ordinary interaction participants.
             const PxU32 count=mHostCorrectionPreparation.count;
             std::vector<PxvDestructionBodyRequest> requests(count);
+            std::vector<PxDestructionCorrectionBody> observations(mBodyAllocator->needsHostProperties()?count:0);
             mHostCorrectionTargets.resize(count);
             if(count) gatherCorrectionOwnerMetadata<<<(count+127)/128,128,0,mStream>>>(
                 mCompactCorrectionBodies,count,mCandidateSlots,mBodyRequests,mCorrectionOwnerRequests,mCorrectionOwnerTargets);
@@ -1531,8 +1540,11 @@ public:
                 check(cudaMemcpyAsync(requests.data(),mCorrectionOwnerRequests,count*sizeof(requests[0]),cudaMemcpyDeviceToHost,mStream));
                 check(cudaMemcpyAsync(mHostCorrectionTargets.data(),mCorrectionOwnerTargets,count*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
             }
+            if(!observations.empty())check(cudaMemcpyAsync(observations.data(),mCompactCorrectionBodies,
+                observations.size()*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            return mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
+            return mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()))
+                && (observations.empty() || mBodyAllocator->publishCorrectionProperties(observations.data(),count));
         }catch(...){mFailed=true;return false;}
     }
     bool acceptCorrection(const PxgBodySim* bodies,CUstream coreStream) override {

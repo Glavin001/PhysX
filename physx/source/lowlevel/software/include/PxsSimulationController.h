@@ -308,6 +308,7 @@ namespace physx
         virtual PxDestructionScene* getDestructionScene(void*, bool (*)(void*), PxvDestructionBodyAllocator*) { return NULL; }
         virtual bool advanceDestruction(PxReal, const PxVec3&, bool, bool) { return false; }
         virtual PxU32 getDestructionError() const { return 0; }
+        virtual void discardDestructionTrialBodyUpload(PxU32) {}
         virtual bool preservesDestructionContactPairs() const { return false; }
         virtual bool usesDeviceDestructionContactInputs() const { return false; }
         virtual bool usesGpuDestructionIslandRepair() const { return false; }
