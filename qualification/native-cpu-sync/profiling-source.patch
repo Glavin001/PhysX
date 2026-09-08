@@ -1,0 +1,79 @@
+diff --git a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+index d219ca65..e4bf1e3f 100644
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+@@ -3394,7 +3394,11 @@ namespace physx
+ 		PX_PROFILE_ZONE("GpuSimulationController.updateScBodyAndShapeSim", 0);
+ 
+ 		mCudaContextManager->acquireContext();
+-		mSimulationCore->syncDmaback(mNbFrozenShapes, mNbUnfrozenShapes, mHasBeenSimulated);
++        {
++            PxProfileScoped profile(usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
++                "GpuDestruction.task.bodyDmaWait",false,PxU64(reinterpret_cast<size_t>(this)));
++            mSimulationCore->syncDmaback(mNbFrozenShapes, mNbUnfrozenShapes, mHasBeenSimulated);
++        }
+         // Direct GPU omits the CPU scene-query frozen/unfrozen index arrays.
+         // Activity callbacks may run, but must never consume those arrays.
+         if(mDynamicContext->getEnableDirectGPUAPI())
+diff --git a/physx/source/simulationcontroller/src/ScPipeline.cpp b/physx/source/simulationcontroller/src/ScPipeline.cpp
+index afbbecd6..5af5ced6 100644
+--- a/physx/source/simulationcontroller/src/ScPipeline.cpp
++++ b/physx/source/simulationcontroller/src/ScPipeline.cpp
+@@ -1989,6 +1989,8 @@ namespace
+ 
+ void Sc::Scene::captureDestructionActivity()
+ {
++    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
++        "GpuDestruction.task.activityCheckpoint",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+     mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
+     if((mPublicFlags & (PxSceneFlag::eDISABLE_SLEEPING | PxSceneFlag::eENABLE_DIRECT_GPU_API))
+         || !mSimulationController->usesDeviceDestructionContactInputs())return;
+@@ -2011,6 +2013,8 @@ void Sc::Scene::captureDestructionActivity()
+ }
+ void Sc::Scene::restoreDestructionActivity()
+ {
++    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
++        "GpuDestruction.task.activityRestore",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+     for(const auto& saved:mDestructionTrialActivity) {
+         auto& body=*saved.body;auto& rigid=body.getLowLevelBody();auto& core=rigid.getCore();
+         // A changed cluster has already received its GPU-computed COM frame.
+@@ -2757,6 +2761,8 @@ void Sc::Scene::checkForceThresholdContactEvents(PxU32 ccdPass)
+ 
+ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
+ {
++    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
++        "GpuDestruction.task.afterIntegration",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+ 	PX_PROFILE_ZONE("Sc::Scene::afterIntegration", mContextId);
+ 
+ 	mLLContext->getTransformCache().resetChangedState(); //Reset the changed state. If anything outside of the GPU kernels updates any shape's transforms, this will be raised again
+diff --git a/physx/source/simulationcontroller/src/ScScene.cpp b/physx/source/simulationcontroller/src/ScScene.cpp
+index 8cc80e05..9690b283 100644
+--- a/physx/source/simulationcontroller/src/ScScene.cpp
++++ b/physx/source/simulationcontroller/src/ScScene.cpp
+@@ -370,6 +370,8 @@ namespace
+ 
+ 		virtual void runInternal() PX_OVERRIDE
+ 		{
++            PxProfileScoped profile(mScene.getSimulationController()->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
++                "GpuDestruction.task.bodyStatusWork",false,PxU64(reinterpret_cast<size_t>(mScene.getSimulationController())));
+ 			IG::SimpleIslandManager& islandManager = *mScene.getSimpleIslandManager();
+ 			const IG::IslandSim& islandSim = islandManager.getAccurateIslandSim();
+ 
+@@ -484,6 +486,8 @@ namespace
+ 
+ 			if(nbFrozenShapes || nbUnfrozenShapes)
+ 			{
++                PxProfileScoped profile(simulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
++                    "GpuDestruction.task.queryMembership",false,PxU64(reinterpret_cast<size_t>(simulationController)));
+ 				PxU32* unfrozenShapeIndices = simulationController->getUnfrozenShapes();
+ 				PxU32* frozenShapeIndices = simulationController->getFrozenShapes();
+ 
+@@ -2091,6 +2095,8 @@ bool Sc::Scene::finalizeGpuSleep(BodyCore* body)
+         return true;
+ #if PX_SUPPORT_GPU_PHYSX
+     if(body && !mGpuSleepPendingBodies.contains(body)) return true;
++    PxProfileScoped profile(nativeSleep?PxGetProfilerCallback():NULL,
++        "GpuDestruction.task.sleepCommit",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+     PxArray<PxU32> indices, rollbackIndices;
+     const PxU32 count = body ? 1 : mGpuSleepPendingBodies.size();
+     BodyCore* const* entries = mGpuSleepPendingBodies.getEntries();

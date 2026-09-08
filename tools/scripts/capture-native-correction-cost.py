@@ -69,6 +69,7 @@ def main():
     finally:
         save()
     subprocess.run(['python3', str(Path(__file__).with_name('report-native-correction-cost.py')), str(out)], check=True)
+    subprocess.run(['python3', str(Path(__file__).with_name('report-native-cpu-sync.py')), str(out)], check=True)
 
 if __name__ == '__main__':
     main()

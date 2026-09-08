@@ -3394,7 +3394,11 @@ namespace physx
 		PX_PROFILE_ZONE("GpuSimulationController.updateScBodyAndShapeSim", 0);
 
 		mCudaContextManager->acquireContext();
-		mSimulationCore->syncDmaback(mNbFrozenShapes, mNbUnfrozenShapes, mHasBeenSimulated);
+        {
+            PxProfileScoped profile(usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+                "GpuDestruction.task.bodyDmaWait",false,PxU64(reinterpret_cast<size_t>(this)));
+            mSimulationCore->syncDmaback(mNbFrozenShapes, mNbUnfrozenShapes, mHasBeenSimulated);
+        }
         // Direct GPU omits the CPU scene-query frozen/unfrozen index arrays.
         // Activity callbacks may run, but must never consume those arrays.
         if(mDynamicContext->getEnableDirectGPUAPI())

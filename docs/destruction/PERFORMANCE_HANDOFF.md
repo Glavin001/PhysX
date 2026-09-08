@@ -6,6 +6,8 @@ Inspect Git changes, processes and artifact hashes first. The goal remains full
 integrated GPU destruction with more verified work inside an 8 ms complete-step
 peak; no completion or real-time qualification is claimed.
 
+Latest evidence: CPU synchronization/activity timers and generated `qualification/native-cpu-sync/cpu-sync.md`; see the newest findings section. Profiling only, no trial-state deferral implemented yet.
+
 Newer work: [two-evaluation correction and ordinary-mode report deletion](POST_CORRECTION_FRACTURE.md), with current measured results at the top of [findings](PERFORMANCE_FINDINGS.md). The dated implementation notes below predate that change.
 
 Navigation: [playbook](PERFORMANCE_PLAYBOOK.md),

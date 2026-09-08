@@ -370,6 +370,8 @@ namespace
 
 		virtual void runInternal() PX_OVERRIDE
 		{
+            PxProfileScoped profile(mScene.getSimulationController()->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+                "GpuDestruction.task.bodyStatusWork",false,PxU64(reinterpret_cast<size_t>(mScene.getSimulationController())));
 			IG::SimpleIslandManager& islandManager = *mScene.getSimpleIslandManager();
 			const IG::IslandSim& islandSim = islandManager.getAccurateIslandSim();
 
@@ -484,6 +486,8 @@ namespace
 
 			if(nbFrozenShapes || nbUnfrozenShapes)
 			{
+                PxProfileScoped profile(simulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+                    "GpuDestruction.task.queryMembership",false,PxU64(reinterpret_cast<size_t>(simulationController)));
 				PxU32* unfrozenShapeIndices = simulationController->getUnfrozenShapes();
 				PxU32* frozenShapeIndices = simulationController->getFrozenShapes();
 
@@ -2091,6 +2095,8 @@ bool Sc::Scene::finalizeGpuSleep(BodyCore* body)
         return true;
 #if PX_SUPPORT_GPU_PHYSX
     if(body && !mGpuSleepPendingBodies.contains(body)) return true;
+    PxProfileScoped profile(nativeSleep?PxGetProfilerCallback():NULL,
+        "GpuDestruction.task.sleepCommit",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
     PxArray<PxU32> indices, rollbackIndices;
     const PxU32 count = body ? 1 : mGpuSleepPendingBodies.size();
     BodyCore* const* entries = mGpuSleepPendingBodies.getEntries();

@@ -1989,6 +1989,8 @@ namespace
 
 void Sc::Scene::captureDestructionActivity()
 {
+    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        "GpuDestruction.task.activityCheckpoint",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
     mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
     if((mPublicFlags & (PxSceneFlag::eDISABLE_SLEEPING | PxSceneFlag::eENABLE_DIRECT_GPU_API))
         || !mSimulationController->usesDeviceDestructionContactInputs())return;
@@ -2011,6 +2013,8 @@ void Sc::Scene::captureDestructionActivity()
 }
 void Sc::Scene::restoreDestructionActivity()
 {
+    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        "GpuDestruction.task.activityRestore",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
     for(const auto& saved:mDestructionTrialActivity) {
         auto& body=*saved.body;auto& rigid=body.getLowLevelBody();auto& core=rigid.getCore();
         // A changed cluster has already received its GPU-computed COM frame.
@@ -2757,6 +2761,8 @@ void Sc::Scene::checkForceThresholdContactEvents(PxU32 ccdPass)
 
 void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 {
+    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        "GpuDestruction.task.afterIntegration",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sc::Scene::afterIntegration", mContextId);
 
 	mLLContext->getTransformCache().resetChangedState(); //Reset the changed state. If anything outside of the GPU kernels updates any shape's transforms, this will be raised again

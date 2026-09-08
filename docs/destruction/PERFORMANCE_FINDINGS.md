@@ -6,6 +6,54 @@ Revalidate against current source/runtime before applying them. See the
 [playbook](PERFORMANCE_PLAYBOOK.md) for commands and the
 [handoff](PERFORMANCE_HANDOFF.md) for outstanding implementation work.
 
+## CPU synchronization and activity rollback are different costs
+
+New explicit profiling scopes separate the GPU-completion/readback wait,
+parallel CPU wake/sleep status tasks, query membership updates, activity
+checkpoint/restore, and GPU sleep-transition submission. The generated report
+uses interval unions for parallel worker wall time, validates both pass receipts,
+and preserves unknown GPU-transfer attribution rather than calling a wait DMA time.
+
+One isolated diagnostic: **256 buildings / 113,664 chunks / 229,376 bonds /
+768 projectiles / 30 seconds / 1,800 steps**, Direct GPU OFF, sleeping ON,
+max one correction and two stress evaluations. At largest replay (step 725,
+37,655 bodies / 24,209 awake), the replay interval is **16.925 ms**:
+
+- Readback completion wait: **0.001422 ms** during replay. Most work has already
+  completed when this particular boundary is reached; this does not measure
+  total DtoH transfer duration or upstream waits.
+- CPU body-status workers: **0.858771 ms** wall union during replay.
+- CPU query membership: **0.583708 ms** during replay.
+- CPU activity restore: **2.260473 ms** during replay; checkpoint earlier in
+  the tick is **1.313478 ms**.
+- GPU sleep-transition CPU wall scope: **0.283077 ms** during replay, including
+  waits and submission. These intervals cannot all be added as critical-path cost.
+
+The largest combined body-readback wait is early step 82: **0.632789 ms**
+across both passes (367 bodies / 108 awake). The complete-step peak in this
+instrumented run is **134.017 ms**, step 385 (22,874 bodies / 17,273 awake).
+This instrumentation-only change establishes no performance gain or regression.
+[Generated CPU report](../../qualification/native-cpu-sync/cpu-sync.md),
+[GPU restore report](../../qualification/native-cpu-sync/report.md).
+
+Source audit confirms `afterIntegration` currently runs before the destruction
+verdict on both passes. Query mirror updates are observation work, but body
+status changes feed PhysX island readiness and sleep semantics. Native CPU
+activity rollback restores those scheduler decisions after a rejected trial.
+Removing only a synchronization call cannot delete the underlying dependency.
+The architectural next step is provisional GPU activity/ownership with a single
+accepted CPU observation commit, preserving wake propagation, support/stress
+inputs, freeze/unfreeze transitions, and immediate post-fetch queries. Do not
+substitute optimizing the CPU rollback loop for that migration. Deferring query
+membership alone also needs accepted delta reconciliation; a rejected trial's
+freeze/unfreeze list cannot simply be discarded because the second list is a
+delta, not a full final-state snapshot.
+
+Validation: nine focused correction/sleep/query tests, frozen 10-second
+444-chunk/896-bond/one-projectile penetration golden, seven phase analyzer tests,
+and four new CPU reporting tests pass. Ordinary-mode golden discrepancy and
+full Vibe-land integration remain open as previously recorded.
+
 ## Native sleeping scene: second fracture evaluation and contact report deletion
 
 The new policy evaluates stress/fracture after corrected physics as well as
