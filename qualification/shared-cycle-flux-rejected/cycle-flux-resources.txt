@@ -1,0 +1,224 @@
+
+Fatbin ptx code:
+================
+arch = sm_89
+code version = [8,7]
+host = linux
+compile_size = 64bit
+compressed
+identifier = /root/workspace/physx-2/demos/blast-stress-demo/tests/gpu_resident_stress_phase_probe.cu
+ptxasOptions =  --generate-line-info 
+
+Fatbin elf code:
+================
+arch = sm_89
+code version = [1,7]
+host = linux
+compile_size = 64bit
+identifier = /root/workspace/physx-2/demos/blast-stress-demo/tests/gpu_resident_stress_phase_probe.cu
+
+Resource usage:
+ Common:
+  GLOBAL:189 CONSTANT[4]:288
+ Function _ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIjjiLb0ELb0EE9Policy900ENS0_21CountingInputIteratorIjlEEPjS8_S8_NS0_13ScanTileStateIiLb1EEENS0_8NullTypeESB_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE:
+  REG:40 STACK:0 SHARED:5120 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23DeviceCompactInitKernelINS0_13ScanTileStateIiLb1EEEPjEEvT_iT0_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS16DeviceScanKernelINS0_16DeviceScanPolicyIjN4cuda3std3__44plusIvEEE9Policy900EPjSA_NS0_13ScanTileStateIjLb1EEES7_NS0_6detail10InputValueIjSA_EEjjLb0EEEvT0_T1_T2_iT3_T4_T5_:
+  REG:48 STACK:0 SHARED:7696 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS20DeviceScanInitKernelINS0_13ScanTileStateIjLb1EEEEEvT_i:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS29DeviceRadixSortOnesweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjjiiNS0_6detail21identity_decomposer_tEEEvPT5_S8_PT3_PKS9_PT1_PKSD_PT2_PKSH_T4_iiT6_:
+  REG:77 STACK:0 SHARED:33280 LOCAL:0 CONSTANT[0]:429 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS33DeviceRadixSortExclusiveSumKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900EjEEvPT0_:
+  REG:23 STACK:0 SHARED:1184 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortHistogramKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjNS0_6detail21identity_decomposer_tEEEvPT2_PKT1_S7_iiT3_:
+  REG:38 STACK:0 SHARED:4096 LOCAL:0 CONSTANT[0]:381 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortDownsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb1ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT2_PS7_PKT3_PSB_PT4_SF_iiNS0_13GridEvenShareISF_EET5_:
+  REG:254 STACK:0 SHARED:48384 LOCAL:0 CONSTANT[0]:445 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortDownsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT2_PS7_PKT3_PSB_PT4_SF_iiNS0_13GridEvenShareISF_EET5_:
+  REG:128 STACK:0 SHARED:47616 LOCAL:0 CONSTANT[0]:445 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23RadixSortScanBinsKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900EjEEvPT0_i:
+  REG:79 STACK:0 SHARED:47120 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS28DeviceRadixSortUpsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb1ELb0EjjNS0_6detail21identity_decomposer_tEEEvPKT2_PT3_SA_iiNS0_13GridEvenShareISA_EET4_:
+  REG:64 STACK:0 SHARED:16384 LOCAL:0 CONSTANT[0]:421 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS28DeviceRadixSortUpsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0ELb0EjjNS0_6detail21identity_decomposer_tEEEvPKT2_PT3_SA_iiNS0_13GridEvenShareISA_EET4_:
+  REG:48 STACK:0 SHARED:32768 LOCAL:0 CONSTANT[0]:421 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS31DeviceRadixSortSingleTileKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT1_PS7_PKT2_PSB_T3_iiT4_:
+  REG:128 STACK:0 SHARED:33856 LOCAL:0 CONSTANT[0]:397 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS11EmptyKernelIvEEvv:
+  REG:4 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:352 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb21persistentStressSolveILb0EEEvNS1_20PersistentStressArgsE:
+  REG:64 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:896 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb21persistentStressSolveILb1EEEvNS1_20PersistentStressArgsE:
+  REG:166 STACK:48 SHARED:7448 LOCAL:0 CONSTANT[0]:896 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb21finishComponentStressENS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE:
+  REG:18 STACK:0 SHARED:3072 LOCAL:0 CONSTANT[0]:968 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb20componentStressSolveENS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE:
+  REG:154 STACK:48 SHARED:6712 LOCAL:0 CONSTANT[0]:968 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25applyNativeStressSolutionEPNS1_6AngLinEPKNS0_15StressHierarchy6VectorEPKNS1_7InertiaEPKjSC_PKNS1_4Vec4ESF_PKfSH_SC_SC_SC_SC_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25resetNativeStressSolutionENS1_21NativeStressCycleViewEPNS1_6AngLinES4_jb:
+  REG:15 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:605 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb27clearChangedStressWarmStartEPKNS0_32ExtStressGpuDeviceTopologyStatusEPKjS6_PNS1_6AngLinEj:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb27markChangedStressComponentsEPKNS1_25DeviceStressTopologyBatchEPKNS0_32ExtStressGpuDeviceTopologyStatusEPKfPKjPjj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb28publishNativeHierarchyStatusEPKNS0_15StressHierarchy6StatusES5_PNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25flagLargeStressComponentsEPKjS3_Pjj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb17deviceStressTilesEPKjjS3_S3_S3_P5uint2:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb22deviceStressTileCountsEPKjS3_Pjj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb27deviceStressReductionRangesEPKjjPjS4_:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb22markDeviceStressSolvedEPNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25finishDeviceStressRebuildEPKNS1_25DeviceStressTopologyBatchEPNS0_32ExtStressGpuDeviceTopologyStatusEPKj:
+  REG:20 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb24beginDeviceStressRebuildEPNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb20flagDeviceStressRowsEPKjjPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb22labelDeviceStressNodesEPKjS3_PjjPNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb22labelDeviceStressBondsEPKjS3_PKfPKNS1_7InertiaES3_PjS9_j:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:412 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb27flattenDeviceStressTopologyEPjj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb27connectDeviceStressTopologyEPKjS3_PKfPKNS1_7InertiaEjPjS9_:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb30initializeDeviceStressTopologyEPKNS1_25DeviceStressTopologyBatchEPKNS1_7InertiaEPjS8_S8_PfjjS8_:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25chooseDeviceStressRebuildEPKNS0_32ExtStressGpuDeviceTopologyStatusEy:
+  REG:24 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb24validateDeviceStressMaskEPKNS1_25DeviceStressTopologyBatchEPKfjPNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25beginDeviceStressTopologyEPKNS1_25DeviceStressTopologyBatchEPNS0_32ExtStressGpuDeviceTopologyStatusEy:
+  REG:24 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb28setDeviceStressTopologyBatchEPNS1_25DeviceStressTopologyBatchES2_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25bondStressCompactRemovalsEPKjS3_S3_S3_S3_jPj:
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb20bondStressNullKernelEv:
+  REG:4 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:352 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb14bondStressWalkEfiPKjS3_S3_S3_S3_S3_PKfS5_S5_S5_PKNS1_6AngLinES5_ffS5_jfjPfS9_S9_S9_S9_PhPjSB_SB_SB_S9_SB_SB_SB_:
+  REG:36 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:600 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb17applyStressDamageEfPKNS1_6AngLinEPKfPKNS1_4Vec4ES6_S6_PKjPKNS0_20ExtStressGpuMaterialEjPfPjSG_jff:
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:460 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb15flagActiveNodesEPKjS3_jPj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb15flagActiveBondsEPKjS3_jPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb17scatterVelocitiesEPNS0_19ExtStressGpuImpulseEPKjPKS2_j:
+  REG:22 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb14gatherImpulsesEPKNS1_6AngLinEPKjPS2_j:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb22exportPhysicalImpulsesEPKNS1_6AngLinEPKfPNS0_19ExtStressGpuImpulseEjff:
+  REG:22 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb23retireDegenerateIslandsEPjPKfPfS4_PNS0_24ExtStressGpuDeviceStatusEPKjjS2_jyj:
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:436 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb34updateSolutionAndResidualPerIslandEPKjjPNS1_6AngLinES5_PKS4_S7_PKfS9_PjS3_S3_S3_S3_S3_:
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:464 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb28saveGradientSquaredPerIslandEPfPKfPKjj:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb24updateDirectionPerIslandEPNS1_6AngLinEPKS2_PKfS7_PKjS9_S9_S9_S9_:
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb16checkConvergenceEPNS0_24ExtStressGpuDeviceStatusEPKfS5_j:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb16latchConvergenceEPNS0_24ExtStressGpuDeviceStatusEj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb16summarizeIslandsEPNS0_24ExtStressGpuDeviceStatusEPKjjj:
+  REG:10 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb16resetActiveCountEPNS0_24ExtStressGpuDeviceStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25checkConvergencePerIslandEPjS2_PKfS4_S2_j:
+  REG:16 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb17finalizeAndRetireEPKfPfjPjS4_S3_PNS0_24ExtStressGpuDeviceStatusEPKjjS5_jyjS9_:
+  REG:39 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:464 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb27finalizeAndCheckConvergenceEPKfPfjPjS5_S3_S5_jPKj:
+  REG:39 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb23finalizeIslandReductionEPKfPfjjPKj:
+  REG:39 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb17reduceIslandTilesEPKfPKjPK5uint2PfS5_:
+  REG:14 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb25accumulateSquaredByIslandEPKNS1_6AngLinEPKjS6_PfS6_S6_jj:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb19scatterBondTopologyEPKjPKNS1_9BondDeltaEjPjS7_PNS1_4Vec4ES9_S9_PfSA_SA_SA_S7_S7_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:464 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb19scatterNodeBondRefsEPKjS3_jPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb14nodeSpaceResetEPNS1_6AngLinES3_S3_S3_j:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb22nodeSpaceApplySolutionEPNS1_6AngLinEPKS2_PKNS1_7InertiaEPKjSA_PKNS1_4Vec4ESD_PKfSF_SA_SA_SA_SA_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb23nodeSpaceUpdateSolutionEPKjjPNS1_6AngLinES5_PKS4_S7_PKfS9_S3_S3_S3_S3_:
+  REG:30 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:448 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb24nodeSpaceUpdateDirectionEPNS1_6AngLinES3_PKS2_S5_PKfS7_PKjS9_PfjS9_S9_S9_:
+  REG:34 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb20nodeSpaceApplyJacobiEPNS1_6AngLinEPKS2_PKfPKjS9_PfjS9_S9_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb20nodeSpaceBuildJacobiEPfPKNS1_7InertiaEPKjS7_S7_S7_PKNS1_4Vec4ESA_PKfSC_jj:
+  REG:48 STACK:288 SHARED:0 LOCAL:0 CONSTANT[0]:440 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb15nodeSpaceMatvecEPNS1_6AngLinEPKS2_PKNS1_7InertiaEPKjSA_SA_SA_PKNS1_4Vec4ESD_PKfSF_SA_SA_SA_SA_bPfjSA_SA_SA_j:
+  REG:48 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:524 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb16initializeStatusEPNS0_24ExtStressGpuDeviceStatusEPjjS4_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb21setTolerancePerIslandEPfPjS3_PKjPKffj:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb12setToleranceEPfPKff:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb16squaredMagnitudeEPKNS1_6AngLinEPfj:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb20couplingLeftMultiplyEPNS1_6AngLinEPKS2_PKNS1_7InertiaEPKjSA_PKNS1_4Vec4ESD_PKfSF_SA_SA_SA_SA_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb16subtractResidualEPNS1_6AngLinEPKS2_PKjS7_:
+  REG:22 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb10scaleNodesEPNS1_6AngLinEPKNS1_7InertiaEPKjS8_:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb19gatherRightMultiplyEPNS1_6AngLinEPKS2_PKjS7_PKNS1_4Vec4ESA_PKfSC_S7_S7_PKNS1_7InertiaES7_S7_:
+  REG:36 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb21couplingRightMultiplyEPNS1_6AngLinEPKS2_PKjS7_PKNS1_4Vec4ESA_PKfSC_S7_S7_S7_S7_:
+  REG:30 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:448 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb15initializeSolveEPKNS0_19ExtStressGpuImpulseEPNS1_6AngLinES6_S6_PKNS1_7InertiaEPKjSB_SB_SB_SB_SB_fffb:
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:453 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast67_GLOBAL__N__3caee778_34_gpu_resident_stress_phase_probe_cu_097227fb23markChangedInputIslandsEPKNS0_19ExtStressGpuImpulseES4_PKjjPj:
+  REG:20 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy20applyComponentCyclesILj2EEEvPKNS1_10CycleLevelEjNS1_15TerminalBuffersEPKNS1_6StatusEPKNS1_6VectorEPSA_SD_:
+  REG:156 STACK:0 SHARED:5992 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy20applyComponentCyclesILj1EEEvPKNS1_10CycleLevelEjNS1_15TerminalBuffersEPKNS1_6StatusEPKNS1_6VectorEPSA_SD_:
+  REG:159 STACK:0 SHARED:5992 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy10applyCycleILj2EEEvPKNS1_10CycleLevelEjNS1_15TerminalBuffersEPKNS1_6StatusEPKNS1_6VectorEPSA_SD_:
+  REG:160 STACK:0 SHARED:5992 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy10applyCycleILj1EEEvPKNS1_10CycleLevelEjNS1_15TerminalBuffersEPKNS1_6StatusEPKNS1_6VectorEPSA_SD_:
+  REG:158 STACK:0 SHARED:5992 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy9packLevelILb1EEEvNS1_5InputENS1_7BuffersEPKNS1_6StatusEPS5_NS1_14PackingBuffersEPNS1_11PackingWorkEjNS1_18TerminalRetirementE:
+  REG:80 STACK:0 SHARED:9424 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:840 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy20constructMotionModesENS1_5InputEPKjNS1_13MotionBuffersEPNS1_6StatusEPNS1_4WorkE:
+  REG:64 STACK:168 SHARED:1600 LOCAL:0 CONSTANT[0]:648 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy13prolongPackedENS1_5InputENS1_7BuffersENS1_14PackingBuffersEPKNS1_6StatusEPKNS1_6VectorEPS8_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:808 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy14restrictPackedENS1_5InputENS1_7BuffersENS1_14PackingBuffersEPKNS1_6StatusEPKNS1_6VectorEPS8_:
+  REG:56 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:808 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy17finalizeHierarchyENS1_5InputEPKNS1_6StatusENS1_15TerminalBuffersEjPS3_:
+  REG:12 STACK:0 SHARED:8 LOCAL:0 CONSTANT[0]:624 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy17constructSmootherENS1_5InputEPKNS1_6StatusEPS3_PNS1_4WorkENS1_7BuffersENS1_15TerminalBuffersEj:
+  REG:88 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:700 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy14applyTerminalsENS1_5InputEPKNS1_6StatusENS1_15TerminalBuffersEjPKNS1_6VectorEPS7_:
+  REG:38 STACK:0 SHARED:5992 LOCAL:0 CONSTANT[0]:632 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy18constructTerminalsENS1_5InputEPKNS1_6StatusEPS3_PNS1_4WorkENS1_15TerminalBuffersEj:
+  REG:64 STACK:0 SHARED:5992 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:628 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy10applyLevelENS1_5InputEPKNS1_6StatusEPKNS1_6VectorEPS6_:
+  REG:64 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:592 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy17applyFineDiagonalENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_6VectorEPS7_:
+  REG:38 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:664 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy11applyCoarseENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_6VectorEPS7_:
+  REG:72 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:664 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy16restrictResidualENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_6VectorEPS7_:
+  REG:56 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:664 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy10prolongateENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_6VectorEPS7_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:664 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy9constructENS1_5InputENS1_7BuffersEPNS1_6StatusEPNS1_4WorkE:
+  REG:69 STACK:24 SHARED:0 LOCAL:0 CONSTANT[2]:56 CONSTANT[0]:656 TEXTURE:0 SURFACE:0 SAMPLER:0

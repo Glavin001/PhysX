@@ -1,0 +1,196 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+index 275f653c..ddfa3dc0 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+@@ -55,10 +55,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
+         }
+         __syncthreads();
+         COMPONENT_WORK_BEGIN(a,c,id,begin,count)
+-        // Cache validity belongs to each built operator, independently of a
+-        // solve's success. Each node has one writer in this owning component.
+-        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeFineInverse(a.hierarchy,c.nodes[begin+i]);
+-        __syncthreads();
++        // The multilevel smoother uses its topology-owned diagonal factors.
+         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
+         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
+         do {
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
+index 1f823e76..729c4e82 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
+@@ -8,7 +8,7 @@ __device__ unsigned long long cycleStageClocks[5];
+ #endif
+ struct CycleLevel {
+     Input input;Buffers topology,diagonal;PackingBuffers child{};
+-    const Vector* rhs=nullptr;Vector *x=nullptr,*residual=nullptr;
++    const Vector* rhs=nullptr;Vector *x=nullptr,*residual=nullptr,*flux=nullptr;
+ };
+ // Work ownership changes the schedule only; all sparse numerical operations
+ // below are shared by cooperative large-component and block-local execution.
+@@ -26,6 +26,7 @@ template<bool Local> struct CycleWork {
+     __device__ unsigned childNode(const PackingBuffers& b,unsigned i)const {if constexpr(Local)return b.componentBegin[component]+i;else return i;}
+     __device__ void sync()const {if constexpr(Local)__syncthreads();else cooperative_groups::this_grid().sync();}
+ };
++#include "StressHierarchyFlux.cuh"
+ __device__ __forceinline__ CycleLevel cycleView(const CycleLevel* levels,unsigned index,const Vector* rhs,Vector* output){
+     CycleLevel level=levels[index];if(!index){level.rhs=rhs;level.x=output;}level.input=resolvedInput(level.input);return level;
+ }
+@@ -47,8 +48,8 @@ __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,
+     for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+         const unsigned node=work.node(d.input,index);
+         Vector a{},b{},c{},e{};if(work.enabled(d.input,node) && smoothedNode(d,pool,level,node)){
+-            a=levelRowContribution(d.input,node,d.x,lane);b=levelRowContribution(d.input,node,d.x,lane+8);
+-            c=levelRowContribution(d.input,node,d.x,lane+16);e=levelRowContribution(d.input,node,d.x,lane+24);}
++            a=cycleCachedLevelRow(d,node,lane);b=cycleCachedLevelRow(d,node,lane+8);
++            c=cycleCachedLevelRow(d,node,lane+16);e=cycleCachedLevelRow(d,node,lane+24);}
+         const auto value=sumVirtualWarp(a,b,c,e);if(!lane)d.residual[node]=work.enabled(d.input,node) && smoothedNode(d,pool,level,node)?sub(d.rhs[node],value):Vector{};
+     }
+ }
+@@ -69,16 +70,12 @@ __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs
+ // B H^T e, where H=P^T B was retained during construction. Evaluating
+ // this directly avoids expanding Pe and then rediscovering its strain through
+ // L(Pe), which loses small differences between large fine coordinates.
+-__device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u){
++__device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,unsigned lane=threadIdx.x&31u){
+     Vector sum{};
+     for(unsigned slot=parent.input.begin[node]+lane;slot<parent.input.begin[node+1];slot+=32){
+         const unsigned ref=parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
+         const auto e=parent.topology.coarse[edge];if(!retainedColumn(e))continue;
+-        Vector a{},b{},difference{};
+-        if(e.a!=Invalid && parent.child.nodeMap[e.a]!=Invalid)a=childX[parent.child.nodeMap[e.a]];
+-        if(e.b!=Invalid && parent.child.nodeMap[e.b]!=Invalid)b=childX[parent.child.nodeMap[e.b]];
+-        if(e.a==e.b)difference={make_double3(0,0,0),cross(sub(e.offset0,e.offset1),a.angular)};
+-        else difference=sub(couple(a,e.offset0),couple(b,e.offset1));
++        const auto difference=parent.flux[edge];
+         const bool back=ref>>31;const auto flux=mul(difference,e.scale*sourceScale(parent.input,edge)*(back?-1.:1.));
+         sum=add(sum,scaledValue(transposeCouple(flux,sourceOffset(parent.input,edge,back)),sourceInertia(parent.input,node)));
+     }
+@@ -90,8 +87,8 @@ __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffe
+     for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+         const unsigned node=work.node(d.input,index);
+         if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
+-        const auto a=cycleCoarseEffect(d,node,childX,lane),b=cycleCoarseEffect(d,node,childX,lane+8);
+-        const auto c=cycleCoarseEffect(d,node,childX,lane+16),e=cycleCoarseEffect(d,node,childX,lane+24);
++        const auto a=cycleCoarseEffect(d,node,lane),b=cycleCoarseEffect(d,node,lane+8);
++        const auto c=cycleCoarseEffect(d,node,lane+16),e=cycleCoarseEffect(d,node,lane+24);
+         const auto effect=sumVirtualWarp(a,b,c,e);
+         // Finish the original warp reduction before handing independent
+         // diagonal systems to individual threads. This residual is dead after
+@@ -140,6 +137,7 @@ __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned dept
+         work.sync();
+         CYCLE_PROBE_END(1)
+         if(level+1==depth || (Local?pool.owner[component]==level:!d.child.counts[0]))break;
++        cycleProduceFlux<false>(d,d.x,work,pool.owner,unsigned(level));work.sync();
+         cycleResidual(d,pool,level,work);work.sync();
+         CYCLE_PROBE_END(2)
+         cycleRestrict(d,const_cast<Vector*>(levels[level+1].rhs),work);work.sync();
+@@ -147,8 +145,8 @@ __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned dept
+     }
+     for(int level=int(last);level>=0;--level){
+         auto d=cycleView(levels,unsigned(level),rhs,output);
+-        if(unsigned(level)<last){cycleCorrectAndSmooth(d,pool,unsigned(level),levels[level+1].x,work);work.sync();}
+-        else {cycleResidual(d,pool,unsigned(level),work);work.sync();cyclePostsmooth(d,pool,unsigned(level),work);work.sync();}
++        if(unsigned(level)<last){cycleProduceFlux<true>(d,levels[level+1].x,work,pool.owner,unsigned(level));work.sync();cycleCorrectAndSmooth(d,pool,unsigned(level),levels[level+1].x,work);work.sync();}
++        else {cycleProduceFlux<false>(d,d.x,work,pool.owner,unsigned(level));work.sync();cycleResidual(d,pool,unsigned(level),work);work.sync();cyclePostsmooth(d,pool,unsigned(level),work);work.sync();}
+         CYCLE_PROBE_END(4)
+     }
+ #undef CYCLE_PROBE_END
+@@ -185,7 +183,7 @@ class ResidentCycle {
+     CycleLevel* mDevice=nullptr;Vector* mIntermediate=nullptr;unsigned mBlocks[2]{};
+     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident cycle: ")+cudaGetErrorString(e));}
+     static Vector* allocate(unsigned count){Vector* p=nullptr;check(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(Vector)));return p;}
+-    void release()noexcept{for(auto& d:mHost){cudaFree(const_cast<Vector*>(d.rhs));cudaFree(d.x);cudaFree(d.residual);}cudaFree(mIntermediate);cudaFree(mDevice);}
++    void release()noexcept{for(auto& d:mHost){cudaFree(const_cast<Vector*>(d.rhs));cudaFree(d.x);cudaFree(d.residual);cudaFree(d.flux);}cudaFree(mIntermediate);cudaFree(mDevice);}
+     template<unsigned Passes>unsigned blocks()const{
+         int device=0,sms=0,resident=0,cooperative=0;check(cudaGetDevice(&device));check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));
+         check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&resident,applyCycle<Passes>,Threads,0));
+@@ -209,7 +207,7 @@ public:
+         try{
+             for(unsigned i=0;i<hierarchy.levels();++i){auto& d=mHost[i];d.input=hierarchy.input(i);d.topology=hierarchy.topology(i).buffers();d.diagonal=hierarchy.smoother(i).buffers();
+                 if(i+1<hierarchy.levels())d.child=hierarchy.packed(i).buffers();
+-                if(i){d.rhs=allocate(d.input.nodes);d.x=allocate(d.input.nodes);}d.residual=allocate(d.input.nodes);
++                if(i){d.rhs=allocate(d.input.nodes);d.x=allocate(d.input.nodes);}d.residual=allocate(d.input.nodes);d.flux=allocate(d.input.bonds);
+             }
+             mIntermediate=allocate(hierarchy.input(0).nodes);check(cudaMalloc(&mDevice,mHost.size()*sizeof(CycleLevel)));
+             check(cudaMemcpyAsync(mDevice,mHost.data(),mHost.size()*sizeof(CycleLevel),cudaMemcpyHostToDevice,mStream));mBlocks[0]=blocks<1>();mBlocks[1]=blocks<2>();
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+index 56992c6b..888c9d64 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+@@ -22,7 +22,7 @@ class NativeStressHierarchy {
+     StressHierarchy::ResidentMotionModes mModes;
+     std::unique_ptr<StressHierarchy::ResidentCycle> mCycle;
+     NativeStressCycleView mView;cudaStream_t mStream;
+-    static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
++    static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=0;return input;}
+     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
+     void release()noexcept{cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
+ public:
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+index 957004a6..620c603c 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+@@ -62,9 +62,11 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
+     auto* result=a.hierarchy.result;
+     if(!iteration){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
+     else {
+-        // Apply the fixed polynomial using cached local inverses.
+-        // Large components retain their cooperative multilevel schedule.
+-        result=preconditionNativePolynomial(a,nodes,count);
++        // One GPU-owned hierarchy per current component, executed within
++        // its resident block. Bond responses are shared by endpoint gathers.
++        __shared__ StressHierarchy::TerminalShared shared;
++        const auto v=a.hierarchy.cycle;
++        StressHierarchy::cyclePass<true>(v.levels,v.depth,v.pool,shared,a.hierarchy.rhs,result,id);
+     }
+     SUBPROBE_END(0)
+     projectNativeNullspace(a,id,nodes,count,result);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyFlux.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyFlux.cuh
+new file mode 100644
+index 00000000..f4cf6d63
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyFlux.cuh
+@@ -0,0 +1,43 @@
++// Included in StressHierarchyCycle.cuh inside its namespace. One exclusive
++// producer evaluates each live bond's unscaled response. Endpoint gathers use
++// exactly the original scale/sign/transpose operations after the work barrier.
++// The unscaled value avoids changing product grouping across hierarchy levels.
++template<bool CoarseCorrection,bool Local>
++__device__ __forceinline__ void cycleProduceFlux(CycleLevel d,const Vector* x,CycleWork<Local> work,const unsigned* terminalOwner,unsigned level){
++    const auto input=d.input;
++    for(unsigned index=work.threadFirst();index<work.count(input);index+=work.threadStride()){
++        const unsigned node=work.node(input,index);if(!work.enabled(input,node) || terminalOwner[input.component[node]]==level)continue;
++        for(unsigned slot=input.begin[node];slot<input.begin[node+1];++slot){
++            const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
++            const unsigned edge=ref&0x7fffffffu;if(sourceHealth(input,edge)<=0)continue;
++            const unsigned first=sourceFirst(input,edge),second=sourceSecond(input,edge);
++            const bool firstDynamic=first!=Invalid && input.component[first]!=Invalid;
++            // Self edges have two references too; only the first writes.
++            if(bool(ref>>31)==firstDynamic)continue;
++            Vector a{},b{},difference{};
++            if constexpr(CoarseCorrection){
++                const auto e=d.topology.coarse[edge];if(!retainedColumn(e))continue;
++                if(e.a!=Invalid && d.child.nodeMap[e.a]!=Invalid)a=x[d.child.nodeMap[e.a]];
++                if(e.b!=Invalid && d.child.nodeMap[e.b]!=Invalid)b=x[d.child.nodeMap[e.b]];
++                if(e.a==e.b)difference={make_double3(0,0,0),cross(sub(e.offset0,e.offset1),a.angular)};
++                else difference=sub(couple(a,e.offset0),couple(b,e.offset1));
++            }else{
++                if(firstDynamic)a=couple(scaledValue(x[first],sourceInertia(input,first)),sourceOffset(input,edge,false));
++                if(second!=Invalid && input.component[second]!=Invalid)b=couple(scaledValue(x[second],sourceInertia(input,second)),sourceOffset(input,edge,true));
++                difference=sub(a,b);
++            }
++            d.flux[edge]=difference;
++        }
++    }
++}
++__device__ __forceinline__ Vector cycleCachedLevelRow(CycleLevel d,unsigned node,unsigned lane){
++    const auto input=d.input;Vector out{};
++    for(unsigned slot=input.begin[node]+lane;slot<input.begin[node+1];slot+=32){
++        const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
++        const unsigned edge=ref&0x7fffffffu;if(sourceHealth(input,edge)<=0)continue;
++        const double scale=sourceScale(input,edge);const bool back=ref>>31;
++        const auto flux=mul(d.flux[edge],scale*scale*(back?-1.:1.));
++        out=add(out,scaledValue(transposeCouple(flux,sourceOffset(input,edge,back)),sourceInertia(input,node)));
++    }
++    return out;
++}
