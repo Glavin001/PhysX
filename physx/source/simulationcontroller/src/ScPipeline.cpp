@@ -48,6 +48,8 @@
 
 #include "ScShapeInteraction.h"
 #include "ScActorPair.h"
+#include "ScContactStream.h"
+#include "foundation/PxSort.h"
 #include "ScElementInteractionMarker.h"
 
 #if PX_SUPPORT_GPU_PHYSX
@@ -3047,10 +3049,11 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
             for(PxU32 i=0;canCorrect && i<mActiveKinematicBodyCount;++i)
                 canCorrect=!mActiveBodies[i]->getHasValidKinematicTarget();
     }
-    // Trial CPU reporting/trigger state is not covered by device cache reset.
-    // Keep the complete contact rebuild whenever that state needs correction.
+    // Triggers and contact-modification state still require full repair.
+    // Ordinary reports repair only their participating active dynamic
+    // shapes below; a single projectile report must not refilter the city.
     const bool canReuseContactPairs=!getNbInteractions(InteractionType::eTRIGGER)
-        && !getContactModifyCallback() && !mNPhaseCore->getNbContactReportActorPairs();
+        && !getContactModifyCallback();
     if(mSimulationController->advanceDestruction(mDt, mGravity, canCorrect, canReuseContactPairs)) {
         {
         // Available in release builds when a profiler callback is installed.
@@ -3065,9 +3068,32 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         // reuse its trial bufferIndex/reportStreamIndex while a new corrected
         // pair allocates over that memory. The public scene timestamp still
         // advances once per accepted tick, not once per physics pass.
+        PxArray<PxU32> reportRepairShapes;
+        const bool preservePairs=mSimulationController->preservesDestructionContactPairs();
+        Sc::ShapeSimBase** shapeSims=mSimulationController->getShapeSims();
+        const PxU32 shapeCapacity=mSimulationController->getNbShapes();
         ActorPairReport*const* reportedPairs=mNPhaseCore->getContactReportActorPairs();
-        for(PxU32 i=0;i<mNPhaseCore->getNbContactReportActorPairs();++i)
+        for(PxU32 i=0;i<mNPhaseCore->getNbContactReportActorPairs();++i) {
+            if(preservePairs) {
+                const auto& stream=reportedPairs[i]->getContactStreamManager();
+                if(!(stream.getFlags()&ContactStreamManagerFlag::eINVALID_STREAM)) {
+                    const auto* pairs=stream.getShapePairs(mNPhaseCore->getContactReportPairData(stream.bufferIndex));
+                    for(PxU32 pair=0;pair<stream.currentPairCount;++pair)for(PxU32 side=0;side<2;++side) {
+                        const PxU32 id=pairs[pair].shapeID[side];
+                        // Static boundaries need no repair: resetting the ground
+                        // would connect every resting fragment to this work set.
+                        if(id<shapeCapacity && !getElementIDPool().isDeletedID(id) && shapeSims[id]
+                            && shapeSims[id]->isInBroadPhase()) {
+                            const auto* body=shapeSims[id]->getBodySim();
+                            // Match the complete path's activity rule. Refilter
+                            // must not invent wakes for settled participants.
+                            if(body && body->isActive() && !body->isKinematic())reportRepairShapes.pushBack(id);
+                        }
+                    }
+                }
+            }
             reportedPairs[i]->streamResetStamp(~mTimeStamp);
+        }
         ++mReportShapePairTimeStamp;
         mNPhaseCore->clearContactReportStream();
         mNPhaseCore->clearContactReportActorPairs(false);
@@ -3078,7 +3104,16 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         // sorted ownership index. No CPU bounds-list walk/upload is required.
         // CPU interaction invalidation remains necessary when pair reuse is
         // invalid; this is not the work set for GPU geometry refresh.
-        if(!mSimulationController->preservesDestructionContactPairs()) {
+        if(preservePairs) {
+            PxProfileScoped repair(PxGetProfilerCallback(),"GpuDestruction.reportRepair",false,
+                PxU64(reinterpret_cast<size_t>(mSimulationController)));
+            // Recreate reporting relationships exactly as the complete path
+            // does, while preserving unrelated GPU collision managers/islands.
+            PxSort(reportRepairShapes.begin(),reportRepairShapes.size());
+            for(PxU32 i=0;i<reportRepairShapes.size();++i)
+                if(!i || reportRepairShapes[i]!=reportRepairShapes[i-1])
+                    shapeSims[reportRepairShapes[i]]->onResetFiltering();
+        } else {
             Sc::ShapeSimBase** shapes=mSimulationController->getShapeSims();
             const PxU32 count=mSimulationController->getNbShapes();
             for(PxU32 i=0;i<count;++i) {

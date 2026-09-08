@@ -200,12 +200,12 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
     }
     queryAudit.exercised();
     if(retainReportedPairs)require(events.contacts>0,"reported-pair reuse did not deliver contact points");
-    if(!reports)require(!static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getDestructionContactReuseFallbackCount(),
-        "no-report scene unexpectedly rebuilt correction contact pairs");
+    if(!reports || retainReportedPairs)require(!static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getDestructionContactReuseFallbackCount(),
+        "reported/unreported reuse unexpectedly rebuilt all correction contact pairs");
     if(deviceGraph)require(gpu.getCudaPreSolveSupportPasses()>0 && gpu.getIslandManager().getAccurateIslandSim().getGpuSplitCount()>0,"sleep fixture did not use GPU connectivity/split certificates");
     require(destruction->clearStress(),"destruction teardown failed");
     wall->release();shot->release();resting->release();shape->release();supportShape->release();require(context.healthy(),"GPU errors");
     std::printf("standard scene sleeping=%u passed: 2 chunks, 1 bond, %u projectiles, 1 resting control, corrections=%u\n",sleeping,lateImpact?2u:1u,corrections);
 }
 }
-int main(int argc,char** argv){try{if(argc>1&&!std::strcmp(argv[1],"--reported-reuse")){run(false,false,true,false,false,false,true,true);return 0;}if(argc>1&&!std::strcmp(argv[1],"--reuse")){run(true,false,true,false,false,true,false);return 0;}if(argc>1&&!std::strcmp(argv[1],"--post-correction")){postCorrectionFracture(true);postCorrectionFracture(false);return 0;}const bool boundary=argc>1&&!std::strcmp(argv[1],"--sleep-boundary");if(boundary)run(true,true,false);run(!(argc>1&&!std::strcmp(argv[1],"--awake")),boundary,true,argc>1&&!std::strcmp(argv[1],"--device-graph"),argc>1&&!std::strcmp(argv[1],"--wake-boundary"),argc>1&&!std::strcmp(argv[1],"--late-impact"));return 0;}catch(const std::exception& e){std::fprintf(stderr,"native_standard_scene_test: %s\n",e.what());return 1;}}
+int main(int argc,char** argv){try{if(argc>1&&!std::strcmp(argv[1],"--reported-reuse")){run(false,false,true,false,false,false,true,true);run(true,true,false,false,false,false,true,true);run(true,true,true,false,false,false,true,true);return 0;}if(argc>1&&!std::strcmp(argv[1],"--reuse")){run(true,false,true,false,false,true,false);return 0;}if(argc>1&&!std::strcmp(argv[1],"--post-correction")){postCorrectionFracture(true);postCorrectionFracture(false);return 0;}const bool boundary=argc>1&&!std::strcmp(argv[1],"--sleep-boundary");if(boundary)run(true,true,false);run(!(argc>1&&!std::strcmp(argv[1],"--awake")),boundary,true,argc>1&&!std::strcmp(argv[1],"--device-graph"),argc>1&&!std::strcmp(argv[1],"--wake-boundary"),argc>1&&!std::strcmp(argv[1],"--late-impact"));return 0;}catch(const std::exception& e){std::fprintf(stderr,"native_standard_scene_test: %s\n",e.what());return 1;}}
