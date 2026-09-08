@@ -106,8 +106,9 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 }
                 __syncthreads();break;
             }
+            COMPONENT_WORK_PRECONDITION(a,id,iteration)
             float localGamma=0;
-            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration);
+            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT);
             const float gamma=componentSquaredNorm(localGamma);
             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
             __syncthreads();

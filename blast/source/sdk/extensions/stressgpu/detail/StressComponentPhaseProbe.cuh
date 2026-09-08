@@ -5,15 +5,24 @@
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
 __device__ unsigned long long componentPhaseClocks[9];
 __device__ unsigned long long componentPreconditionClocks[4];
+// Explicitly share one CTA allocation across the caller and callee.
+#define COMPONENT_SUBPROBE_PARAMETER , unsigned long long* subProbe
+#define COMPONENT_SUBPROBE_ARGUMENT , probeSubCycles
 #define COMPONENT_PROBE_BEGIN \
-    __shared__ unsigned long long probeCycles[8],probeLast,probeStart; \
-    if(!threadIdx.x){for(unsigned probeI=0;probeI<8;++probeI)probeCycles[probeI]=0;probeStart=probeLast=clock64();}
+    __shared__ unsigned long long probeCycles[8],probeLast,probeStart,probeSubCycles[4]; \
+    if(!threadIdx.x){for(unsigned subI=0;subI<4;++subI)probeSubCycles[subI]=0;for(unsigned probeI=0;probeI<8;++probeI)probeCycles[probeI]=0;probeStart=probeLast=clock64();}
 #define COMPONENT_PROBE_END(phase) \
     if(!threadIdx.x){const auto probeNow=clock64();probeCycles[phase]+=probeNow-probeLast;probeLast=probeNow;}
 #define COMPONENT_PROBE_PUBLISH \
     COMPONENT_PROBE_END(7) \
-    if(!threadIdx.x){for(unsigned probeI=0;probeI<8;++probeI)atomicAdd(componentPhaseClocks+probeI,probeCycles[probeI]);atomicAdd(componentPhaseClocks+8,probeLast-probeStart);}
+    if(!threadIdx.x){ \
+        for(unsigned subI=0;subI<4;++subI)atomicAdd(componentPreconditionClocks+subI,probeSubCycles[subI]); \
+        for(unsigned probeI=0;probeI<8;++probeI)atomicAdd(componentPhaseClocks+probeI,probeCycles[probeI]); \
+        atomicAdd(componentPhaseClocks+8,probeLast-probeStart); \
+    }
 #else
+#define COMPONENT_SUBPROBE_PARAMETER
+#define COMPONENT_SUBPROBE_ARGUMENT
 #define COMPONENT_PROBE_BEGIN
 #define COMPONENT_PROBE_END(phase)
 #define COMPONENT_PROBE_PUBLISH

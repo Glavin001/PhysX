@@ -54,10 +54,10 @@ __device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a
     return stressSquaredContribution(gamma);
 }
 __device__ __forceinline__ float preconditionNativeComponent(const PersistentStressArgs& a,
-    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration){
+    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration COMPONENT_SUBPROBE_PARAMETER){
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
     unsigned long long subStart=0;if(!threadIdx.x)subStart=clock64();
-#define SUBPROBE_END(index) __syncthreads();if(!threadIdx.x){atomicAdd(componentPreconditionClocks+index,clock64()-subStart);subStart=clock64();}__syncthreads();
+#define SUBPROBE_END(index) __syncthreads();if(!threadIdx.x){subProbe[index]+=clock64()-subStart;subStart=clock64();}__syncthreads();
 #else
 #define SUBPROBE_END(index)
 #endif

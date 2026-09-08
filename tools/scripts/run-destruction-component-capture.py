@@ -23,6 +23,8 @@ def main():
     p.add_argument('--library',type=Path,default=ROOT/'out/sdk-release/diagnostics/component-work/libPhysXDestructionGpuRuntime_64.so')
     args=p.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
     report=json.loads(gzip.decompress(args.reference_report.read_bytes()))
+    if not isinstance(report.get('runs'),dict) or args.case not in report['runs']:
+        raise ValueError('This legacy capture requires embedded-frame reports; use the current native game component workflow in PERFORMANCE_PLAYBOOK.md. No GPU run was started.')
     reference=report['manifest'];config=reference['config'];case=next(c for c in config['cases'] if c['id']==args.case)
     library=args.library.resolve();binary=Path(reference['binary'])
     if not library.is_file():raise RuntimeError('Build PhysXDestructionGpuWorkDiagnostic first')

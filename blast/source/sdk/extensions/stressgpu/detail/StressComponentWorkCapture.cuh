@@ -48,16 +48,17 @@ public:
         checkCuda(cudaMemcpyAsync(subclocks,precondition,sizeof(subclocks),cudaMemcpyDeviceToHost,stream),"observe precondition diagnostics");
         checkCuda(cudaStreamSynchronize(stream),"finish diagnostic observation");
         if(exceeded)throw std::runtime_error("component diagnostic overflow; capture incomplete");
-        unsigned components=0,unmeasured=0;unsigned long long nodeVisits=0,csrVisits=0,liveVisits=0,updates=0;
+        unsigned components=0,unmeasured=0;unsigned long long nodeVisits=0,csrVisits=0,liveVisits=0,updates=0,polynomialVisits=0,inverseApplications=0;
         for(unsigned id=0;id<capacity;++id){const auto& r=host[id];if(!r.path)continue;
             if(r.path==2)++unmeasured;else ++components;
             const auto sweeps=r.residualSweeps+r.verificationSweeps+r.directionSweeps;
             nodeVisits+=r.dynamicNodes*sweeps;csrVisits+=r.csrReferences*sweeps;liveVisits+=r.liveReferences*sweeps;updates+=r.directionSweeps;
-            std::fprintf(output,"{\"record\":\"component\",\"solve\":%u,\"id\":%u,\"path\":%u,\"nodes\":%u,\"dynamic_nodes\":%u,\"csr_refs_per_sweep\":%llu,\"live_refs_per_sweep\":%llu,\"residual_sweeps\":%llu,\"verification_sweeps\":%llu,\"direction_sweeps\":%llu,\"iterations\":%u,\"converged\":%u,\"cta\":%u,\"cta_cycles\":%llu}\n",solve,id,r.path,r.nodes,r.dynamicNodes,r.csrReferences,r.liveReferences,r.residualSweeps,r.verificationSweeps,r.directionSweeps,r.iterations,r.converged,r.block,r.cycles);
+            polynomialVisits+=r.polynomialReferences*r.preconditionSweeps;inverseApplications+=2ull*r.nodes*r.preconditionSweeps;
+            std::fprintf(output,"{\"record\":\"component\",\"solve\":%u,\"id\":%u,\"path\":%u,\"nodes\":%u,\"dynamic_nodes\":%u,\"csr_refs_per_sweep\":%llu,\"live_refs_per_sweep\":%llu,\"residual_sweeps\":%llu,\"verification_sweeps\":%llu,\"direction_sweeps\":%llu,\"iterations\":%u,\"converged\":%u,\"cta\":%u,\"cta_cycles\":%llu,\"anchored\":%u,\"polynomial_refs_per_sweep\":%llu,\"precondition_sweeps\":%llu}\n",solve,id,r.path,r.nodes,r.dynamicNodes,r.csrReferences,r.liveReferences,r.residualSweeps,r.verificationSweeps,r.directionSweeps,r.iterations,r.converged,r.block,r.cycles,r.anchored,r.polynomialReferences,r.preconditionSweeps);
         }
         unsigned long long sum=0;for(unsigned i=0;i<8;++i)sum+=clocks[i];
         if(sum!=clocks[8])throw std::runtime_error("component phase clocks do not close");
-        std::fprintf(output,"{\"record\":\"total\",\"solve\":%u,\"components\":%u,\"unmeasured_components\":%u,\"operator_node_visits\":%llu,\"operator_csr_visits\":%llu,\"operator_live_visits\":%llu,\"component_updates\":%llu,\"phase_cycles\":[",solve++,components,unmeasured,nodeVisits,csrVisits,liveVisits,updates);
+        std::fprintf(output,"{\"record\":\"total\",\"solve\":%u,\"components\":%u,\"unmeasured_components\":%u,\"operator_node_visits\":%llu,\"operator_csr_visits\":%llu,\"operator_live_visits\":%llu,\"component_updates\":%llu,\"polynomial_live_visits\":%llu,\"fine_inverse_applications\":%llu,\"phase_cycles\":[",solve++,components,unmeasured,nodeVisits,csrVisits,liveVisits,updates,polynomialVisits,inverseApplications);
         for(unsigned i=0;i<9;++i)std::fprintf(output,"%s%llu",i?",":"",clocks[i]);
         std::fprintf(output,"],\"precondition_cycles\":[");for(unsigned i=0;i<4;++i)std::fprintf(output,"%s%llu",i?",":"",subclocks[i]);
         std::fprintf(output,"]}\n");

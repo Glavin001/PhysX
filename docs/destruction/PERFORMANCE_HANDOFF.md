@@ -1,5 +1,39 @@
 # Dated performance handoff and implementation map
 
+## 2026-09-08: diagnostic census fixed; production remains 45ae3488 behavior
+
+Latest work is diagnostic-only: component work maps both evaluations per tick,
+counts polynomial visits / fine inverse applications, and records anchor cohorts.
+The old reporter's one-solve/tick assumption is not applicable to the native game.
+New reporter: `tools/scripts/report-vibe-component-work.py`; seven new tests plus
+six existing component-accounting tests pass. Actual macro publication is tested
+on the host; missing/invalid subphase GPU counters reject the small smoke capture
+before the full job. Global subphase atomics now publish once per CTA, not inside
+every iteration. Production preprocessing equivalence is archived.
+
+[Accepted report](../../qualification/vibe-component-work-accepted-20260908/report.md):
+256 buildings / 113,664 chunks / 229,376 bonds / 768 rounds, 600 steps / 10 seconds,
+920 stress evaluations. First split's 69.4M inverse applications are overwhelmingly
+anchored-building work (99.990% of combined outer/polynomial adjacency visits).
+Preconditioner = 66.14% instrumented CTA cycles; polynomial = 82.61% of that
+subphase census. These are not wall-time savings or hardware-counter conclusions.
+Full raw/packed census paths and hashes are retained in the report folder.
+
+Earlier diagnostic paths `out/vibe-component-work-{,local-,final-}20260908`
+are superseded or contain the rejected zero-counter publication bug. Use
+`out/vibe-component-work-accepted-20260908`, its archived runner and the final
+runtime hash. The owned server was restored; production runtime remains the
+previously qualified anchored-residual build, not the intrusive diagnostic.
+
+A separate isolated sparse-inverse reproduction again fails memcheck (30 errors).
+Adding address prints masks the failure; no cause or safe optimization is proven.
+Source copies/binaries are under `out/sparse-inverse-repro-20260908`, evidence under
+`qualification/sparse-inverse-repro-20260908`. Do not enable it in production.
+Next meaningful solver work should reduce retained-component preconditioner cost
+or its required iteration count with full residual/physical checks; do not repeat
+the already rejected queue-order or partial cache changes without new evidence.
+
+
 ## 2026-09-08: anchored residual cleanup retained after numerical and timing checks
 
 Engine `45ae3488` is deployed and passed browser join/shoot/move/settle/reset:

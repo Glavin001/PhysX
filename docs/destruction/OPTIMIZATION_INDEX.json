@@ -993,10 +993,10 @@
       "id": "Q02",
       "status": "✅",
       "optimization": "Per-component actual operator work capture",
-      "current_and_action": "Separate diagnostic runtime records component updates, residual/verification/direction sweeps, live/dead outer-operator CSR visits and phase cycles. The new polynomial preconditioner traversal and extra inverse applications are NOT included in outer-operator visit counters; complete timing includes them. Diagnostic overhead is excluded from production timing claims.",
+      "current_and_action": "2026-09-08: native game diagnostics map both stress evaluations to accepted ticks and separately count outer adjacency, polynomial adjacency, fine inverse applications and anchored/free cohorts. Subphase counters accumulate per CTA; zero/inconsistent totals reject the capture. Complete raw census is hashed; diagnostic times are not production timing.",
       "evidence": [
-        "capture",
-        "work report",
+        "current consumer reporter",
+        "current work report",
         "build"
       ]
     },

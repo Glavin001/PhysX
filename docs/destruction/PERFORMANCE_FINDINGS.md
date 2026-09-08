@@ -1,5 +1,37 @@
 # Performance findings and experiment memory
 
+## 2026-09-08: current two-evaluation work census and corrected phase probe
+
+The [current consumer work report](../../qualification/vibe-component-work-accepted-20260908/report.md)
+reconciles all 920 stress evaluations with 600 accepted ticks: 256 buildings /
+113,664 chunks / 229,376 bonds / 768 physical rounds over 10 simulated seconds,
+Direct GPU API off, sleep on, correction <=1. Instrumentation is separate from
+production timing. It now counts polynomial traversals and fine inverse
+applications, which the older work report omitted.
+
+At first split tick 48 (10,449 fragments, 10,193 awake, 216,220 reported normal
+contacts, 57,788 cumulative broken bonds), both evaluations require 69,385,024
+fine inverse applications and 119,113,158 polynomial live adjacency visits.
+Anchored components account for 99.990% of combined outer/polynomial visits.
+Only 38.007% of visits now belong to components above 256 updates; the old
+high-iteration cohort result must not be copied into the current workload.
+
+Preconditioning is 66.14% of summed instrumented CTA phase cycles; its polynomial
+application is 82.61% of precondition subphase cycles. This remains a work-location
+measurement, not SM utilization, a hardware roofline or an additive millisecond
+breakdown. Subphase global atomics were removed from the iteration loop and
+replaced by per-CTA accumulation/publish. A publication bug in the first rewrite
+was caught by the zero-counter gate; an actual-macro test now covers this case.
+The accepted capture has nonzero subphase totals contained by their parent.
+Production preprocessing remains identical with diagnostic flags disabled.
+
+The strongest measured stress target is retained/anchored preconditioning, not
+tiny-fragment scheduling. Sparse inverse evaluation remains rejected: current
+isolated reproduction still fails memcheck; address prints mask the failure but
+do not establish its cause. [Reproduction evidence](../../qualification/sparse-inverse-repro-20260908/README.md).
+No production optimization or real-time qualification is claimed by this census.
+
+
 ## 2026-09-08: delete identity residual rewrites for anchored components
 
 `prepareNativeResidualComponent` now returns after producing its RHS when the

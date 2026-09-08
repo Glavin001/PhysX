@@ -232,6 +232,34 @@ The component diagnostic target is:
 cmake --build out/sdk-release --target PhysXDestructionGpuWorkDiagnostic -j4
 ```
 
+For the current **Vibe-land consumer**, use the component reporter that maps
+one or two evaluations to each accepted tick:
+
+```sh
+python3 tools/scripts/report-vibe-component-work.py \
+  out/vibe-component-work-accepted-20260908/256-buildings \
+  out/vibe-anchored-residual-20260908/candidate-a \
+  out/vibe-component-work-accepted-20260908/256-buildings-components.jsonl.gz \
+  out/NEW-component-report
+python3 tools/scripts/test-vibe-component-work.py
+```
+
+The capture runner and runtime/executable hashes are preserved with
+[the report](../../qualification/vibe-component-work-accepted-20260908/report.md).
+It uses the instrumented consumer executable and the separate diagnostic runtime;
+its CPU readbacks/waits and wall times are **not production performance**. A
+4-building smoke capture must validate counters before the full 256-building job.
+The runner only stops the verified owned server when it has zero players and
+restores it afterward; never substitute another service PID. Use fresh capture
+paths, validate GPU isolation, and match builds as described above.
+
+The diagnostic now includes polynomial adjacency visits and inverse-application
+counts. Subphase counters accumulate in explicitly shared CTA storage and publish
+once per CTA, rather than contending on global atomics each iteration. Missing,
+inconsistent or out-of-parent subphase totals reject the report. Full raw census
+artifacts stay at hashed workspace paths; selected raw records and all solve
+summaries are included in the repository report.
+
 **Known tool gap:** `run-destruction-component-capture.py` and its component-work
 reporter expect the older embedded-frame report schema. Current gate reports
 have a list under `runs` and raw frames in the capture directories; blindly

@@ -1,0 +1,9 @@
+{
+  "scope": [
+    "StressComponentPhaseProbe.cuh",
+    "StressNativePreconditioner.cuh",
+    "StressComponentIteration.cuh"
+  ],
+  "diagnostic_disabled_preprocessing_identical": true,
+  "normalized_sha256": "bfdd34dead61c11b003a43534d0575b828c3903a1de9867c0e23273da8c8b75e"
+}

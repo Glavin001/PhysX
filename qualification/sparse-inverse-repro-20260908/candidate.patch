@@ -1,0 +1,12 @@
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh
+@@ -24,7 +24,8 @@
+ #pragma unroll
+         for(unsigned column=0;column<6;++column){
+             const unsigned entry=StressHierarchy::triangle(row>column?row:column,row>column?column:row);
+-            out[row]=fma(h.fineInverse[size_t(entry)*h.inverseStride+node],rhs[column],out[row]);
++            const double coefficient=h.fineInverse[size_t(entry)*h.inverseStride+node];
++            if(coefficient!=0.0)out[row]=fma(coefficient,rhs[column],out[row]);
+         }
+     }
+     return {{out[0],out[1],out[2]},{out[3],out[4],out[5]}};
