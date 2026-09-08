@@ -6,7 +6,45 @@ Revalidate against current source/runtime before applying them. See the
 [playbook](PERFORMANCE_PLAYBOOK.md) for commands and the
 [handoff](PERFORMANCE_HANDOFF.md) for outstanding implementation work.
 
-## Latest capacity evidence changes the priorities
+## Native sleeping scene: second fracture evaluation and contact report deletion
+
+The new policy evaluates stress/fracture after corrected physics as well as
+before it, with at most two physics and two stress evaluations per tick.
+Additional final-pass fragments inherit corrected end-of-tick motion. See
+[implementation and qualification](POST_CORRECTION_FRACTURE.md).
+
+A default inherited from the external demo requested CPU contact reports even
+though the native demo had no contact callback. Pending actor-pair reports
+blocked correction contact-pair reuse. Removing those unused requests retains
+physical collision solving and internal GPU impulse consumption.
+
+Matched native settings, 256 buildings / 113,664 chunks / 229,376 bonds, 767 shots
+launched within 12 seconds: two untraced runs per arm, both using the new stress
+policy. Complete mean/worst changed from **175.274 / 355.506 ms** to
+**59.420 / 118.007 ms**. Candidate has zero reuse fallbacks; chaotic counter
+histories differ, with more total broken bonds. Controlled tests and golden
+penetration pass separately. [Generated comparison](../../qualification/post-correction-performance/comparison.md).
+
+Two 30-second runs include all 768 projectiles: means **47.12 / 50.12 ms**, peaks
+**118.469 / 143.404 ms**, up to 40,926 bodies and 26,039 awake. These improve on
+the descriptive Vibe-land work bands but do not establish an equal-input engine
+speedup or a 60 Hz result. [Workload comparison](../../qualification/post-correction-no-reports-long/vibe-comparison/comparison.md).
+
+A separate 30-second diagnostic isolates CUDA rewind/install. At its largest
+replay (15.090501 ms, 15,733 bodies / 12,019 awake), GPU checkpoint restore is
+0.018240 ms and fragment/owner installation is 0.010240 ms. CPU scheduling and
+rigid collision/solve remain inside the replay interval. These GPU intervals
+can overlap its beginning; do not subtract them blindly or call the remainder
+pure GPU solver time. [Generated correction cost](../../qualification/post-correction-gpu-cost/report.md).
+
+Remaining bottleneck: the two GPU stress evaluations dominate the optimized
+large-scene instrumented peak. The standard-scene wall still differs from the
+Direct-GPU golden: supported 400 versus 398, final clusters 41 versus 43.
+Current ordinary topology signature matches its historical ordinary fixture;
+CPU/GPU queries, real entry/exit holes and render/collision alignment pass.
+The golden remains unchanged and its failure is retained, not waived.
+
+## Earlier capacity evidence changes the priorities
 
 Same scene/physical settings: **256 buildings, 113,664 chunks, 229,376 bonds,
 256 aerial projectiles**, 1/60 timestep, maximum one correction, sleeping and

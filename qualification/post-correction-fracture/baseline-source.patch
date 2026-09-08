@@ -1,0 +1,226 @@
+--- a/physx/include/PxDestructionScene.h
++++ b/physx/include/PxDestructionScene.h
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
+ #ifndef PX_DESTRUCTION_SCENE_H
+ #define PX_DESTRUCTION_SCENE_H
+-#define PX_DESTRUCTION_SCENE_VERSION 13
++#define PX_DESTRUCTION_SCENE_VERSION 14
+ #include "foundation/PxTransform.h"
+ #include "PxDirectGPUAPI.h"
+ #include "PxDestructionTopologyTypes.h"
+@@ -109,6 +109,8 @@
+     PxU32 iterations, converged;
+     PxU32 bondCommands, brokenBonds, crushedChunks;
+     PxU32 correctionPasses;
++    PxU32 stressPasses; // one trial evaluation plus one after corrected physics
++    PxU32 postCorrectionBrokenBonds; // subset of brokenBonds from the second evaluation
+ };
+ struct PxDestructionStressTopologyStatus {
+     PxU64 generation, solvedGeneration, rebuilds;
+--- a/physx/source/gpudestruction/include/PxgDestructionRuntime.h
++++ b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+@@ -56,7 +56,9 @@
+     // that reused pre-existing holes. The future correction task owns that order.
+     virtual bool restoreRigidState(PxgBodySim* bodies, PxgBodySimVelocities* previous,
+         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 generation, CUstream stream) = 0;
+-    virtual bool prepareFrame() = 0;
++    virtual bool prepareFrame(bool postCorrection = false) = 0;
++    // Merge the two evaluations into one tick receipt, after final ownership commit.
++    virtual bool finishPostCorrection() = 0;
+     virtual CUevent inputEvent() const = 0;
+     // The producer stream owns the native body pool. Runtime orders its reads
+     // after this stream and borrowed NP streams; no Direct GPU API gather or
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -84,9 +84,18 @@
+ __device__ void add(PxVec3& target,const PxVec3& value) {
+     atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
+ }
+-__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence) {
+-    const PxU64 frame=status->frame+1; *status={}; status->frame=frame;
++__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool postCorrection) {
++    const PxU64 frame=status->frame+(postCorrection?0:1); *status={}; status->frame=frame;
+     if(sequence && sequence->error)status->error|=8192u;
++}
++__global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDestructionStageStatus first) {
++    status->postCorrectionBrokenBonds=status->brokenBonds;
++    status->normalContacts+=first.normalContacts;status->frictionAnchors+=first.frictionAnchors;
++    status->iterations=max(status->iterations,first.iterations);
++    status->converged= status->converged && first.converged;
++    status->bondCommands+=first.bondCommands;status->brokenBonds+=first.brokenBonds;
++    status->crushedChunks+=first.crushedChunks;status->error|=first.error;
++    status->correctionPasses=1;status->stressPasses=2;
+ }
+ __global__ void prepareNativeCorrectionAcceptance(PxDestructionStageStatus* status,
+     const PxgContactGraphSequence* sequence,PxU32* accept) {
+@@ -201,7 +210,7 @@
+ __global__ void finishStatus(const ExtStressGpuDeviceStatus* solve,PxDestructionStageStatus* status,
+     const PxDestructionVectorPair* forces, PxU32 count) {
+     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+-    if(!i) { status->iterations=solve?solve->iterations:0;status->converged=solve?solve->converged:1; }
++    if(!i) { status->stressPasses=1;status->iterations=solve?solve->iterations:0;status->converged=solve?solve->converged:1; }
+     if(i<count && (!forces[i].linear.isFinite() || !forces[i].angular.isFinite())) atomicOr(&status->error,2u);
+ }
+ 
+@@ -439,6 +448,7 @@
+ #include "PxgDestructionMotionSlots.cuh"
+ class Runtime final : public PxgDestructionRuntime {
+     bool mPreserveContactPairs=false;
++    bool mPostCorrection=false;PxDestructionStageStatus mFirstPassStatus{};
+     PxProfilerCallback* mProfiler=nullptr;PxU64 mProfileContext=0;
+     cudaEvent_t mStageEvents[6]{};bool mStageTimingPending=false;
+     void stageMarker(PxU32 stage) {
+@@ -1145,11 +1155,16 @@
+     }
+     void setConsumerEvent(CUevent e) override {if(mWriteAllowed(mScene))mConsumer=e;}
+     PxDestructionStageStatus getLastStatus() const override {return *mHostStatus;}
+-    bool prepareFrame() override {
++    bool prepareFrame(bool postCorrection=false) override {
+         try {Context current(mContext);if(!configured() || mPending)return false;
+-            mInstalledOwnerGeneration=0;
++            mPostCorrection=postCorrection;
++            if(postCorrection) {
++                if(mHostStatus->error || mHostStatus->correctionPasses!=1 || mHostStatus->stressPasses!=1)return false;
++                mFirstPassStatus=*mHostStatus;
++            }
++            if(!postCorrection)mInstalledOwnerGeneration=0;
+             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
+-            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence);
++            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,postCorrection);
+             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
+             mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;
+             mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
+@@ -1159,6 +1174,15 @@
+                 check(cudaMemsetAsync(mAffectedClusters,0,mC*sizeof(PxU32),mStream));
+             }
+             check(cudaEventRecord(mInput,mStream));return true;
++        }catch(...){mFailed=true;return false;}
++    }
++    bool finishPostCorrection() override {
++        if(!mPostCorrection || mFailed || mPending || mHostStatus->error)return false;
++        try {Context current(mContext);
++            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatus);
++            check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
++            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
++            mPostCorrection=false;return !mHostStatus->error;
+         }catch(...){mFailed=true;return false;}
+     }
+     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+@@ -758,7 +758,8 @@
+             PxScopedCudaLock lock(*mCudaContextManager);
+             if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return false;
+         }
+-        if(mDestructionCorrecting) {
++        const bool postCorrection=mDestructionCorrecting;
++        if(postCorrection) {
+             if(mDestructionCorrectionProfiler) {
+                 mDestructionCorrectionProfiler->zoneEnd(mDestructionCorrectionProfileData,
+                     gDestructionCorrectionZone,true,PxU64(reinterpret_cast<size_t>(this)));
+@@ -768,7 +769,16 @@
+             PxScopedCudaLock lock(*mCudaContextManager);
+             const bool accepted=!mCudaContextManager->getCudaContext()->isInAbortMode()
+                 && mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
+-            mDestructionCorrecting=false;mDestructionError=accepted?0:1;return false;
++            mDestructionCorrecting=false;mDestructionError=accepted?0:1;
++            if(!accepted)return false;
++            // A second fracture evaluation uses corrected end-of-tick motion.
++            // Keep a stable source snapshot for split COM fitting; never rewind
++            // to the original trial input and never schedule a third physics pass.
++            if(!mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
++                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
++                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream())) {
++                mDestructionError=1;return false;
++            }
+         }
+         if(!mDestruction->configured())
+         {
+@@ -781,7 +791,7 @@
+         bool ok;
+         {
+         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
+-        ok = mDestruction->prepareFrame();
++        ok = mDestruction->prepareFrame(postCorrection);
+         PxgDestructionSolvedContacts contacts;
+         const PxU32 streamIndex=1-mDynamicContext->getCurrentContactStreamIndex();
+         if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
+@@ -888,17 +898,23 @@
+                     pending.forceSize_Unsafe(kept);
+                 }
+                 }
++                if(postCorrection) {
++                    // The snapshot just restored is the end-of-tick state. Only
++                    // split ownership/mass changed; no additional integration.
++                    if(ok)ok=mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
++                    complete=ok;
++                }
+                 mDestructionPreservePairs=false;
+-                if(ok && mDestruction->preserveUnchangedContactPairs() && (!canReuseContactPairs || mNpContext->hasCpuContactManagers()))
++                if(!postCorrection && ok && mDestruction->preserveUnchangedContactPairs() && (!canReuseContactPairs || mNpContext->hasCpuContactManagers()))
+                     ++mDestructionContactReuseFallbackCount;
+-                if(ok && mDestruction->preserveUnchangedContactPairs() && canReuseContactPairs && !mNpContext->hasCpuContactManagers()) {
++                if(!postCorrection && ok && mDestruction->preserveUnchangedContactPairs() && canReuseContactPairs && !mNpContext->hasCpuContactManagers()) {
+                     PxProfileScoped caches(PxGetProfilerCallback(),"GpuDestruction.resetContactCaches",false,profileContext);
+                     PxScopedCudaLock lock(*mCudaContextManager);
+                     ok=mNpContext->getGpuNarrowphaseCore()->resetDestructionContactCaches()
+                         && mDynamicContext->getGpuSolverCore()->resetDestructionFrictionCaches();
+                     mDestructionPreservePairs=ok;
+                 }
+-                if(ok) {
++                if(ok && !postCorrection) {
+                     // This event spans the task-graph continuation, including
+                     // CPU refiltering. Keep the callback/token paired even when
+                     // the corrected finalization executes on a different worker.
+@@ -910,6 +926,7 @@
+                 }
+             }
+         }
++        if(postCorrection && ok && complete)ok=mDestruction->finishPostCorrection();
+         mDestructionError = ok && complete ? 0 : 1;
+         if(mDestructionError)
+             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+--- a/physx/source/simulationcontroller/src/ScShapeSimBase.cpp
++++ b/physx/source/simulationcontroller/src/ScShapeSimBase.cpp
+@@ -110,7 +110,10 @@
+     }
+     // Fresh public bodies have not reached the GPU yet. Native destruction
+     // candidates initialized in the GPU pool have already cleared FIRST_COPY.
+-    const bool gpuBounds = scene.isDirectGPUAPIInitialized()
++    // Internal native transactions own GPU motion even when the public Direct
++    // GPU API is disabled. Preserve the existing world-space shape cache while
++    // rebinding; the new CPU compatibility body has not received its pose yet.
++    const bool gpuBounds = (deviceOwnerTransaction || scene.isDirectGPUAPIInitialized())
+         && !(body.getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU)
+         && !(body.getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16));
+     // Native correction consumes the GPU rigid-to-shape view instead of a host list.
+--- a/demos/blast-stress-demo/native_destruction_main.cpp
++++ b/demos/blast-stress-demo/native_destruction_main.cpp
+@@ -197,7 +197,7 @@
+     if(recordState)for(unsigned i=0;i<chunks.size();++i){VisualActor visual;visual.parameters=half;visual.part=chunks[i].building%4;require(writer.defineActor(i,visual),"chunk visual definition failed");}
+     std::ofstream telemetry(output+"/native.frames.csv");
+     telemetry<<std::setprecision(17);
+-    telemetry<<"step,simulation_seconds,physics_step_ms,stress_solve_ms,frame_host_ms,bodies,awake_bodies,splits_total,contacts_total,resim_passes,correction_status,contacts_frame,projectiles_active,bonds_broken,stress_iterations,stress_converged,observation_ms,gpu_render_submit_and_export_ms,logical_clusters,native_dynamic_bodies,native_kinematic_bodies,active_dynamic_bodies,active_kinematic_bodies,contact_pairs,contact_pairs_with_contacts,solver_rows,stress_active_nodes,stress_active_bonds,stress_islands,graph_d2h_bytes,pre_solve_pairs,simulation_start_ns,simulation_end_ns,process_cpu_ms,complete_step_ms,command_ms,completion_ms,complete_start_ns,complete_end_ns,phase_output_start_ns,phase_output_end_ns\n";
++    telemetry<<"step,simulation_seconds,physics_step_ms,stress_solve_ms,frame_host_ms,bodies,awake_bodies,splits_total,contacts_total,resim_passes,correction_status,contacts_frame,projectiles_active,bonds_broken,stress_iterations,stress_converged,observation_ms,gpu_render_submit_and_export_ms,logical_clusters,native_dynamic_bodies,native_kinematic_bodies,active_dynamic_bodies,active_kinematic_bodies,contact_pairs,contact_pairs_with_contacts,solver_rows,stress_active_nodes,stress_active_bonds,stress_islands,graph_d2h_bytes,pre_solve_pairs,simulation_start_ns,simulation_end_ns,process_cpu_ms,complete_step_ms,command_ms,completion_ms,complete_start_ns,complete_end_ns,phase_output_start_ns,phase_output_end_ns,stress_passes,post_correction_bonds_broken\n";
+     std::vector<Shot> shots;std::vector<PxU32> shotIds;std::vector<PxTransform> shotPoses;std::vector<VisualPose> poses;
+     CUdeviceptr deviceIds=0,devicePoses=0;CUevent observationIdsReady=nullptr;
+     if(observePoses){PxScopedCudaLock lock(cuda);check(cuEventCreate(&observationIdsReady,CU_EVENT_DISABLE_TIMING));check(cuMemAlloc(&deviceIds,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxU32)));check(cuMemAlloc(&devicePoses,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxTransform)));}
+@@ -250,7 +250,7 @@
+         const auto status=destruction->getLastStatus();
+         if(!complete || error || status.error){std::fprintf(stderr,"INCOMPLETE native step %u: fetch=%u stage=%u broken=%u crushed=%u\n",frame,error,status.error,status.brokenBonds,status.crushedChunks);throw std::runtime_error("native demo correction incomplete");}
+         require(status.converged,"native demo accepted an unconverged stress solve");
+-        require(status.correctionPasses<=1,"native demo exceeded one internal correction");require(status.frame==frame+1,"native demo duplicated timestep");
++        require(status.correctionPasses<=1,"native demo exceeded one internal correction");require(status.stressPasses==1+status.correctionPasses,"native demo missed/exceeded stress evaluations");require(status.frame==frame+1,"native demo duplicated timestep");
+         require(status.brokenBonds==0 || totalContacts+status.normalContacts>0,"authored building fractured before any actual impact");
+         totalCorrections+=status.correctionPasses;totalBroken+=status.brokenBonds;totalContacts+=status.normalContacts;
+         const auto observation=Clock::now();const auto view=destruction->getDeviceView();PxDestructionTopologyStatus topology{};PxDestructionStressTopologyStatus stressTopology{};
+@@ -356,7 +356,7 @@
+         const auto pairs=static_cast<PxgGpuContext*>(static_cast<NpScene&>(scene).getScScene().getDynamicsContext())->getCudaPreSolveContactPairs();
+         // Stress time is included in physics_step_ms, not separately instrumented.
+         // The recording uses the compact HUD, which only displays total times.
+-        telemetry<<frame<<','<<(frame+1)*dt<<','<<simulationMs<<",0,"<<ms(tick)<<','<<counts.nbDynamicBodies+counts.nbKinematicBodies<<','<<counts.nbActiveDynamicBodies+counts.nbActiveKinematicBodies<<','<<topology.clusterCount-buildings<<','<<totalContacts<<','<<status.correctionPasses<<",0,"<<status.normalContacts<<','<<shots.size()<<','<<status.brokenBonds<<','<<status.iterations<<','<<status.converged<<','<<observationMs<<','<<renderMs<<','<<topology.clusterCount<<','<<counts.nbDynamicBodies<<','<<counts.nbKinematicBodies<<','<<counts.nbActiveDynamicBodies<<','<<counts.nbActiveKinematicBodies<<','<<counts.nbDiscreteContactPairsTotal<<','<<counts.nbDiscreteContactPairsWithContacts<<','<<counts.nbAxisSolverConstraints<<','<<stressTopology.activeNodeCount<<','<<stressTopology.activeBondCount<<','<<stressTopology.islandCount<<','<<graphStats.deviceToHostBytes-previousGraphBytes<<','<<pairs-previousPairs<<','<<startNs<<','<<endNs<<','<<double(endCpu-startCpu)/1e6<<','<<completeMs<<','<<commandMs<<','<<completionMs<<','<<completeStartNs<<','<<completeEndNs<<','<<phaseOutputStartNs<<','<<phaseOutputEndNs<<'\n';
++        telemetry<<frame<<','<<(frame+1)*dt<<','<<simulationMs<<",0,"<<ms(tick)<<','<<counts.nbDynamicBodies+counts.nbKinematicBodies<<','<<counts.nbActiveDynamicBodies+counts.nbActiveKinematicBodies<<','<<topology.clusterCount-buildings<<','<<totalContacts<<','<<status.correctionPasses<<",0,"<<status.normalContacts<<','<<shots.size()<<','<<status.brokenBonds<<','<<status.iterations<<','<<status.converged<<','<<observationMs<<','<<renderMs<<','<<topology.clusterCount<<','<<counts.nbDynamicBodies<<','<<counts.nbKinematicBodies<<','<<counts.nbActiveDynamicBodies<<','<<counts.nbActiveKinematicBodies<<','<<counts.nbDiscreteContactPairsTotal<<','<<counts.nbDiscreteContactPairsWithContacts<<','<<counts.nbAxisSolverConstraints<<','<<stressTopology.activeNodeCount<<','<<stressTopology.activeBondCount<<','<<stressTopology.islandCount<<','<<graphStats.deviceToHostBytes-previousGraphBytes<<','<<pairs-previousPairs<<','<<startNs<<','<<endNs<<','<<double(endCpu-startCpu)/1e6<<','<<completeMs<<','<<commandMs<<','<<completionMs<<','<<completeStartNs<<','<<completeEndNs<<','<<phaseOutputStartNs<<','<<phaseOutputEndNs<<','<<status.stressPasses<<','<<status.postCorrectionBrokenBonds<<'\n';
+         previousGraphBytes=graphStats.deviceToHostBytes;previousPairs=pairs;
+         if(frame%60==0){std::printf("native t=%.1f chunks=%zu bonds=%zu clusters=%u shots=%zu broken=%u corrections=%u step=%.2fms\n",time,chunks.size(),bonds.size(),topology.clusterCount,shots.size(),totalBroken,totalCorrections,simulationMs);std::fflush(stdout);}
+     }

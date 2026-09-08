@@ -83,7 +83,13 @@ LABELS={
 STAGES={'contactLoads':'Convert solved contact impulses into chunk loads',
  'stress':'Iterative stress solve to convergence', 'materials':'Evaluate material damage and fracture',
  'topologyAndCandidates':'Connectivity, cluster mass and fragment candidates',
- 'commitAndStressTopology':'Commit changes and rebuild stress topology'}
+ 'commitAndStressTopology':'Commit changes and rebuild stress topology',
+ 'rewindState':'GPU checkpoint restore (device-to-device copies)',
+ 'installFragments':'GPU fragment motion installation before replay',
+ 'installOwners':'GPU shape ownership installation before replay',
+ 'finalSplitState':'GPU end-state copy for final splits (no time rewind)',
+ 'finalSplitFragments':'GPU final-split motion installation after replay',
+ 'finalSplitOwners':'GPU final-split shape ownership after replay'}
 DETAILS={
  'preallocateContactManagers':'Allocate contact-manager storage',
  'registerContactManagers':'Register contact managers','registerInteractions':'Register body/shape interactions',
@@ -129,6 +135,9 @@ def load_run(directory,record):
         require(int(r['step'])==i and r['stress_converged']=='1' and 0<=int(r['resim_passes'])<=1,'Invalid accepted simulation frame')
         require(int(r['simulation_end_ns'])>int(r['simulation_start_ns']),'Invalid simulation timestamps')
         require(float(r['physics_step_ms'])>0,'Invalid simulation duration')
+        if 'stress_passes' in r:
+            require(int(r['stress_passes'])==1+int(r['resim_passes']),'Missing/excess stress evaluation')
+            require(0<=int(r['post_correction_bonds_broken'])<=int(r['bonds_broken']),'Invalid post-correction fracture accounting')
     require(s['consumer_pose_readback_bytes']==0 and s['gpu_rendered_frames']==0,'Timing fixture accidentally enables pose observation/rendering')
     signature=[[int(r[k]) for k in ['step','bonds_broken','resim_passes','logical_clusters']] for r in f]
     w=windows(f)
@@ -332,7 +341,7 @@ def render(manifest,runs,out):
     d.table(['Operation','CPU / GPU responsibility','Mean ms','First fracture ms','Worst step ms','Last 2 s ms'],rows)
     d.title('Inside the destruction wait — GPU-stream elapsed time')
     d.text('These consecutive CUDA-event intervals include GPU execution plus stream scheduling/dependency gaps. They overlap the CPU submission/wait above and must NOT be added to wall time. The wait is the host observing completion of required work, not a second computation. Exact kernel execution is shown separately below.')
-    d.table(['GPU stream operation','Mean ms','First fracture ms','Worst step ms','Last 2 s ms'],[[label,fmt(mean([r.get(key,0) for r in pp['cuda_stages']])),fmt(pp['cuda_stages'][first].get(key,0)),fmt(pp['cuda_stages'][worst].get(key,0)),fmt(mean([pp['cuda_stages'][i].get(key,0) for i in late]))] for key,label in STAGES.items()])
+    d.table(['GPU stream operation','Mean ms','First fracture ms','Worst step ms','Last 2 s ms'],[[label,fmt(mean([r.get(key,0) for r in pp['cuda_stages']])),fmt(pp['cuda_stages'][first].get(key,0)),fmt(pp['cuda_stages'][worst].get(key,0)),fmt(mean([pp['cuda_stages'][i].get(key,0) for i in late]))] for key,label in STAGES.items() if any(key in v for v in pp['cuda_stages'])])
     t=trace['profile'];tf=trace['frames'];tfirst=next((i for i,f in enumerate(tf) if int(f['bonds_broken'])),0);tworst=trace['worst_step'];tl=trace['windows']['last_2s']
     d.title('Actual GPU execution versus elapsed gaps — CUPTI capture')
     d.text(f"Detailed GPU tables use repetition 1; all {len(p['gpu'])} repetitions pass full validation and contribute to the overhead table. GPU capture duration: {trace['summary']['seconds']} s. Its final-two-seconds column covers simulation seconds {max(0,trace['summary']['seconds']-2)}–{trace['summary']['seconds']}. This capture's first fracture is step {tfirst}; its worst step is {tworst}. Concurrent GPU intervals are merged before summing. No GPU activity means no recorded kernel/copy/memset from this process, not proof of global GPU idleness or useful CPU computation. CPU core-time can exceed elapsed time and is never added to it.")
@@ -483,7 +492,7 @@ def render_complete_gate(manifest,runs,out):
                 doc.text('⚠️ Legacy diagnostic capture: profiler CSV serialization was included in completion time. This scoped complete-step measurement includes report-output overhead; use untraced runs for performance. No estimated cost is subtracted.')
             doc.table(['GPU stream stage','Mean ms','At scoped peak ms'],[
                 [label,fmt(mean([v.get(key,0) for v in data['cuda_stages']])),fmt(data['cuda_stages'][peak].get(key,0))]
-                for key,label in STAGES.items()])
+                for key,label in STAGES.items() if any(key in v for v in data['cuda_stages'])])
             render_physics_task_details(doc,data,peak)
             doc.text(f"Scoped peak: repeat 1, step {peak}, complete advance {float(frames[peak]['complete_step_ms']):.3f} ms. CUDA-event timings measure stream intervals, including gaps; they do not establish SM utilization or hardware bandwidth limits.")
             reference=runs[case['id']]['plain'][0]

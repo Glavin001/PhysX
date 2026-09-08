@@ -758,7 +758,8 @@ namespace physx
             PxScopedCudaLock lock(*mCudaContextManager);
             if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return false;
         }
-        if(mDestructionCorrecting) {
+        const bool postCorrection=mDestructionCorrecting;
+        if(postCorrection) {
             if(mDestructionCorrectionProfiler) {
                 mDestructionCorrectionProfiler->zoneEnd(mDestructionCorrectionProfileData,
                     gDestructionCorrectionZone,true,PxU64(reinterpret_cast<size_t>(this)));
@@ -768,7 +769,16 @@ namespace physx
             PxScopedCudaLock lock(*mCudaContextManager);
             const bool accepted=!mCudaContextManager->getCudaContext()->isInAbortMode()
                 && mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
-            mDestructionCorrecting=false;mDestructionError=accepted?0:1;return false;
+            mDestructionCorrecting=false;mDestructionError=accepted?0:1;
+            if(!accepted)return false;
+            // A second fracture evaluation uses corrected end-of-tick motion.
+            // Keep a stable source snapshot for split COM fitting; never rewind
+            // to the original trial input and never schedule a third physics pass.
+            if(!mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream())) {
+                mDestructionError=1;return false;
+            }
         }
         if(!mDestruction->configured())
         {
@@ -781,7 +791,7 @@ namespace physx
         bool ok;
         {
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
-        ok = mDestruction->prepareFrame();
+        ok = mDestruction->prepareFrame(postCorrection);
         PxgDestructionSolvedContacts contacts;
         const PxU32 streamIndex=1-mDynamicContext->getCurrentContactStreamIndex();
         if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
@@ -888,17 +898,23 @@ namespace physx
                     pending.forceSize_Unsafe(kept);
                 }
                 }
+                if(postCorrection) {
+                    // The snapshot just restored is the end-of-tick state. Only
+                    // split ownership/mass changed; no additional integration.
+                    if(ok)ok=mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
+                    complete=ok;
+                }
                 mDestructionPreservePairs=false;
-                if(ok && mDestruction->preserveUnchangedContactPairs() && (!canReuseContactPairs || mNpContext->hasCpuContactManagers()))
+                if(!postCorrection && ok && mDestruction->preserveUnchangedContactPairs() && (!canReuseContactPairs || mNpContext->hasCpuContactManagers()))
                     ++mDestructionContactReuseFallbackCount;
-                if(ok && mDestruction->preserveUnchangedContactPairs() && canReuseContactPairs && !mNpContext->hasCpuContactManagers()) {
+                if(!postCorrection && ok && mDestruction->preserveUnchangedContactPairs() && canReuseContactPairs && !mNpContext->hasCpuContactManagers()) {
                     PxProfileScoped caches(PxGetProfilerCallback(),"GpuDestruction.resetContactCaches",false,profileContext);
                     PxScopedCudaLock lock(*mCudaContextManager);
                     ok=mNpContext->getGpuNarrowphaseCore()->resetDestructionContactCaches()
                         && mDynamicContext->getGpuSolverCore()->resetDestructionFrictionCaches();
                     mDestructionPreservePairs=ok;
                 }
-                if(ok) {
+                if(ok && !postCorrection) {
                     // This event spans the task-graph continuation, including
                     // CPU refiltering. Keep the callback/token paired even when
                     // the corrected finalization executes on a different worker.
@@ -910,6 +926,7 @@ namespace physx
                 }
             }
         }
+        if(postCorrection && ok && complete)ok=mDestruction->finishPostCorrection();
         mDestructionError = ok && complete ? 0 : 1;
         if(mDestructionError)
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,

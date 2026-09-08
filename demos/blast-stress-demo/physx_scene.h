@@ -60,7 +60,8 @@ public:
         bool enableGpuSleeping = false,
         bool enableGpuHostAccess = false,
         physx::PxSolverType::Enum solverType = physx::PxSolverType::eTGS,
-        bool enableBodyAccelerations = false);
+        bool enableBodyAccelerations = false,
+        bool enableContactReports = true);
     ~PhysXScene();
 
     PhysXScene(const PhysXScene&) = delete;

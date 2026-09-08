@@ -213,6 +213,7 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
         require(status.converged,"native impact accepted unconverged stress");
         require(status.frame==frame+1,"correction counted as a second timestep");
         require(status.correctionPasses<=1,"native step exceeded one correction");
+        require(status.stressPasses==1+status.correctionPasses,"native replay did not re-evaluate fracture exactly once");
         require(events.advances==before+1,"trial pass duplicated pose callback");
         corrections+=status.correctionPasses;contacts+=status.normalContacts;
         if(shape->getActor()!=wall)
@@ -230,7 +231,8 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
                 const auto view=destruction->getDeviceView();
                 PxDestructionCollisionPreparationStatus prep{};
                 {PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(&prep,CUdeviceptr(view.collisionPreparation),sizeof(prep)));}
-                require(prep.count==2 && prep.migrating==1,"fixture must retain one shape and migrate one shape");
+                require(prep.count==0 && prep.migrating==0 && status.postCorrectionBrokenBonds==0,
+                    "post-correction pass must not migrate the already split fixture again");
                 require(retained->getActor()==wall,"retained collision shape lost its CPU owner");
                 require(nativeShapes.mNativeOwnerObservations-initialOwnerObservations==1,
                     "retained GPU collision owner unnecessarily crossed CPU ownership bridge");

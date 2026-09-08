@@ -52,6 +52,18 @@ physx::PxFilterFlags contactFilter(
     return physx::PxFilterFlag::eDEFAULT;
 }
 
+// Native destruction reads solved impulses internally. A consumer that does
+// not request CPU contact events must not allocate/export per-contact reports.
+physx::PxFilterFlags simulationFilter(
+    physx::PxFilterObjectAttributes a,physx::PxFilterData,
+    physx::PxFilterObjectAttributes b,physx::PxFilterData,
+    physx::PxPairFlags& flags,const void*,physx::PxU32)
+{
+    flags=(physx::PxFilterObjectIsTrigger(a) || physx::PxFilterObjectIsTrigger(b))
+        ? physx::PxPairFlag::eTRIGGER_DEFAULT : physx::PxPairFlag::eCONTACT_DEFAULT;
+    return physx::PxFilterFlag::eDEFAULT;
+}
+
 std::uint32_t capacityScale(const SceneCapacity& capacity)
 {
     std::uint64_t requested = std::max<std::uint64_t>(
@@ -107,7 +119,8 @@ PhysXScene::PhysXScene(
     bool enableGpuSleeping,
     bool enableGpuHostAccess,
     physx::PxSolverType::Enum solverType,
-    bool enableBodyAccelerations)
+    bool enableBodyAccelerations,
+    bool enableContactReports)
     : m_mode(mode)
     , m_requireGpu(requireGpu)
     , m_directGpuApiRequested(enableDirectGpuApi)
@@ -173,7 +186,7 @@ PhysXScene::PhysXScene(
     physx::PxSceneDesc desc(m_physics->getTolerancesScale());
     desc.gravity = physx::PxVec3(0.0f, -9.81f, 0.0f);
     desc.cpuDispatcher = m_dispatcher;
-    desc.filterShader = contactFilter;
+    desc.filterShader = enableContactReports ? contactFilter : simulationFilter;
     desc.simulationEventCallback = events;
     desc.solverType = solverType;
     if (enableBodyAccelerations) desc.flags |= physx::PxSceneFlag::eENABLE_BODY_ACCELERATIONS;

@@ -56,7 +56,9 @@ public:
     // that reused pre-existing holes. The future correction task owns that order.
     virtual bool restoreRigidState(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 generation, CUstream stream) = 0;
-    virtual bool prepareFrame() = 0;
+    virtual bool prepareFrame(bool postCorrection = false) = 0;
+    // Merge the two evaluations into one tick receipt, after final ownership commit.
+    virtual bool finishPostCorrection() = 0;
     virtual CUevent inputEvent() const = 0;
     // The producer stream owns the native body pool. Runtime orders its reads
     // after this stream and borrowed NP streams; no Direct GPU API gather or

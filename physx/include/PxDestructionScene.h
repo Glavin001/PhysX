@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 13
+#define PX_DESTRUCTION_SCENE_VERSION 14
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -109,6 +109,8 @@ struct PxDestructionStageStatus {
     PxU32 iterations, converged;
     PxU32 bondCommands, brokenBonds, crushedChunks;
     PxU32 correctionPasses;
+    PxU32 stressPasses; // one trial evaluation plus one after corrected physics
+    PxU32 postCorrectionBrokenBonds; // subset of brokenBonds from the second evaluation
 };
 struct PxDestructionStressTopologyStatus {
     PxU64 generation, solvedGeneration, rebuilds;

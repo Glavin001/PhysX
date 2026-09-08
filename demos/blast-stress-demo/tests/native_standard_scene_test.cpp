@@ -41,11 +41,12 @@ struct BodyObserver {
         const auto expected=actor.getGlobalPose();require((observed.p-expected.p).magnitude()<1e-4f
             && PxAbs(observed.q.dot(expected.q))>1-1e-5f,"public GPU observation differs from ordinary actor pose");}
 };
+#include "native_post_correction_check.h"
 bool boundarySleep=false;
 PxVec3 boundaryPose(0),boundaryVelocity(0);
-void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=false,bool wakeBoundary=false,bool lateImpact=false) {
+void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=false,bool wakeBoundary=false,bool lateImpact=false,bool reports=true) {
     Events events;blast_demo::SceneCapacity capacity;
-    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,false,!sleeping,false,false);
+    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,false,!sleeping,false,false,PxSolverType::eTGS,false,reports);
     auto& scene=context.scene();auto& physics=context.physics();
     require(!(scene.getFlags()&PxSceneFlag::eENABLE_DIRECT_GPU_API),"fixture enabled Direct GPU");
     require(bool(scene.getFlags()&PxSceneFlag::eDISABLE_SLEEPING)==!sleeping,"wrong sleep mode");
@@ -79,7 +80,7 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
     if(!fracture){material.compressionElasticLimit=1e12f;material.compressionFatalLimit=2e12f;}
     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=2;desc.chunkMassProperties=mass;
     desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=&bond;desc.bondCount=1;
-    desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.gpuIslandRepair=deviceGraph;
+    desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.gpuIslandRepair=deviceGraph;desc.preserveUnchangedContactPairs=!reports;
     require(destruction->configureStress(desc),"native configuration failed");
     auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(scene).getScScene().getDynamicsContext());
     if(deviceGraph) {
@@ -105,6 +106,7 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
         if(!complete||error||status.error)std::fprintf(stderr,"standard sleeping=%u step=%u complete=%u error=%u destruction=%u breaks=%u corrections=%u\n",sleeping,i,complete,error,status.error,status.brokenBonds,status.correctionPasses);
         require(complete&&!error&&!status.error,"standard scene rejected correction");
         require(status.correctionPasses<=1&&status.frame==i+1,"correction advanced time twice");
+        require(status.stressPasses==1+status.correctionPasses,"missing post-correction stress evaluation or excess pass");
         require(events.advances<=before+1,"trial publication duplicated onAdvance");
         corrections+=status.correctionPasses;
         if(wakeBoundary && i==6)require(events.wakes==wakesBefore+1 && !resting->isSleeping()
@@ -178,10 +180,12 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
             require(!fragment->isSleeping()&&fragment->getLinearVelocity().y>3&&events.wakes==wakeEvents+1,"ordinary force did not wake fragment exactly once");
         }
     }
+    if(!reports)require(!static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getDestructionContactReuseFallbackCount(),
+        "no-report scene unexpectedly rebuilt correction contact pairs");
     if(deviceGraph)require(gpu.getCudaPreSolveSupportPasses()>0 && gpu.getIslandManager().getAccurateIslandSim().getGpuSplitCount()>0,"sleep fixture did not use GPU connectivity/split certificates");
     require(destruction->clearStress(),"destruction teardown failed");
     wall->release();shot->release();resting->release();shape->release();supportShape->release();require(context.healthy(),"GPU errors");
     std::printf("standard scene sleeping=%u passed: 2 chunks, 1 bond, %u projectiles, 1 resting control, corrections=%u\n",sleeping,lateImpact?2u:1u,corrections);
 }
 }
-int main(int argc,char** argv){try{const bool boundary=argc>1&&!std::strcmp(argv[1],"--sleep-boundary");if(boundary)run(true,true,false);run(!(argc>1&&!std::strcmp(argv[1],"--awake")),boundary,true,argc>1&&!std::strcmp(argv[1],"--device-graph"),argc>1&&!std::strcmp(argv[1],"--wake-boundary"),argc>1&&!std::strcmp(argv[1],"--late-impact"));return 0;}catch(const std::exception& e){std::fprintf(stderr,"native_standard_scene_test: %s\n",e.what());return 1;}}
+int main(int argc,char** argv){try{if(argc>1&&!std::strcmp(argv[1],"--reuse")){run(true,false,true,false,false,true,false);return 0;}if(argc>1&&!std::strcmp(argv[1],"--post-correction")){postCorrectionFracture(true);postCorrectionFracture(false);return 0;}const bool boundary=argc>1&&!std::strcmp(argv[1],"--sleep-boundary");if(boundary)run(true,true,false);run(!(argc>1&&!std::strcmp(argv[1],"--awake")),boundary,true,argc>1&&!std::strcmp(argv[1],"--device-graph"),argc>1&&!std::strcmp(argv[1],"--wake-boundary"),argc>1&&!std::strcmp(argv[1],"--late-impact"));return 0;}catch(const std::exception& e){std::fprintf(stderr,"native_standard_scene_test: %s\n",e.what());return 1;}}

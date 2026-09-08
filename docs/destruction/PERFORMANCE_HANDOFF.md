@@ -6,6 +6,8 @@ Inspect Git changes, processes and artifact hashes first. The goal remains full
 integrated GPU destruction with more verified work inside an 8 ms complete-step
 peak; no completion or real-time qualification is claimed.
 
+Newer work: [two-evaluation correction and ordinary-mode report deletion](POST_CORRECTION_FRACTURE.md), with current measured results at the top of [findings](PERFORMANCE_FINDINGS.md). The dated implementation notes below predate that change.
+
 Navigation: [playbook](PERFORMANCE_PLAYBOOK.md),
 [measurement contract](PERFORMANCE_MEASUREMENT.md),
 [findings/rejections](PERFORMANCE_FINDINGS.md),

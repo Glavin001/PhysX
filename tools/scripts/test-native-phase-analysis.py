@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check that timing reports reject incomplete/mislabelled measurements."""
 import csv
+import gzip
 import json
 from pathlib import Path
 import runpy
@@ -51,6 +52,14 @@ class PhaseAnalysis(unittest.TestCase):
         after = API['analyze'](self.root)['unmeasured_interval_mean_ms']
         self.assertAlmostEqual(before - after, 1.0)
 
+    def test_compressed_capture(self):
+        for name in ['native.frames.csv', 'native.phases.csv', 'native.phases.csv.device.csv']:
+            p = self.root / name
+            with gzip.open(str(p) + '.gz', 'wb') as target:
+                target.write(p.read_bytes())
+            p.unlink()
+        self.assertEqual(API['analyze'](self.root)['frames'], 2)
+
     def test_legacy_host_only(self):
         (self.root / 'native.phases.csv.device.csv').unlink()
         self.assertIsNone(API['analyze'](self.root)['cuda_stages'])
@@ -68,6 +77,25 @@ class PhaseAnalysis(unittest.TestCase):
                 self.save_device()
                 with self.assertRaises(ValueError):
                     API['analyze'](self.root)
+
+    def test_two_stress_evaluations(self):
+        self.write('native.frames.csv', ['step', 'stress_converged', 'correction_status', 'resim_passes', 'physics_step_ms', 'frame_host_ms', 'stress_passes'],
+                   [[0, 1, 0, 0, 10, 11, 1], [1, 1, 0, 1, 10, 11, 2]])
+        self.rows += [row[:] for row in self.rows if row[0] == 1]
+        self.save_device()
+        with (self.root / 'native.phases.csv').open('a') as stream:
+            for name in sorted(API['ALWAYS']):
+                csv.writer(stream).writerow([1, API['PREFIX'] + name, .1, 1])
+        result = API['analyze'](self.root)
+        self.assertAlmostEqual(result['cuda_stages']['total']['mean_ms'], .15)
+        self.rows.append(self.rows[-1][:])
+        self.save_device()
+        with self.assertRaisesRegex(ValueError, 'duplicate CUDA'):
+            API['analyze'](self.root)
+        self.rows = self.rows[:-2]
+        self.save_device()
+        with self.assertRaisesRegex(ValueError, 'missing stress evaluation'):
+            API['analyze'](self.root)
 
     def test_host_child_cannot_exceed_parent(self):
         with (self.root / 'native.phases.csv').open('a') as stream:

@@ -3,6 +3,7 @@
 import argparse
 import collections
 import csv
+import gzip
 import json
 import math
 from pathlib import Path
@@ -15,6 +16,10 @@ CORRECTION = {"applyBindings", "restoreInstall", "correctedCollisionSolve", "ref
 INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "resetContactCaches", "preparationCompletion"}
 
 
+def open_capture(path):
+    return path.open() if path.exists() else gzip.open(str(path) + ".gz", "rt")
+
+
 def require(condition, message):
     if not condition:
         raise ValueError(message)
@@ -23,24 +28,32 @@ def require(condition, message):
 CUDA_STAGES = {"contactLoads", "stress", "materials", "topologyAndCandidates", "commitAndStressTopology"}
 
 
-def cuda_stages(directory, count):
+CUDA_CORRECTION_STAGES = {"rewindState", "installFragments", "installOwners", "finalSplitState", "finalSplitFragments", "finalSplitOwners"}
+
+
+def cuda_stages(directory, count, passes=None):
     path = directory / "native.phases.csv.device.csv"
-    if not path.exists():
+    if not path.exists() and not Path(str(path) + ".gz").exists():
         return None  # Legacy host-only captures remain readable.
     values = collections.defaultdict(dict)
-    with path.open() as stream:
+    occurrences = collections.Counter()
+    passes = passes or [1] * count
+    with open_capture(path) as stream:
         for row in csv.DictReader(stream):
             step, name = int(row["step"]), row["phase"]
             require(name.startswith(PREFIX + "cuda."), "unexpected CUDA stage")
             name = name[len(PREFIX + "cuda."):]
-            require(name in CUDA_STAGES and 0 <= step < count, "invalid CUDA stage or step")
+            require(name in CUDA_STAGES | CUDA_CORRECTION_STAGES and 0 <= step < count, "invalid CUDA stage or step")
             require(row["accepted_step"] == "1", "CUDA stage from incomplete step")
-            require(name not in values[step], "duplicate CUDA stage")
+            occurrences[step, name] += 1
+            require(occurrences[step, name] <= (1 if name in CUDA_CORRECTION_STAGES else passes[step]), "duplicate CUDA stage")
             elapsed = float(row["cuda_elapsed_ms"])
             require(math.isfinite(elapsed) and elapsed >= 0, "invalid CUDA elapsed time")
-            values[step][name] = elapsed
-    require(len(values) == count and all(set(values[i]) == CUDA_STAGES for i in range(count)),
+            values[step][name] = values[step].get(name, 0) + elapsed
+    require(len(values) == count and all(CUDA_STAGES <= set(values[i]) for i in range(count)),
             "missing CUDA stage measurements")
+    require(all(occurrences[i, name] == passes[i] for i in range(count) for name in CUDA_STAGES),
+            "missing stress evaluation CUDA measurements")
     def summarize(samples):
         ordered = sorted(samples)
         return dict(samples=len(samples), min_ms=min(samples), mean_ms=statistics.mean(samples),
@@ -49,18 +62,23 @@ def cuda_stages(directory, count):
                       "contention and host submission gaps, not pure kernel execution. Excludes ordinary/corrected rigid solving, "
                       "reservation and acceptance after correction. Collected after an existing completion wait, with no added synchronization.",
                 phases={name: summarize([values[i][name] for i in range(count)]) for name in sorted(CUDA_STAGES)},
-                total=summarize([sum(values[i].values()) for i in range(count)]))
+                total=summarize([sum(values[i][name] for name in CUDA_STAGES) for i in range(count)]))
 
 
 def analyze(directory):
     summary = json.loads((directory / "native.summary.json").read_text())
-    with (directory / "native.frames.csv").open() as stream:
+    with open_capture(directory / "native.frames.csv") as stream:
         frames = list(csv.DictReader(stream))
-    with (directory / "native.phases.csv").open() as stream:
+    with open_capture(directory / "native.phases.csv") as stream:
         phases = list(csv.DictReader(stream))
     require(summary["status"] == "completed", "capture did not complete")
     require(len(frames) == summary["frames"], "frame count mismatch")
+    stress_passes = [int(f.get("stress_passes", 1)) for f in frames]
+    for i, f in enumerate(frames):
+        if "stress_passes" in f:
+            require(stress_passes[i] == 1 + int(f["resim_passes"]), "invalid stress evaluation count")
     by_step = collections.defaultdict(dict)
+    occurrences = collections.Counter()
     for row in phases:
         step = int(row["step"])
         name = row["phase"]
@@ -68,7 +86,9 @@ def analyze(directory):
         name = name[len(PREFIX):]
         require(0 <= step < len(frames), "phase has invalid step")
         require(row["accepted_step"] == "1", "phase belongs to an incomplete step")
-        require(name.startswith("task.") or name not in by_step[step], f"duplicate phase: {step}/{name}")
+        occurrences[step, name] += 1
+        limit = 1 if name in {"correctedCollisionSolve", "refilter", "resetContactCaches"} else stress_passes[step]
+        require(name.startswith(("task.", "detail.", "trialDetail.", "migrateDetail.")) or occurrences[step, name] <= limit, f"duplicate phase: {step}/{name}")
         elapsed = float(row["host_wall_ms"])
         require(math.isfinite(elapsed) and elapsed >= 0, "invalid phase duration")
         by_step[step][name] = by_step[step].get(name, 0) + elapsed
@@ -121,7 +141,7 @@ def analyze(directory):
     return {
         "status": "validated-native-phase-capture",
         "physics_timing": timing("physics_step_ms"),
-        "cuda_stages": cuda_stages(directory, len(frames)),
+        "cuda_stages": cuda_stages(directory, len(frames), stress_passes),
         "capture_tick_timing": timing("frame_host_ms"),
         "capture_tick_scope": ("physics, input placement, explicit GPU observations/audit, GPU graphics submission and pixel export; excludes setup and later video annotation"
                                if summary.get("gpu_rendered_frames", 0) else

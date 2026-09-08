@@ -40,6 +40,9 @@ def inspect(directory):
     assert all(int(r['step']) == i and int(r['stress_converged']) == 1
                and int(r['resim_passes']) <= 1 and int(r['correction_status']) == 0
                for i, r in enumerate(rows))
+    if 'stress_passes' in rows[0]:
+        assert all(int(r['stress_passes']) == 1 + int(r['resim_passes']) for r in rows)
+        assert all(0 <= int(r['post_correction_bonds_broken']) <= int(r['bonds_broken']) for r in rows)
     assert sum(int(r['bonds_broken']) for r in rows) == s['broken_bonds']
     assert sum(int(r['resim_passes']) for r in rows) == s['corrections']
     for r in rows:
@@ -58,6 +61,7 @@ def inspect(directory):
                           broken_bonds=cumulative, timing=timing(band)))
     peak = max(rows, key=lambda r: float(r['complete_step_ms']))
     return dict(path=str(directory), summary=s, timing=timing(rows),
+                stress_evaluations_max=max(int(r.get('stress_passes', 1)) for r in rows),
                 peak_sample=peak, peak_bodies=max(int(r['bodies']) for r in rows),
                 peak_awake=max(int(r['awake_bodies']) for r in rows),
                 windows={label: timing(part) for label, part in {
@@ -112,6 +116,7 @@ def main():
     (args.output/'comparison.json').write_text(json.dumps(result, indent=2)+'\n')
     lines = ['# Ordinary PhysX GPU + embedded destruction: load comparison', '',
              '**Direct GPU OFF · Sleeping ON · CUDA physics/destruction · resim limit 1 · dt 1/60 s.**', '',
+             f"Maximum stress/material evaluations per tick in these captures: {max(r['stress_evaluations_max'] for r in measured)}.", '',
              'Procedural native buildings and ballistic projectiles approximate the recorded work range; '
              'they do not reproduce Vibe-land geometry, hitscan inputs, materials or convergence/freezing policy. '
              'All scenes use the same physical parameters: 18,000 kg projectiles, wall strength scale 24, '

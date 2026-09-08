@@ -84,9 +84,18 @@ __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
 __device__ void add(PxVec3& target,const PxVec3& value) {
     atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
 }
-__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence) {
-    const PxU64 frame=status->frame+1; *status={}; status->frame=frame;
+__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool postCorrection) {
+    const PxU64 frame=status->frame+(postCorrection?0:1); *status={}; status->frame=frame;
     if(sequence && sequence->error)status->error|=8192u;
+}
+__global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDestructionStageStatus first) {
+    status->postCorrectionBrokenBonds=status->brokenBonds;
+    status->normalContacts+=first.normalContacts;status->frictionAnchors+=first.frictionAnchors;
+    status->iterations=max(status->iterations,first.iterations);
+    status->converged= status->converged && first.converged;
+    status->bondCommands+=first.bondCommands;status->brokenBonds+=first.brokenBonds;
+    status->crushedChunks+=first.crushedChunks;status->error|=first.error;
+    status->correctionPasses=1;status->stressPasses=2;
 }
 __global__ void prepareNativeCorrectionAcceptance(PxDestructionStageStatus* status,
     const PxgContactGraphSequence* sequence,PxU32* accept) {
@@ -201,7 +210,7 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
 __global__ void finishStatus(const ExtStressGpuDeviceStatus* solve,PxDestructionStageStatus* status,
     const PxDestructionVectorPair* forces, PxU32 count) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(!i) { status->iterations=solve?solve->iterations:0;status->converged=solve?solve->converged:1; }
+    if(!i) { status->stressPasses=1;status->iterations=solve?solve->iterations:0;status->converged=solve?solve->converged:1; }
     if(i<count && (!forces[i].linear.isFinite() || !forces[i].angular.isFinite())) atomicOr(&status->error,2u);
 }
 
@@ -439,6 +448,7 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 #include "PxgDestructionMotionSlots.cuh"
 class Runtime final : public PxgDestructionRuntime {
     bool mPreserveContactPairs=false;
+    bool mPostCorrection=false;PxDestructionStageStatus mFirstPassStatus{};
     PxProfilerCallback* mProfiler=nullptr;PxU64 mProfileContext=0;
     cudaEvent_t mStageEvents[6]{};bool mStageTimingPending=false;
     void stageMarker(PxU32 stage) {
@@ -459,6 +469,25 @@ class Runtime final : public PxgDestructionRuntime {
             if(mProfiler)mProfiler->recordData(elapsed,names[i],mProfileContext);
         }
         mStageTimingPending=false;
+    }
+    cudaEvent_t mCorrectionEvents[6]{};PxU32 mCorrectionTimingMask=0;
+    void correctionMarker(PxU32 marker,cudaStream_t stream) {
+        if(!mProfiler)return;
+        for(auto& event:mCorrectionEvents)if(!event)check(cudaEventCreate(&event));
+        check(cudaEventRecord(mCorrectionEvents[marker],stream));
+        if(marker&1)mCorrectionTimingMask|=1u<<(marker/2);
+    }
+    void collectCorrectionTimings() {
+        // Acceptance already joins the scene stream and waits for mReady.
+        // No additional synchronization or event wait is introduced here.
+        static const char* names[2][3]={
+            {"GpuDestruction.cuda.rewindState","GpuDestruction.cuda.installFragments","GpuDestruction.cuda.installOwners"},
+            {"GpuDestruction.cuda.finalSplitState","GpuDestruction.cuda.finalSplitFragments","GpuDestruction.cuda.finalSplitOwners"}};
+        for(PxU32 i=0;i<3;++i)if(mCorrectionTimingMask&(1u<<i)) {
+            float elapsed=0;check(cudaEventElapsedTime(&elapsed,mCorrectionEvents[2*i],mCorrectionEvents[2*i+1]));
+            if(mProfiler)mProfiler->recordData(elapsed,names[mPostCorrection?1:0][i],mProfileContext);
+        }
+        mCorrectionTimingMask=0;
     }
     CUcontext mContext; void* mScene; bool(*mWriteAllowed)(void*);
     cudaStream_t mStream{}; cudaEvent_t mInput{},mReady{}; CUevent mConsumer{};
@@ -875,6 +904,8 @@ public:
     void release() override { delete this; }
     ~Runtime() override {
         Context current(mContext); cudaStreamSynchronize(mStream);clear();
+        for(auto event:mStageEvents)if(event)cudaEventDestroy(event);
+        for(auto event:mCorrectionEvents)if(event)cudaEventDestroy(event);
         cudaFree(mStatus);cudaFreeHost(mHostStatus);
         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
@@ -1145,11 +1176,16 @@ public:
     }
     void setConsumerEvent(CUevent e) override {if(mWriteAllowed(mScene))mConsumer=e;}
     PxDestructionStageStatus getLastStatus() const override {return *mHostStatus;}
-    bool prepareFrame() override {
+    bool prepareFrame(bool postCorrection=false) override {
         try {Context current(mContext);if(!configured() || mPending)return false;
-            mInstalledOwnerGeneration=0;
+            mPostCorrection=postCorrection;
+            if(postCorrection) {
+                if(mHostStatus->error || mHostStatus->correctionPasses!=1 || mHostStatus->stressPasses!=1)return false;
+                mFirstPassStatus=*mHostStatus;
+            }
+            if(!postCorrection)mInstalledOwnerGeneration=0;
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
-            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence);
+            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,postCorrection);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;
             mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
@@ -1159,6 +1195,15 @@ public:
                 check(cudaMemsetAsync(mAffectedClusters,0,mC*sizeof(PxU32),mStream));
             }
             check(cudaEventRecord(mInput,mStream));return true;
+        }catch(...){mFailed=true;return false;}
+    }
+    bool finishPostCorrection() override {
+        if(!mPostCorrection || mFailed || mPending || mHostStatus->error)return false;
+        try {Context current(mContext);
+            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatus);
+            check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
+            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+            mPostCorrection=false;return !mHostStatus->error;
         }catch(...){mFailed=true;return false;}
     }
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
@@ -1346,9 +1391,11 @@ public:
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+            correctionMarker(0,stream);
             check(cudaMemcpyAsync(bodies,mCheckpointBodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
             if(previous)check(cudaMemcpyAsync(previous,mCheckpointPrevious,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
             if(accelerations)check(cudaMemcpyAsync(accelerations,mCheckpointAccelerations,size_t(mCheckpointCount)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
+            correctionMarker(1,stream);
             check(cudaEventRecord(mCheckpointReady,stream));mRestoredCheckpointGeneration=generation;return true;
         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
     }
@@ -1490,8 +1537,10 @@ public:
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mReady,0));check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
             const PxU32 count=mHostCorrectionPreparation.count;
+            correctionMarker(2,stream);
             if(count)installCorrectionBodyInputs<<<(count+127)/128,128,0,stream>>>(mCompactCorrectionBodies,count,mCheckpointBodies,
                 mCheckpointPrevious,bodies,previous,accelerations);
+            correctionMarker(3,stream);
             check(cudaGetLastError());check(cudaEventRecord(mReady,stream));return true;
         }catch(...) {mFailed=true;return false;}
     }
@@ -1504,8 +1553,10 @@ public:
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mReady,0));
             const PxU32 count=mHostCollisionPreparation.count;
+            correctionMarker(4,stream);
             if(count)installNativeCollisionOwners<<<(count+127)/128,128,0,stream>>>(mCompactCollisionBindings,count,shapes,capacity,shapeToBody,remapCapacity,
                 mShapeOwnerGenerations,mCheckpointGeneration);
+            correctionMarker(5,stream);
             check(cudaGetLastError());check(cudaEventRecord(mReady,stream));
             mInstalledOwnerGeneration=count?mCheckpointGeneration:0;return true;
         }catch(...){mFailed=true;return false;}
@@ -1576,6 +1627,7 @@ public:
             commitNativeMotionSlots<<<1,1,0,mStream>>>(mMotionSlots,mStatus);
             check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+            collectCorrectionTimings();
             if(mHostStatus->error)return false;
             mCommittedMotionSlots+=mHostBodyAllocation.reserved;
             mBodyAllocator->acceptReservations();return true;

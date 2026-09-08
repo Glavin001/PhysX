@@ -110,7 +110,10 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     }
     // Fresh public bodies have not reached the GPU yet. Native destruction
     // candidates initialized in the GPU pool have already cleared FIRST_COPY.
-    const bool gpuBounds = scene.isDirectGPUAPIInitialized()
+    // Internal native transactions own GPU motion even when the public Direct
+    // GPU API is disabled. Preserve the existing world-space shape cache while
+    // rebinding; the new CPU compatibility body has not received its pose yet.
+    const bool gpuBounds = (deviceOwnerTransaction || scene.isDirectGPUAPIInitialized())
         && !(body.getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU)
         && !(body.getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16));
     // Native correction consumes the GPU rigid-to-shape view instead of a host list.
