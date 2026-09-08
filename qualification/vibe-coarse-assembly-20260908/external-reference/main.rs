@@ -1,0 +1,312 @@
+//! Headless production-consumer benchmark. Run sequentially on an idle GPU.
+//! Usage: external-city-reference OUTPUT_DIR TILE_GRID STEPS WAVES [SCENE_FILE [COMMAND_FILE]]
+//! One tile = four disconnected 444-chunk / 896-bond buildings. No render/network.
+use serde_json::json;
+use std::io::{BufWriter, Write};
+use std::{collections::HashSet, error::Error, fs, path::Path, sync::Arc, time::Instant};
+use vibe_land_destruction::{
+    city::{build_city_scene, CitySceneDesc},
+    city_config::stress_settings,
+    manifest::DestructionManifest,
+    runtime::CityDestruction,
+    scene_pack::load_scene_pack_file,
+};
+use vibe_land_physx_bridge::{
+    DynamicSphereDesc, Pose, Quat, StaticBoxDesc, Vec3, World, WorldConfig,
+};
+
+fn pose(x: f32, y: f32, z: f32) -> Pose {
+    Pose {
+        position: Vec3::new(x, y, z),
+        rotation: Quat::IDENTITY,
+    }
+}
+fn ms(t: std::time::Duration) -> f64 {
+    t.as_secs_f64() * 1000.
+}
+fn main() -> Result<(), Box<dyn Error>> {
+    let args: Vec<_> = std::env::args().collect();
+    if !(5..=7).contains(&args.len()) {
+        return Err("usage: external-city-reference OUTPUT_DIR TILE_GRID STEPS WAVES [SCENE_FILE [COMMAND_FILE]]".into());
+    }
+    let output = Path::new(&args[1]);
+    if output.exists() {
+        return Err("output already exists; retain previous evidence".into());
+    }
+    let grid: u32 = args[2].parse()?;
+    let steps: u32 = args[3].parse()?;
+    let waves: u32 = args[4].parse()?;
+    let asset = args.get(5).map(String::as_str).unwrap_or("embedded-four-buildings.json");
+    if args.len() >= 6 && waves != 0 {
+        return Err("explicit-scene diagnostic requires waves=0; bombardment commands are authored for the frozen four-building tile".into());
+    }
+    if !(1..=8).contains(&grid)
+        || steps == 0
+        || waves > 3
+        || (waves > 0 && steps <= 30 + (waves - 1) * 150)
+    {
+        return Err("grid must be 1..8; 0..3 waves at ticks 30/180/330 must fit the run".into());
+    }
+    // Freeze the benchmark inputs instead of inheriting a developer's material dials.
+    for (key, value) in [
+        ("VIBE_PHYSX_DIRECT_GPU", "0"),
+        ("VIBE_CITY_FREEZE", "0"),
+        ("VIBE_CITY_STRESS_LIMIT_SCALE", "1"),
+        ("VIBE_WORLD_GRAVITY", "9.81"),
+        ("VIBE_WORLD_FRICTION", "0.5"),
+        ("VIBE_WORLD_RESTITUTION", "0.1"),
+        ("VIBE_CITY_DEBRIS_LINEAR_DAMPING", "0"),
+        ("VIBE_CITY_DEBRIS_ANGULAR_DAMPING", "0"),
+    ] {
+        std::env::set_var(key, value);
+    }
+    fs::create_dir_all(output)?;
+    #[cfg(feature = "embedded-profiling")]
+    let mut profiler = vibe_land_physx_bridge::NativeProfile::new(
+        output
+            .join("native.phases.csv")
+            .to_str()
+            .ok_or("invalid profile path")?,
+    )?;
+    let initial = Instant::now();
+    let pack = load_scene_pack_file(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../destruction/assets/scenes").join(asset),
+    )?;
+    // Authoring-only graph inventory; no runtime topology or physical work is
+    // approximated. Report actual initial connected groups for downtown too.
+    let mut parent: Vec<usize> = (0..pack.nodes.len()).collect();
+    fn root(parent: &mut [usize], mut i: usize) -> usize {
+        while parent[i] != i {parent[i] = parent[parent[i]];i = parent[i];}i
+    }
+    for bond in &pack.bonds {
+        let a = root(&mut parent, bond.node0 as usize);
+        let b = root(&mut parent, bond.node1 as usize);parent[b] = a;
+    }
+    let groups: HashSet<_> = (0..pack.nodes.len()).map(|i|root(&mut parent,i)).collect();
+    let buildings = groups.len() as u32 * grid * grid;
+    let scene = build_city_scene(
+        &pack,
+        CitySceneDesc {
+            grid,
+            pitch_m: 0.,
+            varied_heights: false,
+        },
+    )?;
+    let mut commands = vec![Vec::new(); steps as usize];
+    for wave in 0..waves {
+        for instance in &scene.instances {
+            for z in [-8.98, 8.98] {
+                for x in [-8.98, 8.98] {
+                    // Launch from the street, facing the near facade. All 256 shots are
+                    // submitted on the same tick; insertion cost belongs to that tick.
+                    commands[(30 + wave * 150) as usize].push(pose(
+                        instance.offset.x + x,
+                        7.5,
+                        instance.offset.z + z - 8.,
+                    ));
+                }
+            }
+        }
+    }
+    // A recorded physical command tape lets the same authored scene run idle
+    // and under impact. Parsing/validation is asset preparation, not tick work.
+    if let Some(path) = args.get(6) {
+        let tape: serde_json::Value = serde_json::from_slice(&fs::read(path)?)?;
+        for row in tape.as_array().ok_or("commands must be an array")? {
+            let tick = row["tick"].as_u64().ok_or("invalid command tick")? as usize;
+            if tick >= commands.len() || row["mass"] != json!(18000)
+                || row["radius"] != json!(0.5) || row["velocity"] != json!([0,0,40]) {
+                return Err("command tape must use the frozen projectile and valid ticks".into());
+            }
+            for position in row["positions"].as_array().ok_or("missing positions")? {
+                let v = position.as_array().ok_or("position must be an array")?;
+                if v.len() != 3 {return Err("position needs three coordinates".into());}
+                let mut xyz = [0f32;3];
+                for k in 0..3 {
+                    xyz[k] = v[k].as_f64().ok_or("invalid coordinate")? as f32;
+                    if !xyz[k].is_finite() {return Err("nonfinite coordinate".into());}
+                }
+                commands[tick].push(pose(xyz[0],xyz[1],xyz[2]));
+            }
+        }
+    }
+    let manifest = Arc::new(DestructionManifest::from_city(&scene));
+    let mut settings = stress_settings(&pack.materials);
+    settings.max_solver_iterations_per_frame = 8192;
+    let mut world = World::new(WorldConfig::default())?;
+    world.add_static_box(StaticBoxDesc {
+        entity_id: 1,
+        user_id: 0,
+        pose: pose(0., -0.5, 0.),
+        half_extents: Vec3::new(2000., 0.5, 2000.),
+        collision_group: 1,
+        collision_mask: u32::MAX,
+    })?;
+    let mut destruction = CityDestruction::build(manifest.clone(), &mut world, settings, 60)?;
+    let initialization_ms = ms(initial.elapsed());
+    let mut rows = Vec::with_capacity(steps as usize);
+    // Preserve every accepted row even if a native crash prevents final report
+    // generation. A partial JSONL file is evidence, never a passing campaign.
+    let mut raw = BufWriter::new(fs::File::create(output.join("steps.jsonl"))?);
+    let mut broken = HashSet::new();
+    let mut projectile_count = 0u32;
+    let mut minimum_com_y = f32::INFINITY;
+    // Preserve the command tape even when a later simulation step fails.
+    fs::write(output.join("commands.json"),serde_json::to_vec(&commands.iter().enumerate()
+        .filter(|(_,shots)|!shots.is_empty()).map(|(tick,shots)|json!({"tick":tick,
+          "positions":shots.iter().map(|p|[p.position.x,p.position.y,p.position.z]).collect::<Vec<_>>(),
+          "mass":18000,"radius":0.5,"velocity":[0,0,40]})).collect::<Vec<_>>())?)?;
+    for tick in 0..steps {
+        #[cfg(feature = "embedded-profiling")]
+        profiler.begin(tick);
+        let start = Instant::now();
+        for &shot in &commands[tick as usize] {
+            let id = 1000 + projectile_count;
+            projectile_count += 1;
+            world.add_dynamic_sphere(DynamicSphereDesc {
+                entity_id: id,
+                user_id: 0,
+                pose: shot,
+                radius: 0.5,
+                mass: 18000.,
+                collision_group: 1,
+                collision_mask: u32::MAX,
+            })?;
+            world.apply_impulse(id, Vec3::new(0., 0., 720000.))?;
+        }
+        destruction.pre_step(&mut world);
+        let commands_done = Instant::now();
+        world.step()?;
+        let physics_done = Instant::now();
+        let events = destruction.post_step(&mut world, 1. / 60., [0., -9.81, 0.])?;
+        let events_done = Instant::now();
+        let stats = destruction.stats();
+        let snapshots = destruction.staged_snapshots()?;
+        let complete = Instant::now();
+        #[cfg(feature = "embedded-profiling")]
+        profiler.accepted()?;
+        // Audits and JSON/report work are outside the authoritative timer.
+        for batch in &events.batches {
+            for id in &batch.broken_bond_ids {
+                if !broken.insert(*id) {
+                    return Err(format!("duplicate committed bond {id} at tick {tick}").into());
+                }
+            }
+        }
+        let mut spans = serde_json::Map::new();
+        for span in destruction.extra_spans() {
+            spans.insert(span.name.clone(), json!(span.value));
+        }
+        if broken.len() != stats.broken_bonds as usize {
+            return Err(format!("committed event/state mismatch at tick {tick}").into());
+        }
+        if stats.resim_passes > 1 {
+            return Err("correction limit exceeded".into());
+        }
+        if tick < 30 && stats.broken_bonds != 0 {
+            return Err("unloaded building fractured before first shot".into());
+        }
+        for body in snapshots {
+            if !body.position.iter().all(|v| v.is_finite()) {
+                return Err("nonfinite committed pose".into());
+            }
+            minimum_com_y = minimum_com_y.min(body.position[1]);
+        }
+        rows.push(json!({"tick":tick,"complete_step_ms":ms(complete-start),
+            "commands_and_pre_step_ms":ms(commands_done-start),
+            "trial_physics_ms":ms(physics_done-commands_done),
+            "external_destruction_and_observation_ms":ms(events_done-physics_done),
+            "accepted_status_and_snapshots_ms":ms(complete-events_done),
+            "projectiles":projectile_count,"fragment_bodies":stats.chunk_bodies,
+            "awake_fragment_bodies":stats.awake_chunk_bodies,"broken_bonds":stats.broken_bonds,
+            "normal_contacts":stats.contacts_processed,"native_corrections":stats.resim_passes,
+            "native_counts":spans}));
+        serde_json::to_writer(&mut raw, rows.last().unwrap())?;
+        raw.write_all(b"\n")?;
+        raw.flush()?;
+        if tick % 60 == 0 {
+            eprintln!(
+                "tick {tick}/{steps}, fragments {}, awake {}, broken {}",
+                stats.chunk_bodies, stats.awake_chunk_bodies, stats.broken_bonds
+            );
+        }
+    }
+    if !world.validate_destruction_mappings()? {
+        return Err("invalid final chunk ownership".into());
+    }
+    if waves > 0 && steps >= 150 && broken.is_empty() {
+        return Err("physical bombardment did not break any bonds".into());
+    }
+    let fields = [
+        "complete_step_ms",
+        "commands_and_pre_step_ms",
+        "trial_physics_ms",
+        "external_destruction_and_observation_ms",
+        "accepted_status_and_snapshots_ms",
+    ];
+    let mut summary = serde_json::Map::new();
+    for key in fields {
+        let mut values: Vec<_> = rows.iter().map(|r| r[key].as_f64().unwrap()).collect();
+        values.sort_by(f64::total_cmp);
+        summary.insert(key.into(),json!({"min":values[0],"mean":values.iter().sum::<f64>()/values.len() as f64,
+            "p99":values[((values.len() as f64*0.99).ceil() as usize-1).min(values.len()-1)],"max":values[values.len()-1]}));
+    }
+    let peak = rows
+        .iter()
+        .max_by(|a, b| {
+            a["complete_step_ms"]
+                .as_f64()
+                .unwrap()
+                .total_cmp(&b["complete_step_ms"].as_f64().unwrap())
+        })
+        .unwrap();
+    let report = json!({"schema":1,"status":"complete","instrumented":cfg!(feature="embedded-profiling"),"backend":"vibe_land_external_cuda",
+        "direct_gpu_api":false,"sleeping":true,"max_correction":1,"max_stress_passes":serde_json::Value::Null,
+        "timestep_seconds":1./60.,"iterations_max":8192,"tolerance":0.001,
+        "source_asset":asset,"manifest_hash":manifest.hash_hex(),
+        "asset_instances":grid*grid,"buildings":buildings,"chunks":scene.total_chunks(),"bonds":scene.total_bonds(),
+        "steps":steps,"seconds":steps as f64/60.,"waves":waves,"projectiles":projectile_count,
+        "initialization_ms":initialization_ms,"unique_broken_bonds":broken.len(),"minimum_fragment_com_y":minimum_com_y,
+        "gate_8ms_misses":rows.iter().filter(|r|r["complete_step_ms"].as_f64().unwrap()>8.).count(),
+        "gate_60hz_misses":rows.iter().filter(|r|r["complete_step_ms"].as_f64().unwrap()>1000./60.).count(),
+        "timing_scope":"commands + trial physics + external stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
+        "qualification":"short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
+        "phases_ms":summary,"peak_step":peak});
+    fs::write(output.join("steps.json"), serde_json::to_vec(&rows)?)?;
+    fs::write(
+        output.join("report.json"),
+        serde_json::to_vec_pretty(&report)?,
+    )?;
+    let mut md=format!("# External game-consumer bombardment\n\n{} buildings · {} chunks · {} bonds · {} projectiles · {} steps / {:.1} simulated seconds. Direct GPU API off, sleep on, correction ≤1.\n\n{}\n\n| Phase | Owner | Min ms | Mean ms | Max ms |\n|---|---|---:|---:|---:|\n",buildings,scene.total_chunks(),scene.total_bonds(),projectile_count,steps,steps as f64/60.,report["timing_scope"].as_str().unwrap());
+    for (key, label, owner) in [
+        (fields[0], "Complete advance", "CPU + GPU"),
+        (
+            fields[1],
+            "Apply physical projectile commands / prepare",
+            "CPU submits to PhysX",
+        ),
+        (
+            fields[2],
+            "Trial rigid-body physics",
+            "PhysX CPU tasks + CUDA",
+        ),
+        (
+            fields[3],
+            "External stress, fracture/correction and snapshot staging",
+            "CPU + explicit GPU observations",
+        ),
+        (fields[4], "Obtain staged status/snapshot views", "CPU"),
+    ] {
+        let p = &report["phases_ms"][key];
+        md += &format!(
+            "| {label} | {owner} | {:.3} | {:.3} | {:.3} |\n",
+            p["min"].as_f64().unwrap(),
+            p["mean"].as_f64().unwrap(),
+            p["max"].as_f64().unwrap()
+        );
+    }
+    md+=&format!("\nPeak tick: **{}**, {} projectiles, {} fragment bodies / {} awake, {} cumulative broken bonds. Misses: **{}** over 8 ms; **{}** over 16.67 ms. Initialization: {:.1} ms (separate).\n\nPhase maxima occur on potentially different ticks and must not be added. Raw rows retain every step. This is a short screen, not endurance or a comparison against the old backend. It excludes rendering/network encoding and is not a whole-game tick benchmark.\n",peak["tick"],peak["projectiles"],peak["fragment_bodies"],peak["awake_fragment_bodies"],peak["broken_bonds"],report["gate_8ms_misses"],report["gate_60hz_misses"],initialization_ms);
+    fs::write(output.join("report.md"), md)?;
+    eprintln!("report: {}", output.join("report.md").display());
+    Ok(())
+}

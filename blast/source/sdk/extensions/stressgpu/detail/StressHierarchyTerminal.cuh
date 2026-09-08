@@ -31,8 +31,11 @@ __device__ __forceinline__ double vectorCoordinate(Vector a,unsigned k){
 // no floating-point atomics occur.
 __device__ __forceinline__ double terminalCoefficient(const Input& a,unsigned node,unsigned row,unsigned columnNode,unsigned column,unsigned lane=0,unsigned width=1){
     const Vector x=scaledValue(basisVector(column),sourceInertia(a,columnNode));double value=0;
-    for(unsigned slot=a.begin[node]+lane;slot<a.begin[node+1];slot+=width){
-        const unsigned ref=a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
+    const bool cached=cachedSelfRows(a);
+    if(cached && !lane && node==columnNode && row<3 && column<3)value=a.selfMatrices[size_t(node)*SelfCacheEntries+row*3+column];
+    const unsigned end=cached?a.nonSelfEnd[node]:a.begin[node+1];
+    for(unsigned slot=a.begin[node]+lane;slot<end;slot+=width){
+        const unsigned ref=cached?a.nonSelfRefs[slot]:a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
         if(sourceHealth(a,e)<=0)continue;
         Vector first{},second{};
         if(sourceFirst(a,e)==columnNode)first=couple(x,sourceOffset(a,e,false));
@@ -70,9 +73,13 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
         s.lower[entry]=terminalCoefficient(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6);
     }
     }
-    if(threadIdx.x<count){const unsigned node=s.nodes[threadIdx.x];
-        for(unsigned slot=a.begin[node];slot<a.begin[node+1];++slot){
-            const unsigned ref=a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
+    // Support is a Boolean property. Cooperate across the row rather than
+    // serializing thousands of references through one thread. Cached self
+    // columns cannot connect this node to a fixed boundary.
+    for(unsigned i=threadIdx.x/32;i<count;i+=blockDim.x/32){const unsigned node=s.nodes[i];
+        const bool cached=cachedSelfRows(a);const unsigned end=cached?a.nonSelfEnd[node]:a.begin[node+1];
+        for(unsigned slot=a.begin[node]+(threadIdx.x&31u);slot<end;slot+=32){
+            const unsigned ref=cached?a.nonSelfRefs[slot]:a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
             if(sourceHealth(a,e)<=0)continue;
             const unsigned other=(ref>>31)?sourceFirst(a,e):sourceSecond(a,e);
             if(other==Invalid || a.component[other]==Invalid)atomicExch(&s.anchored,1u);

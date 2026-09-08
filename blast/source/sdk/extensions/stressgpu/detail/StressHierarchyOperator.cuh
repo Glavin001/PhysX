@@ -2,8 +2,16 @@
 // temporary bond vectors or duplicate membership CSR are needed to apply it.
 #pragma once
 #include "StressHierarchyKernels.cuh"
+#include "StressHierarchySelfCache.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
 struct Vector {double3 angular,linear;};
+__device__ __forceinline__ Vector selfMatrixValue(const Input& a,unsigned node,Vector x,bool correction){
+    const double* m=a.selfMatrices+size_t(node)*SelfCacheEntries+(correction?9:0);
+    return {{m[0]*x.angular.x+m[1]*x.angular.y+m[2]*x.angular.z,
+             m[3]*x.angular.x+m[4]*x.angular.y+m[5]*x.angular.z,
+             m[6]*x.angular.x+m[7]*x.angular.y+m[8]*x.angular.z},{0,0,0}};
+}
+
 __device__ __forceinline__ double3 add(double3 a,double3 b){return make_double3(a.x+b.x,a.y+b.y,a.z+b.z);}
 __device__ __forceinline__ double3 sub(double3 a,double3 b){return make_double3(a.x-b.x,a.y-b.y,a.z-b.z);}
 __device__ __forceinline__ double3 mul(double3 a,double b){return make_double3(a.x*b,a.y*b,a.z*b);}

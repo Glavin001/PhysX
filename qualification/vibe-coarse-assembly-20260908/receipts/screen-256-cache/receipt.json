@@ -1,0 +1,74 @@
+{
+  "runtime_sha256": {
+    "baseline": "5b61052ad17766bf92324d385d88587cd96c8d4b4a6e4842d1d033abf048a1aa",
+    "candidate": "43dea5ebeba4fff6bbf345344a27614f0e4a8257592ac382253c70541c73b11e"
+  },
+  "commands": [
+    {
+      "name": "baseline-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-256-cache/baseline-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "baseline-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-256-cache/baseline-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "resident-grid-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-256-cache/resident-grid-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "resident-grid-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-256-cache/resident-grid-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "grid-constant-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-256-cache/grid-constant-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "grid-constant-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-256-cache/grid-constant-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    }
+  ]
+}

@@ -249,9 +249,11 @@
         checkCuda(cudaGetDevice(&device),"persistent stress device");
         checkCuda(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device),"persistent stress multiprocessors");
         if(blocksPerSm<=0 || sms<=0)throw std::runtime_error("Persistent stress cooperative launch has no legal residency");
+        // Multilevel rows use eight lanes per node, so provision the resident
+        // grid for that dominant work rather than only the scalar vector sweeps.
         // Small complete problems remain within one block: shared-block
         // barriers avoid cross-SM rendezvous for a few hundred nodes.
-        const unsigned blocks=m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks,islandBlocks),unsigned(blocksPerSm*sms));
+        const unsigned blocks=m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks*8u,islandBlocks),unsigned(blocksPerSm*sms));
         ResidentStressComponentView components{};
         if(m_deviceTopology) {
             components=m_deviceTopology->components();

@@ -259,6 +259,15 @@ int main(int argc,char** argv){try{
         for(unsigned i=1;i<24;++i)for(unsigned repeat=0;repeat<64;++repeat)dense.edge(i-1,i);
         runCase("coarse-long-rows",dense,false,false);
     }
+    if(selected=="coarse-self-columns"){
+        // Nonzero angular self columns after coarsening must be retained,
+        // including their fine-to-coarse correction coupling, not thresholded.
+        Fixture dense(24);dense.inverse[0]=make_float2(0,0);
+        for(unsigned i=1;i<24;++i)for(unsigned repeat=0;repeat<8;++repeat){
+            dense.edge(i-1,i);dense.offset1.back().x+=.03125f;dense.offset1.back().z-=.015625f;
+        }
+        runCase("coarse-self-columns",dense,false,false);
+    }
     Fixture path(24);for(unsigned i=1;i<24;++i)path.edge(i-1,i);runCase("path",path,false,true);
     Fixture self(2);self.edge(0,1);self.offset1[0].x+=.03125f;runCase("self",self,true,true);
     Fixture parallel(6);for(unsigned i=1;i<6;++i){parallel.edge(0,i);parallel.edge(0,i);}

@@ -1,0 +1,76 @@
+{
+  "runtime_sha256": {
+    "baseline": "5b61052ad17766bf92324d385d88587cd96c8d4b4a6e4842d1d033abf048a1aa",
+    "candidate": "17feadea5ab315b9bb4784f3c1f24f696896d4ca994c273dce2583e0a704c856"
+  },
+  "commands": [
+    {
+      "name": "trace",
+      "command": [
+        "/opt/nvidia/nsight-compute/2025.1.1/host/target-linux-x64/nsys",
+        "profile",
+        "--trace=cuda",
+        "--cuda-graph-trace=node",
+        "--sample=none",
+        "--cpuctxsw=none",
+        "--force-overwrite=false",
+        "-o",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/cuda",
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/downtown",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json",
+        "/root/workspace/physx-2/out/vibe-idle-fix-20260908/downtown-commands.json"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "stats",
+      "command": [
+        "/opt/nvidia/nsight-compute/2025.1.1/host/target-linux-x64/nsys",
+        "stats",
+        "--report",
+        "cuda_gpu_kern_sum",
+        "--format",
+        "csv",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/cuda.nsys-rep"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "trace-256",
+      "command": [
+        "/opt/nvidia/nsight-compute/2025.1.1/host/target-linux-x64/nsys",
+        "profile",
+        "--trace=cuda",
+        "--cuda-graph-trace=node",
+        "--sample=none",
+        "--cpuctxsw=none",
+        "--force-overwrite=false",
+        "-o",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/cuda-256",
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/bombardment",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "stats-256",
+      "command": [
+        "/opt/nvidia/nsight-compute/2025.1.1/host/target-linux-x64/nsys",
+        "stats",
+        "--report",
+        "cuda_gpu_kern_sum",
+        "--format",
+        "csv",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/cuda-256.nsys-rep"
+      ],
+      "exit": 0
+    }
+  ]
+}

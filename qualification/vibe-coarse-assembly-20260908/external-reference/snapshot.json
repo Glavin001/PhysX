@@ -1,0 +1,486 @@
+{
+  "source": "/root/workspace/vibe-land-4",
+  "revision": "b72d3e5c271cb2160dc7a7c6deb951b64a2c1b9b",
+  "files": [
+    {
+      "path": "destruction/build.rs",
+      "sha256": "270975b0f619db90a9abfab31a65076c6a908c9361d27658750f401825eb1cbd"
+    },
+    {
+      "path": "destruction/Cargo.toml",
+      "sha256": "0eeb13ffbc178260158c2f77ac43cf3c8eef070969d55999f57e8c91d36bc2a7"
+    },
+    {
+      "path": "destruction/assets/city-packet-v3.dict",
+      "sha256": "ba7d40563fbbfe15ec8173e77087587cb1691cf7d34eb01474a3bbb18fe4e15d"
+    },
+    {
+      "path": "destruction/src/classify.rs",
+      "sha256": "ac3e82607324786e9e023482b236195a8cb05355099ed8d81677d69e45d7a6d2"
+    },
+    {
+      "path": "destruction/src/core_runtime.rs",
+      "sha256": "e367b98b57fbb79c0af78eb42fd1eb0ddd058dbf55bb7fe66881334a729e9fc6"
+    },
+    {
+      "path": "destruction/src/freeze.rs",
+      "sha256": "a57c8d2e23f702e43c758842ed5eb1114cc87c774d0af79a4e960dfcc1a5b9d3"
+    },
+    {
+      "path": "destruction/src/ids.rs",
+      "sha256": "9d5771c62c9ad894929430ad08b50179f743e68ee08f80296ec085f8035e5813"
+    },
+    {
+      "path": "destruction/src/interest.rs",
+      "sha256": "34fc0ce813f6499f943895dc5fd81c10a2defb6d8bb4e46763aa92391839a3bc"
+    },
+    {
+      "path": "destruction/src/packet.rs",
+      "sha256": "8147345040a3f0cc408b95d26bdb00a0974f32c076b6b10b52641d09b5c3d11d"
+    },
+    {
+      "path": "destruction/src/quant.rs",
+      "sha256": "a090a531d4ee4441620e8bdbd13aff15eda644f30b487bfe861de60ab6bbbaf6"
+    },
+    {
+      "path": "destruction/src/scheduler.rs",
+      "sha256": "fffa82ec40a90d17a6ccad2cfa3afcffbec819bba3a9e57f6aa493428e1828fc"
+    },
+    {
+      "path": "destruction/src/settle.rs",
+      "sha256": "a6abfa57bdd33d4cce232719f1fa7cb7cda0275fd23b0e2723de2330ba2e20eb"
+    },
+    {
+      "path": "destruction/src/encoder.rs",
+      "sha256": "a7ae53fb9fd7950f80361b3ccab38a703ebc3aee3032de37e118d60de5ee99dc"
+    },
+    {
+      "path": "destruction/src/synthetic.rs",
+      "sha256": "68b42fb9d38c96ba8dcff0572fd02ca2797452a425536865bccbe5785cf2da99"
+    },
+    {
+      "path": "destruction/src/topology.rs",
+      "sha256": "6940e1b5572b926aeaa98d2b6bdec5a6d22f4a63409ee1a8f2cb9f8975d50344"
+    },
+    {
+      "path": "destruction/src/wire.rs",
+      "sha256": "86b939f7b4fb70f4b95c01a925ee562ddc00bebf1f105ac0c3fe2390f710edb0"
+    },
+    {
+      "path": "destruction/src/fingerprint.rs",
+      "sha256": "823c2eedd4d9c923f4ef3949a0a84e4781f27dd399ffe4cdf7a36cf9561375e2"
+    },
+    {
+      "path": "destruction/src/types.rs",
+      "sha256": "055825f7d46f07d1290f67173d06f09b81327d948957faf47f4284f6555cb079"
+    },
+    {
+      "path": "destruction/src/city.rs",
+      "sha256": "fb6d6ca1c77abcbcbd11cd3240fe01d318c6a4e95d9a188efbb5c879ea628ac2"
+    },
+    {
+      "path": "destruction/src/city_config.rs",
+      "sha256": "039a2226d49cb281cc160165230506bb0b2d5be2b5d38f9b4546ad411883f614"
+    },
+    {
+      "path": "destruction/src/lib.rs",
+      "sha256": "049c6c554f866df8f380e394a95d88421125bff957b70b25f61833ae71d3dfd6"
+    },
+    {
+      "path": "destruction/src/manifest.rs",
+      "sha256": "25ee7a9b195d02ec739a9f6fc87bac8d6ca0028fb90931fc13b3299fbc2bcb81"
+    },
+    {
+      "path": "destruction/src/manifest_binary.rs",
+      "sha256": "da11c6a9217abc8b8ad5995a6bf0d246999e43fd7b8a7fa767958c090a51cc45"
+    },
+    {
+      "path": "destruction/src/membership.rs",
+      "sha256": "bfc8e03ee6b1aea8c67dc53795a5243bf73129f1559506fe89af42567ee470d4"
+    },
+    {
+      "path": "destruction/src/runtime.rs",
+      "sha256": "8efb34f07ae3ac0e0c707d676bd25fd18840c16ab1ed7122e984f7a0c0910e6f"
+    },
+    {
+      "path": "destruction/src/scene_pack.rs",
+      "sha256": "ae59542d7666b9d3d541acbac54f16ed1d209853461a080ca3070e97e2cedb41"
+    },
+    {
+      "path": "destruction/src/variants.rs",
+      "sha256": "7b618b8c058b6d92a5898b30876c0f5e939c96458d5a484b146e0ba11f00c3fd"
+    },
+    {
+      "path": "destruction/tests/blast_core_city_test.rs",
+      "sha256": "6c9ee8da9fdf8c22cbc2133cf7bd1d984182a159b3e968626fa3202a56ba9197"
+    },
+    {
+      "path": "destruction/tests/fractured_tower.rs",
+      "sha256": "afe4b29e166f73fd9807d00b8663071f7d17bcc83fc849b67f003ca228085ae4"
+    },
+    {
+      "path": "destruction/tests/high_rise.rs",
+      "sha256": "bae48b29b188d122d679e8e03bd560c4252be609e9ecba9d5a9cd04b32bede1a"
+    },
+    {
+      "path": "destruction/tests/settle_ground.rs",
+      "sha256": "cf0f4cd71e5ea2e8a1104c73edb4bb336cc2975172c63ad7a3617fde4fa856fa"
+    },
+    {
+      "path": "destruction/tests/authored_structures.rs",
+      "sha256": "bdb366c3b56dda57ce894b2454be3b06d51dae9ed1cdae0fc1050b68af2188f2"
+    },
+    {
+      "path": "destruction/tests/authored_structures_sim.rs",
+      "sha256": "cf5ca8a63edf7060b4dac51a675b9a85a4fc03174957f65e08f28a900d2a09eb"
+    },
+    {
+      "path": "destruction/tests/capacity_ramp.rs",
+      "sha256": "f2faf44f05da75eb5f62ce5da42b6e1ed24f949d09671a66327fbd18bd942376"
+    },
+    {
+      "path": "destruction/tests/manifest_binary.rs",
+      "sha256": "97c9afcba1afc4f764b153991a6ef769dfb8fb7d748cbf3959027559e7421a95"
+    },
+    {
+      "path": "destruction/tests/rig_scenarios_sim.rs",
+      "sha256": "8e86d4987d889176ea8c16f3bbe2da148f897ad844b744975508cb5f50b106a3"
+    },
+    {
+      "path": "destruction/tests/rig_smoke_sim.rs",
+      "sha256": "4fa276a337d26f5e7e2bf2e612538ed7f64afdcf6e02d2e61b0e8d289b1677b1"
+    },
+    {
+      "path": "destruction/tests/structural_stability.rs",
+      "sha256": "ac3b19fa9b6ef65b319cc600b2da0e6ee68b100914dfd194ca96f372bc9b98e7"
+    },
+    {
+      "path": "destruction/tests/rooted_wire.rs",
+      "sha256": "e61188b512be5d03ae50448cd5a36ad6fd62e6bc6e616428d689a091e3ed8569"
+    },
+    {
+      "path": "destruction/tests/minas_rebuilt.rs",
+      "sha256": "94a20cce9df26c0645604d60db1af7705c154d2df70232b3fc044310a6cba2e7"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-district.json",
+      "sha256": "126cc2a172559e6021568f1d27d0b9aa712829fbbd9117ff53be56286576cecc"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-downtown.json",
+      "sha256": "df3a4744309595a21ca70c2f7c8bba2ddfc4308aa39e4b925add970385612854"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-highrise-10f.json",
+      "sha256": "697648f202cf3d32dac66a8912d6310ca28fbe621d8e0c2485ad053dfcd29aa8"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-tower.json",
+      "sha256": "d179adade5094922762c427dafeb6b392dc408d489e1f6d5b08f754ff52b405d"
+    },
+    {
+      "path": "destruction/assets/scenes/high-rise-10f-local.json",
+      "sha256": "6efdd2b990582f9e0e26999fa62a4af5d6fdb3e577d076161e77c5b547315383"
+    },
+    {
+      "path": "destruction/assets/scenes/high-rise-3f-local.json",
+      "sha256": "8ea60f6d5c4686d91ae4135265f3034e7160e3bdae1e93f5c919ee953b259414"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-downtown-pool4.json",
+      "sha256": "bcd18a609451221650e3e3efc414d3a2f9b9871760844c36774c6d52bf2994cd"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-downtown-pool8.json",
+      "sha256": "f0758fb0db9c1150a45662b42d27e1c389d01e6ff154707277325ce2f40d8c75"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-downtown-pool16.json",
+      "sha256": "bf697012dcf4a4d6a9f758cc64ef4cdc459e830af08906bd32495202558771e0"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-downtown-floor8.json",
+      "sha256": "0c71ab69d2b94fbb1945d2b754d4c3ea1e2b9562e1850daf0a10a0f0d0ce02ec"
+    },
+    {
+      "path": "destruction/assets/scenes/fractured-downtown-all.json",
+      "sha256": "9d775e9204ed2268b7e44625868255a043cb544589ec04ee44ab692d44203e11"
+    },
+    {
+      "path": "destruction/assets/scenes/algedra-tower.json",
+      "sha256": "98bba0ad18b5617055bb477d71e0d482091c109bbcfd4edeb02dc270a4bc1953"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-frame-bay-x2.json",
+      "sha256": "45e84fdf35393022dba23ae951fa485dcd173645a0c558552e199cf3ed84a67b"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-frame-bay-x4.json",
+      "sha256": "06f0c03d0837e60dcbfe46430ff24f60b55c9597f1274802b434d5a343dbf9ae"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-frame-bay-x8.json",
+      "sha256": "556662d4db7e498874ba601f8ef44361a87eb9d29e08a360364109ae1eb550f7"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-frame-bay.json",
+      "sha256": "cddddbc3ceed5522cfc1a29c71fc859d933bd0a751e506a7c7d68a99c49e06f5"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-room.json",
+      "sha256": "5b27faa002f5fc2cf96e3979f44da753223b4a3c59e56fc357fcdbbe773b2a61"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-stack.json",
+      "sha256": "a70282f479e8e3294309a3d0061804c0b9f72789833f051def6c2d3830f0d730"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-storey.json",
+      "sha256": "3fa1b13152bd80b383384edcda871eb0cc6548ad761bc1554681664200996e83"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-wall-bay-x2.json",
+      "sha256": "bd674152cd95166739bf1ecc5161ea957e85b4ec444a3e9fde8ad06015fcfd18"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-wall-bay-x4.json",
+      "sha256": "44bb68b4ffe6fc7d45b0cf1faf098bba150ab22723799ff3af80522d8ef6916d"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-wall-bay-x8.json",
+      "sha256": "217a34844e75d5a848f41ea4eb54161a5b307ec9792b8d4bf14f8a8b89e3f140"
+    },
+    {
+      "path": "destruction/assets/scenes/comp-wall-bay.json",
+      "sha256": "76500b85074408ba46b6d6933b7b543f5da6c6071abbe8d8afbd3ade64e81cf5"
+    },
+    {
+      "path": "destruction/assets/scenes/house-1story.json",
+      "sha256": "6fe0538053d80f12d36d471eb99f9c1b6581011317ca96598e6da98039518c1b"
+    },
+    {
+      "path": "destruction/assets/scenes/house-2story.json",
+      "sha256": "3f88aaff7af4e7a46ef4fad656234c5fea7cbfdf842cc9912596de7fad00f5e7"
+    },
+    {
+      "path": "destruction/assets/scenes/minas-tirith.json",
+      "sha256": "24b46923c72208d870879e3d59156ba608f37f1991d90ffce9653f1d84e808e1"
+    },
+    {
+      "path": "destruction/assets/scenes/neighbourhood.json",
+      "sha256": "f7dd95b8dc9a806d602d662ea5e4819d9435252e072f7567fc041b07161cceac"
+    },
+    {
+      "path": "destruction/assets/scenes/park-432.json",
+      "sha256": "c4ef000bf36234fff9db0e10ca8f013f278efd5d621749c71d44aefe76033234"
+    },
+    {
+      "path": "destruction/assets/scenes/parking-garage.json",
+      "sha256": "4038088a3115222598e52385b2422f60987b159415cd5545b7e0211cbec04e18"
+    },
+    {
+      "path": "destruction/assets/scenes/petronas.json",
+      "sha256": "f2922f8590817f5aa0bc00a99cd45a933abeed5bf1a5550f87cc3396f26907d7"
+    },
+    {
+      "path": "destruction/assets/scenes/rig-cantilever.json",
+      "sha256": "896336632ec81b97f3071768e92965180dbf137d40563115cedc138ce4a571ef"
+    },
+    {
+      "path": "destruction/assets/scenes/rig-column.json",
+      "sha256": "8d81b962cabb42f9d4be7a628807413ea9d261468f427bade386fb00b0e77c88"
+    },
+    {
+      "path": "destruction/assets/scenes/rig-garage.json",
+      "sha256": "d71e43acf95537d20e58400f43db168f67f662965ab0a5e431ae07015f5cf4eb"
+    },
+    {
+      "path": "destruction/assets/scenes/rig-pane.json",
+      "sha256": "27034f85018072f051be1fd52c4b8ade9094f269f56be7afe9307209289650b4"
+    },
+    {
+      "path": "destruction/assets/scenes/rig-portal.json",
+      "sha256": "bf04a993cb577dcee7cae1e16d11441e4e3d8b1681f29737f149110b3fe98745"
+    },
+    {
+      "path": "destruction/assets/scenes/rig-toppled.json",
+      "sha256": "e21464496df3f3e0eb2fd3b6f117411a6f28078ea2743ef0aca63105d899d882"
+    },
+    {
+      "path": "destruction/assets/scenes/rig-wall.json",
+      "sha256": "fc01ca1cb0caccc7eac1c9268e81e3f6df9a3bab5d68af47f8e43ddc82a84f6c"
+    },
+    {
+      "path": "destruction/assets/scenes/skyline-stable.json",
+      "sha256": "ec64d8c1ca1c869bbaab96330afa7c96357624dbb1aca0fd8df57e1214b8c4a4"
+    },
+    {
+      "path": "destruction/assets/scenes/skyline.json",
+      "sha256": "7686d58e31b0d2cd892af55ec3f2021b8824db790094e351d580e66b7358efd1"
+    },
+    {
+      "path": "destruction/assets/scenes/villa-savoye.json",
+      "sha256": "6377afe3740edd85d0496a237a8e820aabb8e43c04e56cbdd143a485dd91aa92"
+    },
+    {
+      "path": "destruction/assets/scenes/minas-tirith-rebuilt.json",
+      "sha256": "3c95904cdab5b23177d4c288018ccb325e00bf0cf245cabcf956d9d9905ed28a"
+    },
+    {
+      "path": "destruction/src/bin/structure-audit.rs",
+      "sha256": "d3e80ac62798f906b58fe685cd9636e824b899fc70a713d81baa501051d0815c"
+    },
+    {
+      "path": "destruction/src/rig/audit.rs",
+      "sha256": "68948992cd0ab29fb3d42e2c089e2310680b6109763f88d6788f6bdc469b4b8a"
+    },
+    {
+      "path": "destruction/src/rig/freshness.rs",
+      "sha256": "739c269f9c7e470e8807b5053fa01cf3fb337c28d7634671cd9c689828a08bd3"
+    },
+    {
+      "path": "destruction/src/rig/mod.rs",
+      "sha256": "8d25b0d0c70af138965113ee7df8583d97e51b48341b64cdab45ba75dc802ce5"
+    },
+    {
+      "path": "destruction/src/rig/stress_report.rs",
+      "sha256": "e7dfe4d8b9b5dace402deb8d218607dd38549982498da180b7112dff95fc30be"
+    },
+    {
+      "path": "destruction/src/rig/surgery.rs",
+      "sha256": "054f7d492cc49b7474d707db8346363647f6102af626188a1ef2710b8e8d6ca7"
+    },
+    {
+      "path": "destruction/src/rig/trace.rs",
+      "sha256": "831297e470b2330b205d0c0ad893623235582e25f28af476df8e502a5b5ad39c"
+    },
+    {
+      "path": "destruction/tests/fixtures/rig-baseline-2026-08-28.md",
+      "sha256": "e1e073029ce365ed70b934c4f17609e4987a0edbe440f2b7b0ae734a0ece5fa9"
+    },
+    {
+      "path": "physx-bridge/.gitignore",
+      "sha256": "44c92e3a70ad3307b7056871c2bdb096d8bfa9373f5bf06a79bb6324a20ff2fb"
+    },
+    {
+      "path": "physx-bridge/Cargo.lock",
+      "sha256": "859ce923a883e1438b21c7026a913eb650040a44b1ad29c46810dd2da36be428"
+    },
+    {
+      "path": "physx-bridge/Cargo.toml",
+      "sha256": "a5f19c4aeda06962832a6784af950a10a039ae847d92bcb091396d912d7c5131"
+    },
+    {
+      "path": "physx-bridge/README.md",
+      "sha256": "263a172e23bb331497e6d6a6c6a03f3ead173fcad5b8b5a4dfee34833bcf1d37"
+    },
+    {
+      "path": "physx-bridge/build.rs",
+      "sha256": "76510046cb32942cd6bf53ced7d8ef393e679e251b2b1dde543ff8aed771bc14"
+    },
+    {
+      "path": "physx-bridge/include/destruction.h",
+      "sha256": "b28432e283c8656300df9b247bec394752f316027ad5258ffaa45a52d6f2e5ab"
+    },
+    {
+      "path": "physx-bridge/include/physx_bridge.h",
+      "sha256": "6cecf285b33f9ae80a3797228a9ec25578d1f0cf8ee1fdbc885581a0219aadc6"
+    },
+    {
+      "path": "physx-bridge/src/destruction.cc",
+      "sha256": "0ec54474b773e272b954722e86bc15fc3614a4b6f5fbb87857cbee24fbad4be4"
+    },
+    {
+      "path": "physx-bridge/src/lib.rs",
+      "sha256": "432e21b68309ff0253637dc5235e0fb9c45966d148ab2dcbe998e944bf17288b"
+    },
+    {
+      "path": "physx-bridge/src/physx_bridge.cc",
+      "sha256": "8a979048bfb264caa1deea1f3969a7369c7d042bc75ae2c27ddcfa629281cba0"
+    },
+    {
+      "path": "physx-bridge/tests/destruction_smoke.rs",
+      "sha256": "e9f9584016af629ba7e7a9d1f50a3de4fc70f2d033b99788732311d3c3f91f59"
+    },
+    {
+      "path": "physx-bridge/tests/freeze_wake_semantics.rs",
+      "sha256": "f5eb0edfb7f6aa22fb73e45a1d83070f6014490adc423b34342b89788d55c4f2"
+    },
+    {
+      "path": "physx-bridge/tests/gpu_load.rs",
+      "sha256": "910bd185b6e28cd35be1076e133e029c4b67d93714355d688a6c1ca76e9deeab"
+    },
+    {
+      "path": "physx-bridge/tests/gpu_smoke.rs",
+      "sha256": "91c3e5a6f57e0e39cc94693c26f8fc3bb89bd4083fe31a2544b31e5a7aab275a"
+    },
+    {
+      "path": "physx-bridge/tests/stack_settling.rs",
+      "sha256": "bb475e1be225f362900ec8872bda068178511314bb0df521c1d0498018f0fd87"
+    },
+    {
+      "path": "physx-bridge/tests/stub.rs",
+      "sha256": "ad28ddb1d1295f4a30ea7ad6e07b749af7ce9b4ce4773eb15ace759ef44fab46"
+    },
+    {
+      "path": "physx-bridge/tests/gpu_step_bench.rs",
+      "sha256": "5322c248736412dc0786b6b7296fde156b9d9effc17152c73c8afb6ed4e78486"
+    },
+    {
+      "path": "physx-bridge/tests/timing_consistency.rs",
+      "sha256": "e529065b1221a94ad590c8fa1820ed89990d5e77b60914f4e525acb719824e71"
+    },
+    {
+      "path": "physx-bridge/tests/settle_assist.rs",
+      "sha256": "c7cbceaacae0c9abbb40deef0e87d24d1d003609f1d2fd908d3e54bc3119aa97"
+    },
+    {
+      "path": "physx-bridge/tests/velocity_fidelity.rs",
+      "sha256": "b24e8142cc7c27e4378cd5840715941617da9b5bbcd99df6587901b3cae5b6f5"
+    },
+    {
+      "path": "netcode/Cargo.toml",
+      "sha256": "a0578fee58d9dc5eb242f4c48722bcf77acee6d36c4e9626b75a04f81b3b38bd"
+    },
+    {
+      "path": "netcode/src/clock_sync.rs",
+      "sha256": "8a207b91e204882ea3013459b0941192c0b0ef4272dee52d57a4aee211dcc94e"
+    },
+    {
+      "path": "netcode/src/lag_comp.rs",
+      "sha256": "d86feb70e11c411bdbee12c95d01751d1867a959797e3c702a7efcc0ec53ac8b"
+    },
+    {
+      "path": "netcode/src/lib.rs",
+      "sha256": "999977524d000b55e7d9ae712533c6946ad00f7a3733216148c6ca913f2335f8"
+    },
+    {
+      "path": "netcode/src/physics_arena.rs",
+      "sha256": "50a3b555e20f276145abe9b37758d63506faf11ccc0454f35b0b0e010e1fb6e8"
+    },
+    {
+      "path": "netcode/src/physics_backend.rs",
+      "sha256": "14f3e3f9a76a33c30e90f5b77691bd1a885ac68d94d71c2232e6d43bf44e7978"
+    },
+    {
+      "path": "netcode/src/seq.rs",
+      "sha256": "508457aedb6678cef55c9585e2eaa657ec6c2f1d36345f32568da81b3d0eb3fb"
+    },
+    {
+      "path": "netcode/src/sim_world.rs",
+      "sha256": "3954aa6c6414a10e878202a571b1a43de9e82b79c0953685532482ee5b2a22db"
+    },
+    {
+      "path": "netcode/src/unit_conv.rs",
+      "sha256": "d590e2fce9db1b326d9735fd8203bbb8de5cfabcdc768e621bc600411610ba0b"
+    },
+    {
+      "path": "netcode/src/destruction_backend.rs",
+      "sha256": "c5f2ac52ea300bae4e3b3ec7358b127bd47d04bb978870eaca6d0cba8e5ae489"
+    },
+    {
+      "path": "netcode/src/movement.rs",
+      "sha256": "6413cb16dfcba66d9249f4cc3c8c7a8151d096b762cfc77d4cba781232497d61"
+    }
+  ]
+}

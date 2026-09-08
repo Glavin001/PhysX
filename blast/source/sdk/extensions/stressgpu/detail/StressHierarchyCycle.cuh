@@ -43,9 +43,14 @@ __device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool
     }
 }
 __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u,unsigned width=32){
-    Vector sum{};
-    for(unsigned slot=parent.input.begin[node]+lane;slot<parent.input.begin[node+1];slot+=width){
-        const unsigned ref=parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
+    Vector sum{};const bool cached=cachedSelfRows(parent.input);
+    if(cached && !lane){
+        const unsigned root=parent.topology.leader[node];
+        if(root!=Invalid && parent.child.nodeMap[root]!=Invalid)sum=selfMatrixValue(parent.input,node,childX[parent.child.nodeMap[root]],true);
+    }
+    const unsigned end=cached?parent.input.nonSelfEnd[node]:parent.input.begin[node+1];
+    for(unsigned slot=parent.input.begin[node]+lane;slot<end;slot+=width){
+        const unsigned ref=cached?parent.input.nonSelfRefs[slot]:parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
         const auto e=parent.topology.coarse[edge];if(!retainedColumn(e))continue;
         Vector a{},b{},difference{};
         if(e.a!=Invalid && parent.child.nodeMap[e.a]!=Invalid)a=childX[parent.child.nodeMap[e.a]];

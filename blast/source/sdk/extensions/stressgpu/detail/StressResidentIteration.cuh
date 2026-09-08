@@ -54,7 +54,7 @@ struct PersistentStressArgs {
 #include "StressHomogeneousComponents.cuh"
 #include "StressCooperativeRetirement.cuh"
 template<bool Preconditioned>
-__global__ void persistentStressSolve(PersistentStressArgs a) {
+__global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(PersistentStressArgs a) {
     __shared__ StressHierarchy::TerminalShared cycleShared;
     const auto grid=cooperative_groups::this_grid();
     const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;

@@ -45,7 +45,8 @@ public:
         if(mAppended)throw std::runtime_error("Resident hierarchy already appended");
         Input input=mInput;cudaGraphNode_t tailCompletion=nullptr;
         for(unsigned level=0;level<mDepth;++level){
-            mInputs.push_back(input);mGraphs.emplace_back(new Graph(input.nodes,input.bonds,mStream,level!=0));
+            mGraphs.emplace_back(new Graph(input.nodes,input.bonds,mStream,level!=0));
+            input=mGraphs.back()->cachedInput(input);mInputs.push_back(input);
             prior=mGraphs.back()->append(graph,prior,input);
             mTerminals.emplace_back(new TerminalLevel(input,mGraphs.back()->status(),mPool,level,mStream));
             prior=mTerminals.back()->append(graph,prior);

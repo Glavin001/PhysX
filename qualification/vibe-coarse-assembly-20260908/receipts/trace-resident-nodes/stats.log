@@ -1,0 +1,240 @@
+Generating SQLite file /root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/cuda.sqlite from /root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/cuda.nsys-rep
+Processing [/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/trace-resident-nodes/cuda.sqlite] with [/opt/nvidia/nsight-compute/2025.1.1/host/target-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+Time (%),Total Time (ns),Instances,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
+95.8,16240006649,607,26754541.4,28444326.0,1454177,92915087,10539968.7,void Nv::Blast::<unnamed>::persistentStressSolve<(bool)1>(Nv::Blast::<unnamed>::PersistentStressArgs)
+1.1,186482671,607,307220.2,279494.0,151747,23013224,924947.1,"Nv::Blast::<unnamed>::componentStressSolve(Nv::Blast::<unnamed>::PersistentStressArgs, Nv::Blast::<unnamed>::ResidentStressComponentView)"
+0.4,75242766,165,456016.8,1536.0,1472,2826688,830006.4,"Nv::Blast::StressHierarchy::buildSelfCache(Nv::Blast::StressHierarchy::Input, Nv::Blast::StressHierarchy::Buffers, const Nv::Blast::StressHierarchy::Status *, const Nv::Blast::StressHierarchy::Work *)"
+0.4,65998448,17705,3727.7,3712.0,2400,6144,655.0,solveBlockPartition
+0.3,46525371,176,264348.7,10112.5,9760,1233115,374324.9,"Nv::Blast::StressHierarchy::construct(Nv::Blast::StressHierarchy::Input, Nv::Blast::StressHierarchy::Buffers, Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::Work *)"
+0.2,29171624,2825,10326.2,10689.0,3712,25504,2803.7,solveStaticBlock
+0.1,24661518,4864,5070.2,5120.0,4448,5728,210.6,radixSortMultiCalculateRanksLaunchWithCount
+0.1,15691719,4864,3226.1,3232.0,3104,4577,51.3,radixSortMultiBlockLaunchWithCount
+0.1,12690048,165,76909.4,3520.0,3264,430218,126376.5,"Nv::Blast::StressHierarchy::constructSmoother(Nv::Blast::StressHierarchy::Input, const Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::Work *, Nv::Blast::StressHierarchy::Buffers, Nv::Blast::StressHierarchy::TerminalBuffers, unsigned int)"
+0.1,11714434,764,15333.0,15936.0,3648,36896,5398.3,convexConvexNphase_stage2Kernel
+0.1,10159037,4024,2524.6,2496.0,1600,4129,192.9,bodyInputAndRanksBlocksLaunch
+0.0,8085205,176,45938.7,6944.0,6304,932597,117070.2,"Nv::Blast::StressHierarchy::constructTerminals(Nv::Blast::StressHierarchy::Input, const Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::Work *, Nv::Blast::StressHierarchy::TerminalBuffers, unsigned int)"
+0.0,7229943,2820,2563.8,2496.0,2048,3616,261.5,markActiveSlabPGS
+0.0,7024728,565,12433.1,12384.0,9185,18369,706.6,"physx::<unnamed>::routeContacts(physx::PxgDestructionSolvedContacts, const physx::<unnamed>::Lookup *, unsigned int, const physx::PxDestructionStressChunk *, const physx::PxTransformT<float> *, float, physx::PxDestructionVectorPair *, physx::PxDestructionSurfaceLoad *, physx::PxDestructionStageStatus *, const physx::PxgBodySim *, const physx::PxDestructionMaterial *, float *)"
+0.0,6723218,607,11076.1,11072.0,11008,11169,31.1,"Nv::Blast::<unnamed>::applyNativeStressSolution(Nv::Blast::<unnamed>::AngLin *, const Nv::Blast::StressHierarchy::Vector *, const Nv::Blast::<unnamed>::Inertia *, const unsigned int *, const unsigned int *, const Nv::Blast::<unnamed>::Vec4 *, const Nv::Blast::<unnamed>::Vec4 *, const float *, const float *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *)"
+0.0,6649492,607,10954.7,10912.0,10433,12864,281.0,"physx::<unnamed>::evaluateBondMaterials(const physx::PxDestructionStressChunk *, const physx::PxDestructionStressBond *, const physx::PxDestructionMaterial *, const float *, const physx::PxDestructionVectorPair *, unsigned int, float, float, float, bool, physx::PxDestructionBondVerdict *, physx::PxVec3T<float> *, physx::PxDestructionStageStatus *)"
+0.0,6463277,2885,2240.3,2208.0,1472,3808,196.6,computeAverageSolverBodyVelocity
+0.0,6108447,5790,1055.0,1024.0,928,2400,107.3,nativePairMerge
+0.0,6057609,576,10516.7,10433.0,9888,16481,494.1,computeIncrementalComparisonHistograms_Stage1
+0.0,5839140,4024,1451.1,1440.0,1312,2944,130.1,bodyInputAndRanksSingleBlockLaunch
+0.0,5273696,607,8688.1,8673.0,8640,9120,24.4,"Nv::Blast::<unnamed>::accumulateSquaredByIsland(const Nv::Blast::<unnamed>::AngLin *, const unsigned int *, const unsigned int *, float *, const unsigned int *, const unsigned int *, unsigned int, unsigned int)"
+0.0,4932750,565,8730.5,8865.0,1216,12481,1218.3,"physx::destructionContactGraph::connect(const physx::PxgContactManagerInput *, const physx::PxgContactGraphIdentity *, const physx::PxsContactManagerOutput *, unsigned int, const physx::PxgShapeSim *, unsigned int, unsigned int, physx::PxgDestructionContactGraphStatus *, const unsigned int *, unsigned int *, unsigned int *)"
+0.0,4830739,165,29277.2,15873.0,15008,59617,17048.8,"void Nv::Blast::StressHierarchy::packLevel<(bool)1>(Nv::Blast::StressHierarchy::Input, Nv::Blast::StressHierarchy::Buffers, const Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::PackingBuffers, Nv::Blast::StressHierarchy::PackingWork *, unsigned int, Nv::Blast::StressHierarchy::TerminalRetirement)"
+0.0,4632869,607,7632.4,7616.0,7168,8096,157.6,"physx::<unnamed>::prepareLoads(const physx::PxDestructionStressChunk *, unsigned int, const physx::PxDestructionStressCluster *, const physx::PxTransformT<float> *, const physx::PxVec3T<float> *, physx::PxVec3T<float>, physx::PxDestructionVectorPair *, physx::PxDestructionSurfaceLoad *, float *)"
+0.0,4512775,565,7987.2,7968.0,5344,9921,632.1,contactConstraintBlockPrepareParallelLaunch
+0.0,4442438,764,5814.7,6464.0,3136,7872,1387.8,finishContactsKernel
+0.0,4294138,607,7074.4,6912.0,6688,13921,862.4,"Nv::Blast::<unnamed>::gatherRightMultiply(Nv::Blast::<unnamed>::AngLin *, const Nv::Blast::<unnamed>::AngLin *, const unsigned int *, const unsigned int *, const Nv::Blast::<unnamed>::Vec4 *, const Nv::Blast::<unnamed>::Vec4 *, const float *, const float *, const unsigned int *, const unsigned int *, const Nv::Blast::<unnamed>::Inertia *, const unsigned int *, const unsigned int *)"
+0.0,4215087,2825,1492.1,1472.0,1408,2976,88.3,propagateStaticSolverBodyVelocities
+0.0,4042751,579,6982.3,9824.0,992,13729,4707.8,nativePairSortTiles
+0.0,4023418,1797,2239.0,2176.0,1952,4033,244.2,prepareLostFoundPairs_Stage2
+0.0,3833087,576,6654.7,6688.5,1792,7969,661.8,performIncrementalSAP
+0.0,3493132,577,6054.0,6081.0,2048,7872,721.5,updateTransformCacheAndBoundArrayLaunch
+0.0,3377451,11,307041.0,306022.0,289287,315623,7198.6,"Nv::Blast::StressHierarchy::constructMotionModes(Nv::Blast::StressHierarchy::Input, const unsigned int *, Nv::Blast::StressHierarchy::MotionBuffers, Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::Work *)"
+0.0,3098767,2308,1342.6,1344.0,1248,2464,45.0,propagateSolverBodyVelocity
+0.0,3004671,607,4950.0,4928.0,4768,5344,84.8,"Nv::Blast::<unnamed>::resetNativeStressSolution(Nv::Blast::<unnamed>::NativeStressCycleView, Nv::Blast::<unnamed>::AngLin *, Nv::Blast::<unnamed>::AngLin *, unsigned int, bool)"
+0.0,2836797,577,4916.5,5344.0,1760,6048,955.5,preIntegrationLaunch
+0.0,2834090,1762,1608.5,1536.0,1408,2976,170.7,bpSignalComplete
+0.0,2712187,565,4800.3,4768.0,4192,6432,305.3,constraintContactBlockPrePrepLaunch
+0.0,2539063,510,4978.6,5248.0,1568,6656,887.6,boxBoxNphase_Kernel
+0.0,2350742,1797,1308.1,1248.0,1184,2880,144.9,prepareLostFoundPairs_Stage1
+0.0,2341039,584,4008.6,4000.0,1728,4288,136.4,outputEndPtsHistogram
+0.0,2193994,584,3756.8,3744.0,1504,4480,135.5,computeEndPtsHistogram
+0.0,2136663,565,3781.7,3744.0,2784,5248,272.3,writebackBlocks
+0.0,2100790,576,3647.2,3648.0,3616,4225,40.1,computeIncrementalComparisonHistograms_Stage2
+0.0,1890412,764,2474.4,2592.0,1664,4192,498.8,convexConvexNphase_stage1Kernel
+0.0,1842504,1797,1025.3,1024.0,864,2560,145.2,updateFrictionPatches
+0.0,1828558,607,3012.5,3008.0,2816,4768,121.6,"Nv::Blast::<unnamed>::initializeSolve(const Nv::Blast::ExtStressGpuImpulse *, Nv::Blast::<unnamed>::AngLin *, Nv::Blast::<unnamed>::AngLin *, Nv::Blast::<unnamed>::AngLin *, const Nv::Blast::<unnamed>::Inertia *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, float, float, float, bool)"
+0.0,1789959,607,2948.9,2944.0,2816,3168,61.7,"physx::<unnamed>::finalizeMaterialVerdict(const physx::PxDestructionStressBond *, physx::PxDestructionBondVerdict *, const physx::PxDestructionCrushState *, const float *, unsigned int, physx::PxDestructionStageStatus *)"
+0.0,1773088,577,3072.9,3040.0,2560,3552,171.6,rigidSumInternalContactAndJointBatches2
+0.0,1744617,578,3018.4,3104.0,2624,4224,305.7,updateHandles
+0.0,1702091,607,2804.1,2912.0,1152,3872,488.7,"physx::destructionContactGraph::compress(unsigned int *, unsigned int *, unsigned int)"
+0.0,1680748,579,2902.8,2880.0,2720,4160,139.3,initializeSapBox1DLaunch
+0.0,1564571,579,2702.2,2688.0,2304,3585,196.4,translateAABBsLaunch
+0.0,1533664,565,2714.4,2816.0,896,24801,2861.3,"physx::destructionContactGraph::connectRetainedSlots(const physx::PxgDestructionRetainedEdge *, const unsigned int *, unsigned int, unsigned int, unsigned int *, unsigned int *, physx::PxgDestructionContactGraphStatus *)"
+0.0,1480104,523,2830.0,2816.0,1568,4224,313.9,sphereNphase_Kernel
+0.0,1469151,576,2550.6,2560.0,1952,5633,355.9,markUpdatedPairsLaunch
+0.0,1456909,616,2365.1,2400.0,1729,2624,141.6,"physx::<unnamed>::provisionalTopologyMotion(physx::PxDestructionTopologyDeviceView, const physx::PxDestructionStressChunk *, const physx::PxDestructionStressCluster *, const physx::PxTransformT<float> *, const physx::PxgBodySim *, physx::PxDestructionClusterMotion *)"
+0.0,1360585,580,2345.8,2432.0,1664,3616,308.2,accumulateReportsStage_2
+0.0,1304187,577,2260.3,2656.0,960,3488,753.4,createFrozenAndUnfrozenArray
+0.0,1298780,607,2139.7,2048.0,1344,3712,369.2,mergeChangedAABBMgrHandlesLaunch
+0.0,1296699,565,2295.0,2304.0,1952,3392,116.8,concludeBlocks
+0.0,1232640,607,2030.7,2016.0,1920,2144,38.5,"Nv::Blast::<unnamed>::subtractResidual(Nv::Blast::<unnamed>::AngLin *, const Nv::Blast::<unnamed>::AngLin *, const unsigned int *, const unsigned int *)"
+0.0,1229401,607,2025.4,2016.0,1920,2784,96.4,"physx::<unnamed>::evaluateChunkMaterials(const physx::PxDestructionStressChunk *, const physx::PxDestructionStressBond *, const physx::PxDestructionMaterial *, const unsigned int *, const unsigned int *, const float *, const physx::PxDestructionVectorPair *, const physx::PxVec3T<float> *, const physx::PxDestructionSurfaceLoad *, const float *, const physx::PxDestructionCrushState *, physx::PxDestructionCrushState *, unsigned int, float, physx::PxDestructionStageStatus *)"
+0.0,1226942,607,2021.3,2016.0,1984,2432,30.4,"Nv::Blast::<unnamed>::finishComponentStress(Nv::Blast::<unnamed>::PersistentStressArgs, Nv::Blast::<unnamed>::ResidentStressComponentView)"
+0.0,1220537,577,2115.3,2080.0,2048,3104,156.7,outputFrozenAndUnfrozenHistogram
+0.0,1209310,607,1992.3,2016.0,1536,2688,142.2,"physx::<unnamed>::beginTransaction(const physx::<unnamed>::TransactionBatch *, physx::PxDestructionTopologyTransactionStatus *, unsigned long long)"
+0.0,1197406,577,2075.2,2080.0,1664,3232,162.0,integrateCoreParallelLaunch
+0.0,1160021,616,1883.2,1888.0,1152,4128,174.3,"physx::<unnamed>::commitMaterialState(const physx::PxDestructionBondVerdict *, float *, unsigned int, const physx::PxDestructionCrushState *, physx::PxDestructionCrushState *, unsigned int, const physx::PxDestructionStageStatus *)"
+0.0,1154619,503,2295.5,2208.0,1088,4096,309.6,dmaBackChangedElems
+0.0,1151869,607,1897.6,1888.0,1792,2176,74.1,"Nv::Blast::<unnamed>::exportPhysicalImpulses(const Nv::Blast::<unnamed>::AngLin *, const float *, Nv::Blast::ExtStressGpuImpulse *, unsigned int, float, float)"
+0.0,1139605,577,1975.1,1984.0,1952,2784,51.9,computeFrozenAndUnfrozenHistogramLaunch
+0.0,1108761,12,92396.8,87842.0,66433,127523,17876.8,"physx::<unnamed>::connect(const physx::PxDestructionBondEndpoints *, unsigned int, unsigned int *, const unsigned int *, unsigned int *)"
+0.0,1083030,616,1758.2,1824.0,864,2432,175.0,"physx::<unnamed>::commitObservedTopologyMotion(physx::PxDestructionTopologyDeviceView, const physx::PxDestructionClusterMotion *, const physx::PxDestructionStageStatus *)"
+0.0,1048856,607,1727.9,1728.0,1664,2336,78.8,"physx::<unnamed>::finishStatus(const Nv::Blast::ExtStressGpuDeviceStatus *, physx::PxDestructionStageStatus *, const physx::PxDestructionVectorPair *, unsigned int)"
+0.0,1038719,607,1711.2,1696.0,1664,1888,26.7,"physx::<unnamed>::emitTopologyEdits(const physx::PxDestructionBondVerdict *, unsigned int, const physx::PxDestructionCrushState *, const physx::PxDestructionCrushState *, unsigned int, physx::PxgDestructionEdit *, unsigned int *)"
+0.0,1038065,580,1789.8,2016.0,1184,2881,429.2,copyReports
+0.0,1003829,11,91257.2,86978.0,68897,117090,16461.6,"Nv::Blast::<unnamed>::connectDeviceStressTopology(const unsigned int *, const unsigned int *, const float *, const Nv::Blast::<unnamed>::Inertia *, unsigned int, unsigned int *, unsigned int *)"
+0.0,934062,579,1613.2,1760.0,1120,2816,334.0,nativePairUniqueScatter
+0.0,932563,607,1536.3,1088.0,960,30113,3576.1,"physx::<unnamed>::prepareCandidateBodies(physx::PxDestructionTopologyDeviceView, const physx::PxDestructionStressChunk *, const physx::PxDestructionStressCluster *, physx::PxDestructionClusterBodyState *, physx::PxDestructionBodyPreparationStatus *, physx::PxDestructionTopologyDeviceView, physx::PxvDestructionBodyRequest *, unsigned int *)"
+0.0,918930,580,1584.4,1664.0,1216,2880,278.9,accumulateReportsStage_1
+0.0,858573,577,1488.0,1472.0,1440,1632,21.3,rigidSumInternalContactAndJointBatches1
+0.0,844720,607,1391.6,1216.0,864,2592,388.1,"physx::<unnamed>::setTransactionBatch(physx::<unnamed>::TransactionBatch *, physx::<unnamed>::TransactionBatch)"
+0.0,830964,617,1346.8,1312.0,1152,1952,112.9,"Nv::Blast::<unnamed>::beginDeviceStressTopology(const Nv::Blast::<unnamed>::DeviceStressTopologyBatch *, Nv::Blast::ExtStressGpuDeviceTopologyStatus *, unsigned long long)"
+0.0,825694,617,1338.2,1344.0,1184,1792,115.9,"Nv::Blast::<unnamed>::publishNativeHierarchyStatus(const Nv::Blast::StressHierarchy::Status *, const Nv::Blast::StressHierarchy::Status *, Nv::Blast::ExtStressGpuDeviceTopologyStatus *)"
+0.0,816155,579,1409.6,1472.0,1056,2496,234.9,nativePairUniquePrefix
+0.0,815636,579,1408.7,1408.0,1152,2272,177.1,nativePairUniqueCounts
+0.0,798581,577,1384.0,1344.0,1312,3040,166.5,updateChangedAABBMgrHandlesLaunch
+0.0,763946,503,1518.8,1472.0,1152,2816,135.3,outputAccumulateThresholdStream
+0.0,751576,616,1220.1,1216.0,1184,1760,45.5,"physx::<unnamed>::observeNativeClusters(const physx::PxDestructionStressCluster *, unsigned int, const physx::PxgBodySim *, physx::PxTransformT<float> *, physx::PxVec3T<float> *, const physx::PxDestructionStageStatus *)"
+0.0,750387,577,1300.5,1280.0,1248,2368,76.1,writeBackBodies
+0.0,741464,607,1221.5,1088.0,928,2720,226.0,"physx::<unnamed>::inspectTopologyTransaction(const physx::PxDestructionTopologyTransactionStatus *, physx::PxDestructionStageStatus *)"
+0.0,738325,503,1467.8,1472.0,1152,2912,120.6,outputExceededForceThresholdElementIndice
+0.0,736362,616,1195.4,1056.0,800,2688,347.6,"physx::<unnamed>::setTransactionAccept(physx::<unnamed>::TransactionBatch *, const unsigned int *)"
+0.0,709328,616,1151.5,1152.0,1024,1760,81.3,"physx::<unnamed>::chooseCommit(const physx::<unnamed>::TransactionBatch *, const physx::PxDestructionTopologyTransactionStatus *, unsigned long long)"
+0.0,707249,503,1406.1,1376.0,960,2624,129.5,computeExceededForceThresholdElementIndice
+0.0,702576,92,7636.7,7536.5,7328,8512,307.0,"void cub::CUB_200700_890_NS::DeviceRadixSortOnesweepKernel<cub::CUB_200700_890_NS::DeviceRadixSortPolicy<unsigned int, unsigned int, unsigned int>::Policy900, (bool)0, unsigned int, unsigned int, unsigned int, int, int, cub::CUB_200700_890_NS::detail::identity_decomposer_t>(T7 *, T7 *, T5 *, const T5 *, T3 *, const T3 *, T4 *, const T4 *, T6, int, int, T8)"
+0.0,700567,607,1154.1,1056.0,1024,2593,289.3,"physx::<unnamed>::startFrame(physx::PxDestructionStageStatus *, const physx::PxgContactGraphSequence *, bool)"
+0.0,686130,503,1364.1,1344.0,1152,2720,94.0,outputThresholdPairsMaskIndices
+0.0,683947,503,1359.7,1344.0,1024,2560,95.1,computeThresholdElementMaskIndices
+0.0,681997,565,1207.1,1216.0,1184,2400,71.8,constraint1DBlockPrePrepLaunch
+0.0,681200,578,1178.5,1184.0,1152,1376,27.7,initializeRadixRanks
+0.0,672556,617,1090.0,832.0,800,2464,432.0,"Nv::Blast::<unnamed>::setDeviceStressTopologyBatch(Nv::Blast::<unnamed>::DeviceStressTopologyBatch *, Nv::Blast::<unnamed>::DeviceStressTopologyBatch)"
+0.0,669422,503,1330.9,1312.0,928,2497,93.9,createForceChangeThresholdElements
+0.0,665485,503,1323.0,1312.0,992,2560,104.1,computeAccumulateThresholdStream
+0.0,657619,607,1083.4,1056.0,1024,3328,147.8,"physx::<unnamed>::checkUnchangedMotionCommit(physx::PxDestructionTopologyDeviceView, physx::PxDestructionTopologyDeviceView, const physx::PxDestructionTopologyTransactionStatus *, unsigned int *, const physx::PxDestructionStressChunk *, unsigned int *, physx::PxDestructionCollisionPreparationStatus *)"
+0.0,651537,240,2714.7,2880.0,992,4096,672.0,removeContactManagers_Stage5
+0.0,651373,493,1321.2,1280.0,928,2976,107.8,setThresholdElementsMask
+0.0,639057,503,1270.5,1248.0,896,2624,122.4,writeoutAccumulatedForcePerObject
+0.0,630478,607,1038.7,1024.0,1024,1088,16.8,"physx::<unnamed>::finishBodyPreparation(const physx::PxDestructionTopologyTransactionStatus *, physx::PxDestructionBodyPreparationStatus *, physx::PxDestructionStageStatus *)"
+0.0,629999,503,1252.5,1248.0,928,2592,140.8,initialRanksAndBodyIndexA
+0.0,623211,607,1026.7,1024.0,992,1376,56.2,"Nv::Blast::<unnamed>::setTolerancePerIsland(float *, unsigned int *, unsigned int *, const unsigned int *, const float *, float, unsigned int)"
+0.0,618284,607,1018.6,1024.0,992,1216,27.3,"Nv::Blast::<unnamed>::finalizeIslandReduction(const float *, float *, unsigned int, unsigned int, const unsigned int *)"
+0.0,618029,503,1228.7,1216.0,896,2432,97.6,reorganizeThresholdElements
+0.0,595338,577,1031.8,1024.0,992,2240,89.3,ZeroBodies
+0.0,590286,607,972.5,960.0,928,1184,28.7,"physx::<unnamed>::beginBodyPreparation(const physx::PxDestructionTopologyTransactionStatus *, physx::PxDestructionTopologyDeviceView, physx::PxDestructionBodyPreparationStatus *)"
+0.0,589126,607,970.6,960.0,928,1408,35.1,"physx::destructionContactGraph::initialize(unsigned int *, unsigned int *, unsigned int, physx::PxgDestructionContactGraphStatus *, unsigned int, const physx::PxgContactGraphSequence *)"
+0.0,587818,503,1168.6,1152.0,928,2656,152.9,initialRanksAndBodyIndexB
+0.0,580653,577,1006.3,992.0,960,1248,30.6,initStaticKinematics
+0.0,579243,616,940.3,928.0,896,1536,60.0,"physx::<unnamed>::inspectStressTopology(const Nv::Blast::ExtStressGpuDeviceTopologyStatus *, physx::PxDestructionStageStatus *)"
+0.0,575118,607,947.5,960.0,896,1088,24.0,physx::<unnamed>::requireFractureCorrection(physx::PxDestructionStageStatus *)
+0.0,574703,607,946.8,960.0,928,1152,23.6,"physx::<unnamed>::beginUnchangedMotionCommit(const physx::PxDestructionTopologyTransactionStatus *, const physx::PxDestructionStageStatus *, unsigned int *)"
+0.0,570993,607,940.7,928.0,896,1280,44.5,Nv::Blast::<unnamed>::markDeviceStressSolved(Nv::Blast::ExtStressGpuDeviceTopologyStatus *)
+0.0,564046,607,929.2,928.0,896,1088,22.8,"physx::<unnamed>::acceptUnchangedMotionCommit(const unsigned int *, physx::PxDestructionStageStatus *)"
+0.0,562761,607,927.1,928.0,896,961,14.3,physx::<unnamed>::requireNativeConvergence(physx::PxDestructionStageStatus *)
+0.0,542957,12,45246.4,45249.0,41889,48673,2616.3,"physx::<unnamed>::massProperties(const physx::PxDestructionChunkMassProperties *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, physx::PxDestructionClusterMassProperties *, const unsigned int *, const physx::PxDestructionTopologyStatus *)"
+0.0,532748,11,48431.6,48097.0,47393,50817,1200.4,computeStartAndActiveRegionHistogram
+0.0,479303,607,789.6,800.0,768,801,15.0,"Nv::Blast::<unnamed>::initializeStatus(Nv::Blast::ExtStressGpuDeviceStatus *, unsigned int *, unsigned int, unsigned int *)"
+0.0,476201,270,1763.7,1824.0,1184,2176,157.2,initializeManifolds
+0.0,386184,11,35107.6,5152.0,5024,334215,99202.8,generateFoundPairsForNewBoundsRegion
+0.0,362596,240,1510.8,1504.0,1344,2816,151.3,removeContactManagers_Stage3
+0.0,336233,240,1401.0,1344.0,1280,2113,126.9,removeContactManagers_Stage4
+0.0,330472,5,66094.4,3904.0,3104,315271,139294.7,MemCopyBalanced
+0.0,296134,240,1233.9,1216.0,1056,2528,183.3,removeContactManagers_Stage2
+0.0,296036,263,1125.6,1152.0,992,1312,63.9,"physx::<unnamed>::buildNativeContactInputs(physx::PxgContactManagerInput *, unsigned int, const physx::PxgShapeSim *, unsigned int)"
+0.0,284646,170,1674.4,1376.0,1024,6112,1144.0,memcpy32_post
+0.0,262850,268,980.8,1024.0,896,1152,58.7,clearFrictionPatchCounts
+0.0,254213,240,1059.2,1024.0,928,2433,168.9,removeContactManagers_Stage1
+0.0,230471,9,25607.9,25409.0,25025,26112,445.8,"physx::<unnamed>::prepareCorrectionBodyInputs(const physx::PxDestructionClusterBodyState *, const unsigned int *, unsigned int, physx::PxDestructionTopologyDeviceView, const physx::PxDestructionStressChunk *, const unsigned int *, const physx::PxgBodySim *, const physx::PxgBodySimVelocities *, unsigned int, unsigned int, const physx::PxDestructionCollisionPreparationStatus *, physx::PxDestructionCorrectionBody *, physx::PxDestructionCorrectionPreparationStatus *)"
+0.0,224388,214,1048.5,1024.0,960,1280,78.6,memset32
+0.0,214853,123,1746.8,1728.0,1312,2304,151.7,updateBodiesLaunchDirectAPI
+0.0,198789,33,6023.9,5632.0,4736,10592,1215.7,setRigidDynamicGlobalPose
+0.0,195714,206,950.1,928.0,896,1088,45.8,"physx::destructionContactGraph::retire(const unsigned int *, unsigned int, unsigned int, unsigned int *, physx::PxgDestructionContactGraphStatus *)"
+0.0,115492,11,10499.3,10433.0,10336,10944,168.3,"Nv::Blast::<unnamed>::labelDeviceStressBonds(const unsigned int *, const unsigned int *, const float *, const Nv::Blast::<unnamed>::Inertia *, const unsigned int *, unsigned int *, unsigned int *, unsigned int)"
+0.0,110176,36,3060.4,3008.0,2912,4000,206.3,mergeTransformCacheAndBoundArrayChanges
+0.0,108224,46,2352.7,2304.0,1952,2912,324.1,"void cub::CUB_200700_890_NS::DeviceSelectSweepKernel<cub::CUB_200700_890_NS::detail::device_select_policy_hub<unsigned int, unsigned int, int, (bool)0, (bool)0>::Policy900, cub::CUB_200700_890_NS::CountingInputIterator<unsigned int, long>, unsigned int *, unsigned int *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, cub::CUB_200700_890_NS::NullType, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>(T2, T3, T4, T5, T6, T7, T8, T9, int, cub::CUB_200700_890_NS::detail::vsmem_t)"
+0.0,104866,11,9533.3,9313.0,9184,10944,543.5,writeOutOverlapChecksForInsertedBoundsRegionsHistogram
+0.0,92515,11,8410.5,8096.0,8032,9504,480.6,writeOutStartAndActiveRegionHistogram
+0.0,86115,12,7176.3,6960.0,6656,8641,604.3,"physx::<unnamed>::flatten(unsigned int *, unsigned int)"
+0.0,83716,94,890.6,928.0,768,1120,72.8,"void cub::CUB_200700_890_NS::DeviceCompactInitKernel<cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, unsigned int *>(T1, int, T2)"
+0.0,83648,12,6970.7,6928.0,6816,7392,168.1,"physx::<unnamed>::resetLabels(const unsigned int *, unsigned int *, unsigned int *, physx::PxDestructionClusterMassProperties *, unsigned int)"
+0.0,74114,11,6737.6,6720.0,6208,7617,413.8,"Nv::Blast::<unnamed>::flattenDeviceStressTopology(unsigned int *, unsigned int)"
+0.0,71073,7,10153.3,10112.0,9824,10432,206.4,refreshReboundShapeBounds
+0.0,64612,23,2809.2,2816.0,2752,2976,45.1,"void cub::CUB_200700_890_NS::DeviceRadixSortHistogramKernel<cub::CUB_200700_890_NS::DeviceRadixSortPolicy<unsigned int, unsigned int, unsigned int>::Policy900, (bool)0, unsigned int, unsigned int, cub::CUB_200700_890_NS::detail::identity_decomposer_t>(T4 *, const T3 *, T4, int, int, T5)"
+0.0,64257,11,5841.5,5920.0,5440,6528,343.8,outputOrderedActiveRegionHistogram
+0.0,61091,11,5553.7,6048.0,1601,6240,1339.8,"Nv::Blast::<unnamed>::refreshNativeInverseValidity(const Nv::Blast::<unnamed>::DeviceStressTopologyBatch *, const Nv::Blast::ExtStressGpuDeviceTopologyStatus *, const unsigned int *, const unsigned int *, const float *, unsigned int *, unsigned long *, unsigned int)"
+0.0,58945,11,5358.6,5312.0,5121,5568,165.7,createRegionsKernel
+0.0,53728,9,5969.8,5952.0,5888,6080,71.8,"void cub::CUB_200700_890_NS::DeviceSelectSweepKernel<cub::CUB_200700_890_NS::detail::device_select_policy_hub<physx::PxDestructionCorrectionBody, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>::Policy900, physx::PxDestructionCorrectionBody *, cub::CUB_200700_890_NS::NullType *, physx::PxDestructionCorrectionBody *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, physx::<unnamed>::HasCorrectionBody, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>(T2, T3, T4, T5, T6, T7, T8, T9, int, cub::CUB_200700_890_NS::detail::vsmem_t)"
+0.0,50403,24,2100.1,2080.0,1984,2240,97.0,"void cub::CUB_200700_890_NS::DeviceScanKernel<cub::CUB_200700_890_NS::DeviceScanPolicy<unsigned int, cuda::std::__4::plus<void>>::Policy900, unsigned int *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<unsigned int, (bool)1>, cuda::std::__4::plus<void>, cub::CUB_200700_890_NS::detail::InputValue<unsigned int, unsigned int *>, unsigned int, unsigned int, (bool)0>(T2, T3, T4, int, T5, T6, T7)"
+0.0,49633,39,1272.6,1248.0,1184,1440,76.5,"physx::destructionContactGraph::applyRetainedUpdates(const physx::PxgDestructionRetainedEdge *, unsigned int, physx::PxgDestructionRetainedEdge *, unsigned int, unsigned int *, unsigned int *, physx::PxgDestructionContactGraphStatus *)"
+0.0,48897,33,1481.7,1440.0,1408,1600,65.7,gatherNativeSleepPoses
+0.0,37378,39,958.4,960.0,896,1056,44.6,"physx::destructionContactGraph::validateRetainedUpdates(const physx::PxgDestructionRetainedEdge *, unsigned int, unsigned int, unsigned int *, physx::PxgDestructionContactGraphStatus *)"
+0.0,37312,11,3392.0,3360.0,3296,3552,99.1,computeRegionsHistogram
+0.0,36801,11,3345.5,3328.0,3296,3520,63.0,computeStartRegionsHistogram
+0.0,36064,39,924.7,928.0,896,960,12.3,physx::destructionContactGraph::finishRetainedUpdates(unsigned int *)
+0.0,35138,33,1064.8,1056.0,1024,1088,16.5,setRigidDynamicTorque
+0.0,34465,11,3133.2,3104.0,3008,3328,98.6,"Nv::Blast::StressHierarchy::chooseHierarchyTail(Nv::Blast::StressHierarchy::Input, const Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::TerminalBuffers, Nv::Blast::StressHierarchy::Status *, unsigned long long)"
+0.0,33984,33,1029.8,1024.0,992,1056,14.9,setRigidDynamicForce
+0.0,33316,11,3028.7,3521.0,1664,3713,874.2,clearNewFlagLaunch
+0.0,32834,33,995.0,960.0,928,1120,57.3,setRigidDynamicLinearVelocity
+0.0,31810,9,3534.4,3552.0,3041,3776,236.1,"physx::<unnamed>::preparePersistentCollisionBindings(const physx::PxDestructionStressChunk *, unsigned int, const physx::PxDestructionStressCluster *, const unsigned int *, physx::PxDestructionTopologyDeviceView, const unsigned int *, const unsigned int *, const physx::PxgShapeSim *, unsigned int, const physx::PxNodeIndex *, unsigned int, physx::PxDestructionCollisionBinding *, physx::PxDestructionCollisionPreparationStatus *, const physx::PxDestructionBodyAllocationStatus *)"
+0.0,31490,33,954.2,960.0,928,961,12.6,setRigidDynamicAngularVelocity
+0.0,29376,26,1129.8,1120.0,1088,1312,51.0,radixSortCopyBits2
+0.0,29120,11,2647.3,2560.0,2528,3232,208.9,computeOverlapChecksForRegionsHistogram
+0.0,27712,23,1204.9,1216.0,1152,1248,24.8,"void cub::CUB_200700_890_NS::DeviceRadixSortExclusiveSumKernel<cub::CUB_200700_890_NS::DeviceRadixSortPolicy<unsigned int, unsigned int, unsigned int>::Policy900, unsigned int>(T2 *)"
+0.0,26336,12,2194.7,2240.0,1952,2272,97.9,"void cub::CUB_200700_890_NS::DeviceSelectSweepKernel<cub::CUB_200700_890_NS::detail::device_select_policy_hub<unsigned int, unsigned int, int, (bool)0, (bool)0>::Policy900, unsigned int *, unsigned int *, unsigned int *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, cub::CUB_200700_890_NS::NullType, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>(T2, T3, T4, T5, T6, T7, T8, T9, int, cub::CUB_200700_890_NS::detail::vsmem_t)"
+0.0,25280,22,1149.1,1168.0,1056,1248,58.3,"Nv::Blast::<unnamed>::flagDeviceStressRows(const unsigned int *, unsigned int, unsigned int *)"
+0.0,25090,11,2280.9,2176.0,1952,3616,453.2,"Nv::Blast::<unnamed>::clearChangedStressWarmStart(const Nv::Blast::ExtStressGpuDeviceTopologyStatus *, const unsigned int *, const unsigned int *, Nv::Blast::<unnamed>::AngLin *, unsigned int)"
+0.0,23616,10,2361.6,2352.0,2144,2560,155.2,"physx::<unnamed>::transferClusterMotion(const unsigned int *, const unsigned int *, const physx::PxDestructionClusterMassProperties *, const unsigned int *, const unsigned int *, const double *, const physx::PxDestructionClusterMotion *, physx::PxDestructionClusterMotion *, const physx::PxDestructionTopologyStatus *)"
+0.0,23328,9,2592.0,2560.0,2368,2816,154.3,"void cub::CUB_200700_890_NS::DeviceSelectSweepKernel<cub::CUB_200700_890_NS::detail::device_select_policy_hub<physx::PxDestructionCollisionBinding, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>::Policy900, physx::PxDestructionCollisionBinding *, cub::CUB_200700_890_NS::NullType *, physx::PxDestructionCollisionBinding *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, physx::<unnamed>::HasCollisionBinding, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>(T2, T3, T4, T5, T6, T7, T8, T9, int, cub::CUB_200700_890_NS::detail::vsmem_t)"
+0.0,23328,9,2592.0,2592.0,2368,2784,153.5,"void cub::CUB_200700_890_NS::DeviceSelectSweepKernel<cub::CUB_200700_890_NS::detail::device_select_policy_hub<physx::PxDestructionCollisionBinding, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>::Policy900, physx::PxDestructionCollisionBinding *, cub::CUB_200700_890_NS::NullType *, physx::PxDestructionCollisionBinding *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, physx::<unnamed>::HasMigratingCollisionBinding, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>(T2, T3, T4, T5, T6, T7, T8, T9, int, cub::CUB_200700_890_NS::detail::vsmem_t)"
+0.0,23265,10,2326.5,2368.0,2080,2497,147.2,"physx::<unnamed>::captureClusterMotion(const unsigned int *, const unsigned int *, const physx::PxDestructionClusterMassProperties *, const physx::PxDestructionClusterMotion *, physx::PxDestructionClusterMotion *, double *, unsigned int *, const physx::PxDestructionTopologyStatus *, const physx::PxDestructionClusterMotion *const *)"
+0.0,23074,11,2097.6,2080.0,2016,2177,46.2,outputRegionsHistogram
+0.0,22784,11,2071.3,2048.0,2016,2176,43.1,outputStartRegionsHistogram
+0.0,22624,10,2262.4,2272.0,2144,2336,58.5,"physx::<unnamed>::validateTransaction(const physx::<unnamed>::TransactionBatch *, const unsigned int *, const unsigned int *, unsigned int, unsigned int, physx::PxDestructionTopologyTransactionStatus *)"
+0.0,22368,24,932.0,928.0,864,992,42.5,"void cub::CUB_200700_890_NS::DeviceScanInitKernel<cub::CUB_200700_890_NS::ScanTileState<unsigned int, (bool)1>>(T1, int)"
+0.0,20385,11,1853.2,1824.0,1824,1953,44.2,outputOverlapChecksForRegionHistogram
+0.0,20321,11,1847.4,1856.0,1248,2016,209.5,"Nv::Blast::<unnamed>::markChangedStressComponents(const Nv::Blast::<unnamed>::DeviceStressTopologyBatch *, const Nv::Blast::ExtStressGpuDeviceTopologyStatus *, const float *, const unsigned int *, unsigned int *, unsigned int)"
+0.0,20256,11,1841.5,1920.0,1504,2112,237.9,"Nv::Blast::<unnamed>::initializeDeviceStressTopology(const Nv::Blast::<unnamed>::DeviceStressTopologyBatch *, const Nv::Blast::<unnamed>::Inertia *, unsigned int *, unsigned int *, unsigned int *, float *, unsigned int, unsigned int, unsigned int *)"
+0.0,19968,11,1815.3,1952.0,1408,2208,298.2,"Nv::Blast::<unnamed>::validateDeviceStressMask(const Nv::Blast::<unnamed>::DeviceStressTopologyBatch *, const float *, unsigned int, Nv::Blast::ExtStressGpuDeviceTopologyStatus *)"
+0.0,19616,11,1783.3,1760.0,1760,1888,40.7,"Nv::Blast::StressHierarchy::finalizeHierarchy(Nv::Blast::StressHierarchy::Input, const Nv::Blast::StressHierarchy::Status *, Nv::Blast::StressHierarchy::TerminalBuffers, unsigned int, Nv::Blast::StressHierarchy::Status *)"
+0.0,18016,12,1501.3,1504.0,1440,1536,31.9,"physx::<unnamed>::ranges(const unsigned int *, const unsigned int *, const unsigned int *, unsigned int, unsigned int *, unsigned int *, unsigned int *)"
+0.0,16480,12,1373.3,1424.0,1088,1440,126.9,"physx::<unnamed>::retainMotionSlots(unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int)"
+0.0,16384,12,1365.3,1344.0,1120,1472,93.9,"physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)"
+0.0,16128,12,1344.0,1376.0,1216,1376,61.0,"physx::<unnamed>::requestMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, const unsigned int *, unsigned int *, unsigned int)"
+0.0,15648,13,1203.7,1120.0,1120,1376,100.0,radixSortCopy2
+0.0,15328,11,1393.5,1408.0,1344,1440,26.2,"Nv::Blast::<unnamed>::labelDeviceStressNodes(const unsigned int *, const unsigned int *, unsigned int *, unsigned int, Nv::Blast::ExtStressGpuDeviceTopologyStatus *)"
+0.0,15297,12,1274.8,1280.0,1152,1408,62.3,"physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)"
+0.0,14848,11,1349.8,1376.0,1248,1408,58.7,"Nv::Blast::<unnamed>::finishDeviceStressRebuild(const Nv::Blast::<unnamed>::DeviceStressTopologyBatch *, Nv::Blast::ExtStressGpuDeviceTopologyStatus *, const unsigned int *)"
+0.0,14272,9,1585.8,1568.0,1408,1760,156.9,"physx::<unnamed>::inspectCorrectionSourceLoads(const physx::PxDestructionStressCluster *, const unsigned int *, unsigned int, const physx::PxgBodySim *, unsigned int, const physx::PxDestructionCollisionPreparationStatus *, physx::PxDestructionCorrectionPreparationStatus *)"
+0.0,14112,9,1568.0,1568.0,1536,1632,27.7,"physx::<unnamed>::acceptChunkBindings(physx::PxDestructionTopologyDeviceView, const unsigned int *, physx::PxDestructionStressChunk *, const physx::PxDestructionStageStatus *)"
+0.0,14112,11,1282.9,1280.0,1216,1376,58.1,"Nv::Blast::<unnamed>::flagLargeStressComponents(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)"
+0.0,14049,12,1170.8,1216.0,960,1217,92.0,physx::<unnamed>::finishGeneration(physx::PxDestructionTopologyStatus *)
+0.0,14016,11,1274.2,1280.0,1248,1312,19.3,"Nv::Blast::<unnamed>::deviceStressReductionRanges(const unsigned int *, unsigned int, unsigned int *, unsigned int *)"
+0.0,13888,9,1543.1,1536.0,1504,1632,47.4,"physx::<unnamed>::commitNativeMotionSlots(physx::PxDestructionMotionSlotStatus *, const physx::PxDestructionStageStatus *)"
+0.0,13824,10,1382.4,1376.0,1344,1440,25.2,"physx::<unnamed>::editTransaction(const physx::<unnamed>::TransactionBatch *, const physx::PxDestructionTopologyTransactionStatus *, unsigned int *, unsigned int *)"
+0.0,13312,9,1479.1,1472.0,1344,1568,67.5,"physx::<unnamed>::assignNativeMotionSlots(const physx::PxDestructionMotionSlotStatus *, const unsigned int *, const physx::PxvDestructionBodyRequest *, unsigned int, unsigned int *, unsigned int *, physx::PxDestructionBodyAllocationStatus *)"
+0.0,13056,9,1450.7,1472.0,1344,1536,62.0,"void cub::CUB_200700_890_NS::DeviceSelectSweepKernel<cub::CUB_200700_890_NS::detail::device_select_policy_hub<physx::PxvDestructionBodyRequest, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>::Policy900, physx::PxvDestructionBodyRequest *, cub::CUB_200700_890_NS::NullType *, physx::PxvDestructionBodyRequest *, unsigned int *, cub::CUB_200700_890_NS::ScanTileState<int, (bool)1>, physx::<unnamed>::NeedsBody, cub::CUB_200700_890_NS::NullType, int, (bool)0, (bool)0>(T2, T3, T4, T5, T6, T7, T8, T9, int, cub::CUB_200700_890_NS::detail::vsmem_t)"
+0.0,12704,11,1154.9,1152.0,1120,1216,22.4,"Nv::Blast::<unnamed>::chooseDeviceStressRebuild(const Nv::Blast::ExtStressGpuDeviceTopologyStatus *, unsigned long long)"
+0.0,12576,9,1397.3,1440.0,1312,1472,69.7,"physx::<unnamed>::initializeReservedBodiesKernel(const physx::PxvDestructionBodyRequest *, const unsigned int *, unsigned int, const physx::PxDestructionClusterBodyState *, physx::PxgBodySim *, physx::PxgBodySimVelocities *, physx::PxgRigidBodyAcceleration *, physx::PxDestructionBodyAllocationStatus *)"
+0.0,12416,10,1241.6,1248.0,1216,1248,13.5,"physx::<unnamed>::chooseRebuild(const physx::PxDestructionTopologyTransactionStatus *, unsigned long long)"
+0.0,12001,9,1333.4,1344.0,1216,1377,60.0,"physx::<unnamed>::installNativeCollisionOwners(const physx::PxDestructionCollisionBinding *, unsigned int, physx::PxgShapeSim *, unsigned int, physx::PxNodeIndex *, unsigned int, unsigned long *, unsigned long)"
+0.0,12000,9,1333.3,1344.0,1312,1376,22.6,"physx::<unnamed>::acceptClusterBindings(physx::PxDestructionTopologyDeviceView, const unsigned int *, physx::PxDestructionStressCluster *, const physx::PxDestructionStageStatus *)"
+0.0,11392,9,1265.8,1280.0,1184,1312,48.3,"physx::<unnamed>::beginNativeMotionSlots(physx::PxDestructionMotionSlotStatus *, unsigned int, const physx::PxDestructionBodyPreparationStatus *, unsigned int, physx::PxDestructionBodyAllocationStatus *)"
+0.0,11328,9,1258.7,1184.0,1152,1504,138.6,"physx::<unnamed>::validateReservedBodies(const physx::PxvDestructionBodyRequest *, const unsigned int *, unsigned int, const physx::PxDestructionClusterBodyState *, unsigned int, unsigned int, physx::PxDestructionBodyAllocationStatus *)"
+0.0,10848,11,986.2,992.0,960,1024,19.3,Nv::Blast::<unnamed>::beginDeviceStressRebuild(Nv::Blast::ExtStressGpuDeviceTopologyStatus *)
+0.0,10720,9,1191.1,1184.0,1088,1376,78.0,"physx::<unnamed>::prepareNativeCorrectionAcceptance(physx::PxDestructionStageStatus *, const physx::PxgContactGraphSequence *, unsigned int *)"
+0.0,10688,10,1068.8,1056.0,1056,1088,16.5,"physx::<unnamed>::startCandidate(const physx::PxDestructionTopologyStatus *, physx::PxDestructionTopologyStatus *)"
+0.0,10657,10,1065.7,1056.0,1056,1088,15.4,physx::<unnamed>::finishCommit(physx::PxDestructionTopologyTransactionStatus *)
+0.0,10656,10,1065.6,1056.0,1056,1088,15.5,"physx::<unnamed>::finishCandidate(physx::PxDestructionTopologyTransactionStatus *, const physx::PxDestructionTopologyStatus *)"
+0.0,10336,9,1148.4,1152.0,1120,1152,10.7,"physx::<unnamed>::gatherCorrectionOwnerMetadata(const physx::PxDestructionCorrectionBody *, unsigned int, const unsigned int *, const physx::PxvDestructionBodyRequest *, physx::PxvDestructionBodyRequest *, unsigned int *)"
+0.0,10144,9,1127.1,1120.0,1088,1312,71.2,"physx::<unnamed>::installCorrectionBodyInputs(const physx::PxDestructionCorrectionBody *, unsigned int, const physx::PxgBodySim *, const physx::PxgBodySimVelocities *, physx::PxgBodySim *, physx::PxgBodySimVelocities *, physx::PxgRigidBodyAcceleration *)"
+0.0,9920,9,1102.2,1088.0,1088,1120,16.9,"physx::<unnamed>::finishCollisionPreparation(physx::PxDestructionCollisionPreparationStatus *, const physx::PxDestructionBodyAllocationStatus *, physx::PxDestructionStageStatus *)"
+0.0,9696,4,2424.0,1104.0,1056,6432,2672.1,updateShapesLaunch
+0.0,9632,9,1070.2,1056.0,1056,1088,16.9,"physx::<unnamed>::indexCandidateRoots(physx::PxDestructionTopologyDeviceView, unsigned int *)"
+0.0,8576,9,952.9,960.0,928,960,14.1,"physx::<unnamed>::finishCorrectionPreparation(physx::PxDestructionCorrectionPreparationStatus *, const physx::PxDestructionCollisionPreparationStatus *, unsigned long, physx::PxDestructionStageStatus *)"
+0.0,8544,9,949.3,960.0,928,960,16.0,"physx::<unnamed>::finishBodyInitialization(physx::PxDestructionBodyAllocationStatus *, physx::PxDestructionStageStatus *)"
+0.0,8448,9,938.7,928.0,928,960,16.0,physx::<unnamed>::finishNativeCorrection(physx::PxDestructionStageStatus *)
+0.0,8320,9,924.4,928.0,896,960,19.2,"physx::<unnamed>::finishNativeMotionSlots(physx::PxDestructionBodyAllocationStatus *, physx::PxDestructionStageStatus *)"
+0.0,7296,9,810.7,800.0,800,832,16.0,"physx::<unnamed>::finishNativeBodyShadowRegistration(bool, physx::PxDestructionBodyAllocationStatus *, physx::PxDestructionStageStatus *)"
+0.0,6976,4,1744.0,1488.0,1376,2624,590.3,markCreatedPairsLaunch
+0.0,6816,7,973.7,960.0,960,992,17.1,"physx::<unnamed>::mergePostCorrectionStatus(physx::PxDestructionStageStatus *, physx::PxDestructionStageStatus)"
+0.0,3777,3,1259.0,1249.0,1248,1280,18.2,updateBodyExternalVelocitiesLaunch
+0.0,2432,2,1216.0,1216.0,1216,1216,0.0,"physx::<unnamed>::initializeMotion(physx::PxDestructionClusterMotion *, const unsigned int *, const unsigned int *, const physx::PxDestructionTopologyStatus *)"
+0.0,2112,2,1056.0,1056.0,1024,1088,45.3,"physx::<unnamed>::initialize(unsigned int *, unsigned int, unsigned int *, unsigned int, physx::PxDestructionTopologyStatus *)"
+0.0,1248,1,1248.0,1248.0,1248,1248,0.0,"Nv::Blast::<unnamed>::flagActiveBonds(const unsigned int *, const unsigned int *, unsigned int, unsigned int *)"
+0.0,1024,1,1024.0,1024.0,1024,1024,0.0,"Nv::Blast::<unnamed>::flagActiveNodes(const unsigned int *, const unsigned int *, unsigned int, unsigned int *)"
+

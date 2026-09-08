@@ -1,0 +1,1612 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCoarseReduction.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCoarseReduction.cuh
+index d1f28afa..ad5dcab5 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCoarseReduction.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCoarseReduction.cuh
+@@ -1,8 +1,10 @@
+ // Private to StressHierarchyCycle.cuh. Coarsening retains bond columns, so
+ // a small node count can still have very long rows. Give those rows a full
+-// block rather than eight lanes. Every contribution remains in FP64.
++// block rather than eight lanes. Cached intermediate rows have had their
++// self columns contracted, and return to the smaller row schedule. Every
++// contribution remains in FP64.
+ __device__ __forceinline__ bool coarseBlockRows(const Input& input){
+-    return input.levelBonds && input.nodes<=1024;
++    return input.levelBonds && input.nodes<=1024 && (!cachedSelfRows(input) || input.nodes<=128);
+ }
+ __device__ __forceinline__ Vector coarseBlockSum(Vector value){
+     __shared__ Vector partial[Threads/32];
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
+index f2cf77a1..f728262c 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
+@@ -43,9 +43,14 @@ __device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool
+     }
+ }
+ __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u,unsigned width=32){
+-    Vector sum{};
+-    for(unsigned slot=parent.input.begin[node]+lane;slot<parent.input.begin[node+1];slot+=width){
+-        const unsigned ref=parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
++    Vector sum{};const bool cached=cachedSelfRows(parent.input);
++    if(cached && !lane){
++        const unsigned root=parent.topology.leader[node];
++        if(root!=Invalid && parent.child.nodeMap[root]!=Invalid)sum=selfMatrixValue(parent.input,node,childX[parent.child.nodeMap[root]],true);
++    }
++    const unsigned end=cached?parent.input.nonSelfEnd[node]:parent.input.begin[node+1];
++    for(unsigned slot=parent.input.begin[node]+lane;slot<end;slot+=width){
++        const unsigned ref=cached?parent.input.nonSelfRefs[slot]:parent.input.refs[slot];if(ref==Invalid)continue;const unsigned edge=ref&0x7fffffffu;
+         const auto e=parent.topology.coarse[edge];if(!retainedColumn(e))continue;
+         Vector a{},b{},difference{};
+         if(e.a!=Invalid && parent.child.nodeMap[e.a]!=Invalid)a=childX[parent.child.nodeMap[e.a]];
+@@ -81,7 +86,7 @@ __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,
+ }
+ template<bool Local>
+ __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs,CycleWork<Local> work){
+-    if(coarseBlockRows(parent.input)){
++    if(parent.input.levelBonds && parent.input.nodes<=1024){
+         for(unsigned index=Local?0u:blockIdx.x;index<work.childCount(parent.child);index+=Local?1u:gridDim.x){
+             const unsigned node=work.childNode(parent.child,index);
+             const bool enabled=!work.active || work.active[parent.child.component[node]];
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh
+index 038053d3..99743175 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh
+@@ -1,6 +1,7 @@
+ // Persistent, GPU-controlled first-level construction for native multilevel stress.
+ #pragma once
+ #include "StressHierarchyKernels.cuh"
++#include "StressHierarchySelfCache.cuh"
+ #include <algorithm>
+ #include <stdexcept>
+ #include <string>
+@@ -17,6 +18,7 @@ class Graph {
+     void release() noexcept{
+         cudaFree(mStatus);cudaFree(mWork);cudaFree(mBuffers.owner);cudaFree(mBuffers.seed);cudaFree(mBuffers.coarseActive);
+         cudaFree(mBuffers.minimum);cudaFree(mBuffers.leader);cudaFree(mBuffers.pending);cudaFree(mBuffers.memberBond);cudaFree(mBuffers.coarse);cudaFree(mBuffers.diagonal);
++        cudaFree(mBuffers.nonSelfRefs);cudaFree(mBuffers.nonSelfEnd);cudaFree(mBuffers.selfMatrices);
+     }
+ public:
+     Graph(unsigned nodes,unsigned bonds,cudaStream_t stream,bool recursive=false):mNodes(nodes),mBonds(bonds),mRecursive(recursive),mStream(stream){
+@@ -31,6 +33,7 @@ public:
+             allocate(mStatus,1);allocate(mWork,1);allocate(mBuffers.owner,nodes);allocate(mBuffers.seed,nodes);allocate(mBuffers.coarseActive,nodes);
+             allocate(mBuffers.minimum,nodes);allocate(mBuffers.leader,nodes);allocate(mBuffers.memberBond,nodes);
+             if(!mRecursive)allocate(mBuffers.diagonal,size_t(nodes)*DiagonalEntries);
++            else {allocate(mBuffers.nonSelfRefs,size_t(bonds)*2);allocate(mBuffers.nonSelfEnd,nodes);allocate(mBuffers.selfMatrices,size_t(SelfCacheNodes)*SelfCacheEntries);}
+             allocate(mBuffers.pending,(nodes+Threads-1)/Threads);allocate(mBuffers.coarse,bonds);
+             check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
+         } catch(...){release();throw;}
+@@ -51,6 +54,7 @@ public:
+     void enqueue(Input input){
+         validate(input);void* args[]={&input,&mBuffers,&mStatus,&mWork};
+         check(cudaLaunchCooperativeKernel((void*)construct,dim3(mBlocks),dim3(Threads),args,0,mStream));
++        if(mRecursive){buildSelfCache<<<mBlocks,Threads,0,mStream>>>(input,mBuffers,mStatus,mWork);check(cudaGetLastError());}
+     }
+     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior,Input input){
+         validate(input);void* args[]={&input,&mBuffers,&mStatus,&mWork};
+@@ -59,8 +63,16 @@ public:
+         check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&params));
+         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
+         check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attribute));
++        if(mRecursive){
++            void* cacheArgs[]={&input,&mBuffers,&mStatus,&mWork};cudaKernelNodeParams cache{};
++            cache.func=(void*)buildSelfCache;cache.gridDim=dim3(mBlocks);cache.blockDim=dim3(Threads);cache.kernelParams=cacheArgs;
++            cudaGraphNode_t done;check(cudaGraphAddKernelNode(&done,graph,&node,1,&cache));return done;
++        }
+         return node;
+     }
++    Input cachedInput(Input input)const{
++        input.nonSelfRefs=mBuffers.nonSelfRefs;input.nonSelfEnd=mBuffers.nonSelfEnd;input.selfMatrices=mBuffers.selfMatrices;return input;
++    }
+     Buffers buffers()const{return mBuffers;}
+     const unsigned* leaders()const{return mBuffers.leader;}
+     const CoarseBond* coarseBonds()const{return mBuffers.coarse;}
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh
+index 59b6abf0..0c51c425 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh
+@@ -6,6 +6,7 @@
+ #include <cmath>
+ namespace Nv { namespace Blast { namespace StressHierarchy {
+ constexpr unsigned Invalid=0xffffffffu, Threads=256;
++constexpr unsigned SelfCacheNodes=1024,SelfCacheEntries=18;
+ struct CoarseBond;
+ struct Status;
+ // Borrowed native component order. Packed levels own contiguous successors.
+@@ -32,6 +33,8 @@ struct Input {
+     // Fine components handled by the native block solver still need their
+     // exact fine factors, but never consume aggregates or coarse terminals.
+     unsigned componentSolverMaxNodes=0;
++    const unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
++    const double* selfMatrices=nullptr;
+ };
+ struct Status {
+     std::uint64_t generation;
+@@ -47,6 +50,8 @@ struct Buffers {
+     unsigned *owner,*seed,*minimum,*leader,*pending,*memberBond,*coarseActive;
+     CoarseBond* coarse;
+     double* diagonal;
++    unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
++    double* selfMatrices=nullptr;
+ };
+ __device__ __forceinline__ bool retainedColumn(const CoarseBond& e){
+     return e.scale>0 && (e.a!=Invalid || e.b!=Invalid) &&
+@@ -66,9 +71,9 @@ __device__ __forceinline__ unsigned priority(unsigned node,unsigned round)
+ // Immutable CSR bounds/endpoint identities are validated before any gather.
+ // The component labels are the caller's current exact GPU partition. Static
+ // boundary nodes carry Invalid and never connect two dynamic components.
+-__device__ __forceinline__ unsigned neighbour(const Input& a,unsigned node,unsigned slot,Status* status)
++__device__ __forceinline__ unsigned neighbour(const Input& a,unsigned node,unsigned slot,Status* status,bool compact=false)
+ {
+-    const unsigned ref=a.refs[slot];if(ref==Invalid)return Invalid;
++    const unsigned ref=compact?a.nonSelfRefs[slot]:a.refs[slot];if(ref==Invalid)return Invalid;
+     const unsigned bond=ref&0x7fffffffu;
+     if(bond>=a.bonds){atomicOr(&status->error,1u);return Invalid;}
+     const unsigned first=sourceFirst(a,bond),second=sourceSecond(a,bond);
+@@ -81,6 +86,7 @@ __device__ __forceinline__ unsigned neighbour(const Input& a,unsigned node,unsig
+     if(a.component[node]!=a.component[other]){atomicOr(&status->error,1u);return Invalid;}
+     return other;
+ }
++#include "StressHierarchyCompactAdjacency.cuh"
+ __device__ __forceinline__ void beginBuild(const Input& a,Status* status,Work* work)
+ {
+     bool run=!a.accept || *a.accept;
+@@ -123,14 +129,15 @@ __device__ __forceinline__ void chooseSeeds(const Input* input,Buffers b,Status*
+     const auto a=*input;const unsigned node=logicalBlock*blockDim.x+threadIdx.x;
+     if(node>=a.nodes)return;b.seed[node]=0;
+     if(a.component[node]==Invalid || b.owner[node]!=Invalid || componentUsesFineSolver(a,a.component[node]))return;
+-    const unsigned begin=a.begin[node],end=a.begin[node+1];
++    const bool compact=cachedSelfRows(a);
++    const unsigned begin=a.begin[node],end=compact?a.nonSelfEnd[node]:a.begin[node+1];
+     if(begin>end || end>2ull*a.bonds || a.component[node]>=sourceComponentCapacity(a)){atomicOr(&status->error,1u);return;}
+     // Prefer hubs so a star coarsens to one aggregate instead of losing only
+     // one leaf per level. Hash ties by round for parallel progress on paths;
+     // this is an integer layout choice, never a physical approximation.
+-    const unsigned degree=end-begin,mine=priority(node,status->rounds);bool seed=true;
++    const unsigned degree=a.begin[node+1]-begin,mine=priority(node,status->rounds);bool seed=true;
+     for(unsigned i=begin;i<end;++i){
+-        const unsigned other=neighbour(a,node,i,status);
++        const unsigned other=neighbour(a,node,i,status,compact);
+         if(other==Invalid || b.owner[other]!=Invalid)continue;
+         const unsigned theirs=priority(other,status->rounds);
+         const unsigned otherDegree=a.begin[other+1]-a.begin[other];
+@@ -143,11 +150,12 @@ __device__ __forceinline__ void assignSeeds(const Input* input,Buffers b,Status*
+     const auto a=*input;const unsigned node=logicalBlock*blockDim.x+threadIdx.x;unsigned pending=0;
+     if(node<a.nodes && a.component[node]!=Invalid && b.owner[node]==Invalid && !componentUsesFineSolver(a,a.component[node])){
+         unsigned owner=b.seed[node]?node:Invalid,memberBond=Invalid;
+-        const unsigned begin=a.begin[node],end=a.begin[node+1];
++        const bool compact=cachedSelfRows(a);
++    const unsigned begin=a.begin[node],end=compact?a.nonSelfEnd[node]:a.begin[node+1];
+         if(begin<=end && end<=2ull*a.bonds && !b.seed[node])for(unsigned i=begin;i<end;++i){
+-            const unsigned other=neighbour(a,node,i,status);
++            const unsigned other=neighbour(a,node,i,status,compact);
+             if(other!=Invalid && b.seed[other]){
+-                const unsigned bond=a.refs[i]&0x7fffffffu;
++                const unsigned bond=(compact?a.nonSelfRefs[i]:a.refs[i])&0x7fffffffu;
+                 if(other<owner){owner=other;memberBond=bond;}
+                 else if(other==owner)memberBond=min(memberBond,bond);
+             }
+@@ -240,6 +248,12 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
+     // next-stage error send late blocks home before the next grid barrier.
+     if(!blockIdx.x && !threadIdx.x)work->pending=unsigned(!status->error);
+     grid.sync();if(!work->pending)return;
++    if(cachedSelfRows(input)){
++        for(unsigned node=blockIdx.x;node<input.nodes;node+=gridDim.x)compactCoarseAdjacency(input,buffers,status,node);
++        grid.sync();
++        if(!blockIdx.x && !threadIdx.x)work->pending=unsigned(!status->error);
++        grid.sync();if(!work->pending)return;
++    }
+     while(work->pending){
+         for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)chooseSeeds(&input,buffers,status,block);
+         grid.sync();
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh
+index fad0224a..e29f0156 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh
+@@ -5,9 +5,11 @@
+ namespace Nv { namespace Blast { namespace StressHierarchy {
+ __device__ __forceinline__ Vector scaledValue(Vector v,float2 d){return {mul(v.angular,d.x),mul(v.linear,d.y)};}
+ __device__ __forceinline__ Vector levelRowContribution(const Input& input,unsigned node,const Vector* x,unsigned lane=threadIdx.x&31u,unsigned width=32){
+-    Vector out{};
+-    for(unsigned slot=input.begin[node]+lane;slot<input.begin[node+1];slot+=width){
+-        const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
++    const bool cached=cachedSelfRows(input);
++    Vector out=cached && !lane?selfMatrixValue(input,node,x[node],false):Vector{};
++    const unsigned end=cached?input.nonSelfEnd[node]:input.begin[node+1];
++    for(unsigned slot=input.begin[node]+lane;slot<end;slot+=width){
++        const unsigned ref=cached?input.nonSelfRefs[slot]:input.refs[slot];if(ref==Invalid)continue;
+         const unsigned edge=ref&0x7fffffffu;if(sourceHealth(input,edge)<=0)continue;
+         const unsigned first=sourceFirst(input,edge),second=sourceSecond(input,edge);
+         Vector a{},b{};
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh
+index a09b7eb2..d8de10aa 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh
+@@ -2,8 +2,16 @@
+ // temporary bond vectors or duplicate membership CSR are needed to apply it.
+ #pragma once
+ #include "StressHierarchyKernels.cuh"
++#include "StressHierarchySelfCache.cuh"
+ namespace Nv { namespace Blast { namespace StressHierarchy {
+ struct Vector {double3 angular,linear;};
++__device__ __forceinline__ Vector selfMatrixValue(const Input& a,unsigned node,Vector x,bool correction){
++    const double* m=a.selfMatrices+size_t(node)*SelfCacheEntries+(correction?9:0);
++    return {{m[0]*x.angular.x+m[1]*x.angular.y+m[2]*x.angular.z,
++             m[3]*x.angular.x+m[4]*x.angular.y+m[5]*x.angular.z,
++             m[6]*x.angular.x+m[7]*x.angular.y+m[8]*x.angular.z},{0,0,0}};
++}
++
+ __device__ __forceinline__ double3 add(double3 a,double3 b){return make_double3(a.x+b.x,a.y+b.y,a.z+b.z);}
+ __device__ __forceinline__ double3 sub(double3 a,double3 b){return make_double3(a.x-b.x,a.y-b.y,a.z-b.z);}
+ __device__ __forceinline__ double3 mul(double3 a,double b){return make_double3(a.x*b,a.y*b,a.z*b);}
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyResident.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyResident.cuh
+index e47289c2..0385c076 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyResident.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyResident.cuh
+@@ -45,7 +45,8 @@ public:
+         if(mAppended)throw std::runtime_error("Resident hierarchy already appended");
+         Input input=mInput;cudaGraphNode_t tailCompletion=nullptr;
+         for(unsigned level=0;level<mDepth;++level){
+-            mInputs.push_back(input);mGraphs.emplace_back(new Graph(input.nodes,input.bonds,mStream,level!=0));
++            mGraphs.emplace_back(new Graph(input.nodes,input.bonds,mStream,level!=0));
++            input=mGraphs.back()->cachedInput(input);mInputs.push_back(input);
+             prior=mGraphs.back()->append(graph,prior,input);
+             mTerminals.emplace_back(new TerminalLevel(input,mGraphs.back()->status(),mPool,level,mStream));
+             prior=mTerminals.back()->append(graph,prior);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminal.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminal.cuh
+index 01aa443c..af6fd799 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminal.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTerminal.cuh
+@@ -31,8 +31,11 @@ __device__ __forceinline__ double vectorCoordinate(Vector a,unsigned k){
+ // no floating-point atomics occur.
+ __device__ __forceinline__ double terminalCoefficient(const Input& a,unsigned node,unsigned row,unsigned columnNode,unsigned column,unsigned lane=0,unsigned width=1){
+     const Vector x=scaledValue(basisVector(column),sourceInertia(a,columnNode));double value=0;
+-    for(unsigned slot=a.begin[node]+lane;slot<a.begin[node+1];slot+=width){
+-        const unsigned ref=a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
++    const bool cached=cachedSelfRows(a);
++    if(cached && !lane && node==columnNode && row<3 && column<3)value=a.selfMatrices[size_t(node)*SelfCacheEntries+row*3+column];
++    const unsigned end=cached?a.nonSelfEnd[node]:a.begin[node+1];
++    for(unsigned slot=a.begin[node]+lane;slot<end;slot+=width){
++        const unsigned ref=cached?a.nonSelfRefs[slot]:a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
+         if(sourceHealth(a,e)<=0)continue;
+         Vector first{},second{};
+         if(sourceFirst(a,e)==columnNode)first=couple(x,sourceOffset(a,e,false));
+@@ -70,9 +73,13 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
+         s.lower[entry]=terminalCoefficient(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6);
+     }
+     }
+-    if(threadIdx.x<count){const unsigned node=s.nodes[threadIdx.x];
+-        for(unsigned slot=a.begin[node];slot<a.begin[node+1];++slot){
+-            const unsigned ref=a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
++    // Support is a Boolean property. Cooperate across the row rather than
++    // serializing thousands of references through one thread. Cached self
++    // columns cannot connect this node to a fixed boundary.
++    for(unsigned i=threadIdx.x/32;i<count;i+=blockDim.x/32){const unsigned node=s.nodes[i];
++        const bool cached=cachedSelfRows(a);const unsigned end=cached?a.nonSelfEnd[node]:a.begin[node+1];
++        for(unsigned slot=a.begin[node]+(threadIdx.x&31u);slot<end;slot+=32){
++            const unsigned ref=cached?a.nonSelfRefs[slot]:a.refs[slot];if(ref==Invalid)continue;const unsigned e=ref&0x7fffffffu;
+             if(sourceHealth(a,e)<=0)continue;
+             const unsigned other=(ref>>31)?sourceFirst(a,e):sourceSecond(a,e);
+             if(other==Invalid || a.component[other]==Invalid)atomicExch(&s.anchored,1u);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh
+index 748d015e..f7e939b5 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh
+@@ -21,3 +21,7 @@ __device__ __forceinline__ Input resolvedInput(Input a){
+     if(a.counts && sourceCountsValid(a)){a.nodes=a.counts[0];a.bonds=a.counts[1];}
+     return a;
+ }
++
++__device__ __forceinline__ bool cachedSelfRows(const Input& a){
++    return a.levelBonds && a.nodes<=SelfCacheNodes && a.nonSelfRefs;
++}
+diff --git a/demos/blast-stress-demo/CMakeLists.txt b/demos/blast-stress-demo/CMakeLists.txt
+index 04f4d4cd..3dd484b4 100644
+--- a/demos/blast-stress-demo/CMakeLists.txt
++++ b/demos/blast-stress-demo/CMakeLists.txt
+@@ -934,6 +934,10 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+     endforeach()
+     add_test(NAME blast_stress_gpu_coarse_long_rows COMMAND gpu_resident_hierarchy_test --cycle coarse-long-rows)
+     set_tests_properties(blast_stress_gpu_coarse_long_rows PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
++    foreach(coarse_case coarse-long-rows coarse-self-columns)
++        add_test(NAME blast_stress_gpu_cycle_${coarse_case} COMMAND gpu_resident_hierarchy_test --cycle ${coarse_case})
++        set_tests_properties(blast_stress_gpu_cycle_${coarse_case} PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
++    endforeach()
+     add_test(NAME blast_stress_gpu_resident_cycle COMMAND gpu_resident_hierarchy_test --cycle)
+     set_tests_properties(blast_stress_gpu_resident_cycle PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
+     foreach(hierarchy_tool memcheck synccheck)
+diff --git a/demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu b/demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu
+index 2fafaf3d..412a3f1c 100644
+--- a/demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu
++++ b/demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu
+@@ -259,6 +259,15 @@ int main(int argc,char** argv){try{
+         for(unsigned i=1;i<24;++i)for(unsigned repeat=0;repeat<64;++repeat)dense.edge(i-1,i);
+         runCase("coarse-long-rows",dense,false,false);
+     }
++    if(selected=="coarse-self-columns"){
++        // Nonzero angular self columns after coarsening must be retained,
++        // including their fine-to-coarse correction coupling, not thresholded.
++        Fixture dense(24);dense.inverse[0]=make_float2(0,0);
++        for(unsigned i=1;i<24;++i)for(unsigned repeat=0;repeat<8;++repeat){
++            dense.edge(i-1,i);dense.offset1.back().x+=.03125f;dense.offset1.back().z-=.015625f;
++        }
++        runCase("coarse-self-columns",dense,false,false);
++    }
+     Fixture path(24);for(unsigned i=1;i<24;++i)path.edge(i-1,i);runCase("path",path,false,true);
+     Fixture self(2);self.edge(0,1);self.offset1[0].x+=.03125f;runCase("self",self,true,true);
+     Fixture parallel(6);for(unsigned i=1;i<6;++i){parallel.edge(0,i);parallel.edge(0,i);}
+diff --git a/qualification/vibe-coarse-assembly-20260908/analysis.json b/qualification/vibe-coarse-assembly-20260908/analysis.json
+index bb08c32c..04201b60 100644
+--- a/qualification/vibe-coarse-assembly-20260908/analysis.json
++++ b/qualification/vibe-coarse-assembly-20260908/analysis.json
+@@ -1958,5 +1958,1191 @@
+         464
+       ]
+     }
++  },
++  "vibe-coarse-assembly-20260908/screen-self-cache-idle": {
++    "stats": {
++      "mean": 2.886720861666667,
++      "median": 2.3287769999999997,
++      "first": 332.01059300000003,
++      "peak": {
++        "accepted_status_and_snapshots_ms": 8.999999999999999e-05,
++        "awake_fragment_bodies": 0,
++        "broken_bonds": 0,
++        "commands_and_pre_step_ms": 0.00029,
++        "complete_step_ms": 332.01059300000003,
++        "fragment_bodies": 0,
++        "game_observation_events_ms": 0.984293,
++        "native_corrections": 0,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 27.0,
++          "native_correction_passes": 0.0,
++          "native_corrections_total": 0.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 149.0,
++          "native_stress_passes": 1.0
++        },
++        "native_physics_and_destruction_ms": 331.02592,
++        "normal_contacts": 0,
++        "projectiles": 0,
++        "tick": 0
++      },
++      "loaded_peak": null,
++      "fracture_peak": null,
++      "missed_60hz": 1,
++      "missed_8ms": 1
++    },
++    "report": {
++      "asset_instances": 1,
++      "backend": "physx_embedded_cuda",
++      "bonds": 74543,
++      "buildings": 27,
++      "chunks": 24105,
++      "direct_gpu_api": false,
++      "gate_60hz_misses": 1,
++      "gate_8ms_misses": 1,
++      "initialization_ms": 677.802483,
++      "instrumented": false,
++      "iterations_max": 8192,
++      "manifest_hash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
++      "max_correction": 1,
++      "max_stress_passes": 2,
++      "minimum_fragment_com_y": null,
++      "peak_step": {
++        "accepted_status_and_snapshots_ms": 8.999999999999999e-05,
++        "awake_fragment_bodies": 0,
++        "broken_bonds": 0,
++        "commands_and_pre_step_ms": 0.00029,
++        "complete_step_ms": 332.01059300000003,
++        "fragment_bodies": 0,
++        "game_observation_events_ms": 0.984293,
++        "native_corrections": 0,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 27.0,
++          "native_correction_passes": 0.0,
++          "native_corrections_total": 0.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 149.0,
++          "native_stress_passes": 1.0
++        },
++        "native_physics_and_destruction_ms": 331.02592,
++        "normal_contacts": 0,
++        "projectiles": 0,
++        "tick": 0
++      },
++      "phases_ms": {
++        "accepted_status_and_snapshots_ms": {
++          "max": 9.099999999999999e-05,
++          "mean": 3.6846666666666776e-05,
++          "min": 2e-05,
++          "p99": 6.1000000000000005e-05
++        },
++        "commands_and_pre_step_ms": {
++          "max": 0.000661,
++          "mean": 6.613166666666672e-05,
++          "min": 2e-05,
++          "p99": 0.000201
++        },
++        "complete_step_ms": {
++          "max": 332.01059300000003,
++          "mean": 2.8867208616666655,
++          "min": 2.274766,
++          "p99": 2.441046
++        },
++        "game_observation_events_ms": {
++          "max": 0.984293,
++          "mean": 0.044144426666666646,
++          "min": 0.03242,
++          "p99": 0.05898
++        },
++        "native_physics_and_destruction_ms": {
++          "max": 331.02592,
++          "mean": 2.8424734566666663,
++          "min": 2.236155,
++          "p99": 2.391795
++        }
++      },
++      "projectiles": 0,
++      "qualification": "short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
++      "schema": 1,
++      "seconds": 10.0,
++      "sleeping": true,
++      "source_asset": "fractured-downtown.json",
++      "status": "complete",
++      "steps": 600,
++      "timestep_seconds": 0.016666666666666666,
++      "timing_scope": "commands + native physics/stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
++      "tolerance": 1e-05,
++      "unique_broken_bonds": 0,
++      "waves": 0
++    },
++    "final": {
++      "accepted_status_and_snapshots_ms": 4.9999999999999996e-05,
++      "awake_fragment_bodies": 0,
++      "broken_bonds": 0,
++      "commands_and_pre_step_ms": 4e-05,
++      "complete_step_ms": 2.3422120000000004,
++      "fragment_bodies": 0,
++      "game_observation_events_ms": 0.049943,
++      "native_corrections": 0,
++      "native_counts": {
++        "native_bonds": 74543.0,
++        "native_chunks": 24105.0,
++        "native_clusters": 27.0,
++        "native_correction_passes": 0.0,
++        "native_corrections_total": 0.0,
++        "native_embedded": 1.0,
++        "native_stress_iterations": 3.0,
++        "native_stress_passes": 1.0
++      },
++      "native_physics_and_destruction_ms": 2.292179,
++      "normal_contacts": 0,
++      "projectiles": 0,
++      "tick": 599
++    },
++    "counter_differences": {
++      "broken_bonds": [],
++      "fragment_bodies": [],
++      "awake_fragment_bodies": [],
++      "native_corrections": []
++    }
++  },
++  "vibe-coarse-assembly-20260908/screen-self-cache-shots": {
++    "stats": {
++      "mean": 36.66774530833333,
++      "median": 36.718751,
++      "first": 324.139025,
++      "peak": {
++        "accepted_status_and_snapshots_ms": 8e-05,
++        "awake_fragment_bodies": 25,
++        "broken_bonds": 469,
++        "commands_and_pre_step_ms": 0.00031,
++        "complete_step_ms": 335.23172800000003,
++        "fragment_bodies": 29,
++        "game_observation_events_ms": 1.1294840000000002,
++        "native_corrections": 1,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 58.0,
++          "native_correction_passes": 1.0,
++          "native_corrections_total": 3.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 87.0,
++          "native_stress_passes": 2.0
++        },
++        "native_physics_and_destruction_ms": 334.101854,
++        "normal_contacts": 283,
++        "projectiles": 2,
++        "tick": 199
++      },
++      "loaded_peak": {
++        "accepted_status_and_snapshots_ms": 8e-05,
++        "awake_fragment_bodies": 25,
++        "broken_bonds": 469,
++        "commands_and_pre_step_ms": 0.00031,
++        "complete_step_ms": 335.23172800000003,
++        "fragment_bodies": 29,
++        "game_observation_events_ms": 1.1294840000000002,
++        "native_corrections": 1,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 58.0,
++          "native_correction_passes": 1.0,
++          "native_corrections_total": 3.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 87.0,
++          "native_stress_passes": 2.0
++        },
++        "native_physics_and_destruction_ms": 334.101854,
++        "normal_contacts": 283,
++        "projectiles": 2,
++        "tick": 199
++      },
++      "fracture_peak": {
++        "accepted_status_and_snapshots_ms": 8e-05,
++        "awake_fragment_bodies": 25,
++        "broken_bonds": 469,
++        "commands_and_pre_step_ms": 0.00031,
++        "complete_step_ms": 335.23172800000003,
++        "fragment_bodies": 29,
++        "game_observation_events_ms": 1.1294840000000002,
++        "native_corrections": 1,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 58.0,
++          "native_correction_passes": 1.0,
++          "native_corrections_total": 3.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 87.0,
++          "native_stress_passes": 2.0
++        },
++        "native_physics_and_destruction_ms": 334.101854,
++        "normal_contacts": 283,
++        "projectiles": 2,
++        "tick": 199
++      },
++      "missed_60hz": 537,
++      "missed_8ms": 542
++    },
++    "report": {
++      "asset_instances": 1,
++      "backend": "physx_embedded_cuda",
++      "bonds": 74543,
++      "buildings": 27,
++      "chunks": 24105,
++      "direct_gpu_api": false,
++      "gate_60hz_misses": 537,
++      "gate_8ms_misses": 542,
++      "initialization_ms": 636.328285,
++      "instrumented": false,
++      "iterations_max": 8192,
++      "manifest_hash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
++      "max_correction": 1,
++      "max_stress_passes": 2,
++      "minimum_fragment_com_y": 0.014499664306640625,
++      "peak_step": {
++        "accepted_status_and_snapshots_ms": 8e-05,
++        "awake_fragment_bodies": 25,
++        "broken_bonds": 469,
++        "commands_and_pre_step_ms": 0.00031,
++        "complete_step_ms": 335.23172800000003,
++        "fragment_bodies": 29,
++        "game_observation_events_ms": 1.1294840000000002,
++        "native_corrections": 1,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 58.0,
++          "native_correction_passes": 1.0,
++          "native_corrections_total": 3.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 87.0,
++          "native_stress_passes": 2.0
++        },
++        "native_physics_and_destruction_ms": 334.101854,
++        "normal_contacts": 283,
++        "projectiles": 2,
++        "tick": 199
++      },
++      "phases_ms": {
++        "accepted_status_and_snapshots_ms": {
++          "max": 0.0006010000000000001,
++          "mean": 5.715333333333351e-05,
++          "min": 2.9999999999999997e-05,
++          "p99": 0.000141
++        },
++        "commands_and_pre_step_ms": {
++          "max": 0.030257,
++          "mean": 0.00025595,
++          "min": 2.9999999999999997e-05,
++          "p99": 0.000551
++        },
++        "complete_step_ms": {
++          "max": 335.23172800000003,
++          "mean": 36.66774530833331,
++          "min": 2.3449370000000003,
++          "p99": 163.832906
++        },
++        "game_observation_events_ms": {
++          "max": 1.252673,
++          "mean": 0.09611744333333327,
++          "min": 0.039793999999999996,
++          "p99": 1.047832
++        },
++        "native_physics_and_destruction_ms": {
++          "max": 334.101854,
++          "mean": 36.57131476166669,
++          "min": 2.281329,
++          "p99": 162.580093
++        }
++      },
++      "projectiles": 3,
++      "qualification": "short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
++      "schema": 1,
++      "seconds": 10.0,
++      "sleeping": true,
++      "source_asset": "fractured-downtown.json",
++      "status": "complete",
++      "steps": 600,
++      "timestep_seconds": 0.016666666666666666,
++      "timing_scope": "commands + native physics/stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
++      "tolerance": 1e-05,
++      "unique_broken_bonds": 480,
++      "waves": 0
++    },
++    "final": {
++      "accepted_status_and_snapshots_ms": 5.9999999999999995e-05,
++      "awake_fragment_bodies": 1,
++      "broken_bonds": 480,
++      "commands_and_pre_step_ms": 0.000551,
++      "complete_step_ms": 37.742884,
++      "fragment_bodies": 31,
++      "game_observation_events_ms": 0.095498,
++      "native_corrections": 0,
++      "native_counts": {
++        "native_bonds": 74543.0,
++        "native_chunks": 24105.0,
++        "native_clusters": 60.0,
++        "native_correction_passes": 0.0,
++        "native_corrections_total": 5.0,
++        "native_embedded": 1.0,
++        "native_stress_iterations": 57.0,
++        "native_stress_passes": 1.0
++      },
++      "native_physics_and_destruction_ms": 37.646775,
++      "normal_contacts": 8,
++      "projectiles": 3,
++      "tick": 599
++    },
++    "counter_differences": {
++      "broken_bonds": [
++        464,
++        465,
++        466,
++        467,
++        468,
++        469,
++        470,
++        471,
++        472,
++        473,
++        474,
++        475,
++        476,
++        477,
++        478,
++        479,
++        480,
++        481,
++        482,
++        483,
++        484,
++        485,
++        486,
++        487,
++        488,
++        489,
++        490,
++        491,
++        492,
++        493,
++        494,
++        495,
++        496,
++        497,
++        498,
++        499,
++        500,
++        501,
++        502,
++        503,
++        504,
++        505,
++        506,
++        507,
++        508,
++        509,
++        510,
++        511,
++        512,
++        513,
++        514,
++        515,
++        516,
++        517,
++        518,
++        519,
++        520,
++        521,
++        522,
++        523,
++        524,
++        525,
++        526,
++        527,
++        528,
++        529,
++        530,
++        531,
++        532,
++        533,
++        534,
++        535,
++        536,
++        537,
++        538,
++        539,
++        540,
++        541,
++        542,
++        543,
++        544,
++        545,
++        546,
++        547,
++        548,
++        549,
++        550,
++        551,
++        552,
++        553,
++        554,
++        555,
++        556,
++        557,
++        558,
++        559,
++        560,
++        561,
++        562,
++        563,
++        564,
++        565,
++        566,
++        567,
++        568,
++        569,
++        570,
++        571,
++        572,
++        573,
++        574,
++        575,
++        576,
++        577,
++        578,
++        579,
++        580,
++        581,
++        582,
++        583,
++        584,
++        585,
++        586,
++        587,
++        588,
++        589,
++        590,
++        591,
++        592,
++        593,
++        594,
++        595,
++        596,
++        597,
++        598,
++        599
++      ],
++      "fragment_bodies": [
++        464,
++        465,
++        466,
++        467,
++        468,
++        469,
++        470,
++        471,
++        472,
++        473,
++        474,
++        475,
++        476,
++        477,
++        478,
++        479,
++        480,
++        481,
++        482,
++        483,
++        484,
++        485,
++        486,
++        487,
++        488,
++        489,
++        490,
++        491,
++        492,
++        493,
++        494,
++        495,
++        496,
++        497,
++        498,
++        499,
++        500,
++        501,
++        502,
++        503,
++        504,
++        505,
++        506,
++        507,
++        508,
++        509,
++        510,
++        511,
++        512,
++        513,
++        514,
++        515,
++        516,
++        517,
++        518,
++        519,
++        520,
++        521,
++        522,
++        523,
++        524,
++        525,
++        526,
++        527,
++        528,
++        529,
++        530,
++        531,
++        532,
++        533,
++        534,
++        535,
++        536,
++        537,
++        538,
++        539,
++        540,
++        541,
++        542,
++        543,
++        544,
++        545,
++        546,
++        547,
++        548,
++        549,
++        550,
++        551,
++        552,
++        553,
++        554,
++        555,
++        556,
++        557,
++        558,
++        559,
++        560,
++        561,
++        562,
++        563,
++        564,
++        565,
++        566,
++        567,
++        568,
++        569,
++        570,
++        571,
++        572,
++        573,
++        574,
++        575,
++        576,
++        577,
++        578,
++        579,
++        580,
++        581,
++        582,
++        583,
++        584,
++        585,
++        586,
++        587,
++        588,
++        589,
++        590,
++        591,
++        592,
++        593,
++        594,
++        595,
++        596,
++        597,
++        598,
++        599
++      ],
++      "awake_fragment_bodies": [
++        464
++      ],
++      "native_corrections": [
++        464
++      ]
++    }
++  },
++  "vibe-coarse-assembly-20260908/screen-wide-cache-idle": {
++    "stats": {
++      "mean": 2.653162003333333,
++      "median": 2.1304745,
++      "first": 311.799792,
++      "peak": {
++        "accepted_status_and_snapshots_ms": 4e-05,
++        "awake_fragment_bodies": 0,
++        "broken_bonds": 0,
++        "commands_and_pre_step_ms": 0.000221,
++        "complete_step_ms": 311.799792,
++        "fragment_bodies": 0,
++        "game_observation_events_ms": 1.122251,
++        "native_corrections": 0,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 27.0,
++          "native_correction_passes": 0.0,
++          "native_corrections_total": 0.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 149.0,
++          "native_stress_passes": 1.0
++        },
++        "native_physics_and_destruction_ms": 310.67728,
++        "normal_contacts": 0,
++        "projectiles": 0,
++        "tick": 0
++      },
++      "loaded_peak": null,
++      "fracture_peak": null,
++      "missed_60hz": 1,
++      "missed_8ms": 1
++    },
++    "report": {
++      "asset_instances": 1,
++      "backend": "physx_embedded_cuda",
++      "bonds": 74543,
++      "buildings": 27,
++      "chunks": 24105,
++      "direct_gpu_api": false,
++      "gate_60hz_misses": 1,
++      "gate_8ms_misses": 1,
++      "initialization_ms": 677.465738,
++      "instrumented": false,
++      "iterations_max": 8192,
++      "manifest_hash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
++      "max_correction": 1,
++      "max_stress_passes": 2,
++      "minimum_fragment_com_y": null,
++      "peak_step": {
++        "accepted_status_and_snapshots_ms": 4e-05,
++        "awake_fragment_bodies": 0,
++        "broken_bonds": 0,
++        "commands_and_pre_step_ms": 0.000221,
++        "complete_step_ms": 311.799792,
++        "fragment_bodies": 0,
++        "game_observation_events_ms": 1.122251,
++        "native_corrections": 0,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 27.0,
++          "native_correction_passes": 0.0,
++          "native_corrections_total": 0.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 149.0,
++          "native_stress_passes": 1.0
++        },
++        "native_physics_and_destruction_ms": 310.67728,
++        "normal_contacts": 0,
++        "projectiles": 0,
++        "tick": 0
++      },
++      "phases_ms": {
++        "accepted_status_and_snapshots_ms": {
++          "max": 0.00013099999999999999,
++          "mean": 5.312666666666689e-05,
++          "min": 2.9999999999999997e-05,
++          "p99": 7.1e-05
++        },
++        "commands_and_pre_step_ms": {
++          "max": 0.000651,
++          "mean": 6.677666666666673e-05,
++          "min": 2.9999999999999997e-05,
++          "p99": 0.00028000000000000003
++        },
++        "complete_step_ms": {
++          "max": 311.799792,
++          "mean": 2.653162003333334,
++          "min": 2.069366,
++          "p99": 2.202314
++        },
++        "game_observation_events_ms": {
++          "max": 1.122251,
++          "mean": 0.043654706666666696,
++          "min": 0.031248,
++          "p99": 0.055723
++        },
++        "native_physics_and_destruction_ms": {
++          "max": 310.67728,
++          "mean": 2.6093873933333347,
++          "min": 2.029512,
++          "p99": 2.160866
++        }
++      },
++      "projectiles": 0,
++      "qualification": "short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
++      "schema": 1,
++      "seconds": 10.0,
++      "sleeping": true,
++      "source_asset": "fractured-downtown.json",
++      "status": "complete",
++      "steps": 600,
++      "timestep_seconds": 0.016666666666666666,
++      "timing_scope": "commands + native physics/stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
++      "tolerance": 1e-05,
++      "unique_broken_bonds": 0,
++      "waves": 0
++    },
++    "final": {
++      "accepted_status_and_snapshots_ms": 4e-05,
++      "awake_fragment_bodies": 0,
++      "broken_bonds": 0,
++      "commands_and_pre_step_ms": 5.9999999999999995e-05,
++      "complete_step_ms": 2.1627199999999998,
++      "fragment_bodies": 0,
++      "game_observation_events_ms": 0.044363,
++      "native_corrections": 0,
++      "native_counts": {
++        "native_bonds": 74543.0,
++        "native_chunks": 24105.0,
++        "native_clusters": 27.0,
++        "native_correction_passes": 0.0,
++        "native_corrections_total": 0.0,
++        "native_embedded": 1.0,
++        "native_stress_iterations": 3.0,
++        "native_stress_passes": 1.0
++      },
++      "native_physics_and_destruction_ms": 2.1182570000000003,
++      "normal_contacts": 0,
++      "projectiles": 0,
++      "tick": 599
++    },
++    "counter_differences": {
++      "broken_bonds": [],
++      "fragment_bodies": [],
++      "awake_fragment_bodies": [],
++      "native_corrections": []
++    }
++  },
++  "vibe-coarse-assembly-20260908/screen-wide-cache-shots": {
++    "stats": {
++      "mean": 33.815171145,
++      "median": 33.1827425,
++      "first": 309.047483,
++      "peak": {
++        "accepted_status_and_snapshots_ms": 4e-05,
++        "awake_fragment_bodies": 25,
++        "broken_bonds": 469,
++        "commands_and_pre_step_ms": 0.000161,
++        "complete_step_ms": 321.122403,
++        "fragment_bodies": 29,
++        "game_observation_events_ms": 1.141387,
++        "native_corrections": 1,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 58.0,
++          "native_correction_passes": 1.0,
++          "native_corrections_total": 3.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 87.0,
++          "native_stress_passes": 2.0
++        },
++        "native_physics_and_destruction_ms": 319.98081499999995,
++        "normal_contacts": 283,
++        "projectiles": 2,
++        "tick": 199
++      },
++      "loaded_peak": {
++        "accepted_status_and_snapshots_ms": 4e-05,
++        "awake_fragment_bodies": 25,
++        "broken_bonds": 469,
++        "commands_and_pre_step_ms": 0.000161,
++        "complete_step_ms": 321.122403,
++        "fragment_bodies": 29,
++        "game_observation_events_ms": 1.141387,
++        "native_corrections": 1,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 58.0,
++          "native_correction_passes": 1.0,
++          "native_corrections_total": 3.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 87.0,
++          "native_stress_passes": 2.0
++        },
++        "native_physics_and_destruction_ms": 319.98081499999995,
++        "normal_contacts": 283,
++        "projectiles": 2,
++        "tick": 199
++      },
++      "fracture_peak": {
++        "accepted_status_and_snapshots_ms": 4e-05,
++        "awake_fragment_bodies": 25,
++        "broken_bonds": 469,
++        "commands_and_pre_step_ms": 0.000161,
++        "complete_step_ms": 321.122403,
++        "fragment_bodies": 29,
++        "game_observation_events_ms": 1.141387,
++        "native_corrections": 1,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 58.0,
++          "native_correction_passes": 1.0,
++          "native_corrections_total": 3.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 87.0,
++          "native_stress_passes": 2.0
++        },
++        "native_physics_and_destruction_ms": 319.98081499999995,
++        "normal_contacts": 283,
++        "projectiles": 2,
++        "tick": 199
++      },
++      "missed_60hz": 534,
++      "missed_8ms": 542
++    },
++    "report": {
++      "asset_instances": 1,
++      "backend": "physx_embedded_cuda",
++      "bonds": 74543,
++      "buildings": 27,
++      "chunks": 24105,
++      "direct_gpu_api": false,
++      "gate_60hz_misses": 534,
++      "gate_8ms_misses": 542,
++      "initialization_ms": 639.520889,
++      "instrumented": false,
++      "iterations_max": 8192,
++      "manifest_hash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
++      "max_correction": 1,
++      "max_stress_passes": 2,
++      "minimum_fragment_com_y": 0.014499664306640625,
++      "peak_step": {
++        "accepted_status_and_snapshots_ms": 4e-05,
++        "awake_fragment_bodies": 25,
++        "broken_bonds": 469,
++        "commands_and_pre_step_ms": 0.000161,
++        "complete_step_ms": 321.122403,
++        "fragment_bodies": 29,
++        "game_observation_events_ms": 1.141387,
++        "native_corrections": 1,
++        "native_counts": {
++          "native_bonds": 74543.0,
++          "native_chunks": 24105.0,
++          "native_clusters": 58.0,
++          "native_correction_passes": 1.0,
++          "native_corrections_total": 3.0,
++          "native_embedded": 1.0,
++          "native_stress_iterations": 87.0,
++          "native_stress_passes": 2.0
++        },
++        "native_physics_and_destruction_ms": 319.98081499999995,
++        "normal_contacts": 283,
++        "projectiles": 2,
++        "tick": 199
++      },
++      "phases_ms": {
++        "accepted_status_and_snapshots_ms": {
++          "max": 0.000571,
++          "mean": 6.051833333333349e-05,
++          "min": 2.9999999999999997e-05,
++          "p99": 0.000141
++        },
++        "commands_and_pre_step_ms": {
++          "max": 0.026629,
++          "mean": 0.00023584166666666646,
++          "min": 2e-05,
++          "p99": 0.000702
++        },
++        "complete_step_ms": {
++          "max": 321.122403,
++          "mean": 33.815171144999994,
++          "min": 2.130089,
++          "p99": 172.090133
++        },
++        "game_observation_events_ms": {
++          "max": 1.281167,
++          "mean": 0.09726385166666666,
++          "min": 0.031278,
++          "p99": 1.115909
++        },
++        "native_physics_and_destruction_ms": {
++          "max": 319.98081499999995,
++          "mean": 33.71761093333334,
++          "min": 2.088171,
++          "p99": 170.900757
++        }
++      },
++      "projectiles": 3,
++      "qualification": "short integration screen; no endurance or speedup claim; compare only identical command/settings receipts",
++      "schema": 1,
++      "seconds": 10.0,
++      "sleeping": true,
++      "source_asset": "fractured-downtown.json",
++      "status": "complete",
++      "steps": 600,
++      "timestep_seconds": 0.016666666666666666,
++      "timing_scope": "commands + native physics/stress/correction + mandatory game observations/events/snapshots; excludes preparation, rendering, network encoding, audit/report work",
++      "tolerance": 1e-05,
++      "unique_broken_bonds": 482,
++      "waves": 0
++    },
++    "final": {
++      "accepted_status_and_snapshots_ms": 4.9999999999999996e-05,
++      "awake_fragment_bodies": 9,
++      "broken_bonds": 482,
++      "commands_and_pre_step_ms": 8e-05,
++      "complete_step_ms": 31.653897999999998,
++      "fragment_bodies": 33,
++      "game_observation_events_ms": 0.055834,
++      "native_corrections": 0,
++      "native_counts": {
++        "native_bonds": 74543.0,
++        "native_chunks": 24105.0,
++        "native_clusters": 62.0,
++        "native_correction_passes": 0.0,
++        "native_corrections_total": 7.0,
++        "native_embedded": 1.0,
++        "native_stress_iterations": 52.0,
++        "native_stress_passes": 1.0
++      },
++      "native_physics_and_destruction_ms": 31.597934000000002,
++      "normal_contacts": 128,
++      "projectiles": 3,
++      "tick": 599
++    },
++    "counter_differences": {
++      "broken_bonds": [
++        464,
++        465,
++        567,
++        568,
++        569,
++        570,
++        571,
++        572,
++        573,
++        574,
++        575,
++        576,
++        577,
++        578,
++        579,
++        580,
++        581,
++        582,
++        583,
++        584,
++        585,
++        586,
++        587,
++        588,
++        589,
++        590,
++        591,
++        592,
++        593,
++        594,
++        595,
++        596,
++        597,
++        598,
++        599
++      ],
++      "fragment_bodies": [
++        464,
++        465,
++        567,
++        568,
++        569,
++        570,
++        571,
++        572,
++        573,
++        574,
++        575,
++        576,
++        577,
++        578,
++        579,
++        580,
++        581,
++        582,
++        583,
++        584,
++        585,
++        586,
++        587,
++        588,
++        589,
++        590,
++        591,
++        592,
++        593,
++        594,
++        595,
++        596,
++        597,
++        598,
++        599
++      ],
++      "awake_fragment_bodies": [
++        464,
++        466,
++        467,
++        468,
++        469,
++        470,
++        471,
++        472,
++        473,
++        474,
++        475,
++        476,
++        477,
++        478,
++        479,
++        480,
++        481,
++        482,
++        483,
++        484,
++        485,
++        486,
++        487,
++        488,
++        489,
++        490,
++        491,
++        492,
++        493,
++        494,
++        495,
++        496,
++        497,
++        498,
++        499,
++        500,
++        501,
++        502,
++        503,
++        504,
++        505,
++        506,
++        507,
++        508,
++        509,
++        510,
++        511,
++        512,
++        513,
++        514,
++        515,
++        516,
++        517,
++        518,
++        519,
++        520,
++        521,
++        522,
++        523,
++        524,
++        525,
++        526,
++        527,
++        528,
++        529,
++        530,
++        531,
++        532,
++        533,
++        534,
++        535,
++        536,
++        537,
++        538,
++        539,
++        540,
++        541,
++        542,
++        543,
++        544,
++        545,
++        546,
++        547,
++        548,
++        549,
++        550,
++        551,
++        552,
++        553,
++        554,
++        555,
++        556,
++        557,
++        558,
++        559,
++        560,
++        561,
++        562,
++        563,
++        564,
++        565,
++        566,
++        567,
++        568,
++        569,
++        570,
++        571,
++        572,
++        573,
++        574,
++        575,
++        576,
++        577,
++        578,
++        579,
++        580,
++        581,
++        582,
++        583,
++        584,
++        585,
++        586,
++        587,
++        588,
++        589,
++        590,
++        591,
++        592,
++        593,
++        594,
++        595,
++        596,
++        597,
++        598,
++        599
++      ],
++      "native_corrections": [
++        464,
++        466,
++        567
++      ]
++    }
+   }
+ }
+\ No newline at end of file
+diff --git a/qualification/vibe-coarse-assembly-20260908/report.md b/qualification/vibe-coarse-assembly-20260908/report.md
+index de4a35c4..2e66b51e 100644
+--- a/qualification/vibe-coarse-assembly-20260908/report.md
++++ b/qualification/vibe-coarse-assembly-20260908/report.md
+@@ -14,6 +14,10 @@ Complete-step timer includes physical commands, physics, stress, fracture/correc
+ | vibe-coarse-assembly-20260908/screen-tiled / shots | 42.380 | 42.266 | 379.673 | 401.941 | 401.941 | 401.941 | 541 |
+ | vibe-coarse-assembly-20260908/screen-members / idle | 3.220 | 2.586 | 378.842 | 378.842 | — | — | 1 |
+ | vibe-coarse-assembly-20260908/screen-members / shots | 40.312 | 40.171 | 368.856 | 395.103 | 395.103 | 395.103 | 540 |
++| vibe-coarse-assembly-20260908/screen-self-cache / idle | 2.887 | 2.329 | 332.011 | 332.011 | — | — | 1 |
++| vibe-coarse-assembly-20260908/screen-self-cache / shots | 36.668 | 36.719 | 324.139 | 335.232 | 335.232 | 335.232 | 537 |
++| vibe-coarse-assembly-20260908/screen-wide-cache / idle | 2.653 | 2.130 | 311.800 | 311.800 | — | — | 1 |
++| vibe-coarse-assembly-20260908/screen-wide-cache / shots | 33.815 | 33.183 | 309.047 | 321.122 | 321.122 | 321.122 | 534 |
+ 
+ Destruction/aftermath starts at the first recorded command and includes settling. New-fracture peaks require an increase in broken bonds. Neither replaces the all-step peak.
+ 
+diff --git a/tools/scripts/run-destruction-penetration-regression.py b/tools/scripts/run-destruction-penetration-regression.py
+index 6d064540..32f74a7a 100644
+--- a/tools/scripts/run-destruction-penetration-regression.py
++++ b/tools/scripts/run-destruction-penetration-regression.py
+@@ -15,6 +15,7 @@ import shutil
+ import subprocess
+ import tempfile
+ import threading
++import time
+ 
+ ROOT=Path(__file__).resolve().parents[2]
+ 
+@@ -32,6 +33,7 @@ def main():
+     parser.add_argument('--binary',type=Path,default=ROOT/'out/destruction-sdk/reference/native_destruction_demo')
+     parser.add_argument('--standard-scene',action='store_true',help='Ordinary actor APIs, native sleeping, GPU-repaired sleep membership')
+     parser.add_argument('--sleeping',type=int,choices=[0,1],default=1,help='Sleeping setting for the ordinary-API control')
++    parser.add_argument('--expected-runtime',type=Path,help='Require this actual mapped destruction runtime (isolated candidate audit)')
+     parser.add_argument('--video',action='store_true',help='Also encode the audited GPU-rendered penetration view')
+     args=parser.parse_args();out=args.output.resolve();binary=args.binary.resolve()
+     if out.exists():raise RuntimeError('Audit output already exists')
+@@ -48,7 +50,8 @@ def main():
+         cmd += ['--gpu-video',str(out/'native.mp4'),'--gpu-camera','penetration','--color-by-cluster','1']
+     for option in ['--record-state','--gpu-render','--audit-motion','--trace-motion']:
+         cmd[cmd.index(option)+1]='1'
+-    artifacts=[binary,ROOT/'physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so',ROOT/'physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so']
++    artifacts=[binary]
++    required_libraries={'libPhysXDestructionGpuRuntime_64.so','libPhysXGpuActivity_64.so'}
+     record={'schema':1,'config_sha256':sha(config_path),'golden_sha256':sha(golden),
+             'artifacts':{str(p):sha(p) for p in artifacts},'performance_qualification':False,'standard_scene':args.standard_scene}
+     errors=[]
+@@ -64,7 +67,22 @@ def main():
+         cmd+=['--motion-path',str(fifo)];record['command']=cmd
+         log=out.with_suffix('.log')
+         with log.open('x') as stream:
+-            process=subprocess.run(cmd,stdout=stream,stderr=subprocess.STDOUT,timeout=300)
++            process=subprocess.Popen(cmd,stdout=stream,stderr=subprocess.STDOUT)
++            deadline=time.monotonic()+300
++            try:
++                while process.poll() is None:
++                    try:maps=Path(f'/proc/{process.pid}/maps').read_text()
++                    except FileNotFoundError:maps=''
++                    for line in maps.splitlines():
++                        fields=line.split(maxsplit=5)
++                        if len(fields)!=6:continue
++                        path=Path(fields[5])
++                        if path.name in required_libraries and str(path) not in record['artifacts']:
++                            record['artifacts'][str(path)]=sha(path)
++                    if time.monotonic()>deadline:raise TimeoutError('Audit simulation timed out')
++                    time.sleep(.01)
++            except BaseException:
++                process.kill();process.wait();raise
+         record['exit_code']=process.returncode
+         if out.exists():(out/'capture.json').write_text(json.dumps(record,indent=2)+'\n')
+         if process.returncode:raise RuntimeError(f'Audit simulation failed; see {log}')
+@@ -72,6 +90,10 @@ def main():
+         if reader.is_alive():raise RuntimeError('Motion compression did not finish')
+         if errors:raise errors[0]
+         compressed.rename(out/'native.motion.csv.gz')
++    observed={Path(path).name:Path(path).resolve() for path in record['artifacts']}
++    if not required_libraries.issubset(observed):raise RuntimeError('Audit did not observe all required GPU runtime modules')
++    if args.expected_runtime and observed['libPhysXDestructionGpuRuntime_64.so']!=args.expected_runtime.resolve():
++        raise RuntimeError('Audit loaded a different destruction runtime than requested')
+     for path,digest in record['artifacts'].items():
+         if sha(Path(path))!=digest:raise RuntimeError('Executable changed during audit')
+     spec=importlib.util.spec_from_file_location('penetration',ROOT/'tools/scripts/verify-native-penetration.py')

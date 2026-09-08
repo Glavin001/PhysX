@@ -21,3 +21,7 @@ __device__ __forceinline__ Input resolvedInput(Input a){
     if(a.counts && sourceCountsValid(a)){a.nodes=a.counts[0];a.bonds=a.counts[1];}
     return a;
 }
+
+__device__ __forceinline__ bool cachedSelfRows(const Input& a){
+    return a.levelBonds && a.nodes<=SelfCacheNodes && a.nonSelfRefs;
+}

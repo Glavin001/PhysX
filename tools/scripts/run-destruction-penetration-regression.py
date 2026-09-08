@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -32,6 +33,7 @@ def main():
     parser.add_argument('--binary',type=Path,default=ROOT/'out/destruction-sdk/reference/native_destruction_demo')
     parser.add_argument('--standard-scene',action='store_true',help='Ordinary actor APIs, native sleeping, GPU-repaired sleep membership')
     parser.add_argument('--sleeping',type=int,choices=[0,1],default=1,help='Sleeping setting for the ordinary-API control')
+    parser.add_argument('--expected-runtime',type=Path,help='Require this actual mapped destruction runtime (isolated candidate audit)')
     parser.add_argument('--video',action='store_true',help='Also encode the audited GPU-rendered penetration view')
     args=parser.parse_args();out=args.output.resolve();binary=args.binary.resolve()
     if out.exists():raise RuntimeError('Audit output already exists')
@@ -48,7 +50,8 @@ def main():
         cmd += ['--gpu-video',str(out/'native.mp4'),'--gpu-camera','penetration','--color-by-cluster','1']
     for option in ['--record-state','--gpu-render','--audit-motion','--trace-motion']:
         cmd[cmd.index(option)+1]='1'
-    artifacts=[binary,ROOT/'physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so',ROOT/'physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so']
+    artifacts=[binary]
+    required_libraries={'libPhysXDestructionGpuRuntime_64.so','libPhysXGpuActivity_64.so'}
     record={'schema':1,'config_sha256':sha(config_path),'golden_sha256':sha(golden),
             'artifacts':{str(p):sha(p) for p in artifacts},'performance_qualification':False,'standard_scene':args.standard_scene}
     errors=[]
@@ -64,7 +67,22 @@ def main():
         cmd+=['--motion-path',str(fifo)];record['command']=cmd
         log=out.with_suffix('.log')
         with log.open('x') as stream:
-            process=subprocess.run(cmd,stdout=stream,stderr=subprocess.STDOUT,timeout=300)
+            process=subprocess.Popen(cmd,stdout=stream,stderr=subprocess.STDOUT)
+            deadline=time.monotonic()+300
+            try:
+                while process.poll() is None:
+                    try:maps=Path(f'/proc/{process.pid}/maps').read_text()
+                    except FileNotFoundError:maps=''
+                    for line in maps.splitlines():
+                        fields=line.split(maxsplit=5)
+                        if len(fields)!=6:continue
+                        path=Path(fields[5])
+                        if path.name in required_libraries and str(path) not in record['artifacts']:
+                            record['artifacts'][str(path)]=sha(path)
+                    if time.monotonic()>deadline:raise TimeoutError('Audit simulation timed out')
+                    time.sleep(.01)
+            except BaseException:
+                process.kill();process.wait();raise
         record['exit_code']=process.returncode
         if out.exists():(out/'capture.json').write_text(json.dumps(record,indent=2)+'\n')
         if process.returncode:raise RuntimeError(f'Audit simulation failed; see {log}')
@@ -72,6 +90,10 @@ def main():
         if reader.is_alive():raise RuntimeError('Motion compression did not finish')
         if errors:raise errors[0]
         compressed.rename(out/'native.motion.csv.gz')
+    observed={Path(path).name:Path(path).resolve() for path in record['artifacts']}
+    if not required_libraries.issubset(observed):raise RuntimeError('Audit did not observe all required GPU runtime modules')
+    if args.expected_runtime and observed['libPhysXDestructionGpuRuntime_64.so']!=args.expected_runtime.resolve():
+        raise RuntimeError('Audit loaded a different destruction runtime than requested')
     for path,digest in record['artifacts'].items():
         if sha(Path(path))!=digest:raise RuntimeError('Executable changed during audit')
     spec=importlib.util.spec_from_file_location('penetration',ROOT/'tools/scripts/verify-native-penetration.py')

@@ -1,0 +1,4 @@
+Certificate will not expire
+curl: (7) Failed to connect to 127.0.0.1 port 8384 after 0 ms: Couldn't connect to server
+https://209.121.195.117:40617/city?portal=true&match=city-default
+PID 1451014; log /tmp/vibe-embedded-city/server.log

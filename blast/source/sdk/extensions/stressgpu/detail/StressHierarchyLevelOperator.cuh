@@ -5,9 +5,11 @@
 namespace Nv { namespace Blast { namespace StressHierarchy {
 __device__ __forceinline__ Vector scaledValue(Vector v,float2 d){return {mul(v.angular,d.x),mul(v.linear,d.y)};}
 __device__ __forceinline__ Vector levelRowContribution(const Input& input,unsigned node,const Vector* x,unsigned lane=threadIdx.x&31u,unsigned width=32){
-    Vector out{};
-    for(unsigned slot=input.begin[node]+lane;slot<input.begin[node+1];slot+=width){
-        const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
+    const bool cached=cachedSelfRows(input);
+    Vector out=cached && !lane?selfMatrixValue(input,node,x[node],false):Vector{};
+    const unsigned end=cached?input.nonSelfEnd[node]:input.begin[node+1];
+    for(unsigned slot=input.begin[node]+lane;slot<end;slot+=width){
+        const unsigned ref=cached?input.nonSelfRefs[slot]:input.refs[slot];if(ref==Invalid)continue;
         const unsigned edge=ref&0x7fffffffu;if(sourceHealth(input,edge)<=0)continue;
         const unsigned first=sourceFirst(input,edge),second=sourceSecond(input,edge);
         Vector a{},b{};

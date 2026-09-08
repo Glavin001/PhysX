@@ -1,0 +1,9 @@
+# External reference attempt — quality mismatch, not a speed comparison
+
+Read-only working-tree Vibe-land-4/Blast sources were copied into an isolated reference workspace, with hashes in snapshot.json. The copied driver uses the same downtown asset and physical command tape: 27 buildings, 24,105 chunks, 74,543 bonds; zero shots for idle, three 18,000 kg spheres at 40 m/s for impacts; 600 ticks / 10 seconds, dt 1/60, resim=1, Direct GPU off, sleeping on, freeze off, strength scale 1, maximum 8192 stress iterations. The original solver tolerance is 1e-3; native is 1e-5. This is not the historical deployed default of a 32-iteration budget with other material/freeze settings.
+
+The untouched external city breaks its first bond at tick 78 and ends with 15,034 broken bonds. Native pristine idle remains intact. The runs therefore fail physical-equivalence qualification; their timings must not be presented as proof of native superiority or equality. Raw outputs are retained, including this failure. The copied driver's early-idle assertion only covers ticks before 30 and missed later spontaneous breakage; this report adds the full-run pristine-idle assessment. No native assertion or tolerance was loosened.
+
+CUDA stress activation was logged. The reference was compiled against /root/PhysX/physx/install/linux-clang/PhysX and read-only original Blast, using an isolated Cargo workspace. Runtime library mapping was not captured before process exit, so it is not independently certified by a maps receipt. The parent helper's inherited native-library hashes do not describe this external executable and are intentionally not used here.
+
+Next comparison must preserve the actual historical configuration and separately reconcile residual/material/load semantics before declaring equal physical work. Existing submitted-report timings remain historical observations, not matching-work gates.

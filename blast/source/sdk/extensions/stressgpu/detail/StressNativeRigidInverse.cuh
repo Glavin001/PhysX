@@ -3,17 +3,18 @@
 // x=S^-1*(a+(K/c)*b), y=b/c-(K/c)*x. This is not zero dropping or a
 // preconditioner approximation: all physical coupling remains present.
 // Coarse/general blocks keep their existing independently qualified solvers.
-__device__ __noinline__ void buildNativeRigidInverse(NativeStressCycleView h,unsigned node){
+// Keep the out-of-line factor builder's ABI narrow. The owning component
+// tests cache validity before calling: steady solves need no descriptor copy.
+__device__ __noinline__ void buildNativeRigidInverseCoefficients(const double* factors,double* inverse,unsigned stride,unsigned node){
     using namespace StressHierarchy;
-    if(h.inverseValid[node] && h.inverseGeneration[node]==h.topology->generation)return;
-    const auto diagonal=h.cycle.levels[0].diagonal;
+    Buffers diagonal{};diagonal.diagonal=const_cast<double*>(factors);
     // Reuse the qualified triangular factor for S^-1, which is the upper-left
     // block of D^-1. Only three inverse columns are needed instead of six.
     for(unsigned column=0;column<3;++column){
         const Vector basis{{double(column==0),double(column==1),double(column==2)},{0,0,0}};
         const auto solved=solveFineDiagonalThread(diagonal,node,basis);
         const double value[3]={solved.angular.x,solved.angular.y,solved.angular.z};
-        for(unsigned row=column;row<3;++row)h.fineInverse[size_t(triangle(row,column))*h.inverseStride+node]=value[row];
+        for(unsigned row=column;row<3;++row)inverse[size_t(triangle(row,column))*stride+node]=value[row];
     }
     // Reconstruct the needed entries of D=L*L^T. Fine factors are already
     // resident and validated. No additional bond traversal or matrix upload.
@@ -22,11 +23,16 @@ __device__ __noinline__ void buildNativeRigidInverse(NativeStressCycleView h,uns
     const double kx=fma(l[triangle(5,0)],l[triangle(1,0)],l[triangle(5,1)]*l[triangle(1,1)]);
     double ky=0;for(unsigned j=0;j<=2;++j)ky=fma(l[triangle(3,j)],l[triangle(2,j)],ky);
     const double kz=l[triangle(4,0)]*l[triangle(0,0)];
-    h.fineInverse[size_t(6)*h.inverseStride+node]=kx/c;
-    h.fineInverse[size_t(7)*h.inverseStride+node]=ky/c;
-    h.fineInverse[size_t(8)*h.inverseStride+node]=kz/c;
-    h.fineInverse[size_t(9)*h.inverseStride+node]=1/c;
-    h.inverseGeneration[node]=h.topology->generation;h.inverseValid[node]=1;
+    inverse[size_t(6)*stride+node]=kx/c;
+    inverse[size_t(7)*stride+node]=ky/c;
+    inverse[size_t(8)*stride+node]=kz/c;
+    inverse[size_t(9)*stride+node]=1/c;
+}
+__device__ __forceinline__ void buildNativeRigidInverse(const NativeStressCycleView& h,unsigned node){
+    const auto generation=h.topology->generation;
+    if(h.inverseValid[node] && h.inverseGeneration[node]==generation)return;
+    buildNativeRigidInverseCoefficients(h.cycle.levels[0].diagonal.diagonal,h.fineInverse,h.inverseStride,node);
+    h.inverseGeneration[node]=generation;h.inverseValid[node]=1;
 }
 __device__ __forceinline__ StressHierarchy::Vector applyNativeRigidInverse(NativeStressCycleView h,unsigned node,StressHierarchy::Vector value){
     using namespace StressHierarchy;

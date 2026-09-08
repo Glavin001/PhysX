@@ -11,6 +11,7 @@ def generate(baseline, candidates, output):
     output.mkdir(parents=True, exist_ok=True)
     captures = [('deployed', baseline, 'baseline')]
     captures += [(p.parent.name + '/' + p.name, p, 'candidate') for p in candidates]
+    decisions = json.loads((output / 'decisions.json').read_text()) if (output / 'decisions.json').exists() else {}
     reference = {}
     evidence = {}
     lines = [
@@ -24,8 +25,8 @@ def generate(baseline, candidates, output):
         'fracture/correction, mandatory completion and game observation staging. '
         'Asset preparation, rendering, network encoding and report generation '
         'are excluded. First-step and all later spikes are retained.', '',
-        '| Implementation / regime | Mean ms | Median ms | First step ms | All-step peak ms | Destruction/aftermath peak ms | New-fracture peak ms | Missed 60 Hz / 600 |',
-        '|---|---:|---:|---:|---:|---:|---:|---:|',
+        '| Implementation / regime | Decision | Mean ms | Median ms | First step ms | All-step peak ms | Destruction/aftermath peak ms | New-fracture peak ms | Missed 60 Hz / 600 |',
+        '|---|---|---:|---:|---:|---:|---:|---:|---:|',
     ]
     for label, root, prefix in captures:
         for regime in ['idle', 'shots']:
@@ -46,7 +47,7 @@ def generate(baseline, candidates, output):
                 reference[regime] = (report, frames, commands)
             old_report, old_frames, old_commands = reference[regime]
             assert commands == old_commands
-            for key in ['source_asset', 'manifest_hash', 'chunks', 'bonds', 'steps', 'projectiles']:
+            for key in ['source_asset', 'manifest_hash', 'chunks', 'bonds', 'steps', 'projectiles', 'direct_gpu_api', 'sleeping', 'max_correction', 'max_stress_passes', 'timestep_seconds', 'iterations_max', 'tolerance', 'timing_scope']:
                 assert report.get(key) == old_report.get(key), key
             values = [r['complete_step_ms'] for r in frames]
             loaded = [r for r in frames if commands and r['tick'] >= commands[0]['tick']]
@@ -70,7 +71,7 @@ def generate(baseline, candidates, output):
                     archive.write_bytes(gzip.compress(data, mtime=0))
             def ms(row):
                 return f"{row['complete_step_ms']:.3f}" if row else '—'
-            lines.append(f"| {label} / {regime} | {stats['mean']:.3f} | {stats['median']:.3f} | "
+            lines.append(f"| {label} / {regime} | {decisions.get(root.name, 'reference')} | {stats['mean']:.3f} | {stats['median']:.3f} | "
                          f"{stats['first']:.3f} | {ms(stats['peak'])} | {ms(stats['loaded_peak'])} | "
                          f"{ms(stats['fracture_peak'])} | {stats['missed_60hz']} |")
     lines += ['', 'Destruction/aftermath starts at the first recorded command and includes settling. '

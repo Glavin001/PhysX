@@ -1,0 +1,56 @@
+{
+  "runtime_sha256": {
+    "baseline": "5b61052ad17766bf92324d385d88587cd96c8d4b4a6e4842d1d033abf048a1aa",
+    "candidate": "17feadea5ab315b9bb4784f3c1f24f696896d4ca994c273dce2583e0a704c856"
+  },
+  "commands": [
+    {
+      "name": "analytic",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "wall-driver",
+      "command": [
+        "python3",
+        "tools/scripts/run-destruction-penetration-regression.py",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-resident-grid/wall",
+        "--expected-runtime",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/resident-grid/libPhysXDestructionGpuRuntime_64.so"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "candidate-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-resident-grid/candidate-idle",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "candidate-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-resident-grid/candidate-shots",
+        "1",
+        "600",
+        "0",
+        "fractured-downtown.json",
+        "/root/workspace/physx-2/out/vibe-idle-fix-20260908/downtown-commands.json"
+      ],
+      "exit": 0
+    }
+  ]
+}

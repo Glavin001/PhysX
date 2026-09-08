@@ -6,6 +6,7 @@
 #include <cmath>
 namespace Nv { namespace Blast { namespace StressHierarchy {
 constexpr unsigned Invalid=0xffffffffu, Threads=256;
+constexpr unsigned SelfCacheNodes=4096,SelfCacheEntries=18;
 struct CoarseBond;
 struct Status;
 // Borrowed native component order. Packed levels own contiguous successors.
@@ -32,6 +33,8 @@ struct Input {
     // Fine components handled by the native block solver still need their
     // exact fine factors, but never consume aggregates or coarse terminals.
     unsigned componentSolverMaxNodes=0;
+    const unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
+    const double* selfMatrices=nullptr;
 };
 struct Status {
     std::uint64_t generation;
@@ -47,6 +50,8 @@ struct Buffers {
     unsigned *owner,*seed,*minimum,*leader,*pending,*memberBond,*coarseActive;
     CoarseBond* coarse;
     double* diagonal;
+    unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
+    double* selfMatrices=nullptr;
 };
 __device__ __forceinline__ bool retainedColumn(const CoarseBond& e){
     return e.scale>0 && (e.a!=Invalid || e.b!=Invalid) &&
@@ -66,9 +71,9 @@ __device__ __forceinline__ unsigned priority(unsigned node,unsigned round)
 // Immutable CSR bounds/endpoint identities are validated before any gather.
 // The component labels are the caller's current exact GPU partition. Static
 // boundary nodes carry Invalid and never connect two dynamic components.
-__device__ __forceinline__ unsigned neighbour(const Input& a,unsigned node,unsigned slot,Status* status)
+__device__ __forceinline__ unsigned neighbour(const Input& a,unsigned node,unsigned slot,Status* status,bool compact=false)
 {
-    const unsigned ref=a.refs[slot];if(ref==Invalid)return Invalid;
+    const unsigned ref=compact?a.nonSelfRefs[slot]:a.refs[slot];if(ref==Invalid)return Invalid;
     const unsigned bond=ref&0x7fffffffu;
     if(bond>=a.bonds){atomicOr(&status->error,1u);return Invalid;}
     const unsigned first=sourceFirst(a,bond),second=sourceSecond(a,bond);
@@ -81,6 +86,7 @@ __device__ __forceinline__ unsigned neighbour(const Input& a,unsigned node,unsig
     if(a.component[node]!=a.component[other]){atomicOr(&status->error,1u);return Invalid;}
     return other;
 }
+#include "StressHierarchyCompactAdjacency.cuh"
 __device__ __forceinline__ void beginBuild(const Input& a,Status* status,Work* work)
 {
     bool run=!a.accept || *a.accept;
@@ -123,14 +129,15 @@ __device__ __forceinline__ void chooseSeeds(const Input* input,Buffers b,Status*
     const auto a=*input;const unsigned node=logicalBlock*blockDim.x+threadIdx.x;
     if(node>=a.nodes)return;b.seed[node]=0;
     if(a.component[node]==Invalid || b.owner[node]!=Invalid || componentUsesFineSolver(a,a.component[node]))return;
-    const unsigned begin=a.begin[node],end=a.begin[node+1];
+    const bool compact=cachedSelfRows(a);
+    const unsigned begin=a.begin[node],end=compact?a.nonSelfEnd[node]:a.begin[node+1];
     if(begin>end || end>2ull*a.bonds || a.component[node]>=sourceComponentCapacity(a)){atomicOr(&status->error,1u);return;}
     // Prefer hubs so a star coarsens to one aggregate instead of losing only
     // one leaf per level. Hash ties by round for parallel progress on paths;
     // this is an integer layout choice, never a physical approximation.
-    const unsigned degree=end-begin,mine=priority(node,status->rounds);bool seed=true;
+    const unsigned degree=a.begin[node+1]-begin,mine=priority(node,status->rounds);bool seed=true;
     for(unsigned i=begin;i<end;++i){
-        const unsigned other=neighbour(a,node,i,status);
+        const unsigned other=neighbour(a,node,i,status,compact);
         if(other==Invalid || b.owner[other]!=Invalid)continue;
         const unsigned theirs=priority(other,status->rounds);
         const unsigned otherDegree=a.begin[other+1]-a.begin[other];
@@ -143,11 +150,12 @@ __device__ __forceinline__ void assignSeeds(const Input* input,Buffers b,Status*
     const auto a=*input;const unsigned node=logicalBlock*blockDim.x+threadIdx.x;unsigned pending=0;
     if(node<a.nodes && a.component[node]!=Invalid && b.owner[node]==Invalid && !componentUsesFineSolver(a,a.component[node])){
         unsigned owner=b.seed[node]?node:Invalid,memberBond=Invalid;
-        const unsigned begin=a.begin[node],end=a.begin[node+1];
+        const bool compact=cachedSelfRows(a);
+        const unsigned begin=a.begin[node],end=compact?a.nonSelfEnd[node]:a.begin[node+1];
         if(begin<=end && end<=2ull*a.bonds && !b.seed[node])for(unsigned i=begin;i<end;++i){
-            const unsigned other=neighbour(a,node,i,status);
+            const unsigned other=neighbour(a,node,i,status,compact);
             if(other!=Invalid && b.seed[other]){
-                const unsigned bond=a.refs[i]&0x7fffffffu;
+                const unsigned bond=(compact?a.nonSelfRefs[i]:a.refs[i])&0x7fffffffu;
                 if(other<owner){owner=other;memberBond=bond;}
                 else if(other==owner)memberBond=min(memberBond,bond);
             }
@@ -240,6 +248,12 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
     // next-stage error send late blocks home before the next grid barrier.
     if(!blockIdx.x && !threadIdx.x)work->pending=unsigned(!status->error);
     grid.sync();if(!work->pending)return;
+    if(cachedSelfRows(input)){
+        for(unsigned node=blockIdx.x;node<input.nodes;node+=gridDim.x)compactCoarseAdjacency(input,buffers,status,node);
+        grid.sync();
+        if(!blockIdx.x && !threadIdx.x)work->pending=unsigned(!status->error);
+        grid.sync();if(!work->pending)return;
+    }
     while(work->pending){
         for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)chooseSeeds(&input,buffers,status,block);
         grid.sync();
