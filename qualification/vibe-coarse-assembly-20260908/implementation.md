@@ -28,3 +28,9 @@ The frozen-wall runner now verifies actually mapped runtime libraries instead of
 Node-level CUDA tracing of the new runtime attributes 95.8% of aggregate kernel duration in the downtown replay to the large resident solver, and 81.4% in the 256-building replay to the small-component solver. These are separate intrusive profiles, not additive partitions of complete-step peaks or hardware-counter utilization. CUDA graph nodes must be traced explicitly; the first graph-level trace omitted their internal kernels and is not used for these percentages.
 
 The external-library reference attempt is [not a valid matching-quality comparison](external-reference/README.md): it breaks the untouched city under this test configuration. Its timings cannot certify superiority. Full performance/architecture/endurance goals remain open, including component-local storage, validated structural reuse, GPU lifecycle ownership and correction scheduling.
+
+## Deployed browser verification
+
+Commit c8405252; runtime SHA-256 1fb2da375e8323de3301fc2dabf06d804ffe7915c774b583de106ab1e97e7dfb. The owned demo was restarted only after verifying zero players and the exact executable. Browser join/move/shoot/settle/reset passed on the 27-building city through WebTransport. Four trigger holds produced eight reported client shots; accepted server work is retained in browser-final/result.json, not inferred from trigger count. The settled screenshot was inspected. This software-rendered browser audit is functional evidence, not a GPU rendering or isolated timing benchmark.
+
+[Final 256-building destruction screen](256-final-shots/report.md) and [idle screen](256-final-idle/report.md) include the narrow-call candidate. No reliable large-scale gain is claimed: a single chaotic-run comparison cannot resolve small differences. The latest runtime still misses real-time peaks. Deployment and browser receipts do not certify external-baseline parity.

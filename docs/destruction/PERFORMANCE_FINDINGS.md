@@ -1,5 +1,20 @@
 # Performance findings and experiment memory
 
+## 2026-09-08 21:00 UTC: coarse self-response cache and deployed downtown gain
+
+Engine c8405252, game unchanged 5514155. The qualified GPU changes contract coarse self-column angular responses (preserving rounded offset moments), compact validated non-self adjacency while retaining original seed degrees, and parallelize coarse construction/rows. Cache cap is 4,096 resolved coarse nodes. Large resident launch dimensions now reflect eight-lane row work. The inverse-cache builder has a narrow pointer ABI and a caller-side validity guard; compiled component stack is 48 bytes instead of 528, without a proven additional timing gain.
+
+[Generated downtown comparison](../../qualification/vibe-coarse-assembly-20260908/report.md): 27 buildings, 24,105 chunks, 74,543 bonds, three physical rounds, 600 steps / 10 seconds per arm, Direct GPU off, sleeping on, dt 1/60, correction <=1 / stress <=2. Complete loaded/aftermath peak 719.880 -> 130.319 ms; candidate all-step peak 199.904 ms at startup. Pristine idle stays intact. Exact frozen wall and resident analytic/3D/motion checks pass. This is not the 8 ms/60 Hz/endurance gate.
+
+[256-building final control](../../qualification/vibe-coarse-assembly-20260908/256-final-shots/report.md) and [idle](../../qualification/vibe-coarse-assembly-20260908/256-final-idle/report.md): 113,664 chunks, 229,376 bonds, 768 rounds, 600 steps. Baseline all/loaded peaks 151.087 / 135.994 ms; candidate 158.065 / 140.393 ms. No robust scale win is established. Do not generalize the downtown win to bombardment. The new node-traced CUDA profile still assigns 81.4% of aggregate kernel time to the small-component solver; downtown assigns 95.8% to the large solver. These are device-work shares, not additive complete-peak wall partitions.
+
+Rejected: smaller coarse row groups hurt sustained time; reverted while retaining Boolean support parallelism. Grid-constant annotations reduced component code size but did not improve performance; reverted. Do not repeat these experiments without new evidence. The original-level probe is stale for expanded self caches.
+
+Runtime 1fb2da375e8323de3301fc2dabf06d804ffe7915c774b583de106ab1e97e7dfb is deployed to the owned city demo, with fresh browser movement/shoot/settle/reset passing. Direct GPU remains off; sleeping remains on. Source repos stay read-only.
+
+An [external reference replay](../../qualification/vibe-coarse-assembly-20260908/external-reference/README.md) failed physical comparability: the original library breaks the untouched city under the native driver's settings. Original tolerance is 1e-3 vs native 1e-5; the replay uses 8192 rather than the historical 32-iteration budget. It does not establish native superiority. Full architectural, matching-baseline and endurance goals remain incomplete.
+
+
 ## 2026-09-08: current two-evaluation work census and corrected phase probe
 
 The [current consumer work report](../../qualification/vibe-component-work-accepted-20260908/report.md)

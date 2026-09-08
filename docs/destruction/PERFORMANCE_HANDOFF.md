@@ -1,3 +1,5 @@
+> Latest resumption note, 2026-09-08 21:00 UTC: engine c8405252 is deployed with the narrow-inverse runtime. Read the newest PERFORMANCE_FINDINGS entry and qualification/vibe-coarse-assembly-20260908/implementation.md before using older status below. Downtown loaded peak is 130.319 ms for 24,105 chunks / 74,543 bonds / three shots / 600 steps, down from matched 719.880 ms. Full baseline parity and real-time bombardment are NOT achieved. The 256-building small-component path remains the measured primary scale bottleneck. Latest browser audit passed. /tmp/vibe-embedded-city/server.pid must be reread and players checked before any stop. Grid-constant and smaller row-group experiments are reverted. No GPU job remains running from these captures.
+
 # Dated performance handoff and implementation map
 
 ## Latest override — 2026-09-08 downtown idle fix deployed
