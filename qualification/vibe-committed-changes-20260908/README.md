@@ -39,3 +39,18 @@ The first screen polled process maps throughout execution; the repeated authorit
 comparison stops polling after both module identities are obtained. Neither uses
 CUDA tracing or hardware-counter instrumentation. Runtime/build paths remain under
 `out/vibe-committed-changes-20260908`.
+
+✅ Deployed engine `cf053e45` / game `97364dd` passed browser join, physical
+shooting, movement, settling and reset on the 27-building downtown. The browser
+recorded eight shots, 138 broken bonds, 11 fragment bodies (10 sleeping / one
+awake in the final server sample), no orphaned chunks or topology-hash mismatch.
+Seven COEP/404 resource errors remain in the captured browser output. The
+software-rendered browser FPS is not used as a physics-performance measurement.
+
+The deployment receipt and actual mapped module hashes are archived. API v15
+changes the device-view return ABI: rebuild consumers and pair matching modules.
+The old v14 baseline modules and consumer are preserved under
+`out/vibe-committed-changes-20260908/baseline`; do not combine old runtime files
+with the newly deployed GPU module. Archived runner scripts describe the
+original capture environment and require that pinned baseline library path for
+any new comparison after deployment.
