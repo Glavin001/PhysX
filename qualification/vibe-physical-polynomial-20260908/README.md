@@ -1,0 +1,9 @@
+# Per-node scaling instead of per-bond scaling
+
+✅ Each local preconditioned vector is mass-scaled once by its producing CUDA thread. The receiving node applies its scaling after summing neighbor responses. Full FP64 operator and bond contributions remain; the independent long-double basis/symmetry/SPD oracle and all three resident suites pass. The frozen wall retains 398 supported / 46 detached chunks and 199 broken bonds (444 chunks, 896 bonds, one projectile, 600 steps).
+
+The existing fine hierarchy residual workspace supplies scratch for small components; large components own disjoint rows. No new allocation, compatibility branch or CPU work. This changes floating-point summation placement and can change chaotic trajectories; the physical tests remain authoritative.
+
+📈 The repeated 256-building bombardment screen has 113,664 chunks / 229,376 bonds / 768 physical rounds / 600 steps per run, two runs per arm in candidate/baseline/baseline/candidate order. Baseline means 55.331 / 54.203 ms; candidate 51.396 / 53.645 ms. Loaded peaks overlap: baseline 139.711 / 138.429 ms, candidate 136.686 / 140.058 ms. All-step peaks remain approximately 158–160 ms. Retained for deletion of repeated arithmetic and the observed average reduction, NOT a robust destruction-peak win. No 60 Hz, endurance or historical external-backend superiority qualification.
+
+Paired intact-idle captures are linked separately. Downtown means/peaks were essentially unchanged: 27 buildings, 24,105 chunks, 74,543 bonds, three shots, 600 steps. Candidate mean 28.185 ms versus 28.175 ms; loaded peak 129.620 versus 129.777 ms. Original raw captures remain under out/vibe-coarse-assembly-20260908. Build and launch runtime hashes are recorded; repeat baseline hash metadata was corrected to its actual explicitly selected warm-residual path. The repeat captures do not attest process mappings.

@@ -40,10 +40,10 @@ void polynomialOperator(){
         }
         Device<unsigned> a(f.a.size()),b(f.b.size()),begin(f.begin.size()),refs(f.refs.size()),component(n),nodes(order.size());
         Device<float> health(f.health.size()),scale(f.scale.size());Device<float4> offset0(f.offset0.size()),offset1(f.offset1.size());Device<float2> inertia(n);
-        Device<double> factors(packed.size());Device<Vector> rhs(n),out(n),scratch(n),columns(size*n);Device<CycleLevel> level(1);
+        Device<double> factors(packed.size());Device<Vector> rhs(n),out(n),scratch(n),physical(n),columns(size*n);Device<CycleLevel> level(1);
         a.put(f.a);b.put(f.b);begin.put(f.begin);refs.put(f.refs);component.put(labels);nodes.put(order);health.put(f.health);scale.put(f.scale);offset0.put(f.offset0);offset1.put(f.offset1);factors.put(packed);
         std::vector<float2> mass(n);for(unsigned i=0;i<n;++i)mass[i]={f.inertia[i].angular,f.inertia[i].linear};inertia.put(mass);
-        CycleLevel descriptor{};descriptor.input={n,unsigned(f.a.size()),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,nullptr,offset0.data,offset1.data,inertia.data,nullptr,nullptr};level.put({descriptor});
+        CycleLevel descriptor{};descriptor.residual=physical.data;descriptor.input={n,unsigned(f.a.size()),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,nullptr,offset0.data,offset1.data,inertia.data,nullptr,nullptr};level.put({descriptor});
         PersistentStressArgs args{};args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
         for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n);
         check(cudaGetLastError());check(cudaDeviceSynchronize());const auto observed=columns.get();

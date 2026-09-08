@@ -7,7 +7,7 @@
 // zero eigenvalue. No low mode or load is dropped. Outer projection, equations
 // and authoritative residual acceptance remain unchanged.
 __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
-    const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* x)
+    const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* physical)
 {
     using namespace StressHierarchy;
     Vector value{};
@@ -18,11 +18,11 @@ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
         const unsigned other=back?input.node0[edge]:input.node1[edge];
         // Fixed boundaries contribute to D, but have no off-diagonal motion.
         if(other==node || input.component[other]==Invalid)continue;
-        const auto remote=couple(scaledValue(x[other],input.inertia[other]),sourceOffset(input,edge,!back));
+        const auto remote=couple(physical[other],sourceOffset(input,edge,!back));
         const double scale=input.scale[edge];
-        value=add(value,scaledValue(transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)),input.inertia[node]));
+        value=add(value,transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)));
     }
-    return value;
+    return scaledValue(value,input.inertia[node]);
 }
 __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial(
     const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
@@ -34,11 +34,16 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
     const auto input=a.hierarchy.cycle.levels[0].input;
     auto* local=a.hierarchy.result;
     auto* result=a.hierarchy.cycle.intermediate;
+    // The small-component solve owns these fine-level rows; the cooperative
+    // hierarchy only uses rows belonging to large components. Reuse its fine
+    // residual workspace for scaled local values, without a new allocation.
+    auto* physical=a.hierarchy.cycle.levels[0].residual;
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
+        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);
+        physical[node]=scaledValue(local[node],input.inertia[node]);}
     __syncthreads();
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-        const auto off=nativeOffDiagonal(input,node,local);
+        const auto off=nativeOffDiagonal(input,node,physical);
         result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverse(a.hierarchy,node,off),coupling));}
     // One disjoint destination per node. Readers consume this completed view;
     // there is no product buffer, copy back or second launch inside iteration.

@@ -1,0 +1,53 @@
+{
+  "runtime_sha256": {
+    "baseline": "acae077756672825e93240d12ff4c32114a563610e226ec49b0430e0134cc172",
+    "candidate": "c00cfe8bc96922866237031f23aee18dfa5a0944854ba18bc5ef0face61a10db"
+  },
+  "commands": [
+    {
+      "name": "candidate1",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/physical-polynomial-repeat/candidate1",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "baseline1",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/physical-polynomial-repeat/baseline1",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "baseline2",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/physical-polynomial-repeat/baseline2",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "candidate2",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/physical-polynomial-repeat/candidate2",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0
+    }
+  ],
+  "receipt_note": "Corrected baseline path from live runtime to the actual warm-residual path explicitly selected in each baseline command environment; expected file hashes, not process-map attestation."
+}
