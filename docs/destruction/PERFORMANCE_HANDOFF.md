@@ -1,5 +1,42 @@
 # Dated performance handoff and implementation map
 
+## 2026-09-08: actual Vibe-land consumer scale screen and contact-report crash
+
+Engine `6ef3fd47`, game `5ec74bf` (vibe-land-2). See
+[contact report correction](CONTACT_REPORT_CORRECTION.md). The game now has an
+`embedded_city_bench` example and validated automatic report generator. Four
+buildings per asset let 64 wire asset IDs represent 256 independent buildings.
+
+Three baseline 256-building attempts crashed during the second wave in CPU
+`onContact` / `PxContactPair::extractContacts`. Correction recycled trial report
+storage without invalidating retained actor/shape report stamps. The fix preserves
+ordinary callbacks and the single accepted scene timestamp. Eight ordinary native
+tests, the unchanged frozen penetration signature, and browser play/reset pass.
+
+Fixed isolated screens: one 600-step / 10-second run each, 4/64/256 buildings,
+1,776/28,416/113,664 chunks, 3,584/57,344/229,376 bonds, 12/192/768 physical
+18,000 kg spheres at 40 m/s in three waves. Direct GPU API off, sleep on,
+correction <=1 and exactly one additional stress evaluation after correction.
+Complete-step peaks: 40.234 / 70.608 / 186.782 ms. This is not a performance win
+or a 60 Hz qualification. First-step setup remains measured; no peaks discarded.
+
+At the 256-building peak (tick 139): 256 projectiles present, 16,587 fragment
+bodies / 13,747 awake, 16,843 total destruction clusters, 400,481 reported native
+normal-contact count, 72,407 cumulative broken bonds, one correction/two stress
+passes. Native advance = 169.699817 ms; accepted game event/snapshot processing =
+17.081810 ms. These disjoint intervals do not identify native CPU vs CUDA limits.
+Next useful measurement is the existing internal phase profiler on this exact
+consumer workload, not another unmatched standalone scene or optimization of the
+legacy CPU bridge. Accepted GPU event/topology deltas remain a final-owner gap,
+but removing all current observation cost would still miss 60 Hz substantially.
+
+Game report: `vibe-land-2/docs/reports/embedded-scale-2026-09-08/report.md` with
+compressed raw samples, command tapes, build receipts and debugger captures.
+Native capture root: `out/vibe-game-screen-20260908-fixed2`. The live public game
+was restored to the tested one-building scene. Larger browser/network/endurance
+qualification and matched external-backend speed superiority remain unproven.
+
+
 Snapshot: **2026-09-08**, base commit `ab30a85b410603c284255f562f92f7733ab5ad8e`
 plus native contact-property WIP. This is a resumption aid, not live status.
 Inspect Git changes, processes and artifact hashes first. The goal remains full
