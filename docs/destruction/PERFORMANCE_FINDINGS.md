@@ -1,5 +1,50 @@
 # Performance findings and experiment memory
 
+## 2026-09-08: targeted report repair wins the native game-consumer screen
+
+Engine `69fe462a`, game `45b41d2`. The previous full-world refilter opportunity
+is now addressed; do not repeat that optimization. See
+[local contact-report repair](LOCAL_CONTACT_REPORT_REPAIR.md), the generated
+[comparison](../../qualification/vibe-consumer-local-report-repair-20260908/report.md)
+and [new fracture-peak phases](../../qualification/vibe-consumer-local-report-fracture-20260908/report.md).
+
+Workload: 256 buildings / 113,664 chunks / 229,376 bonds / 768 physical rounds,
+600 steps (10 simulated seconds), Direct GPU API off, sleep on, correction <=1,
+max two stress evaluations. One baseline and two candidate untraced runs with
+identical recorded command tapes. Complete peaks: 186.782 -> 151.490/151.405 ms
+(startup now largest). Fracture peaks: 186.782 -> 135.903/147.162 ms. Means:
+94.641 -> 55.996/57.516 ms. Worse-candidate peak reductions: 18.9% overall,
+21.2% fracture. This is a short screen, not an 8 ms/60 Hz/endurance or historical
+external-backend superiority qualification. Final broken bonds differ (78,046
+baseline; 76,217/76,743 candidate); raw work counts and divergence are published.
+
+Ordinary reports now select only their active dynamic shapes for CPU report
+relationship repair, keeping unrelated GPU managers/islands. Static boundaries
+and sleepers are excluded. Trigger/modifier/CPU-contact fallback remains complete.
+Eight ordinary tests, an additional reported-reuse sleep-boundary comparison,
+and exact frozen penetration pass. The optimized server was rebuilt without the
+profiling feature and passed browser join/shoot/move/settle/reset on 444 chunks /
+896 bonds with six rounds (310 broken bonds, 74 fragments). Public demo remains
+one building; six known browser COEP/404 resource errors remain.
+
+Remaining measured opportunity: the initial large split at tick 48, not the old
+late refilter peak. New diagnostic fracture peak: 10,449 fragments / 10,193 awake,
+256 projectiles present, 216,220 reported normal contacts, 57,788 cumulative breaks;
+CUDA stress 33.479 ms, compatibility body creation 20.397 ms, correction 51.371 ms.
+GPU completion/stress dominates the ten worst fracture steps. Subsequent corrected
+step 78: correction 20.411 ms, refilter 0.016651 ms, GPU completion wait 52.013 ms.
+These are different physical states; use untraced comparison for speed claims.
+
+Game `embedded-profiling` is optional and excluded from the production dependency
+graph. It reuses the SDK profiler through Rust and writes host/CUDA phase CSVs.
+`report-vibe-consumer-phases.py --fracture-peak` uses existing disjoint accounting;
+`compare-vibe-consumer-bench.py` checks input tapes/settings and archives full rows.
+Never mix instrumented samples into the untraced report. Capture roots are
+`out/vibe-game-local-report-repair-20260908` and
+`out/vibe-game-local-report-phases-20260908`. The source reference repos remain
+read-only. The full goal is still incomplete.
+
+
 ## 2026-09-08: actual Vibe-land consumer scale screen and contact-report crash
 
 Engine `6ef3fd47`, game `5ec74bf` (vibe-land-2). See
