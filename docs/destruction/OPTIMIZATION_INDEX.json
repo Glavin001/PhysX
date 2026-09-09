@@ -3307,13 +3307,15 @@
   "replacement_plan_20260909": {
     "source": "docs/destruction/REPLACEMENT_PLAN.md",
     "source_sha256": "f360a417c233774957799245488a221014088731d582f315f52128f3d612674e",
-    "status": "implementation in progress; no new engine speedup established",
+    "status": "Ranked 1 partial: device allocation and preparation precede CPU compatibility; CPU simulation registration and shape rebinding still required before correction; ranked 2-7 pending",
     "sequence": [
-      "GPU fragment lifecycle and persistent contact registration",
-      "cluster-frame publication and component-local storage/activity",
-      "factorized substructures and interface structural solve",
-      "selective correction and cluster collision organization",
-      "remaining computation and cleanup"
+      "GPU fragment lifecycle",
+      "Factored local interiors and interface structural solve",
+      "Persistent contacts with independent numerical registration",
+      "Cluster-level publication",
+      "Selective correction",
+      "Local activity and topology",
+      "Remaining computation and cleanup"
     ],
     "first_rejection_gate": {
       "runner": "tools/scripts/run-destruction-penetration-regression.py",
@@ -3335,6 +3337,8 @@
     "structural_solver": {
       "candidate": "factored local interiors, projected interface solve, physical bond-response recovery",
       "status": "not implemented; equations and factor reuse/invalidation must be qualified in production CUDA replay"
-    }
+    },
+    "lifecycle_receipt": "qualification/device-preparation-20260909/README.md",
+    "completion_record": "Canonical GPU completion statuses share one allocation/pinned observation; one mandatory status copy after device-controlled preparation"
   }
 }

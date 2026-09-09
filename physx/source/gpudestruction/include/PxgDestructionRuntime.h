@@ -27,6 +27,13 @@ struct PxgDestructionRigidCheckpointView {
     PxU64 generation = 0;
     CUevent ready = NULL;
 };
+// Borrowed producer storage; immutable geometry identities remain independent
+// from motion. Ordered by the same producer stream supplied to advance.
+struct PxgDestructionCollisionStorage {
+    const PxgShapeSim* shapes = nullptr;
+    const PxNodeIndex* shapeToBody = nullptr;
+    PxU32 shapeCapacity = 0, remapCapacity = 0;
+};
 // Private bridge between PhysX's kernel-wrangler module and the runtime CUDA
 // stress module. Both share the scene's CUDA context; no physics API replay.
 class PxgDestructionRuntime : public PxDestructionScene {
@@ -65,9 +72,9 @@ public:
     // after this stream and borrowed NP streams; no Direct GPU API gather or
     // second body-index binding is needed inside the simulation.
     virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgDestructionMotionStorage& storage, CUstream producerStream,
-        PxgDestructionGrowMotionStorage growStorage, void* storageOwner, const PxgDestructionSolvedContacts& contacts) = 0;
-    // Completes GPU allocation and exceptional raw-capacity growth only. No CPU
-    // fragment objects are constructed until GPU correction preparation passes.
+        PxgDestructionGrowMotionStorage growStorage, void* storageOwner, const PxgDestructionSolvedContacts& contacts, const PxgDestructionCollisionStorage& collision) = 0;
+    // Observes device allocation/preparation; only raw-capacity exhaustion
+    // requires a host growth/retry. No CPU fragment objects precede preparation.
     virtual bool finish() = 0;
     // Compact compatibility IDs become available after completeCorrectionPreparation;
     // no physical state readback. Slots remain private until correction commits.
@@ -126,11 +133,11 @@ public:
 #else
 #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
 #endif
-// Private producer ABI v3 moves compatibility construction after preparation.
+// Private producer ABI v4 supplies borrowed collision storage for device-controlled preparation.
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
 // violating lifecycle ordering. Public scene ABI is intact.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV3(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV4(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

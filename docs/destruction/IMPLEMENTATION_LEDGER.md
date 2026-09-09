@@ -59,6 +59,15 @@ The five previously recorded baseline audit failures are resolved at their corre
 
 GPU collision and corrected-motion preparation now run before CPU compatibility construction, with a discriminating production-order oracle and a paired idle/destruction screen. [Receipt](../../qualification/prepare-before-cpu-20260909/README.md). This removes another constructor dependency but CPU registration and shape rebinding still precede corrected physics. No robust speedup or replacement-1 completion claim.
 
+Allocation now enables collision/corrected-motion preparation inside the same
+CUDA graph, before the host completion boundary. Canonical status records share
+one pinned completion transfer; a first revision's idle penalty was addressed.
+[Device preparation receipt](../../qualification/device-preparation-20260909/README.md).
+This is partial ranked #1: CPU simulation registration/rebinding still precede
+corrected physics. Short paired screens and controlled quality pass, while broader
+initialization/CUB synchronization findings remain unresolved and full performance
+qualification is incomplete.
+
 ## Priority checklist and separate benefit tracks
 
 Ordered by the current evidence for substantial **destruction-peak** opportunity,

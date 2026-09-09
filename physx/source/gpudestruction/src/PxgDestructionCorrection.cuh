@@ -38,7 +38,10 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
     PxU32 chunkCount,PxDestructionTopologyDeviceView topology,const PxDestructionStressChunk* chunks,
     const PxU32* affected,const PxgBodySim* checkpoint,const PxgBodySimVelocities* previous,PxU32 checkpointCount,PxU32 bodyCapacity,
     const PxDestructionCollisionPreparationStatus* collision,
-    PxDestructionCorrectionBody* output,PxDestructionCorrectionPreparationStatus* status) {
+    PxDestructionCorrectionBody* output,PxDestructionCorrectionPreparationStatus* status,
+    const NativePreparationInputs* inputs=nullptr) {
+    if(inputs){checkpoint=inputs->checkpoint;previous=inputs->previous;
+        checkpointCount=inputs->checkpointCount;bodyCapacity=inputs->bodyCapacity;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=chunkCount)return;
     output[i]={};output[i].targetBody=PX_INVALID_U32;
     // Always overwrite the compaction sentinel, including a rejected prerequisite.
@@ -46,7 +49,7 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
     const auto candidate=candidates[i];
     if(candidate.cluster>=chunkCount || topology.activeClusters[i]!=candidate.cluster){atomicOr(&status->error,2u);return;}
     if(!affected[chunks[candidate.cluster].cluster])return;
-    if(candidate.sourceBody>=checkpointCount){atomicOr(&status->error,1u);return;}
+    if(!checkpoint || candidate.sourceBody>=checkpointCount){atomicOr(&status->error,1u);return;}
     const auto source=checkpoint[candidate.sourceBody];
     if(__float_as_uint(source.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w)!=candidate.sourceBody)
         {atomicOr(&status->error,1u);return;}
@@ -62,9 +65,10 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
 }
 __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* clusters,const PxU32* affected,PxU32 count,
     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxDestructionCollisionPreparationStatus* collision,
-    PxDestructionCorrectionPreparationStatus* status) {
+    PxDestructionCorrectionPreparationStatus* status,const NativePreparationInputs* inputs=nullptr) {
+    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(!collision->valid || i>=count || !affected[i])return;
-    const PxU32 id=clusters[i].body;if(id>=checkpointCount){atomicOr(&status->error,1u);return;}
+    const PxU32 id=clusters[i].body;if(!checkpoint || id>=checkpointCount){atomicOr(&status->error,1u);return;}
     const auto body=checkpoint[id];const auto a=body.externalLinearAcceleration,b=body.externalAngularAcceleration;
     if(!isfinite(a.x) || !isfinite(a.y) || !isfinite(a.z) || !isfinite(b.x) || !isfinite(b.y) || !isfinite(b.z))
         {atomicOr(&status->error,8u);return;}
@@ -74,7 +78,9 @@ struct HasCorrectionBody {
     __host__ __device__ bool operator()(const PxDestructionCorrectionBody& b) const {return b.targetBody!=PX_INVALID_U32;}
 };
 __global__ void finishCorrectionPreparation(PxDestructionCorrectionPreparationStatus* correction,
-    const PxDestructionCollisionPreparationStatus* collision,PxU64 checkpointGeneration,PxDestructionStageStatus* stage) {
+    const PxDestructionCollisionPreparationStatus* collision,PxU64 checkpointGeneration,PxDestructionStageStatus* stage,
+    const NativePreparationInputs* inputs=nullptr) {
+    if(inputs)checkpointGeneration=inputs->checkpointGeneration;
     correction->generation=collision->generation;correction->checkpointGeneration=checkpointGeneration;
     if(!collision->valid) {
         correction->error|=32u;correction->valid=0;

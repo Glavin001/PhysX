@@ -28,7 +28,7 @@ def require(condition, message):
 CUDA_STAGES = {"contactLoads", "stress", "materials", "topologyAndCandidates", "commitAndStressTopology"}
 
 
-CUDA_OPTIONAL_STAGES = {"motionAllocation", "motionAllocationRetry"}
+CUDA_OPTIONAL_STAGES = {"motionAllocation", "motionAllocationRetry", "allocationAndPreparation", "allocationAndPreparationRetry"}
 
 
 CUDA_CORRECTION_STAGES = {"rewindState", "installFragments", "installOwners", "finalSplitState", "finalSplitFragments", "finalSplitOwners"}
@@ -57,13 +57,19 @@ def cuda_stages(directory, count, passes=None):
             "missing CUDA stage measurements")
     require(all(occurrences[i, name] == passes[i] for i in range(count) for name in CUDA_STAGES),
             "missing stress evaluation CUDA measurements")
+    device_preparation = any('allocationAndPreparation' in v for v in values.values())
+    if device_preparation:
+        require(all(occurrences[i, 'allocationAndPreparation'] == passes[i] for i in range(count)),
+                'missing device preparation CUDA measurements')
+        require(not any(name in v for v in values.values() for name in ('motionAllocation','motionAllocationRetry')),
+                'mixed preparation protocols')
     def summarize(samples):
         ordered = sorted(samples)
         return dict(samples=len(samples), min_ms=min(samples), mean_ms=statistics.mean(samples),
                     max_ms=max(samples), p95_ms=ordered[min(len(samples)-1, int(.95*len(samples)))])
     optional = {name: summarize([values[i].get(name, 0) for i in range(count)])
                 for name in sorted(CUDA_OPTIONAL_STAGES) if any(name in v for v in values.values())}
-    return dict(optional_phases=optional, scope="Consecutive CUDA event intervals on the destruction stream; includes cross-stream dependencies, "
+    return dict(device_controlled_preparation=device_preparation, optional_phases=optional, scope="Consecutive CUDA event intervals on the destruction stream; includes cross-stream dependencies, "
                       "contention and host submission gaps, not pure kernel execution. Excludes ordinary/corrected rigid solving, "
                       "reservation and acceptance after correction. Optional allocation/retry intervals are reported separately; they are not included in this total. Collected after an existing completion wait, with no added synchronization.",
                 phases={name: summarize([values[i][name] for i in range(count)]) for name in sorted(CUDA_STAGES)},
@@ -82,6 +88,9 @@ def analyze(directory):
     for i, f in enumerate(frames):
         if "stress_passes" in f:
             require(stress_passes[i] == 1 + int(f["resim_passes"]), "invalid stress evaluation count")
+    device = cuda_stages(directory, len(frames), stress_passes)
+    required = ({"submit", "finishAndReserve", "preparationCompletion"}
+                if device and device['device_controlled_preparation'] else ALWAYS)
     by_step = collections.defaultdict(dict)
     occurrences = collections.Counter()
     for row in phases:
@@ -107,7 +116,7 @@ def analyze(directory):
         passes = int(frame["resim_passes"])
         require(passes in (0, 1), "more than one correction")
         values = by_step[i]
-        require(ALWAYS <= values.keys(), f"missing native phases at step {i}")
+        require(required <= values.keys(), f"missing native phases at step {i}")
         if "finishDetail.waitForGpu" in values:
             require({"finishDetail.reserveBodies"} <= values.keys(), "missing reservation timing")
             require(values["finishDetail.waitForGpu"] + values["finishDetail.reserveBodies"] <= values["finishAndReserve"] + .05,
@@ -146,7 +155,7 @@ def analyze(directory):
     return {
         "status": "validated-native-phase-capture",
         "physics_timing": timing("physics_step_ms"),
-        "cuda_stages": cuda_stages(directory, len(frames), stress_passes),
+        "cuda_stages": device,
         "capture_tick_timing": timing("frame_host_ms"),
         "capture_tick_scope": ("physics, input placement, explicit GPU observations/audit, GPU graphics submission and pixel export; excludes setup and later video annotation"
                                if summary.get("gpu_rendered_frames", 0) else

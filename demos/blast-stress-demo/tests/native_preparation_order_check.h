@@ -1,20 +1,16 @@
-// Included after Fixture. Observe actual production CUDA output at the boundary
-// before compatibility construction; no replacement allocator or test kernel.
+// Observe actual production CUDA output before the host completion boundary.
+// Two load levels exercise capacity growth, then an allocation without growth.
 void preparationBeforeCompatibility() {
     struct Observe final:PxProfilerCallback {
         Fixture* fixture=nullptr;
         std::atomic<bool> observed{false},failed{false},constructed{false};
+        unsigned expectedNew=1,expectedOwners=2,expectedShapes=4,growths=0;
+        bool normalBoundary=false;
+        std::string error;
         Observe(){require(!PxGetProfilerCallback(),"ordering profiler already occupied");PxSetProfilerCallback(this);}
         ~Observe()override{PxSetProfilerCallback(nullptr);}
-        void* zoneStart(const char* name,bool,PxU64)override {
-            if(fixture && !std::strcmp(name,"GpuDestruction.compatibility.allocateNativeBodies")) {
-                if(!observed || failed)failed=true;
-                constructed=true;
-            }
-            return nullptr;
-        }
-        void zoneEnd(void*,const char* name,bool,PxU64)override {
-            if(!fixture || std::strcmp(name,"GpuDestruction.correctionBodies") || observed)return;
+        void inspect(bool normal) {
+            if(!fixture || observed)return;
             try {
                 const auto view=fixture->stage->getDeviceView();
                 PxDestructionBodyAllocationStatus allocation;
@@ -22,26 +18,51 @@ void preparationBeforeCompatibility() {
                 PxDestructionCorrectionPreparationStatus correction;
                 PxScopedCudaLock lock(fixture->cuda);check(cuEventSynchronize(view.readyEvent));
                 check(cuMemcpyDtoH(&allocation,CUdeviceptr(view.bodyAllocation),sizeof(allocation)));
+                if(!allocation.valid && normal)return; // first capacity shortage, or no fracture
                 check(cuMemcpyDtoH(&collision,CUdeviceptr(view.collisionPreparation),sizeof(collision)));
                 check(cuMemcpyDtoH(&correction,CUdeviceptr(view.correctionPreparation),sizeof(correction)));
-                require(allocation.valid && allocation.reserved==3 && allocation.initialized==3,
-                    "native motion was not initialized before compatibility");
-                require(collision.valid && collision.migrating==3 && correction.valid && correction.count==4,
-                    "GPU collision/correction preparation is not complete before compatibility");
+                if(!(allocation.valid && allocation.reserved==expectedNew && allocation.initialized==expectedNew))
+                    throw std::runtime_error("motion allocation: valid="+std::to_string(allocation.valid)
+                        +" reserved="+std::to_string(allocation.reserved)+" initialized="+std::to_string(allocation.initialized)
+                        +" expected="+std::to_string(expectedNew)+" error="+std::to_string(allocation.error));
+                require(collision.valid && collision.migrating==expectedNew && correction.valid && correction.count==expectedOwners,
+                    "complete GPU preparation still depends on a host wait/resubmission");
                 require(!static_cast<NpScene&>(fixture->scene).getNbDestructionBodyCandidates(),
                     "CPU fragment objects still precede GPU preparation");
-                require(fixture->parent->getNbShapes()==4 && !constructed,
+                require(fixture->parent->getNbShapes()==expectedShapes && !constructed,
                     "ownership or compatibility mutated before GPU preparation");
-                observed=true;
-            }catch(...){failed=true;}
+                normalBoundary=normal;observed=true;
+            }catch(const std::exception& e){error=e.what();failed=true;}
+        }
+        void* zoneStart(const char* name,bool,PxU64)override {
+            if(!std::strcmp(name,"GpuDestruction.finishAndReserve"))inspect(true);
+            if(fixture && !std::strcmp(name,"GpuDestruction.compatibility.allocateNativeBodies")) {
+                if(!observed || failed)failed=true;
+                constructed=true;
+            }
+            return nullptr;
+        }
+        void zoneEnd(void*,const char* name,bool,PxU64)override {
+            if(fixture && !std::strcmp(name,"GpuDestruction.finishDetail.growMotionSlots")){++growths;inspect(false);}
         }
     } observe;
-    Fixture f(4,2,false,PxSolverType::eTGS,true);f.desc.internalCorrectionLimit=1;f.configure();observe.fixture=&f;
+    Fixture f(4,2,false,PxSolverType::eTGS,true);f.desc.internalCorrectionLimit=1;
+    f.bonds[1].area=f.bonds[1].health=f.bonds[2].area=f.bonds[2].health=100;f.configure();observe.fixture=&f;
     step(f.scene);
-    require(observe.observed && observe.constructed && !observe.failed,"GPU preparation/CPU compatibility ordering failed");
-    const auto status=f.stage->getLastStatus();
-    require(status.brokenBonds==3 && status.correctionPasses==1 && status.stressPasses==2,
-        "ordering fixture lost fracture or corrected stress evaluation");
+    if(observe.failed)throw std::runtime_error("GPU preparation/CPU compatibility ordering failed: "+observe.error);
+    require(observe.observed && observe.constructed && observe.growths==1,"initial growth ordering was not exercised");
+    auto status=f.stage->getLastStatus();
+    require(status.brokenBonds==1 && status.correctionPasses==1 && status.stressPasses==2,
+        "first load did not leave two intact bonds for the resident retry-free path");
+    observe.observed=false;observe.constructed=false;observe.normalBoundary=false;
+    observe.expectedNew=2;observe.expectedOwners=3;observe.expectedShapes=3;
+    f.scene.setGravity(PxVec3(0,-100000,0));step(f.scene);
+    if(observe.failed)throw std::runtime_error("GPU preparation/CPU compatibility ordering failed: "+observe.error);
+    require(observe.observed && observe.constructed && observe.normalBoundary && observe.growths==1,
+        "normal GPU preparation still needs allocation growth or host resubmission");
+    status=f.stage->getLastStatus();
+    require(status.brokenBonds==2 && status.correctionPasses==1 && status.stressPasses==2,
+        "second load lost fracture or corrected stress evaluation");
     require(f.context.healthy(),"ordering fixture became unhealthy");
-    std::puts("6 chunks / 3 bonds plus one ordinary body: initialized motion and complete GPU preparation precede CPU fragment construction; one correction/two stress evaluations passed");
+    std::puts("6 chunks / 3 bonds plus one ordinary body: growth then no-growth fracture; complete GPU preparation before CPU completion/construction; one correction/two stress evaluations per step passed");
 }

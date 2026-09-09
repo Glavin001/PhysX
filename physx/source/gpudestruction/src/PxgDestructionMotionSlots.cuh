@@ -13,12 +13,14 @@ struct NativeMotionAllocationView {
     PxDestructionStageStatus* stage;
     PxU32 requestCapacity,blocks;
     const PxDestructionClusterBodyState* candidates;
+    cudaGraphConditionalHandle continuation{};
 };
 __global__ void beginNativeMotionAllocation(NativeMotionAllocationView v,cudaGraphConditionalHandle work) {
     const auto p=*v.preparation;const auto addresses=*v.addresses;
     *v.allocation={};v.allocation->generation=p.generation;v.allocation->count=p.count;
     v.pool->capacity=addresses.capacity;v.pool->pending=0;v.pool->error=0;
     cudaGraphSetConditional(work,0);
+    if(v.continuation)cudaGraphSetConditional(v.continuation,0);
     if(v.stage->error!=8u)return;
     if(!p.valid || p.count>v.requestCapacity || p.allocationRequests>p.count) {
         v.allocation->error=v.pool->error=2u;v.stage->error|=256u;return;
@@ -29,7 +31,7 @@ __global__ void beginNativeMotionAllocation(NativeMotionAllocationView v,cudaGra
         // or canonical owner has changed and no allocation has been committed.
         v.allocation->error=v.pool->error=1u;return;
     }
-    if(!p.allocationRequests){v.allocation->valid=1;return;}
+    if(!p.allocationRequests){v.allocation->valid=1;if(v.continuation)cudaGraphSetConditional(v.continuation,1);return;}
     cudaGraphSetConditional(work,1);
 }
 __device__ void nativeMotionTileRange(NativeMotionAllocationView v,PxU32& first,PxU32& last) {
@@ -114,6 +116,7 @@ __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
         else {
             v.pool->pending=v.preparation->allocationRequests;
             v.allocation->reserved=v.pool->pending;v.allocation->initialized=v.pool->pending;v.allocation->valid=1;
+            if(v.continuation)cudaGraphSetConditional(v.continuation,1);
         }
     }
 }
@@ -158,7 +161,7 @@ public:
         mHostAddresses.storage=storage;
         return cudaMemcpyAsync(mAddresses,&mHostAddresses,sizeof(mHostAddresses),cudaMemcpyHostToDevice,stream);
     }
-    cudaError_t initialize(NativeMotionAllocationView v,cudaStream_t stream) {
+    cudaError_t initialize(NativeMotionAllocationView v,cudaStream_t stream,cudaGraph_t* continuation=nullptr) {
         int device=0,major=0,minor=0;
         cudaError_t e=cudaGetDevice(&device);if(e!=cudaSuccess)return e;
         e=cudaDeviceGetAttribute(&major,cudaDevAttrComputeCapabilityMajor,device);if(e!=cudaSuccess)return e;
@@ -175,6 +178,7 @@ public:
         v.addresses=mAddresses;v.blockOffsets=mOffsets;
         e=setCapacity(nullptr,0,stream);if(e!=cudaSuccess)return e;
         e=cudaGraphCreate(&mGraph,0);if(e!=cudaSuccess)return e;
+        if(continuation){e=cudaGraphConditionalHandleCreate(&v.continuation,mGraph,0,cudaGraphCondAssignDefault);if(e!=cudaSuccess)return e;}
         cudaGraphConditionalHandle work{};
         e=cudaGraphConditionalHandleCreate(&work,mGraph,0,cudaGraphCondAssignDefault);if(e!=cudaSuccess)return e;
         cudaGraphNode_t prior{};
@@ -186,7 +190,18 @@ public:
         e=add(body,prior,allocateNativeMotionRequests,v.blocks,128,v);if(e!=cudaSuccess)return e;
         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
         e=cudaGraphKernelNodeSetAttribute(prior,cudaKernelNodeAttributeCooperative,&attribute);if(e!=cudaSuccess)return e;
-        e=cudaGraphInstantiate(&mExecutable,mGraph,0);if(e!=cudaSuccess)return e;
+        if(continuation) {
+            cudaGraphNodeParams next{};next.type=cudaGraphNodeTypeConditional;
+            next.conditional.handle=v.continuation;next.conditional.type=cudaGraphCondTypeIf;next.conditional.size=1;
+            cudaGraphNode_t node{};e=cudaGraphAddNode(&node,mGraph,&branch,1,&next);if(e!=cudaSuccess)return e;
+            *continuation=next.conditional.phGraph_out[0];return cudaSuccess;
+        }
+        return instantiate(stream);
+    }
+    // The standalone allocation oracle needs no continuation. Production fills
+    // the same graph's preparation branch before this single instantiation.
+    cudaError_t instantiate(cudaStream_t stream) {
+        const auto e=cudaGraphInstantiate(&mExecutable,mGraph,0);if(e!=cudaSuccess)return e;
         return cudaGraphUpload(mExecutable,stream);
     }
     cudaError_t launch(cudaStream_t stream) {return cudaGraphLaunch(mExecutable,stream);}

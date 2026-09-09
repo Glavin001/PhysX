@@ -308,6 +308,13 @@ __device__ bool initializedBodyAllocation(const PxDestructionBodyAllocationStatu
     return allocation->valid && !allocation->error && !allocation->initializationError
         && allocation->initialized==allocation->reserved;
 }
+struct NativePreparationInputs {
+    PxgDestructionCollisionStorage collision;
+    const PxgBodySim* checkpoint=nullptr;
+    const PxgBodySimVelocities* previous=nullptr;
+    PxU32 checkpointCount=0,bodyCapacity=0,clusterCount=0;
+    PxU64 checkpointGeneration=0;
+};
 // Rigid membership is determined by the GPU bond graph. This batch identifies
 // native shape edits without traversing chunk/shape ownership on the CPU.
 __global__ void indexCandidateRoots(PxDestructionTopologyDeviceView topology,PxU32* slots) {
@@ -319,7 +326,10 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
     PxDestructionTopologyDeviceView topology,const PxU32* candidateSlots,const PxU32* candidateBodies,
     const PxgShapeSim* shapes,PxU32 shapeCapacity,const PxNodeIndex* shapeToBody,PxU32 remapCapacity,
     PxDestructionCollisionBinding* bindings,
-    PxDestructionCollisionPreparationStatus* status,const PxDestructionBodyAllocationStatus* allocation) {
+    PxDestructionCollisionPreparationStatus* status,const PxDestructionBodyAllocationStatus* allocation,
+    const NativePreparationInputs* inputs=nullptr) {
+    if(inputs){shapes=inputs->collision.shapes;shapeCapacity=inputs->collision.shapeCapacity;
+        shapeToBody=inputs->collision.shapeToBody;remapCapacity=inputs->collision.remapCapacity;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=chunkCount)return;
     bindings[i]={i,PX_INVALID_U32,PX_INVALID_U32,PX_INVALID_U32};
     // Overwrite every compaction sentinel even when initialization was rejected.
@@ -390,6 +400,7 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 }
 #include "PxgDestructionCorrection.cuh"
 #include "PxgDestructionMotionSlots.cuh"
+#include "PxgDestructionPreparationGraph.cuh"
 class Runtime final : public PxgDestructionRuntime {
     bool mPreserveContactPairs=false;
     bool mPostCorrection=false;PxDestructionStageStatus mFirstPassStatus{};
@@ -441,6 +452,17 @@ class Runtime final : public PxgDestructionRuntime {
     Lookup* mMap{}; PxU32 mMapCount{},mN{},mM{},mC{};
     bool mOwnInputs=false;
     PxDestructionVectorPair* mInputs{}; PxDestructionSurfaceLoad* mSurface{};
+    // Producers write canonical completion records in one allocation. Their
+    // public device addresses stay distinct; mandatory CPU observation is one
+    // pinned transfer, not a status-copy chain between device stages.
+    struct Completion {
+        PxDestructionStageStatus stage;
+        PxDestructionBodyPreparationStatus body;
+        PxDestructionBodyAllocationStatus allocation;
+        PxDestructionCollisionPreparationStatus collision;
+        PxDestructionCorrectionPreparationStatus correction;
+    };
+    Completion *mCompletion{},*mHostCompletion{};
     PxDestructionStageStatus* mStatus{}; PxDestructionStageStatus* mHostStatus{};
     PxDestructionMaterial* mMaterials{};PxDestructionStressBond* mBonds{};
     float *mHealth{},*mRates{};PxU32 *mNodeBegin{},*mNodeRefs{};
@@ -461,6 +483,9 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionMotionSlotStatus* mMotionSlots{};
     PxU32 mMotionSlotCapacity{},mCommittedMotionSlots{}; // capacity accounting, not allocation decisions
     NativeMotionAllocation mMotionAllocation;
+    NativeCorrectionPreparation mDevicePreparation;
+    PxgDestructionCollisionStorage mCollisionStorage{};
+    bool mPreparationObserved=false;
     PxgDestructionMotionStorage mMotionStorage{};
     PxgDestructionGrowMotionStorage mGrowMotionStorage{};void* mMotionStorageOwner{};
     CUstream mMotionProducerStream{};
@@ -482,12 +507,10 @@ class Runtime final : public PxgDestructionRuntime {
     PxU32 mShapeOwnerCapacity{};
     PxU64 mInstalledOwnerGeneration{};
     PxDestructionCollisionPreparationStatus* mCollisionPreparation{};
-    PxDestructionCollisionPreparationStatus mHostCollisionPreparation{};
     void* mCollisionScratch{};size_t mCollisionScratchBytes{};
     PxgDestructionEdit* mTopologyEdits{};PxU32* mTopologyCount{};PxU32* mTopologyAccept{};PxU32 mEditCapacity{};
     PxDestructionCorrectionBody *mCorrectionBodies{},*mCompactCorrectionBodies{};
     PxDestructionCorrectionPreparationStatus* mCorrectionPreparation{};
-    PxDestructionCorrectionPreparationStatus mHostCorrectionPreparation{};
     void* mCorrectionScratch{};size_t mCorrectionScratchBytes{};
     PxU32 mCorrectionBodyCapacity{};
     bool mCollisionPreparationSubmitted=false,mCorrectionPreparationSubmitted=false;
@@ -547,9 +570,11 @@ public:
         check(cudaEventCreateWithFlags(&mGraphReady,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mPreReady,cudaEventDisableTiming));
         check(cudaEventRecord(mPreReady,mStream));
-        allocate(mStatus,1);
-        check(cudaMallocHost(&mHostStatus,sizeof(*mHostStatus)));*mHostStatus={};
-        check(cudaMemset(mStatus,0,sizeof(*mStatus)));
+        allocate(mCompletion,1);
+        check(cudaMallocHost(&mHostCompletion,sizeof(*mHostCompletion)));
+        std::memset(mHostCompletion,0,sizeof(*mHostCompletion));
+        check(cudaMemset(mCompletion,0,sizeof(*mCompletion)));
+        mStatus=&mCompletion->stage;mHostStatus=&mHostCompletion->stage;
         check(cudaEventRecord(mReady,mStream));
     }
     void setProfiler(PxProfilerCallback* callback,PxU64 context) override {mProfiler=callback;mProfileContext=context;}
@@ -858,7 +883,7 @@ public:
         for(auto event:mStageEvents)if(event)cudaEventDestroy(event);
         for(auto event:mMotionAllocationEvents)if(event)cudaEventDestroy(event);
         for(auto event:mCorrectionEvents)if(event)cudaEventDestroy(event);
-        cudaFree(mStatus);cudaFreeHost(mHostStatus);
+        cudaFree(mCompletion);cudaFreeHost(mHostCompletion);
         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
@@ -877,7 +902,7 @@ public:
         cudaFree(mGraphAccurate);mGraphAccurate=nullptr;
         cudaFree(mGraphSpeculative);mGraphSpeculative=nullptr;cudaFree(mGraphStatus);mGraphStatus=nullptr;
         mGraphView={};mGraphPairCapacity=0;mGraphNodeCapacity=0;
-        mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;
+        mHostCompletion->correction={};mCorrectionBodyCapacity=0;
         mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;mRestoredCheckpointGeneration=0;
         if(mGraphRetainedCounts) {
             PxU32 counts[2];
@@ -901,33 +926,33 @@ public:
         cudaFree(mCorrectionOwnerRequests);mCorrectionOwnerRequests=nullptr;
         cudaFree(mCorrectionOwnerTargets);mCorrectionOwnerTargets=nullptr;
         cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
-        cudaFree(mCorrectionPreparation);mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
+        mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
         mCheckpointValid=false;mCheckpointCount=0;mCheckpointCapacity=0;
         mCheckpointHasPrevious=mCheckpointHasAccelerations=false;
         cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
         cudaFree(mCheckpointPrevious);mCheckpointPrevious=nullptr;
         cudaFree(mCheckpointAccelerations);mCheckpointAccelerations=nullptr;
-        mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCollisionPreparation={};
+        mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCompletion->collision={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
         cudaFree(mMigratingCollisionBindings);mMigratingCollisionBindings=nullptr;
         cudaFree(mShapeOwnerGenerations);mShapeOwnerGenerations=nullptr;
         mShapeOwnerCapacity=0;mInstalledOwnerGeneration=0;
-        cudaFree(mCollisionPreparation);mCollisionPreparation=nullptr;cudaFree(mCollisionScratch);mCollisionScratch=nullptr;mCollisionScratchBytes=0;
+        mCollisionPreparation=nullptr;cudaFree(mCollisionScratch);mCollisionScratch=nullptr;mCollisionScratchBytes=0;
         if(mBodyAllocator)mBodyAllocator->clear();
         cudaFree(mCompactBodyRequests);mCompactBodyRequests=nullptr;
         cudaFree(mReturnedBodyIndices);mReturnedBodyIndices=nullptr;
         cudaFree(mGrantedMotionIndices);mGrantedMotionIndices=nullptr;
         cudaFree(mMotionSlots);mMotionSlots=nullptr;mMotionSlotCapacity=mCommittedMotionSlots=0;
-        mMotionAllocation.clear();
+        mDevicePreparation.clear();mMotionAllocation.clear();
         cudaFree(mBodyRequests);mBodyRequests=nullptr;cudaFree(mTrialBodyIndices);mTrialBodyIndices=nullptr;
-        cudaFree(mBodyAllocation);mBodyAllocation=nullptr;cudaFreeHost(mHostBodyPreparation);mHostBodyPreparation=nullptr;
-        cudaFreeHost(mBodyAllocationObservation);mBodyAllocationObservation=nullptr;mMotionTimingPending=false;
+        mBodyAllocation=nullptr;mHostBodyPreparation=nullptr;
+        mBodyAllocationObservation=nullptr;mMotionTimingPending=false;
         mChanges.clear();
         if(mTopology)mTopology->release();mTopology=nullptr;
         cudaFree(mProvisionalMotion);mProvisionalMotion=nullptr;
-        cudaFree(mTrialBodies);mTrialBodies=nullptr;cudaFree(mBodyPreparation);mBodyPreparation=nullptr;
+        cudaFree(mTrialBodies);mTrialBodies=nullptr;mBodyPreparation=nullptr;
         cudaFree(mTopologyEdits);mTopologyEdits=nullptr;cudaFree(mTopologyCount);mTopologyCount=nullptr;mEditCapacity=0;
         cudaFree(mTopologyAccept);mTopologyAccept=nullptr;
         if(mSolver)mSolver->release();mSolver=nullptr;
@@ -1063,7 +1088,7 @@ public:
                 if(!mTopology || (mSolver && !mSolver->enableDeviceTopology())){clear();return false;}
                 allocate(mTopologyAccept,1);
                 allocate(mAffectedClusters,d.chunkCount);allocate(mCandidateSlots,d.chunkCount);
-                allocate(mCollisionBindings,d.chunkCount);allocate(mCompactCollisionBindings,d.chunkCount);allocate(mCollisionPreparation,1);
+                allocate(mCollisionBindings,d.chunkCount);allocate(mCompactCollisionBindings,d.chunkCount);mCollisionPreparation=&mCompletion->collision;
                 allocate(mMigratingCollisionBindings,d.chunkCount);
                 check(cudaMemset(mCollisionPreparation,0,sizeof(*mCollisionPreparation)));
                 check(cub::DeviceSelect::If(nullptr,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
@@ -1074,21 +1099,44 @@ public:
                 mCollisionScratchBytes=std::max(mCollisionScratchBytes,migratingScratchBytes);
                 check(cudaMalloc(&mCollisionScratch,mCollisionScratchBytes));
                 allocate(mCorrectionOwnerRequests,d.chunkCount);allocate(mCorrectionOwnerTargets,d.chunkCount);
-                allocate(mCorrectionBodies,d.chunkCount);allocate(mCompactCorrectionBodies,d.chunkCount);allocate(mCorrectionPreparation,1);
+                allocate(mCorrectionBodies,d.chunkCount);allocate(mCompactCorrectionBodies,d.chunkCount);mCorrectionPreparation=&mCompletion->correction;
                 check(cudaMemset(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation)));
                 check(cub::DeviceSelect::If(nullptr,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                     &mCorrectionPreparation->count,d.chunkCount,HasCorrectionBody{},mStream));
                 check(cudaMalloc(&mCorrectionScratch,mCorrectionScratchBytes));
-                allocate(mTrialBodies,d.chunkCount);allocate(mBodyPreparation,1);
+                allocate(mTrialBodies,d.chunkCount);mBodyPreparation=&mCompletion->body;
                 check(cudaMemset(mBodyPreparation,0,sizeof(*mBodyPreparation)));
-                check(cudaMallocHost(&mHostBodyPreparation,sizeof(*mHostBodyPreparation)));*mHostBodyPreparation={};
-                check(cudaMallocHost(&mBodyAllocationObservation,sizeof(*mBodyAllocationObservation)));*mBodyAllocationObservation={};
-                allocate(mBodyRequests,d.chunkCount);allocate(mTrialBodyIndices,d.chunkCount);allocate(mBodyAllocation,1);
+                mHostBodyPreparation=&mHostCompletion->body;*mHostBodyPreparation={};
+                mBodyAllocationObservation=&mHostCompletion->allocation;*mBodyAllocationObservation={};
+                allocate(mBodyRequests,d.chunkCount);allocate(mTrialBodyIndices,d.chunkCount);mBodyAllocation=&mCompletion->allocation;
                 check(cudaMemset(mBodyAllocation,0,sizeof(*mBodyAllocation)));
                 allocate(mCompactBodyRequests,d.chunkCount);allocate(mReturnedBodyIndices,d.chunkCount);
                 allocate(mMotionSlots,1);check(cudaMemset(mMotionSlots,0,sizeof(*mMotionSlots)));
+                cudaGraph_t preparationGraph{};
                 check(mMotionAllocation.initialize({mMotionSlots,nullptr,mBodyPreparation,mBodyRequests,
-                    mCompactBodyRequests,mReturnedBodyIndices,mTrialBodyIndices,nullptr,mBodyAllocation,mStatus,mN,0,mTrialBodies},mStream));
+                    mCompactBodyRequests,mReturnedBodyIndices,mTrialBodyIndices,nullptr,mBodyAllocation,mStatus,mN,0,mTrialBodies},mStream,&preparationGraph));
+                mDevicePreparation.initialize(preparationGraph,mStream,[&](const NativePreparationInputs* inputs) {
+                    const auto trial=mTopology->trial();
+                    check(cudaMemsetAsync(mCandidateSlots,0xff,mN*sizeof(PxU32),mStream));
+                    indexCandidateRoots<<<(mN+127)/128,128,0,mStream>>>(trial,mCandidateSlots);
+                    preparePersistentCollisionBindings<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mAffectedClusters,
+                        trial,mCandidateSlots,mTrialBodyIndices,nullptr,0,nullptr,0,mCollisionBindings,mCollisionPreparation,mBodyAllocation,inputs);
+                    check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
+                        &mCollisionPreparation->count,mN,HasCollisionBinding{},mStream));
+                    check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mMigratingCollisionBindings,
+                        &mCollisionPreparation->migrating,mN,HasMigratingCollisionBinding{},mStream));
+                    finishCollisionPreparation<<<1,1,0,mStream>>>(mCollisionPreparation,mBodyAllocation,mStatus);
+                    check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),mStream));
+                    prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,mStream>>>(mTrialBodies,mTrialBodyIndices,mN,trial,mChunks,
+                        mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,inputs);
+                    inspectCorrectionSourceLoads<<<(mN+127)/128,128,0,mStream>>>(mClusters,mAffectedClusters,0,nullptr,0,
+                        mCollisionPreparation,mCorrectionPreparation,inputs);
+                    check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
+                        &mCorrectionPreparation->count,mN,HasCorrectionBody{},mStream));
+                    finishCorrectionPreparation<<<1,1,0,mStream>>>(mCorrectionPreparation,mCollisionPreparation,0,mStatus,inputs);
+                    check(cudaGetLastError());
+                });
+                check(mMotionAllocation.instantiate(mStream));
                 mEditCapacity=d.chunkCount+d.bondCount;
                 allocate(mProvisionalMotion,d.chunkCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
             }
@@ -1145,8 +1193,8 @@ public:
             startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,postCorrection);
             if(mTopology && !postCorrection)mChanges.start(mTopology->accepted(),mStatus,mStream);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
-            mHostCorrectionPreparation={};mCorrectionBodyCapacity=0;
-            mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
+            mHostCompletion->correction={};mCorrectionBodyCapacity=0;
+            mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;mPreparationObserved=false;
             if(mCorrectionPreparation)check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),mStream));
             if(mCollisionPreparation) {
                 check(cudaMemsetAsync(mCollisionPreparation,0,sizeof(*mCollisionPreparation),mStream));
@@ -1167,10 +1215,10 @@ public:
     }
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
     bool advance(PxReal dt,const PxVec3& gravity,const PxgDestructionMotionStorage& storage,CUstream producerStream,
-        PxgDestructionGrowMotionStorage growStorage,void* storageOwner,const PxgDestructionSolvedContacts& contacts) override {
+        PxgDestructionGrowMotionStorage growStorage,void* storageOwner,const PxgDestructionSolvedContacts& contacts,const PxgDestructionCollisionStorage& collision) override {
         const auto* bodyStates=storage.bodies;
         try {Context current(mContext);
-            mMotionStorage=storage;mGrowMotionStorage=growStorage;mMotionStorageOwner=storageOwner;mMotionProducerStream=producerStream;if(!configured() || dt<=0 || !bodyStates || !producerStream)return false;
+            mCollisionStorage=collision;mMotionStorage=storage;mGrowMotionStorage=growStorage;mMotionStorageOwner=storageOwner;mMotionProducerStream=producerStream;if(!configured() || dt<=0 || !bodyStates || !producerStream)return false;
             // Join borrowed NP streams and the native body's last writer before
             // reading either. Recording the existing input event on the body
             // producer preserves the previous API-gather ordering without
@@ -1178,7 +1226,10 @@ public:
             check(cudaStreamWaitEvent(producerStream,mInput,0));
             check(cudaEventRecord(mInput,producerStream));
             check(cudaStreamWaitEvent(mStream,mInput,0));
-            if(mTopology)check(mMotionAllocation.setStorage(storage,mStream));
+            if(mTopology) {
+                check(mMotionAllocation.setStorage(storage,mStream));
+                prepareDeviceInputs();
+            }
             stageMarker(0);
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
@@ -1249,12 +1300,31 @@ public:
                 // The GPU producer consumes its own count. CPU compatibility
                 // observes a completed assignment, never selects its work size.
                 submitMotionAllocation();
-                check(cudaMemcpyAsync(mHostBodyPreparation,mBodyPreparation,sizeof(*mBodyPreparation),cudaMemcpyDeviceToHost,mStream));
-                check(cudaMemcpyAsync(mBodyAllocationObservation,mBodyAllocation,sizeof(*mBodyAllocationObservation),cudaMemcpyDeviceToHost,mStream));
             }
-            check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
+            observeCompletion();
             check(cudaEventRecord(mReady,mStream));mPending=true;return true;
         }catch(...){mFailed=true;return false;}
+    }
+    void prepareDeviceInputs() {
+        // Pointer/capacity refresh is ordinary submission metadata. No fracture
+        // count or verdict crosses to the host to decide which stages execute.
+        if(mCollisionStorage.shapeCapacity>mShapeOwnerCapacity) {
+            const PxU32 capacity=PxU32(std::max<PxU64>(mCollisionStorage.shapeCapacity,
+                std::min<PxU64>(PX_INVALID_U32,std::max<PxU64>(256,PxU64(mShapeOwnerCapacity)+mShapeOwnerCapacity/2))));
+            PxU64* next=nullptr;allocate(next,capacity);
+            try {check(cudaMemsetAsync(next,0,size_t(capacity)*sizeof(PxU64),mStream));}
+            catch(...){cudaFree(next);throw;}
+            check(cudaFree(mShapeOwnerGenerations));mShapeOwnerGenerations=next;mShapeOwnerCapacity=capacity;
+        }
+        check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
+        NativePreparationInputs inputs{};inputs.collision=mCollisionStorage;
+        inputs.checkpoint=mCheckpointValid?mCheckpointBodies:nullptr;inputs.previous=mCheckpointPrevious;
+        inputs.checkpointCount=mCheckpointValid?mCheckpointCount:0;inputs.checkpointGeneration=mCheckpointGeneration;
+        inputs.bodyCapacity=mMotionStorage.capacity;inputs.clusterCount=mC;
+        mDevicePreparation.setInputs(inputs,mStream);mCorrectionBodyCapacity=mMotionStorage.capacity;
+    }
+    void observeCompletion() {
+        check(cudaMemcpyAsync(mHostCompletion,mCompletion,sizeof(*mCompletion),cudaMemcpyDeviceToHost,mStream));
     }
     void submitMotionAllocation(bool retry=false) {
         if(mProfiler) {
@@ -1262,6 +1332,7 @@ public:
             check(cudaEventRecord(mMotionAllocationEvents[0],mStream));
         }
         check(mMotionAllocation.launch(mStream));
+        mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=true;
         if(mProfiler) {
             check(cudaEventRecord(mMotionAllocationEvents[1],mStream));mMotionTimingPending=true;mMotionTimingRetry=retry;
         }
@@ -1271,7 +1342,7 @@ public:
         // Called after an existing completion wait; no new synchronization.
         float elapsed=0;check(cudaEventElapsedTime(&elapsed,mMotionAllocationEvents[0],mMotionAllocationEvents[1]));
         if(mProfiler)mProfiler->recordData(elapsed,mMotionTimingRetry
-            ? "GpuDestruction.cuda.motionAllocationRetry" : "GpuDestruction.cuda.motionAllocation",mProfileContext);
+            ? "GpuDestruction.cuda.allocationAndPreparationRetry" : "GpuDestruction.cuda.allocationAndPreparation",mProfileContext);
         mMotionTimingPending=false;
     }
     void reserveBodySlots() {
@@ -1311,24 +1382,22 @@ public:
             catch(...){cudaFree(next);throw;}
             check(cudaFree(mGrantedMotionIndices));mGrantedMotionIndices=next;mMotionSlotCapacity=capacity;
             check(mMotionAllocation.setCapacity(mGrantedMotionIndices,mMotionSlotCapacity,mStream));
-            // Retry allocation only. The intact response, fracture verdict and
+            // Retry allocation/preparation only. The intact response, fracture verdict and
             // material evolution have already run and must not run again.
-            submitMotionAllocation(true);
-            check(cudaMemcpyAsync(mBodyAllocationObservation,mBodyAllocation,sizeof(*mBodyAllocationObservation),cudaMemcpyDeviceToHost,mStream));
-            check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mHostStatus),cudaMemcpyDeviceToHost,mStream));
+            prepareDeviceInputs();submitMotionAllocation(true);observeCompletion();
             check(cudaStreamSynchronize(mStream));
             allocation=*mBodyAllocationObservation;collectMotionAllocationTiming();
         }
         if(!allocation.valid || allocation.error || allocation.initialized!=requested || allocation.reserved!=requested
             || allocation.count!=count || allocation.generation!=mHostBodyPreparation->generation
-            || mHostStatus->error!=8u)throw std::runtime_error("native GPU motion allocation rejected");
+            || (mHostStatus->error&~(8u|1024u|2048u)))throw std::runtime_error("native GPU motion allocation rejected");
     }
     bool prepareBodyCompatibility() {
         if(mCompatibilityPrepared)return true;
         // GPU collision and corrected-motion preparation are prerequisites for
         // CPU compatibility construction, never its consumers. The selected
         // motion addresses and complete preparation already exist on device.
-        if(mHostStatus->error!=8u || !mHostCollisionPreparation.valid || !mHostCorrectionPreparation.valid)return false;
+        if(mHostStatus->error!=8u || !mHostCompletion->collision.valid || !mHostCompletion->correction.valid)return false;
         auto& allocation=mHostBodyAllocation;
         const PxU32 requested=allocation.reserved;
         std::vector<PxvDestructionBodyRequest> requests(requested);mHostReservedIndices.resize(requested);
@@ -1422,8 +1491,8 @@ public:
     const PxU32* reservedBodyIndices() const override {return mHostReservedIndices.data();}
     bool initializeReservedBodies(PxgBodySim* bodies,PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations,PxU32 capacity,CUstream coreStream) override {
-        mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
-        mHostCollisionPreparation={};mHostCorrectionPreparation={};
+        mPreparationObserved=false;mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
+        mHostCompletion->collision={};mHostCompletion->correction={};
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             const PxU32 count=reservedBodyCount();
@@ -1457,8 +1526,8 @@ public:
     }
     bool prepareCollisionBindings(const PxgShapeSim* shapes,PxU32 shapeCapacity,const PxNodeIndex* shapeToBody,PxU32 remapCapacity,CUstream coreStream) override {
         if(!mTopology || mHostStatus->error!=8u || !mHostBodyAllocation.valid)return true;
-        mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
-        mHostCollisionPreparation={};mHostCorrectionPreparation={};
+        mPreparationObserved=false;mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
+        mHostCompletion->collision={};mHostCompletion->correction={};
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             if(!stream)throw std::runtime_error("collision preparation requires a producer stream");
@@ -1489,11 +1558,11 @@ public:
             check(cudaEventRecord(mReady,stream));mCollisionPreparationSubmitted=true;
             return true; // Submission only; the next stage consumes device validity.
         }catch(...) {
-            mHostStatus->error|=1024u;mHostCollisionPreparation.valid=0;mHostCollisionPreparation.error|=16u;
+            mHostStatus->error|=1024u;mHostCompletion->collision.valid=0;mHostCompletion->collision.error|=16u;
             try {Context current(mContext);
                 // Exceptional launch failure: drain submitted writers before publishing rejection.
                 if(coreStream)check(cudaStreamSynchronize(reinterpret_cast<cudaStream_t>(coreStream)));
-                check(cudaMemcpyAsync(mCollisionPreparation,&mHostCollisionPreparation,sizeof(mHostCollisionPreparation),cudaMemcpyHostToDevice,mStream));
+                check(cudaMemcpyAsync(mCollisionPreparation,&mHostCompletion->collision,sizeof(mHostCompletion->collision),cudaMemcpyHostToDevice,mStream));
                 check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
                 check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             }catch(...){mFailed=true;}
@@ -1503,7 +1572,7 @@ public:
     bool prepareCorrectionBodies(PxU32 bodyCapacity,CUstream coreStream) override {
         if(!mTopology || mHostStatus->error!=8u)return true;
         if(!mCollisionPreparationSubmitted)return false;
-        mCorrectionPreparationSubmitted=false;mHostCorrectionPreparation={};
+        mPreparationObserved=false;mCorrectionPreparationSubmitted=false;mHostCompletion->correction={};
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             if(!mCheckpointValid || !stream)throw std::runtime_error("missing correction input checkpoint");
@@ -1520,11 +1589,11 @@ public:
             check(cudaEventRecord(mReady,stream));mCorrectionBodyCapacity=bodyCapacity;
             mCorrectionPreparationSubmitted=true;return true;
         }catch(...) {
-            mHostStatus->error|=2048u;mHostCorrectionPreparation.valid=0;mHostCorrectionPreparation.error|=16u;
+            mHostStatus->error|=2048u;mHostCompletion->correction.valid=0;mHostCompletion->correction.error|=16u;
             try {Context current(mContext);
                 // Exceptional launch failure: drain submitted writers before publishing rejection.
                 if(coreStream)check(cudaStreamSynchronize(reinterpret_cast<cudaStream_t>(coreStream)));
-                check(cudaMemcpyAsync(mCorrectionPreparation,&mHostCorrectionPreparation,sizeof(mHostCorrectionPreparation),cudaMemcpyHostToDevice,mStream));
+                check(cudaMemcpyAsync(mCorrectionPreparation,&mHostCompletion->correction,sizeof(mHostCompletion->correction),cudaMemcpyHostToDevice,mStream));
                 check(cudaMemcpyAsync(mStatus,mHostStatus,sizeof(*mStatus),cudaMemcpyHostToDevice,mStream));
                 check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             }catch(...){mFailed=true;}
@@ -1537,25 +1606,28 @@ public:
         try {
             // The remaining CPU ownership bridge needs these compact verdicts.
             // Neither GPU preparation stage reads a host verdict or waits for one.
-            Context current(mContext);check(cudaStreamWaitEvent(mStream,mReady,0));
-            check(cudaMemcpyAsync(&mHostCollisionPreparation,mCollisionPreparation,sizeof(mHostCollisionPreparation),cudaMemcpyDeviceToHost,mStream));
-            check(cudaMemcpyAsync(&mHostCorrectionPreparation,mCorrectionPreparation,sizeof(mHostCorrectionPreparation),cudaMemcpyDeviceToHost,mStream));
-            check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
-            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            return mHostStatus->error==8u && mHostCollisionPreparation.valid && mHostCorrectionPreparation.valid && prepareBodyCompatibility();
+            Context current(mContext);
+            // Normal submission already observed the complete device sequence at
+            // finish. Explicit validation fixtures may resubmit a preparation;
+            // only that diagnostic use needs a fresh observation here.
+            if(!mPreparationObserved) {
+                check(cudaStreamWaitEvent(mStream,mReady,0));observeCompletion();
+                check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));mPreparationObserved=true;
+            }
+            return mHostStatus->error==8u && mHostCompletion->collision.valid && mHostCompletion->correction.valid && prepareBodyCompatibility();
         }catch(...){mFailed=true;return false;}
     }
     bool installCorrectionBodies(PxgBodySim* bodies,PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,
         PxU32 capacity,PxU64 checkpointGeneration,CUstream coreStream) override {
-        if(mFailed || !mCheckpointValid || !mHostCorrectionPreparation.valid || mHostCorrectionPreparation.loadedSources
+        if(mFailed || !mCheckpointValid || !mHostCompletion->correction.valid || mHostCompletion->correction.loadedSources
             || mHostStatus->error!=8u || !bodies || !coreStream || capacity<mCorrectionBodyCapacity
-            || checkpointGeneration!=mCheckpointGeneration || checkpointGeneration!=mHostCorrectionPreparation.checkpointGeneration
+            || checkpointGeneration!=mCheckpointGeneration || checkpointGeneration!=mHostCompletion->correction.checkpointGeneration
             || mRestoredCheckpointGeneration!=checkpointGeneration
             || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations)return false;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mReady,0));check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
-            const PxU32 count=mHostCorrectionPreparation.count;
+            const PxU32 count=mHostCompletion->correction.count;
             correctionMarker(2,stream);
             if(count)installCorrectionBodyInputs<<<(count+127)/128,128,0,stream>>>(mCompactCorrectionBodies,count,mCheckpointBodies,
                 mCheckpointPrevious,bodies,previous,accelerations);
@@ -1564,14 +1636,14 @@ public:
         }catch(...) {mFailed=true;return false;}
     }
     bool installCollisionOwners(PxgShapeSim* shapes,PxU32 capacity,PxNodeIndex* shapeToBody,PxU32 remapCapacity,CUstream coreStream) override {
-        if(mFailed || !mCorrectionEnabled || mHostStatus->error!=8u || !mHostCollisionPreparation.valid
-            || mHostCollisionPreparation.removed || !mHostCorrectionPreparation.valid || !coreStream
-            || (mHostCollisionPreparation.count && (!shapes || !capacity || !shapeToBody || remapCapacity<capacity
+        if(mFailed || !mCorrectionEnabled || mHostStatus->error!=8u || !mHostCompletion->collision.valid
+            || mHostCompletion->collision.removed || !mHostCompletion->correction.valid || !coreStream
+            || (mHostCompletion->collision.count && (!shapes || !capacity || !shapeToBody || remapCapacity<capacity
                 || !mShapeOwnerGenerations || mShapeOwnerCapacity<capacity || !mCheckpointGeneration)))return false;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mReady,0));
-            const PxU32 count=mHostCollisionPreparation.count;
+            const PxU32 count=mHostCompletion->collision.count;
             correctionMarker(4,stream);
             if(count)installNativeCollisionOwners<<<(count+127)/128,128,0,stream>>>(mCompactCollisionBindings,count,shapes,capacity,shapeToBody,remapCapacity,
                 mShapeOwnerGenerations,mCheckpointGeneration);
@@ -1588,17 +1660,17 @@ public:
     PxU32 correctionBodyCount() const override { return PxU32(mHostCorrectionTargets.size()); }
     const PxU32* correctionBodyIndices() const override { return mHostCorrectionTargets.data(); }
     bool applyCorrectionBindings() override {
-        if(!mCorrectionEnabled || mFailed || mHostStatus->error!=8u || !mHostCollisionPreparation.valid
-            || !mHostCorrectionPreparation.valid || mHostCorrectionPreparation.loadedSources
-            || mHostCollisionPreparation.removed || !mBodyAllocator)return false;
+        if(!mCorrectionEnabled || mFailed || mHostStatus->error!=8u || !mHostCompletion->collision.valid
+            || !mHostCompletion->correction.valid || mHostCompletion->correction.loadedSources
+            || mHostCompletion->collision.removed || !mBodyAllocator)return false;
         try {
             Context current(mContext);check(cudaEventSynchronize(mReady));
-            std::vector<PxDestructionCollisionBinding> bindings(mHostCollisionPreparation.migrating);
+            std::vector<PxDestructionCollisionBinding> bindings(mHostCompletion->collision.migrating);
             // CUDA has already selected every retained/new owner whose source
             // changed. Unchanged clusters need neither CPU ownership updates nor
             // a physical-state readback. Full rigid checkpoint replay remains
             // unchanged and still corrects ordinary interaction participants.
-            const PxU32 count=mHostCorrectionPreparation.count;
+            const PxU32 count=mHostCompletion->correction.count;
             std::vector<PxvDestructionBodyRequest> requests(count);
             std::vector<PxDestructionCorrectionBody> observations(mBodyAllocator->needsHostProperties()?count:0);
             mHostCorrectionTargets.resize(count);
@@ -1657,7 +1729,7 @@ public:
         try {Context current(mContext);if(mPending){
                 {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
                     check(cudaEventSynchronize(mReady));}
-                collectStageTimings();collectMotionAllocationTiming();mPending=false;reserveBodySlots();}
+                collectStageTimings();collectMotionAllocationTiming();mPending=false;reserveBodySlots();mPreparationObserved=true;}
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;
@@ -1666,7 +1738,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV3(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV4(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 

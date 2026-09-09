@@ -59,6 +59,19 @@ class PhaseAnalysis(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'duplicate CUDA'):
             API['analyze'](self.root)
 
+    def test_device_preparation_requires_complete_cuda_evidence(self):
+        path=self.root/'native.phases.csv'
+        with path.open() as stream: rows=list(csv.reader(stream))
+        rows=[row for row in rows if row[1] not in ('GpuDestruction.collisionBindings','GpuDestruction.correctionBodies')]
+        rows += [[i,'GpuDestruction.preparationCompletion',.1,1] for i in range(2)]
+        with path.open('w') as stream:csv.writer(stream).writerows(rows)
+        self.rows += [[i,'GpuDestruction.cuda.allocationAndPreparation',.03,1] for i in range(2)]
+        self.save_device()
+        self.assertTrue(API['analyze'](self.root)['cuda_stages']['device_controlled_preparation'])
+        self.rows.pop();self.save_device()
+        with self.assertRaisesRegex(ValueError,'missing device preparation'):
+            API['analyze'](self.root)
+
     def test_combined_preparation_wait_is_attributed(self):
         before = API['analyze'](self.root)['unmeasured_interval_mean_ms']
         with (self.root / 'native.phases.csv').open('a') as stream:

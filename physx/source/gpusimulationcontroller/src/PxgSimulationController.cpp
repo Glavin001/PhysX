@@ -636,7 +636,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction)
-            mDestruction = PxCreateDestructionRuntimeV3(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV4(mCudaContextManager->getContext(), scene, gate, allocator);
         return mDestruction;
     }
 
@@ -812,7 +812,12 @@ namespace physx
             const PxgDestructionMotionStorage storage={mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
                 mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),mSimulationCore->getRigidBodyAccelerationsDevice(),
                 mSimulationCore->getBodySimStorageCapacity()};
-            ok=mDestruction->advance(dt,gravity,storage,mSimulationCore->getStream(),growStorage,this,contacts);
+            const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+            const auto& remap=mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer;
+            const PxgDestructionCollisionStorage collision={shapes.getShapeSimsDeviceTypedPtr(),
+                reinterpret_cast<const PxNodeIndex*>(remap.getDevicePtr()),shapes.getNbTotalShapeSims(),
+                PxU32(remap.getSize()/sizeof(PxNodeIndex))};
+            ok=mDestruction->advance(dt,gravity,storage,mSimulationCore->getStream(),growStorage,this,contacts,collision);
         }
         }
         // Complete before contact buffers can be recycled or the scene is
@@ -822,19 +827,6 @@ namespace physx
         {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.finishAndReserve",false,profileContext);
             complete=mDestruction->finish();
-        }
-        if(ok) {
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.collisionBindings",false,profileContext);
-            ok=mDestruction->prepareCollisionBindings(
-                mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
-                mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),
-                reinterpret_cast<const PxNodeIndex*>(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
-                PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),mSimulationCore->getStream());
-        }
-        if(ok) {
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.correctionBodies",false,profileContext);
-            // Targets have device storage but do not yet have CPU BodySim records.
-            ok=mDestruction->prepareCorrectionBodies(mSimulationCore->getBodySimStorageCapacity(),mSimulationCore->getStream());
         }
         if(ok) {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.preparationCompletion",false,profileContext);
