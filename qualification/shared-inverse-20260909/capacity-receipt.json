@@ -1,0 +1,172 @@
+{
+  "commands": [
+    {
+      "name": "baseline-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-screen/baseline-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "baseline-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-screen/baseline-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "capacity-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-screen/capacity-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-control/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "0c6fec1e6d7e3aabfb0de74f73b90db347cf4263eb9f889b1d73a2538c1b3e3c"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-control/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "capacity-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-screen/capacity-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-control/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "0c6fec1e6d7e3aabfb0de74f73b90db347cf4263eb9f889b1d73a2538c1b3e3c"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-control/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "cache-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-screen/cache-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "8582138878e7eb7c1492dc8fa4830e4a75e397f802eae8e162b391503226583f"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "cache-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-screen/cache-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "8582138878e7eb7c1492dc8fa4830e4a75e397f802eae8e162b391503226583f"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "baseline2-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-screen/baseline2-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "baseline2-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/capacity-screen/baseline2-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    }
+  ]
+}

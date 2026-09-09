@@ -1,0 +1,179 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+index 403d95fe..5408457a 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+@@ -59,6 +59,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
+         // solve's success. Each node has one writer in this owning component.
+         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeRigidInverse(a.hierarchy,c.nodes[begin+i]);
+         __syncthreads();
++        const double* inverseCache=nullptr;
+         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
+         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
+         do {
+@@ -106,9 +107,12 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
+                 }
+                 __syncthreads();break;
+             }
++            // Iteration zero uses the residual directly. Avoid any cache
++            // upload for already-converged or one-update components (idle).
++            if(iteration==1)inverseCache=cacheNativeRigidInverse(a.hierarchy,c.nodes+begin,count);
+             COMPONENT_WORK_PRECONDITION(a,id,iteration)
+             float localGamma=0;
+-            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT);
++            if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration,inverseCache COMPONENT_SUBPROBE_ARGUMENT);
+             const float gamma=componentSquaredNorm(localGamma);
+             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
+             __syncthreads();
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+index 704317fa..4f2e22f1 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+@@ -25,7 +25,7 @@ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
+     return scaledValue(value,input.inertia[node]);
+ }
+ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial(
+-    const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
++    const PersistentStressArgs& a,const unsigned* nodes,unsigned count,const double* inverseCache=nullptr)
+ {
+     using namespace StressHierarchy;
+     constexpr double lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
+@@ -39,12 +39,14 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
+     // residual workspace for scaled local values, without a new allocation.
+     auto* physical=a.hierarchy.cycle.levels[0].residual;
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+-        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);
++        local[node]=applyNativeRigidInverseAt(inverseCache?inverseCache+i:a.hierarchy.fineInverse+node,
++            inverseCache?count:a.hierarchy.inverseStride,a.hierarchy.rhs[node]);
+         physical[node]=scaledValue(local[node],input.inertia[node]);}
+     __syncthreads();
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+         const auto off=nativeOffDiagonal(input,node,physical);
+-        result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverse(a.hierarchy,node,off),coupling));}
++        result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverseAt(inverseCache?inverseCache+i:a.hierarchy.fineInverse+node,
++            inverseCache?count:a.hierarchy.inverseStride,off),coupling));}
+     // One disjoint destination per node. Readers consume this completed view;
+     // there is no product buffer, copy back or second launch inside iteration.
+     __syncthreads();return result;
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+index 3abf9618..7bae9659 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+@@ -55,7 +55,7 @@ __device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a
+     return stressSquaredContribution(gamma);
+ }
+ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStressArgs& a,
+-    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration COMPONENT_SUBPROBE_PARAMETER){
++    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration,const double* inverseCache COMPONENT_SUBPROBE_PARAMETER){
+ #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+     unsigned long long subStart=0;if(!threadIdx.x)subStart=clock64();
+ #define SUBPROBE_END(index) __syncthreads();if(!threadIdx.x){subProbe[index]+=clock64()-subStart;subStart=clock64();}__syncthreads();
+@@ -71,7 +71,7 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
+     else {
+         // Apply the fixed polynomial using cached local inverses.
+         // Large components retain their cooperative multilevel schedule.
+-        result=preconditionNativePolynomial(a,nodes,count);
++        result=preconditionNativePolynomial(a,nodes,count,inverseCache);
+     }
+     SUBPROBE_END(0)
+     projectNativeNullspace(a,id,nodes,count,result);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeRigidInverse.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeRigidInverse.cuh
+index b376d50f..9e8c464a 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeRigidInverse.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeRigidInverse.cuh
+@@ -34,9 +34,8 @@ __device__ __forceinline__ void buildNativeRigidInverse(const NativeStressCycleV
+     buildNativeRigidInverseCoefficients(h.cycle.levels[0].diagonal.diagonal,h.fineInverse,h.inverseStride,node);
+     h.inverseGeneration[node]=generation;h.inverseValid[node]=1;
+ }
+-__device__ __forceinline__ StressHierarchy::Vector applyNativeRigidInverse(NativeStressCycleView h,unsigned node,StressHierarchy::Vector value){
++__device__ __forceinline__ StressHierarchy::Vector applyNativeRigidInverseAt(const double* p,size_t stride,StressHierarchy::Vector value){
+     using namespace StressHierarchy;
+-    const double* p=h.fineInverse+node;const size_t stride=h.inverseStride;
+     const double3 k={p[6*stride],p[7*stride],p[8*stride]};
+     const double3 rhs=StressHierarchy::add(value.angular,StressHierarchy::cross(k,value.linear));
+     const double u00=p[0],u10=p[stride],u11=p[2*stride],u20=p[3*stride],u21=p[4*stride],u22=p[5*stride];
+@@ -45,3 +44,17 @@ __device__ __forceinline__ StressHierarchy::Vector applyNativeRigidInverse(Nativ
+     x={fma(u20,rhs.z,x.x),fma(u21,rhs.z,x.y),fma(u22,rhs.z,x.z)};
+     return {x,StressHierarchy::sub(StressHierarchy::mul(value.linear,p[9*stride]),StressHierarchy::cross(k,x))};
+ }
++__device__ __forceinline__ StressHierarchy::Vector applyNativeRigidInverse(NativeStressCycleView h,unsigned node,StressHierarchy::Vector value){
++    return applyNativeRigidInverseAt(h.fineInverse+node,h.inverseStride,value);
++}
++// Inverse coefficients are immutable throughout one component's recurrence.
++// A 40 KiB cache fits two blocks on this target without remapping adjacency.
++// Larger components use the same operator in its global persistent storage.
++static constexpr unsigned kNativeInverseCacheNodes=512;
++__device__ __forceinline__ const double* cacheNativeRigidInverse(const NativeStressCycleView& h,const unsigned* nodes,unsigned count){
++    __shared__ double coefficients[10*kNativeInverseCacheNodes];
++    if(count>kNativeInverseCacheNodes)return nullptr;
++    for(unsigned i=threadIdx.x;i<10*count;i+=blockDim.x)
++        coefficients[i]=h.fineInverse[size_t(i/count)*h.inverseStride+nodes[i%count]];
++    __syncthreads();return coefficients;
++}
+diff --git a/demos/blast-stress-demo/tests/native_polynomial_test.cuh b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+index d2f9c0cd..abc2afc4 100644
+--- a/demos/blast-stress-demo/tests/native_polynomial_test.cuh
++++ b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+@@ -1,10 +1,11 @@
+ // Independent long-double assembled operator / polynomial oracle. Actual CUDA
+ // private implementation is called for every basis vector; no public test API.
+ namespace MotionModeTest {
+-__global__ void polynomialBasis(PersistentStressArgs a,const unsigned* nodes,unsigned count,unsigned column,Vector* matrix,unsigned stride){
++__global__ void polynomialBasis(PersistentStressArgs a,const unsigned* nodes,unsigned count,unsigned column,Vector* matrix,unsigned stride,bool cached=false){
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];double x[6]{};if(column/6==node)x[column%6]=1;
+         a.hierarchy.rhs[node]={{x[0],x[1],x[2]},{x[3],x[4],x[5]}};}
+-    __syncthreads();const auto* result=preconditionNativePolynomial(a,nodes,count);
++    __syncthreads();const auto* cache=cached?cacheNativeRigidInverse(a.hierarchy,nodes,count):nullptr;
++    const auto* result=preconditionNativePolynomial(a,nodes,count,cache);
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];matrix[size_t(column)*stride+node]=result[node];}
+ }
+ void polynomialOperator(){
+@@ -47,6 +48,12 @@ void polynomialOperator(){
+         PersistentStressArgs args{};args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
+         for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n);
+         check(cudaGetLastError());check(cudaDeviceSynchronize());const auto observed=columns.get();
++        for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n,true);
++        check(cudaGetLastError());check(cudaDeviceSynchronize());const auto cached=columns.get();
++        for(unsigned column=anchored?6:0;column<size;++column)for(unsigned node:order){
++            const auto a=unpack(observed[size_t(column)*n+node]),b=unpack(cached[size_t(column)*n+node]);
++            for(unsigned k=0;k<6;++k)require(a[k]==b[k],"shared inverse cache changes polynomial output");
++        }
+         auto multiply=[&](const std::vector<long double>& m,const std::vector<long double>& x){std::vector<long double> y(size);for(unsigned r=0;r<size;++r)for(unsigned c=0;c<size;++c)y[r]+=m[r*size+c]*x[c];return y;};
+         long double worst=0,symmetry=0;std::vector<long double> actual(size*size);
+         for(unsigned column=anchored?6:0;column<size;++column){std::vector<long double> x(size),r(size);r[column]=1;
+diff --git a/demos/blast-stress-demo/tests/native_rigid_inverse_test.cuh b/demos/blast-stress-demo/tests/native_rigid_inverse_test.cuh
+index a20653c4..7d6f3867 100644
+--- a/demos/blast-stress-demo/tests/native_rigid_inverse_test.cuh
++++ b/demos/blast-stress-demo/tests/native_rigid_inverse_test.cuh
+@@ -7,6 +7,15 @@ __global__ void checkRigidInverse(NativeStressCycleView h,const Vector* rhs,Vect
+     actual[node]=applyNativeRigidInverse(h,node,rhs[node]);
+     reference[node]=solveFineDiagonalThread(h.cycle.levels[0].diagonal,node,rhs[node]);
+ }
++__global__ void checkResidentInverseCache(NativeStressCycleView h,const unsigned* nodes,unsigned count,
++    const Vector* rhs,Vector* actual,Vector* reference,unsigned* usedCache){
++    const auto* cache=cacheNativeRigidInverse(h,nodes,count);
++    if(!threadIdx.x)*usedCache=cache!=nullptr;
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
++        actual[node]=applyNativeRigidInverseAt(cache?cache+i:h.fineInverse+node,cache?count:h.inverseStride,rhs[node]);
++        reference[node]=applyNativeRigidInverse(h,node,rhs[node]);
++    }
++}
+ void rigidInverseCache(){
+     constexpr unsigned originalCount=257,n=3*originalCount;
+     Device<double> factors(n*DiagonalEntries),inverse(n*10);
+@@ -67,6 +76,16 @@ void rigidInverseCache(){
+             for(unsigned k=0;k<6;++k){const double error=double(std::abs(a[k]-b[k])/std::max(1.L,std::abs(b[k])));worst=std::max(worst,error);
+                 require(std::isfinite(error) && error<2e-12,"cached local inverse basis differs from triangular reference");}}
+     }
++    Device<unsigned> localNodes(n),usedCache(1);std::vector<unsigned> reordered(n);
++    for(unsigned i=0;i<n;++i)reordered[i]=(i*37)%n;localNodes.put(reordered);rhs.put(loads);
++    for(unsigned count:{1u,257u,512u,513u,n}){
++        checkResidentInverseCache<<<1,kBlockSize>>>(h,localNodes.data,count,rhs.data,actual.data,reference.data,usedCache.data);
++        check(cudaGetLastError());check(cudaDeviceSynchronize());
++        require(usedCache.get()[0]==unsigned(count<=kNativeInverseCacheNodes),"inverse cache size selection mismatch");
++        const auto a=actual.get(),b=reference.get();
++        for(unsigned i=0;i<count;++i){const auto x=unpack(a[reordered[i]]),y=unpack(b[reordered[i]]);
++            for(unsigned k=0;k<6;++k)require(x[k]==y[k],"inverse cache changes reordered coefficient output");}
++    }
+     std::printf("GPU rigid inverse: %u six-variable SPD blocks, cold/reuse/unknown/generation checks passed, scaled error %.9g\n",n,worst);
+ }
+ }

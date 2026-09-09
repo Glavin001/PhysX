@@ -1,0 +1,175 @@
+{
+  "commands": [
+    {
+      "name": "numerical",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "polynomial-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_motion_modes_test",
+        "small"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "ordinary",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^physx_native_(post_correction|standard_(reported_reuse|reuse|awake|sleep|sleep_boundary|gpu_islands|wake_boundary|late_impact))$",
+        "--output-on-failure"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "compound-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--compound-sleep"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "wall-driver",
+      "command": [
+        "python3",
+        "tools/scripts/run-destruction-penetration-regression.py",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/screen/wall",
+        "--expected-runtime",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXDestructionGpuRuntime_64.so"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "audit-256",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/screen/audit-256",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "8582138878e7eb7c1492dc8fa4830e4a75e397f802eae8e162b391503226583f"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "baseline-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/screen/baseline-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "baseline-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/screen/baseline-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "candidate-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/screen/candidate-idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "8582138878e7eb7c1492dc8fa4830e4a75e397f802eae8e162b391503226583f"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "candidate-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/shared-inverse-20260909/screen/candidate-shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "8582138878e7eb7c1492dc8fa4830e4a75e397f802eae8e162b391503226583f"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/shared-inverse-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+## 2026-09-09: inverse shared cache rejected by capacity-only control
+
+[Evidence](../../qualification/shared-inverse-20260909/README.md): a lazy 40 KiB inverse-coefficient cache preserves all arithmetic and passes numerical, exact wall, ordinary lifecycle and full 256-building mapping checks. Its bracketed 256-building / 113,664-chunk / 229,376-bond / 768-shot / 600-step screen is slower: baseline loaded peaks135.694/135.824 ms; cache143.359 ms. Reserving equal unused shared capacity with the exact baseline kernel also slows it (140.635 ms). Fresh intact idle is measured for every arm. Production cache and tests are reverted; no runtime switch. This isolates a cost from reserving shared capacity, not a hardware-counter proof of memory bandwidth or occupancy. More shared caching is not the next supported optimization. Next: snapshot actual peak stress operators/loads for independent numerical/work assessment of stronger preconditioners before CUDA implementation.
+
 ## 2026-09-09: exact diagonal fine inverse rejected; sleep deletion deployed
 
 [Diagonal specialization](../../qualification/diagonal-fine-rejected-20260909/README.md) passes correctness but fails to demonstrate a complete-step peak win: 256 buildings / 113,664 chunks / 229,376 bonds / 768 shots / 600 steps, loaded peak 130.469 → 141.083 ms. Reverted; no alternate runtime switch. Independent physical inverse test now retains all 257 original cases and adds 257 exact-diagonal and 257 tiny-coupling cases; restored numerical/memcheck passes without relaxed tolerances.
