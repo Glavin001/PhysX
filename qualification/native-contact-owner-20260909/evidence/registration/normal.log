@@ -1,0 +1,1 @@
+GPU registration passed: 300 deterministic mixed lifecycle batches; paged order, generations, aliased commands, multi-block tails, atomic stale/duplicate/overflow failures and growth/retry

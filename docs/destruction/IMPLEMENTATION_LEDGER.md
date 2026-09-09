@@ -119,3 +119,8 @@ touch-event ordering changing solver partition order. A recorded-order diagnosti
 passes the frozen oracle; it was removed and is not a production fix. Next comes
 GPU solver-registration identity and ordered activation, not a CPU sorting layer.
 [Evidence](../../qualification/native-contact-owner-20260909/ORDERING_FINDING.md).
+
+The GPU solver-registration transaction now has standalone lifecycle and CUDA
+sanitizer coverage. Native contact command plumbing and ordered event publication
+remain pending; the wall failure is not fixed by this isolated test.
+[Registration WIP receipt](../../qualification/native-contact-owner-20260909/REGISTRATION_WIP.md).
