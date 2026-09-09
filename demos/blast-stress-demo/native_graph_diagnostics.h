@@ -76,9 +76,8 @@ inline void requireNativeGraphAudit(physx::PxScene& scene,const std::string& pat
     auto& sc=static_cast<NpScene&>(scene).getScScene();
     auto& gpu=*static_cast<PxgGpuContext*>(sc.getDynamicsContext());
     nativePreSolveTest::verify(gpu,*scene.getCudaContextManager());
-    // Explicit heavy observation only: also reject duplicate persistent shape
-    // pairs and stale motion ownership in the accepted contact graph.
-    nativeGraphTest::verify(scene,*scene.getCudaContextManager());
+    // Contact geometry/retirement is audited by NativeGraphBoundaryAudit at
+    // its producer boundary, before final-split ownership can mutate the view.
     const bool gpuProduced=gpu.getGpuSolverCore()->mPreSolveIslandIds!=0;
     const auto& ids=gpu.getExpectedSolverIslandIds();const auto& touches=gpu.getExpectedSolverStaticTouches();
     std::vector<PxU32> actualIds(ids.size()),actualTouches(touches.size());

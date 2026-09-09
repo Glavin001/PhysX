@@ -18,5 +18,8 @@ with tempfile.TemporaryDirectory(prefix='physx-connectivity-fracture-') as root:
     assert summary['broken_bonds'] > 0 and summary['corrections'] > 0
     assert summary['max_motion_position_error'] < 1e-3
     assert graph['device_connectivity_passes'] > 300
-    assert graph['host_connectivity_restores'] > 0  # Exercises the post-partition fallback bug.
+    assert graph['boundary_audits'] > 0 and graph['boundary_audit_failures'] == 0
+    # The supported bombardment no longer needs an incidental fallback. Keep
+    # the original restoration requirement in an explicit fractured fixture.
+    subprocess.run([sys.argv[2], '--fracture-connectivity-fallback'], check=True)
     print('GPU connectivity: fractured scene, host fallback and committed motion passed')

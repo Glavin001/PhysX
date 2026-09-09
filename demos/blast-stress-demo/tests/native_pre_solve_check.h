@@ -41,7 +41,10 @@ inline void verify(physx::PxgGpuContext& gpu,physx::PxCudaContextManager& cuda) 
     for(PxU32 i=0;i<labels.size();++i) {
         const PxU32 native=expectedIds[i],label=labels[i];
         if(native==~PxU32(0)) {if(label!=~PxU32(0))throw std::runtime_error("CUDA pre-solve producer included an inactive/prescribed node");continue;}
-        if(label>=labels.size() || native>=expectedTouches.size())throw std::runtime_error("CUDA pre-solve producer omitted a live node");
+        if(label>=labels.size() || native>=expectedTouches.size())throw std::runtime_error("CUDA pre-solve producer omitted a live node: node="+std::to_string(i)
+            +" gpu="+std::to_string(label)+" native="+std::to_string(native)+" nodes="+std::to_string(labels.size())
+            +" islands="+std::to_string(expectedTouches.size())+" expected-live="
+            +std::to_string(i<gpu.getExpectedPreSolveNodes().size()?gpu.getExpectedPreSolveNodes()[i].live:99u));
         const auto a=nativeToGpu.emplace(native,label),b=gpuToNative.emplace(label,native);
         if((!a.second && a.first->second!=label) || (!b.second && b.first->second!=native))
             throw std::runtime_error("CUDA pre-solve partition differs at node "+std::to_string(i)+", GPU label "+std::to_string(label)+", native label "+std::to_string(native)+", prior GPU label "+std::to_string(a.first->second)+", prior native label "+std::to_string(b.first->second));

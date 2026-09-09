@@ -55,6 +55,8 @@ passes focused checks and a short paired screen, without a demonstrated timing
 win. [Implementation receipt](../../qualification/ranked-storage-20260909/README.md). CPU simulation registration and ownership prerequisites
 still remain, so ranked #1 is not complete and #2 has not started.
 
+The five previously recorded baseline audit failures are resolved at their correct observation boundaries, with explicit fracture/handoff coverage and unchanged physical golden. [Audit receipt](../../qualification/boundary-audit-20260909/README.md). This is diagnostic prerequisite work, not a performance gain or lifecycle completion.
+
 ## Priority checklist and separate benefit tracks
 
 Ordered by the current evidence for substantial **destruction-peak** opportunity,

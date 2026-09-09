@@ -50,8 +50,8 @@ struct Fixture {
     PxDestructionStressDesc desc;
     PxDestructionScene* stage;
     unsigned mainCount;
-    Fixture(unsigned count,unsigned untouched,bool sleeping,PxSolverType::Enum solver=PxSolverType::eTGS):
-        context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,sleeping,sleeping,solver),
+    Fixture(unsigned count,unsigned untouched,bool sleeping,PxSolverType::Enum solver=PxSolverType::eTGS,bool disableSleeping=false):
+        context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,disableSleeping,sleeping,sleeping,solver),
         scene(context.scene()),cuda(*context.cudaContextManager()),
         core(*static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getSimulationCore()),mainCount(count) {
         const PxTransform origin(PxVec3(10,20,-5),PxQuat(.43f,PxVec3(0,0,1)));
@@ -113,6 +113,7 @@ struct Fixture {
 };
 #include "native_contact_lifetime_check.h"
 #include "native_initialization_failure_check.h"
+#include "native_fracture_fallback_check.h"
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
 void solverMetadata(PxSolverType::Enum solver,bool sleeping,bool producer=false,bool contacts=false,bool support=false,bool ownership=false) {
@@ -694,6 +695,7 @@ int main(int argc,char** argv){try{
         if(mode=="--connectivity-owner"){solverMetadata(PxSolverType::ePGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true,true);return 0;}
         if(mode=="--pre-solve-islands"){solverMetadata(PxSolverType::ePGS,false,true);solverMetadata(PxSolverType::eTGS,false,true);solverMetadata(PxSolverType::eTGS,true,true);return 0;}
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
+        if(mode=="--fracture-connectivity-fallback"){fractureConnectivityFallback();return 0;}
         if(mode=="--initialization-failure"){nativeInitializationFailure();return 0;}
         if(mode=="--lifetime-exhaustion"){contactLifetimeExhaustion();return 0;}
         if(mode=="--retained-registry"){gpuRetainedRegistryLifecycle();return 0;}

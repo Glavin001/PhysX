@@ -2666,6 +2666,13 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
             mExpectedSolverIslandIds.resize(metadataNodes);mExpectedSolverStaticTouches.resize(metadataIslands);
             PxMemCopy(mExpectedSolverIslandIds.begin(),islandSim.getIslandIds(),sizeof(PxU32)*metadataNodes);
             PxMemCopy(mExpectedSolverStaticTouches.begin(),islandSim.getIslandStaticTouchCount(),sizeof(PxU32)*metadataIslands);
+            // CPU storage can retain an old island ID in deleted/prescribed
+            // slots. CUDA components intentionally exclude those slots. Project
+            // this diagnostic oracle using CPU liveness, never GPU labels.
+            if(gpuProduced)for(PxU32 i=0;i<metadataNodes;++i) {
+                const auto& node=islandSim.getNode(PxNodeIndex(i));
+                if(node.isDeleted() || node.isKinematic())mExpectedSolverIslandIds[i]=IG_INVALID_ISLAND;
+            }
         }
     }
     ++mSolverIslandMetadataStats.passes;

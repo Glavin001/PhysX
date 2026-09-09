@@ -4,6 +4,7 @@
 #include "PxgShapeSim.h"
 #include "PxgNphaseImplementationContext.h"
 #include "PxgNarrowphaseCore.h"
+#include "PxgSimulationController.h"
 #include "NpScene.h"
 #include "ScActorSim.h"
 #include "ScInteraction.h"
@@ -18,7 +19,7 @@ using namespace physx;
 inline void require(bool ok,const char* why){if(!ok)throw std::runtime_error(why);}
 inline void cudaCheck(CUresult result){require(result==CUDA_SUCCESS,"GPU graph observation failed");}
 inline void verify(PxScene& scene,PxCudaContextManager& cuda) {
-    auto* runtime=static_cast<PxgDestructionRuntime*>(scene.getDestructionScene());
+    auto* runtime=static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getNativeDestructionRuntime();
     const auto view=runtime->getContactGraphView();
     require(view.generation && view.readyEvent && view.status,"native contact component snapshot missing");
     PxScopedCudaLock lock(cuda);cudaCheck(cuEventSynchronize(view.readyEvent));
@@ -49,7 +50,10 @@ inline void verify(PxScene& scene,PxCudaContextManager& cuda) {
         }
         offset+=np.getExistingContactManagers(GPU_BUCKET_ID::Enum(b)).mCpuContactManagerMapping.size();
     }
-    require(offset==view.pairCount && retired==expectedRetired,"GPU graph dropped or retained the wrong contact rows");
+    if(offset!=view.pairCount || retired!=expectedRetired)throw std::runtime_error(
+        "GPU graph dropped or retained the wrong contact rows: gpu-count="+std::to_string(view.pairCount)
+        +" current-cpu-count="+std::to_string(offset)+" mask-equal="+std::to_string(retired==expectedRetired)
+        +" generation="+std::to_string(view.generation));
     auto& manager=*sc.getSimpleIslandManager();
     const auto& cpuAccurate=manager.getAccurateIslandSim();const auto& cpuSpeculative=manager.getSpeculativeIslandSim();
     // Independent CPU flood fill over the actual inserted island edges. This

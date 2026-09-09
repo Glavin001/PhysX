@@ -65,8 +65,11 @@ struct PxgDestructionContactGraphStatus {
 // Labels are minimum node IDs. Static/kinematic contacts do not bridge dynamic
 // components. Kinematic endpoints and unused capacity retain singleton labels;
 // callers must use their live dynamic-node registry to interpret the domain.
-// Regenerated for each narrowphase pass, including correction. Views expire on
-// the next simulation/configuration; wait readyEvent before reading device data.
+// Regenerated for each narrowphase pass, including correction. Consume borrowed
+// geometry at the producer boundary, before NP mutation or destruction ownership
+// changes, which may occur again within this step. readyEvent orders production;
+// it does not pin a snapshot through fetchResults. Owned labels describe this
+// generation until rebuilt and do not extend the borrowed geometry lifetime.
 struct PxgDestructionContactGraphView {
     // Borrow the resident NP/shape buffers instead of duplicating every edge.
     // Test the retirement bit before dereferencing a row's shape references:
