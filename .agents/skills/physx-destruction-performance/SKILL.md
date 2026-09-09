@@ -51,7 +51,14 @@ resolve the documentation below relative to this skill, not the shell cwd.
    (idle, settling, sleeping rubble or active destruction), and check the other
    regimes for regressions. An idle win does not require a fracture-peak win;
    an isolated-kernel win alone is insufficient.
-6. Record one outcome: accepted with its actual qualification level, rejected
+6. Evaluate correctness, architecture, maintainability and performance separately.
+   A neutral timing result may retain a final-ownership change when a named next
+   consumer needs it and redundant code/dependencies are removed. Label that as
+   architectural progress, not a measured speedup or completed replacement. A
+   reliable slowdown requires a concrete bounded tradeoff; a physical regression
+   cannot be waived. Do not restore archived caches/layouts merely because they
+   look GPU-oriented.
+7. Record one outcome: accepted with its actual qualification level, rejected
    with evidence and reverted production changes, or still unqualified WIP.
    Preserve a patch, hashes and raw samples for rejected experiments; don't
    retain an alternate production switch to make them selectable.

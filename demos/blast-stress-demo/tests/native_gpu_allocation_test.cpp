@@ -78,6 +78,11 @@ void run(bool sleeping,bool accelerations) {
         require(!accepted.generation && accepted.clusterCount==1,"reservation committed fracture topology");
         require(indices[0]==parentIndex,"existing owner was needlessly replaced");
         require(internal.getNbDestructionBodyCandidates()==n-1,"native candidate count mismatch");
+        // Only resident addresses are required: an ordinary actor added after
+        // the last step may already extend CPU metadata without a GPU upload.
+        for(PxU32 id:indices)require(id<core.getBodySimStorageCapacity(),"native reservation exceeds GPU storage");
+        if(accelerations)require(core.getNbRigidBodyAccelerations()<=controller.getBodySimManager().mTotalNumBodies,
+            "spare native storage expanded acceleration observation work");
         require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==1,"uncommitted reservations published as actors");
         require(parent->getNbShapes()==1 && shape->getActor()==parent && scene.getDirectGPUAPI().getShapeContactIndex(*shape)==shapeIndex,"reservation changed persistent geometry ownership");
         for(unsigned i=1;i<n;++i) {
@@ -115,6 +120,10 @@ void run(bool sleeping,bool accelerations) {
     auto fracture=[&]{scene.simulate(1.0f/60);PxU32 error=0;require(!scene.fetchResults(true,&error)&&error&&stage->getLastStatus().error==8,"unimplemented correction falsely completed or reservation failed");};
     configure(2,false);step(scene);require(!internal.getNbDestructionBodyCandidates(),"intact cluster allocated per-chunk motion slots");
     configure(2,true);fracture();const auto first=observe(2);
+    require(core.getBodySimStorageCapacity()>controller.getBodySimManager().mTotalNumBodies,
+        "first split did not exercise spare storage separation");
+    if(accelerations)require(core.getNbRigidBodyAccelerations()==controller.getBodySimManager().mTotalNumBodies,
+        "first split expanded observations to unused capacity");
     // An uncommitted slot must not be accepted as a new graph's source:
     // reconfiguration would release that reservation while retaining its ID.
     PxDestructionStressChunk privateChunk{PxVec3(0),1,1,0,PX_INVALID_U32};

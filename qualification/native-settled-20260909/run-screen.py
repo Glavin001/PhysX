@@ -24,11 +24,14 @@ def main():
     parser.add_argument('--title',default='Exact settled stress reuse',help='Mechanism named in the generated reports')
     parser.add_argument('--steps',type=int,default=600,help='Recorded-command prefix length; default is the full 600-step screen')
     parser.add_argument('--gpu-module',type=Path,default=LIVE/'libPhysXGpuActivity_64.so',help='Matching immutable GPU module')
+    parser.add_argument('--baseline-gpu-module',type=Path,help='Baseline GPU module when private producer/runtime interfaces changed')
     parser.add_argument('--benchmark',type=Path,default=BINARY,help='Matching immutable consumer binary')
     args=parser.parse_args()
     if not 31<=args.steps<=36000:parser.error('--steps must be 31..36000')
     gpu_module=args.gpu_module.resolve();BINARY=args.benchmark.resolve()
     if gpu_module.name!='libPhysXGpuActivity_64.so' or not gpu_module.is_file():parser.error('invalid --gpu-module')
+    baseline_gpu=(args.baseline_gpu_module or args.gpu_module).resolve()
+    if baseline_gpu.name!='libPhysXGpuActivity_64.so' or not baseline_gpu.is_file():parser.error('invalid --baseline-gpu-module')
     if not BINARY.is_file():parser.error('invalid --benchmark')
     if bool(args.scene)!=bool(args.commands):parser.error('--scene and --commands must be supplied together')
     baseline=args.baseline_runtime.resolve()
@@ -38,8 +41,9 @@ def main():
     receipt={'schema':1,'sequence':[],'benchmark_sha256':sha(BINARY),'service_changes':False,'steps':args.steps,'prefix_of_600_step_tape':args.steps<600}
     for ordinal,arm in enumerate(['baseline','candidate','candidate','baseline']):
         runtime=baseline if arm=='baseline' else CANDIDATE/'libPhysXDestructionGpuRuntime_64.so'
-        expected={runtime.name:runtime.resolve(),'libPhysXGpuActivity_64.so':gpu_module}
-        env=os.environ.copy();env['LD_LIBRARY_PATH']=str(runtime.parent)+':'+str(gpu_module.parent)+':'+str(LIVE)+':/usr/local/cuda/lib64'
+        arm_gpu=baseline_gpu if arm=='baseline' else gpu_module
+        expected={runtime.name:runtime.resolve(),'libPhysXGpuActivity_64.so':arm_gpu}
+        env=os.environ.copy();env['LD_LIBRARY_PATH']=str(runtime.parent)+':'+str(arm_gpu.parent)+':'+str(LIVE)+':/usr/local/cuda/lib64'
         env.pop('VIBE_EMBEDDED_AUDIT_EVERY_TICK',None)
         for regime,waves in [('idle','0'),('shots',str(min(3,1+(args.steps-31)//150)))]:
             apps=subprocess.check_output(['nvidia-smi','--query-compute-apps=pid,process_name','--format=csv,noheader'],text=True).strip()

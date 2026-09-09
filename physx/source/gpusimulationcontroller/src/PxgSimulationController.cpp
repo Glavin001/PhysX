@@ -636,7 +636,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction)
-            mDestruction = PxCreateDestructionRuntime(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV2(mCudaContextManager->getContext(), scene, gate, allocator);
         return mDestruction;
     }
 
@@ -797,8 +797,23 @@ namespace physx
         if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
             contacts,mDestruction->inputEvent(),mDynamicContext->getPatchStream(streamIndex),
             mDynamicContext->getContactStream(streamIndex),mNpContext->getContext().mForceAndIndiceStreamPool->mDataStream);
-        if(ok) ok = mDestruction->advance(dt, gravity,
-            mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream(),contacts);
+        if(ok) {
+            const auto growStorage=[](void* owner,PxU32 capacity,PxgDestructionMotionStorage& storage)->bool {
+                auto& controller=*static_cast<PxgSimulationController*>(owner);
+                PxScopedCudaLock lock(*controller.mCudaContextManager);
+                if(controller.mCudaContextManager->getCudaContext()->isInAbortMode())return false;
+                auto& core=*controller.mSimulationCore;
+                core.reserveBodySimCapacity(capacity,core.hasAccelerationBuffers());
+                core.gpuDmaUpdateData();
+                storage={core.getBodySimBufferDevicePtr().getPointer(),core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                    core.getRigidBodyAccelerationsDevice(),core.getBodySimStorageCapacity()};
+                return !controller.mCudaContextManager->getCudaContext()->isInAbortMode();
+            };
+            const PxgDestructionMotionStorage storage={mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),mSimulationCore->getRigidBodyAccelerationsDevice(),
+                mSimulationCore->getBodySimStorageCapacity()};
+            ok=mDestruction->advance(dt,gravity,storage,mSimulationCore->getStream(),growStorage,this,contacts);
+        }
         }
         // Complete before contact buffers can be recycled or the scene is
         // published. Only compact new-body allocation metadata and status leave
@@ -810,25 +825,14 @@ namespace physx
         }
         if(ok && mDestruction->reservedBodyCount())
         {
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.initializeReserved",false,profileContext);
-            PxScopedCudaLock lock(*mCudaContextManager);
-            PxCudaContext* cuda=mCudaContextManager->getCudaContext();
-            if(!cuda->isInAbortMode())
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.publishReservedMetadata",false,profileContext);
+            // Publish only the constructed-body high-water mark. Spare storage
+            // must not enter acceleration/observation traversal.
+            mSimulationCore->reserveBodySimStorage(mBodySimManager.mTotalNumBodies,mSimulationCore->hasAccelerationBuffers());
+            // Device allocation already initialized these native slots before
+            // CPU BodySim construction. Suppress placeholder uploads; CPU actor
+            // flags here are compatibility metadata, not motion producers.
             {
-                mSimulationCore->reserveBodySimStorage(mBodySimManager.mTotalNumBodies, mSimulationCore->hasAccelerationBuffers());
-                // Direct GPU setters cache the body pool in a descriptor. Refresh
-                // it after growth so subsequent commands address the new pool.
-                mSimulationCore->gpuDmaUpdateData();
-            }
-            const bool initializationSubmitted=mDestruction->initializeReservedBodies(
-                cuda->isInAbortMode()?NULL:mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
-                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
-                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
-            if(initializationSubmitted)
-            {
-                // Transfer initialization ownership to the ordered GPU pipeline.
-                // Combined preparation completion rejects device validation errors
-                // before these private reservations can acquire shapes or publish.
                 const PxU32* indices=mDestruction->reservedBodyIndices();
                 for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)
                 {
@@ -845,7 +849,6 @@ namespace physx
                     if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
                 pending.forceSize_Unsafe(kept);
             }
-            ok=ok && initializationSubmitted;
         }
         if(ok) {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.collisionBindings",false,profileContext);

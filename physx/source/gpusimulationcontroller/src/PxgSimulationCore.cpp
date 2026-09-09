@@ -638,8 +638,16 @@ void PxgSimulationCore::constructDescriptor(CUdeviceptr boundsd, CUdeviceptr cha
 // Also used at the native destruction boundary, after the trial GPU work completes.
 void PxgSimulationCore::reserveBodySimStorage(PxU32 nbTotalBodies, bool enableBodyAccelerations)
 {
-	//This will dma rigid body and articulation altogether
-	if (nbTotalBodies > mNbTotalBodySim)
+    reserveBodySimCapacity(nbTotalBodies, enableBodyAccelerations);
+    mNbTotalBodySim = PxMax(mNbTotalBodySim, nbTotalBodies);
+    if(enableBodyAccelerations)mBodySimAccelerationsPinned.forceSize_Unsafe(mNbTotalBodySim);
+}
+
+// Memory grants must not extend live-body traversal, acceleration observations
+// or OVD address validation. Those retain the registered-body high-water mark.
+void PxgSimulationCore::reserveBodySimCapacity(PxU32 nbTotalBodies, bool enableBodyAccelerations)
+{
+	if (nbTotalBodies > mBodySimStorageCapacity)
 	{
 		{
 			const PxU64 oldCapacity = mBodySimCudaBuffer.getSize();
@@ -664,7 +672,6 @@ void PxgSimulationCore::reserveBodySimStorage(PxU32 nbTotalBodies, bool enableBo
 			if (mBodySimAccelerationsPinned.capacity() < nbTotalBodies)
 			{
 				mBodySimAccelerationsPinned.reserve(nbTotalBodies);
-				mBodySimAccelerationsPinned.forceSize_Unsafe(nbTotalBodies);
 			}
 		}
 		else
@@ -673,7 +680,7 @@ void PxgSimulationCore::reserveBodySimStorage(PxU32 nbTotalBodies, bool enableBo
 			PX_ASSERT(getBodySimPrevVelocitiesBufferDeviceData().mPtr == 0);
 		}
 
-		mNbTotalBodySim = nbTotalBodies;
+		mBodySimStorageCapacity = nbTotalBodies;
 	}
 
 }

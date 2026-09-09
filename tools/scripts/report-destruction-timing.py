@@ -45,7 +45,7 @@ TREE={
  'finishAndReserve':{'finishDetail.waitForGpu':{},'finishDetail.reserveBodies':{
      'finishDetail.growMotionSlots':{},'finishDetail.requestReadback':{},'finishDetail.allocateNativeBodies':{},
      'finishDetail.uploadBindings':{},'finishDetail.publishReservation':{}}},
- 'initializeReserved':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{},'applyBindings':{
+ 'initializeReserved':{},'publishReservedMetadata':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{},'applyBindings':{
      'applyDetail.validateOwners':{},'applyDetail.scheduleOwners':{},'applyDetail.migrateShapes':{
          'migrateDetail.refilter':{},'migrateDetail.retireContacts':{},'migrateDetail.registerOwner':{},
          'migrateDetail.actorLinks':{},'migrateDetail.queryMirror':{}}},
@@ -61,6 +61,7 @@ LABELS={
  'finishDetail.publishReservation':('Validate compatibility registration','CPU dispatch → GPU failure merge; preserves device allocation verdict'),
  'finishDetail.reserveBodies.other':('Other reservation bookkeeping','Uninstrumented remainder within CPU reservation scope'),
  'finishAndReserve.other':('Other destruction completion bookkeeping','Remaining host scope around destruction completion'),
+ 'publishReservedMetadata':('Update fragment compatibility metadata','CPU registered-body range and suppression of placeholder uploads; GPU motion already initialized'),
  'initializeReserved':('Submit fragment initialization','CPU dispatch/lifecycle; GPU initializes and validates without a stage-local readback'),
  'collisionBindings':('Prepare chunk collision ownership','CPU dispatch + GPU persistent-shape ownership preparation'),
  'correctionBodies':('Prepare corrected motion states','CPU dispatch + GPU cluster/body preparation'),
@@ -80,7 +81,7 @@ LABELS={
  'correctedCollisionSolve':('Resimulate changed interaction','CPU task scheduling + GPU collision, constraints and motion solve'),
  'acceptCorrection':('Accept corrected step','GPU commit/status completion and CPU publication'),
  'trial.other':('Trial physics and remaining scene tasks','Original physics pass plus task/driver gaps outside destruction scopes')}
-STAGES={'motionAllocation':'GPU device-count fragment motion allocation',
+STAGES={'motionAllocation':'GPU fragment motion allocation transaction',
  'motionAllocationRetry':'GPU allocation retry after exceptional storage growth',
  'contactLoads':'Convert solved contact impulses into chunk loads',
  'stress':'Iterative stress solve to convergence', 'materials':'Evaluate material damage and fracture',

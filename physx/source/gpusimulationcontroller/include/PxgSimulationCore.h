@@ -108,6 +108,7 @@ namespace physx
 
 		~PxgSimulationCore();
 
+		void reserveBodySimCapacity(PxU32 nbTotalBodies, bool enableBodyAccelerations);
 		void reserveBodySimStorage(PxU32 nbTotalBodies, bool enableBodyAccelerations);
 
 		void gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityUpdate>& updatedBodySim,
@@ -248,6 +249,7 @@ namespace physx
 		PX_FORCE_INLINE PxgRigidBodyAcceleration* getRigidBodyAccelerations() { return mBodySimAccelerationsPinned.begin(); }
 		PX_FORCE_INLINE const PxgRigidBodyAcceleration* getRigidBodyAccelerations() const { return mBodySimAccelerationsPinned.begin(); }
 		PX_FORCE_INLINE PxU32 getNbRigidBodyAccelerations() const { return mBodySimAccelerationsPinned.size(); }
+		PX_FORCE_INLINE PxU32 getBodySimStorageCapacity() const { return mBodySimStorageCapacity; }
 		PX_FORCE_INLINE bool hasAccelerationBuffers() const { return mBodySimAccelerationsCudaBuffer.getSize() > 0; }
 
 		PX_FORCE_INLINE PxgTypedCudaBuffer<PxgArticulation>&  getArticulationBuffer() { return mArticulationBuffer; }
@@ -581,6 +583,7 @@ namespace physx
 		PxU32			mNbClothClothVertTriFilters;
 
 		PxU32			mNbTotalBodySim;
+		PxU32 mBodySimStorageCapacity = 0;
 		PxU32			mNbTotalArticulations; //this is used for articulation
 		PxU32			mNbTotalSoftBodies;
 		PxU32			mNbTotalFEMCloths;

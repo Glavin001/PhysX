@@ -303,62 +303,7 @@ __global__ void commitObservedTopologyMotion(PxDestructionTopologyDeviceView top
     if(!status->error && i<topology.status->clusterCount)topology.motions[topology.clusterSlots[topology.activeClusters[i]]]=motion[i];
 }
 
-// Validate the complete reservation mapping before writing any native slot.
-__global__ void validateReservedBodies(const PxvDestructionBodyRequest* requests,const PxU32* indices,
-    PxU32 count,const PxDestructionClusterBodyState* candidates,PxU32 candidateCount,PxU32 capacity,
-    PxDestructionBodyAllocationStatus* status) {
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
-    const auto r=requests[i];
-    if(r.candidateSlot>=candidateCount || indices[i]>=capacity || r.sourceBody>=capacity
-        || !r.needsBody || indices[i]==r.sourceBody) {atomicOr(&status->initializationError,1u);return;}
-    const auto b=candidates[r.candidateSlot];
-    if(b.cluster!=r.cluster || b.sourceBody!=r.sourceBody || b.supported!=r.supported)
-        atomicOr(&status->initializationError,1u);
-}
-__device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& candidate,const PxgBodySim& source,PxU32 id) {
-    auto b=source;
-    // Inherit physical settings from the authoritative GPU source, not the CPU
-    // allocation placeholder. No velocity/mass/inertia clamps or extra locks.
-    if(!candidate.supported)b.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW=b.dynamicLimitsDamping;
-    b.linearVelocityXYZ_inverseMassW=make_float4(candidate.linearVelocity[0],candidate.linearVelocity[1],candidate.linearVelocity[2],candidate.inverseMass);
-    b.angularVelocityXYZ_maxPenBiasW.x=candidate.angularVelocity[0];
-    b.angularVelocityXYZ_maxPenBiasW.y=candidate.angularVelocity[1];
-    b.angularVelocityXYZ_maxPenBiasW.z=candidate.angularVelocity[2];
-    b.inverseInertiaXYZ_contactReportThresholdW.x=candidate.inverseInertia[0];
-    b.inverseInertiaXYZ_contactReportThresholdW.y=candidate.inverseInertia[1];
-    b.inverseInertiaXYZ_contactReportThresholdW.z=candidate.inverseInertia[2];
-    b.body2World=PxAlignedTransform(candidate.bodyToWorldPosition[0],candidate.bodyToWorldPosition[1],candidate.bodyToWorldPosition[2],
-        PxAlignedQuat(candidate.bodyToWorldOrientation[0],candidate.bodyToWorldOrientation[1],candidate.bodyToWorldOrientation[2],candidate.bodyToWorldOrientation[3]));
-    const float maxImpulse=b.body2Actor_maxImpulseW.p.w;
-    b.body2Actor_maxImpulseW=PxAlignedTransform(candidate.bodyToActorPosition[0],candidate.bodyToActorPosition[1],candidate.bodyToActorPosition[2],
-        PxAlignedQuat(candidate.bodyToActorOrientation[0],candidate.bodyToActorOrientation[1],candidate.bodyToActorOrientation[2],candidate.bodyToActorOrientation[3]));
-    b.body2Actor_maxImpulseW.p.w=maxImpulse;
-    b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w=__uint_as_float(id);
-    b.sleepLinVelAccXYZ_freezeCountW=make_float4(0,0,0,0);
-    b.sleepAngVelAccXYZ_accelScaleW=make_float4(0,0,0,1);
-    b.internalFlags &= PxsRigidBody::eSPECULATIVE_CCD_GPU | PxsRigidBody::eENABLE_GYROSCOPIC_GPU | PxsRigidBody::eRETAIN_ACCELERATION_GPU;
-    b.internalFlags |= PxsRigidBody::eDESTRUCTION_MASS_GPU;
-    // Trial commands already contributed to provisional motion. The later
-    // rewind transaction must restore/distribute commands exactly once; cloning
-    // the parent's acceleration accumulator here would duplicate them.
-    b.externalLinearAcceleration=make_float4(0,0,0,0);
-    b.externalAngularAcceleration=make_float4(0,0,0,0);
-    return b;
-}
-__global__ void initializeReservedBodiesKernel(const PxvDestructionBodyRequest* requests,const PxU32* indices,
-    PxU32 count,const PxDestructionClusterBodyState* candidates,PxgBodySim* bodies,
-    PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,PxDestructionBodyAllocationStatus* status) {
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count || status->initializationError)return;
-    const auto candidate=candidates[requests[i].candidateSlot];const PxU32 id=indices[i];
-    const auto b=nativeCandidateState(candidate,bodies[candidate.sourceBody],id);
-    bodies[id]=b;
-    if(previous) {previous[id].linearVelocity=b.linearVelocityXYZ_inverseMassW;previous[id].angularVelocity=b.angularVelocityXYZ_maxPenBiasW;}
-    if(accelerations)accelerations[id]={};
-}
-__global__ void finishBodyInitialization(PxDestructionBodyAllocationStatus* allocation,PxDestructionStageStatus* status) {
-    allocation->initialized=allocation->initializationError?0:allocation->reserved;
-    if(allocation->initializationError)status->error|=512u;
-}
+#include "PxgDestructionMotionState.cuh"
 __device__ bool initializedBodyAllocation(const PxDestructionBodyAllocationStatus* allocation) {
     return allocation->valid && !allocation->error && !allocation->initializationError
         && allocation->initialized==allocation->reserved;
@@ -516,6 +461,9 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionMotionSlotStatus* mMotionSlots{};
     PxU32 mMotionSlotCapacity{},mCommittedMotionSlots{}; // capacity accounting, not allocation decisions
     NativeMotionAllocation mMotionAllocation;
+    PxgDestructionMotionStorage mMotionStorage{};
+    PxgDestructionGrowMotionStorage mGrowMotionStorage{};void* mMotionStorageOwner{};
+    CUstream mMotionProducerStream{};
     PxU32* mTrialBodyIndices{};
     PxvDestructionBodyRequest* mCorrectionOwnerRequests{};
     PxU32* mCorrectionOwnerTargets{};
@@ -1139,7 +1087,7 @@ public:
                 allocate(mCompactBodyRequests,d.chunkCount);allocate(mReturnedBodyIndices,d.chunkCount);
                 allocate(mMotionSlots,1);check(cudaMemset(mMotionSlots,0,sizeof(*mMotionSlots)));
                 check(mMotionAllocation.initialize({mMotionSlots,nullptr,mBodyPreparation,mBodyRequests,
-                    mCompactBodyRequests,mReturnedBodyIndices,mTrialBodyIndices,nullptr,mBodyAllocation,mStatus,mN,0},mStream));
+                    mCompactBodyRequests,mReturnedBodyIndices,mTrialBodyIndices,nullptr,mBodyAllocation,mStatus,mN,0,mTrialBodies},mStream));
                 mEditCapacity=d.chunkCount+d.bondCount;
                 allocate(mProvisionalMotion,d.chunkCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
             }
@@ -1217,16 +1165,20 @@ public:
         }catch(...){mFailed=true;return false;}
     }
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
-    bool advance(PxReal dt,const PxVec3& gravity,const PxgBodySim* bodyStates,CUstream producerStream,
-        const PxgDestructionSolvedContacts& contacts) override {
-        try {Context current(mContext);if(!configured() || dt<=0 || !bodyStates || !producerStream)return false;
+    bool advance(PxReal dt,const PxVec3& gravity,const PxgDestructionMotionStorage& storage,CUstream producerStream,
+        PxgDestructionGrowMotionStorage growStorage,void* storageOwner,const PxgDestructionSolvedContacts& contacts) override {
+        const auto* bodyStates=storage.bodies;
+        try {Context current(mContext);
+            mMotionStorage=storage;mGrowMotionStorage=growStorage;mMotionStorageOwner=storageOwner;mMotionProducerStream=producerStream;if(!configured() || dt<=0 || !bodyStates || !producerStream)return false;
             // Join borrowed NP streams and the native body's last writer before
             // reading either. Recording the existing input event on the body
             // producer preserves the previous API-gather ordering without
             // those kernels or a CPU completion wait.
             check(cudaStreamWaitEvent(producerStream,mInput,0));
             check(cudaEventRecord(mInput,producerStream));
-            check(cudaStreamWaitEvent(mStream,mInput,0));stageMarker(0);
+            check(cudaStreamWaitEvent(mStream,mInput,0));
+            if(mTopology)check(mMotionAllocation.setStorage(storage,mStream));
+            stageMarker(0);
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
@@ -1340,6 +1292,19 @@ public:
             const PxU32* granted=nullptr;
             if(!mBodyAllocator || !mBodyAllocator->reserveNodeCapacity(capacity,granted))
                 throw std::runtime_error("native motion index capacity grant failed");
+            // Grow raw PhysX motion storage before any compatibility body exists.
+            // This is an exceptional resource grant, not a CPU fragment decision.
+            PxU32 storageCount=mMotionStorage.capacity;
+            for(PxU32 i=0;i<capacity;++i) {
+                if(granted[i]==PX_INVALID_U32)throw std::runtime_error("invalid native motion storage address");
+                storageCount=std::max(storageCount,granted[i]+1);
+            }
+            if(!mGrowMotionStorage || !mGrowMotionStorage(mMotionStorageOwner,storageCount,mMotionStorage)
+                || mMotionStorage.capacity<storageCount || !mMotionStorage.bodies)
+                throw std::runtime_error("native motion storage capacity grant failed");
+            check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(mMotionProducerStream)));
+            check(cudaStreamWaitEvent(mStream,mInput,0));
+            check(mMotionAllocation.setStorage(mMotionStorage,mStream));
             PxU32* next=nullptr;allocate(next,capacity);
             try {check(cudaMemcpyAsync(next,granted,size_t(capacity)*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));}
             catch(...){cudaFree(next);throw;}
@@ -1353,7 +1318,7 @@ public:
             check(cudaStreamSynchronize(mStream));
             allocation=*mBodyAllocationObservation;collectMotionAllocationTiming();
         }
-        if(!allocation.valid || allocation.error || allocation.reserved!=requested
+        if(!allocation.valid || allocation.error || allocation.initialized!=requested || allocation.reserved!=requested
             || allocation.count!=count || allocation.generation!=mHostBodyPreparation->generation
             || mHostStatus->error!=8u)throw std::runtime_error("native GPU motion allocation rejected");
         std::vector<PxvDestructionBodyRequest> requests(requested);mHostReservedIndices.resize(requested);
@@ -1378,8 +1343,10 @@ public:
         PxProfileScoped publish(mProfiler,"GpuDestruction.finishDetail.publishReservation",false,mProfileContext);
         // Merge only compatibility construction failure. Never overwrite a GPU
         // allocation error or upload CPU-selected indices/status over device work.
-        finishNativeBodyShadowRegistration<<<1,1,0,mStream>>>(allocated,mBodyAllocation,mStatus);
-        check(cudaGetLastError());check(cudaEventRecord(mReady,mStream));
+        if(!allocated) {
+            finishNativeBodyShadowRegistration<<<1,1,0,mStream>>>(false,mBodyAllocation,mStatus);
+            check(cudaGetLastError());check(cudaEventRecord(mReady,mStream));
+        }
     }
     bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
         const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream) override {
@@ -1688,7 +1655,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntime(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV2(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 

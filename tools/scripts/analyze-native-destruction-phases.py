@@ -13,7 +13,7 @@ PREFIX = "GpuDestruction."
 ALWAYS = {"submit", "finishAndReserve", "collisionBindings", "correctionBodies"}
 CORRECTION = {"applyBindings", "restoreInstall", "correctedCollisionSolve", "refilter", "acceptCorrection"}
 # refilter is nested inside correctedCollisionSolve; never add both to totals.
-INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "resetContactCaches", "preparationCompletion"}
+INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "publishReservedMetadata", "resetContactCaches", "preparationCompletion"}
 
 
 def open_capture(path):

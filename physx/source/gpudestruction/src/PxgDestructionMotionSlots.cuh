@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 // Included in the runtime implementation namespace. Addresses are a CPU resource
 // grant; request counts, stable selection and assignment belong to the GPU.
-struct NativeMotionAddresses { const PxU32* indices;PxU32 capacity; };
+struct NativeMotionAddresses { const PxU32* indices;PxU32 capacity; PxgDestructionMotionStorage storage; };
 struct NativeMotionAllocationView {
     PxDestructionMotionSlotStatus* pool;
     const NativeMotionAddresses* addresses;
@@ -12,6 +12,7 @@ struct NativeMotionAllocationView {
     PxDestructionBodyAllocationStatus* allocation;
     PxDestructionStageStatus* stage;
     PxU32 requestCapacity,blocks;
+    const PxDestructionClusterBodyState* candidates;
 };
 __global__ void beginNativeMotionAllocation(NativeMotionAllocationView v,cudaGraphConditionalHandle work) {
     const auto p=*v.preparation;const auto addresses=*v.addresses;
@@ -76,7 +77,13 @@ __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
             const auto request=v.requests[i];const PxU32 slot=offset+rank;
             const PxU32 id=v.addresses->indices[v.pool->committed+slot];
             v.compact[slot]=request;v.selected[slot]=id;
+            const auto storage=v.addresses->storage;
             if(id==~PxU32(0) || id==request.sourceBody)atomicOr(&v.allocation->error,4u);
+            if(!storage.bodies || id>=storage.capacity || request.sourceBody>=storage.capacity)
+                atomicOr(&v.allocation->error,16u);
+            const auto candidate=v.candidates[request.candidateSlot];
+            if(candidate.cluster!=request.cluster || candidate.sourceBody!=request.sourceBody || candidate.supported!=request.supported)
+                atomicOr(&v.allocation->error,16u);
         }
         offset+=total;__syncthreads();
     }
@@ -87,14 +94,26 @@ __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
     if(!v.allocation->error) {
         const PxU64 stride=PxU64(blockDim.x)*gridDim.x;
         for(PxU64 i=PxU64(blockIdx.x)*blockDim.x+threadIdx.x;i<v.preparation->allocationRequests;i+=stride)
-            v.candidateIndices[v.compact[i].candidateSlot]=v.selected[i];
+        {
+            const auto request=v.compact[i];const PxU32 id=v.selected[i];
+            const auto storage=v.addresses->storage;
+            const auto b=nativeCandidateState(v.candidates[request.candidateSlot],storage.bodies[request.sourceBody],id);
+            storage.bodies[id]=b;
+            if(storage.previous){storage.previous[id].linearVelocity=b.linearVelocityXYZ_inverseMassW;
+                storage.previous[id].angularVelocity=b.angularVelocityXYZ_maxPenBiasW;}
+            if(storage.accelerations)storage.accelerations[id]={};
+            v.candidateIndices[request.candidateSlot]=id;
+        }
     }
     if(!blockIdx.x && !threadIdx.x) {
         v.pool->error=v.allocation->error;
-        if(v.allocation->error)v.stage->error|=256u;
+        if(v.allocation->error) {
+            v.stage->error|=256u;
+            if(v.allocation->error&16u){v.allocation->initializationError=1u;v.stage->error|=512u;}
+        }
         else {
             v.pool->pending=v.preparation->allocationRequests;
-            v.allocation->reserved=v.pool->pending;v.allocation->valid=1;
+            v.allocation->reserved=v.pool->pending;v.allocation->initialized=v.pool->pending;v.allocation->valid=1;
         }
     }
 }
@@ -129,7 +148,14 @@ public:
         cudaFree(mAddresses);cudaFree(mOffsets);mExecutable=nullptr;mGraph=nullptr;mAddresses=nullptr;mOffsets=nullptr;
     }
     cudaError_t setCapacity(const PxU32* indices,PxU32 capacity,cudaStream_t stream) {
-        mHostAddresses={indices,capacity};
+        mHostAddresses.indices=indices;mHostAddresses.capacity=capacity;
+        return cudaMemcpyAsync(mAddresses,&mHostAddresses,sizeof(mHostAddresses),cudaMemcpyHostToDevice,stream);
+    }
+    cudaError_t setStorage(const PxgDestructionMotionStorage& storage,cudaStream_t stream) {
+        const auto& old=mHostAddresses.storage;
+        if(old.bodies==storage.bodies && old.previous==storage.previous
+            && old.accelerations==storage.accelerations && old.capacity==storage.capacity)return cudaSuccess;
+        mHostAddresses.storage=storage;
         return cudaMemcpyAsync(mAddresses,&mHostAddresses,sizeof(mHostAddresses),cudaMemcpyHostToDevice,stream);
     }
     cudaError_t initialize(NativeMotionAllocationView v,cudaStream_t stream) {

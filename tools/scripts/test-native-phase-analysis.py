@@ -66,6 +66,13 @@ class PhaseAnalysis(unittest.TestCase):
         after = API['analyze'](self.root)['unmeasured_interval_mean_ms']
         self.assertAlmostEqual(before - after, 1.0)
 
+    def test_reserved_metadata_is_a_separate_cpu_scope(self):
+        before = API['analyze'](self.root)['unmeasured_interval_mean_ms']
+        with (self.root / 'native.phases.csv').open('a') as stream:
+            csv.writer(stream).writerow([1, 'GpuDestruction.publishReservedMetadata', .6, 1])
+        after = API['analyze'](self.root)['unmeasured_interval_mean_ms']
+        self.assertAlmostEqual(before - after, .3)
+
     def test_compressed_capture(self):
         for name in ['native.frames.csv', 'native.phases.csv', 'native.phases.csv.device.csv']:
             p = self.root / name

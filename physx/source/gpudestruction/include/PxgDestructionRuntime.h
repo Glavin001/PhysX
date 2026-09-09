@@ -6,6 +6,7 @@
 #include "PxContact.h"
 #include "PxgDestructionContactGraph.h"
 #include "PxgDestructionOwnership.h"
+#include "PxgDestructionMotionStorage.h"
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
@@ -63,8 +64,8 @@ public:
     // The producer stream owns the native body pool. Runtime orders its reads
     // after this stream and borrowed NP streams; no Direct GPU API gather or
     // second body-index binding is needed inside the simulation.
-    virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgBodySim* bodyStates, CUstream producerStream,
-        const PxgDestructionSolvedContacts& contacts) = 0;
+    virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgDestructionMotionStorage& storage, CUstream producerStream,
+        PxgDestructionGrowMotionStorage growStorage, void* storageOwner, const PxgDestructionSolvedContacts& contacts) = 0;
     virtual bool finish() = 0;
     // Compact CPU allocation IDs only; no physical state readback. Slots remain
     // private/inactive until the correction transaction commits.
@@ -122,8 +123,11 @@ public:
 #else
 #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
 #endif
+// Private producer ABI v2 adds borrowed motion storage and its capacity owner.
+// Version the symbol so mixed GPU/runtime binaries fail resolution rather than
+// calling an incompatible virtual advance signature. Public scene ABI is intact.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntime(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV2(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

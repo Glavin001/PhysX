@@ -1,6 +1,9 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxDestructionScene.h"
 #include "PxvDestructionBodyAllocator.h"
+#include "PxgDestructionMotionStorage.h"
+#include "PxgBodySim.h"
+#include "PxsRigidBody.h"
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 #include <cub/cub.cuh>
@@ -10,6 +13,7 @@
 #include <random>
 #include <algorithm>
 namespace physx { namespace {
+#include "../src/PxgDestructionMotionState.cuh"
 #include "../src/PxgDestructionMotionSlots.cuh"
 }}
 using namespace physx;
@@ -26,17 +30,24 @@ struct Fixture {
     PxDestructionStageStatus* stage=make<PxDestructionStageStatus>();
     PxvDestructionBodyRequest *input,*compact;
     PxU32 *granted,*selected,*owners;
+    PxDestructionClusterBodyState* candidates;
+    PxgBodySim* bodies;PxgBodySimVelocities* previous;PxgRigidBodyAcceleration* accelerations;
+    PxU32 storageCapacity;
     std::vector<PxvDestructionBodyRequest> requests;
     std::vector<PxU32> addresses;
     explicit Fixture(unsigned n):size(n),requests(n),addresses(n+32) {
         input=make<PxvDestructionBodyRequest>(n);compact=make<PxvDestructionBodyRequest>(n);
         granted=make<PxU32>(n+32);selected=make<PxU32>(n);owners=make<PxU32>(n);
-        CUDA(graph.initialize({pool,nullptr,prep,input,compact,selected,owners,nullptr,allocation,stage,size,0},0));
-        for(unsigned i=0;i<n+32;++i)addresses[i]=1000000+3*i;
+        storageCapacity=128+3*(n+32);bodies=make<PxgBodySim>(storageCapacity);
+        previous=make<PxgBodySimVelocities>(storageCapacity);accelerations=make<PxgRigidBodyAcceleration>(storageCapacity);
+        candidates=make<PxDestructionClusterBodyState>(n);
+        CUDA(graph.initialize({pool,nullptr,prep,input,compact,selected,owners,nullptr,allocation,stage,size,0,candidates},0));
+        for(unsigned i=0;i<n+32;++i)addresses[i]=64+3*i;
+        CUDA(graph.setStorage({bodies,previous,accelerations,storageCapacity},0));
         CUDA(cudaMemcpy(granted,addresses.data(),addresses.size()*sizeof(PxU32),cudaMemcpyHostToDevice));
     }
     ~Fixture(){graph.clear();for(void* p:{(void*)pool,(void*)prep,(void*)allocation,(void*)stage,(void*)input,(void*)compact,
-        (void*)granted,(void*)selected,(void*)owners})CUDA(cudaFree(p));}
+        (void*)granted,(void*)selected,(void*)owners,(void*)candidates,(void*)bodies,(void*)previous,(void*)accelerations})CUDA(cudaFree(p));}
     void reset(unsigned count,unsigned requested,unsigned committed=0,unsigned stageError=8) {
         put(pool,PxDestructionMotionSlotStatus{0,committed,7,55});
         put(prep,PxDestructionBodyPreparationStatus{17,count,1,0,requested});
@@ -45,6 +56,22 @@ struct Fixture {
         CUDA(cudaMemset(compact,0xcc,size*sizeof(PxvDestructionBodyRequest)));
         CUDA(cudaMemset(selected,0xcc,size*sizeof(PxU32)));
         CUDA(cudaMemcpy(input,requests.data(),size*sizeof(PxvDestructionBodyRequest),cudaMemcpyHostToDevice));
+        std::vector<PxDestructionClusterBodyState> states(size);
+        for(unsigned i=0;i<size;++i) {
+            auto& v=states[i];v.cluster=requests[i].cluster;v.sourceBody=requests[i].sourceBody;v.supported=requests[i].supported;
+            v.inverseMass=.25f;v.linearVelocity[0]=float(i)+.5f;v.angularVelocity[2]=-2;
+            v.bodyToWorldOrientation[3]=v.bodyToActorOrientation[3]=1;
+            v.bodyToWorldPosition[0]=float(i);v.bodyToActorPosition[1]=3;
+            v.inverseInertia[0]=1;v.inverseInertia[1]=2;v.inverseInertia[2]=3;
+        }
+        CUDA(cudaMemcpy(candidates,states.data(),size*sizeof(states[0]),cudaMemcpyHostToDevice));
+        CUDA(cudaMemset(bodies,0,storageCapacity*sizeof(*bodies)));
+        CUDA(cudaMemset(previous,0x7f,storageCapacity*sizeof(*previous)));
+        CUDA(cudaMemset(accelerations,0x7f,storageCapacity*sizeof(*accelerations)));
+        PxgBodySim source{};source.dynamicLimitsDamping=make_float4(100,200,.01f,.02f);
+        source.body2Actor_maxImpulseW.p.w=500;
+        source.externalLinearAcceleration=make_float4(1,2,3,4);
+        put(bodies+7,source);
     }
     void run(unsigned capacity) {
         CUDA(graph.setCapacity(granted,capacity,0));CUDA(graph.launch(0));
@@ -70,6 +97,17 @@ struct Fixture {
                 CHECK(r.supported==requests[i].supported && r.needsBody==1 && r.candidateSlot==i);++selectedCount;
             } else CHECK(result[i]==(~PxU32(0)));
         }
+        // Independent physical checks on representative allocated slots. Allocation
+        // has initialized them without any CPU body object or initialization call.
+        for(unsigned i: {0u,count/2,count?count-1:0u})if(i<count && requests[i].needsBody) {
+            const auto body=get(bodies+result[i]);const auto prior=get(previous+result[i]);
+            CHECK(body.linearVelocityXYZ_inverseMassW.x==float(i)+.5f && body.linearVelocityXYZ_inverseMassW.w==.25f);
+            CHECK(body.angularVelocityXYZ_maxPenBiasW.z==-2 && body.body2World.p.x==float(i));
+            CHECK(body.body2Actor_maxImpulseW.p.y==3 && body.body2Actor_maxImpulseW.p.w==500);
+            CHECK(body.externalLinearAcceleration.x==0 && body.externalLinearAcceleration.y==0);
+            CHECK(prior.linearVelocity.x==float(i)+.5f && prior.angularVelocity.z==-2);
+        }
+        CHECK(a.initialized==selectedCount && !a.initializationError);
         CHECK(selectedCount==a.reserved && p.pending==selectedCount && !p.error && get(stage).error==8);
     }
 };
@@ -111,6 +149,13 @@ int main() {
     f.reset(444,444,0,0);f.run(476);f.unchanged();CHECK(!get(f.pool).pending && !get(f.allocation).reserved);
     f.reset(444,444,0,4096);f.run(476);f.unchanged();CHECK(get(f.stage).error==4096 && !get(f.pool).pending);
     f.reset(444,444,500);f.run(476);f.unchanged();CHECK(get(f.allocation).error==1 && get(f.pool).committed==500);
+    f.reset(444,444);
+    auto mismatched=get(f.candidates+220);mismatched.cluster=3;put(f.candidates+220,mismatched);
+    f.run(476);f.unchanged();CHECK(get(f.allocation).error&16);
+    CHECK(get(f.bodies+f.addresses[0]).linearVelocityXYZ_inverseMassW.x==0);
+    f.reset(444,444);CUDA(f.graph.setStorage({f.bodies,f.previous,f.accelerations,7},0));
+    f.run(476);f.unchanged();CHECK(get(f.allocation).error&16);
+    CUDA(f.graph.setStorage({f.bodies,f.previous,f.accelerations,f.storageCapacity},0));
     f.reset(444,444);f.run(476);f.check(444,0);
     finishNativeBodyShadowRegistration<<<1,1>>>(false,f.allocation,f.stage);
     commitNativeMotionSlots<<<1,1>>>(f.pool,f.stage);CUDA(cudaDeviceSynchronize());

@@ -668,7 +668,9 @@ if(BLAST_ENABLE_CUDA_STRESS)
     # One production-kernel oracle is shared by the SDK and demo test entry points.
     add_executable(native_gpu_motion_slots_test "${PHYSX_ROOT}/source/gpudestruction/tests/motion_slots_test.cu")
     target_include_directories(native_gpu_motion_slots_test PRIVATE "${PHYSX_ROOT}/include"
-        "${PHYSX_ROOT}/source/lowlevel/software/include" "${PHYSX_ROOT}/source/gpudestruction/src")
+        "${PHYSX_ROOT}/source/lowlevel/software/include" "${PHYSX_ROOT}/source/gpudestruction/src"
+        "${PHYSX_ROOT}/source/gpusimulationcontroller/include" "${PHYSX_ROOT}/source/gpucommon/include"
+        "${PHYSX_ROOT}/source/common/src" "${PHYSX_ROOT}/source/lowlevel/api/include")
     target_compile_definitions(native_gpu_motion_slots_test PRIVATE NDEBUG)
     set_target_properties(native_gpu_motion_slots_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_link_libraries(native_gpu_motion_slots_test PRIVATE CUDA::cudart)

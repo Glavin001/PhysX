@@ -22,6 +22,39 @@ an audited mode-matched reference. The known contact-retention failure is caught
 at step 17 in both modes. Native lifecycle integration and the physical fix are
 still unfinished. [Fast-tier receipt](../../qualification/native-prefix-20260909/README.md).
 
+## Architectural progress versus performance rejection
+
+User clarification: a physically equivalent, maintainable step toward the final
+ownership/data flow can be retained without a measurable speedup. Record four
+separate dispositions: **correctness, architecture, maintainability, performance**.
+A neutral timing screen is not a speedup; neither is it automatically a reason to
+revert. Name the removed dependency, its concrete next consumer, and old code
+removed. Added representation/caching complexity without a required consumer is
+not sufficient. Reliable slowdowns still require an explicit, bounded tradeoff;
+correctness failures cannot be waived as architectural progress.
+
+| Previous experiment | Revised interpretation / next use |
+|---|---|
+| Dead-adjacency compaction | Correctness passed and real dead traversal disappeared; peak gain unproved. Reconsider the GPU generation-guarded compaction mechanism inside ranked #2's local solver layout, avoiding duplicate adjacency. Archived implementation remains reverted. |
+| Standalone shape-to-chunk index | Qualified identity tests are reusable; a second paged table did not establish a worthwhile gain. The final shared ownership index is a different architectural replacement. Do not restore the standalone table unchanged. |
+| Descending component-size scheduling | Rejected as a peak optimization; averages improved in the recorded screen. Potential throughput candidate at ranked #2, not proof of architectural progress or significant peak regression. Preserve broader qualification requirements. |
+| Contact retention | Correct direction, failed controlled numerical/physical oracle. Retention and solver registration lifetime must be separated. Keep deferred to ranked #3; not a false performance rejection. |
+| Fused sleep commit | Retained unnecessary placeholder notifications. Deleting those notifications was the better final ownership change and was kept without a proven peak speedup. |
+| Shared inverse cache / tested coarse variants | Additional storage/recurrences and recorded regressions; no removed lifecycle prerequisite. No automatic restoration justified. |
+
+Evidence: [adjacency](../../qualification/adjacency-evaluation/report.html),
+[index](../../qualification/native-chunk-index-20260909/README.md),
+[scheduling](../../qualification/vibe-stress-order-20260908/comparison/report.md),
+[contact order](../../qualification/native-contact-owner-20260909/ORDERING_FINDING.md),
+[sleep fusion](../../qualification/native-sleep-commit-20260908/README.md).
+
+Current checkpoint `f6682dca` moves device-count selection/allocation ahead of CPU
+observation. No significant idle or fracture speedup was established. It enables
+GPU body initialization before compatibility construction; that integration now
+passes focused checks and a short paired screen, without a demonstrated timing
+win. [Implementation receipt](../../qualification/ranked-storage-20260909/README.md). CPU simulation registration and ownership prerequisites
+still remain, so ranked #1 is not complete and #2 has not started.
+
 ## Priority checklist and separate benefit tracks
 
 Ordered by the current evidence for substantial **destruction-peak** opportunity,

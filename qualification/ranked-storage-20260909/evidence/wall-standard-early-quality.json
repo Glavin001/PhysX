@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "tier": "early",
+  "compared_steps": 32,
+  "chunks": 444,
+  "bonds": 896,
+  "projectiles": 1,
+  "performance_qualification": false,
+  "complete_regression": false,
+  "position_tolerance_m": 0.001,
+  "first_difference": null,
+  "max_position_error_m": 0.0,
+  "compared_identity_sha256": "51cd7a70f8406d8e9417e70f399f01bc23ded9e82230282a0d91a5b98bf9f7a9",
+  "reference": "/root/workspace/physx-2/out/native-settled-local-20260909/wall-standard",
+  "reference_sha256": {
+    "capture.json": "d705cef57d3b0158fb71770ed00054a522ae54440a82fea74006e3c515eaa877",
+    "quality.json": "8142a764f163f893d03074922889683db8e9e57ca2442098aefc1b8957dc61d1",
+    "native.summary.json": "70f7a0f926d07c566b3f3d68ecf6ac684c7f05db2457b78d7c0259d1b10a0fb0",
+    "native.frames.csv": "af8de01cc8efe4319184100f1364808bb10049c65b17c438133e96d9c9808828",
+    "native.twstate": "841f1445bfc768060d948bb3a1d5efa18ae853f50d958a2231582408ce9b36a8",
+    "native.motion.csv.gz": "625169f0b55ab84573d8bff38ca1fb733747c9942bee5a224b39f2c9bb8d2b10"
+  },
+  "validation_seconds": 0.35086915400461294,
+  "capture": "/root/workspace/physx-2/out/ranked-storage-20260909/wall-standard-early",
+  "artifacts": {
+    "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "dd35d0baaac3c2624d6917237baa89b36cc8ca19420acc9f08c3c298c91db958",
+    "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "92afdfc40d2290b5d72d8d6c377a96e612ec5fee47b54eeec27b38cea525e41e",
+    "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+  }
+}
