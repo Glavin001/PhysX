@@ -113,6 +113,7 @@ struct Fixture {
 };
 #include "native_contact_lifetime_check.h"
 #include "native_initialization_failure_check.h"
+#include "native_preparation_order_check.h"
 #include "native_fracture_fallback_check.h"
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
@@ -646,9 +647,11 @@ void rejection() {
     Fixture f(4,2,true);const PxU32 old=f.chunks[2].contactIndex;
     f.chunks[2].contactIndex=0xfffffffeu;f.configure();f.fracture(8u|1024u);auto status=f.readStatus();
     require(!status.valid && (status.error&1) && status.generation==1,"out-of-range shape did not reject whole batch");
+    require(!static_cast<NpScene&>(f.scene).getNbDestructionBodyCandidates(),"rejected collision created CPU fragment candidates");
     f.chunks[2].contactIndex=old;f.assertUncommitted();
     f.chunks[2].contactIndex=f.scene.getDirectGPUAPI().getShapeContactIndex(*f.foreignShape);f.configure();f.fracture(8u|1024u);status=f.readStatus();
     require(!status.valid && (status.error&2),"foreign native owner accepted in collision plan");
+    require(!static_cast<NpScene&>(f.scene).getNbDestructionBodyCandidates(),"rejected collision created CPU fragment candidates");
     f.chunks[2].contactIndex=old;f.assertUncommitted();
     f.configure();f.fracture();require(f.readStatus().valid,"valid graph could not recover after rejected collision batch");f.assertUncommitted();
     // Corrupt only the NP remap after a valid prepared batch. The shape-sim
@@ -695,6 +698,7 @@ int main(int argc,char** argv){try{
         if(mode=="--connectivity-owner"){solverMetadata(PxSolverType::ePGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true,true);return 0;}
         if(mode=="--pre-solve-islands"){solverMetadata(PxSolverType::ePGS,false,true);solverMetadata(PxSolverType::eTGS,false,true);solverMetadata(PxSolverType::eTGS,true,true);return 0;}
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
+        if(mode=="--preparation-before-compatibility"){preparationBeforeCompatibility();return 0;}
         if(mode=="--fracture-connectivity-fallback"){fractureConnectivityFallback();return 0;}
         if(mode=="--initialization-failure"){nativeInitializationFailure();return 0;}
         if(mode=="--lifetime-exhaustion"){contactLifetimeExhaustion();return 0;}

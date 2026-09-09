@@ -60,7 +60,7 @@ def main():
             name=row['name'];value=row['mean_exclusive_cpu_core_ms']
             if ('.trialDetail.' in name or '.detail.' in name) and name.rsplit('.',1)[-1] in contact_names:contact+=value
             if '.task.accurateIsland' in name or '.task.speculativeIsland' in name:islands+=value
-            if name.endswith('.finishDetail.allocateNativeBodies'):allocation+=value
+            if name.endswith(('.finishDetail.allocateNativeBodies','.compatibility.allocateNativeBodies')):allocation+=value
         gpu=p['gpu_kernel_categories_mean_sum_ms']
         values=[contact,islands,allocation,gpu.get('physics broad phase',0),gpu.get('physics constraint preparation / solve / integration',0),gpu.get('stress solver / stress topology',0)]
         report.append('| '+f'{key[0]} g{key[1]}'+' | '+' | '.join(f'{v:.3f}' for v in values)+' |')

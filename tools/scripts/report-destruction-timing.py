@@ -45,7 +45,7 @@ TREE={
  'finishAndReserve':{'finishDetail.waitForGpu':{},'finishDetail.reserveBodies':{
      'finishDetail.growMotionSlots':{},'finishDetail.requestReadback':{},'finishDetail.allocateNativeBodies':{},
      'finishDetail.uploadBindings':{},'finishDetail.publishReservation':{}}},
- 'initializeReserved':{},'publishReservedMetadata':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{},'applyBindings':{
+ 'initializeReserved':{},'publishReservedMetadata':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{'compatibility.requestReadback':{},'compatibility.allocateNativeBodies':{},'compatibility.publishReservation':{}},'applyBindings':{
      'applyDetail.validateOwners':{},'applyDetail.scheduleOwners':{},'applyDetail.migrateShapes':{
          'migrateDetail.refilter':{},'migrateDetail.retireContacts':{},'migrateDetail.registerOwner':{},
          'migrateDetail.actorLinks':{},'migrateDetail.queryMirror':{}}},
@@ -66,6 +66,10 @@ LABELS={
  'collisionBindings':('Prepare chunk collision ownership','CPU dispatch + GPU persistent-shape ownership preparation'),
  'correctionBodies':('Prepare corrected motion states','CPU dispatch + GPU cluster/body preparation'),
  'preparationCompletion':('Observe initialization/collision/correction verdicts','GPU → CPU combined validation status at the remaining ownership bridge; includes completion wait'),
+ 'preparationCompletion.other':('Observe GPU preparation verdicts','GPU → CPU combined validation wait and host bookkeeping; compatibility children reported separately'),
+ 'compatibility.requestReadback':('Observe GPU-selected fragment requests','GPU → CPU compact metadata after complete GPU collision and motion preparation'),
+ 'compatibility.allocateNativeBodies':('Construct fragment compatibility objects','CPU PhysX body/lifecycle records after GPU preparation; still required before corrected simulation'),
+ 'compatibility.publishReservation':('Validate compatibility construction','CPU result and exceptional GPU failure merge; physical GPU allocation remains authoritative'),
  'applyBindings':('Apply ownership/lifecycle changes','CPU PhysX ownership and lifecycle bridge'),
  'applyDetail.validateOwners':('Validate fragment owners and shape identities','CPU validates the migration batch against compatibility actors and persistent shapes'),
  'applyDetail.scheduleOwners':('Activate fragment scheduler metadata','CPU updates kinematic/dynamic type and wake/island bookkeeping; physical state is GPU-owned'),

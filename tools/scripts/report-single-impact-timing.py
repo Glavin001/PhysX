@@ -8,7 +8,7 @@ base=args.capture
 spec=importlib.util.spec_from_file_location('a',root/'tools/scripts/analyze-native-gpu-profile.py');a=importlib.util.module_from_spec(spec);spec.loader.exec_module(a)
 frames={n:list(csv.DictReader((base/n/'native.frames.csv').open())) for n in ['phases','gpu','plain1','plain2']}
 phases={n:list(csv.DictReader((base/n/'native.phases.csv').open())) for n in ['phases','gpu']}
-independent=['submit','finishAndReserve','initializeReserved','collisionBindings','correctionBodies','preparationCompletion','applyBindings','restoreInstall','resetContactCaches','correctedCollisionSolve','acceptCorrection']
+independent=['submit','finishAndReserve','initializeReserved','publishReservedMetadata','collisionBindings','correctionBodies','preparationCompletion','applyBindings','restoreInstall','resetContactCaches','correctedCollisionSolve','acceptCorrection']
 result={}
 for n in frames:
  r=frames[n];result[n]={'timings':a.stats([float(x['physics_step_ms']) for x in r]),'first_impact':r[82], 'windows':{label:a.stats([float(x['physics_step_ms']) for x in r if predicate(x)]) for label,predicate in [('preimpact',lambda x:1<=int(x['step'])<82),('corrected',lambda x:int(x['resim_passes'])==1),('late_rubble',lambda x:int(x['step'])>=480)]}}

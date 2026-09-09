@@ -23,9 +23,10 @@ GROUPS = {
 OWNERSHIP = {
     'finishDetail.growMotionSlots', 'finishDetail.requestReadback',
     'finishDetail.allocateNativeBodies', 'finishDetail.uploadBindings',
+    'compatibility.requestReadback', 'compatibility.allocateNativeBodies', 'compatibility.publishReservation',
     'finishDetail.publishReservation', 'finishDetail.reserveBodies.other',
     'finishAndReserve.other', 'initializeReserved', 'collisionBindings',
-    'correctionBodies', 'preparationCompletion', 'applyDetail.validateOwners',
+    'correctionBodies', 'preparationCompletion', 'preparationCompletion.other', 'publishReservedMetadata', 'applyDetail.validateOwners',
     'applyDetail.scheduleOwners', 'migrateDetail.refilter',
     'migrateDetail.retireContacts', 'migrateDetail.registerOwner',
     'migrateDetail.actorLinks', 'migrateDetail.queryMirror',

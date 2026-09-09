@@ -66,9 +66,11 @@ public:
     // second body-index binding is needed inside the simulation.
     virtual bool advance(PxReal dt, const PxVec3& gravity, const PxgDestructionMotionStorage& storage, CUstream producerStream,
         PxgDestructionGrowMotionStorage growStorage, void* storageOwner, const PxgDestructionSolvedContacts& contacts) = 0;
+    // Completes GPU allocation and exceptional raw-capacity growth only. No CPU
+    // fragment objects are constructed until GPU correction preparation passes.
     virtual bool finish() = 0;
-    // Compact CPU allocation IDs only; no physical state readback. Slots remain
-    // private/inactive until the correction transaction commits.
+    // Compact compatibility IDs become available after completeCorrectionPreparation;
+    // no physical state readback. Slots remain private until correction commits.
     virtual PxU32 reservedBodyCount() const = 0;
     virtual const PxU32* reservedBodyIndices() const = 0;
     // Asynchronous submission; success does not observe GPU validation. Collision
@@ -80,7 +82,8 @@ public:
     // invalid collision preparation gates corrected-motion preparation on device.
     virtual bool prepareCollisionBindings(const PxgShapeSim* shapes, PxU32 shapeCapacity, const PxNodeIndex* shapeToBody, PxU32 remapCapacity, CUstream stream) = 0;
     virtual bool prepareCorrectionBodies(PxU32 bodyCapacity, CUstream stream) = 0;
-    // Combined observation at the remaining CPU ownership/completion boundary.
+    // Combined observation followed by CPU compatibility construction only when
+    // GPU collision and corrected-motion preparation both validate.
     virtual bool completeCorrectionPreparation() = 0;
     // Body installation after rigid restore. Island/collision ownership and
     // accepted events remain separate. Unresolved source commands reject before
@@ -123,11 +126,11 @@ public:
 #else
 #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
 #endif
-// Private producer ABI v2 adds borrowed motion storage and its capacity owner.
+// Private producer ABI v3 moves compatibility construction after preparation.
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
-// calling an incompatible virtual advance signature. Public scene ABI is intact.
+// violating lifecycle ordering. Public scene ABI is intact.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV2(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV3(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

@@ -34,7 +34,7 @@ class TimingAccounting(unittest.TestCase):
         by={'collisionBindings':[(0,10)],'correctionBodies':[(10,20)],
             'preparationCompletion':[(20,70)],'applyBindings':[(70,90)]}
         p=r.partition([(0,100)],by)
-        self.assertAlmostEqual(p['preparationCompletion'],.00005)
+        self.assertAlmostEqual(p['preparationCompletion.other'],.00005)
         self.assertAlmostEqual(p['trial.other'],.00001)
         with self.assertRaisesRegex(ValueError,'Overlapping'):
             r.partition([(0,100)],dict(by,preparationCompletion=[(19,70)]))
@@ -55,6 +55,20 @@ class TimingAccounting(unittest.TestCase):
             r.partition([(0,100)],dict(by,**{'migrateDetail.queryMirror':[(24,30)]}))
         with self.assertRaisesRegex(ValueError,'escapes'):
             r.partition([(0,100)],dict(by,**{'migrateDetail.queryMirror':[(89,95)]}))
+
+    def test_compatibility_follows_gpu_preparation(self):
+        by={'finishAndReserve':[(0,20)],'collisionBindings':[(20,30)],
+            'correctionBodies':[(30,40)],'preparationCompletion':[(40,90)],
+            'compatibility.requestReadback':[(55,60)],
+            'compatibility.allocateNativeBodies':[(60,80)],
+            'compatibility.publishReservation':[(80,85)]}
+        p=r.partition([(0,100)],by)
+        self.assertAlmostEqual(sum(p.values()),.0001)
+        self.assertAlmostEqual(p['compatibility.allocateNativeBodies'],.00002)
+        self.assertAlmostEqual(p['preparationCompletion.other'],.00002)
+        self.assertTrue(set(p)<=set(r.LABELS))
+        with self.assertRaisesRegex(ValueError,'escapes'):
+            r.partition([(0,100)],dict(by,**{'compatibility.allocateNativeBodies':[(30,50)]}))
 
     def test_overlapping_siblings_rejected(self):
         with self.assertRaisesRegex(ValueError,'Overlapping'):

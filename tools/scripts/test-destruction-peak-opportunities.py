@@ -41,6 +41,14 @@ class PeakAccounting(unittest.TestCase):
             row['finishDetail.waitForGpu']=row['submit'];row['submit']=0
         self.assertEqual(p.rank(a),p.rank(b))
 
+    def test_deferred_compatibility_preserves_ownership_accounting(self):
+        a=fixture();b=copy.deepcopy(a)
+        a['profile']['wall_partition'][0]={'finishDetail.allocateNativeBodies':5,'correctedCollisionSolve':10}
+        b['profile']['wall_partition'][0]={'compatibility.allocateNativeBodies':3,
+            'compatibility.requestReadback':1,'compatibility.publishReservation':.25,
+            'preparationCompletion.other':.5,'publishReservedMetadata':.25,'correctedCollisionSolve':10}
+        self.assertEqual(p.rank(a),p.rank(b))
+
     def test_overlapping_cuda_is_not_added(self):
         a=fixture();a['profile']['cuda_stages'][0]={'stress':1000}
         self.assertEqual(sum(row['peak_ms'] for row in p.rank(a)['rows']),17)

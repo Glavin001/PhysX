@@ -148,7 +148,10 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
         require(runtime->restoreRigidState(bodies,previous,accelerationsPtr,count,checkpoint.generation,stream),"rigid checkpoint restore failed");check(cuEventSynchronize(runtime->rigidCheckpoint().ready));const auto restored=read(bodies,count);
         require(!runtime->installCorrectionBodies(bodies,previous,accelerationsPtr,count,checkpoint.generation+1,stream),"stale correction generation accepted");
         require(!runtime->installCorrectionBodies(bodies,previous,accelerationsPtr,count-1,checkpoint.generation,stream),"undersized correction storage accepted");
-        const bool installed=runtime->installCorrectionBodies(bodies,previous,accelerationsPtr,count,checkpoint.generation,stream);require(installed!=loaded,"unassigned body commands were dropped or duplicated");
+        // Preparation now precedes CPU registration and validates allocated GPU
+        // storage. Observe only registered bodies, but supply the actual storage
+        // extent to installation. The count-1 undersized rejection above remains.
+        const bool installed=runtime->installCorrectionBodies(bodies,previous,accelerationsPtr,core.getBodySimStorageCapacity(),checkpoint.generation,stream);require(installed!=loaded,"unassigned body commands were dropped or duplicated");
         check(cuEventSynchronize(runtime->getDeviceView().readyEvent));const auto after=read(bodies,count);
         if(loaded)require(!std::memcmp(restored.data(),after.data(),count*sizeof(PxgBodySim)),"rejected command batch changed body states");
         else for(const auto& input:inputs) {

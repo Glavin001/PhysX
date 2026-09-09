@@ -57,6 +57,8 @@ still remain, so ranked #1 is not complete and #2 has not started.
 
 The five previously recorded baseline audit failures are resolved at their correct observation boundaries, with explicit fracture/handoff coverage and unchanged physical golden. [Audit receipt](../../qualification/boundary-audit-20260909/README.md). This is diagnostic prerequisite work, not a performance gain or lifecycle completion.
 
+GPU collision and corrected-motion preparation now run before CPU compatibility construction, with a discriminating production-order oracle and a paired idle/destruction screen. [Receipt](../../qualification/prepare-before-cpu-20260909/README.md). This removes another constructor dependency but CPU registration and shape rebinding still precede corrected physics. No robust speedup or replacement-1 completion claim.
+
 ## Priority checklist and separate benefit tracks
 
 Ordered by the current evidence for substantial **destruction-peak** opportunity,

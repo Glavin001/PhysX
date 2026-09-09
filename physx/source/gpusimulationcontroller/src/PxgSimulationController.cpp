@@ -636,7 +636,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction)
-            mDestruction = PxCreateDestructionRuntimeV2(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV3(mCudaContextManager->getContext(), scene, gate, allocator);
         return mDestruction;
     }
 
@@ -823,6 +823,23 @@ namespace physx
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.finishAndReserve",false,profileContext);
             complete=mDestruction->finish();
         }
+        if(ok) {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.collisionBindings",false,profileContext);
+            ok=mDestruction->prepareCollisionBindings(
+                mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
+                mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),
+                reinterpret_cast<const PxNodeIndex*>(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
+                PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),mSimulationCore->getStream());
+        }
+        if(ok) {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.correctionBodies",false,profileContext);
+            // Targets have device storage but do not yet have CPU BodySim records.
+            ok=mDestruction->prepareCorrectionBodies(mSimulationCore->getBodySimStorageCapacity(),mSimulationCore->getStream());
+        }
+        if(ok) {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.preparationCompletion",false,profileContext);
+            ok=mDestruction->completeCorrectionPreparation();
+        }
         if(ok && mDestruction->reservedBodyCount())
         {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.publishReservedMetadata",false,profileContext);
@@ -850,22 +867,6 @@ namespace physx
                 pending.forceSize_Unsafe(kept);
             }
         }
-        if(ok) {
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.collisionBindings",false,profileContext);
-            ok=mDestruction->prepareCollisionBindings(
-                mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr(),
-                mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),
-                reinterpret_cast<const PxNodeIndex*>(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
-                PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),mSimulationCore->getStream());
-        }
-        if(ok) {
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.correctionBodies",false,profileContext);
-            ok=mDestruction->prepareCorrectionBodies(mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
-        }
-        if(ok) {
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.preparationCompletion",false,profileContext);
-            ok=mDestruction->completeCorrectionPreparation();
-        }
         if(ok && !complete && mDestruction->correctionEnabled() && canCorrect) {
             // The runtime validates command assignment and the whole metadata
             // batch before changing owners. Physical data never crosses to CPU.
@@ -881,7 +882,7 @@ namespace physx
                 auto* bodies=mSimulationCore->getBodySimBufferDevicePtr().getPointer();
                 auto* previous=mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer();
                 auto* acceleration=mSimulationCore->getRigidBodyAccelerationsDevice();
-                const auto capacity=mBodySimManager.mTotalNumBodies;const auto stream=mSimulationCore->getStream();
+                const auto capacity=mSimulationCore->getBodySimStorageCapacity();const auto stream=mSimulationCore->getStream();
                 ok=mDestruction->restoreRigidState(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCollisionOwners(

@@ -472,6 +472,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionBodyAllocationStatus* mBodyAllocationObservation{};
     cudaEvent_t mMotionAllocationEvents[2]{};bool mMotionTimingPending=false,mMotionTimingRetry=false;
     std::vector<PxU32> mHostReservedIndices;
+    bool mCompatibilityPrepared=false;
     PxU32* mAffectedClusters{};PxU32* mCandidateSlots{};
     PxDestructionCollisionBinding *mCollisionBindings{},*mCompactCollisionBindings{};
     // Compact observation for the remaining CPU ownership mirror. Retained
@@ -907,7 +908,7 @@ public:
         cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
         cudaFree(mCheckpointPrevious);mCheckpointPrevious=nullptr;
         cudaFree(mCheckpointAccelerations);mCheckpointAccelerations=nullptr;
-        mHostReservedIndices.clear();mHostCollisionPreparation={};
+        mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCollisionPreparation={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
         cudaFree(mMigratingCollisionBindings);mMigratingCollisionBindings=nullptr;
@@ -1275,7 +1276,7 @@ public:
     }
     void reserveBodySlots() {
         PxProfileScoped profile(mProfiler,"GpuDestruction.finishDetail.reserveBodies",false,mProfileContext);
-        mHostReservedIndices.clear();
+        mHostReservedIndices.clear();mCompatibilityPrepared=false;
         if(!mTopology)return;
         mHostBodyAllocation=*mBodyAllocationObservation;
         auto& allocation=mHostBodyAllocation;
@@ -1321,10 +1322,19 @@ public:
         if(!allocation.valid || allocation.error || allocation.initialized!=requested || allocation.reserved!=requested
             || allocation.count!=count || allocation.generation!=mHostBodyPreparation->generation
             || mHostStatus->error!=8u)throw std::runtime_error("native GPU motion allocation rejected");
+    }
+    bool prepareBodyCompatibility() {
+        if(mCompatibilityPrepared)return true;
+        // GPU collision and corrected-motion preparation are prerequisites for
+        // CPU compatibility construction, never its consumers. The selected
+        // motion addresses and complete preparation already exist on device.
+        if(mHostStatus->error!=8u || !mHostCollisionPreparation.valid || !mHostCorrectionPreparation.valid)return false;
+        auto& allocation=mHostBodyAllocation;
+        const PxU32 requested=allocation.reserved;
         std::vector<PxvDestructionBodyRequest> requests(requested);mHostReservedIndices.resize(requested);
         auto& indices=mHostReservedIndices;
         {
-            PxProfileScoped requestProfile(mProfiler,"GpuDestruction.finishDetail.requestReadback",false,mProfileContext);
+            PxProfileScoped requestProfile(mProfiler,"GpuDestruction.compatibility.requestReadback",false,mProfileContext);
             if(requested) {
                 // CPU compatibility construction consumes the allocation decision.
                 // The resulting indices already exist in the native GPU mapping.
@@ -1335,18 +1345,19 @@ public:
         }
         bool allocated=false;
         {
-            PxProfileScoped records(mProfiler,"GpuDestruction.finishDetail.allocateNativeBodies",false,mProfileContext);
+            PxProfileScoped records(mProfiler,"GpuDestruction.compatibility.allocateNativeBodies",false,mProfileContext);
             allocated=mBodyAllocator && mBodyAllocator->prepare(requests.data(),requested,indices.data());
         }
         if(!allocated) {allocation.error|=8u;allocation.valid=0;mHostStatus->error|=256u;
             mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->discardReservations();}
-        PxProfileScoped publish(mProfiler,"GpuDestruction.finishDetail.publishReservation",false,mProfileContext);
+        PxProfileScoped publish(mProfiler,"GpuDestruction.compatibility.publishReservation",false,mProfileContext);
         // Merge only compatibility construction failure. Never overwrite a GPU
         // allocation error or upload CPU-selected indices/status over device work.
         if(!allocated) {
             finishNativeBodyShadowRegistration<<<1,1,0,mStream>>>(false,mBodyAllocation,mStatus);
             check(cudaGetLastError());check(cudaEventRecord(mReady,mStream));
         }
+        mCompatibilityPrepared=allocated;return allocated;
     }
     bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
         const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream) override {
@@ -1531,7 +1542,7 @@ public:
             check(cudaMemcpyAsync(&mHostCorrectionPreparation,mCorrectionPreparation,sizeof(mHostCorrectionPreparation),cudaMemcpyDeviceToHost,mStream));
             check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            return mHostStatus->error==8u && mHostCollisionPreparation.valid && mHostCorrectionPreparation.valid;
+            return mHostStatus->error==8u && mHostCollisionPreparation.valid && mHostCorrectionPreparation.valid && prepareBodyCompatibility();
         }catch(...){mFailed=true;return false;}
     }
     bool installCorrectionBodies(PxgBodySim* bodies,PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,
@@ -1655,7 +1666,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV2(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV3(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 
