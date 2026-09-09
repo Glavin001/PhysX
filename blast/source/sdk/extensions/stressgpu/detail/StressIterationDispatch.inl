@@ -257,6 +257,9 @@
         ResidentStressComponentView components{};
         if(m_deviceTopology) {
             initializeNativeWarmResidual<<<nodeBlocks,kBlockSize,0,m_stream>>>(args);
+#ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
+            captureStressProblem<<<(std::max(m_nodeCount,m_bondCount)+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(args,m_nodeCount,m_bondCount);
+#endif
             components=m_deviceTopology->components();
             // The device list controls the live work; a bounded persistent
             // grid distributes independent components without a host count.

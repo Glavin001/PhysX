@@ -60,3 +60,20 @@ set_target_properties(PhysXDestructionGpuWorkDiagnostic PROPERTIES
     OUTPUT_NAME "${diagnostic_name}"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/diagnostics/component-work"
     LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/diagnostics/component-work")
+
+# Exact native equation snapshots, deliberately intrusive and never selected by
+# a production build. Same ABI, separate output directory and explicit target.
+add_library(PhysXDestructionGpuProblemDiagnostic SHARED EXCLUDE_FROM_ALL ${DESTRUCTION_DIAGNOSTIC_SOURCES})
+foreach(property INCLUDE_DIRECTORIES COMPILE_DEFINITIONS CUDA_STANDARD CUDA_STANDARD_REQUIRED
+        CUDA_RUNTIME_LIBRARY CUDA_ARCHITECTURES CXX_VISIBILITY_PRESET CUDA_VISIBILITY_PRESET
+        VISIBILITY_INLINES_HIDDEN POSITION_INDEPENDENT_CODE LINK_LIBRARIES LINK_OPTIONS)
+    get_target_property(value PhysXDestructionGpuWorkDiagnostic ${property})
+    if(NOT value STREQUAL "value-NOTFOUND")
+        set_property(TARGET PhysXDestructionGpuProblemDiagnostic PROPERTY ${property} "${value}")
+    endif()
+endforeach()
+target_compile_definitions(PhysXDestructionGpuProblemDiagnostic PRIVATE BLAST_GPU_NATIVE_PROBLEM_CAPTURE)
+set_target_properties(PhysXDestructionGpuProblemDiagnostic PROPERTIES
+    OUTPUT_NAME "${diagnostic_name}"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/diagnostics/stress-problem"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/diagnostics/stress-problem")

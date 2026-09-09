@@ -13,9 +13,12 @@ class ComponentWorkCapture {
     unsigned solve=0,capacity;
     void *overflow=nullptr,*phases=nullptr,*precondition=nullptr;
     static inline bool bound=false;
+#ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
+    std::unique_ptr<NativeProblemCapture> problem;
+#endif
     void cleanup(){if(device)cudaFree(device);device=nullptr;if(output)std::fclose(output);output=nullptr;}
 public:
-    explicit ComponentWorkCapture(unsigned count):host(count),capacity(count){
+    explicit ComponentWorkCapture(unsigned count,unsigned bonds):host(count),capacity(count){
         if(bound)throw std::runtime_error("component diagnostic supports one live stress solver per process");
         const char* path=std::getenv("PHYSX_COMPONENT_WORK_OUTPUT");
         if(!path || !*path)throw std::runtime_error("diagnostic runtime requires PHYSX_COMPONENT_WORK_OUTPUT");
@@ -28,17 +31,28 @@ public:
             checkCuda(cudaGetSymbolAddress(&overflow,componentWorkOverflow),"locate diagnostic overflow");
             checkCuda(cudaGetSymbolAddress(&phases,componentPhaseClocks),"locate diagnostic phase clocks");
             checkCuda(cudaGetSymbolAddress(&precondition,componentPreconditionClocks),"locate diagnostic precondition clocks");
+#ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
+            problem=std::make_unique<NativeProblemCapture>(count,bonds);
+#else
+            (void)bonds;
+#endif
             bound=true;
         }catch(...){cleanup();throw;}
     }
     ~ComponentWorkCapture(){cleanup();bound=false;}
     void begin(cudaStream_t stream){
+#ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
+        problem->begin(solve,stream);
+#endif
         checkCuda(cudaMemsetAsync(device,0,sizeof(ComponentWorkRecord)*capacity,stream),"clear component diagnostics");
         checkCuda(cudaMemsetAsync(overflow,0,sizeof(unsigned),stream),"clear diagnostic overflow");
         checkCuda(cudaMemsetAsync(phases,0,9*sizeof(unsigned long long),stream),"clear phase diagnostic");
         checkCuda(cudaMemsetAsync(precondition,0,4*sizeof(unsigned long long),stream),"clear precondition diagnostic");
     }
     void finish(cudaStream_t stream){
+#ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
+        problem->finish(solve,stream);
+#endif
         // Observation is synchronous and intrusive by design. Its timings are
         // excluded from production performance claims by the capture runner.
         unsigned exceeded=0;unsigned long long clocks[9]{},subclocks[4]{};

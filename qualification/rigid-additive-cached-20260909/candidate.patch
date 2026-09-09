@@ -1,0 +1,188 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+index 403d95fe..794b0388 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+@@ -17,6 +17,22 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
+     return sum;
+ }
+ 
++// Topology-derived factors are built separately from the hot iteration kernel.
++// This keeps setup registers/stack out of every component's resident loop and
++// reuses the same exact operator factor while its generation is unchanged.
++__global__ void prepareNativeRigidCoarse(PersistentStressArgs a,ResidentStressComponentView c){
++    if(!nativeHierarchyReady(a.hierarchy))return;
++    for(unsigned slot=blockIdx.x;slot<*c.count;slot+=gridDim.x){
++        const unsigned id=c.ids[slot],begin=c.begin[id],count=c.end[id]-begin;
++        if(count<32 || count>kResidentComponentMaxNodes || !a.hierarchy.modes.components[id].anchored)continue;
++        auto& coarse=a.hierarchy.coarse[id];
++        if(coarse.valid && coarse.generation==a.hierarchy.topology->generation)continue;
++        buildNativeRigidCoarse(a,c.nodes+begin,count,id,coarse);
++        if(!threadIdx.x)coarse.generation=a.hierarchy.topology->generation;
++        __syncthreads();
++    }
++}
++
+ // Each CTA owns all iterations of one component at a time. Stable sorted node
+ // ranges make every vector/scalar write exclusive to that component; static
+ // boundary rows are read-only. No grid rendezvous or global loop counter is
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+index fa4ef6aa..78870387 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+@@ -257,7 +257,11 @@
+         ResidentStressComponentView components{};
+         if(m_deviceTopology) {
+             initializeNativeWarmResidual<<<nodeBlocks,kBlockSize,0,m_stream>>>(args);
++#ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
++            captureStressProblem<<<(std::max(m_nodeCount,m_bondCount)+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(args,m_nodeCount,m_bondCount);
++#endif
+             components=m_deviceTopology->components();
++            prepareNativeRigidCoarse<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);
+             // The device list controls the live work; a bounded persistent
+             // grid distributes independent components without a host count.
+             componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+index 6fee94e0..d92c5d1a 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+@@ -1,6 +1,12 @@
+ // Native ownership bridge: immutable/operator data are borrowed, never copied.
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
++struct NativeRigidCoarse {
++    double factor[21],scale[6],coefficient[6];
++    unsigned valid;
++    std::uint64_t generation;
++};
+ struct NativeStressCycleView {
++    NativeRigidCoarse* coarse=nullptr;
+     StressHierarchy::CycleDeviceView cycle{};
+     StressHierarchy::MotionModeView modes{};
+     StressHierarchy::Vector *rhs=nullptr,*result=nullptr,*solution=nullptr;
+@@ -25,12 +31,14 @@ class NativeStressHierarchy {
+     NativeStressCycleView mView;cudaStream_t mStream;
+     static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
+     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
+-    void release()noexcept{cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
++    void release()noexcept{cudaFree(mView.coarse);cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
+ public:
+     NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
+         :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
+         mView.topology=status;mView.modes=mModes.view();mView.inverseStride=input.nodes;
+         try{
++            allocate(mView.coarse,input.nodes);
++            checkCuda(cudaMemsetAsync(mView.coarse,0,sizeof(NativeRigidCoarse)*input.nodes,stream),"invalidate rigid coarse factors");
+             allocate(mView.fineInverse,size_t(input.nodes)*10);
+             allocate(mView.inverseValid,input.nodes);allocate(mView.inverseGeneration,input.nodes);
+             checkCuda(cudaMemsetAsync(mView.inverseValid,0,sizeof(unsigned)*input.nodes,stream),"invalidate native local inverse cache");
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+index 3abf9618..20191c6e 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+@@ -1,6 +1,7 @@
+ #include "StressNativeNullspace.cuh"
+ #include "StressNativeRigidInverse.cuh"
+ #include "StressNativePolynomial.cuh"
++#include "StressNativeRigidCoarse.cuh"
+ // Shared projected-CG/preconditioner boundary. Conversion is fused into the
+ // resident producer/consumer, not a separate export/copy/reimport operation.
+ __device__ __forceinline__ bool nativeHierarchyReady(const NativeStressCycleView& h){
+@@ -66,12 +67,16 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
+     // mode and costs no hierarchy traversal. If further work is needed, restart
+     // PCG with the fixed block preconditioner on iteration one; never mix preconditioners
+     // in the conjugacy recurrence.
++    __shared__ NativeRigidCoarse coarse;
++    const bool useCoarse=count>=32 && a.hierarchy.modes.components[id].anchored;
+     auto* result=a.hierarchy.result;
+     if(!iteration){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
+     else {
+         // Apply the fixed polynomial using cached local inverses.
+         // Large components retain their cooperative multilevel schedule.
++        if(useCoarse && iteration==1){if(!threadIdx.x){coarse=a.hierarchy.coarse[id];if(!coarse.valid)a.hierarchy.failed[id]=1;}__syncthreads();}
+         result=preconditionNativePolynomial(a,nodes,count);
++        if(useCoarse)addNativeRigidCoarse(a,nodes,count,coarse,result);
+     }
+     SUBPROBE_END(0)
+     projectNativeNullspace(a,id,nodes,count,result);
+diff --git a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+index e68b57be..364a0a39 100644
+--- a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
++++ b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+@@ -206,7 +206,7 @@ int main(int argc,char** argv){try{
+     {Device<unsigned> result(3);checkPredicates<<<1,1>>>(result.data);check(cudaGetLastError());check(cudaDeviceSynchronize());for(auto value:result.get())require(value==1,"exact closure collinearity predicate failed");}
+     fineInverseCache();
+     rigidInverseCache();
+-    polynomialOperator();
++    polynomialOperator();polynomialOperator(true);
+     normalizationBroadcast();
+     firstDirectionWithoutHistory();
+     cooperativeRetirement();
+diff --git a/demos/blast-stress-demo/tests/native_polynomial_test.cuh b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+index d2f9c0cd..58857b7f 100644
+--- a/demos/blast-stress-demo/tests/native_polynomial_test.cuh
++++ b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+@@ -1,15 +1,16 @@
+ // Independent long-double assembled operator / polynomial oracle. Actual CUDA
+ // private implementation is called for every basis vector; no public test API.
+ namespace MotionModeTest {
+-__global__ void polynomialBasis(PersistentStressArgs a,const unsigned* nodes,unsigned count,unsigned column,Vector* matrix,unsigned stride){
++__global__ void polynomialBasis(PersistentStressArgs a,const unsigned* nodes,unsigned count,unsigned column,Vector* matrix,unsigned stride,bool coarse){
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];double x[6]{};if(column/6==node)x[column%6]=1;
+         a.hierarchy.rhs[node]={{x[0],x[1],x[2]},{x[3],x[4],x[5]}};}
+-    __syncthreads();const auto* result=preconditionNativePolynomial(a,nodes,count);
++    __syncthreads();auto* result=preconditionNativePolynomial(a,nodes,count);
++    if(coarse){__shared__ NativeRigidCoarse c;buildNativeRigidCoarse(a,nodes,count,0,c);addNativeRigidCoarse(a,nodes,count,c,result);}
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];matrix[size_t(column)*stride+node]=result[node];}
+ }
+-void polynomialOperator(){
++void polynomialOperator(bool coarse=false){
+     constexpr unsigned n=12,size=6*n;
+-    for(unsigned anchored=0;anchored<2;++anchored){
++    for(unsigned anchored=coarse?1:0;anchored<2;++anchored){
+         Fixture f(n);for(unsigned i=1;i<n;++i){f.edge(i-1,i);if(i>2)f.edge(i-3,i);}
+         if(anchored)f.inertia[0]={0,0};f.csr();
+         std::vector<long double> matrix(size*size),inverse(size*size);
+@@ -44,15 +45,33 @@ void polynomialOperator(){
+         a.put(f.a);b.put(f.b);begin.put(f.begin);refs.put(f.refs);component.put(labels);nodes.put(order);health.put(f.health);scale.put(f.scale);offset0.put(f.offset0);offset1.put(f.offset1);factors.put(packed);
+         std::vector<float2> mass(n);for(unsigned i=0;i<n;++i)mass[i]={f.inertia[i].angular,f.inertia[i].linear};inertia.put(mass);
+         CycleLevel descriptor{};descriptor.residual=physical.data;descriptor.input={n,unsigned(f.a.size()),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,nullptr,offset0.data,offset1.data,inertia.data,nullptr,nullptr};level.put({descriptor});
+-        PersistentStressArgs args{};args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
+-        for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n);
++        Device<double3> positions(n);std::vector<double3> coordinates(n);for(unsigned i=0;i<n;++i)coordinates[i]={f.position[i].x,f.position[i].y,f.position[i].z};positions.put(coordinates);
++        Device<unsigned> failed(n);
++        PersistentStressArgs args{};args.hierarchy.modes.position=positions.data;args.hierarchy.failed=failed.data;args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
++        for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n,coarse);
+         check(cudaGetLastError());check(cudaDeviceSynchronize());const auto observed=columns.get();
+         auto multiply=[&](const std::vector<long double>& m,const std::vector<long double>& x){std::vector<long double> y(size);for(unsigned r=0;r<size;++r)for(unsigned c=0;c<size;++c)y[r]+=m[r*size+c]*x[c];return y;};
++        std::vector<long double> coarseInverse(size*size);
++        if(coarse){
++            // Independently assemble Z, E=Z^T A Z and its dense inverse. No
++            // production rigid Gram formula participates in this oracle.
++            std::vector<long double> z(size*6),az(size*6);long double e[6][12]{};
++            for(unsigned node=1;node<n;++node)for(unsigned k=0;k<6;++k){Three omega{},translation{};if(k<3)omega[k]=1;else translation[k-3]=1;
++                translation=plus(translation,product(coord(f.position[node]),omega));
++                for(unsigned d=0;d<3;++d){z[(node*6+d)*6+k]=omega[d]/f.inertia[node].angular;z[(node*6+3+d)*6+k]=translation[d]/f.inertia[node].linear;}}
++            for(unsigned row=0;row<size;++row)for(unsigned col=0;col<6;++col)for(unsigned k=0;k<size;++k)az[row*6+col]+=matrix[row*size+k]*z[k*6+col];
++            for(unsigned row=0;row<6;++row){for(unsigned col=0;col<6;++col)for(unsigned k=0;k<size;++k)e[row][col]+=z[k*6+row]*az[k*6+col];e[row][row+6]=1;}
++            for(unsigned k=0;k<6;++k){const auto pivot=e[k][k];require(pivot>0,"coarse oracle not SPD");for(auto& v:e[k])v/=pivot;
++                for(unsigned row=0;row<6;++row)if(row!=k){const auto value=e[row][k];for(unsigned col=0;col<12;++col)e[row][col]-=value*e[k][col];}}
++            for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col)for(unsigned u=0;u<6;++u)for(unsigned v=0;v<6;++v)coarseInverse[row*size+col]+=z[row*6+u]*e[u][v+6]*z[col*6+v];
++            for(auto status:failed.get())require(!status,"GPU coarse factor failed");
++        }
+         long double worst=0,symmetry=0;std::vector<long double> actual(size*size);
+         for(unsigned column=anchored?6:0;column<size;++column){std::vector<long double> x(size),r(size);r[column]=1;
+             const unsigned roots[2]={1,0};
+             for(auto root:roots){const auto ax=multiply(matrix,x);for(unsigned i=0;i<size;++i)r[i]=(i==column?1:0)-ax[i];const auto z=multiply(inverse,r);
+                 const long double weight=1/(1.055L-.955L*cosl((2*root+1)*acosl(-1.L)/4));for(unsigned i=0;i<size;++i)x[i]+=weight*z[i];}
++            if(coarse)for(unsigned row=0;row<size;++row)x[row]+=coarseInverse[row*size+column];
+             for(unsigned node=0;node<n;++node){auto y=unpack(observed[size_t(column)*n+node]);for(unsigned k=0;k<6;++k){const auto row=node*6+k;actual[row*size+column]=y[k];worst=std::max(worst,fabsl(y[k]-x[row])/(1+fabsl(x[row])));}}
+         }
+         for(unsigned row=anchored?6:0;row<size;++row)for(unsigned col=anchored?6:0;col<size;++col)symmetry=std::max(symmetry,fabsl(actual[row*size+col]-actual[col*size+row])/(1+fabsl(actual[row*size+col])));
+@@ -61,7 +80,7 @@ void polynomialOperator(){
+         // for a free component whose physical operator itself is singular.
+         for(unsigned k=anchored?6:0;k<size;++k){long double d=actual[k*size+k];for(unsigned j=anchored?6:0;j<k;++j)d-=actual[k*size+j]*actual[k*size+j];require(d>0,"polynomial not positive definite");actual[k*size+k]=sqrtl(d);
+             for(unsigned row=k+1;row<size;++row){long double v=actual[row*size+k];for(unsigned j=anchored?6:0;j<k;++j)v-=actual[row*size+j]*actual[k*size+j];actual[row*size+k]=v/actual[k*size+k];}}
+-        std::printf("polynomial oracle nodes=%u bonds=%zu anchored=%u all_basis=true relative_error=%.3Lg symmetry_error=%.3Lg SPD=true\n",n,f.a.size(),anchored,worst,symmetry);
++        std::printf("polynomial oracle nodes=%u bonds=%zu anchored=%u coarse=%u all_basis=true relative_error=%.3Lg symmetry_error=%.3Lg SPD=true\n",n,f.a.size(),anchored,coarse,worst,symmetry);
+     }
+ }
+ }

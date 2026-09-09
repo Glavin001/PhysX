@@ -1,0 +1,38 @@
+{
+  "commands": [
+    {
+      "name": "restored-numerical",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "shots",
+      "command": [
+        "/root/workspace/physx-2/out/native-sleep-notification-20260909/profiled-bench",
+        "/root/workspace/physx-2/out/peak-problem-20260909/capture/shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/peak-problem-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "66c997747bef901b95496d17d02763e41d7fb9dd14c9422d12d76afaee1b5a42"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/peak-problem-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    }
+  ]
+}

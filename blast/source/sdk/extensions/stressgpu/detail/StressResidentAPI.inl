@@ -93,7 +93,7 @@
             m_jacobiBuilt = true; // topology rebuild maintains it on the device
             checkCuda(cudaEventRecord(m_statusReady,m_stream), "record device topology preparation");
 #ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
-            m_workCapture=std::make_unique<ComponentWorkCapture>(m_nodeCount);
+            m_workCapture=std::make_unique<ComponentWorkCapture>(m_nodeCount,m_bondCount);
 #endif
             return true;
         } catch (...) { m_deviceTopologyFailed=true; return false; }

@@ -1,0 +1,31 @@
+{
+  "commands": [
+    {
+      "name": "numerical",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "capture-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--compound-sleep"
+      ],
+      "exit": 0,
+      "mapped": {}
+    }
+  ]
+}

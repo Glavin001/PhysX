@@ -468,3 +468,11 @@ and impact measurements and startup failures. The 256-building destruction
 peak remains outside real-time; do not present this as completion of that goal.
 Diagnostic probes and trace runtimes are archived under
 `out/vibe-idle-fix-20260908`; production contains no probe prints.
+
+## 2026-09-09: exact peak equations reject two coarse-preconditioner variants
+
+[Captured-equation screen](../../qualification/peak-problem-20260909/README.md): both stress evaluations of first major fracture in 256 buildings, 113664 chunks, 229376 bonds, 768 shots / 600 steps. Independent physical B assembly reproduces the warm residual and checks true gradient acceptance; this is a mathematical screen, not GPU timing.
+
+Four anchored components (321–361 dynamic nodes, 515–662 incident live bonds) show almost identical native and independent FP64 polynomial update counts. IC0 lowers counts but has 46–56 triangular dependency levels; projecting prior trial-parent solutions worsens the two hardest corrected examples. Six-mode additive correction lowers independent iteration counts, yet the GPU implementation fails the complete peak screen.
+
+[Inline setup](../../qualification/rigid-additive-20260909/README.md): loaded peak132.147→133.081 ms, CUDA stress diagnostic30.510→30.465 ms, hot registers94→128. [GPU cached setup](../../qualification/rigid-additive-cached-20260909/README.md): loaded peak141.272→141.127 ms, mean44.918→41.664 ms, hot registers102. Each screen has one isolated 600-step run per arm and a matching fresh intact-idle run. Both worsen idle, retain startup peaks, and show no convincing loaded-peak benefit. No counter-based bottleneck conclusion. Both pass focused physical/numerical checks, but are rejected and reverted; neither was deployed. Lower iterations/means alone do not meet the peak objective. Full large-scene mapping/endurance qualification was not run for these failed candidates.
