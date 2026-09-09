@@ -49,7 +49,7 @@ TREE={
      'applyDetail.validateOwners':{},'applyDetail.scheduleOwners':{},'applyDetail.migrateShapes':{
          'migrateDetail.refilter':{},'migrateDetail.retireContacts':{},'migrateDetail.registerOwner':{},
          'migrateDetail.actorLinks':{},'migrateDetail.queryMirror':{}}},
- 'restoreInstall':{},'resetContactCaches':{},'correctedCollisionSolve':{},'acceptCorrection':{}}
+ 'restoreInstall':{},'resetContactCaches':{},'correctedCollisionSolve':{},'acceptCorrection':{},'finalPublication':{}}
 LABELS={
  'checkpoint':('Checkpoint moving-body state','CPU submission → GPU copy; save state for possible rewind'),
  'submit':('Submit contact loads and destruction','CPU queues GPU loads, stress, material and topology work'),
@@ -83,7 +83,8 @@ LABELS={
  'restoreInstall':('Rewind and install fractured motion','CPU dispatch + GPU checkpoint restore and owner installation'),
  'resetContactCaches':('Invalidate incompatible contact caches','CPU dispatch + GPU contact/friction cache reset'),
  'correctedCollisionSolve':('Resimulate changed interaction','CPU task scheduling + GPU collision, constraints and motion solve'),
- 'acceptCorrection':('Accept corrected step','GPU commit/status completion and CPU publication'),
+ 'acceptCorrection':('Accept corrected step','GPU topology/motion commit and required status completion; older captures include CPU property publication'),
+ 'finalPublication':('Publish final destruction state','GPU selects changed owners and gathers final motion; required CPU properties/events become current after both stress evaluations'),
  'trial.other':('Trial physics and remaining scene tasks','Original physics pass plus task/driver gaps outside destruction scopes')}
 STAGES={'allocationAndPreparation':'GPU allocation, collision ownership preparation and corrected-motion preparation',
  'allocationAndPreparationRetry':'GPU allocation and preparation retry after exceptional storage growth',

@@ -3,11 +3,20 @@
 void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
     struct Observe final:PxProfilerCallback {
         Fixture* fixture=nullptr;
-        bool inspected=false,failed=false;
+        bool inspected=false,postStressInspected=false,failed=false;
         std::string error;
         Observe(){require(!PxGetProfilerCallback(),"property profiler occupied");PxSetProfilerCallback(this);}
         ~Observe()override{PxSetProfilerCallback(nullptr);}
-        void* zoneStart(const char*,bool,PxU64)override{return nullptr;}
+        void* zoneStart(const char* name,bool,PxU64)override {
+            if(fixture && inspected && !postStressInspected && !std::strcmp(name,"GpuDestruction.submit")) {
+                const auto& cpu=static_cast<NpRigidDynamic*>(fixture->parent)->getCore().getCore();
+                if(cpu.getBody2Actor().p.magnitudeSquared()>=1e-10f) {
+                    failed=true;error="CPU physical properties published before post-correction stress";
+                }
+                postStressInspected=true;
+            }
+            return nullptr;
+        }
         void zoneEnd(void*,const char* name,bool,PxU64)override {
             if(!fixture || inspected || std::strcmp(name,"GpuDestruction.restoreInstall"))return;
             try {
@@ -39,6 +48,7 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
     observe.fixture=nullptr;
     if(observe.failed)throw std::runtime_error(observe.error);
     require(observe.inspected,"no corrected GPU installation observed");
+    require(observe.postStressInspected,"no second stress boundary observed");
     const auto status=f.stage->getLastStatus();
     require(status.correctionPasses==1 && status.stressPasses==2 && status.brokenBonds==1,
         "property fixture lost correction or changed fracture");
@@ -60,5 +70,5 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
             device.linearVelocityXYZ_inverseMassW.z)).magnitude()<1e-5f,"accepted CPU velocity is stale");
     }
     step(f.scene);require(f.context.healthy(),"next ordinary tick failed after accepted property publication");
-    std::puts("6 chunks / 3 bonds plus one ordinary body: GPU correction before CPU mass/COM/motion; accepted properties and inherited settings passed");
+    std::puts("6 chunks / 3 bonds plus one ordinary body: both GPU stress passes before CPU mass/COM/motion; final properties and inherited settings passed");
 }

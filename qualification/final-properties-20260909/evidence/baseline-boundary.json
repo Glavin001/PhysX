@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "expected_message": "CPU physical properties published before post-correction stress",
+  "passed": true
+}

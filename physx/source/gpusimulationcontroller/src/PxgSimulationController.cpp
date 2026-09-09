@@ -922,7 +922,10 @@ namespace physx
                 }
             }
         }
-        if(postCorrection && ok && complete)ok=mDestruction->finishPostCorrection();
+        if(postCorrection && ok && complete) {
+            PxProfileScoped publication(PxGetProfilerCallback(),"GpuDestruction.finalPublication",false,profileContext);
+            ok=mDestruction->finishPostCorrection();
+        }
         mDestructionError = ok && complete ? 0 : 1;
         if(mDestructionError)
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,

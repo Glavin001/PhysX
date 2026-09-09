@@ -59,7 +59,19 @@ void postCorrectionFracture(bool reports) {
     require(late && late!=owners[1],"second-pass fragment kept original owner");
     require((late->getGlobalPose().transform(shapes[3]->getLocalPose().p)-PxVec3(10,5,0)).magnitude()<1e-5f
         && late->getLinearVelocity().magnitude()<1e-5f,"second-pass fragment was rewound or integrated a third time");
-    BodyObserver observer(*context.cudaContextManager());observer.verify(*stage,*late);
+    BodyObserver observer(*context.cudaContextManager());
+    // Final observation must include owners changed by EITHER pass, once each.
+    // The second verdict must not replace the first pass's pending publication.
+    for(unsigned c=0;c<2;++c) {
+        auto* fragment=shapes[2*c+1]->getActor()->is<PxRigidDynamic>();
+        require(fragment && fragment!=owners[c],"fracture owner union is incomplete");
+        require(PxAbs(fragment->getMass()-2)<1e-5f && PxAbs(owners[c]->getMass()-1)<1e-5f,
+            "final physical properties lost one fracture pass");
+        require((owners[c]->getCMassLocalPose().p-PxVec3(0,-1,0)).magnitude()<1e-5f,
+            "supported owner's final mass frame is stale");
+        observer.verify(*stage,*owners[c]);observer.verify(*stage,*fragment);
+    }
+    observer.verify(*stage,*late);
     PxRaycastBuffer hit;require(scene.raycast(PxVec3(10,7,0),PxVec3(0,-1,0),2,hit)
         && hit.block.shape==shapes[3] && hit.block.actor==late,"second-pass query ownership stale");
     scene.simulate(1.f/60);require(scene.fetchResults(true),"step following second-pass fracture failed");

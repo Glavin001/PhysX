@@ -13,7 +13,7 @@ PREFIX = "GpuDestruction."
 ALWAYS = {"submit", "finishAndReserve", "collisionBindings", "correctionBodies"}
 CORRECTION = {"applyBindings", "restoreInstall", "correctedCollisionSolve", "refilter", "acceptCorrection"}
 # refilter is nested inside correctedCollisionSolve; never add both to totals.
-INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "publishReservedMetadata", "resetContactCaches", "preparationCompletion"}
+INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "publishReservedMetadata", "resetContactCaches", "preparationCompletion", "finalPublication"}
 
 
 def open_capture(path):
@@ -129,7 +129,7 @@ def analyze(directory):
             require(values["refilter"] <= values["correctedCollisionSolve"], "invalid nested refilter duration")
             corrected.append(values)
         else:
-            require(not ((CORRECTION | {"resetContactCaches"}) & values.keys()), f"correction phase on intact step {i}")
+            require(not ((CORRECTION | {"resetContactCaches", "finalPublication"}) & values.keys()), f"correction phase on intact step {i}")
         residual = float(frame["physics_step_ms"]) - sum(values.get(name, 0) for name in INDEPENDENT)
         require(residual >= -0.05, "phase total exceeds complete physics step (allowing CSV rounding)")
         residuals.append(max(0, residual))

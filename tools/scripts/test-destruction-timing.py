@@ -70,6 +70,16 @@ class TimingAccounting(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'escapes'):
             r.partition([(0,100)],dict(by,**{'compatibility.allocateNativeBodies':[(30,50)]}))
 
+    def test_final_publication_is_not_trial_or_double_counted(self):
+        by={'acceptCorrection':[(0,20)],'submit':[(20,40)],'finalPublication':[(40,90)]}
+        p=r.partition([(0,100)],by)
+        self.assertAlmostEqual(p['finalPublication'],.00005)
+        self.assertAlmostEqual(p['trial.other'],.00001)
+        self.assertAlmostEqual(sum(p.values()),.0001)
+        self.assertIn('finalPublication',r.LABELS)
+        with self.assertRaisesRegex(ValueError,'Overlapping'):
+            r.partition([(0,100)],dict(by,finalPublication=[(30,90)]))
+
     def test_overlapping_siblings_rejected(self):
         with self.assertRaisesRegex(ValueError,'Overlapping'):
             r.partition([(0,100)],{'submit':[(0,20)],'finishAndReserve':[(10,40)]})

@@ -79,6 +79,19 @@ and shape rebinding still precede correction; property publication after the
 first correction still precedes the second stress evaluation. This is partial
 ranked #1, not final end-of-tick-only compatibility publication or completion.
 
+The next continuation removes destruction-specific physical publication between
+the two stress evaluations. A GPU epoch union selects changed surviving owners
+once at final acceptance, reusing existing physical buffers and scratch. Ordinary
+PhysX pose/sleep synchronization remains. Both solver boundary oracles, the
+strengthened two-fracture owner-union fixture,43 affected tests,memcheck,frozen wall
+and ordinary prefix pass; final publication is separately accounted. The short
+paired256-building screen has approximately1% higher candidate fracture peaks,
+with similar loaded means and overlapping idle medians. Retained as architectural
+progress with that observed cost, not a speedup. See
+[final-property receipt](../../qualification/final-properties-20260909/README.md).
+CPU actor/node registration,scheduler and shape rebinding still precede correction;
+ranked #1 remains incomplete and #2–7 remain pending.
+
 ## Priority checklist and separate benefit tracks
 
 Ordered by the current evidence for substantial **destruction-peak** opportunity,

@@ -44,9 +44,17 @@ __global__ void acceptClusterBindings(PxDestructionTopologyDeviceView topology,
     clusters[i]={targets[i],PxVec3(float(mass.center[0]),float(mass.center[1]),float(mass.center[2]))};
 }
 __global__ void acceptChunkBindings(PxDestructionTopologyDeviceView topology,
-    const PxU32* slots,PxDestructionStressChunk* chunks,const PxDestructionStageStatus* status) {
+    const PxU32* slots,PxDestructionStressChunk* chunks,const PxDestructionStageStatus* status,
+    const PxU32* affected,PxU64* propertyEpochs) {
     if(status->error & ~8u)return;
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<topology.chunkCount && topology.activeChunks[i])chunks[i].cluster=slots[topology.chunkCluster[i]];
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<topology.chunkCount && topology.activeChunks[i]) {
+        const PxU32 oldCluster=chunks[i].cluster,root=topology.chunkCluster[i];
+        chunks[i].cluster=slots[root];
+        // One writer per surviving root, unioned across both fracture passes.
+        // Epochs avoid clearing an observation bitmap on every idle tick.
+        if(propertyEpochs && i==root && affected[oldCluster])propertyEpochs[root]=status->frame;
+    }
 }
 __global__ void observeNativeClusters(const PxDestructionStressCluster* clusters,PxU32 count,
     const PxgBodySim* bodies,PxTransform* poses,PxVec3* angular,const PxDestructionStageStatus* status=nullptr) {
@@ -458,11 +466,13 @@ class Runtime final : public PxgDestructionRuntime {
     // pinned transfer, not a status-copy chain between device stages.
     struct Completion {
         PxDestructionStageStatus stage;
+        PxU32 propertyCount;
         PxDestructionBodyPreparationStatus body;
         PxDestructionBodyAllocationStatus allocation;
         PxDestructionCollisionPreparationStatus collision;
         PxDestructionCorrectionPreparationStatus correction;
     };
+    static_assert(offsetof(Completion,propertyCount)==sizeof(PxDestructionStageStatus),"final status readback layout");
     Completion *mCompletion{},*mHostCompletion{};
     PxDestructionStageStatus* mStatus{}; PxDestructionStageStatus* mHostStatus{};
     PxDestructionMaterial* mMaterials{};PxDestructionStressBond* mBonds{};
@@ -513,6 +523,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionCorrectionBody *mCorrectionBodies{},*mCompactCorrectionBodies{};
     PxDestructionCorrectionPreparationStatus* mCorrectionPreparation{};
     void* mCorrectionScratch{};size_t mCorrectionScratchBytes{};
+    PxU64* mPropertyEpochs{};PxU32* mPropertyCount{};PxU32 mPendingPropertyCapacity=0;
     PxU32 mCorrectionBodyCapacity{};
     bool mCollisionPreparationSubmitted=false,mCorrectionPreparationSubmitted=false;
     PxU64 mRestoredCheckpointGeneration{};
@@ -926,6 +937,7 @@ public:
         mHostCorrectionTargets.clear();mCorrectionEnabled=false;
         cudaFree(mCorrectionOwnerRequests);mCorrectionOwnerRequests=nullptr;
         cudaFree(mCorrectionOwnerTargets);mCorrectionOwnerTargets=nullptr;
+        cudaFree(mPropertyEpochs);mPropertyEpochs=nullptr;mPropertyCount=nullptr;mPendingPropertyCapacity=0;
         cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
         mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
@@ -1104,6 +1116,15 @@ public:
                 check(cudaMemset(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation)));
                 check(cub::DeviceSelect::If(nullptr,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                     &mCorrectionPreparation->count,d.chunkCount,HasCorrectionBody{},mStream));
+                if(mBodyAllocator->needsHostProperties()) {
+                    allocate(mPropertyEpochs,d.chunkCount);mPropertyCount=&mCompletion->propertyCount;
+                    check(cudaMemsetAsync(mPropertyEpochs,0,d.chunkCount*sizeof(PxU64),mStream));
+                    size_t propertyBytes=0;
+                    check(cub::DeviceSelect::If(nullptr,propertyBytes,cub::CountingInputIterator<PxU32>(0),
+                        mCorrectionOwnerTargets,mPropertyCount,d.chunkCount,
+                        HasChangedProperties{mTopology->accepted().activeClusters,mPropertyEpochs,mStatus},mStream));
+                    mCorrectionScratchBytes=std::max(mCorrectionScratchBytes,propertyBytes);
+                }
                 check(cudaMalloc(&mCorrectionScratch,mCorrectionScratchBytes));
                 allocate(mTrialBodies,d.chunkCount);mBodyPreparation=&mCompletion->body;
                 check(cudaMemset(mBodyPreparation,0,sizeof(*mBodyPreparation)));
@@ -1189,7 +1210,7 @@ public:
                 if(mHostStatus->error || mHostStatus->correctionPasses!=1 || mHostStatus->stressPasses!=1)return false;
                 mFirstPassStatus=*mHostStatus;
             }
-            if(!postCorrection)mInstalledOwnerGeneration=0;
+            if(!postCorrection){mInstalledOwnerGeneration=0;mPendingPropertyCapacity=0;}
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
             startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,postCorrection);
             if(mTopology && !postCorrection)mChanges.start(mTopology->accepted(),mStatus,mStream);
@@ -1209,9 +1230,26 @@ public:
         try {Context current(mContext);
             mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatus);
             if(mTopology)mChanges.publish(mStream);
-            check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
+            const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
+            std::vector<PxDestructionCorrectionBody> observations(capacity);PxU32 count=0;
+            if(capacity) {
+                const auto topology=mTopology->accepted();
+                check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
+                    cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,mPropertyCount,mC,
+                    HasChangedProperties{topology.activeClusters,mPropertyEpochs,mStatus},mStream));
+                gatherFinalProperties<<<(capacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,mPropertyCount,
+                    capacity,mTrialBodies,mClusters,mMotionStorage.bodies,mCorrectionBodies,mStatus);
+                check(cudaMemcpyAsync(observations.data(),mCorrectionBodies,capacity*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
+            }
+            check(cudaGetLastError());
+            // Selected count shares the mandatory completion transfer. No
+            // count-read/wait/resubmit boundary is needed to size the payload.
+            check(cudaMemcpyAsync(mHostCompletion,mCompletion,sizeof(*mStatus)+(capacity?sizeof(PxU32):0),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            mPostCorrection=false;return !mHostStatus->error;
+            count=capacity?mHostCompletion->propertyCount:0;
+            if(mHostStatus->error || count>capacity)return false;
+            if(count && !mBodyAllocator->publishCorrectionProperties(observations.data(),count))return false;
+            mPendingPropertyCapacity=0;mPostCorrection=false;return true;
         }catch(...){mFailed=true;return false;}
     }
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
@@ -1699,7 +1737,7 @@ public:
             check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
             mC=mHostBodyPreparation->count;
             acceptClusterBindings<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mTrialBodyIndices,mClusters,mStatus);
-            acceptChunkBindings<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mCandidateSlots,mChunks,mStatus);
+            acceptChunkBindings<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mCandidateSlots,mChunks,mStatus,mAffectedClusters,mPropertyEpochs);
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodies,mPoses,mAngular,mStatus);
             finishNativeCorrection<<<1,1,0,mStream>>>(mStatus);
             provisionalTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mChunks,mClusters,mPoses,bodies,mProvisionalMotion);
@@ -1714,22 +1752,14 @@ public:
                 inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);
             }
             commitNativeMotionSlots<<<1,1,0,mStream>>>(mMotionSlots,mStatus);
-            // CPU compatibility consumes accepted GPU state, never the provisional
-            // motion that was prepared for correction. Share the existing final
-            // completion wait; no mass/COM/motion round trip precedes correction.
-            const PxU32 count=mBodyAllocator->needsHostProperties()?mHostCompletion->correction.count:0;
-            std::vector<PxDestructionCorrectionBody> observations(count);
-            // The uncompacted preparation workspace has no remaining consumer.
-            // Reuse it; borrowed compact correction inputs stay unchanged.
-            if(count) {
-                gatherAcceptedProperties<<<(count+127)/128,128,0,mStream>>>(mCompactCorrectionBodies,count,bodies,mCorrectionBodies,mStatus);
-                check(cudaMemcpyAsync(observations.data(),mCorrectionBodies,count*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
-            }
+            // A bound for final observation storage only, not a physical work
+            // budget. CUDA selects the union of changed surviving owners once.
+            if(mPropertyEpochs)mPendingPropertyCapacity=PxU32(std::min<PxU64>(mN,
+                PxU64(mPendingPropertyCapacity)+mHostCompletion->correction.count));
             check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             collectCorrectionTimings();
             if(mHostStatus->error)return false;
-            if(count && !mBodyAllocator->publishCorrectionProperties(observations.data(),count))return false;
             mCommittedMotionSlots+=mHostBodyAllocation.reserved;
             mBodyAllocator->acceptReservations();return true;
         }catch(...){mFailed=true;return false;}
