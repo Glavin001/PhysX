@@ -1,0 +1,20 @@
+{
+  "base_revision": "baed87a938b5a9e1a1822dab11e687cdb462f04a",
+  "purpose": "diagnostic counterfactual, not production optimization",
+  "workload": {
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "steps": 600,
+    "timestep": "1/60",
+    "max_corrections": 1,
+    "direct_gpu": true,
+    "sleeping": false
+  },
+  "changed_contact_pairs_first_correction": 128,
+  "dynamic_contact_patches_first_correction": 41,
+  "intervention": "Apply recorded reference touch-event order only at first correction; preserve candidate geometric pairs, solver settings and fracture equations",
+  "result": "Frozen topology and fracture oracle passed; projectile positions match through step 31; later motion differs without changing frozen verdicts",
+  "performance_qualification": false,
+  "production_rule_added": false
+}

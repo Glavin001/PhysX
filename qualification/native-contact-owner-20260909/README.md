@@ -60,8 +60,13 @@ exception; those counts were not yet checked because hash validation runs first.
 The values above were subsequently extracted from the actual capture and correct
 that statement. No pass is claimed from the diagnostic extraction.
 
-Next: compare corrected contact/patch activation and solver ordering against the
-reconstruction reference at the first divergent step. Do not run/promote a large
-performance campaign before this controlled physical gate passes. Then measure
-matched pristine idle and destruction independently; settling, sleeping rubble
-and reactivation remain separate required regimes.
+The next diagnostic identified a causal ordering dependency: retained CPU
+contact-manager indices change accurate-island activation and solver ordering.
+Restoring only the reference's first-correction event order passes the exact
+frozen oracle. That diagnostic rule was removed; it is **not** a production fix.
+See [the measured ordering finding](ORDERING_FINDING.md).
+
+Next: implement separate GPU solver-registration identities/activation order and
+consume the native ordered event stream without CPU pool-index reordering. The
+production candidate remains unqualified. Measure independent pristine-idle and
+destruction benefits only after its controlled physical gate passes.

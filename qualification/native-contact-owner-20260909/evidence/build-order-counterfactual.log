@@ -1,0 +1,67 @@
+[  0%] Built target PhysXTask
+[  5%] Built target PhysXFoundation
+[  8%] Built target LowLevelAABB
+[  8%] Building CXX object sdk_source_bin/CMakeFiles/LowLevel.dir/root/workspace/physx-2/physx/source/lowlevel/software/src/PxsContext.cpp.o
+[  8%] Building CXX object sdk_source_bin/CMakeFiles/LowLevelDynamics.dir/root/workspace/physx-2/physx/source/lowleveldynamics/src/DyDynamicsBase.cpp.o
+[ 60%] Built target PhysXCommon
+[ 62%] Built target SceneQuery
+[ 62%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScActorCore.cpp.o
+[ 64%] Building CXX object sdk_source_bin/CMakeFiles/LowLevelDynamics.dir/root/workspace/physx-2/physx/source/lowleveldynamics/src/DyDynamics.cpp.o
+[ 64%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScActorSim.cpp.o
+[ 64%] Building CXX object sdk_source_bin/CMakeFiles/LowLevel.dir/root/workspace/physx-2/physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp.o
+[ 64%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScGpuActorSim.cpp.o
+[ 67%] Built target LowLevel
+[ 67%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationCore.cpp.o
+[ 67%] Building CXX object sdk_source_bin/CMakeFiles/LowLevelDynamics.dir/root/workspace/physx-2/physx/source/lowleveldynamics/src/DyTGSDynamics.cpp.o
+[ 69%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationJointCore.cpp.o
+[ 69%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationJointSim.cpp.o
+[ 69%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationSim.cpp.o
+[ 69%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationTendonSim.cpp.o
+[ 73%] Built target LowLevelDynamics
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationMimicJointSim.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScBroadphase.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScDeformableSurfaceCore.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScDeformableSurfaceSim.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScDeformableVolumeCore.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScDeformableVolumeSim.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScFiltering.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScParticleSystemCore.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScParticleSystemSim.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScBodyCore.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScBodySim.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScConstraintBreakage.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScConstraintInteraction.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScConstraintSim.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScElementInteractionMarker.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScElementSim.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScInteraction.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScIterators.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScKinematics.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScNPhaseCore.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPhysics.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScRigidCore.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScRigidSim.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScScene.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScCCD.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeCore.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeInteraction.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeSim.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeSimBase.cpp.o
+[ 82%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScSimulationController.cpp.o
+[ 82%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScSqBoundsManager.cpp.o
+[ 82%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScStaticCore.cpp.o
+[ 82%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScTriggerInteraction.cpp.o
+[ 82%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScVisualize.cpp.o
+[ 82%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScSleep.cpp.o
+[ 83%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPipeline.cpp.o
+/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPipeline.cpp:1798:28: error: no matching function for call to 'getSI'
+ 1798 |             const auto* si=getSI(event);
+      |                            ^~~~~
+/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPipeline.cpp:1629:42: note: candidate function not viable: 1st argument ('const PxvContactManagerTouchEvent') would lose const qualifier
+ 1629 | static PX_FORCE_INLINE ShapeInteraction* getSI(PxvContactManagerTouchEvent& evt)
+      |                                          ^     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 error generated.
+gmake[3]: *** [sdk_source_bin/CMakeFiles/SimulationController.dir/build.make:748: sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPipeline.cpp.o] Error 1
+gmake[2]: *** [CMakeFiles/Makefile2:488: sdk_source_bin/CMakeFiles/SimulationController.dir/all] Error 2
+gmake[1]: *** [CMakeFiles/Makefile2:306: sdk_source_bin/CMakeFiles/PhysX.dir/rule] Error 2
+gmake: *** [Makefile:221: PhysX] Error 2

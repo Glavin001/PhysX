@@ -3079,14 +3079,15 @@
         "group": "collision/ownership/correction",
         "status": "in_progress",
         "source": "physx/source/simulationcontroller/src/ScShapeInteraction.cpp",
-        "qualification": "Unqualified persistent-contact WIP: canonical endpoint reversal, pair lifetime preservation, output/cache invalidation and duplicate rediscovery guard implemented. GPU unit + memcheck/initcheck and eleven native integration tests pass. Frozen 444-chunk/896-bond/one-projectile/600-step wall fails exact physical output (404 supported/40 detached/179 broken/31 clusters versus 398/46/199/43). No performance claim or deployment; CPU lifecycle dependencies remain.",
+        "qualification": "Unqualified persistent-contact WIP: canonical endpoint reversal, pair lifetime preservation, output/cache invalidation and duplicate rediscovery guard implemented. GPU unit + memcheck/initcheck and eleven native integration tests pass. Frozen 444-chunk/896-bond/one-projectile/600-step wall fails exact physical output (404 supported/40 detached/179 broken/31 clusters versus 398/46/199/43). No performance claim or deployment; CPU lifecycle dependencies remain. Matched diagnostic proves CPU pool-index touch ordering changes solver scheduling; restoring reference order only at first correction passes the exact wall oracle. Diagnostic CPU sort removed. Next: separate GPU solver-registration identity/activation sequence; no production fix or performance claim yet.",
         "dependencies": [
           "C1",
           "C2",
           "C5"
         ],
         "evidence": [
-          "qualification/native-contact-owner-20260909/README.md"
+          "qualification/native-contact-owner-20260909/README.md",
+          "qualification/native-contact-owner-20260909/ORDERING_FINDING.md"
         ]
       },
       {
@@ -3095,13 +3096,14 @@
         "group": "collision/ownership/correction",
         "status": "in_progress",
         "source": "physx/source/simulationcontroller/src/ScShapeSimBase.cpp",
-        "qualification": "Unqualified persistent-contact WIP: canonical endpoint reversal, pair lifetime preservation, output/cache invalidation and duplicate rediscovery guard implemented. GPU unit + memcheck/initcheck and eleven native integration tests pass. Frozen 444-chunk/896-bond/one-projectile/600-step wall fails exact physical output (404 supported/40 detached/179 broken/31 clusters versus 398/46/199/43). No performance claim or deployment; CPU lifecycle dependencies remain.",
+        "qualification": "Unqualified persistent-contact WIP: canonical endpoint reversal, pair lifetime preservation, output/cache invalidation and duplicate rediscovery guard implemented. GPU unit + memcheck/initcheck and eleven native integration tests pass. Frozen 444-chunk/896-bond/one-projectile/600-step wall fails exact physical output (404 supported/40 detached/179 broken/31 clusters versus 398/46/199/43). No performance claim or deployment; CPU lifecycle dependencies remain. Matched diagnostic proves CPU pool-index touch ordering changes solver scheduling; restoring reference order only at first correction passes the exact wall oracle. Diagnostic CPU sort removed. Next: separate GPU solver-registration identity/activation sequence; no production fix or performance claim yet.",
         "dependencies": [
           "C3",
           "C5"
         ],
         "evidence": [
-          "qualification/native-contact-owner-20260909/README.md"
+          "qualification/native-contact-owner-20260909/README.md",
+          "qualification/native-contact-owner-20260909/ORDERING_FINDING.md"
         ]
       },
       {

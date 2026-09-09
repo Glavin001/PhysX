@@ -113,3 +113,9 @@ there is no performance result and no promotion. See the
 [ownership WIP receipt](../../qualification/native-contact-owner-20260909/README.md).
 C1/C2/C5/C6 remain unfinished. This does not supersede the independently tracked
 settled-stress idle benefit.
+
+The contact-retention regression is now causally attributed to CPU pool-index
+touch-event ordering changing solver partition order. A recorded-order diagnostic
+passes the frozen oracle; it was removed and is not a production fix. Next comes
+GPU solver-registration identity and ordered activation, not a CPU sorting layer.
+[Evidence](../../qualification/native-contact-owner-20260909/ORDERING_FINDING.md).
