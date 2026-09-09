@@ -1,0 +1,12 @@
+{
+  "base": "57ad66416963c4cac3e0b79f865a9771b20c02bf",
+  "files": {
+    "physx/source/gpudestruction/src/PxgDestructionMotionSlots.cuh": "20c3473832972f67c3adc22f2a4ffb4b8b47dcfb909935a8905a6b4087a804ee",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "548490012070164e0cfbe028028b78d46d8404e39443789d789f0fe0ce94b48a",
+    "physx/source/gpudestruction/tests/motion_slots_test.cu": "ebcdd36d79692bfb5baf141246fddb644da10c1f6e0b97032679e648c2f8429b"
+  },
+  "private_abi": 8,
+  "public_abi": 15,
+  "cpu_archive_unchanged": true,
+  "gpu_module_unchanged": true
+}

@@ -12,6 +12,7 @@
 #include <vector>
 #include <random>
 #include <algorithm>
+#include <cstring>
 namespace physx { namespace {
 #include "../src/PxgDestructionMotionState.cuh"
 #include "../src/PxgDestructionMotionSlots.cuh"
@@ -111,7 +112,43 @@ struct Fixture {
         CHECK(selectedCount==a.reserved && p.pending==selectedCount && !p.error && get(stage).error==8);
     }
 };
-int main() {
+void addressIsolation() {
+    Fixture f(444);
+    for(unsigned i=0;i<f.size;++i)f.requests[i]={i,7,0,1,i};
+    const auto unchangedBodies=[&]() {
+        f.unchanged();
+        CHECK(!get(f.allocation).valid && !get(f.pool).pending);
+        for(unsigned i=0;i<f.size;++i)
+            CHECK(get(f.bodies+f.addresses[i]).linearVelocityXYZ_inverseMassW.x==0);
+        CHECK(get(f.bodies+7).dynamicLimitsDamping.x==100);
+    };
+    // An aliased grant must fail before two writers can target the same body.
+    f.reset(444,444);put(f.granted+220,f.addresses[0]);f.run(476);
+    CHECK(get(f.allocation).error&4);unchangedBodies();
+    put(f.granted+220,f.addresses[220]);
+    // One request must never overwrite another request's input body. This is
+    // a different hazard from targeting its own parent, including unused grants.
+    for(unsigned sourceOrdinal:{1u,450u}) {
+        f.requests[0].sourceBody=f.addresses[sourceOrdinal];
+        f.reset(444,444);f.run(476);
+        CHECK(get(f.allocation).error&4);unchangedBodies();
+    }
+    f.requests[0].sourceBody=7;
+    // Poison the immutable grant after registration: selection must resolve
+    // against the GPU reverse index, not blindly trust the changed payload.
+    f.reset(444,444);CUDA(f.graph.setCapacity(f.granted,476,0));
+    put(f.granted+220,PxU32(7));CUDA(f.graph.launch(0));CUDA(cudaDeviceSynchronize());
+    CHECK(get(f.allocation).error&4);unchangedBodies();
+    put(f.granted+220,f.addresses[220]);
+    // A previously committed fragment is a valid parent of a later split.
+    f.requests[0].sourceBody=f.addresses[0];f.reset(444,444,1);
+    auto parent=get(f.bodies+7);put(f.bodies+f.addresses[0],parent);
+    f.run(476);f.check(444,1);
+    std::puts("GPU grant uniqueness, source/target isolation, immutable lookup and committed-parent split: PASS");
+}
+int main(int argc,char** argv) {
+    if(argc==2 && std::strcmp(argv[1],"--address-isolation")==0){addressIsolation();return 0;}
+    addressIsolation();
     std::mt19937 random(1709);
     for(unsigned size:{1u,127u,128u,129u,444u,4099u,113664u}) {
         Fixture f(size);

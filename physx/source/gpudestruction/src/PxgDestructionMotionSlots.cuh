@@ -1,7 +1,19 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 // Included in the runtime implementation namespace. Addresses are a CPU resource
 // grant; request counts, stable selection and assignment belong to the GPU.
-struct NativeMotionAddresses { const PxU32* indices;PxU32 capacity; PxgDestructionMotionStorage storage; };
+// Reverse address ownership is produced only when the resource grant/storage
+// grows. Ordinary allocation reads it; spare addresses are not simulated bodies.
+struct NativeMotionAddresses {
+    const PxU32* indices;PxU32 capacity;PxgDestructionMotionStorage storage;
+    PxU32* ordinals;PxU32* error;
+};
+__global__ void registerNativeMotionAddresses(NativeMotionAddresses v) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=v.capacity)return;
+    if(!v.indices || !v.ordinals){atomicOr(v.error,16u);return;}
+    const PxU32 id=v.indices[i];
+    if(id>=v.storage.capacity){atomicOr(v.error,16u);return;}
+    if(atomicCAS(v.ordinals+id,~PxU32(0),i)!=~PxU32(0))atomicOr(v.error,4u);
+}
 struct NativeMotionAllocationView {
     PxDestructionMotionSlotStatus* pool;
     const NativeMotionAddresses* addresses;
@@ -30,6 +42,14 @@ __global__ void beginNativeMotionAllocation(NativeMotionAllocationView v,cudaGra
         // Retry only this graph after capacity growth. No physical/material work
         // or canonical owner has changed and no allocation has been committed.
         v.allocation->error=v.pool->error=1u;return;
+    }
+    // Invalid resource grants must fail before any body/owner writes. In
+    // particular, a duplicate address would otherwise race two fragment writes.
+    const PxU32 addressError=*addresses.error;
+    if(addressError) {
+        v.allocation->error=v.pool->error=addressError;v.stage->error|=256u;
+        if(addressError&16u){v.allocation->initializationError=1;v.stage->error|=512u;}
+        return;
     }
     if(!p.allocationRequests){v.allocation->valid=1;if(v.continuation)cudaGraphSetConditional(v.continuation,1);return;}
     cudaGraphSetConditional(work,1);
@@ -83,6 +103,17 @@ __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
             if(id==~PxU32(0) || id==request.sourceBody)atomicOr(&v.allocation->error,4u);
             if(!storage.bodies || id>=storage.capacity || request.sourceBody>=storage.capacity)
                 atomicOr(&v.allocation->error,16u);
+            else {
+                // Resolve against registered immutable ownership. A corrupted
+                // grant cannot redirect a write into an ordinary/foreign body.
+                if(v.addresses->ordinals[id]!=v.pool->committed+slot)
+                    atomicOr(&v.allocation->error,4u);
+                const PxU32 sourceOrdinal=v.addresses->ordinals[request.sourceBody];
+                // Parents can be ordinary bodies or committed native fragments,
+                // never pending/unallocated storage (including another target).
+                if(sourceOrdinal!=~PxU32(0) && sourceOrdinal>=v.pool->committed)
+                    atomicOr(&v.allocation->error,4u);
+            }
             const auto candidate=v.candidates[request.candidateSlot];
             if(candidate.cluster!=request.cluster || candidate.sourceBody!=request.sourceBody || candidate.supported!=request.supported)
                 atomicOr(&v.allocation->error,16u);
@@ -138,6 +169,31 @@ class NativeMotionAllocation {
     PxU32* mOffsets{};
     cudaGraph_t mGraph{};
     cudaGraphExec_t mExecutable{};
+    PxU32 mOrdinalCapacity{};
+    cudaError_t registerAddresses(cudaStream_t stream) {
+        auto& v=mHostAddresses;
+        if(v.capacity && v.storage.capacity!=mOrdinalCapacity) {
+            // Exceptional growth is ordered outside graph execution. No body
+            // slots become active and no per-step registry clearing is needed.
+            const auto e=cudaFree(v.ordinals);if(e!=cudaSuccess)return e;
+            v.ordinals=nullptr;mOrdinalCapacity=0;
+            if(v.storage.capacity) {
+                const auto e=cudaMalloc(&v.ordinals,size_t(v.storage.capacity)*sizeof(PxU32));
+                if(e!=cudaSuccess)return e;
+                mOrdinalCapacity=v.storage.capacity;
+            }
+        }
+        auto e=cudaMemsetAsync(v.error,0,sizeof(PxU32),stream);if(e!=cudaSuccess)return e;
+        if(v.capacity && mOrdinalCapacity) {
+            e=cudaMemsetAsync(v.ordinals,0xff,size_t(mOrdinalCapacity)*sizeof(PxU32),stream);
+            if(e!=cudaSuccess)return e;
+        }
+        if(v.capacity) {
+            registerNativeMotionAddresses<<<(PxU64(v.capacity)+127)/128,128,0,stream>>>(v);
+            e=cudaGetLastError();if(e!=cudaSuccess)return e;
+        }
+        return cudaMemcpyAsync(mAddresses,&v,sizeof(v),cudaMemcpyHostToDevice,stream);
+    }
     template<class Kernel,class... Args>
     cudaError_t add(cudaGraph_t graph,cudaGraphNode_t& prior,Kernel kernel,PxU32 blocks,PxU32 threads,Args... args) {
         void* parameters[]={&args...};cudaKernelNodeParams p{};
@@ -148,17 +204,28 @@ class NativeMotionAllocation {
 public:
     void clear() {
         if(mExecutable)cudaGraphExecDestroy(mExecutable);if(mGraph)cudaGraphDestroy(mGraph);
+        cudaFree(mHostAddresses.ordinals);cudaFree(mHostAddresses.error);
+        mHostAddresses={};mOrdinalCapacity=0;
         cudaFree(mAddresses);cudaFree(mOffsets);mExecutable=nullptr;mGraph=nullptr;mAddresses=nullptr;mOffsets=nullptr;
     }
     cudaError_t setCapacity(const PxU32* indices,PxU32 capacity,cudaStream_t stream) {
         mHostAddresses.indices=indices;mHostAddresses.capacity=capacity;
-        return cudaMemcpyAsync(mAddresses,&mHostAddresses,sizeof(mHostAddresses),cudaMemcpyHostToDevice,stream);
+        return registerAddresses(stream);
+    }
+    cudaError_t setResources(const PxU32* indices,PxU32 capacity,
+        const PxgDestructionMotionStorage& storage,cudaStream_t stream) {
+        // Combined exceptional growth: build the new index once, after both
+        // the immutable address prefix and borrowed body storage are ready.
+        mHostAddresses.indices=indices;mHostAddresses.capacity=capacity;
+        mHostAddresses.storage=storage;return registerAddresses(stream);
     }
     cudaError_t setStorage(const PxgDestructionMotionStorage& storage,cudaStream_t stream) {
         const auto& old=mHostAddresses.storage;
         if(old.bodies==storage.bodies && old.previous==storage.previous
             && old.accelerations==storage.accelerations && old.capacity==storage.capacity)return cudaSuccess;
+        const bool capacityChanged=old.capacity!=storage.capacity;
         mHostAddresses.storage=storage;
+        if(capacityChanged)return registerAddresses(stream);
         return cudaMemcpyAsync(mAddresses,&mHostAddresses,sizeof(mHostAddresses),cudaMemcpyHostToDevice,stream);
     }
     cudaError_t initialize(NativeMotionAllocationView v,cudaStream_t stream,cudaGraph_t* continuation=nullptr) {
@@ -174,6 +241,7 @@ public:
         if(!cooperative || !resident)return cudaErrorNotSupported;
         v.blocks=std::min(PxU32(sms*resident),std::min(128u,std::max(1u,v.requestCapacity/128+(v.requestCapacity%128!=0))));
         e=cudaMalloc(&mAddresses,sizeof(*mAddresses));if(e!=cudaSuccess)return e;
+        e=cudaMalloc(&mHostAddresses.error,sizeof(PxU32));if(e!=cudaSuccess)return e;
         e=cudaMalloc(&mOffsets,v.blocks*sizeof(*mOffsets));if(e!=cudaSuccess)return e;
         v.addresses=mAddresses;v.blockOffsets=mOffsets;
         e=setCapacity(nullptr,0,stream);if(e!=cudaSuccess)return e;

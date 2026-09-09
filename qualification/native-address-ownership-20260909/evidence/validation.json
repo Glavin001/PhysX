@@ -1,0 +1,93 @@
+[
+  {
+    "name": "native-tests",
+    "command": [
+      "ctest",
+      "--test-dir",
+      "out/destruction-sdk",
+      "-R",
+      "physx_native|destruction_timing|native_prefix|destruction_gpu_motion_slots",
+      "--output-on-failure",
+      "-j1"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "motion-memcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_motion_slots_test",
+      "--address-isolation"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "motion-initcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "initcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_motion_slots_test"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "motion-synccheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "synccheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_motion_slots_test",
+      "--address-isolation"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "motion-racecheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "racecheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_motion_slots_test",
+      "--address-isolation"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "wall-frozen",
+    "command": [
+      "python3",
+      "tools/scripts/run-destruction-penetration-regression.py",
+      "/root/workspace/physx-2/out/native-address-ownership-20260909/wall-frozen",
+      "--expected-runtime",
+      "/root/workspace/physx-2/out/native-address-ownership-20260909/candidate/libPhysXDestructionGpuRuntime_64.so"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "wall-standard",
+    "command": [
+      "python3",
+      "tools/scripts/run-destruction-penetration-regression.py",
+      "/root/workspace/physx-2/out/native-address-ownership-20260909/wall-standard",
+      "--standard-scene",
+      "--tier",
+      "screen",
+      "--reference",
+      "out/native-settled-local-20260909/wall-standard",
+      "--expected-runtime",
+      "/root/workspace/physx-2/out/native-address-ownership-20260909/candidate/libPhysXDestructionGpuRuntime_64.so"
+    ],
+    "exit": 0
+  }
+]

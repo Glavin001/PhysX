@@ -63,6 +63,16 @@ frozen600/ordinary128, memcheck and the nonzero-motion topology/slot-reuse audit
 short paired screen with lower observed fracture peaks but a higher all-step
 startup peak. Rank1 remains incomplete; this is not full component-local topology.
 
+GPU address-allocation safety now validates unique grants and source/target
+isolation before writing native motion, using a reverse grant index built on
+resource changes. Native52, allocation sanitizers and both original wall-mode
+gates pass. The attempted raw CPU materializer-check deletion failed its atomic
+rejection fixture and is reverted; CPU registration remains required. Two short
+paired city screens show no speedup and leave performance impact unresolved.
+[Address-validation receipt](../../qualification/native-address-ownership-20260909/README.md)
+records the failure, index/storage cost, every peak and separate phase attribution.
+This is a correctness prerequisite within ranked #1, not completed GPU registration.
+
 ## Architectural progress versus performance rejection
 
 User clarification: a physically equivalent, maintainable step toward the final

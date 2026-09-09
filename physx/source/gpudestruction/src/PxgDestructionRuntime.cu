@@ -1450,12 +1450,11 @@ public:
                 throw std::runtime_error("native motion storage capacity grant failed");
             check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(mMotionProducerStream)));
             check(cudaStreamWaitEvent(mStream,mInput,0));
-            check(mMotionAllocation.setStorage(mMotionStorage,mStream));
             PxU32* next=nullptr;allocate(next,capacity);
             try {check(cudaMemcpyAsync(next,granted,size_t(capacity)*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));}
             catch(...){cudaFree(next);throw;}
             check(cudaFree(mGrantedMotionIndices));mGrantedMotionIndices=next;mMotionSlotCapacity=capacity;
-            check(mMotionAllocation.setCapacity(mGrantedMotionIndices,mMotionSlotCapacity,mStream));
+            check(mMotionAllocation.setResources(mGrantedMotionIndices,mMotionSlotCapacity,mMotionStorage,mStream));
             // Retry allocation/preparation only. The intact response, fracture verdict and
             // material evolution have already run and must not run again.
             prepareDeviceInputs();submitMotionAllocation(true);observeCompletion();
