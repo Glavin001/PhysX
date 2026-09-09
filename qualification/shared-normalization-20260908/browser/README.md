@@ -1,0 +1,1 @@
+Browser check passed on the deployed normalization runtime: 27 buildings / 24,105 chunks / 74,543 bonds, eight shots, movement, settling and reset. Captured resource errors are retained. Software-rendered browser FPS is not simulation timing.

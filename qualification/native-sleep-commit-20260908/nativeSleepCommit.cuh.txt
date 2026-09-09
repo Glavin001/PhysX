@@ -1,0 +1,58 @@
+// Private to updateBodiesAndShapes.cu. One block owns a selected sleep
+// transition; shape bounds are parallel across lanes, not serial per body.
+extern "C" __global__ void commitNativeSleepingBodies(const PxU32* indices,
+    PxU32 count,bool rollbackPose,const PxgUpdateActorDataDesc* update,
+    const PxgSolverCoreDesc* solver,const PxU32* solverIndices,
+    PxgBodySimVelocities* previous,PxU32 totalShapes)
+{
+    if(blockIdx.x>=count)return;
+    const PxU32 node=indices[blockIdx.x];
+    PxgBodySim& body=update->mBodySimBufferDeviceData[node];
+    __shared__ PxU32 begin,end;
+    if(!threadIdx.x){
+        begin=end=0;
+        if(rollbackPose){
+            const PxU32 index=solverIndices[node];
+            const bool solved=index<solver->numSolverBodies
+                && solver->solverBodyDataPool[index].islandNodeIndex.index()==node;
+            const auto world=solved?solver->solverBodyDataPool[index].body2World:body.body2World;
+            // Preserve the original gather + public pose setter's rounding and
+            // body/actor COM conversion, rather than replacing it with a copy.
+            const PxTransform actor=(world*body.body2Actor_maxImpulseW.getInverse()).getTransform();
+            const PxAlignedTransform trans(actor);
+            const PxTransform pose=trans.transform(body.body2Actor_maxImpulseW).getTransform();
+            body.body2World.p=make_float4(pose.p.x,pose.p.y,pose.p.z,0.f);
+            body.body2World.q.q=make_float4(pose.q.x,pose.q.y,pose.q.z,pose.q.w);
+            if(totalShapes){
+                const PxNodeIndex key(node);
+                const PxU32 last=binarySearch<PxNodeIndex>(update->mRigidNodeIndices,totalShapes,key);
+                if(update->mRigidNodeIndices[last]==key){
+                    end=last+1;
+                    PxU32 low=0,high=end;
+                    while(low<high){const PxU32 mid=low+(high-low)/2;
+                        if(update->mRigidNodeIndices[mid]<key)low=mid+1;else high=mid;}
+                    begin=low;
+                }
+            }
+        }
+        const float4 linear=make_float4(0,0,0,body.linearVelocityXYZ_inverseMassW.w);
+        const float4 angular=make_float4(0,0,0,body.angularVelocityXYZ_maxPenBiasW.w);
+        body.linearVelocityXYZ_inverseMassW=linear;
+        body.angularVelocityXYZ_maxPenBiasW=angular;
+        body.externalLinearAcceleration=make_float4(0,0,0,0);
+        body.externalAngularAcceleration=make_float4(0,0,0,0);
+        if(previous){previous[node].linearVelocity=linear;previous[node].angularVelocity=angular;}
+    }
+    __syncthreads();
+    const PxTransform world=body.body2World.getTransform();
+    const PxTransform actor=body.body2Actor_maxImpulseW.getTransform();
+    for(PxU32 slot=begin+threadIdx.x;slot<end;slot+=blockDim.x){
+        const PxU32 shapeIndex=update->mShapeIndices[slot];
+        if(shapeIndex==PX_INVALID_U32)continue;
+        const PxgShapeSim& shape=update->mShapeSimsBufferDeviceData[shapeIndex];
+        const PxTransform pose=getAbsPose(world,shape.mTransform,actor);
+        updateCacheAndBound(pose,shape,shapeIndex,update->mTransformCache,
+            update->mBounds,update->mShapes,true);
+        update->mUpdated[shapeIndex]=1;
+    }
+}

@@ -1,6 +1,6 @@
 # Shared component normalization
 
-Accepted deletion of redundant arithmetic; deployment pending. Each CUDA block now computes the component-wide FP64 reciprocal once in its existing maximum reduction, rather than once per node. The cooperative large-component path is unchanged. No equations, convergence thresholds, physical iteration budgets, precision or graph ownership change. Compiler resources remain 94 registers / 48-byte stack; shared storage increases by 8 bytes.
+Accepted deletion of redundant arithmetic; deployed and browser-tested. See [deployment](deployment.json) and [browser audit](browser/README.md). Each CUDA block now computes the component-wide FP64 reciprocal once in its existing maximum reduction, rather than once per node. The cooperative large-component path is unchanged. No equations, convergence thresholds, physical iteration budgets, precision or graph ownership change. Compiler resources remain 94 registers / 48-byte stack; shared storage increases by 8 bytes.
 
 [Repeated bombardment report](repeated/report.md): three 600-step runs per arm, 256 buildings / 113,664 chunks / 229,376 bonds / 768 physical projectiles each. Candidate means 44.155–44.881 ms versus 45.033–46.666 ms. Fracture peaks 132.604–138.325 ms versus 136.912–140.902 ms overlap, so no robust peak or real-time win is claimed. Startup peaks remain roughly 160 ms. [Pristine idle](idle/report.md) remains intact.
 
