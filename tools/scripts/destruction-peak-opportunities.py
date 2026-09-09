@@ -26,7 +26,7 @@ OWNERSHIP = {
     'compatibility.requestReadback', 'compatibility.allocateNativeBodies', 'compatibility.publishReservation',
     'finishDetail.publishReservation', 'finishDetail.reserveBodies.other',
     'finishAndReserve.other', 'initializeReserved', 'collisionBindings',
-    'correctionBodies', 'preparationCompletion', 'preparationCompletion.other', 'publishReservedMetadata', 'applyDetail.validateOwners',
+    'correctionBodies', 'validatePreparation', 'preparationCompletion', 'preparationCompletion.other', 'publishReservedMetadata', 'applyDetail.validateOwners',
     'applyDetail.scheduleOwners', 'migrateDetail.refilter',
     'migrateDetail.retireContacts', 'migrateDetail.registerOwner',
     'migrateDetail.actorLinks', 'migrateDetail.queryMirror',

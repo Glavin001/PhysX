@@ -108,14 +108,13 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
         PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.refilter",false,profileContext);
         if (!scene.getAABBManager()->refilterBounds(getElementID(), group, deviceOwnerTransaction)) return false;
     }
-    // Fresh public bodies have not reached the GPU yet. Native destruction
-    // candidates initialized in the GPU pool have already cleared FIRST_COPY.
-    // Internal native transactions own GPU motion even when the public Direct
-    // GPU API is disabled. Preserve the existing world-space shape cache while
-    // rebinding; the new CPU compatibility body has not received its pose yet.
-    const bool gpuBounds = (deviceOwnerTransaction || scene.isDirectGPUAPIInitialized())
+    // Native transactions already own resident GPU motion and bounds, including
+    // ordinary API mode. Their new CPU compatibility body has no fitted pose
+    // yet. Its pending FIRST_COPY flag cannot make it a bounds producer.
+    // Public transfers retain their upload/explicit-host-pose checks.
+    const bool gpuBounds = deviceOwnerTransaction || (scene.isDirectGPUAPIInitialized()
         && !(body.getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU)
-        && !(body.getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16));
+        && !(body.getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16)));
     // Native correction consumes the GPU rigid-to-shape view instead of a host list.
     if(gpuBounds && !deviceOwnerTransaction && !scene.getSimulationController()->setGpuShapeBoundsRefresh(getElementID(), true))
     {

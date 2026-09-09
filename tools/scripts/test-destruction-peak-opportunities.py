@@ -46,7 +46,7 @@ class PeakAccounting(unittest.TestCase):
         a['profile']['wall_partition'][0]={'finishDetail.allocateNativeBodies':5,'correctedCollisionSolve':10}
         b['profile']['wall_partition'][0]={'compatibility.allocateNativeBodies':3,
             'compatibility.requestReadback':1,'compatibility.publishReservation':.25,
-            'preparationCompletion.other':.5,'publishReservedMetadata':.25,'correctedCollisionSolve':10}
+            'validatePreparation':.25,'preparationCompletion.other':.25,'publishReservedMetadata':.25,'correctedCollisionSolve':10}
         self.assertEqual(p.rank(a),p.rank(b))
 
     def test_overlapping_cuda_is_not_added(self):

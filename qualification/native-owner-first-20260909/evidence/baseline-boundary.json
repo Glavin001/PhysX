@@ -1,0 +1,6 @@
+{
+  "exit": 1,
+  "expected_failure": "GPU ownership not installed before CPU compatibility",
+  "baseline_modules": "/root/workspace/physx-2/out/final-properties-20260909/candidate",
+  "fixture": "6 chunks, 3 bonds, one ordinary body; Direct GPU disabled; sleeping enabled; max one correction"
+}

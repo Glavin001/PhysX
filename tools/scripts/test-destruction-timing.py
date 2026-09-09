@@ -39,6 +39,16 @@ class TimingAccounting(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Overlapping'):
             r.partition([(0,100)],dict(by,preparationCompletion=[(19,70)]))
 
+    def test_validation_install_and_construction_are_disjoint(self):
+        by={'validatePreparation':[(0,10)],'restoreInstall':[(10,30)],
+            'preparationCompletion':[(30,80)],'compatibility.allocateNativeBodies':[(40,70)]}
+        p=r.partition([(0,100)],by)
+        self.assertAlmostEqual(sum(p.values()),.0001)
+        self.assertAlmostEqual(p['validatePreparation'],.00001)
+        self.assertAlmostEqual(p['compatibility.allocateNativeBodies'],.00003)
+        with self.assertRaisesRegex(ValueError,'Overlapping'):
+            r.partition([(0,100)],dict(by,restoreInstall=[(9,30)]))
+
     def test_repeated_shape_lifecycle_scopes_replace_parent(self):
         by={'applyBindings':[(0,100)],'applyDetail.validateOwners':[(0,10)],
             'applyDetail.scheduleOwners':[(10,20)],'applyDetail.migrateShapes':[(20,90)],

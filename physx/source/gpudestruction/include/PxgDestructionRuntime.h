@@ -89,8 +89,10 @@ public:
     // invalid collision preparation gates corrected-motion preparation on device.
     virtual bool prepareCollisionBindings(const PxgShapeSim* shapes, PxU32 shapeCapacity, const PxNodeIndex* shapeToBody, PxU32 remapCapacity, CUstream stream) = 0;
     virtual bool prepareCorrectionBodies(PxU32 bodyCapacity, CUstream stream) = 0;
-    // Combined observation followed by CPU compatibility construction only when
-    // GPU collision and corrected-motion preparation both validate.
+    // Validate GPU preparation without constructing CPU compatibility objects.
+    virtual bool observeCorrectionPreparation() = 0;
+    // Normal scenes construct compatibility after native GPU ownership is
+    // installed. Manual validation fixtures may construct explicitly.
     virtual bool completeCorrectionPreparation() = 0;
     // Body installation after rigid restore. Island/collision ownership and
     // accepted events remain separate. Unresolved source commands reject before
@@ -137,7 +139,7 @@ public:
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
 // violating lifecycle ordering. Public scene ABI is intact.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV4(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV5(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

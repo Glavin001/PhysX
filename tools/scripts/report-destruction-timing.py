@@ -45,7 +45,7 @@ TREE={
  'finishAndReserve':{'finishDetail.waitForGpu':{},'finishDetail.reserveBodies':{
      'finishDetail.growMotionSlots':{},'finishDetail.requestReadback':{},'finishDetail.allocateNativeBodies':{},
      'finishDetail.uploadBindings':{},'finishDetail.publishReservation':{}}},
- 'initializeReserved':{},'publishReservedMetadata':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{'compatibility.requestReadback':{},'compatibility.allocateNativeBodies':{},'compatibility.publishReservation':{}},'applyBindings':{
+ 'validatePreparation':{},'initializeReserved':{},'publishReservedMetadata':{},'collisionBindings':{},'correctionBodies':{},'preparationCompletion':{'compatibility.requestReadback':{},'compatibility.allocateNativeBodies':{},'compatibility.publishReservation':{}},'applyBindings':{
      'applyDetail.validateOwners':{},'applyDetail.scheduleOwners':{},'applyDetail.migrateShapes':{
          'migrateDetail.refilter':{},'migrateDetail.retireContacts':{},'migrateDetail.registerOwner':{},
          'migrateDetail.actorLinks':{},'migrateDetail.queryMirror':{}}},
@@ -65,7 +65,8 @@ LABELS={
  'initializeReserved':('Submit fragment initialization','CPU dispatch/lifecycle; GPU initializes and validates without a stage-local readback'),
  'collisionBindings':('Prepare chunk collision ownership','CPU dispatch + GPU persistent-shape ownership preparation'),
  'correctionBodies':('Prepare corrected motion states','CPU dispatch + GPU cluster/body preparation'),
- 'preparationCompletion':('Validate completed GPU preparation','CPU checks observed verdicts and constructs compatibility objects; legacy/manual preparation also waits for GPU completion'),
+ 'validatePreparation':('Validate GPU preparation before installation','CPU checks completed GPU verdicts; no compatibility construction'),
+ 'preparationCompletion':('Construct compatibility after GPU installation','CPU checks observed verdicts and constructs compatibility objects; legacy/manual preparation also waits for GPU completion'),
  'preparationCompletion.other':('Validate GPU preparation verdicts','CPU validation/bookkeeping; legacy/manual paths may also wait; compatibility construction children are separate'),
  'compatibility.requestReadback':('Observe GPU-selected fragment requests','GPU → CPU compact metadata after complete GPU collision and motion preparation'),
  'compatibility.allocateNativeBodies':('Construct fragment compatibility objects','CPU PhysX body/lifecycle records after GPU preparation; still required before corrected simulation'),

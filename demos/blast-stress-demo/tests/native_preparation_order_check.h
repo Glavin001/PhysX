@@ -38,6 +38,26 @@ void preparationBeforeCompatibility() {
             if(!std::strcmp(name,"GpuDestruction.finishAndReserve"))inspect(true);
             if(fixture && !std::strcmp(name,"GpuDestruction.compatibility.allocateNativeBodies")) {
                 if(!observed || failed)failed=true;
+                try {
+                    CUcontext current=nullptr;check(cuCtxGetCurrent(&current));
+                    require(current==fixture->cuda.getContext(),
+                        "compatibility CUDA observations lost the scene context");
+                    require(!static_cast<NpScene&>(fixture->scene).getNbDestructionBodyCandidates(),
+                        "GPU ownership requires prior CPU fragment construction");
+                    const auto bindings=fixture->bindings(expectedShapes);
+                    PxScopedCudaLock lock(fixture->cuda);unsigned migrated=0;
+                    for(const auto& binding:bindings) {
+                        PxgShapeSim shape;
+                        check(cuMemcpyDtoH(&shape,CUdeviceptr(fixture->core.mPxgShapeSimManager.getShapeSimsDeviceTypedPtr()
+                            +binding.shape),sizeof(shape)));
+                        require(shape.mBodySimIndex.index()==binding.targetBody,
+                            "GPU ownership not installed before CPU compatibility");
+                        require(fixture->shapes[binding.chunk]->getActor()->is<PxRigidDynamic>()->getGPUIndex()==binding.sourceBody,
+                            "CPU ownership changed before compatibility construction");
+                        migrated+=binding.sourceBody!=binding.targetBody;
+                    }
+                    require(migrated==expectedNew,"wrong number of installed native owners");
+                }catch(const std::exception& e){error=e.what();failed=true;}
                 constructed=true;
             }
             return nullptr;

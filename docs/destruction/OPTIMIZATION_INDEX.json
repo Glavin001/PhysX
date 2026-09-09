@@ -3302,6 +3302,16 @@
         "reactivation": "focused correctness coverage; performance not separately qualified",
         "receipt": "qualification/native-settled-local-20260909/README.md"
       }
+    },
+    "native_owner_installation_continuation": {
+      "status": "partial-ranked-1",
+      "receipt": "qualification/native-owner-first-20260909/README.md",
+      "gpu_owners_before_cpu_construction": true,
+      "cpu_registration_before_correction": true,
+      "private_runtime_factory": "V5",
+      "public_abi": 15,
+      "performance": "short paired screen: observed worst fracture peak 2.3% higher; no speedup or full qualification claim",
+      "remaining": "GPU simulation registration/activity and collision ownership consumers before proceeding to ranked 2"
     }
   },
   "replacement_plan_20260909": {

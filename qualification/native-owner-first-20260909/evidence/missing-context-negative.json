@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "expected_failure": "compatibility CUDA observations lost the scene context",
+  "candidate_modules": "/root/workspace/physx-2/out/native-owner-first-20260909/candidate"
+}

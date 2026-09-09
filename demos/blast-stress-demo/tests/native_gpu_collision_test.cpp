@@ -3,6 +3,7 @@
 #include "../physx_scene.h"
 #include "NpScene.h"
 #include "NpRigidDynamic.h"
+#include "ScBodySim.h"
 #include "NpShapeManager.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
@@ -51,8 +52,8 @@ struct Fixture {
     PxDestructionStressDesc desc;
     PxDestructionScene* stage;
     unsigned mainCount;
-    Fixture(unsigned count,unsigned untouched,bool sleeping,PxSolverType::Enum solver=PxSolverType::eTGS,bool disableSleeping=false,bool standard=false):
-        context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,!standard,disableSleeping,sleeping&&!standard,sleeping&&!standard,solver),
+    Fixture(unsigned count,unsigned untouched,bool sleeping,PxSolverType::Enum solver=PxSolverType::eTGS,bool disableSleeping=false,bool standard=false,bool accelerations=false):
+        context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,!standard,disableSleeping,sleeping&&!standard,sleeping&&!standard,solver,accelerations),
         scene(context.scene()),cuda(*context.cudaContextManager()),
         core(*static_cast<PxgSimulationController*>(static_cast<NpScene&>(scene).getScScene().getSimulationController())->getSimulationCore()),mainCount(count) {
         const PxTransform origin(PxVec3(10,20,-5),PxQuat(.43f,PxVec3(0,0,1)));

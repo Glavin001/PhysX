@@ -92,6 +92,18 @@ progress with that observed cost, not a speedup. See
 CPU actor/node registration,scheduler and shape rebinding still precede correction;
 ranked #1 remains incomplete and #2–7 remain pending.
 
+GPU body and persistent shape owners now install before CPU compatibility
+construction. The duplicate early upload cleanup is removed. GPU bounds stay
+authoritative despite CPU placeholder FIRST_COPY flags. The first draft lost a
+CUDA context guard and regressed first fracture; the context/order oracles and
+paired traces identified it, and the repaired runtime removes that stall.
+Final43 tests, frozen600-step wall, ordinary128-step reference, memcheck and
+phase accounting pass. The repaired paired256-building/113664-chunk/229376-bond/
+256-shot96-step screen has2.3% higher worst fracture peak than its paired baseline;
+no speedup claim. CPU simulation registration/scheduling/rebinding still precede
+corrected physics. Ranked1 remains incomplete;2–7 pending. See
+[owner-installation receipt](../../qualification/native-owner-first-20260909/README.md).
+
 ## Priority checklist and separate benefit tracks
 
 Ordered by the current evidence for substantial **destruction-peak** opportunity,

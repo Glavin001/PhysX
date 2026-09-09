@@ -7,6 +7,7 @@
 #include "ScBodySim.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"
+#include "PxgDestructionRuntime.h"
 #include <cmath>
 #include <cstring>
 #include <PxDestructionScene.h>
@@ -77,6 +78,10 @@ void run(bool sleeping,bool accelerations) {
         }
         require(!accepted.generation && accepted.clusterCount==1,"reservation committed fracture topology");
         require(indices[0]==parentIndex,"existing owner was needlessly replaced");
+        // This fixture deliberately stops before correction. Production does
+        // not construct unused CPU objects for that incomplete step anymore.
+        require(static_cast<PxgDestructionRuntime*>(stage)->completeCorrectionPreparation(),
+            "diagnostic compatibility construction failed");
         require(internal.getNbDestructionBodyCandidates()==n-1,"native candidate count mismatch");
         // Only resident addresses are required: an ordinary actor added after
         // the last step may already extend CPU metadata without a GPU upload.
@@ -112,8 +117,9 @@ void run(bool sleeping,bool accelerations) {
             near(physical.inverseInertiaXYZ_contactReportThresholdW.w,2.3f,"inherited contact report threshold");
             near(physical.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.x,.012f,"inherited stabilization threshold");
             near(physical.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.z,.021f,"inherited sleep threshold");
-            require(!(candidate->getCore().getSim()->getLowLevelBody().mInternalFlags&PxsRigidBody::eFIRST_BODY_COPY_GPU),"placeholder first upload remained pending");
-            require(!controller.getBodySimManager().mUpdatedMap.boundedTest(indices[i]),"placeholder update remained queued");
+            // Upload suppression now follows ownership rebinding in the normal
+            // scene path; this intentionally incomplete fixture stops before it.
+            // Those assertions run in acceptedPropertiesOnly with accelerations.
         }
         require(!deleted.count,"private allocation leaked a user deletion event");return indices;
     };
@@ -122,8 +128,6 @@ void run(bool sleeping,bool accelerations) {
     configure(2,true);fracture();const auto first=observe(2);
     require(core.getBodySimStorageCapacity()>controller.getBodySimManager().mTotalNumBodies,
         "first split did not exercise spare storage separation");
-    if(accelerations)require(core.getNbRigidBodyAccelerations()==controller.getBodySimManager().mTotalNumBodies,
-        "first split expanded observations to unused capacity");
     // An uncommitted slot must not be accepted as a new graph's source:
     // reconfiguration would release that reservation while retaining its ID.
     PxDestructionStressChunk privateChunk{PxVec3(0),1,1,0,PX_INVALID_U32};
@@ -154,6 +158,7 @@ void run(bool sleeping,bool accelerations) {
     fracture();require(observe(257)==grown,"grown reservations were not reused");
     configure(3,true);fracture();observe(3);
     configure(2,true,true);fracture();
+    require(static_cast<PxgDestructionRuntime*>(stage)->completeCorrectionPreparation(),"supported diagnostic compatibility construction failed");
     {const auto view=stage->getDeviceView();PxU32 ids[2];PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.readyEvent));
         check(cuMemcpyDtoH(ids,CUdeviceptr(view.trialBodyIndices),sizeof(ids)));PxgBodySim support;
         check(cuMemcpyDtoH(&support,CUdeviceptr(core.getBodySimBufferDevicePtr().getPointer()+ids[1]),sizeof(support)));
@@ -193,6 +198,7 @@ void run(bool sleeping,bool accelerations) {
         check(cuMemcpyDtoH(quietIndices,reinterpret_cast<CUdeviceptr>(quietView.trialBodyIndices),sizeof(quietIndices)));}
     require(quietAllocation.valid && quietAllocation.count==retained+2 && quietAllocation.reserved==1 && quietAllocation.initialized==1 && !quietAllocation.initializationError && quietPreparation.allocationRequests==1,
         "unchanged clusters entered the host allocation request set");
+    require(static_cast<PxgDestructionRuntime*>(stage)->completeCorrectionPreparation(),"sparse diagnostic compatibility construction failed");
     require(quietIndices[0]==parentIndex && quietIndices[1]!=parentIndex && internal.getNbDestructionBodyCandidates()==1,"sparse split reservation mapping failed");
     for(unsigned i=0;i<retained;++i)require(quietIndices[i+2]==clusterBindings[i+1].body,"unchanged cluster binding was replaced");
     require(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==retained+1 && !deleted.count,"sparse split published trial actors/events");
@@ -228,6 +234,7 @@ void moving(PxSolverType::Enum solver) {
     CUdeviceptr data{},index{};{PxScopedCudaLock lock(cuda);check(cuMemAlloc(&data,sizeof(PxTransform)));check(cuMemAlloc(&index,sizeof(PxU32)));}
     for(unsigned retry=0;retry<3;++retry) {
         scene.simulate(1.0f/60);PxU32 error=0;require(!scene.fetchResults(true,&error)&&error&&stage->getLastStatus().error==8,"moving split accepted before correction");
+        require(static_cast<PxgDestructionRuntime*>(stage)->completeCorrectionPreparation(),"moving diagnostic compatibility construction failed");
         const auto view=stage->getDeviceView();PxU32 ids[2];PxgBodySim source,child;PxDestructionBodyAllocationStatus allocation;
         {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.readyEvent));
             check(cuMemcpyDtoH(&allocation,CUdeviceptr(view.bodyAllocation),sizeof(allocation)));
@@ -383,7 +390,9 @@ void teardown() {
     PxDestructionStressBond bond{0,1,PxVec3(0,.5f,0),PxVec3(0,1,0),1,1,1};PxDestructionStressCluster cluster{parent->getGPUIndex(),PxVec3(0)};PxDestructionMaterial material;
     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=2;desc.chunkMassProperties=mass;desc.bonds=&bond;desc.bondCount=1;desc.clusters=&cluster;desc.clusterCount=1;desc.materials=&material;desc.materialCount=1;
     auto* stage=scene.getDestructionScene();require(stage->configureStress(desc),"teardown configuration failed");scene.setGravity(PxVec3(0,-9.81f,0));scene.simulate(1.0f/60);PxU32 error=0;
-    require(!scene.fetchResults(true,&error)&&error&&static_cast<NpScene&>(scene).getNbDestructionBodyCandidates()==1,"teardown fixture did not reserve body");
+    require(!scene.fetchResults(true,&error)&&error&&stage->getLastStatus().error==8,"teardown fixture unexpectedly completed");
+    require(static_cast<PxgDestructionRuntime*>(stage)->completeCorrectionPreparation()
+        && static_cast<NpScene&>(scene).getNbDestructionBodyCandidates()==1,"teardown fixture did not reserve body");
     // Parent removal is permitted after completed fetch; its slot can outlive
     // that actor until the scene discards the uncommitted transaction.
     parent->release();

@@ -636,7 +636,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction)
-            mDestruction = PxCreateDestructionRuntimeV4(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV5(mCudaContextManager->getContext(), scene, gate, allocator);
         return mDestruction;
     }
 
@@ -829,43 +829,10 @@ namespace physx
             complete=mDestruction->finish();
         }
         if(ok) {
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.preparationCompletion",false,profileContext);
-            ok=mDestruction->completeCorrectionPreparation();
-        }
-        if(ok && mDestruction->reservedBodyCount())
-        {
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.publishReservedMetadata",false,profileContext);
-            // Publish only the constructed-body high-water mark. Spare storage
-            // must not enter acceleration/observation traversal.
-            mSimulationCore->reserveBodySimStorage(mBodySimManager.mTotalNumBodies,mSimulationCore->hasAccelerationBuffers());
-            // Device allocation already initialized these native slots before
-            // CPU BodySim construction. Suppress placeholder uploads; CPU actor
-            // flags here are compatibility metadata, not motion producers.
-            {
-                const PxU32* indices=mDestruction->reservedBodyIndices();
-                for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)
-                {
-                    const PxU32 id=indices[i];
-                    auto& body=*static_cast<PxsRigidBody*>(mBodySimManager.mBodies[id]);
-                    body.mInternalFlags &= ~(PxsRigidBody::eFIRST_BODY_COPY_GPU | PxsRigidBody::eVELOCITY_COPY_GPU);
-                    body.mGpuHostDirty=0;
-                    mBodySimManager.mUpdatedMap.reset(id);
-                }
-                // One compaction, not a scan per child. Updates for ordinary
-                // actors remain queued and retain their map entries.
-                auto& pending=mBodySimManager.mNewOrUpdatedBodySims;PxU32 kept=0;
-                for(PxU32 i=0;i<pending.size();++i)
-                    if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
-                pending.forceSize_Unsafe(kept);
-            }
+            PxProfileScoped validation(PxGetProfilerCallback(),"GpuDestruction.validatePreparation",false,profileContext);
+            ok=mDestruction->observeCorrectionPreparation();
         }
         if(ok && !complete && mDestruction->correctionEnabled() && canCorrect) {
-            // The runtime validates command assignment and the whole metadata
-            // batch before changing owners. Physical data never crosses to CPU.
-            {
-                PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.applyBindings",false,profileContext);
-                ok=mDestruction->applyCorrectionBindings();
-            }
             if(ok) {
                 {
                 PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.restoreInstall",false,profileContext);
@@ -882,7 +849,24 @@ namespace physx
                         mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),
                         reinterpret_cast<PxNodeIndex*>(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
                         PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),stream);
+                }
+                // GPU motion and persistent shape ownership now precede CPU
+                // BodySim construction. The existing solver still requires CPU
+                // registration/rebinding, so materialize those compatibility
+                // records before scheduling corrected physics.
                 if(ok) {
+                    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.preparationCompletion",false,profileContext);
+                    ok=mDestruction->completeCorrectionPreparation();
+                }
+                if(ok) {
+                    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.applyBindings",false,profileContext);
+                    ok=mDestruction->applyCorrectionBindings();
+                }
+                if(ok) {
+                    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.publishReservedMetadata",false,profileContext);
+                    mSimulationCore->reserveBodySimStorage(mBodySimManager.mTotalNumBodies,mSimulationCore->hasAccelerationBuffers());
+                    // Changed owners include every newly registered body. One
+                    // suppression/compaction after rebinding covers both sets.
                     const auto* indices=mDestruction->correctionBodyIndices();
                     for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i) {
                         const PxU32 id=indices[i];auto& body=*static_cast<PxsRigidBody*>(mBodySimManager.mBodies[id]);
@@ -892,7 +876,6 @@ namespace physx
                     auto& pending=mBodySimManager.mNewOrUpdatedBodySims;PxU32 kept=0;
                     for(PxU32 i=0;i<pending.size();++i)if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
                     pending.forceSize_Unsafe(kept);
-                }
                 }
                 if(postCorrection) {
                     // The snapshot just restored is the end-of-tick state. Only

@@ -25,6 +25,15 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
                 PxgBodySim device;
                 check(cuMemcpyDtoH(&device,CUdeviceptr(fixture->core.getBodySimBufferDevicePtr().getPointer()
                     +fixture->parent->getGPUIndex()),sizeof(device)));
+                require(!static_cast<NpScene&>(fixture->scene).getNbDestructionBodyCandidates(),
+                    "CPU fragment construction precedes GPU ownership installation");
+                require(fixture->shapes[1]->getActor()==fixture->parent,
+                    "CPU shape rebinding precedes GPU ownership installation");
+                PxgShapeSim shape;
+                check(cuMemcpyDtoH(&shape,CUdeviceptr(fixture->core.mPxgShapeSimManager.getShapeSimsDeviceTypedPtr()
+                    +fixture->chunks[1].contactIndex),sizeof(shape)));
+                require(!shape.mBodySimIndex.isStaticBody() && shape.mBodySimIndex.index()!=fixture->parent->getGPUIndex(),
+                    "GPU shape still belongs to the intact owner");
                 const auto& cpu=static_cast<NpRigidDynamic*>(fixture->parent)->getCore().getCore();
                 require(cpu.getBody2Actor().p.magnitudeSquared()<1e-10f,
                     "fitted COM reached CPU before corrected physics completed");
@@ -34,7 +43,7 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
             }catch(const std::exception& e){failed=true;error=e.what();}
         }
     } observe;
-    Fixture f(4,2,true,solver,false,true);
+    Fixture f(4,2,true,solver,false,true,true);
     require(!(f.scene.getFlags() & (PxSceneFlag::eENABLE_DIRECT_GPU_API|PxSceneFlag::eDISABLE_SLEEPING)),"property test requires ordinary APIs and sleeping");f.desc.internalCorrectionLimit=1;
     for(unsigned i=1;i<4;++i){f.mass[i].mass=2;f.chunks[i].mass=2;}
     f.bonds[1].area=f.bonds[1].health=f.bonds[2].area=f.bonds[2].health=100;
@@ -58,7 +67,13 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
     PxU32 position=0,velocity=0;detached->getSolverIterationCounts(position,velocity);
     require(position==7 && velocity==3 && PxAbs(detached->getLinearDamping()-.17f)<1e-6f,
         "scheduler settings were lost while delaying physical observations");
+    auto& controller=*static_cast<PxgSimulationController*>(static_cast<NpScene&>(f.scene).getScScene().getSimulationController());
+    require(f.core.hasAccelerationBuffers() && f.core.getNbRigidBodyAccelerations()==controller.getBodySimManager().mTotalNumBodies,
+        "first split expanded observations to unused capacity");
     for(auto* actor:{f.parent,detached}) {
+        const auto& registered=static_cast<NpRigidDynamic*>(actor)->getCore().getSim()->getLowLevelBody();
+        require(!(registered.mInternalFlags&PxsRigidBody::eFIRST_BODY_COPY_GPU),"placeholder first upload remained pending");
+        require(!controller.getBodySimManager().mUpdatedMap.boundedTest(actor->getGPUIndex()),"placeholder update remained queued");
         PxgBodySim device;
         {PxScopedCudaLock lock(f.cuda);check(cuMemcpyDtoH(&device,CUdeviceptr(f.core.getBodySimBufferDevicePtr().getPointer()+actor->getGPUIndex()),sizeof(device)));}
         const auto& cpu=static_cast<NpRigidDynamic*>(actor)->getCore().getCore();

@@ -636,6 +636,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     add_executable(native_gpu_allocation_test tests/native_gpu_allocation_test.cpp physx_scene.cpp)
     target_include_directories(native_gpu_allocation_test PRIVATE ${PERSISTENT_OWNER_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/include"
         "${PHYSX_ROOT}/source/gpusimulationcontroller/include"
         "${PHYSX_ROOT}/source/gpusolver/include"
         "${PHYSX_ROOT}/source/gpunarrowphase/include"

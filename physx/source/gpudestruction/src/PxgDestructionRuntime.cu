@@ -1639,7 +1639,7 @@ public:
             return false;
         }
     }
-    bool completeCorrectionPreparation() override {
+    bool observeCorrectionPreparation() override {
         if(!mTopology || mHostStatus->error!=8u)return !mFailed && mHostStatus->error==0;
         if(mFailed || !mCollisionPreparationSubmitted || !mCorrectionPreparationSubmitted)return false;
         try {
@@ -1653,7 +1653,19 @@ public:
                 check(cudaStreamWaitEvent(mStream,mReady,0));observeCompletion();
                 check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));mPreparationObserved=true;
             }
-            return mHostStatus->error==8u && mHostCompletion->collision.valid && mHostCompletion->correction.valid && prepareBodyCompatibility();
+            return mHostStatus->error==8u && mHostCompletion->collision.valid && mHostCompletion->correction.valid;
+        }catch(...){mFailed=true;return false;}
+    }
+    bool completeCorrectionPreparation() override {
+        if(!observeCorrectionPreparation())return false;
+        if(mHostStatus->error!=8u)return true;
+        try {
+            // Validation's context guard has ended. Construction performs CUDA
+            // observations too, and must not initialize/use a worker's default
+            // context. Order observations after the installed native owners.
+            Context current(mContext);
+            check(cudaStreamWaitEvent(mStream,mReady,0));
+            return prepareBodyCompatibility();
         }catch(...){mFailed=true;return false;}
     }
     bool installCorrectionBodies(PxgBodySim* bodies,PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,
@@ -1777,7 +1789,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV4(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV5(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 

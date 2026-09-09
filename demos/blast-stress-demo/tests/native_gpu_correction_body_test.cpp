@@ -59,6 +59,9 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
     auto force=[&](PxU32 id){PxScopedCudaLock lock(cuda);CUdeviceptr index=0,value=0;check(cuMemAlloc(&index,sizeof(id)));check(cuMemAlloc(&value,sizeof(PxVec3)));const PxVec3 f(10,0,0);check(cuMemcpyHtoD(index,&id,sizeof(id)));check(cuMemcpyHtoD(value,&f,sizeof(f)));require(scene.getDirectGPUAPI().setRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIWriteType::eFORCE,1),"force command failed");check(cuCtxSynchronize());check(cuMemFree(index));check(cuMemFree(value));};
     force(ordinaryId);if(loaded)force(parentId);
     scene.simulate(1.0f/60);PxU32 error=0;require(!scene.fetchResults(true,&error)&&error&&runtime->getLastStatus().error==8,"native split did not stop at incomplete correction");
+    // Manual installation oracle: explicitly materialize its CPU compatibility
+    // records after the intentionally incomplete scene advance.
+    require(runtime->completeCorrectionPreparation(),"diagnostic compatibility construction failed");
     auto view=runtime->getDeviceView();const auto checkpoint=runtime->rigidCheckpoint();
     PxDestructionCorrectionPreparationStatus status;std::vector<PxDestructionCorrectionBody> inputs;std::vector<PxgBodySim> saved,before;
     std::vector<PxgBodySimVelocities> history;

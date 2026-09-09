@@ -13,7 +13,7 @@ PREFIX = "GpuDestruction."
 ALWAYS = {"submit", "finishAndReserve", "collisionBindings", "correctionBodies"}
 CORRECTION = {"applyBindings", "restoreInstall", "correctedCollisionSolve", "refilter", "acceptCorrection"}
 # refilter is nested inside correctedCollisionSolve; never add both to totals.
-INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "publishReservedMetadata", "resetContactCaches", "preparationCompletion", "finalPublication"}
+INDEPENDENT = ALWAYS | (CORRECTION - {"refilter"}) | {"initializeReserved", "publishReservedMetadata", "resetContactCaches", "preparationCompletion", "validatePreparation", "finalPublication"}
 
 
 def open_capture(path):
@@ -89,7 +89,9 @@ def analyze(directory):
         if "stress_passes" in f:
             require(stress_passes[i] == 1 + int(f["resim_passes"]), "invalid stress evaluation count")
     device = cuda_stages(directory, len(frames), stress_passes)
-    required = ({"submit", "finishAndReserve", "preparationCompletion"}
+    # New ownership protocol separates validation from post-install construction.
+    validation = "validatePreparation" if any(row["phase"] == PREFIX + "validatePreparation" for row in phases) else "preparationCompletion"
+    required = ({"submit", "finishAndReserve", validation}
                 if device and device['device_controlled_preparation'] else ALWAYS)
     by_step = collections.defaultdict(dict)
     occurrences = collections.Counter()
