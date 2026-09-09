@@ -276,6 +276,8 @@ class DeviceStressTopology
         // storage, and consume old component identities before relabeling.
         checkCuda(cudaMemsetAsync(rootFlags,0,sizeof(unsigned)*b.n,captureStream), "clear changed stress component flags");
         markChangedStressComponents<<<bondBlocks,kBlockSize,0,captureStream>>>(batch,state,b.health,b.bondIsland,rootFlags,b.m);
+        refreshNativeSettledCertificates<<<nodeBlocks,kBlockSize,0,captureStream>>>(
+            inverse.settled,components(),state,batch,rootFlags);
         clearChangedStressWarmStart<<<bondBlocks,kBlockSize,0,captureStream>>>(state,b.bondIsland,rootFlags,b.impulses,b.m);
 #endif
         beginDeviceStressRebuild<<<1,1,0,captureStream>>>(state);

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -361,13 +362,35 @@ void largeToSmallComponents()
                 require(error<2e-4f,"transition analytic force failed");
             }
         }
+        // Exercise the same exact-input certificate in both cooperative and
+        // block-sized components after graph splits with permuted chunk IDs.
+        auto warm=params;warm.warmStart=true;
+        bool reused=false;
+        for(unsigned attempt=0;attempt<8;++attempt){
+            view=solver->deviceView();
+            require(solver->solveDeviceAsync(view.nodeInputs,n,warm),"transition warm solve rejected");
+            view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+            ExtStressGpuDeviceStatus status{};
+            check(cudaMemcpy(&status,view.status,sizeof(status),cudaMemcpyDeviceToHost));
+            require(status.converged,"transition warm solve failed");
+            unsigned firstSkip=0;check(cudaMemcpy(&firstSkip,view.reusedIslands,sizeof(firstSkip),cudaMemcpyDeviceToHost));
+            if(firstSkip){reused=true;break;}
+        }
+        require(reused,"cooperative/split component never reused verified inputs");
+        check(cudaMemcpy(actual.data(),view.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+        const auto retained=actual;
+        require(solver->solveDeviceAsync(view.nodeInputs,n,warm),"transition cached solve rejected");
+        view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+        check(cudaMemcpy(actual.data(),view.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
+        require(!std::memcmp(actual.data(),retained.data(),actual.size()*sizeof(actual[0])),"transition cached forces changed bits");
     }
     check(cudaEventDestroy(ready));check(cudaStreamDestroy(producer));check(cudaFree(mask));check(cudaFree(generation));
     std::printf("resident topology transition: nodes=1040 bonds=1039 components=1->2->4 permuted IDs, twelve quiet/load solves passed\n");
 }
 
 #include "resident_unaffected_warm_test.cuh"
+#include "resident_settled_reuse_test.cuh"
 }
 int main(int argc,char** argv){std::setvbuf(stdout,nullptr,_IOLBF,0);try{
-    if(argc==2){const std::string fixture=argv[1];require(fixture=="mixed","unknown resident fixture");mixedComponentSizes(false);mixedComponentSizes(true);return 0;}
-    require(argc==1,"invalid resident fixture arguments");for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);largeToSmallComponents();unaffectedWarmColumn();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+    if(argc==2){const std::string fixture=argv[1];if(fixture=="settled"){nativeSettledReuse();return 0;}require(fixture=="mixed","unknown resident fixture");mixedComponentSizes(false);mixedComponentSizes(true);return 0;}
+    require(argc==1,"invalid resident fixture arguments");for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);largeToSmallComponents();unaffectedWarmColumn();nativeSettledReuse();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

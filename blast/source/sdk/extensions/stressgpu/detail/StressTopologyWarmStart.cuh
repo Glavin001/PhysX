@@ -23,6 +23,6 @@ __global__ void clearChangedStressWarmStart(const ExtStressGpuDeviceTopologyStat
     if(!state->initialized){impulses[edge]={};return;}
     const unsigned id=oldIsland[edge];
     if(id==kNoIsland || changed[id])impulses[edge]={};
-    // Unaffected lambda remains an initial guess, never an accepted result:
-    // the ordinary solve still recomputes loads and verifies its true residual.
+    // Unaffected lambda remains available. The independent exact-input
+    // certificate may authorize reuse; otherwise the solve verifies it again.
 }

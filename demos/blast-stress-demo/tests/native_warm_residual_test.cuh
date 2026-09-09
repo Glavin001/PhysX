@@ -30,7 +30,7 @@ void accurateWarmResidual(){
                         {float((long double)rhs[node].linear.x-linear[0]),float((long double)rhs[node].linear.y-linear[1]),float((long double)rhs[node].linear.z-linear[2]),0}};
         sentinel[node]={{17,23,31,0},{37,41,43,0}};
     }
-    Device<unsigned> begin(f.begin.size()),refs(f.refs.size()),active(n),counts(2);
+    Device<unsigned> begin(f.begin.size()),refs(f.refs.size()),active(n),counts(2),nodeIsland(n),settled(n);
     Device<float> health(f.health.size()),scales(f.scale.size());Device<Vec4> offset0(f.offset0.size()),offset1(f.offset1.size());
     Device<Inertia> inertia(n);Device<AngLin> impulses(warm.size());Device<AngLin> original(n),residual(n);
     std::vector<unsigned> order(n);std::iota(order.begin(),order.end(),0u);std::reverse(order.begin(),order.end());
@@ -40,11 +40,18 @@ void accurateWarmResidual(){
     PersistentStressArgs a{};a.m_nodeBondBegin=begin.data;a.m_nodeBondRef=refs.data;a.m_activeNodes=active.data;a.m_activeCounts=counts.data;
     a.m_health=health.data;a.m_colScales=scales.data;a.m_offset0=offset0.data;a.m_offset1=offset1.data;a.m_inertia=inertia.data;
     a.impulses=impulses.data;a.originalRhs=original.data;a.m_residual=residual.data;
+    a.m_nodeIsland=nodeIsland.data;a.settledIslands=settled.data;
     // Cold initialization must leave the already written RHS unchanged.
     initializeNativeWarmResidual<<<1,kBlockSize>>>(a);check(cudaGetLastError());check(cudaDeviceSynchronize());
     auto observed=residual.get();require(!std::memcmp(observed.data(),sentinel.data(),n*sizeof(AngLin)),"cold warm-residual launch changed RHS");
     a.warmStart=true;initializeNativeWarmResidual<<<1,kBlockSize>>>(a);check(cudaGetLastError());check(cudaDeviceSynchronize());observed=residual.get();
     require(!std::memcmp(observed.data(),expected.data(),n*sizeof(AngLin)),"warm residual differs from independent cancellation oracle");
+    // Certified components retain their previously verified residual instead
+    // of performing another cancellation-sensitive operator traversal.
+    settled.put(std::vector<unsigned>(n,1u));residual.put(sentinel);
+    initializeNativeWarmResidual<<<1,kBlockSize>>>(a);check(cudaGetLastError());check(cudaDeviceSynchronize());observed=residual.get();
+    require(!std::memcmp(observed.data(),sentinel.data(),n*sizeof(AngLin)),"certified warm residual was recomputed");
+    settled.put(std::vector<unsigned>(n,0u));
     // The true-residual checker must give exactly the same result at zero
     // correction. It may read solution/endpoint arrays, unlike initialization.
     Device<unsigned> first(f.a.size()),second(f.b.size());Device<Vector> zero(n);first.put(f.a);second.put(f.b);

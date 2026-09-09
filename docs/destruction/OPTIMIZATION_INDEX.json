@@ -2556,5 +2556,724 @@
         "status": "Four-stage polynomial passed operator/native tests but increased stress and full-step time in short bombardment screen; source restored."
       }
     ]
+  },
+  "implementation_campaign": {
+    "date": "2026-09-09",
+    "source_revision": "d325ac5d84765bad226f4ebcf375da294da69dba",
+    "objective": "Fastest maintainable physically equivalent RTX 4090 destruction; deadline attainment is not the stopping criterion",
+    "contract": {
+      "direct_gpu": false,
+      "sleeping": true,
+      "timestep": 0.016666666666666666,
+      "max_corrections": 1,
+      "max_physics_advances": 2,
+      "max_stress_evaluations": 2,
+      "within_step_convergence": true
+    },
+    "baseline_report": "qualification/rigid-additive-20260909/baseline-phases/report.md",
+    "items": [
+      {
+        "id": "A1",
+        "title": "Persistent assets",
+        "group": "assets/storage/commands",
+        "status": "retained",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "A2",
+        "title": "Share repeated asset data",
+        "group": "assets/storage/commands",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "A3",
+        "title": "Separate hot and cold data",
+        "group": "assets/storage/commands",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "A4",
+        "title": "Capacity and scratch management",
+        "group": "assets/storage/commands",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "A5",
+        "title": "Commands",
+        "group": "assets/storage/commands",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "A6",
+        "title": "First-step invariant setup",
+        "group": "assets/storage/commands",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "A7",
+        "title": "Production legacy code",
+        "group": "assets/storage/commands",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S1",
+        "title": "Dirty load preparation",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S2",
+        "title": "Settled-result reuse",
+        "group": "stress",
+        "status": "in_progress",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressNativeSettled.cuh",
+        "qualification": "Component-local certificate revision passes numerical, memcheck/initcheck, ten material/lifecycle, historical exact wall and mode-matched ordinary wall identities. ABBA screens improve idle in city and downtown; destruction peaks remain unqualified. Unpromoted WIP: five-run/endurance and remaining architecture gates outstanding.",
+        "dependencies": [
+          "S3",
+          "S17",
+          "S12"
+        ],
+        "evidence": [
+          "qualification/native-settled-local-20260909/README.md",
+          "qualification/native-settled-local-20260909/idle/report.md",
+          "qualification/native-settled-local-20260909/shots/report.md",
+          "qualification/native-settled-local-20260909/downtown/idle/report.md",
+          "qualification/native-settled-local-20260909/downtown/shots/report.md"
+        ]
+      },
+      {
+        "id": "S3",
+        "title": "Damage during reuse",
+        "group": "stress",
+        "status": "invariant",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "Material/crushing kernels remain unconditional required consumers. Rebuilt native material/reference parity fixture passes, including multiframe health and failed-frame damage accounting.",
+        "dependencies": [
+          "S2"
+        ],
+        "evidence": [
+          "out/native-settled-20260909/material-rebuilt.log"
+        ]
+      },
+      {
+        "id": "S4",
+        "title": "Global preparation passes",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S5",
+        "title": "Existing resident iteration",
+        "group": "stress",
+        "status": "retained",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S6",
+        "title": "Component size specialization",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S7",
+        "title": "Work scheduling",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S8",
+        "title": "Complete iterative-state locality",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S9",
+        "title": "Sparse operator representation",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S10",
+        "title": "Fuse necessary traversals",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S11",
+        "title": "Local inverse preservation",
+        "group": "stress",
+        "status": "retained",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S12",
+        "title": "Component-local hierarchy invalidation",
+        "group": "stress",
+        "status": "in_progress",
+        "source": "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh",
+        "qualification": "Component-local certificate revision passes numerical, memcheck/initcheck, ten material/lifecycle, historical exact wall and mode-matched ordinary wall identities. ABBA screens improve idle in city and downtown; destruction peaks remain unqualified. Unpromoted WIP: five-run/endurance and remaining architecture gates outstanding.",
+        "dependencies": [
+          "T2"
+        ],
+        "evidence": [
+          "qualification/native-settled-local-20260909/README.md",
+          "qualification/native-settled-local-20260909/idle/report.md",
+          "qualification/native-settled-local-20260909/shots/report.md",
+          "qualification/native-settled-local-20260909/downtown/idle/report.md",
+          "qualification/native-settled-local-20260909/downtown/shots/report.md"
+        ]
+      },
+      {
+        "id": "S13",
+        "title": "Large-component reductions",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S14",
+        "title": "Large-component scheduling",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S15",
+        "title": "Stronger preconditioning",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S16",
+        "title": "Repeated-operator batching",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S17",
+        "title": "Authoritative residual checks",
+        "group": "stress",
+        "status": "invariant",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S18",
+        "title": "Precision and dense kernels",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "S19",
+        "title": "Separate force-export pass",
+        "group": "stress",
+        "status": "remaining",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L1",
+        "title": "Borrow solved contact buffers",
+        "group": "loads/materials",
+        "status": "retained",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L2",
+        "title": "Shape-to-chunk lookup",
+        "group": "loads/materials",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L3",
+        "title": "Contact work mapping",
+        "group": "loads/materials",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L4",
+        "title": "Load accumulation",
+        "group": "loads/materials",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L5",
+        "title": "Immutable material arithmetic",
+        "group": "loads/materials",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L6",
+        "title": "Material work lists",
+        "group": "loads/materials",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L7",
+        "title": "Fuse verdict production",
+        "group": "loads/materials",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L8",
+        "title": "Redundant validation scans",
+        "group": "loads/materials",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "L9",
+        "title": "Diagnostic separation",
+        "group": "loads/materials",
+        "status": "invariant",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T1",
+        "title": "Unchanged-topology bypass",
+        "group": "topology",
+        "status": "retained",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T2",
+        "title": "Affected-component connectivity",
+        "group": "topology",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T3",
+        "title": "Whole-world transaction copies",
+        "group": "topology",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T4",
+        "title": "Sparse fracture frontiers",
+        "group": "topology",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T5",
+        "title": "Mass/inertia scope",
+        "group": "topology",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T6",
+        "title": "Mass reduction mapping",
+        "group": "topology",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T7",
+        "title": "Repeated principal-frame work",
+        "group": "topology",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T8",
+        "title": "Ownership indexing",
+        "group": "topology",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "T9",
+        "title": "Sparse committed events",
+        "group": "topology",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionCommittedChanges.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [
+          "T4"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "T10",
+        "title": "Storage lifetime",
+        "group": "topology",
+        "status": "invariant",
+        "source": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "C1",
+        "title": "Motion-slot lifecycle",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "Source audited; NOT implemented in this continuation. GPU slot selection still requires CPU grants and BodySim registration before correction; ActorSim references, interaction edges, contact-manager identity, filtering and reporting must move together.",
+        "dependencies": [
+          "C2"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "C2",
+        "title": "Fragment simulation metadata",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/physx/src/NpDestructionBodyAllocator.h",
+        "qualification": "Source audited; NOT implemented in this continuation. GPU slot selection still requires CPU grants and BodySim registration before correction; ActorSim references, interaction edges, contact-manager identity, filtering and reporting must move together.",
+        "dependencies": [
+          "C1",
+          "C3"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "C3",
+        "title": "Persistent contact ownership",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/simulationcontroller/src/ScShapeInteraction.cpp",
+        "qualification": "Source audited; NOT implemented in this continuation. GPU slot selection still requires CPU grants and BodySim registration before correction; ActorSim references, interaction edges, contact-manager identity, filtering and reporting must move together.",
+        "dependencies": [
+          "C1",
+          "C2",
+          "C5"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "C4",
+        "title": "Migration-driven contact churn",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/simulationcontroller/src/ScShapeSimBase.cpp",
+        "qualification": "Source audited; NOT implemented in this continuation. GPU slot selection still requires CPU grants and BodySim registration before correction; ActorSim references, interaction edges, contact-manager identity, filtering and reporting must move together.",
+        "dependencies": [
+          "C3",
+          "C5"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "C5",
+        "title": "Shape ownership transactions",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/physx/src/NpShapeManager.cpp",
+        "qualification": "Source audited; NOT implemented in this continuation. GPU slot selection still requires CPU grants and BodySim registration before correction; ActorSim references, interaction edges, contact-manager identity, filtering and reporting must move together.",
+        "dependencies": [
+          "C1",
+          "C2",
+          "C3"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "C6",
+        "title": "Intermediate host decisions",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
+        "qualification": "Source audited; NOT implemented in this continuation. GPU slot selection still requires CPU grants and BodySim registration before correction; ActorSim references, interaction edges, contact-manager identity, filtering and reporting must move together.",
+        "dependencies": [
+          "C1",
+          "C2",
+          "C3",
+          "C5"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "C7",
+        "title": "Checkpoint work selection",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "C8",
+        "title": "Correction work sets",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "C9",
+        "title": "Collision/solver reuse",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "C10",
+        "title": "Duplicate trial side effects",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "C11",
+        "title": "Rigid-cluster collision hierarchy",
+        "group": "collision/ownership/correction",
+        "status": "remaining",
+        "source": "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "C12",
+        "title": "Correction semantics",
+        "group": "collision/ownership/correction",
+        "status": "invariant",
+        "source": "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "O1",
+        "title": "Structural activity",
+        "group": "sleep/publication",
+        "status": "in_progress",
+        "source": "blast/source/sdk/extensions/stressgpu/detail/StressNativeSettled.cuh",
+        "qualification": "Component-local certificate revision passes numerical, memcheck/initcheck, ten material/lifecycle, historical exact wall and mode-matched ordinary wall identities. ABBA screens improve idle in city and downtown; destruction peaks remain unqualified. Unpromoted WIP: five-run/endurance and remaining architecture gates outstanding.",
+        "dependencies": [
+          "S2",
+          "S3"
+        ],
+        "evidence": [
+          "qualification/native-settled-local-20260909/README.md",
+          "qualification/native-settled-local-20260909/idle/report.md",
+          "qualification/native-settled-local-20260909/shots/report.md",
+          "qualification/native-settled-local-20260909/downtown/idle/report.md",
+          "qualification/native-settled-local-20260909/downtown/shots/report.md"
+        ]
+      },
+      {
+        "id": "O2",
+        "title": "Sleeping-body scans",
+        "group": "sleep/publication",
+        "status": "remaining",
+        "source": "physx/source/simulationcontroller/src/ScPipeline.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "O3",
+        "title": "Unconsumed graph products",
+        "group": "sleep/publication",
+        "status": "remaining",
+        "source": "physx/source/simulationcontroller/src/ScPipeline.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "O4",
+        "title": "Accepted CPU compatibility",
+        "group": "sleep/publication",
+        "status": "remaining",
+        "source": "physx/source/physx/src/NpDestructionBodyAllocator.h",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [
+          "C1",
+          "C2",
+          "C5"
+        ],
+        "evidence": []
+      },
+      {
+        "id": "O5",
+        "title": "Committed event consumers",
+        "group": "sleep/publication",
+        "status": "retained",
+        "source": "physx/source/simulationcontroller/src/ScPipeline.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      },
+      {
+        "id": "O6",
+        "title": "GPU rendering boundary",
+        "group": "sleep/publication",
+        "status": "retained",
+        "source": "physx/source/simulationcontroller/src/ScPipeline.cpp",
+        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "dependencies": [],
+        "evidence": []
+      }
+    ],
+    "sequence": [
+      "C1-C6",
+      "S1-S4/S12/T2-T4/O1-O3",
+      "S6-S10/S13-S18",
+      "C7-C9",
+      "remaining opportunities"
+    ],
+    "notes": [
+      "Existing historical IDs and results remain separate from these user-approved plan IDs.",
+      "No hardware-bound or speedup claim follows from source inspection.",
+      "Contact migration still depends on CPU ActorSim references, island edges and contact-manager mappings; simply retaining a manager is invalid.",
+      "First implemented responsibility is independently useful GPU-certified stress reuse while the C1-C6 ownership migration remains pending; this is an explicit deviation from the planned implementation order, not completion of that migration.",
+      "Historical Direct GPU penetration golden differs from current ordinary-scene baseline. Exact mode-matched baseline/candidate identities agree; the historical gate was not weakened."
+    ]
   }
 }

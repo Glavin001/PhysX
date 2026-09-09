@@ -1,3 +1,7 @@
+## Current implementation campaign — 2026-09-09
+
+The approved 63-item exhaustive implementation ledger is in `OPTIMIZATION_INDEX.json`, under `implementation_campaign`. IDs there refer to the new user-approved plan; historical IDs below retain their original meanings. Retained foundations, mandatory invariants and remaining work are distinct. See the [63-item status table](IMPLEMENTATION_LEDGER.md) and [current reuse receipt](../../qualification/native-settled-local-20260909/README.md): idle improves in paired short screens; destruction peaks and overall completion remain unqualified.
+
 # Destruction optimization inventory — 2026-09-08
 
 Later shared-cache rejections, contact-property WIP and the 15-second staggered

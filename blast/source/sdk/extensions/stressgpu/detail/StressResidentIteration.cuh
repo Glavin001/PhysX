@@ -46,6 +46,7 @@ struct PersistentStressArgs {
     AngLin* impulses=nullptr;
     const AngLin* originalRhs=nullptr;
     bool warmStart=false;
+    const unsigned* settledIslands=nullptr;
 };
 #include "StressComponentPhaseProbe.cuh"
 #include "StressNativePreconditioner.cuh"
@@ -109,6 +110,11 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(Persisten
         for(unsigned block=blockIdx.x;block<islandBlocks;block+=gridDim.x)
             finalizeAndCheckConvergenceBody(a.m_reduceSlots,a.m_gradientSquared,a.slots,a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,a.m_blockActiveCounts,islandCount,nullptr,block,a.islandIds);
         if(gridDim.x==1)__syncthreads();else grid.sync();
+        if constexpr(Preconditioned)if(*a.m_iteration==0 && a.warmStart){
+            for(unsigned i=lane;i<islandCount;i+=stride){const unsigned id=a.islandIds[i];
+                if(a.m_islandConverged[id])a.hierarchy.settled.verifiedStoredOutput[id]=1;}
+            grid.sync();
+        }
         // Convergence has already been checked against the true residual.
         // Do not enter a multilevel cycle with no remaining active component.
         if constexpr(Preconditioned)if(retireConvergedStressGrid(a,islandBlocks,islandCount))break;

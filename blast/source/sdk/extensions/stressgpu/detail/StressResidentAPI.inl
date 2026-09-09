@@ -63,7 +63,13 @@
     {
         return {m_devicePhysicalImpulses, m_status, m_bondCount, m_statusReady,
             m_deviceTopology ? m_deviceTopology->status() : nullptr,
-            m_deviceTopology ? m_nodeIsland : nullptr, m_deviceTopology ? m_bondIsland : nullptr, m_input};
+            m_deviceTopology ? m_nodeIsland : nullptr, m_deviceTopology ? m_bondIsland : nullptr, m_input,
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+            m_deviceTopology ? m_islandSkip : nullptr
+#else
+            nullptr
+#endif
+        };
     }
 
     bool enableDeviceTopology() override

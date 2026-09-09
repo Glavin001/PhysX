@@ -1,3 +1,14 @@
+## 2026-09-09: exact settled certificates reduce idle, peak optimization unfinished
+
+[Implementation and paired evidence](../../qualification/native-settled-local-20260909/README.md).
+GPU-certified reuse requires identical inputs/settings and a zero-update warm verification
+of stored forces. Existing changed-old-component flags preserve unrelated certificates.
+Numerical, sanitizer, material/lifecycle and controlled identity checks pass. This is
+unpromoted WIP: short paired screens improve idle but do not establish destruction-peak
+improvement. No simulation work, tolerance or material law was reduced. C1–C6 remain
+unimplemented in this continuation. The [63-item ledger](IMPLEMENTATION_LEDGER.md) records
+actual status rather than treating GPU implementation alone as proof of optimality.
+
 ## 2026-09-09: inverse shared cache rejected by capacity-only control
 
 [Evidence](../../qualification/shared-inverse-20260909/README.md): a lazy 40 KiB inverse-coefficient cache preserves all arithmetic and passes numerical, exact wall, ordinary lifecycle and full 256-building mapping checks. Its bracketed 256-building / 113,664-chunk / 229,376-bond / 768-shot / 600-step screen is slower: baseline loaded peaks135.694/135.824 ms; cache143.359 ms. Reserving equal unused shared capacity with the exact baseline kernel also slows it (140.635 ms). Fresh intact idle is measured for every arm. Production cache and tests are reverted; no runtime switch. This isolates a cost from reserving shared capacity, not a hardware-counter proof of memory bandwidth or occupancy. More shared caching is not the next supported optimization. Next: snapshot actual peak stress operators/loads for independent numerical/work assessment of stronger preconditioners before CUDA implementation.

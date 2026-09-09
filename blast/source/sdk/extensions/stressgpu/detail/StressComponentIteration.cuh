@@ -55,6 +55,10 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         }
         __syncthreads();
         COMPONENT_WORK_BEGIN(a,c,id,begin,count)
+        if(a.settledIslands && a.settledIslands[id]){
+            if(!threadIdx.x){status={0u,0u,1u};COMPONENT_WORK_END(id,status) c.results[id]=status;}
+            __syncthreads();continue;
+        }
         // Cache validity belongs to each built operator, independently of a
         // solve's success. Each node has one writer in this owning component.
         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeRigidInverse(a.hierarchy,c.nodes[begin+i]);
@@ -147,6 +151,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
 #endif
             COMPONENT_WORK_END(id,status)
             c.results[id]=status;
+            a.hierarchy.settled.verifiedStoredOutput[id]=a.warmStart && status.converged && status.iterations==0;
             // The cooperative stage must never update a small component,
             // including one that exhausted its iteration budget. Its failed
             // status survives separately and rejects the complete solve.

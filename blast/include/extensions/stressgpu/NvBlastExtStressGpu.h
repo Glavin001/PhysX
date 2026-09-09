@@ -292,6 +292,10 @@ struct ExtStressGpuDeviceView
     // before writing, then pass its completion event to solveDeviceAsync.
     // Owned by this solver; stable until destruction. No caller frees this buffer.
     ExtStressGpuImpulse* nodeInputs{nullptr};
+    // Native device-only observation, indexed by minimum-node component ID.
+    // Nonzero means this solve reused verified stored forces with exact inputs.
+    // Valid after readyEvent; nullptr for reference/non-native paths.
+    const std::uint32_t* reusedIslands{nullptr};
 };
 
 class ExtStressGpuSolver

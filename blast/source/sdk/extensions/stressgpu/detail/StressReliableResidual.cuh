@@ -40,5 +40,7 @@ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStress
 __global__ void initializeNativeWarmResidual(PersistentStressArgs a){
     if(!a.warmStart)return;
     const unsigned slot=blockIdx.x*blockDim.x+threadIdx.x;
-    if(slot<a.m_activeCounts[1])rebuildNativeResidualNode<false>(a,a.m_activeNodes[slot]);
+    if(slot<a.m_activeCounts[1]){const unsigned node=a.m_activeNodes[slot];
+        if(!nodeSettled(a.settledIslands,a.m_nodeIsland[node]))rebuildNativeResidualNode<false>(a,node);}
+
 }

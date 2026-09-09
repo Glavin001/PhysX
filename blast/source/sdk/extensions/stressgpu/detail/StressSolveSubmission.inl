@@ -18,6 +18,14 @@
         // the mask it points at changes every frame and does not.
         const std::uint32_t* islandSkip =
             (params.skipSettledIslands && warmStart) ? m_islandSkip : nullptr;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(m_deviceTopology){
+            islandSkip=m_islandSkip;
+            beginNativeSettledReuse<<<std::min(m_nodeCount,256u),128,0,m_stream>>>(
+                m_deviceTopology->cycleView().settled,m_deviceTopology->components(),m_deviceTopology->status(),
+                m_input,m_islandConverged,m_islandSkip,warmStart,params.tolerance,params.maxIterations);
+        }
+#endif
 
         m_kernelProfile.begin("initializeSolve", m_stream);
         initializeSolve<<<
@@ -176,6 +184,11 @@
         }
 
 
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(m_deviceTopology)commitNativeSettledReuse<<<std::min(m_nodeCount,256u),128,0,m_stream>>>(
+            m_deviceTopology->cycleView().settled,m_deviceTopology->components(),m_deviceTopology->status(),
+            m_input,m_islandConverged,m_islandSkip,params.tolerance,params.maxIterations);
+#endif
         // No unscale pass. Impulses stay in solver-scaled units on the device;
         // the three places that read them for the OUTSIDE world apply the scale
         // themselves (applyStressDamage, bondStressWalk, and the host repack in
