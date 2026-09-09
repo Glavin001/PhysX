@@ -914,7 +914,21 @@ void PxgAABBManager::postBroadPhase(PxBaseTask* continuation, Cm::FlushPool& /*f
 void PxgAABBManager::reallocateChangedAABBMgActorHandleMap(const PxU32 size)
 {
 	mChangedHandleMap.resizeAndClear(size);
-	mChangedAABBMgrHandlesBuf.allocate(size * sizeof(PxU32), PX_FL);
+    // size counts shape bits, not words. Initial static scenes may allocate
+    // their first bitmap here, then skip the next pre-BP upload. Native bounds
+    // merging still reads it, so newly allocated storage must be defined.
+    const PxU64 bytes=PxU64(mChangedHandleMap.getWordCount()) * sizeof(PxU32);
+    const bool grows=bytes>mChangedAABBMgrHandlesBuf.getSize();
+    mChangedAABBMgrHandlesBuf.allocate(bytes, PX_FL);
+    if(grows) {
+        // This is the bitmap reset boundary, before dynamics produces new
+        // changed bits. Allocation discarded the old contents; initialize the
+        // complete new bitmap once, never clear ordinary unchanged steps.
+        PxScopedCudaLock lock(*mCudaContextManager);
+        if(mCudaContext->memsetD32Async(mChangedAABBMgrHandlesBuf.getDevicePtr(),0,
+            mChangedHandleMap.getWordCount(),getGPUBroadPhase(mBroadPhase).getBpStream())!=CUDA_SUCCESS)
+            mCudaContext->setAbortMode(true);
+    }
 }
 
 void PxgAABBManager::processFoundPairs()

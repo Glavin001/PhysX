@@ -1,0 +1,13 @@
+{
+  "command": [
+    "ctest",
+    "--test-dir",
+    "out/destruction-sdk",
+    "-R",
+    "^physx_native_gpu_state_initcheck_accepted-properties$",
+    "--output-on-failure"
+  ],
+  "exit_code": 8,
+  "LD_LIBRARY_PATH": "/root/workspace/physx-2/out/accepted-settings-final-20260909/candidate:/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release:/usr/local/cuda/lib64",
+  "expected_failure": true
+}

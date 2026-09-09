@@ -617,7 +617,7 @@ namespace physx
 		}
 
 		mGpuSolverCore->gpuMemDMAbackSolverBodies(reinterpret_cast<float4*>(mSolverBodyPool.begin()), mSolverBodyPool.size(), mBody2WorldPool,
-			mSolverBodySleepDataPool, mEnableDirectGPUAPI && (!getSimulationController()->getEnableOVDReadback()));
+			mSolverBodySleepDataPool, mEnableDirectGPUAPI && (!getSimulationController()->getEnableOVDReadback()), offset);
 	}
 
 	class PxgPostSolveWorkerTask : public Cm::Task

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "ctest",
+    "--test-dir",
+    "out/destruction-sdk",
+    "-R",
+    "physx_native|destruction_timing|native_prefix|destruction_gpu_topology",
+    "--output-on-failure",
+    "-j1"
+  ],
+  "exit_code": 0
+}

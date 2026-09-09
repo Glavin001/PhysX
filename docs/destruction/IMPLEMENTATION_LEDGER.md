@@ -54,6 +54,15 @@ screens retain overlapping fracture peaks, so no repeatable speedup is claimed.
 CPU registration/activity/type/iteration and collision
 ownership prerequisites remain; ranked #1 is still incomplete.
 
+GPU lifecycle initialization follow-up: bitmap growth now preserves valid units
+and initializes new words; new acceleration history is defined; accepted root/
+motion copies use device live counts; sleep readback excludes unproduced world/
+kinematic entries. Native52 and both unfiltered initialization gates pass, as do
+frozen600/ordinary128, memcheck and the nonzero-motion topology/slot-reuse audit.
+[Receipt](../../qualification/native-defined-state-20260909/README.md) records a
+short paired screen with lower observed fracture peaks but a higher all-step
+startup peak. Rank1 remains incomplete; this is not full component-local topology.
+
 ## Architectural progress versus performance rejection
 
 User clarification: a physically equivalent, maintainable step toward the final

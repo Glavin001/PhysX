@@ -232,7 +232,7 @@ void PxgSolverCore::uploadNodeInteractionCounts(const PxU32* nodeInteractionCoun
 void PxgSolverCore::gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSolverBodies,
 	Cm::PinnableArray<PxAlignedTransform>& body2WorldPool,
 	Cm::PinnableArray<PxgSolverBodySleepData>& solverBodySleepDataPool,
-	const bool enableDirectGPUAPI)
+	const bool enableDirectGPUAPI, const PxU32 firstDynamicBody)
 {
 	PX_PROFILE_ZONE("GpuDynamics.DMABackBodies", 0);
 
@@ -243,9 +243,16 @@ void PxgSolverCore::gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSo
     }
     // Native islands need sleep eligibility even when motion stays on device.
     // This copy joins the existing solver completion fence below.
-    if (!enableDirectGPUAPI || !mGpuContext->isSleepingDisabled())
+    // The integration producer and both CPU sleep consumers cover dynamic
+    // solver bodies only. World/kinematic entries have no sleep output and must
+    // not be copied merely because their storage shares the same allocation.
+    PX_ASSERT(firstDynamicBody<=nbSolverBodies);
+    if ((!enableDirectGPUAPI || !mGpuContext->isSleepingDisabled()) && firstDynamicBody<nbSolverBodies)
     {
-        mCudaContext->memcpyDtoHAsync(solverBodySleepDataPool.begin(), mSolverBodySleepDataPool.getDevicePtr(), sizeof(PxgSolverBodySleepData) * nbSolverBodies, mStream);
+        const PxU64 offset=PxU64(firstDynamicBody)*sizeof(PxgSolverBodySleepData);
+        mCudaContext->memcpyDtoHAsync(solverBodySleepDataPool.begin()+firstDynamicBody,
+            mSolverBodySleepDataPool.getDevicePtr()+offset,
+            sizeof(PxgSolverBodySleepData)*(nbSolverBodies-firstDynamicBody),mStream);
     }
 
 	synchronizeStreams(mCudaContext, mStream2, mStream, mIntegrateEvent);

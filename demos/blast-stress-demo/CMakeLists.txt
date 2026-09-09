@@ -695,6 +695,15 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_gpu_kinematic_inputs COMMAND native_gpu_collision_test --kinematic-inputs)
     add_test(NAME physx_native_gpu_accepted_properties COMMAND native_gpu_collision_test --accepted-properties)
     add_test(NAME physx_native_gpu_accepted_properties_pgs COMMAND native_gpu_collision_test --accepted-properties-pgs)
+    # Unfiltered audit: quiet initialization, fracture/correction, accepted
+    # properties and the next ordinary tick must read only initialized storage.
+    foreach(native_init_mode accepted-properties accepted-properties-pgs)
+        add_test(NAME physx_native_gpu_state_initcheck_${native_init_mode}
+            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool initcheck --error-exitcode 99
+                $<TARGET_FILE:native_gpu_collision_test> --${native_init_mode})
+        set_tests_properties(physx_native_gpu_state_initcheck_${native_init_mode}
+            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer;integration" RUN_SERIAL TRUE)
+    endforeach()
     add_test(NAME physx_native_gpu_solver_metadata COMMAND native_gpu_collision_test --solver-metadata)
     add_test(NAME physx_native_gpu_pre_solve_islands COMMAND native_gpu_collision_test --pre-solve-islands)
     add_test(NAME physx_native_gpu_pre_solve_contacts COMMAND native_gpu_collision_test --pre-solve-contacts)

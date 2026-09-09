@@ -327,7 +327,7 @@ namespace physx
 
 		void gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSolverBodies,
 			Cm::PinnableArray<PxAlignedTransform>& body2WorldPool,
-			Cm::PinnableArray<PxgSolverBodySleepData>& solverBodySleepDataPool, bool enableDirectGPUAPI);
+			Cm::PinnableArray<PxgSolverBodySleepData>& solverBodySleepDataPool, bool enableDirectGPUAPI, PxU32 firstDynamicBody);
 
 		void allocateSolverBodyBuffersCommon(PxU32 numSolverBodies, Cm::PinnableArray<PxNodeIndex>& islandNodeIndices);
 

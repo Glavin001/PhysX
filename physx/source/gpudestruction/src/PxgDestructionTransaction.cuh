@@ -52,8 +52,20 @@ __global__ void chooseCommit(const TransactionBatch* batch,
     const PxDestructionTopologyTransactionStatus* status,cudaGraphConditionalHandle handle) {
     cudaGraphSetConditional(handle,status->prepared && !status->error && *batch->accept?1:0);
 }
-__global__ void finishCommit(PxDestructionTopologyTransactionStatus* status) {
-    status->prepared=0;++status->commits;
+__global__ void finishCommit(PxDestructionTopologyTransactionStatus* status,
+    unsigned* acceptedRoots, const unsigned* trialRoots,
+    PxgDestructionClusterMotion* acceptedMotion, const PxgDestructionClusterMotion* trialMotion,
+    const unsigned* trialSlots, const PxgDestructionTopologyStatus* topology) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    // CUB produces only clusterCount roots; only occupied motion slots have
+    // defined values. Copy these valid entries on device rather than transferring
+    // uninitialized unused capacity. Root order and slot generations are unchanged.
+    for(unsigned c=i;c<topology->clusterCount;c+=blockDim.x*gridDim.x) {
+        const unsigned root=trialRoots[c],slot=trialSlots[root];
+        acceptedRoots[c]=root;acceptedMotion[slot]=trialMotion[slot];
+    }
+    // Consumers wait on the transaction event, after all threads finish.
+    if(!i){status->prepared=0;++status->commits;}
 }
 __global__ void discardTransaction(PxDestructionTopologyTransactionStatus* status) {
     status->prepared=status->error=status->changed=status->editCount=0;
@@ -140,14 +152,15 @@ class Transaction final : public PxgDestructionTopologyTransaction {
                 || !copy(mAccepted->mActiveBonds,mTrial->mActiveBonds,m)
                 || !copy(mAccepted->mLabels,mTrial->mLabels,n)
                 || !copy(mAccepted->mOrder,mTrial->mOrder,n)
-                || !copy(mAccepted->mRoots,mTrial->mRoots,n)
                 || !copy(mAccepted->mClusters,mTrial->mClusters,n)
-                || !copy(mAccepted->mMotions,mTrial->mMotions,n)
                 || !copy(mAccepted->mClusterSlots,mTrial->mClusterSlots,n)
                 || !copy(mAccepted->mSlotRoots,mTrial->mSlotRoots,n)
                 || !copy(mAccepted->mSlotGenerations,mTrial->mSlotGenerations,n)
                 || !copy(mAccepted->mStatus,mTrial->mStatus,1))return false;
-            finishCommit<<<1,1,0,mTrial->mStream>>>(mStatus);return cudaGetLastError()==cudaSuccess;
+            finishCommit<<<std::min((n+BLOCK-1)/BLOCK,128u),BLOCK,0,mTrial->mStream>>>(mStatus,
+                mAccepted->mRoots,mTrial->mRoots,mAccepted->mMotions,mTrial->mMotions,
+                mTrial->mClusterSlots,mTrial->mStatus);
+            return cudaGetLastError()==cudaSuccess;
         }))return false;
         return cudaGraphInstantiate(&mCommitExec,mCommitGraph,0)==cudaSuccess;
     }

@@ -669,7 +669,14 @@ void PxgSimulationCore::reserveBodySimCapacity(PxU32 nbTotalBodies, bool enableB
 			if (oldCapacity < mBodySimPreviousVelocitiesCudaBuffer.getSize())
 				mCudaContext->memsetD32Async(mBodySimPreviousVelocitiesCudaBuffer.getDevicePtr() + oldCapacity, 0, (mBodySimPreviousVelocitiesCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
 
+            const PxU64 oldAccelerationBytes=mBodySimAccelerationsCudaBuffer.getSize();
 			mBodySimAccelerationsCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies * sizeof(PxgRigidBodyAcceleration), mCudaContext, mStream, PX_FL);
+            // A quiet first step may never run the acceleration producer. Native
+            // checkpoints and accepted CPU observations still copy these records,
+            // including padding. Define new entries without touching live history.
+            if(oldAccelerationBytes<mBodySimAccelerationsCudaBuffer.getSize())
+                mCudaContext->memsetD32Async(mBodySimAccelerationsCudaBuffer.getDevicePtr()+oldAccelerationBytes,0,
+                    (mBodySimAccelerationsCudaBuffer.getSize()-oldAccelerationBytes)/sizeof(PxU32),mStream);
 			if (mBodySimAccelerationsPinned.capacity() < nbTotalBodies)
 			{
 				mBodySimAccelerationsPinned.reserve(nbTotalBodies);

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <numeric>
 #include <random>
 #include <vector>
@@ -22,9 +23,11 @@ template<class T> std::vector<T> read(const T* device, size_t n) {
 std::vector<PxgDestructionClusterMotion> activeMotions(const PxgDestructionTopologyView& view) {
     const auto count=read(view.status,1)[0].clusterCount;
     const auto roots=read(view.activeClusters,count),slots=read(view.clusterSlots,view.chunkCount);
-    const auto storage=read(view.motions,view.slotCapacity);
     std::vector<PxgDestructionClusterMotion> out;
-    for(auto root:roots)out.push_back(storage[slots[root]]);
+    for(auto root:roots) {
+        CHECK(slots[root]<view.slotCapacity);
+        out.push_back(read(view.motions+slots[root],1)[0]);
+    }
     return out;
 }
 
@@ -260,12 +263,27 @@ void stableSlotLifecycle() {
         CHECK(tx->prepare(edits,count,2));wait();return read(tx->status(),1)[0];
     };
     auto commit=[&](unsigned yes) {
+        const auto status=read(tx->status(),1)[0];
+        const auto expected=activeMotions(yes && status.prepared && !status.error ? tx->trial() : tx->accepted());
         CUDA(cudaMemcpy(accept,&yes,sizeof(yes),cudaMemcpyHostToDevice));CHECK(tx->commit(accept));wait();
+        const auto actual=activeMotions(tx->accepted());CHECK(actual.size()==expected.size());
+        for(unsigned i=0;i<actual.size();++i)
+            CHECK(!std::memcmp(&actual[i],&expected[i],sizeof(actual[i])));
     };
     auto slots=[&]{return read(tx->accepted().clusterSlots,6);};
     auto generations=[&]{return read(tx->accepted().slotGenerations,6);};
     wait();const auto initial=slots();const auto initialGeneration=generations();
     CHECK(initial[0]==0 && initial[2]==1 && initial[4]==2);
+    // Distinct nonzero motion makes an omitted/stale commit observable even
+    // when a freed slot is reused by a different root later in this fixture.
+    for(unsigned root:{0u,2u,4u}) {
+        PxgDestructionClusterMotion motion{};
+        motion.origin[0]=10+root;motion.origin[1]=-3;motion.origin[2]=.5;
+        motion.orientation[2]=.6;motion.orientation[3]=.8;
+        motion.linearVelocity[0]=1+initial[root];motion.linearVelocity[1]=-2;motion.linearVelocity[2]=3;
+        motion.angularVelocity[0]=.5;motion.angularVelocity[1]=-.25;motion.angularVelocity[2]=.75;
+        CUDA(cudaMemcpy(tx->accepted().motions+initial[root],&motion,sizeof(motion),cudaMemcpyHostToDevice));
+    }
     CHECK(submit({{PxgDestructionEditKind::DestroyChunk,0},{PxgDestructionEditKind::DestroyChunk,1}}).prepared);
     commit(1);CHECK(slots()[2]==1 && slots()[4]==2 && slots()[0]==0xffffffffu);
     CHECK(read(tx->accepted().slotRoots,6)[0]==0xffffffffu && generations()==initialGeneration);
