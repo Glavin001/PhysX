@@ -9,6 +9,7 @@
 #include "PxgShapeSim.h"
 #include "PxgContactManager.h"
 #include "PxgDestructionContactGraph.cuh"
+#include "PxgDestructionContactOwnership.cuh"
 #include "PxgSolverIslandMetadata.cuh"
 #include "PxgPreSolveIslands.cuh"
 #include "PxShape.h"
@@ -571,6 +572,9 @@ class Runtime final : public PxgDestructionRuntime {
     PxU32 *mPreParents{},*mPreLabels{},*mPreTouches{},*mPreSupport{};
     PxU32 mPreCapacity{},mPrePreviousCount{},mPreMergeCapacity{},mPreParentCapacity{};
     cudaEvent_t mPreReady{};
+    PxgDestructionContactOwnerUpdate* mContactOwnerUpdates{};
+    PxU32 mContactOwnerCapacity{};
+    cudaEvent_t mContactOwnersReady{};
     PxU64 mPreSourceGraphGeneration{};
 
     cudaEvent_t mGraphReady{};
@@ -598,12 +602,34 @@ public:
         check(cudaEventCreateWithFlags(&mGraphReady,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mPreReady,cudaEventDisableTiming));
         check(cudaEventRecord(mPreReady,mStream));
+        check(cudaEventCreateWithFlags(&mContactOwnersReady,cudaEventDisableTiming));
+        check(cudaEventRecord(mContactOwnersReady,mStream));
         allocate(mStatus,1);
         check(cudaMallocHost(&mHostStatus,sizeof(*mHostStatus)));*mHostStatus={};
         check(cudaMemset(mStatus,0,sizeof(*mStatus)));
         check(cudaEventRecord(mReady,mStream));
     }
     void setProfiler(PxProfilerCallback* callback,PxU64 context) override {mProfiler=callback;mProfileContext=context;}
+    bool updateContactOwners(const PxgDestructionContactOwnerUpdate* updates,PxU32 count,
+        PxgContactGraphSequence* sequence,CUstream stream) override {
+        if(mFailed || !mCorrectionEnabled || !stream || !sequence || (count && !updates))return false;
+        if(!count)return true;
+        try {
+            Context current(mContext);const auto ordered=reinterpret_cast<cudaStream_t>(stream);
+            check(cudaStreamWaitEvent(ordered,mContactOwnersReady,0));
+            if(count>mContactOwnerCapacity) {
+                check(cudaEventSynchronize(mContactOwnersReady));
+                cudaFree(mContactOwnerUpdates);mContactOwnerUpdates=nullptr;
+                const auto capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(count,2ull*mContactOwnerCapacity)));
+                allocate(mContactOwnerUpdates,capacity);mContactOwnerCapacity=capacity;
+            }
+            check(cudaMemcpyAsync(mContactOwnerUpdates,updates,size_t(count)*sizeof(*updates),cudaMemcpyHostToDevice,ordered));
+            destructionContactOwnership::validate<<<(count+127)/128,128,0,ordered>>>(mContactOwnerUpdates,count,sequence);
+            destructionContactOwnership::apply<<<count,128,0,ordered>>>(mContactOwnerUpdates,count,sequence);
+            check(cudaGetLastError());check(cudaEventRecord(mContactOwnersReady,ordered));
+            return true;
+        } catch(...) {mFailed=true;return false;}
+    }
     bool buildContactInputs(PxgContactManagerInput* inputs,PxU32 count,
         const PxgShapeSim* shapes,PxU32 shapeCapacity,CUstream stream) override {
         if(mFailed || !mCorrectionEnabled || !stream || (count && (!inputs || !shapes || !shapeCapacity)))return false;
@@ -909,9 +935,11 @@ public:
         for(auto event:mStageEvents)if(event)cudaEventDestroy(event);
         for(auto event:mCorrectionEvents)if(event)cudaEventDestroy(event);
         cudaFree(mStatus);cudaFreeHost(mHostStatus);
-        cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
+        cudaEventDestroy(mContactOwnersReady);cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
+        cudaEventSynchronize(mContactOwnersReady);
+        cudaFree(mContactOwnerUpdates);mContactOwnerUpdates=nullptr;mContactOwnerCapacity=0;
         cudaEventSynchronize(mPreReady);
         cudaFree(mPreNodeStorage);mPreNodeStorage=nullptr;mPreNodes=nullptr;mPrePrevious=nullptr;
         cudaFree(mPreUpdates);mPreUpdates=nullptr;mPreUpdateCapacity=0;mPreRosterValid=false;

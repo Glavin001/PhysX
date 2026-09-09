@@ -54,6 +54,7 @@ namespace Bp
 
 namespace Sc
 {
+    class BodySim;
 	class ElementSim;
 	class ShapeSimBase;
 
@@ -237,7 +238,7 @@ namespace Sc
 									PxU32& nbToKeep, PxU32& nbToSuppress)	const;
 
 		void onOverlapRemoved(ElementSim* volume0, ElementSim* volume1, PxU32 ccdPass, void* elemSim, PxsContactManagerOutputIterator& outputs);
-		void onVolumeRemoved(ElementSim* volume, PxU32 flags, PxsContactManagerOutputIterator& outputs);
+		void onVolumeRemoved(ElementSim* volume, PxU32 flags, PxsContactManagerOutputIterator& outputs, BodySim* nativeOwner = NULL);
 
 		void managerNewTouch(ShapeInteraction& interaction);
 
@@ -307,6 +308,8 @@ namespace Sc
 		
 		ElementSimInteraction* createRbElementInteraction(const FilterInfo& fInfo, ShapeSimBase& s0, ShapeSimBase& s1, PxsContactManager* contactManager, ShapeInteraction* shapeInteraction, 
 			ElementInteractionMarker* interactionMarker, bool isTriggerPair);
+
+        static bool shouldSwapContactBodies(ActorSim& actor0, ActorSim& actor1);
 
 		PX_FORCE_INLINE	void lockReports()		{ mReportAllocLock.lock();		}
 		PX_FORCE_INLINE	void unlockReports()	{ mReportAllocLock.unlock();	}

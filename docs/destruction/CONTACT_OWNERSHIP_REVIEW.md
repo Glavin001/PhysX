@@ -1,8 +1,10 @@
 # Persistent contact ownership: implementation boundary
 
-Status: reviewed, **not implemented**. This records the dependency trace for
-C1–C6 so the next implementation does not repeat the same discovery or retain
-contacts with stale owners. It does not replace the full optimization plan.
+Status: **C3/C4 prototype implemented, physical-equivalence gate failing**.
+See the [current WIP receipt](../../qualification/native-contact-owner-20260909/README.md).
+C1/C2/C5/C6 remain unfinished. The dependency notes below describe the pre-prototype
+implementation and the requirements that still govern qualification; they are
+not a claim that the full GPU lifecycle is complete.
 
 ## Existing ownership and invalidation
 

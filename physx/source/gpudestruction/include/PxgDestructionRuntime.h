@@ -5,6 +5,7 @@
 #include "PxDestructionScene.h"
 #include "PxContact.h"
 #include "PxgDestructionContactGraph.h"
+#include "PxgContactOwnership.h"
 #include "PxgDestructionOwnership.h"
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
@@ -90,6 +91,8 @@ public:
     virtual void release() = 0;
     // Resolve persistent shape IDs into GPU narrowphase descriptors on the
     // caller's ordered NP stream. Pair allocation/filtering is still separate.
+    virtual bool updateContactOwners(const PxgDestructionContactOwnerUpdate* updates, PxU32 count,
+        PxgContactGraphSequence* sequence, CUstream stream) = 0;
     virtual bool buildContactInputs(PxgContactManagerInput* inputs, PxU32 count,
         const PxgShapeSim* shapes, PxU32 shapeCapacity, CUstream stream) = 0;
 

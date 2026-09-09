@@ -1,0 +1,4 @@
+[ 50%] Built target PhysXDestructionTopologyGpu
+[ 75%] Building CUDA object CMakeFiles/destruction_contact_ownership_test.dir/tests/contact_ownership_test.cu.o
+[100%] Linking CUDA executable destruction_contact_ownership_test
+[100%] Built target destruction_contact_ownership_test

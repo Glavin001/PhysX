@@ -88,6 +88,7 @@
 
 #include "PxgSolverCore.h"
 #include "PxgSimulationController.h"
+#include "PxgDestructionRuntime.h"
 
 #include "cudamanager/PxCudaContextManager.h"
 #include "cudamanager/PxCudaContext.h"
@@ -122,6 +123,7 @@ PxgGpuNarrowphaseCore::PxgGpuNarrowphaseCore(PxgCudaKernelWranglerManager* gpuKe
 	mGpuContactDistance(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mLostFoundPairsOutputData(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
 	mLostFoundPairsCms(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
+    mContactOwnerPackets(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
     mContactGraphSequence(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mPairManagementData(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
 	mGpuPairManagementData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
@@ -8292,6 +8294,7 @@ void PxgGpuNarrowphaseCore::registerContactManagerInternal(PxsContactManager* cm
 
 void PxgGpuNarrowphaseCore::unregisterContactManagerInternal(PxsContactManager* cm, PinnableArray<PxU32>& removedIndices, PxgNewContactManagers& newContactManagers)
 {
+    mPendingContactOwners.erase(cm);
 	PxcNpWorkUnit& unit = cm->getWorkUnit();
 	PxU32 index = unit.mNpIndex;
 	PX_ASSERT(index != 0xFFffFFff);
@@ -8340,6 +8343,7 @@ void PxgGpuNarrowphaseCore::unregisterContactManagerInternal(PxsContactManager* 
 void PxgGpuNarrowphaseCore::refreshContactManagerInternal(PxsContactManager* cm, PxsContactManagerOutput* cmOutputs, const Sc::ShapeInteraction** shapeInteractions, PxgContactManagerInput& input, PxgNewContactManagers& newContactManagers, 
 	PinnableArray<PxU32>& removedIndices)
 {
+    mPendingContactOwners.erase(cm);
 	PxcNpWorkUnit& unit = cm->getWorkUnit();
 	PxU32 index = unit.mNpIndex;
 	PX_ASSERT(index != 0xFFffFFff);
@@ -8927,6 +8931,7 @@ bool validateInputPairs(PxgContactManagers& gpuConvexConvexManagers, PxgGpuConta
 
 void PxgGpuNarrowphaseCore::removeLostPairs()
 {
+    if(!flushNativeContactOwners()){mCudaContext->setAbortMode(true);return;}
     mDestructionGraphCachedGeneration=0;
 	/*
 		This remove algorithm mirrors the behavior of the GPU reduce-and-remove algorithm.
@@ -9682,4 +9687,73 @@ void PxgGpuNarrowphaseCore::drawContacts(PxRenderOutput& out, CUdeviceptr contac
 
 		out << color3 << m << PxRenderOutput::LINES << a << b;
 	}
+}
+
+// Native owner changes retain the manager and pair's geometric lifetime. The
+// pending map deduplicates two-endpoint changes and cancels manager retirement.
+bool PxgGpuNarrowphaseCore::beginNativeContactOwnerChange(PxsContactManager* manager,PxU32 bucket)
+{
+    const auto& unit=manager->getWorkUnit();
+    if(!usesDeviceDestructionContactInputs(bucket) || unit.mNpIndex==PX_INVALID_U32
+        || (unit.mNpIndex & PxsContactManagerBase::NEW_CONTACT_MANAGER_MASK))return false;
+    if(!mPendingContactOwners.find(manager))
+        mPendingContactOwners.insert(manager,PendingContactOwner{bucket,unit.mEdgeIndex});
+    mDestructionGraphCachedGeneration=0;
+    return true;
+}
+
+bool PxgGpuNarrowphaseCore::flushNativeContactOwners()
+{
+    if(mPendingContactOwners.size()==0)return true;
+    PxScopedCudaLock lock(*mCudaContextManager);
+    auto outputs=mNphaseImplContext->getContactManagerOutputs();
+    mContactOwnerPackets.forceSize_Unsafe(0);
+    for(auto it=mPendingContactOwners.getIterator();!it.done();++it) {
+        const auto& unit=it->first->getWorkUnit();const PxU32 bucket=it->second.bucket;
+        const PxU32 index=PxsContactManagerBase::computeIndexFromId(unit.mNpIndex);
+        auto& host=mContactManagers[bucket]->mContactManagers;
+        auto& gpu=mGpuContactManagers[bucket]->mContactManagers;
+        if((unit.mNpIndex & PxsContactManagerBase::NEW_CONTACT_MANAGER_MASK)
+            || index>=host.mCpuContactManagerMapping.size() || host.mCpuContactManagerMapping[index]!=it->first)return false;
+        PxgDestructionContactOwnerUpdate change={};
+        change.identity=gpu.mContactGraphIdentities.getTypedPtr()+index;
+        change.output=gpu.mContactManagerOutputData.getTypedPtr()+index;
+        change.rest=gpu.mRestDistances.getTypedPtr()+index;
+        change.torsion=gpu.mTorsionalProperties.getTypedPtr()+index;
+        change.oldEdge=it->second.oldEdge;change.newEdge=unit.mEdgeIndex;change.flags=unit.mFlags;
+        change.restDistance=unit.mRestDistance;change.torsionalRadius=unit.mTorsionalPatchRadius;
+        change.minTorsionalRadius=unit.mMinTorsionalPatchRadius;
+        change.input=gpu.mContactManagerInputData.getTypedPtr()+index;
+        change.transform0=unit.mTransformCache0;change.transform1=unit.mTransformCache1;
+        if(unit.mFlags & PxcNpWorkUnitFlag::eOUTPUT_CONSTRAINTS)change.baseStatus|=PxsContactManagerStatusFlag::eREQUEST_CONSTRAINTS;
+        if((unit.mFlags & PxcNpWorkUnitFlag::eHAS_KINEMATIC_ACTOR) || !(unit.mFlags &
+            (PxcNpWorkUnitFlag::eDYNAMIC_BODY0|PxcNpWorkUnitFlag::eDYNAMIC_BODY1|PxcNpWorkUnitFlag::eSOFT_BODY)))
+            change.baseStatus|=PxsContactManagerStatusFlag::eSTATIC_OR_KINEMATIC;
+        // Analytic primitive buckets have no PCM storage. Only invalidate
+        // oriented geometry for the same PCM-backed buckets as narrowphase.
+        if(bucket<=GPU_BUCKET_ID::eTrianglePlane) {
+            const bool single=bucket<=GPU_BUCKET_ID::eConvexPlane;
+            change.manifoldBytes=single?sizeof(PxgPersistentContactManifold):sizeof(PxgPersistentContactMultiManifold);
+            if(gpu.mPersistentContactManifolds.getSize()<PxU64(index+1)*change.manifoldBytes)return false;
+            change.manifold=reinterpret_cast<PxU32*>(gpu.mPersistentContactManifolds.getDevicePtr()+PxU64(index)*change.manifoldBytes);
+            change.emptyManifold=reinterpret_cast<const PxU32*>(single?mGpuManifold.getDevicePtr():mGpuMultiManifold.getDevicePtr());
+        }
+        mContactOwnerPackets.pushBack(change);
+        auto& output=outputs.getContactManagerOutput(unit.mNpIndex);
+        output={};output.statusFlag=PxU8(change.baseStatus|PxsContactManagerStatusFlag::eDIRTY_MANAGER);output.flags=unit.mFlags;
+        // The host identity record participates in later pair compaction. It
+        // must carry the same orientation as the persistent device record.
+        auto& input=host.mGpuInputContactManagers[index];
+        if(input.transformCacheRef0!=unit.mTransformCache0) {
+            PxSwap(input.shapeRef0,input.shapeRef1);
+            PxSwap(input.transformCacheRef0,input.transformCacheRef1);
+        }
+        host.mRestDistances[index]=unit.mRestDistance;
+        host.mTorsionalProperties[index]=PxsTorsionalFrictionData(unit.mTorsionalPatchRadius,unit.mMinTorsionalPatchRadius);
+    }
+    auto* runtime=mGpuContext->getSimulationController()->getNativeDestructionRuntime();
+    if(!runtime || !runtime->updateContactOwners(mContactOwnerPackets.begin(),mContactOwnerPackets.size(),mContactGraphSequence.getTypedPtr(),mStream))return false;
+    mDestructionContactOwnersRetained+=mContactOwnerPackets.size();
+    mPendingContactOwners.clear();
+    return true;
 }

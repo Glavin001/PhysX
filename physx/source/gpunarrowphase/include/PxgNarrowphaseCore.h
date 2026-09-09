@@ -40,6 +40,7 @@
 #include "PxsContactManagerState.h"
 
 #include "PxgContactManager.h"
+#include "PxgContactOwnership.h"
 #include "PxgCudaBuffer.h"
 #include "PxgCudaPagedLinearAllocator.h"
 #include "PxgCopyManager.h"
@@ -319,6 +320,10 @@ namespace physx
 		PxU32												mTotalLostFoundPatches;
 		PxU32												mTotalNumPairs;
 
+        struct PendingContactOwner { PxU32 bucket,oldEdge; };
+        PxHashMap<PxsContactManager*,PendingContactOwner> mPendingContactOwners;
+        Cm::PinnableArray<PxgDestructionContactOwnerUpdate> mContactOwnerPackets;
+        PxU64 mDestructionContactOwnersRetained=0;
         PxU32 mDestructionGraphFallbackPairs = 0;
         // A receipt for one merged NP pass, consumed only at finalization.
         // Registrations/retirements are serialized by existing NP lifecycle
@@ -573,6 +578,8 @@ namespace physx
 		void unregisterContactManager(PxsContactManager* manager, const PxU32 bucketId);
 		void refreshContactManager(PxsContactManager* manager, PxsContactManagerOutput* cmOutputs, PxgContactManagerInput& input, const PxU32 bucketId);
 
+        bool beginNativeContactOwnerChange(PxsContactManager* manager,PxU32 bucket);
+        bool flushNativeContactOwners();
 		void removeLostPairs();
 		void appendContactManagers(PxsContactManagerOutput* cmOutputs, PxU32 nbFallbackPairs);
 

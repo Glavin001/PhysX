@@ -193,6 +193,7 @@ void Sc::ShapeInteraction::setContactReportPostSolverVelocity(ContactStreamManag
 
 void Sc::ShapeInteraction::resetManagerCachedState() const
 {
+    if(readFlag(NATIVE_OWNER_PENDING)) { if(mManager)mManager->resetCachedState();return; }
 	if(mManager)
 	{
 		Sc::Scene& scene = getScene();
@@ -937,6 +938,7 @@ void Sc::ShapeInteraction::updateState(const PxU8 externalDirtyFlags)
 			createManager(NULL);
 		}
 	}
+    setFlag(NATIVE_OWNER_PENDING,false);
 }
 
 bool Sc::ShapeInteraction::onActivate(PxsContactManager* contactManager)
@@ -1190,3 +1192,57 @@ void Sc::ShapeInteraction::onShapeChangeWhileSleeping(bool shapeOfDynamicChanged
 	}
 }
 
+
+// Persistent pair storage follows chunk geometry; the island edge and body
+// pointers follow the current rigid owner. Reporting/CCD/modification pairs
+// retain the complete reconstruction path until their migration is qualified.
+bool Sc::ShapeInteraction::rebindNativeRigidOwner(ShapeSimBase& shape, BodySim& owner)
+{
+    ActorSim& previous=shape.getActor();
+    const bool first=&shape==&getShape0();
+    ActorSim& other=first?getActor1():getActor0();
+    if((!first && &shape!=&getShape1()) || !previous.isDynamicRigid()
+        || previous.getActorType()!=PxActorType::eRIGID_DYNAMIC || &previous==&owner || &other==&owner
+        || (!other.isStaticRigid() && other.getActorType()!=PxActorType::eRIGID_DYNAMIC)
+        || !mManager || mActorPair || isReportPair()
+        || readInteractionFlag(InteractionFlag::eIS_FILTER_PAIR)
+        || (getPairFlags() & (PxU32(PxPairFlag::eDETECT_CCD_CONTACT) | PxU32(PxPairFlag::eMODIFY_CONTACTS))))return false;
+    Scene& scene=getScene();
+    auto* np=scene.getLowLevelContext()->getNphaseImplementationContext();
+    if(!np->beginNativeContactOwnerChange(mManager))return false;
+    if((hasTouch() || !hasKnownTouchState()) && !other.isStaticRigid())other.internalWakeUp();
+    auto* islands=scene.getSimpleIslandManager();
+    islands->removeConnection(mEdgeIndex);
+    previous.unregisterCountedInteraction();owner.registerCountedInteraction();
+    rebindActorReference(previous,owner);
+    // Use the same canonical body order as newly created PhysX contacts. The
+    // queued GPU transaction reverses the input and invalidates oriented PCM.
+    if(NPhaseCore::shouldSwapContactBodies(getActor0(),getActor1())) {
+        swapActorReferences();PxSwap(mElement0,mElement1);
+    }
+    ActorSim& a=getActor0();ActorSim& b=getActor1();
+    updateFlags(scene,a,b,getPairFlags());
+    auto& unit=mManager->getWorkUnit();
+    mManager->mRigidBody0=&static_cast<BodySim&>(a).getLowLevelBody();
+    mManager->mRigidBody1=b.isDynamicRigid()?&static_cast<BodySim&>(b).getLowLevelBody():NULL;
+    unit.mRigidCore0=&static_cast<BodySim&>(a).getBodyCore().getCore();
+    unit.mRigidCore1=b.isDynamicRigid()?&static_cast<BodySim&>(b).getBodyCore().getCore():&static_cast<ShapeSim&>(getShape1()).getPxsRigidCore();
+    unit.setShapeCore0(&getShape0().getCore());unit.setShapeCore1(&getShape1().getCore());
+    unit.mTransformCache0=getShape0().getTransformCacheID();unit.mTransformCache1=getShape1().getTransformCacheID();
+    unit.mFlags &= ~(PxcNpWorkUnitFlag::eHAS_KINEMATIC_ACTOR | PxcNpWorkUnitFlag::eDISABLE_RESPONSE | PxcNpWorkUnitFlag::eOUTPUT_CONSTRAINTS);
+    if(b.isDynamicRigid() && static_cast<BodySim&>(b).isKinematic())unit.mFlags|=PxcNpWorkUnitFlag::eHAS_KINEMATIC_ACTOR;
+    if(readFlag(CONTACTS_RESPONSE_DISABLED))unit.mFlags|=PxcNpWorkUnitFlag::eDISABLE_RESPONSE;
+    else unit.mFlags|=PxcNpWorkUnitFlag::eOUTPUT_CONSTRAINTS;
+    setupDominance(unit,scene,a,b);
+    const PxReal slop0=mManager->mRigidBody0?mManager->mRigidBody0->getCore().offsetSlop:0.0f;
+    const PxReal slop1=mManager->mRigidBody1?mManager->mRigidBody1->getCore().offsetSlop:0.0f;
+    unit.mOffsetSlop=PxMax(slop0,slop1);
+    mEdgeIndex=islands->addContactManager(mManager,a.getNodeIndex(),b.isStaticRigid()?PxNodeIndex():b.getNodeIndex(),this,IG::Edge::eCONTACT_MANAGER);
+    // The old touch belonged to the trial body edge. Let narrowphase establish
+    // touch for the new edge after restored motion, exactly as for a new pair.
+    clearFlag(TOUCH_KNOWN);unit.mStatusFlags=0;
+    raiseFlag(NATIVE_OWNER_PENDING);
+    raiseFlag(NATIVE_CONTACT_RETAINED);
+    setDirty(InteractionDirtyFlag::eBODY_KINEMATIC | InteractionDirtyFlag::eDOMINANCE);
+    return true;
+}

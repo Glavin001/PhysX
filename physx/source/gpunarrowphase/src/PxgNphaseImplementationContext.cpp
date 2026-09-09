@@ -1861,3 +1861,12 @@ PxsContactManagerOutputIterator PxgNphaseImplementationContext::getContactManage
 
 void PxgNphaseImplementationContext::acquireContext() { mGpuNarrowphaseCore->acquireContext(); }
 void PxgNphaseImplementationContext::releaseContext() { mGpuNarrowphaseCore->releaseContext();  }
+
+bool PxgNphaseImplementationContext::beginNativeContactOwnerChange(PxsContactManager* manager)
+{
+    if(mGpuContactManagerBitMap[GPU_BUCKET_ID::eFallback].test(manager->getIndex()))return false;
+    for(PxU32 bucket=GPU_BUCKET_ID::eConvex;bucket<=GPU_BUCKET_ID::eConvexCoreTrimesh;++bucket)
+        if(mGpuContactManagerBitMap[bucket].test(manager->getIndex()))
+            return mGpuNarrowphaseCore->beginNativeContactOwnerChange(manager,bucket);
+    return false;
+}

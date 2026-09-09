@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 107, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 101, in main
+    result=module.verify(out,golden)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/workspace/physx-2/tools/scripts/verify-native-penetration.py", line 53, in verify
+    assert largest>=.85*444 and supported>=.85*444, 'building did not retain its main connected structure'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: building did not retain its main connected structure

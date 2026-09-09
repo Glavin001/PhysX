@@ -131,7 +131,7 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     PxsContactManagerOutputIterator outputs = np->getContactManagerOutputs();
     {
         PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.retireContacts",false,profileContext);
-        scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
+        scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs, deviceOwnerTransaction ? &body : NULL);
     }
     // ShapeSim, contact/transform index, geometry registration and shape refcount
     // all persist. Only incompatible contact rows and ownership maps change.

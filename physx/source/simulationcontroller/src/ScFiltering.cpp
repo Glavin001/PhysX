@@ -574,6 +574,14 @@ void NPhaseCore::runOverlapFilters(	PxU32 nbToProcess, Bp::AABBOverlap* PX_RESTR
 		if(!testElementSimPointers(e0, e1))
 			continue;
 
+        // Native ownership changes can make BP rediscover an unchanged shape
+        // pair. Its retained interaction was already marked for refiltering;
+        // creating another manager would duplicate collision constraints.
+        if(mOwnerScene.getSimulationController()->usesDeviceDestructionContactInputs()) {
+            const auto* retained=findInteraction(e0,e1);
+            if(retained && retained->getType()==InteractionType::eOVERLAP
+                && static_cast<const ShapeInteraction*>(retained)->readFlag(ShapeInteraction::NATIVE_CONTACT_RETAINED))continue;
+        }
 		PX_ASSERT(!findInteraction(e0, e1));
 
 		const ShapeSimBase* s0 = static_cast<const ShapeSimBase*>(e0);

@@ -10,7 +10,7 @@ settling and sleeping benefits are independently valuable and are tracked below.
 
 | Priority | Status | Work / next action | Primary benefit to verify |
 |---|---|---|---|
-| 1 | 🔍 Reviewed; implementation remaining | C1–C6: persistent fragment/contact ownership and GPU lifecycle; preserve actor, island, contact and generation consistency | Fracture bursts and contact churn |
+| 1 | 🚧 C3/C4 prototype; physical gate failing | C1–C6: persistent fragment/contact ownership and GPU lifecycle; preserve actor, island, contact and generation consistency | Fracture bursts and contact churn |
 | 2 | ⬜ Remaining candidates | S6–S10, S13–S18: resident stress layout, scheduling, reductions and qualified preconditioning | Active stress and long solver tails |
 | 3 | ⬜ Remaining | C7–C9: compact checkpoints and validated affected correction sets | Corrected steps; includes ordinary bodies/constraints |
 | 4 | 🚧 Partial | S1–S4, S12, T2–T8, O1–O3: dirty components, local topology/mass, structural activity | Local impacts in large scenes, idle and settling |
@@ -79,8 +79,8 @@ See the [measurement contract](PERFORMANCE_MEASUREMENT.md#independent-optimizati
 | T10 | 🛡️ Required | Storage lifetime | [PxgDestructionTransaction.cuh](../../physx/source/gpudestruction/src/PxgDestructionTransaction.cuh) |
 | C1 | ⬜ Remaining | Motion-slot lifecycle | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
 | C2 | ⬜ Remaining | Fragment simulation metadata | [NpDestructionBodyAllocator.h](../../physx/source/physx/src/NpDestructionBodyAllocator.h) |
-| C3 | ⬜ Remaining | Persistent contact ownership | [ScShapeInteraction.cpp](../../physx/source/simulationcontroller/src/ScShapeInteraction.cpp) |
-| C4 | ⬜ Remaining | Migration-driven contact churn | [ScShapeSimBase.cpp](../../physx/source/simulationcontroller/src/ScShapeSimBase.cpp) |
+| C3 | 🚧 Unqualified WIP | Persistent contact ownership | [ScShapeInteraction.cpp](../../physx/source/simulationcontroller/src/ScShapeInteraction.cpp) |
+| C4 | 🚧 Unqualified WIP | Migration-driven contact churn | [ScShapeSimBase.cpp](../../physx/source/simulationcontroller/src/ScShapeSimBase.cpp) |
 | C5 | ⬜ Remaining | Shape ownership transactions | [NpShapeManager.cpp](../../physx/source/physx/src/NpShapeManager.cpp) |
 | C6 | ⬜ Remaining | Intermediate host decisions | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
 | C7 | ⬜ Remaining | Checkpoint work selection | [PxgSimulationController.cpp](../../physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp) |
@@ -96,7 +96,7 @@ See the [measurement contract](PERFORMANCE_MEASUREMENT.md#independent-optimizati
 | O5 | ✅ Retained | Committed event consumers | [ScPipeline.cpp](../../physx/source/simulationcontroller/src/ScPipeline.cpp) |
 | O6 | ✅ Retained | GPU rendering boundary | [ScPipeline.cpp](../../physx/source/simulationcontroller/src/ScPipeline.cpp) |
 
-The three in-progress entries overlap: S2 implements exact-input reuse; S12 preserves only eligible certificates across unrelated topology changes, not the entire hierarchy; O1 has no complete producer-owned dirty-work system yet. No item is marked optimized merely because a CUDA kernel exists.
+The three stress/activity in-progress entries overlap: S2 implements exact-input reuse; S12 preserves only eligible certificates across unrelated topology changes, not the entire hierarchy; O1 has no complete producer-owned dirty-work system yet. No item is marked optimized merely because a CUDA kernel exists.
 
 C1–C6 remain the leading architectural work. Merely retaining a contact manager while its ActorSim references, island edge, work-unit pointers or reporting owner remain stale is incorrect. GPU slot allocation currently selects CPU-granted indices and waits for CPU compatibility construction.
 
@@ -106,3 +106,10 @@ L2: the standalone paged GPU index passed correctness but did not establish a
 useful complete-step improvement; production edits were reverted.
 [Experiment receipt](../../qualification/native-chunk-index-20260909/README.md).
 Sharing chunk identity with the final ownership representation remains open.
+
+C3/C4 now have a contact-retention prototype with canonical endpoint reversal.
+Focused memory/lifecycle tests pass, but the frozen penetration output differs;
+there is no performance result and no promotion. See the
+[ownership WIP receipt](../../qualification/native-contact-owner-20260909/README.md).
+C1/C2/C5/C6 remain unfinished. This does not supersede the independently tracked
+settled-stress idle benefit.
