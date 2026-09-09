@@ -38,7 +38,7 @@ double ms(Clock::time_point start){return std::chrono::duration<double,std::mill
 int run(int argc,char** argv){
     const auto initializationBegin=Clock::now();
     bool standardScene=false,standardSleeping=true;
-    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
+    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
         else if(flag=="--sleeping"){require(std::string(value)=="0" || std::string(value)=="1","--sleeping requires 0 or 1");standardSleeping=std::string(value)=="1";}
@@ -71,6 +71,7 @@ int run(int argc,char** argv){
         else if(flag=="--motion-path")motionPath=value;
         else if(flag=="--record-state"){require(std::string(value)=="0" || std::string(value)=="1","--record-state requires 0 or 1");recordState=std::string(value)=="1";}
         else if(flag=="--grid")grid=std::stoul(value);else if(flag=="--waves")waves=std::stoul(value);
+        else if(flag=="--steps"){stepLimit=std::stoul(value);require(stepLimit && stepLimit<=36000,"--steps requires 1..36000");}
         else if(flag=="--stress-iterations")stressIterations=std::stoul(value);else if(flag=="--seconds")seconds=std::stof(value);else if(flag=="--output")output=value;
         else throw std::runtime_error("unknown option: "+flag);
     }
@@ -85,7 +86,10 @@ int run(int argc,char** argv){
     require(launchSeconds==-1 || (std::isfinite(launchSeconds) && launchSeconds>=0),"invalid launch window");
     require(!standardScene || !standardSleeping || !deviceConnectivity,"ordinary sleeping requires the GPU-repaired native sleep membership; use --gpu-connectivity-owner 0");
     require(!std::filesystem::exists(output),"capture output already exists");std::filesystem::create_directories(output);
-    const unsigned buildings=grid*grid,frames=unsigned(std::lround(seconds*60));const float dt=1.0f/60;
+    const float scenarioSeconds=seconds;
+    const unsigned buildings=grid*grid,scenarioFrames=unsigned(std::lround(seconds*60));
+    const unsigned frames=stepLimit?std::min(stepLimit,scenarioFrames):scenarioFrames;
+    seconds=float(frames)/60;const float dt=1.0f/60;
     const unsigned recordStride=60/recordFps,recordFrames=(frames+recordStride-1)/recordStride;
     if(statePath.empty())statePath=output+"/native.twstate";
     if(motionPath.empty())motionPath=output+"/native.motion.csv";
@@ -203,7 +207,7 @@ int run(int argc,char** argv){
     if(observePoses){PxScopedCudaLock lock(cuda);check(cuEventCreate(&observationIdsReady,CU_EVENT_DISABLE_TIMING));check(cuMemAlloc(&deviceIds,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxU32)));check(cuMemAlloc(&devicePoses,std::max(size_t(buildings*waves),chunks.size())*sizeof(PxTransform)));}
     unsigned launched=0,totalCorrections=0,totalBroken=0,peakClusters=buildings;unsigned long long totalContacts=0;
     std::vector<double> times;double maxStep=0,sumStep=0,sumRender=0,maxRender=0;unsigned deadlines=0,completeDeadlines=0;double completeMaximum=0,completeSum=0;
-    const float launchWindow=launchSeconds>=0?launchSeconds:std::max(1.0f,seconds-5);
+    const float launchWindow=launchSeconds>=0?launchSeconds:std::max(1.0f,scenarioSeconds-5);
     const unsigned plannedShots=workload=="idle"?0:workload=="single-impact"?1:buildings*waves;
     uint64_t previousGraphBytes=0,previousPairs=0;
     float observedChunkTop=12.5f,maxMotionError=0;

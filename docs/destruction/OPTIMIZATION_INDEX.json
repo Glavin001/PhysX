@@ -3303,5 +3303,38 @@
         "receipt": "qualification/native-settled-local-20260909/README.md"
       }
     }
+  },
+  "replacement_plan_20260909": {
+    "source": "docs/destruction/REPLACEMENT_PLAN.md",
+    "source_sha256": "f360a417c233774957799245488a221014088731d582f315f52128f3d612674e",
+    "status": "implementation in progress; no new engine speedup established",
+    "sequence": [
+      "GPU fragment lifecycle and persistent contact registration",
+      "cluster-frame publication and component-local storage/activity",
+      "factorized substructures and interface structural solve",
+      "selective correction and cluster collision organization",
+      "remaining computation and cleanup"
+    ],
+    "first_rejection_gate": {
+      "runner": "tools/scripts/run-destruction-penetration-regression.py",
+      "tiers": {
+        "early": 32,
+        "screen": 128,
+        "full": 600
+      },
+      "reference_required_for_prefixes": true,
+      "status": "32-step native runs reject existing contact-order failure in both modes; archived reference validation controls pass; not performance qualification"
+    },
+    "remaining_verification_work": [
+      "96-step matched city/idle tier and subsystem dispatch",
+      "production-kernel hard-equation batch replay",
+      "online first-failure stop and bounded diagnostic ring",
+      "compiler caching qualification",
+      "full replacement and endurance gates"
+    ],
+    "structural_solver": {
+      "candidate": "factored local interiors, projected interface solve, physical bond-response recovery",
+      "status": "not implemented; equations and factor reuse/invalidation must be qualified in production CUDA replay"
+    }
   }
 }

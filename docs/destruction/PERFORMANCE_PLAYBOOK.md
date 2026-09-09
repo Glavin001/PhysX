@@ -312,3 +312,34 @@ python3 tools/scripts/test-destruction-timing.py
 python3 tools/scripts/test-native-phase-analysis.py
 python3 tools/scripts/test-destruction-peak-opportunities.py
 ```
+
+
+## Fast wall rejection tiers
+
+Use the same frozen scenario duration and physical inputs; `--steps` caps only
+execution. In particular, the demo preserves the original launch window rather
+than deriving a different command schedule from the shortened run.
+
+```bash
+python3 tools/scripts/test-native-prefix.py
+python3 tools/scripts/run-destruction-penetration-regression.py out/EXPERIMENT-early --tier early --reference out/AUDITED-MODE-MATCHED-REFERENCE --expected-runtime /absolute/candidate/libPhysXDestructionGpuRuntime_64.so
+python3 tools/scripts/run-destruction-penetration-regression.py out/EXPERIMENT-screen --tier screen --reference out/AUDITED-MODE-MATCHED-REFERENCE --expected-runtime /absolute/candidate/libPhysXDestructionGpuRuntime_64.so
+```
+
+Use the matching isolated `LD_LIBRARY_PATH` and add `--standard-scene` for Direct
+GPU off/sleep on. Prefix reference captures must contain `quality.json`, physical
+settings and artifact attestations; the historical Direct GPU reference must pass
+the existing frozen identity gate. An ordinary-mode physical reference does not
+resolve the known difference from the historical golden. Never use one mode as
+the other mode's reference or regenerate a golden to accept a change.
+
+The early tier runs 32 steps, compares topology identities, projectile/chunk/COM
+positions with the existing 1 mm tolerance, correction/stress pass counts and
+convergence. The screen tier runs 128 steps and additionally applies the existing
+rear-clearance and two-second hole checks. The default full tier retains the
+600-step exact identity/count oracle. A prefix pass is not full qualification.
+
+This implementation compares after the bounded run and reports its first observed
+difference. It does not yet stop a native advance at the first online failure or
+implement a diagnostic ring. Execution and validation durations are recorded
+separately. These motion-observed captures are never performance measurements.

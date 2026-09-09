@@ -2,6 +2,20 @@
 
 This is a status index, not a completion claim. Historical rejected experiments remain in OPTIMIZATION_INDEX.json. The current candidate receipt contains actual tests and paired measurements.
 
+## Latest replacement plan
+
+The [approved replacement plan](REPLACEMENT_PLAN.md) now governs implementation
+order: GPU fragment/contact lifecycle; cluster-frame publication and local activity;
+factored substructures/interface solving; selective correction/collision organization;
+remaining passes. The opportunity ranking below is exposure ranking, not that
+implementation sequence. Conditional savings in the plan are not measured wins.
+
+The existing wall runner now supports `--tier early` (32 steps), `--tier screen`
+(128 steps) and the unchanged default `--tier full` (600 steps). Prefixes require
+an audited mode-matched reference. The known contact-retention failure is caught
+at step 17 in both modes. Native lifecycle integration and the physical fix are
+still unfinished. [Fast-tier receipt](../../qualification/native-prefix-20260909/README.md).
+
 ## Priority checklist and separate benefit tracks
 
 Ordered by the current evidence for substantial **destruction-peak** opportunity,
