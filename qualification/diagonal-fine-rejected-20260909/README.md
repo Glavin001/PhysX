@@ -1,0 +1,9 @@
+# Exact diagonal fine-inverse specialization rejected
+
+The candidate replaced the existing coupled FP64 block inverse with six scalar multiplies only when all six cached off-diagonal/coupling coefficients equal zero exactly. No threshold, precision or convergence change; arbitrary and tiny nonzero coupling use the full existing operator. This differs from the old per-coefficient sparse-loop experiment and passed the independent polynomial memory check.
+
+Three numerical suites, polynomial CUDA memcheck, nine ordinary scene tests, compound sleep memcheck, exact frozen 444-chunk/896-bond/one-projectile wall and the every-tick GPU/CPU audit on 256 buildings passed. A first test revision mixed zero/tiny/ordinary blocks across 257 nodes. The retained test extension instead preserves all 257 original blocks and adds two complete 257-block families; the restored production solver passes all three numerical suites plus CUDA memcheck with these 771 physical blocks and all six basis vectors. Logs: out/native-sleep-notification-20260909/deploy; scaled inverse error 3.51e-15, below the unchanged 2e-12 threshold.
+
+[Matched bombardment](shots/report.md): 256 buildings, 113,664 chunks, 229,376 bonds, 768 projectiles, 600 steps/10 simulated seconds per arm. Complete mean 45.944 → 45.069 ms, loaded peak **130.469 → 141.083 ms**, all-step peak 157.430 → 158.800 ms. [Pristine idle](idle/report.md) is also captured. The short screen does not prove a systematic regression but fails to establish a peak benefit; production changes reverted, never deployed. Do not retain a runtime tuning switch. No real-time or historical baseline claim.
+
+Raw receipt and mapped module hashes: out/diagonal-fine-20260909/screen; candidate shader object/module: out/vibe-coarse-assembly-20260908/diagonal-fine-20260909. Numerical acceptance alone is insufficient reason to keep extra branches.

@@ -8,7 +8,7 @@ __global__ void checkRigidInverse(NativeStressCycleView h,const Vector* rhs,Vect
     reference[node]=solveFineDiagonalThread(h.cycle.levels[0].diagonal,node,rhs[node]);
 }
 void rigidInverseCache(){
-    constexpr unsigned n=257;
+    constexpr unsigned originalCount=257,n=3*originalCount;
     Device<double> factors(n*DiagonalEntries),inverse(n*10);
     Device<unsigned> valid(n);Device<std::uint64_t> generation(n);
     Device<CycleLevel> levels(1);Device<ExtStressGpuDeviceTopologyStatus> status(1);
@@ -18,13 +18,16 @@ void rigidInverseCache(){
     h.fineInverse=inverse.data;h.inverseValid=valid.data;h.inverseGeneration=generation.data;
     std::vector<double> matrix(n*DiagonalEntries);std::vector<Vector> loads(n);
     for(unsigned node=0;node<n;++node){
+        const unsigned sample=node%originalCount,family=node/originalCount;
         // Independent physical B*B^T assembly from offset force/moment columns.
         // Unequal angular/linear scales, arbitrary offsets and varied degrees.
         long double d[6][6]{},l[6][6]{};
-        const long double angular=.25L+(node%11)/8.L,linear=.5L+(node%7)/4.L;
-        for(unsigned edge=0;edge<1+node%9;++edge){
-            const Three offset={(int((node+edge*3)%13)-6)/4.L,
-                (int((node*3+edge)%11)-5)/3.L,(int((node+edge*7)%17)-8)/5.L};
+        const long double angular=.25L+(sample%11)/8.L,linear=.5L+(sample%7)/4.L;
+        for(unsigned edge=0;edge<1+sample%9;++edge){
+            Three offset={(int((sample+edge*3)%13)-6)/4.L,
+                (int((sample*3+edge)%11)-5)/3.L,(int((sample+edge*7)%17)-8)/5.L};
+            if(family==1)offset={0,0,0}; // exactly diagonal physical blocks
+            if(family==2)for(auto& v:offset)v*=1e-10L; // tiny nonzero is not diagonal
             const long double weight=.25L+(edge%5)/3.L;
             for(unsigned column=0;column<6;++column){
                 Three force{},moment{};if(column<3)moment[column]=1;else force[column-3]=1;

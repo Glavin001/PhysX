@@ -1,0 +1,16 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeRigidInverse.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeRigidInverse.cuh
+index b376d50f..35d1241c 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeRigidInverse.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeRigidInverse.cuh
+@@ -40,6 +40,11 @@ __device__ __forceinline__ StressHierarchy::Vector applyNativeRigidInverse(Nativ
+     const double3 k={p[6*stride],p[7*stride],p[8*stride]};
+     const double3 rhs=StressHierarchy::add(value.angular,StressHierarchy::cross(k,value.linear));
+     const double u00=p[0],u10=p[stride],u11=p[2*stride],u20=p[3*stride],u21=p[4*stride],u22=p[5*stride];
++    // Symmetric centered fine rows often have exactly diagonal inverses.
++    // This is an exact structural case, never a threshold/zero approximation.
++    if(k.x==0 && k.y==0 && k.z==0 && u10==0 && u20==0 && u21==0)
++        return {{u00*value.angular.x,u11*value.angular.y,u22*value.angular.z},
++            StressHierarchy::mul(value.linear,p[9*stride])};
+     double3 x={fma(u00,rhs.x,0.),fma(u10,rhs.x,0.),fma(u20,rhs.x,0.)};
+     x={fma(u10,rhs.y,x.x),fma(u11,rhs.y,x.y),fma(u21,rhs.y,x.z)};
+     x={fma(u20,rhs.z,x.x),fma(u21,rhs.z,x.y),fma(u22,rhs.z,x.z)};
