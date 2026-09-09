@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "tools/scripts/run-destruction-penetration-regression.py",
+    "out/accepted-settings-20260909/final-validation/wall-frozen"
+  ],
+  "exit_code": 0
+}

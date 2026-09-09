@@ -52,20 +52,19 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         body.getShapeManager().detachAll(&mScene.getSQAPI(), body);
         body.setNpScene(NULL);NpFactory::getInstance().releaseRigidDynamicToPool(body);
     }
-    static void inheritSettings(Sc::BodyCore& core,const Sc::BodyCore& origin) {
+    static void observeSettings(Sc::BodyCore& core,const PxvDestructionBodyProperties& observation) {
         auto& state=core.getCore();
-        // Compatibility actors must inherit the source's physical settings.
-        // Otherwise a later ordinary metadata upload replaces the GPU's
-        // inherited damping/limits with allocation-placeholder defaults.
-        const PxReal linearDamping=origin.getLinearDamping(),angularDamping=origin.getAngularDamping();
-        const PxReal maxLinear=origin.getMaxLinVelSq(),maxAngular=origin.getMaxAngVelSq();
+        // Publish GPU-inherited settings once. Source CPU ancestors need not
+        // exist or have current properties during the fracture transaction.
+        const auto& values=observation.dynamicLimitsDamping;
+        const PxReal maxLinear=values[0],maxAngular=values[1];
+        const PxReal linearDamping=values[2],angularDamping=values[3];
         state.linearDamping=linearDamping;state.angularDamping=angularDamping;
         state.maxLinearVelocitySq=maxLinear;state.maxAngularVelocitySq=maxAngular;
-        state.maxPenBias=origin.getCore().maxPenBias;state.maxContactImpulse=origin.getCore().maxContactImpulse;
-        state.contactReportThreshold=origin.getCore().contactReportThreshold;state.offsetSlop=origin.getCore().offsetSlop;
-        state.sleepThreshold=origin.getCore().sleepThreshold;state.freezeThreshold=origin.getCore().freezeThreshold;
-        state.disableGravity=origin.getCore().disableGravity;state.lockFlags=origin.getCore().lockFlags;
-        state.solverIterationCounts=origin.getCore().solverIterationCounts;
+        state.maxPenBias=observation.maxPenBias;state.maxContactImpulse=observation.maxContactImpulse;
+        state.contactReportThreshold=observation.contactReportThreshold;state.offsetSlop=observation.offsetSlop;
+        state.sleepThreshold=observation.sleepThreshold;state.freezeThreshold=observation.freezeThreshold;
+        state.disableGravity=observation.disableGravity;state.lockFlags=PxRigidDynamicLockFlags(observation.lockFlags);
         core.getSim()->getLowLevelBody().mGpuDynamicLimitsDamping=PxVec4(maxLinear,maxAngular,linearDamping,angularDamping);
         if(auto* simState=core.getSim()->getSimStateData(true)) {
             auto* kine=simState->getKinematicData();
@@ -107,11 +106,12 @@ public:
     bool needsHostProperties() const override {
         return !(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API);
     }
-    bool publishCorrectionProperties(const PxDestructionCorrectionBody* inputs,PxU32 count) override {
-        for(PxU32 i=0;i<count;++i)if(!source(inputs[i].targetBody,true) || !source(inputs[i].body.sourceBody,true))return false;
+    bool publishCorrectionProperties(const PxvDestructionBodyProperties* inputs,PxU32 count) override {
+        for(PxU32 i=0;i<count;++i)if(!source(inputs[i].motion.targetBody,true))return false;
         for(PxU32 i=0;i<count;++i) {
-            const auto& v=inputs[i].body;
-            auto& core=source(inputs[i].targetBody,true)->getCore();
+            const auto& v=inputs[i].motion.body;
+            auto& core=source(inputs[i].motion.targetBody,true)->getCore();
+            observeSettings(core,inputs[i]);
             auto& state=core.getCore();
             // Kinematic solver inverses are zero. Ordinary actor getters expose
             // the physical mass/inertia stored in their kinematic backup.
@@ -252,9 +252,14 @@ public:
             if(requests[i].supported)flags|=PxRigidBodyFlag::eKINEMATIC;
             else flags.clear(PxRigidBodyFlag::eKINEMATIC);
             core.setFlags(flags,true);
+            core.getSim()->getLowLevelBody().mInternalFlags|=PxsRigidBody::eDESTRUCTION_MASS_GPU;
             // Scheduling still consumes CPU settings until native registration
             // replaces it. Fitted mass/COM/motion are observed only at acceptance.
-            if(needsHostProperties())inheritSettings(core,source(requests[i].sourceBody)->getCore());
+            // The existing host launch scheduler still consumes iteration counts.
+            // All other physical settings are already inherited on GPU and reach
+            // CPU compatibility records only in final accepted publication.
+            if(needsHostProperties())core.getCore().solverIterationCounts=
+                source(requests[i].sourceBody)->getCore().getCore().solverIterationCounts;
             if(!requests[i].supported) {
                 core.getSim()->setActive(true);
                 // Reservations begin with ready-for-sleep island flags. Installing

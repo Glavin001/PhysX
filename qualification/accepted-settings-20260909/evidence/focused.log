@@ -1,0 +1,10 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 58: physx_native_gpu_accepted_properties
+1/2 Test #58: physx_native_gpu_accepted_properties .......   Passed    0.41 sec
+    Start 59: physx_native_gpu_accepted_properties_pgs
+2/2 Test #59: physx_native_gpu_accepted_properties_pgs ...   Passed    0.39 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.80 sec

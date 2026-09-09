@@ -34,6 +34,7 @@ void postCorrectionFracture(bool reports) {
         owner->setMass(3);owner->setMassSpaceInertiaTensor(PxVec3(7.0f/6,.5f,7.0f/6));
         owner->setCMassLocalPose(PxTransform(PxVec3(0,-1.0f/3,0)));
         owner->setLinearDamping(0);owner->setAngularDamping(0);
+        owner->setMaxLinearVelocity(20+c);owner->setMaxAngularVelocity(30+c);
         for(unsigned j=0;j<2;++j) {
             const unsigned i=2*c+j;const PxVec3 local(0,float(j)-1,0);
             auto* shape=physics.createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);shapes[i]=shape;
@@ -112,6 +113,11 @@ void postCorrectionFracture(bool reports) {
             "final physical properties lost one fracture pass");
         require((owners[c]->getCMassLocalPose().p-PxVec3(0,-1,0)).magnitude()<1e-5f,
             "supported owner's final mass frame is stale");
+        for(auto* actor:{owners[c],fragment})require(PxAbs(actor->getLinearDamping())<1e-7f
+            && PxAbs(actor->getAngularDamping())<1e-7f
+            && PxAbs(actor->getMaxLinearVelocity()-(20+c))<1e-5f
+            && PxAbs(actor->getMaxAngularVelocity()-(30+c))<1e-5f,
+            "GPU physical settings observation lost a fracture evaluation");
         observer.verify(*stage,*owners[c]);observer.verify(*stage,*fragment);
     }
     observer.verify(*stage,*late);

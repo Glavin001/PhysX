@@ -1,0 +1,27 @@
+{
+  "command": [
+    "/root/workspace/physx-2/out/accepted-settings-20260909/negative-v7-boundary",
+    "--accepted-properties"
+  ],
+  "exit_code": 1,
+  "binary_sha256": "77e571f08b3fcf5d99f41caf6dff6cd20a18c3ea0f8da12e7dabd86c2f6806b8",
+  "baseline_cpu_archive_sha256": "aaf05c35db8dcea66dc1be0147313a4ab824f4365c4b3bafa2f55b3afef04d3c",
+  "baseline_gpu_tuple": {
+    "libPhysXDestructionGpuRuntime_64.so": {
+      "path": "/root/workspace/physx-2/out/contact-response-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+      "sha256": "3b54ba399806ef377af16f18f761e22d6897a61a463e924244bdfe5276a49519",
+      "bytes": 11436992
+    },
+    "embedded_city_bench": {
+      "path": "/root/workspace/physx-2/out/contact-response-20260909/candidate/embedded_city_bench",
+      "sha256": "919956e1c00f58310998bc13efacd3702f112baf017350e0171bb810e1589beb",
+      "bytes": 6288024
+    },
+    "libPhysXGpuActivity_64.so": {
+      "path": "/root/workspace/physx-2/out/contact-response-20260909/candidate/module/libPhysXGpuActivity_64.so",
+      "sha256": "e2d0758ba6c09710a5f2630711cbb017264966015efccd0d14334052fe7d03e9",
+      "bytes": 349454496
+    }
+  },
+  "observed_failure": "CPU physical settings inherited before corrected GPU simulation"
+}

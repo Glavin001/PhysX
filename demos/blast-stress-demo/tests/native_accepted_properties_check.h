@@ -34,6 +34,11 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
                     || &shape->getCore().getExclusiveSim()->getActor()==static_cast<NpRigidDynamic*>(fixture->parent)->getCore().getSim()) {
                     failed=true;error="simulation and public shape ownership were not separated";
                 }
+                auto* simulated=static_cast<NpRigidDynamic*>(shape->getCore().getExclusiveSim()->getActor().getPxActor());
+                if(!simulated || simulated==fixture->parent || PxAbs(simulated->getLinearDamping()-.17f)<1e-6f
+                    || PxAbs(simulated->getAngularDamping()-.23f)<1e-6f) {
+                    failed=true;error="CPU physical settings inherited before corrected GPU simulation";
+                }
                 bindingsInspected=true;
             }
             if(!fixture || inspected || std::strcmp(name,"GpuDestruction.restoreInstall"))return;
@@ -66,6 +71,11 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
     for(unsigned i=1;i<4;++i){f.mass[i].mass=2;f.chunks[i].mass=2;}
     f.bonds[1].area=f.bonds[1].health=f.bonds[2].area=f.bonds[2].health=100;
     f.parent->setSolverIterationCounts(7,3);f.parent->setLinearDamping(.17f);f.parent->setAngularDamping(.23f);
+    f.parent->setMaxLinearVelocity(27);f.parent->setMaxAngularVelocity(14);
+    f.parent->setSleepThreshold(.004f);f.parent->setStabilizationThreshold(.002f);
+    f.parent->setMaxDepenetrationVelocity(13);f.parent->setMaxContactImpulse(12345);
+    f.parent->setContactReportThreshold(23456);
+    f.parent->setRigidDynamicLockFlag(PxRigidDynamicLockFlag::eLOCK_LINEAR_Z,true);
     f.configure();observe.fixture=&f;
     try {step(f.scene);}catch(...) {
         const auto status=f.stage->getLastStatus();
@@ -84,6 +94,16 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
     require(detached && detached!=f.parent,"expected chunk did not detach");
     require(PxAbs(detached->getMass()-2)<1e-5f,"accepted fragment mass is stale");
     PxU32 position=0,velocity=0;detached->getSolverIterationCounts(position,velocity);
+    require(PxAbs(detached->getAngularDamping()-.23f)<1e-6f
+        && PxAbs(detached->getMaxLinearVelocity()-27)<1e-5f
+        && PxAbs(detached->getMaxAngularVelocity()-14)<1e-5f
+        && PxAbs(detached->getSleepThreshold()-.004f)<1e-7f
+        && PxAbs(detached->getStabilizationThreshold()-.002f)<1e-7f
+        && PxAbs(detached->getMaxDepenetrationVelocity()-13)<1e-5f
+        && PxAbs(detached->getMaxContactImpulse()-12345)<1e-3f
+        && PxAbs(detached->getContactReportThreshold()-23456)<1e-3f
+        && detached->getRigidDynamicLockFlags().isSet(PxRigidDynamicLockFlag::eLOCK_LINEAR_Z),
+        "accepted CPU physical settings differ from inherited GPU settings");
     require(position==7 && velocity==3 && PxAbs(detached->getLinearDamping()-.17f)<1e-6f,
         "scheduler settings were lost while delaying physical observations");
     auto& controller=*static_cast<PxgSimulationController*>(static_cast<NpScene&>(f.scene).getScScene().getSimulationController());

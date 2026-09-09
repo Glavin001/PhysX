@@ -7,12 +7,13 @@ struct HasChangedProperties {
 };
 __global__ void gatherFinalProperties(const PxU32* slots,const PxU32* count,PxU32 capacity,
     const PxDestructionClusterBodyState* candidates,const PxDestructionStressCluster* clusters,
-    const PxgBodySim* bodies,PxDestructionCorrectionBody* observations,PxDestructionStageStatus* status) {
+    const PxgBodySim* bodies,PxvDestructionBodyProperties* observations,PxDestructionStageStatus* status) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=capacity)return;
     observations[i]={}; // Fully initialize the bounded host observation tail.
     if(*count>capacity){if(!i)atomicOr(&status->error,2048u);return;}
     if(i>=*count || status->error)return;
-    const PxU32 slot=slots[i];PxDestructionCorrectionBody out{};
+    const PxU32 slot=slots[i];PxvDestructionBodyProperties observation{};
+    auto& out=observation.motion;
     out.body=candidates[slot];out.targetBody=clusters[slot].body;
     const auto b=bodies[out.targetBody];const auto p=b.body2World.getTransform();
     for(PxU32 k=0;k<3;++k)out.body.bodyToWorldPosition[k]=p.p[k];
@@ -24,5 +25,16 @@ __global__ void gatherFinalProperties(const PxU32* slots,const PxU32* count,PxU3
     out.body.angularVelocity[0]=b.angularVelocityXYZ_maxPenBiasW.x;
     out.body.angularVelocity[1]=b.angularVelocityXYZ_maxPenBiasW.y;
     out.body.angularVelocity[2]=b.angularVelocityXYZ_maxPenBiasW.z;
-    observations[i]=out;
+    observation.dynamicLimitsDamping[0]=b.dynamicLimitsDamping.x;
+    observation.dynamicLimitsDamping[1]=b.dynamicLimitsDamping.y;
+    observation.dynamicLimitsDamping[2]=b.dynamicLimitsDamping.z;
+    observation.dynamicLimitsDamping[3]=b.dynamicLimitsDamping.w;
+    observation.maxPenBias=b.angularVelocityXYZ_maxPenBiasW.w;
+    observation.maxContactImpulse=b.body2Actor_maxImpulseW.p.w;
+    observation.contactReportThreshold=b.inverseInertiaXYZ_contactReportThresholdW.w;
+    observation.offsetSlop=b.offsetSlop;
+    observation.sleepThreshold=b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.z;
+    observation.freezeThreshold=b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.x;
+    observation.lockFlags=b.lockFlags;observation.disableGravity=b.disableGravity;
+    observations[i]=observation;
 }

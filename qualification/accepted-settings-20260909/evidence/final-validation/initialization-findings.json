@@ -1,0 +1,15 @@
+{
+  "status": "failed",
+  "exit_code": 99,
+  "reported_errors": 43,
+  "locations": {
+    "mergeChangedAABBMgrHandlesLaunch+0x1b0 in updateTransformAndBoundArray.cu:252": 1,
+    "physx::(anonymous namespace)::Runtime::captureRigidState(physx::PxgBodySim const*, physx::PxgBodySimVelocities const*, physx::PxgRigidBodyAcceleration const*, unsigned int, CUstream_st*) [0x20515] in libPhysXDestructionGpuRuntime_64.so": 4,
+    "physx::(anonymous namespace)::Transaction::commit(unsigned int const*, void*, void*) [0x5ae5c] in libPhysXDestructionGpuRuntime_64.so": 32,
+    "physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dfd] in libPhysXGpuActivity_64.so": 4,
+    "physx::CudaCtx::memcpyDtoHAsync(void*, unsigned long long, unsigned long, CUstream_st*) [0x42c3d] in libPhysXGpuActivity_64.so": 2
+  },
+  "final_gather_reported": false,
+  "known_related_findings": "qualification/device-preparation-20260909/README.md",
+  "interpretation": "Unfiltered engine initialization remains unresolved; absence of a gather finding is not an engine-wide clean claim."
+}

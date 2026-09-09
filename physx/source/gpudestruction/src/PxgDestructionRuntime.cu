@@ -1120,7 +1120,11 @@ public:
                 mCollisionScratchBytes=std::max(mCollisionScratchBytes,migratingScratchBytes);
                 check(cudaMalloc(&mCollisionScratch,mCollisionScratchBytes));
                 allocate(mCorrectionOwnerRequests,d.chunkCount);allocate(mCorrectionOwnerTargets,d.chunkCount);
-                allocate(mCorrectionBodies,d.chunkCount);allocate(mCompactCorrectionBodies,d.chunkCount);mCorrectionPreparation=&mCompletion->correction;
+                // Private raw preparation scratch becomes the larger accepted observation
+                // only after all correction consumers finish. Compact public views
+                // retain their separate storage and original record layout.
+                check(cudaMalloc(&mCorrectionBodies,size_t(d.chunkCount)*sizeof(PxvDestructionBodyProperties)));
+                allocate(mCompactCorrectionBodies,d.chunkCount);mCorrectionPreparation=&mCompletion->correction;
                 check(cudaMemset(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation)));
                 check(cub::DeviceSelect::If(nullptr,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                     &mCorrectionPreparation->count,d.chunkCount,HasCorrectionBody{},mStream));
@@ -1246,14 +1250,15 @@ public:
             mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatus);
             if(mTopology)mChanges.publish(mStream);
             const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
-            std::vector<PxDestructionCorrectionBody> observations(capacity);PxU32 count=0;
+            std::vector<PxvDestructionBodyProperties> observations(capacity);PxU32 count=0;
             if(capacity) {
                 const auto topology=mTopology->accepted();
                 check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
                     cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,mPropertyCount,mC,
                     HasChangedProperties{topology.activeClusters,mPropertyEpochs,mStatus},mStream));
                 gatherFinalProperties<<<(capacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,mPropertyCount,
-                    capacity,mTrialBodies,mClusters,mMotionStorage.bodies,mCorrectionBodies,mStatus);
+                    capacity,mTrialBodies,mClusters,mMotionStorage.bodies,
+                    reinterpret_cast<PxvDestructionBodyProperties*>(mCorrectionBodies),mStatus);
                 check(cudaMemcpyAsync(observations.data(),mCorrectionBodies,capacity*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
             }
             const PxU32 shapeCapacity=std::min(mN,mPendingShapeCapacity);
@@ -1821,7 +1826,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV7(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV8(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 

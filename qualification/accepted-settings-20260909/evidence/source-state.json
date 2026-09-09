@@ -1,0 +1,18 @@
+{
+  "base_commit": "648acbfb",
+  "private_interface": 8,
+  "public_abi": 15,
+  "source_files": {
+    "demos/blast-stress-demo/tests/native_accepted_properties_check.h": "e7f70c83d583f15e593bc7bae7aae909267e1da40b011ee4d24a3a7bd45abec3",
+    "demos/blast-stress-demo/tests/native_post_correction_check.h": "78be49b553fe9f4a77921b79ca914c0e2c633230d309a5d9079b5be75711803f",
+    "physx/source/compiler/cmakegpu/CMakeLists.txt": "db2001f933a2a3207f0c0819d423d6b1620ff48ce1ede1623e3d599e6a83a983",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "dd8319de23d258a5da8fb61c8d9214c7591689ff97f327a17b4eb9e9dc4b714e",
+    "physx/source/gpudestruction/src/PxgDestructionAcceptedProperties.cuh": "0e8923c36c21da800ae984e4ddeba0f4c84b849e3ce7a6955871069463ddd3f7",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "23529aebd482796218f3ef95874c2873da271fdc663f759068d9e7ab5090c8d0",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "a5621dea9121634dd51f3105fad16cc032ccfaf669abcee53f021c07d437fb2a",
+    "physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h": "0f438028bbd828e9914079166382e3c7f079376d8e276d43625de6c000c5c0de",
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "60751dc24a0c84ffcb2072b9ad9e8a8a8950e58030cdbc94049fb164b07b9a0b",
+    "tools/scripts/build-destruction-sdk.py": "7f47306789e71c22e5b544b6d3032237701dbbb92be15ca76573e9cce549d7b2"
+  },
+  "qualification": "Final native49, PGS/TGS boundary, frozen600 and ordinary128 passed; memcheck passed; unfiltered initcheck failed and remains unresolved. Short final paired screen separately recorded."
+}

@@ -1,0 +1,1 @@
+{"command": ["python3", "tools/scripts/run-destruction-penetration-regression.py", "/root/workspace/physx-2/out/accepted-settings-20260909/wall-standard", "--standard-scene", "--tier", "screen", "--reference", "/root/workspace/physx-2/out/native-settled-local-20260909/wall-standard"], "exit_code": 0}

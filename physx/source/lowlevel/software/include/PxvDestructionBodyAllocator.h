@@ -11,6 +11,16 @@ class PxShape;
 struct PxvDestructionBodyRequest {
     PxU32 cluster, sourceBody, supported, needsBody, candidateSlot;
 };
+// Accepted CPU observation. Settings come from the current GPU owner, never
+// from a provisional CPU ancestor which may not have been published yet.
+struct PxvDestructionBodyProperties {
+    PxDestructionCorrectionBody motion;
+    // Plain scalars keep value-initialized unused observation entries defined.
+    PxReal dynamicLimitsDamping[4];
+    PxReal maxPenBias,maxContactImpulse,contactReportThreshold,offsetSlop;
+    PxReal sleepThreshold,freezeThreshold;
+    PxU16 lockFlags,disableGravity;
+};
 class PxvDestructionBodyAllocator {
 public:
     virtual PxU32 getShapeContactIndex(const PxShape&) const { return ~PxU32(0); }
@@ -18,7 +28,7 @@ public:
         PxU32,CUevent,CUevent) const { return false; }
     virtual bool needsHostProperties() const { return false; }
     // Accepted physical observation only; never a prerequisite of GPU correction.
-    virtual bool publishCorrectionProperties(const PxDestructionCorrectionBody*,PxU32) { return false; }
+    virtual bool publishCorrectionProperties(const PxvDestructionBodyProperties*,PxU32) { return false; }
     virtual bool supportsGpuIslandRepair() const { return false; }
 
     virtual bool isValidSource(PxU32 body) const = 0;

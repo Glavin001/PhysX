@@ -31,6 +31,8 @@ def main():
     args = parser.parse_args()
     if args.gpu_profiler and args.cupti_root is None:
         parser.error('--gpu-profiler requires --cupti-root pointing to CUPTI 13.2 Update 2 or newer')
+    if args.cuda_architectures != '89':
+        parser.error('Integrated destruction supports only RTX 4090 architecture 89')
     if args.jobs < 1:
         parser.error('--jobs must be positive')
     for compiler in (args.cuda, args.cc, args.cxx):
@@ -40,6 +42,7 @@ def main():
     run('cmake', '-S', sdk / 'compiler/public', '-B', out / 'sdk-release',
         '-DCMAKE_BUILD_TYPE=release', f'-DCMAKE_C_COMPILER={args.cc}',
         f'-DCMAKE_CXX_COMPILER={args.cxx}', f'-DCMAKE_CUDA_COMPILER={args.cuda}',
+        '-DCMAKE_CUDA_ARCHITECTURES=89-real',
         f'-DPHYSX_ROOT_DIR={sdk}', f'-DPX_OUTPUT_LIB_DIR={sdk}', f'-DPX_OUTPUT_BIN_DIR={sdk}',
         f'-DCMAKE_INSTALL_PREFIX={out / "install"}', '-DTARGET_BUILD_PLATFORM=linux',
         '-DNV_FORCE_64BIT_SUFFIX=TRUE', '-DPX_OUTPUT_ARCH=x86', '-DPX_GENERATE_STATIC_LIBRARIES=TRUE',

@@ -40,6 +40,20 @@ The short city screen establishes no speedup; CPU registration/rebinding remain.
 [Response-validity and paired-screen receipt](../../qualification/contact-response-20260909/README.md).
 [Current receipt](../../qualification/final-shape-owner-20260909/README.md).
 
+GPU-inherited physical settings now publish from accepted GPU owners after both
+fracture evaluations, without reading CPU ancestor properties. Only iteration
+counts remain in the intermediate settings bridge for the existing host launch
+scheduler. [Settings receipt](../../qualification/accepted-settings-20260909/README.md)
+records a failing V7 boundary oracle, passing V8 PGS/TGS/49-test/wall/memcheck
+results, the added 44-byte observation/scratch cost, and matched idle/destruction
+screens with no demonstrated peak gain. The native PhysX module now contains
+only sm_89 programs. Final scalar-record initialization and locked-axis coverage
+pass native49, both wall modes and memcheck; unfiltered initialization still
+reports unresolved bitmap/checkpoint/topology-copy errors. Final paired short
+screens retain overlapping fracture peaks, so no repeatable speedup is claimed.
+CPU registration/activity/type/iteration and collision
+ownership prerequisites remain; ranked #1 is still incomplete.
+
 ## Architectural progress versus performance rejection
 
 User clarification: a physically equivalent, maintainable step toward the final
