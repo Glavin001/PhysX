@@ -71,13 +71,13 @@ def generate(capture, output, fracture_peak=False):
     text += ['', '## Nested correction/task exposure', '',
         'These scopes can nest or execute concurrently: **not additive**. Thread CPU time is core-time, '
         'not elapsed wall time. The refilter scope belongs to our correction orchestration; it is not ordinary PhysX workload.', '',
-        '| Scope | Union wall ms | Reported thread CPU ms |', '|---|---:|---:|']
+        '| Scope | Calls | Longest call ms | Union wall ms | Reported thread CPU ms |', '|---|---:|---:|---:|---:|']
     details=[]
     for key,spans in names[peak].items():
         if key=='refilter' or key=='reportRepair' or key.startswith(('detail.','task.')):
             cpu=sum(max(0,float(r['thread_cpu_ms'])) for r in host[peak] if r['phase']=='GpuDestruction.'+key)
-            details.append((key,t.a.length(spans)/1e6,cpu))
-    for key,wall,cpu in sorted(details,key=lambda v:-v[1])[:20]:text.append(f'| {key} | {wall:.3f} | {cpu:.3f} |')
+            details.append((key,t.a.length(spans)/1e6,cpu,len(spans),max(end-start for start,end in spans)/1e6))
+    for key,wall,cpu,count,longest in sorted(details,key=lambda v:-v[1])[:20]:text.append(f'| {key} | {count} | {longest:.3f} | {wall:.3f} | {cpu:.3f} |')
     text+=['','[All phase partitions and CUDA intervals](analysis.json.gz). Raw host/device phase streams, accepted '
         'step samples and recorded commands are archived alongside the report. This analysis establishes cost exposure, '
         'not a promised saving or proof that a GPU kernel is bandwidth/compute bound.','']

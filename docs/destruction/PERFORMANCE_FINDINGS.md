@@ -1,3 +1,7 @@
+## 2026-09-09: reject GPU sleep fusion; identify placeholder notifications
+
+[Rejected experiment](../../qualification/native-sleep-commit-20260908/README.md): fused selected-body GPU sleep passed correctness but did not improve the 256-building complete-step screen. Profiling showed 6,345 calls at first fracture, mostly initial allocation notifications immediately discarded before first upload. Aggregate sleep scope duration is not one GPU transaction. Candidate deletion targets creation/pre-upload enqueue and per-fragment finalizeGpuSleep calls while retaining CPU callbacks and real uploaded-body sleep. [Qualified deletion](../../qualification/native-sleep-notification-20260909/README.md) removes 6,344 placeholder calls at first fracture. Nine ordinary checks, compound pre-upload/sleep/rollback memcheck, exact frozen wall and 256-building every-tick mapping audit pass. Three matched 600-step runs per arm have overlapping loaded peaks (baseline 134.416–141.050 ms, candidate 131.285–138.123 ms); no robust whole-step speedup or real-time claim.
+
 ## 2026-09-08: refreshed phase profile after committed deltas/normalization
 
 [Current profile](../../qualification/current-native-phases-20260908/README.md), 256 buildings / 113,664 chunks / 229,376 bonds / 768 rounds / 600 steps, API-v15 ordinary mode with sleeping: tick48 complete diagnostic151.620 ms; GPU stress30.929 overlaps wait32.180; CPU fragment compatibility21.146; correction52.336; GPU rewind copies0.019. Stress alone cannot close the complete-step gap. Investigate native lifecycle work, distinguishing new collision pairs from discarded reusable shape pairs. Actor references/island/report bookkeeping prevent simply retaining old interactions. Profiling is separate from untraced timing.
@@ -8,7 +12,7 @@ Lowering component registers 94 → 80 and allowing three blocks/SM worsens the 
 
 ## 2026-09-08: share component normalization reciprocal
 
-One FP64 normalization reciprocal is now computed by the existing component reduction instead of repeated per node. Three 256-building / 113,664-chunk / 229,376-bond / 768-shot / 600-step runs per arm show lower means (44.155–44.881 vs 45.033–46.666 ms), with overlapping fracture peaks (132.604–138.325 vs 136.912–140.902 ms). Accepted as redundant-work deletion; no robust peak, real-time or external-baseline claim. Numerical bit-parity, frozen wall, eight ordinary checks and full every-tick large-scene mapping audit pass. [Evidence](../../qualification/shared-normalization-20260908/README.md). Not yet deployed.
+One FP64 normalization reciprocal is now computed by the existing component reduction instead of repeated per node. Three 256-building / 113,664-chunk / 229,376-bond / 768-shot / 600-step runs per arm show lower means (44.155–44.881 vs 45.033–46.666 ms), with overlapping fracture peaks (132.604–138.325 vs 136.912–140.902 ms). Accepted as redundant-work deletion; no robust peak, real-time or external-baseline claim. Numerical bit-parity, frozen wall, eight ordinary checks and full every-tick large-scene mapping audit pass. [Evidence](../../qualification/shared-normalization-20260908/README.md). Deployed and browser-tested; see the linked deployment receipt and browser audit.
 
 ## 2026-09-08: local multilevel retry rejected
 

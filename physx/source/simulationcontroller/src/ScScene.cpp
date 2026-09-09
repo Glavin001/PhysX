@@ -2816,8 +2816,12 @@ void Sc::Scene::onBodySleep(BodySim* body)
 {
     if(((mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
         || (!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API) && mSimulationController->usesDeviceDestructionContactInputs()))
-        && !body->isKinematic())
+        && !body->isKinematic() && !body->notInScene()
+        && !(body->getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU))
     {
+        // Creation calls deactivate before GPU registration; later pre-upload
+        // sleep commands are already represented by the CPU initial state.
+        // Neither has resident motion to finalize. Keep CPU callbacks below.
         mGpuSleepPendingBodies.insert(&body->getBodyCore());
     }
 

@@ -62,10 +62,8 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         body->setNpScene(&mScene);
         mScene.getScScene().addBody(body->getCore(),NULL,0,NpShape::getCoreOffset(),NULL,false,PxNodeIndex(node));
         if(!body->getCore().getSim()){body->setNpScene(NULL);NpFactory::getInstance().releaseRigidDynamicToPool(*body);return NULL;}
-        // Allocation's initial inactive notification is not a physical sleep
-        // transition. Consume it while FIRST_BODY_COPY_GPU still marks this as
-        // uninitialized, so fetchResults cannot zero later GPU candidate motion.
-        if(!mScene.getScScene().finalizeGpuSleep(&body->getCore())){discard(*body);return NULL;}
+        // Initial inactivity has no resident GPU motion and queues no GPU sleep
+        // transaction. Candidate initialization supplies the fragment motion.
         if(!mPrivateBodies.insert(body,false)){discard(*body);return NULL;}
         return body;
     }

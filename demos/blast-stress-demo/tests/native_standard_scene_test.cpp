@@ -55,6 +55,7 @@ struct BodyObserver {
 };
 #include "native_post_correction_check.h"
 #include "native_query_publication_check.h"
+#include "native_compound_sleep_check.h"
 bool boundarySleep=false;
 PxVec3 boundaryPose(0),boundaryVelocity(0);
 void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=false,bool wakeBoundary=false,bool lateImpact=false,bool reports=true,bool retainReportedPairs=false) {
@@ -208,4 +209,4 @@ void run(bool sleeping,bool boundary=false,bool fracture=true,bool deviceGraph=f
     std::printf("standard scene sleeping=%u passed: 2 chunks, 1 bond, %u projectiles, 1 resting control, corrections=%u\n",sleeping,lateImpact?2u:1u,corrections);
 }
 }
-int main(int argc,char** argv){try{if(argc>1&&!std::strcmp(argv[1],"--reported-reuse")){run(false,false,true,false,false,false,true,true);run(true,true,false,false,false,false,true,true);run(true,true,true,false,false,false,true,true);return 0;}if(argc>1&&!std::strcmp(argv[1],"--reuse")){run(true,false,true,false,false,true,false);return 0;}if(argc>1&&!std::strcmp(argv[1],"--post-correction")){postCorrectionFracture(true);postCorrectionFracture(false);return 0;}const bool boundary=argc>1&&!std::strcmp(argv[1],"--sleep-boundary");if(boundary)run(true,true,false);run(!(argc>1&&!std::strcmp(argv[1],"--awake")),boundary,true,argc>1&&!std::strcmp(argv[1],"--device-graph"),argc>1&&!std::strcmp(argv[1],"--wake-boundary"),argc>1&&!std::strcmp(argv[1],"--late-impact"));return 0;}catch(const std::exception& e){std::fprintf(stderr,"native_standard_scene_test: %s\n",e.what());return 1;}}
+int main(int argc,char** argv){try{if(argc>1&&!std::strcmp(argv[1],"--compound-sleep")){compoundSleep();return 0;}if(argc>1&&!std::strcmp(argv[1],"--reported-reuse")){run(false,false,true,false,false,false,true,true);run(true,true,false,false,false,false,true,true);run(true,true,true,false,false,false,true,true);return 0;}if(argc>1&&!std::strcmp(argv[1],"--reuse")){run(true,false,true,false,false,true,false);return 0;}if(argc>1&&!std::strcmp(argv[1],"--post-correction")){postCorrectionFracture(true);postCorrectionFracture(false);return 0;}const bool boundary=argc>1&&!std::strcmp(argv[1],"--sleep-boundary");if(boundary)run(true,true,false);run(!(argc>1&&!std::strcmp(argv[1],"--awake")),boundary,true,argc>1&&!std::strcmp(argv[1],"--device-graph"),argc>1&&!std::strcmp(argv[1],"--wake-boundary"),argc>1&&!std::strcmp(argv[1],"--late-impact"));return 0;}catch(const std::exception& e){std::fprintf(stderr,"native_standard_scene_test: %s\n",e.what());return 1;}}
