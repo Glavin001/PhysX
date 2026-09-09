@@ -1,0 +1,27 @@
+physx/source/gpudestruction/tests/static_registration_prototype_test.cu(55): warning #2361-D: invalid narrowing conversion from "unsigned long" to "unsigned int"
+                  StaticCommand c=owner.node==~0u?StaticCommand{id,rng()%n,rng()%2,1}:StaticCommand{id,owner.node,owner.kind,0};
+                                                                   ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+physx/source/gpudestruction/tests/static_registration_prototype_test.cu(55): warning #2361-D: invalid narrowing conversion from "unsigned long" to "unsigned int"
+                  StaticCommand c=owner.node==~0u?StaticCommand{id,rng()%n,rng()%2,1}:StaticCommand{id,owner.node,owner.kind,0};
+                                                                           ^
+
+physx/source/gpudestruction/tests/static_registration_prototype_test.cu(55): warning #2361-D: invalid narrowing conversion from "unsigned long" to "unsigned int"
+                  StaticCommand c=owner.node==~0u?StaticCommand{id,rng()%n,rng()%2,1}:StaticCommand{id,owner.node,owner.kind,0};
+                                                                   ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+physx/source/gpudestruction/tests/static_registration_prototype_test.cu(55): warning #2361-D: invalid narrowing conversion from "unsigned long" to "unsigned int"
+                  StaticCommand c=owner.node==~0u?StaticCommand{id,rng()%n,rng()%2,1}:StaticCommand{id,owner.node,owner.kind,0};
+                                                                           ^
+
+physx/source/gpudestruction/tests/static_registration_prototype_test.cu: In function ‘void run(unsigned int, unsigned int, unsigned int)’:
+physx/source/gpudestruction/tests/static_registration_prototype_test.cu:55:70: warning: narrowing conversion of ‘(rng.std::mersenne_twister_engine<long unsigned int, 32, 624, 397, 31, 2567483615, 11, 4294967295, 7, 2636928640, 15, 4022730752, 18, 1812433253>::operator()() % ((std::mersenne_twister_engine<long unsigned int, 32, 624, 397, 31, 2567483615, 11, 4294967295, 7, 2636928640, 15, 4022730752, 18, 1812433253>::result_type)n))’ from ‘std::mersenne_twister_engine<long unsigned int, 32, 624, 397, 31, 2567483615, 11, 4294967295, 7, 2636928640, 15, 4022730752, 18, 1812433253>::result_type’ {aka ‘long unsigned int’} to ‘unsigned int’ [-Wnarrowing]
+   55 |                 StaticCommand c=owner.node==~0u?StaticCommand{id,rng()%n,rng()%2,1}:StaticCommand{id,owner.node,owner.kind,0};
+      |                                                                ~~~~~~^~~
+physx/source/gpudestruction/tests/static_registration_prototype_test.cu:55:81: warning: narrowing conversion of ‘(rng.std::mersenne_twister_engine<long unsigned int, 32, 624, 397, 31, 2567483615, 11, 4294967295, 7, 2636928640, 15, 4022730752, 18, 1812433253>::operator()() % 2)’ from ‘std::mersenne_twister_engine<long unsigned int, 32, 624, 397, 31, 2567483615, 11, 4294967295, 7, 2636928640, 15, 4022730752, 18, 1812433253>::result_type’ {aka ‘long unsigned int’} to ‘unsigned int’ [-Wnarrowing]
+   55 |                 StaticCommand c=owner.node==~0u?StaticCommand{id,rng()%n,rng()%2,1}:StaticCommand{id,owner.node,owner.kind,0};
+      |                                                                           ~~~~~~^~~~~

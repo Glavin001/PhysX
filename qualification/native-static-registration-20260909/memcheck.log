@@ -1,0 +1,5 @@
+========= COMPUTE-SANITIZER
+PASS static registration: 513 node slots, 4099 edge slots, 24 batches; exact active order, growth/reuse/retirement; no stress bonds
+PASS static registration: 113664 node slots, 32768 edge slots, 4 batches; exact active order, growth/reuse/retirement; no stress bonds
+PASS explicit invalid/stale/duplicate registration failures
+========= ERROR SUMMARY: 0 errors
