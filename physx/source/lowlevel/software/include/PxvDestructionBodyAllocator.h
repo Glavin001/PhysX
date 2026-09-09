@@ -17,6 +17,7 @@ public:
     virtual bool readRigidBodyData(void*,const PxRigidDynamicGPUIndex*,PxRigidDynamicGPUAPIReadType::Enum,
         PxU32,CUevent,CUevent) const { return false; }
     virtual bool needsHostProperties() const { return false; }
+    // Accepted physical observation only; never a prerequisite of GPU correction.
     virtual bool publishCorrectionProperties(const PxDestructionCorrectionBody*,PxU32) { return false; }
     virtual bool supportsGpuIslandRepair() const { return false; }
 

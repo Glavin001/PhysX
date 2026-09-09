@@ -52,6 +52,30 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         body.getShapeManager().detachAll(&mScene.getSQAPI(), body);
         body.setNpScene(NULL);NpFactory::getInstance().releaseRigidDynamicToPool(body);
     }
+    static void inheritSettings(Sc::BodyCore& core,const Sc::BodyCore& origin) {
+        auto& state=core.getCore();
+        // Compatibility actors must inherit the source's physical settings.
+        // Otherwise a later ordinary metadata upload replaces the GPU's
+        // inherited damping/limits with allocation-placeholder defaults.
+        const PxReal linearDamping=origin.getLinearDamping(),angularDamping=origin.getAngularDamping();
+        const PxReal maxLinear=origin.getMaxLinVelSq(),maxAngular=origin.getMaxAngVelSq();
+        state.linearDamping=linearDamping;state.angularDamping=angularDamping;
+        state.maxLinearVelocitySq=maxLinear;state.maxAngularVelocitySq=maxAngular;
+        state.maxPenBias=origin.getCore().maxPenBias;state.maxContactImpulse=origin.getCore().maxContactImpulse;
+        state.contactReportThreshold=origin.getCore().contactReportThreshold;state.offsetSlop=origin.getCore().offsetSlop;
+        state.sleepThreshold=origin.getCore().sleepThreshold;state.freezeThreshold=origin.getCore().freezeThreshold;
+        state.disableGravity=origin.getCore().disableGravity;state.lockFlags=origin.getCore().lockFlags;
+        state.solverIterationCounts=origin.getCore().solverIterationCounts;
+        core.getSim()->getLowLevelBody().mGpuDynamicLimitsDamping=PxVec4(maxLinear,maxAngular,linearDamping,angularDamping);
+        if(auto* simState=core.getSim()->getSimStateData(true)) {
+            auto* kine=simState->getKinematicData();
+            kine->backupLinearDamping=linearDamping;kine->backupAngularDamping=angularDamping;
+            kine->backupMaxLinVelSq=maxLinear;kine->backupMaxAngVelSq=maxAngular;
+            state.linearDamping=state.angularDamping=0;
+            state.maxLinearVelocitySq=state.maxAngularVelocitySq=PX_MAX_REAL;
+        }
+        core.getSim()->getLowLevelBody().mInternalFlags|=PxsRigidBody::eDESTRUCTION_MASS_GPU;
+    }
     NpRigidDynamic* reserve(bool supported,PxU32 node) {
         auto* body=static_cast<NpRigidDynamic*>(NpFactory::getInstance().createDestructionRigidDynamic());
         if(!body)return NULL;
@@ -89,27 +113,10 @@ public:
             const auto& v=inputs[i].body;
             auto& core=source(inputs[i].targetBody,true)->getCore();
             auto& state=core.getCore();
-            const auto& origin=source(v.sourceBody,true)->getCore();
-            // Compatibility actors must inherit the source's physical settings.
-            // Otherwise a later ordinary metadata upload replaces the GPU's
-            // inherited damping/limits with allocation-placeholder defaults.
-            const PxReal linearDamping=origin.getLinearDamping(),angularDamping=origin.getAngularDamping();
-            const PxReal maxLinear=origin.getMaxLinVelSq(),maxAngular=origin.getMaxAngVelSq();
-            state.linearDamping=linearDamping;state.angularDamping=angularDamping;
-            state.maxLinearVelocitySq=maxLinear;state.maxAngularVelocitySq=maxAngular;
-            state.maxPenBias=origin.getCore().maxPenBias;state.maxContactImpulse=origin.getCore().maxContactImpulse;
-            state.contactReportThreshold=origin.getCore().contactReportThreshold;state.offsetSlop=origin.getCore().offsetSlop;
-            state.sleepThreshold=origin.getCore().sleepThreshold;state.freezeThreshold=origin.getCore().freezeThreshold;
-            state.disableGravity=origin.getCore().disableGravity;state.lockFlags=origin.getCore().lockFlags;
-            state.solverIterationCounts=origin.getCore().solverIterationCounts;
-            core.getSim()->getLowLevelBody().mGpuDynamicLimitsDamping=PxVec4(maxLinear,maxAngular,linearDamping,angularDamping);
             // Kinematic solver inverses are zero. Ordinary actor getters expose
             // the physical mass/inertia stored in their kinematic backup.
             if(auto* simState=core.getSim()->getSimStateData(true)) {
                 auto* kine=simState->getKinematicData();
-                kine->backupLinearDamping=linearDamping;kine->backupAngularDamping=angularDamping;
-                kine->backupMaxLinVelSq=maxLinear;kine->backupMaxAngVelSq=maxAngular;
-                state.linearDamping=state.angularDamping=0;state.maxLinearVelocitySq=state.maxAngularVelocitySq=PX_MAX_REAL;
                 kine->backupInvMass=v.mass>0 ? 1.0f/v.mass : 0;
                 kine->backupInverseInertia=PxVec3(v.principalInertia[0]>0 ? 1.0f/v.principalInertia[0] : 0,
                     v.principalInertia[1]>0 ? 1.0f/v.principalInertia[1] : 0,
@@ -119,11 +126,11 @@ public:
             state.inverseInertia=PxVec3(v.inverseInertia[0],v.inverseInertia[1],v.inverseInertia[2]);
             state.setBody2Actor(PxTransform(PxVec3(v.bodyToActorPosition[0],v.bodyToActorPosition[1],v.bodyToActorPosition[2]),
                 PxQuat(v.bodyToActorOrientation[0],v.bodyToActorOrientation[1],v.bodyToActorOrientation[2],v.bodyToActorOrientation[3])));
+            auto& body=core.getSim()->getLowLevelBody();
             state.body2World=PxTransform(PxVec3(v.bodyToWorldPosition[0],v.bodyToWorldPosition[1],v.bodyToWorldPosition[2]),
                 PxQuat(v.bodyToWorldOrientation[0],v.bodyToWorldOrientation[1],v.bodyToWorldOrientation[2],v.bodyToWorldOrientation[3]));
             state.linearVelocity=PxVec3(v.linearVelocity[0],v.linearVelocity[1],v.linearVelocity[2]);
             state.angularVelocity=PxVec3(v.angularVelocity[0],v.angularVelocity[1],v.angularVelocity[2]);
-            auto& body=core.getSim()->getLowLevelBody();
             body.mLastTransform=state.body2World;
             body.mInternalFlags|=PxsRigidBody::eDESTRUCTION_MASS_GPU;
         }
@@ -245,6 +252,9 @@ public:
             if(requests[i].supported)flags|=PxRigidBodyFlag::eKINEMATIC;
             else flags.clear(PxRigidBodyFlag::eKINEMATIC);
             core.setFlags(flags,true);
+            // Scheduling still consumes CPU settings until native registration
+            // replaces it. Fitted mass/COM/motion are observed only at acceptance.
+            if(needsHostProperties())inheritSettings(core,source(requests[i].sourceBody)->getCore());
             if(!requests[i].supported) {
                 core.getSim()->setActive(true);
                 // Reservations begin with ready-for-sleep island flags. Installing

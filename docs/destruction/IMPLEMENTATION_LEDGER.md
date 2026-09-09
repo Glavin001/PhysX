@@ -68,6 +68,17 @@ corrected physics. Short paired screens and controlled quality pass, while broad
 initialization/CUB synchronization findings remain unresolved and full performance
 qualification is incomplete.
 
+The fitted mass/COM/motion CPU round trip before corrected physics is removed.
+Native PGS/TGS kinematic initialization now consumes authoritative GPU body state;
+CPU physical properties publish after topology/correction acceptance. Exact wall,
+ordinary prefix, both boundary fixtures, affected suites, memcheck and paired
+idle/destruction screens are recorded in
+[accepted-property receipt](../../qualification/accepted-properties-20260909/README.md).
+No robust speedup established. CPU scheduling settings, actor/node registration
+and shape rebinding still precede correction; property publication after the
+first correction still precedes the second stress evaluation. This is partial
+ranked #1, not final end-of-tick-only compatibility publication or completion.
+
 ## Priority checklist and separate benefit tracks
 
 Ordered by the current evidence for substantial **destruction-peak** opportunity,

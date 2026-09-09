@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--gpu-module',type=Path,default=LIVE/'libPhysXGpuActivity_64.so',help='Matching immutable GPU module')
     parser.add_argument('--baseline-gpu-module',type=Path,help='Baseline GPU module when private producer/runtime interfaces changed')
     parser.add_argument('--benchmark',type=Path,default=BINARY,help='Matching immutable consumer binary')
+    parser.add_argument('--baseline-benchmark',type=Path,help='Immutable baseline consumer when CPU implementation changed')
     args=parser.parse_args()
     if not 31<=args.steps<=36000:parser.error('--steps must be 31..36000')
     gpu_module=args.gpu_module.resolve();BINARY=args.benchmark.resolve()
@@ -34,14 +35,19 @@ def main():
     if baseline_gpu.name!='libPhysXGpuActivity_64.so' or not baseline_gpu.is_file():parser.error('invalid --baseline-gpu-module')
     if not BINARY.is_file():parser.error('invalid --benchmark')
     if bool(args.scene)!=bool(args.commands):parser.error('--scene and --commands must be supplied together')
+    baseline_binary=(args.baseline_benchmark or args.benchmark).resolve()
+    if not baseline_binary.is_file():parser.error('invalid --baseline-benchmark')
     baseline=args.baseline_runtime.resolve()
     if baseline.name!='libPhysXDestructionGpuRuntime_64.so' or not baseline.is_file():parser.error('--baseline-runtime must name an existing native runtime library')
     ROOT=args.capture.resolve();OUT=ROOT/'screen';CANDIDATE=ROOT/'candidate'
     OUT.mkdir(parents=True,exist_ok=False)
-    receipt={'schema':1,'sequence':[],'benchmark_sha256':sha(BINARY),'service_changes':False,'steps':args.steps,'prefix_of_600_step_tape':args.steps<600}
+    receipt={'schema':1,'sequence':[],'benchmark_sha256':sha(BINARY),'baseline_benchmark_sha256':sha(baseline_binary),'service_changes':False,'steps':args.steps,'prefix_of_600_step_tape':args.steps<600}
     for ordinal,arm in enumerate(['baseline','candidate','candidate','baseline']):
         runtime=baseline if arm=='baseline' else CANDIDATE/'libPhysXDestructionGpuRuntime_64.so'
         arm_gpu=baseline_gpu if arm=='baseline' else gpu_module
+        binary=baseline_binary if arm=='baseline' else BINARY
+        binary_hash=receipt['baseline_benchmark_sha256' if arm=='baseline' else 'benchmark_sha256']
+        if sha(binary)!=binary_hash:raise RuntimeError('Benchmark changed between campaign arms')
         expected={runtime.name:runtime.resolve(),'libPhysXGpuActivity_64.so':arm_gpu}
         env=os.environ.copy();env['LD_LIBRARY_PATH']=str(runtime.parent)+':'+str(arm_gpu.parent)+':'+str(LIVE)+':/usr/local/cuda/lib64'
         env.pop('VIBE_EMBEDDED_AUDIT_EVERY_TICK',None)
@@ -49,11 +55,11 @@ def main():
             apps=subprocess.check_output(['nvidia-smi','--query-compute-apps=pid,process_name','--format=csv,noheader'],text=True).strip()
             if apps:raise RuntimeError('GPU not isolated: '+apps)
             name=f'{ordinal+1}-{arm}-{regime}'
-            cmd=[str(BINARY),str(OUT/name),'1' if args.scene else '8',str(args.steps),'0' if args.scene else waves]
+            cmd=[str(binary),str(OUT/name),'1' if args.scene else '8',str(args.steps),'0' if args.scene else waves]
             if args.scene:
                 cmd.append(args.scene)
                 if regime=='shots':cmd.append(str(args.commands.resolve()))
-            entry={'name':name,'command':cmd,'expected':{k:{'path':str(v),'sha256':sha(v)} for k,v in expected.items()},'mapped':{}}
+            entry={'name':name,'command':cmd,'benchmark_sha256':binary_hash,'expected':{k:{'path':str(v),'sha256':sha(v)} for k,v in expected.items()},'mapped':{}}
             print('START',name,flush=True)
             with (OUT/(name+'.log')).open('x') as log:
                 process=subprocess.Popen(cmd,cwd=SDK.parent/'vibe-land-2',env=env,stdout=log,stderr=subprocess.STDOUT)
@@ -71,7 +77,7 @@ def main():
             (OUT/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
             if process.returncode:raise RuntimeError('Benchmark failed: '+name)
             if entry['mapped']!=entry['expected']:raise RuntimeError('Loaded artifact mismatch: '+name)
-            if sha(BINARY)!=receipt['benchmark_sha256']:raise RuntimeError('Benchmark changed during campaign')
+            if sha(binary)!=binary_hash:raise RuntimeError('Benchmark changed during campaign')
             for p in expected.values():
                 if sha(p)!=entry['expected'][p.name]['sha256']:raise RuntimeError('Runtime changed during capture')
             print('PASS',name,flush=True)

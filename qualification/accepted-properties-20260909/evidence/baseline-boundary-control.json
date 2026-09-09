@@ -1,0 +1,6 @@
+{
+  "exit": 1,
+  "expected_message": "fitted COM reached CPU before corrected physics completed",
+  "control": "current boundary fixture/CPU compatibility with immutable pre-change GPU/runtime pair; this is a boundary negative control, not baseline performance or complete physical qualification",
+  "passed": true
+}

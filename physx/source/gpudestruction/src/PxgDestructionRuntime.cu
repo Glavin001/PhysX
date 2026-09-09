@@ -399,6 +399,7 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
     if(collision->error)stage->error|=1024u;
 }
 #include "PxgDestructionCorrection.cuh"
+#include "PxgDestructionAcceptedProperties.cuh"
 #include "PxgDestructionMotionSlots.cuh"
 #include "PxgDestructionPreparationGraph.cuh"
 class Runtime final : public PxgDestructionRuntime {
@@ -1672,7 +1673,6 @@ public:
             // unchanged and still corrects ordinary interaction participants.
             const PxU32 count=mHostCompletion->correction.count;
             std::vector<PxvDestructionBodyRequest> requests(count);
-            std::vector<PxDestructionCorrectionBody> observations(mBodyAllocator->needsHostProperties()?count:0);
             mHostCorrectionTargets.resize(count);
             if(count) gatherCorrectionOwnerMetadata<<<(count+127)/128,128,0,mStream>>>(
                 mCompactCorrectionBodies,count,mCandidateSlots,mBodyRequests,mCorrectionOwnerRequests,mCorrectionOwnerTargets);
@@ -1682,11 +1682,8 @@ public:
                 check(cudaMemcpyAsync(requests.data(),mCorrectionOwnerRequests,count*sizeof(requests[0]),cudaMemcpyDeviceToHost,mStream));
                 check(cudaMemcpyAsync(mHostCorrectionTargets.data(),mCorrectionOwnerTargets,count*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
             }
-            if(!observations.empty())check(cudaMemcpyAsync(observations.data(),mCompactCorrectionBodies,
-                observations.size()*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            return mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()))
-                && (observations.empty() || mBodyAllocator->publishCorrectionProperties(observations.data(),count));
+            return mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
         }catch(...){mFailed=true;return false;}
     }
     bool acceptCorrection(const PxgBodySim* bodies,CUstream coreStream) override {
@@ -1717,10 +1714,22 @@ public:
                 inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);
             }
             commitNativeMotionSlots<<<1,1,0,mStream>>>(mMotionSlots,mStatus);
+            // CPU compatibility consumes accepted GPU state, never the provisional
+            // motion that was prepared for correction. Share the existing final
+            // completion wait; no mass/COM/motion round trip precedes correction.
+            const PxU32 count=mBodyAllocator->needsHostProperties()?mHostCompletion->correction.count:0;
+            std::vector<PxDestructionCorrectionBody> observations(count);
+            // The uncompacted preparation workspace has no remaining consumer.
+            // Reuse it; borrowed compact correction inputs stay unchanged.
+            if(count) {
+                gatherAcceptedProperties<<<(count+127)/128,128,0,mStream>>>(mCompactCorrectionBodies,count,bodies,mCorrectionBodies,mStatus);
+                check(cudaMemcpyAsync(observations.data(),mCorrectionBodies,count*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
+            }
             check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             collectCorrectionTimings();
             if(mHostStatus->error)return false;
+            if(count && !mBodyAllocator->publishCorrectionProperties(observations.data(),count))return false;
             mCommittedMotionSlots+=mHostBodyAllocation.reserved;
             mBodyAllocator->acceptReservations();return true;
         }catch(...){mFailed=true;return false;}

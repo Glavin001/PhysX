@@ -45,7 +45,7 @@ extern "C" __global__ void preIntegrationLaunch(
 extern "C" __global__ void initStaticKinematics(
 	const uint32_t nbStaticKinematics, const uint32_t nbSolverBodies, PxgSolverBodyData* PX_RESTRICT solverBodyDataPool,
 	PxgSolverTxIData* PX_RESTRICT solverTxIDataPool, PxAlignedTransform* gTransforms, float4* gOutVelocityPool, 
-	PxNodeIndex* activeNodeIndices, PxU32* solverBodyIndices)
+	PxNodeIndex* activeNodeIndices, PxU32* solverBodyIndices, const PxgBodySim* nativeBodySims)
 {
 	const uint32_t idx = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -56,6 +56,22 @@ extern "C" __global__ void initStaticKinematics(
 		if (!index.isStaticBody())
 		{
 			solverBodyIndices[index.index()] = idx;
+            // Native destruction owns this mass frame before CPU compatibility
+            // publication. Reusing CPU kinematic data here would feed an old
+            // COM into the corrected constraints. Consume the existing resident
+            // body in this same initialization kernel; ordinary actors retain
+            // their authored CPU command path.
+            if(nativeBodySims) {
+                const auto& body=nativeBodySims[index.index()];
+                if(body.internalFlags & PxsRigidBody::eDESTRUCTION_MASS_GPU) {
+                    auto& data=solverBodyDataPool[idx];
+                    data.body2World=body.body2World;
+                    data.initialLinVelXYZ_invMassW=body.linearVelocityXYZ_inverseMassW;
+                    data.initialAngVelXYZ_penBiasClamp=body.angularVelocityXYZ_maxPenBiasW;
+                    data.reportThreshold=body.inverseInertiaXYZ_contactReportThresholdW.w;
+                    data.maxImpulse=body.body2Actor_maxImpulseW.p.w;
+                }
+            }
 		}
 		gTransforms[idx] = solverBodyDataPool[idx].body2World;
 		gOutVelocityPool[idx] = solverBodyDataPool[idx].initialLinVelXYZ_invMassW;
