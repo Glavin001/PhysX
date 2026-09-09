@@ -3,6 +3,7 @@
 #include "PxgDestructionTopology.h"
 #include "NvBlastExtStressGpu.h"
 #include <cuda_runtime.h>
+#include <cooperative_groups.h>
 #include <cub/cub.cuh>
 #include <cuda.h>
 #include "PxgBodySim.h"
@@ -290,9 +291,6 @@ __global__ void prepareCandidateBodies(PxDestructionTopologyDeviceView topology,
     if(needsBody)atomicAdd(&status->allocationRequests,1u);
     if(error)atomicOr(&status->error,error);
 }
-struct NeedsBody {
-    __host__ __device__ bool operator()(const PxvDestructionBodyRequest& request) const {return request.needsBody!=0;}
-};
 __global__ void finishBodyPreparation(const PxDestructionTopologyTransactionStatus* transaction,
     PxDestructionBodyPreparationStatus* status,PxDestructionStageStatus* stage) {
     status->valid=transaction->prepared && !transaction->error && !status->error;
@@ -517,12 +515,14 @@ class Runtime final : public PxgDestructionRuntime {
     PxU32* mGrantedMotionIndices{};
     PxDestructionMotionSlotStatus* mMotionSlots{};
     PxU32 mMotionSlotCapacity{},mCommittedMotionSlots{}; // capacity accounting, not allocation decisions
-    void* mBodyRequestScratch{};size_t mBodyRequestScratchBytes{};
+    NativeMotionAllocation mMotionAllocation;
     PxU32* mTrialBodyIndices{};
     PxvDestructionBodyRequest* mCorrectionOwnerRequests{};
     PxU32* mCorrectionOwnerTargets{};
     PxDestructionBodyAllocationStatus* mBodyAllocation{};
     PxDestructionBodyAllocationStatus mHostBodyAllocation{};
+    PxDestructionBodyAllocationStatus* mBodyAllocationObservation{};
+    cudaEvent_t mMotionAllocationEvents[2]{};bool mMotionTimingPending=false,mMotionTimingRetry=false;
     std::vector<PxU32> mHostReservedIndices;
     PxU32* mAffectedClusters{};PxU32* mCandidateSlots{};
     PxDestructionCollisionBinding *mCollisionBindings{},*mCompactCollisionBindings{};
@@ -907,6 +907,7 @@ public:
     ~Runtime() override {
         Context current(mContext); cudaStreamSynchronize(mStream);clear();
         for(auto event:mStageEvents)if(event)cudaEventDestroy(event);
+        for(auto event:mMotionAllocationEvents)if(event)cudaEventDestroy(event);
         for(auto event:mCorrectionEvents)if(event)cudaEventDestroy(event);
         cudaFree(mStatus);cudaFreeHost(mHostStatus);
         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
@@ -958,7 +959,7 @@ public:
         cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
         cudaFree(mCheckpointPrevious);mCheckpointPrevious=nullptr;
         cudaFree(mCheckpointAccelerations);mCheckpointAccelerations=nullptr;
-        mHostReservedIndices.clear();mHostBodyAllocation={};mHostCollisionPreparation={};
+        mHostReservedIndices.clear();mHostCollisionPreparation={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
         cudaFree(mMigratingCollisionBindings);mMigratingCollisionBindings=nullptr;
@@ -970,9 +971,10 @@ public:
         cudaFree(mReturnedBodyIndices);mReturnedBodyIndices=nullptr;
         cudaFree(mGrantedMotionIndices);mGrantedMotionIndices=nullptr;
         cudaFree(mMotionSlots);mMotionSlots=nullptr;mMotionSlotCapacity=mCommittedMotionSlots=0;
-        cudaFree(mBodyRequestScratch);mBodyRequestScratch=nullptr;mBodyRequestScratchBytes=0;
+        mMotionAllocation.clear();
         cudaFree(mBodyRequests);mBodyRequests=nullptr;cudaFree(mTrialBodyIndices);mTrialBodyIndices=nullptr;
         cudaFree(mBodyAllocation);mBodyAllocation=nullptr;cudaFreeHost(mHostBodyPreparation);mHostBodyPreparation=nullptr;
+        cudaFreeHost(mBodyAllocationObservation);mBodyAllocationObservation=nullptr;mMotionTimingPending=false;
         mChanges.clear();
         if(mTopology)mTopology->release();mTopology=nullptr;
         cudaFree(mProvisionalMotion);mProvisionalMotion=nullptr;
@@ -1131,13 +1133,13 @@ public:
                 allocate(mTrialBodies,d.chunkCount);allocate(mBodyPreparation,1);
                 check(cudaMemset(mBodyPreparation,0,sizeof(*mBodyPreparation)));
                 check(cudaMallocHost(&mHostBodyPreparation,sizeof(*mHostBodyPreparation)));*mHostBodyPreparation={};
+                check(cudaMallocHost(&mBodyAllocationObservation,sizeof(*mBodyAllocationObservation)));*mBodyAllocationObservation={};
                 allocate(mBodyRequests,d.chunkCount);allocate(mTrialBodyIndices,d.chunkCount);allocate(mBodyAllocation,1);
                 check(cudaMemset(mBodyAllocation,0,sizeof(*mBodyAllocation)));
                 allocate(mCompactBodyRequests,d.chunkCount);allocate(mReturnedBodyIndices,d.chunkCount);
                 allocate(mMotionSlots,1);check(cudaMemset(mMotionSlots,0,sizeof(*mMotionSlots)));
-                check(cub::DeviceSelect::If(nullptr,mBodyRequestScratchBytes,mBodyRequests,mCompactBodyRequests,
-                    &mBodyPreparation->allocationRequests,d.chunkCount,NeedsBody{},mStream));
-                check(cudaMalloc(&mBodyRequestScratch,mBodyRequestScratchBytes));
+                check(mMotionAllocation.initialize({mMotionSlots,nullptr,mBodyPreparation,mBodyRequests,
+                    mCompactBodyRequests,mReturnedBodyIndices,mTrialBodyIndices,nullptr,mBodyAllocation,mStatus,mN,0},mStream));
                 mEditCapacity=d.chunkCount+d.bondCount;
                 allocate(mProvisionalMotion,d.chunkCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
             }
@@ -1290,15 +1292,40 @@ public:
             stageMarker(5);
             if(mTopology && !mPostCorrection)mChanges.publish(mStream);
             check(cudaGetLastError());
-            if(mBodyPreparation)check(cudaMemcpyAsync(mHostBodyPreparation,mBodyPreparation,sizeof(*mBodyPreparation),cudaMemcpyDeviceToHost,mStream));
+            if(mBodyPreparation) {
+                // The GPU producer consumes its own count. CPU compatibility
+                // observes a completed assignment, never selects its work size.
+                submitMotionAllocation();
+                check(cudaMemcpyAsync(mHostBodyPreparation,mBodyPreparation,sizeof(*mBodyPreparation),cudaMemcpyDeviceToHost,mStream));
+                check(cudaMemcpyAsync(mBodyAllocationObservation,mBodyAllocation,sizeof(*mBodyAllocationObservation),cudaMemcpyDeviceToHost,mStream));
+            }
             check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));mPending=true;return true;
         }catch(...){mFailed=true;return false;}
     }
+    void submitMotionAllocation(bool retry=false) {
+        if(mProfiler) {
+            for(auto& event:mMotionAllocationEvents)if(!event)check(cudaEventCreate(&event));
+            check(cudaEventRecord(mMotionAllocationEvents[0],mStream));
+        }
+        check(mMotionAllocation.launch(mStream));
+        if(mProfiler) {
+            check(cudaEventRecord(mMotionAllocationEvents[1],mStream));mMotionTimingPending=true;mMotionTimingRetry=retry;
+        }
+    }
+    void collectMotionAllocationTiming() {
+        if(!mMotionTimingPending)return;
+        // Called after an existing completion wait; no new synchronization.
+        float elapsed=0;check(cudaEventElapsedTime(&elapsed,mMotionAllocationEvents[0],mMotionAllocationEvents[1]));
+        if(mProfiler)mProfiler->recordData(elapsed,mMotionTimingRetry
+            ? "GpuDestruction.cuda.motionAllocationRetry" : "GpuDestruction.cuda.motionAllocation",mProfileContext);
+        mMotionTimingPending=false;
+    }
     void reserveBodySlots() {
         PxProfileScoped profile(mProfiler,"GpuDestruction.finishDetail.reserveBodies",false,mProfileContext);
-        mHostReservedIndices.clear();mHostBodyAllocation={};
+        mHostReservedIndices.clear();
         if(!mTopology)return;
+        mHostBodyAllocation=*mBodyAllocationObservation;
         auto& allocation=mHostBodyAllocation;
         if(mHostStatus->error!=8u || !mHostBodyPreparation->valid) {
             if(mBodyAllocator)mBodyAllocator->discardReservations();return;
@@ -1306,7 +1333,7 @@ public:
         const PxU32 count=mHostBodyPreparation->count,requested=mHostBodyPreparation->allocationRequests;
         if(PxU64(mCommittedMotionSlots)+requested>PX_INVALID_U32)throw std::runtime_error("native motion index capacity overflow");
         const PxU32 needed=mCommittedMotionSlots+requested;
-        if(needed>mMotionSlotCapacity) {
+        if(allocation.error==1u && needed>mMotionSlotCapacity) {
             PxProfileScoped growth(mProfiler,"GpuDestruction.finishDetail.growMotionSlots",false,mProfileContext);
             const PxU32 capacity=PxU32(std::min<PxU64>(PX_INVALID_U32,
                 std::max<PxU64>(needed,std::max<PxU64>(256,PxU64(mMotionSlotCapacity)+mMotionSlotCapacity/2))));
@@ -1317,17 +1344,22 @@ public:
             try {check(cudaMemcpyAsync(next,granted,size_t(capacity)*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));}
             catch(...){cudaFree(next);throw;}
             check(cudaFree(mGrantedMotionIndices));mGrantedMotionIndices=next;mMotionSlotCapacity=capacity;
+            check(mMotionAllocation.setCapacity(mGrantedMotionIndices,mMotionSlotCapacity,mStream));
+            // Retry allocation only. The intact response, fracture verdict and
+            // material evolution have already run and must not run again.
+            submitMotionAllocation(true);
+            check(cudaMemcpyAsync(mBodyAllocationObservation,mBodyAllocation,sizeof(*mBodyAllocationObservation),cudaMemcpyDeviceToHost,mStream));
+            check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mHostStatus),cudaMemcpyDeviceToHost,mStream));
+            check(cudaStreamSynchronize(mStream));
+            allocation=*mBodyAllocationObservation;collectMotionAllocationTiming();
         }
+        if(!allocation.valid || allocation.error || allocation.reserved!=requested
+            || allocation.count!=count || allocation.generation!=mHostBodyPreparation->generation
+            || mHostStatus->error!=8u)throw std::runtime_error("native GPU motion allocation rejected");
         std::vector<PxvDestructionBodyRequest> requests(requested);mHostReservedIndices.resize(requested);
         auto& indices=mHostReservedIndices;
         {
             PxProfileScoped requestProfile(mProfiler,"GpuDestruction.finishDetail.requestReadback",false,mProfileContext);
-            if(requested)check(cub::DeviceSelect::If(mBodyRequestScratch,mBodyRequestScratchBytes,mBodyRequests,mCompactBodyRequests,
-                &mBodyPreparation->allocationRequests,count,NeedsBody{},mStream));
-            beginNativeMotionSlots<<<1,1,0,mStream>>>(mMotionSlots,mMotionSlotCapacity,mBodyPreparation,requested,mBodyAllocation);
-            if(requested)assignNativeMotionSlots<<<(requested+127)/128,128,0,mStream>>>(mMotionSlots,mGrantedMotionIndices,
-                mCompactBodyRequests,requested,mReturnedBodyIndices,mTrialBodyIndices,mBodyAllocation);
-            finishNativeMotionSlots<<<1,1,0,mStream>>>(mBodyAllocation,mStatus);check(cudaGetLastError());
             if(requested) {
                 // CPU compatibility construction consumes the allocation decision.
                 // The resulting indices already exist in the native GPU mapping.
@@ -1341,9 +1373,8 @@ public:
             PxProfileScoped records(mProfiler,"GpuDestruction.finishDetail.allocateNativeBodies",false,mProfileContext);
             allocated=mBodyAllocator && mBodyAllocator->prepare(requests.data(),requested,indices.data());
         }
-        allocation.count=count;allocation.generation=mHostBodyPreparation->generation;
-        if(allocated){allocation.valid=1;allocation.reserved=requested;}
-        else {allocation.error=8u;mHostStatus->error|=256u;mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->discardReservations();}
+        if(!allocated) {allocation.error|=8u;allocation.valid=0;mHostStatus->error|=256u;
+            mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->discardReservations();}
         PxProfileScoped publish(mProfiler,"GpuDestruction.finishDetail.publishReservation",false,mProfileContext);
         // Merge only compatibility construction failure. Never overwrite a GPU
         // allocation error or upload CPU-selected indices/status over device work.
@@ -1648,7 +1679,7 @@ public:
         try {Context current(mContext);if(mPending){
                 {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
                     check(cudaEventSynchronize(mReady));}
-                collectStageTimings();mPending=false;reserveBodySlots();}
+                collectStageTimings();collectMotionAllocationTiming();mPending=false;reserveBodySlots();}
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;

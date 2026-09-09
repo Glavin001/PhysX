@@ -45,6 +45,20 @@ class PhaseAnalysis(unittest.TestCase):
         self.assertEqual(result['cuda_stages']['total']['samples'], 2)
         self.assertEqual(result['frames'], 2)
 
+    def test_optional_allocation_is_separate_and_retries_validated(self):
+        self.rows += [[0, API['PREFIX'] + 'cuda.motionAllocation', .03, 1],
+                      [1, API['PREFIX'] + 'cuda.motionAllocation', .04, 1],
+                      [1, API['PREFIX'] + 'cuda.motionAllocationRetry', .06, 1]]
+        self.save_device()
+        stages = API['analyze'](self.root)['cuda_stages']
+        self.assertAlmostEqual(stages['total']['mean_ms'], .1)
+        self.assertAlmostEqual(stages['optional_phases']['motionAllocation']['mean_ms'], .035)
+        self.assertAlmostEqual(stages['optional_phases']['motionAllocationRetry']['mean_ms'], .03)
+        self.rows.append(self.rows[-1][:])
+        self.save_device()
+        with self.assertRaisesRegex(ValueError, 'duplicate CUDA'):
+            API['analyze'](self.root)
+
     def test_combined_preparation_wait_is_attributed(self):
         before = API['analyze'](self.root)['unmeasured_interval_mean_ms']
         with (self.root / 'native.phases.csv').open('a') as stream:

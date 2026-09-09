@@ -36,7 +36,7 @@ __device__ void nativeMotionTileRange(NativeMotionAllocationView v,PxU32& first,
     first=PxU32(PxU64(tiles)*blockIdx.x/v.blocks);
     last=PxU32(PxU64(tiles)*(blockIdx.x+1)/v.blocks);
 }
-__device__ void countNativeMotionRequests(NativeMotionAllocationView v) {
+__global__ void countNativeMotionRequests(NativeMotionAllocationView v) {
     PxU32 first,last;nativeMotionTileRange(v,first,last);
     PxU32 sum=0;
     for(PxU32 tile=first;tile<last;++tile) {
@@ -48,12 +48,14 @@ __device__ void countNativeMotionRequests(NativeMotionAllocationView v) {
             sum+=r.needsBody==1;
         }
     }
+    __syncwarp(); // reconverge partial-tile predicates before the warp collective
     using Reduce=cub::BlockReduce<PxU32,128>;
     __shared__ typename Reduce::TempStorage storage;
     const PxU32 total=Reduce(storage).Sum(sum);
     if(!threadIdx.x)v.blockOffsets[blockIdx.x]=total;
+    __syncthreads(); // all reduction participants finish before any warp exits
 }
-__device__ void prefixNativeMotionRequests(NativeMotionAllocationView v) {
+__global__ void prefixNativeMotionRequests(NativeMotionAllocationView v) {
     PxU32 count=0;
     for(PxU32 i=0;i<v.blocks;++i) {
         const PxU32 n=v.blockOffsets[i];v.blockOffsets[i]=count;count+=n;
@@ -61,7 +63,7 @@ __device__ void prefixNativeMotionRequests(NativeMotionAllocationView v) {
     if(count!=v.preparation->allocationRequests)v.allocation->error|=2u;
     v.pool->error=v.allocation->error; // immutable guard during parallel compaction
 }
-__device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
+__global__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
     if(v.pool->error)return;
     PxU32 first,last;nativeMotionTileRange(v,first,last);
     PxU32 offset=v.blockOffsets[blockIdx.x];
@@ -81,7 +83,7 @@ __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
         offset+=total;__syncthreads();
     }
 }
-__device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
+__global__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
     // Previous graph nodes validated the complete batch. Errors leave every
     // canonical owner untouched, although disposable selection scratch changed.
     if(!v.allocation->error) {
@@ -97,15 +99,6 @@ __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
             v.allocation->reserved=v.pool->pending;v.allocation->valid=1;
         }
     }
-}
-
-__global__ void allocateNativeMotionRequests(NativeMotionAllocationView v) {
-    const auto grid=cooperative_groups::this_grid();
-    countNativeMotionRequests(v);grid.sync();
-    if(!grid.thread_rank())prefixNativeMotionRequests(v);
-    grid.sync();
-    compactNativeMotionRequests(v);grid.sync();
-    assignNativeMotionOwners(v);
 }
 
 // One graph instantiated at scene setup. Growth updates one address descriptor;
@@ -138,12 +131,7 @@ public:
         e=cudaDeviceGetAttribute(&major,cudaDevAttrComputeCapabilityMajor,device);if(e!=cudaSuccess)return e;
         e=cudaDeviceGetAttribute(&minor,cudaDevAttrComputeCapabilityMinor,device);if(e!=cudaSuccess)return e;
         if(major!=8 || minor!=9)return cudaErrorNotSupported;
-        int cooperative=0,sms=0,resident=0;
-        e=cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device);if(e!=cudaSuccess)return e;
-        e=cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device);if(e!=cudaSuccess)return e;
-        e=cudaOccupancyMaxActiveBlocksPerMultiprocessor(&resident,allocateNativeMotionRequests,128,0);if(e!=cudaSuccess)return e;
-        if(!cooperative || !resident)return cudaErrorNotSupported;
-        v.blocks=std::min(PxU32(sms*resident),std::min(128u,std::max(1u,v.requestCapacity/128+(v.requestCapacity%128!=0))));
+        v.blocks=std::min(128u,std::max(1u,v.requestCapacity/128+(v.requestCapacity%128!=0)));
         e=cudaMalloc(&mAddresses,sizeof(*mAddresses));if(e!=cudaSuccess)return e;
         e=cudaMalloc(&mOffsets,v.blocks*sizeof(*mOffsets));if(e!=cudaSuccess)return e;
         v.addresses=mAddresses;v.blockOffsets=mOffsets;
@@ -157,9 +145,10 @@ public:
         condition.conditional.handle=work;condition.conditional.type=cudaGraphCondTypeIf;condition.conditional.size=1;
         cudaGraphNode_t branch{};e=cudaGraphAddNode(&branch,mGraph,&prior,1,&condition);if(e!=cudaSuccess)return e;
         const auto body=condition.conditional.phGraph_out[0];prior=nullptr;
-        e=add(body,prior,allocateNativeMotionRequests,v.blocks,128,v);if(e!=cudaSuccess)return e;
-        cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
-        e=cudaGraphKernelNodeSetAttribute(prior,cudaKernelNodeAttributeCooperative,&attribute);if(e!=cudaSuccess)return e;
+        e=add(body,prior,countNativeMotionRequests,v.blocks,128,v);if(e!=cudaSuccess)return e;
+        e=add(body,prior,prefixNativeMotionRequests,1,1,v);if(e!=cudaSuccess)return e;
+        e=add(body,prior,compactNativeMotionRequests,v.blocks,128,v);if(e!=cudaSuccess)return e;
+        e=add(body,prior,assignNativeMotionOwners,v.blocks,128,v);if(e!=cudaSuccess)return e;
         e=cudaGraphInstantiate(&mExecutable,mGraph,0);if(e!=cudaSuccess)return e;
         return cudaGraphUpload(mExecutable,stream);
     }

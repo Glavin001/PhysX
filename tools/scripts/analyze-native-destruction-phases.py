@@ -28,6 +28,9 @@ def require(condition, message):
 CUDA_STAGES = {"contactLoads", "stress", "materials", "topologyAndCandidates", "commitAndStressTopology"}
 
 
+CUDA_OPTIONAL_STAGES = {"motionAllocation", "motionAllocationRetry"}
+
+
 CUDA_CORRECTION_STAGES = {"rewindState", "installFragments", "installOwners", "finalSplitState", "finalSplitFragments", "finalSplitOwners"}
 
 
@@ -43,7 +46,7 @@ def cuda_stages(directory, count, passes=None):
             step, name = int(row["step"]), row["phase"]
             require(name.startswith(PREFIX + "cuda."), "unexpected CUDA stage")
             name = name[len(PREFIX + "cuda."):]
-            require(name in CUDA_STAGES | CUDA_CORRECTION_STAGES and 0 <= step < count, "invalid CUDA stage or step")
+            require(name in CUDA_STAGES | CUDA_CORRECTION_STAGES | CUDA_OPTIONAL_STAGES and 0 <= step < count, "invalid CUDA stage or step")
             require(row["accepted_step"] == "1", "CUDA stage from incomplete step")
             occurrences[step, name] += 1
             require(occurrences[step, name] <= (1 if name in CUDA_CORRECTION_STAGES else passes[step]), "duplicate CUDA stage")
@@ -58,9 +61,11 @@ def cuda_stages(directory, count, passes=None):
         ordered = sorted(samples)
         return dict(samples=len(samples), min_ms=min(samples), mean_ms=statistics.mean(samples),
                     max_ms=max(samples), p95_ms=ordered[min(len(samples)-1, int(.95*len(samples)))])
-    return dict(scope="Consecutive CUDA event intervals on the destruction stream; includes cross-stream dependencies, "
+    optional = {name: summarize([values[i].get(name, 0) for i in range(count)])
+                for name in sorted(CUDA_OPTIONAL_STAGES) if any(name in v for v in values.values())}
+    return dict(optional_phases=optional, scope="Consecutive CUDA event intervals on the destruction stream; includes cross-stream dependencies, "
                       "contention and host submission gaps, not pure kernel execution. Excludes ordinary/corrected rigid solving, "
-                      "reservation and acceptance after correction. Collected after an existing completion wait, with no added synchronization.",
+                      "reservation and acceptance after correction. Optional allocation/retry intervals are reported separately; they are not included in this total. Collected after an existing completion wait, with no added synchronization.",
                 phases={name: summarize([values[i][name] for i in range(count)]) for name in sorted(CUDA_STAGES)},
                 total=summarize([sum(values[i][name] for name in CUDA_STAGES) for i in range(count)]))
 

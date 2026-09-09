@@ -1,0 +1,125 @@
+// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
+#include "PxDestructionScene.h"
+#include "PxvDestructionBodyAllocator.h"
+#include <cuda_runtime.h>
+#include <cooperative_groups.h>
+#include <cub/cub.cuh>
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
+#include <random>
+#include <algorithm>
+namespace physx { namespace {
+#include "../src/PxgDestructionMotionSlots.cuh"
+}}
+using namespace physx;
+#define CHECK(x) do { if(!(x)){std::fprintf(stderr,"FAIL %s:%d: %s\n",__FILE__,__LINE__,#x);std::exit(1);} } while(0)
+#define CUDA(x) do {auto e=(x);if(e!=cudaSuccess){std::fprintf(stderr,"CUDA %s: %s\n",#x,cudaGetErrorString(e));std::exit(1);}}while(0)
+template<class T> T* make(unsigned n=1){T* p=nullptr;CUDA(cudaMalloc(&p,sizeof(T)*std::max(n,1u)));return p;}
+template<class T> void put(T* p,const T& v){CUDA(cudaMemcpy(p,&v,sizeof(T),cudaMemcpyHostToDevice));}
+template<class T> T get(const T* p){T v;CUDA(cudaMemcpy(&v,p,sizeof(T),cudaMemcpyDeviceToHost));return v;}
+struct Fixture {
+    unsigned size;NativeMotionAllocation graph;
+    PxDestructionMotionSlotStatus* pool=make<PxDestructionMotionSlotStatus>();
+    PxDestructionBodyPreparationStatus* prep=make<PxDestructionBodyPreparationStatus>();
+    PxDestructionBodyAllocationStatus* allocation=make<PxDestructionBodyAllocationStatus>();
+    PxDestructionStageStatus* stage=make<PxDestructionStageStatus>();
+    PxvDestructionBodyRequest *input,*compact;
+    PxU32 *granted,*selected,*owners;
+    std::vector<PxvDestructionBodyRequest> requests;
+    std::vector<PxU32> addresses;
+    explicit Fixture(unsigned n):size(n),requests(n),addresses(n+32) {
+        input=make<PxvDestructionBodyRequest>(n);compact=make<PxvDestructionBodyRequest>(n);
+        granted=make<PxU32>(n+32);selected=make<PxU32>(n);owners=make<PxU32>(n);
+        CUDA(graph.initialize({pool,nullptr,prep,input,compact,selected,owners,nullptr,allocation,stage,size,0},0));
+        for(unsigned i=0;i<n+32;++i)addresses[i]=1000000+3*i;
+        CUDA(cudaMemcpy(granted,addresses.data(),addresses.size()*sizeof(PxU32),cudaMemcpyHostToDevice));
+    }
+    ~Fixture(){graph.clear();for(void* p:{(void*)pool,(void*)prep,(void*)allocation,(void*)stage,(void*)input,(void*)compact,
+        (void*)granted,(void*)selected,(void*)owners})CUDA(cudaFree(p));}
+    void reset(unsigned count,unsigned requested,unsigned committed=0,unsigned stageError=8) {
+        put(pool,PxDestructionMotionSlotStatus{0,committed,7,55});
+        put(prep,PxDestructionBodyPreparationStatus{17,count,1,0,requested});
+        PxDestructionStageStatus s{};s.error=stageError;put(stage,s);
+        CUDA(cudaMemset(owners,0xff,size*sizeof(PxU32)));
+        CUDA(cudaMemset(compact,0xcc,size*sizeof(PxvDestructionBodyRequest)));
+        CUDA(cudaMemset(selected,0xcc,size*sizeof(PxU32)));
+        CUDA(cudaMemcpy(input,requests.data(),size*sizeof(PxvDestructionBodyRequest),cudaMemcpyHostToDevice));
+    }
+    void run(unsigned capacity) {
+        CUDA(graph.setCapacity(granted,capacity,0));CUDA(graph.launch(0));
+        CUDA(cudaDeviceSynchronize());
+    }
+    void unchanged() {
+        std::vector<PxU32> result(size);CUDA(cudaMemcpy(result.data(),owners,size*sizeof(PxU32),cudaMemcpyDeviceToHost));
+        CHECK(std::all_of(result.begin(),result.end(),[](PxU32 x){return x==(~PxU32(0));}));
+    }
+    void check(unsigned count,unsigned committed) {
+        const auto a=get(allocation);const auto p=get(pool);
+        CHECK(a.valid && !a.error && a.count==count && a.generation==17 && p.committed==committed);
+        std::vector<PxU32> result(size),chosen(size);std::vector<PxvDestructionBodyRequest> output(size);
+        CUDA(cudaMemcpy(result.data(),owners,size*sizeof(PxU32),cudaMemcpyDeviceToHost));
+        CUDA(cudaMemcpy(chosen.data(),selected,size*sizeof(PxU32),cudaMemcpyDeviceToHost));
+        CUDA(cudaMemcpy(output.data(),compact,size*sizeof(PxvDestructionBodyRequest),cudaMemcpyDeviceToHost));
+        unsigned selectedCount=0;
+        for(unsigned i=0;i<size;++i) {
+            if(i<count && requests[i].needsBody) {
+                CHECK(result[i]==addresses[committed+selectedCount]);
+                CHECK(chosen[selectedCount]==result[i]);
+                const auto r=output[selectedCount];CHECK(r.cluster==requests[i].cluster && r.sourceBody==requests[i].sourceBody);
+                CHECK(r.supported==requests[i].supported && r.needsBody==1 && r.candidateSlot==i);++selectedCount;
+            } else CHECK(result[i]==(~PxU32(0)));
+        }
+        CHECK(selectedCount==a.reserved && p.pending==selectedCount && !p.error && get(stage).error==8);
+    }
+};
+int main() {
+    std::mt19937 random(1709);
+    for(unsigned size:{1u,127u,128u,129u,444u,4099u,113664u}) {
+        Fixture f(size);
+        for(unsigned pass=0;pass<8;++pass) {
+            const unsigned count=pass==7?size:unsigned(random()%(size+1));unsigned needed=0;
+            for(unsigned i=0;i<size;++i) {
+                const unsigned selected=unsigned(random()%3==0);needed+=i<count?selected:0;
+                f.requests[i]={i,7,unsigned(i%2),selected,i};
+                // Poison unused capacity: the GPU must not traverse it.
+                if(i>=count)f.requests[i]={(~PxU32(0)),(~PxU32(0)),99,99,(~PxU32(0))};
+            }
+            f.reset(count,needed,11);f.run(size+32);f.check(count,11);
+            f.run(size+32);f.check(count,11); // retry a valid pending assignment, without consuming twice
+            // Failed acceptance must not consume slots; success consumes once.
+            commitNativeMotionSlots<<<1,1>>>(f.pool,f.stage);CUDA(cudaDeviceSynchronize());CHECK(get(f.pool).committed==11);
+            auto stage=get(f.stage);stage.error=0;put(f.stage,stage);
+            commitNativeMotionSlots<<<1,1>>>(f.pool,f.stage);CUDA(cudaDeviceSynchronize());CHECK(get(f.pool).committed==11+needed);
+            commitNativeMotionSlots<<<1,1>>>(f.pool,f.stage);CUDA(cudaDeviceSynchronize());CHECK(get(f.pool).committed==11+needed);
+            if(needed) {
+                f.reset(count,needed,11);f.run(11+needed-1);f.unchanged();
+                CHECK(get(f.allocation).error==1 && !get(f.allocation).valid && get(f.pool).pending==0 && get(f.stage).error==8);
+                // Retry identical producer output after capacity growth.
+                f.run(size+32);f.check(count,11);
+            }
+        }
+        std::printf("stable device-count compaction, allocation, growth retry, commit: capacity=%u PASS\n",size);
+    }
+    Fixture f(444);
+    for(unsigned i=0;i<f.size;++i)f.requests[i]={i,7,0,1,i};
+    f.reset(444,443);f.run(476);f.unchanged();CHECK(get(f.allocation).error&2);
+    f.requests[220].candidateSlot=0;f.reset(444,444);f.run(476);f.unchanged();CHECK(get(f.allocation).error&2);
+    f.requests[220].candidateSlot=220;f.requests[220].sourceBody=f.addresses[220];
+    f.reset(444,444);f.run(476);f.unchanged();CHECK(get(f.allocation).error&4);
+    f.requests[220].sourceBody=7;f.reset(445,444);f.run(476);f.unchanged();CHECK(get(f.allocation).error&2);
+    f.reset(444,444,0,0);f.run(476);f.unchanged();CHECK(!get(f.pool).pending && !get(f.allocation).reserved);
+    f.reset(444,444,0,4096);f.run(476);f.unchanged();CHECK(get(f.stage).error==4096 && !get(f.pool).pending);
+    f.reset(444,444,500);f.run(476);f.unchanged();CHECK(get(f.allocation).error==1 && get(f.pool).committed==500);
+    f.reset(444,444);f.run(476);f.check(444,0);
+    finishNativeBodyShadowRegistration<<<1,1>>>(false,f.allocation,f.stage);
+    commitNativeMotionSlots<<<1,1>>>(f.pool,f.stage);CUDA(cudaDeviceSynchronize());
+    CHECK((get(f.allocation).error&8) && !get(f.allocation).valid && get(f.pool).committed==0);
+    // Retained owners carry real pre-existing IDs, not just sentinel values.
+    for(unsigned i=0;i<f.size;++i)f.requests[i].needsBody=i==3 || i==130;
+    f.reset(444,2);std::vector<PxU32> retained(444,7);
+    CUDA(cudaMemcpy(f.owners,retained.data(),retained.size()*sizeof(PxU32),cudaMemcpyHostToDevice));
+    f.run(476);CUDA(cudaMemcpy(retained.data(),f.owners,retained.size()*sizeof(PxU32),cudaMemcpyDeviceToHost));
+    for(unsigned i=0;i<444;++i)CHECK(retained[i]==(i==3?f.addresses[0]:i==130?f.addresses[1]:7));
+    std::puts("invalid counts/owners, retained mappings, registration rejection and no partial canonical assignment: PASS");
+}

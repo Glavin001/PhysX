@@ -80,7 +80,9 @@ LABELS={
  'correctedCollisionSolve':('Resimulate changed interaction','CPU task scheduling + GPU collision, constraints and motion solve'),
  'acceptCorrection':('Accept corrected step','GPU commit/status completion and CPU publication'),
  'trial.other':('Trial physics and remaining scene tasks','Original physics pass plus task/driver gaps outside destruction scopes')}
-STAGES={'contactLoads':'Convert solved contact impulses into chunk loads',
+STAGES={'motionAllocation':'GPU device-count fragment motion allocation',
+ 'motionAllocationRetry':'GPU allocation retry after exceptional storage growth',
+ 'contactLoads':'Convert solved contact impulses into chunk loads',
  'stress':'Iterative stress solve to convergence', 'materials':'Evaluate material damage and fracture',
  'topologyAndCandidates':'Connectivity, cluster mass and fragment candidates',
  'commitAndStressTopology':'Commit changes and rebuild stress topology',

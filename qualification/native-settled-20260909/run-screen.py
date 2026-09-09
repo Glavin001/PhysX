@@ -14,7 +14,7 @@ def sha(path):
         for block in iter(lambda:f.read(1024*1024),b''):h.update(block)
     return h.hexdigest()
 def main():
-    global ROOT,OUT,CANDIDATE
+    global ROOT,OUT,CANDIDATE,BINARY
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--capture',type=Path,default=ROOT)
     parser.add_argument('--reports',type=Path,default=SDK/'qualification/native-settled-20260909')
@@ -22,23 +22,30 @@ def main():
     parser.add_argument('--commands',type=Path,help='Existing recorded command tape for an explicit scene')
     parser.add_argument('--baseline-runtime',type=Path,default=LIVE/'libPhysXDestructionGpuRuntime_64.so',help='Immutable baseline runtime; defaults to the recorded live baseline')
     parser.add_argument('--title',default='Exact settled stress reuse',help='Mechanism named in the generated reports')
+    parser.add_argument('--steps',type=int,default=600,help='Recorded-command prefix length; default is the full 600-step screen')
+    parser.add_argument('--gpu-module',type=Path,default=LIVE/'libPhysXGpuActivity_64.so',help='Matching immutable GPU module')
+    parser.add_argument('--benchmark',type=Path,default=BINARY,help='Matching immutable consumer binary')
     args=parser.parse_args()
+    if not 31<=args.steps<=36000:parser.error('--steps must be 31..36000')
+    gpu_module=args.gpu_module.resolve();BINARY=args.benchmark.resolve()
+    if gpu_module.name!='libPhysXGpuActivity_64.so' or not gpu_module.is_file():parser.error('invalid --gpu-module')
+    if not BINARY.is_file():parser.error('invalid --benchmark')
     if bool(args.scene)!=bool(args.commands):parser.error('--scene and --commands must be supplied together')
     baseline=args.baseline_runtime.resolve()
     if baseline.name!='libPhysXDestructionGpuRuntime_64.so' or not baseline.is_file():parser.error('--baseline-runtime must name an existing native runtime library')
     ROOT=args.capture.resolve();OUT=ROOT/'screen';CANDIDATE=ROOT/'candidate'
     OUT.mkdir(parents=True,exist_ok=False)
-    receipt={'schema':1,'sequence':[],'benchmark_sha256':sha(BINARY),'service_changes':False}
+    receipt={'schema':1,'sequence':[],'benchmark_sha256':sha(BINARY),'service_changes':False,'steps':args.steps,'prefix_of_600_step_tape':args.steps<600}
     for ordinal,arm in enumerate(['baseline','candidate','candidate','baseline']):
         runtime=baseline if arm=='baseline' else CANDIDATE/'libPhysXDestructionGpuRuntime_64.so'
-        expected={runtime.name:runtime.resolve(),'libPhysXGpuActivity_64.so':(LIVE/'libPhysXGpuActivity_64.so').resolve()}
-        env=os.environ.copy();env['LD_LIBRARY_PATH']=str(runtime.parent)+':'+str(LIVE)+':/usr/local/cuda/lib64'
+        expected={runtime.name:runtime.resolve(),'libPhysXGpuActivity_64.so':gpu_module}
+        env=os.environ.copy();env['LD_LIBRARY_PATH']=str(runtime.parent)+':'+str(gpu_module.parent)+':'+str(LIVE)+':/usr/local/cuda/lib64'
         env.pop('VIBE_EMBEDDED_AUDIT_EVERY_TICK',None)
-        for regime,waves in [('idle','0'),('shots','3')]:
+        for regime,waves in [('idle','0'),('shots',str(min(3,1+(args.steps-31)//150)))]:
             apps=subprocess.check_output(['nvidia-smi','--query-compute-apps=pid,process_name','--format=csv,noheader'],text=True).strip()
             if apps:raise RuntimeError('GPU not isolated: '+apps)
             name=f'{ordinal+1}-{arm}-{regime}'
-            cmd=[str(BINARY),str(OUT/name),'1' if args.scene else '8','600','0' if args.scene else waves]
+            cmd=[str(BINARY),str(OUT/name),'1' if args.scene else '8',str(args.steps),'0' if args.scene else waves]
             if args.scene:
                 cmd.append(args.scene)
                 if regime=='shots':cmd.append(str(args.commands.resolve()))

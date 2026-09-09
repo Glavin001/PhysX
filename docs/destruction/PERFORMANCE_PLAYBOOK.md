@@ -43,7 +43,7 @@ settings and incrementally rebuild only affected targets:
 
 ```sh
 cmake --build out/sdk-release --target PhysX PhysXGpu PhysXDestructionGpuRuntime -j4
-cmake --build out/destruction-sdk --target native_destruction_demo native_gpu_collision_test -j4
+cmake --build out/destruction-sdk --target native_destruction_consumers -j3
 ```
 
 For stress changes, also build the focused test binaries:

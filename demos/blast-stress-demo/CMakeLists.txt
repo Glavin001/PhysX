@@ -665,11 +665,12 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_pairs_test PRIVATE CUDA::cudart)
     add_test(NAME physx_native_gpu_pairs COMMAND native_gpu_pairs_test)
 
-    add_executable(native_gpu_motion_slots_test tests/native_gpu_motion_slots_test.cu)
+    # One production-kernel oracle is shared by the SDK and demo test entry points.
+    add_executable(native_gpu_motion_slots_test "${PHYSX_ROOT}/source/gpudestruction/tests/motion_slots_test.cu")
     target_include_directories(native_gpu_motion_slots_test PRIVATE "${PHYSX_ROOT}/include"
         "${PHYSX_ROOT}/source/lowlevel/software/include" "${PHYSX_ROOT}/source/gpudestruction/src")
     target_compile_definitions(native_gpu_motion_slots_test PRIVATE NDEBUG)
-    set_target_properties(native_gpu_motion_slots_test PROPERTIES CUDA_ARCHITECTURES 89)
+    set_target_properties(native_gpu_motion_slots_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_link_libraries(native_gpu_motion_slots_test PRIVATE CUDA::cudart)
     add_test(NAME physx_native_gpu_motion_slots COMMAND native_gpu_motion_slots_test)
 
@@ -1034,4 +1035,17 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
         COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool memcheck
                 --leak-check full --error-exitcode 99 $<TARGET_FILE:gpu_resident_stress_test>)
     set_tests_properties(blast_stress_gpu_resident_memory PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer")
+endif()
+
+# Rebuild every private-ABI consumer together after engine interface/layout edits.
+# Keeping this derived from local executable targets also covers new fixtures.
+if(BLAST_ENABLE_CUDA_STRESS)
+    add_custom_target(native_destruction_consumers)
+    get_property(DESTRUCTION_LOCAL_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(DESTRUCTION_TARGET IN LISTS DESTRUCTION_LOCAL_TARGETS)
+        get_target_property(DESTRUCTION_TARGET_TYPE ${DESTRUCTION_TARGET} TYPE)
+        if(DESTRUCTION_TARGET MATCHES "^native_" AND DESTRUCTION_TARGET_TYPE STREQUAL "EXECUTABLE")
+            add_dependencies(native_destruction_consumers ${DESTRUCTION_TARGET})
+        endif()
+    endforeach()
 endif()
