@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 91: physx_native_gpu_shape_publication
+1/1 Test #91: physx_native_gpu_shape_publication ...   Passed    0.16 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.17 sec

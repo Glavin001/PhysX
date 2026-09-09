@@ -30,6 +30,16 @@ Controlled parity/lifetime checks pass; the short paired screen shows no speedup
 and an observed 0.9% higher worst fracture peak. CPU CCD/activity/iteration metadata,
 simulation registration and shape rebinding remain. This is partial ranked #1.
 
+Controlled continuation: public shape/query ownership is deferred to the final
+accepted batch, using GPU-owned per-chunk epochs and targets. Simulation links
+remain CPU prerequisites. A trial-view scratch overwrite was caught and fixed;
+a pre-existing stale solved-contact read was reproduced in baseline and WIP at
+sleep transition, then fixed with per-pass writeback stamps. All49 native tests,
+original frozen600/ordinary128 gates and a poisoned-output sleep/wake fixture pass.
+The short city screen establishes no speedup; CPU registration/rebinding remain.
+[Response-validity and paired-screen receipt](../../qualification/contact-response-20260909/README.md).
+[Current receipt](../../qualification/final-shape-owner-20260909/README.md).
+
 ## Architectural progress versus performance rejection
 
 User clarification: a physically equivalent, maintainable step toward the final

@@ -1,0 +1,20 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 81: physx_native_post_correction
+1/1 Test #81: physx_native_post_correction .....***Failed    0.41 sec
+shape publication: bindings=2 publications=1 failed=0
+post-stress complete=1 error=0 stage=0 passes=2 correction=1 broken=2 second=1
+native_standard_scene_test: final observation overwrote trial collision ownership
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+gpu            =   0.41 sec*proc (1 test)
+integration    =   0.41 sec*proc (1 test)
+
+Total Test time (real) =   0.42 sec
+
+The following tests FAILED:
+	 81 - physx_native_post_correction (Failed)
+Errors while running CTest

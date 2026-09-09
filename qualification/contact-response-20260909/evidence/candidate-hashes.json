@@ -1,0 +1,17 @@
+{
+  "libPhysXDestructionGpuRuntime_64.so": {
+    "path": "/root/workspace/physx-2/out/contact-response-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+    "sha256": "3b54ba399806ef377af16f18f761e22d6897a61a463e924244bdfe5276a49519",
+    "bytes": 11436992
+  },
+  "embedded_city_bench": {
+    "path": "/root/workspace/physx-2/out/contact-response-20260909/candidate/embedded_city_bench",
+    "sha256": "919956e1c00f58310998bc13efacd3702f112baf017350e0171bb810e1589beb",
+    "bytes": 6288024
+  },
+  "libPhysXGpuActivity_64.so": {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+    "sha256": "e2d0758ba6c09710a5f2630711cbb017264966015efccd0d14334052fe7d03e9",
+    "bytes": 349454496
+  }
+}

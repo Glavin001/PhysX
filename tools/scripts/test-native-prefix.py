@@ -78,6 +78,12 @@ class PrefixTests(unittest.TestCase):
     def test_changed_solver_settings(self):
         path=self.reference/'capture.json';data=json.loads(path.read_text());data['command'][-1]='4096';write_json(path,data)
         with self.assertRaisesRegex(ValueError,'command settings'):self.verify()
+    def test_stress_observation_keeps_physical_gate(self):
+        path=self.actual/'capture.json';data=json.loads(path.read_text())
+        data['command']+=['--trace-stress','1'];write_json(path,data)
+        self.assertEqual(self.verify()['status'],'passed')
+        mutate_row(self.actual/'native.frames.csv',5,'bonds_broken',1)
+        self.assertEqual(self.verify()['first_difference']['kind'],'bonds_broken')
     def test_unqualified_reference(self):
         path=self.reference/'quality.json';data=json.loads(path.read_text());data['frozen_identity_gate_passed']=False;write_json(path,data)
         with self.assertRaisesRegex(ValueError,'frozen identity'):self.verify()

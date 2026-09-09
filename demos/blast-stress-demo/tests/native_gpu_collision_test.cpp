@@ -4,6 +4,7 @@
 #include "NpScene.h"
 #include "NpRigidDynamic.h"
 #include "ScBodySim.h"
+#include "ScShapeSim.h"
 #include "NpShapeManager.h"
 #include "PxgSimulationController.h"
 #include "PxgSimulationCore.h"

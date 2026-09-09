@@ -1,0 +1,9 @@
+{
+  "compared_steps": 128,
+  "chunks": 444,
+  "bonds": 896,
+  "projectiles": 1,
+  "rows": 56832,
+  "first_raw_motion_difference": null,
+  "scope": "all recorded chunk fields; does not compare bond health or solved inputs"
+}

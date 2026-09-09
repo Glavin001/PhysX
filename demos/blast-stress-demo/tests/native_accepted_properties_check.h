@@ -3,7 +3,8 @@
 void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
     struct Observe final:PxProfilerCallback {
         Fixture* fixture=nullptr;
-        bool inspected=false,postStressInspected=false,failed=false;
+        bool inspected=false,postStressInspected=false,bindingsInspected=false,failed=false;
+        unsigned shapePublications=0;
         std::string error;
         Observe(){require(!PxGetProfilerCallback(),"property profiler occupied");PxSetProfilerCallback(this);}
         ~Observe()override{PxSetProfilerCallback(nullptr);}
@@ -13,11 +14,28 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
                 if(cpu.getBody2Actor().p.magnitudeSquared()>=1e-10f) {
                     failed=true;error="CPU physical properties published before post-correction stress";
                 }
+                if(fixture->shapes[1]->getActor()!=fixture->parent || fixture->parent->getNbShapes()!=4) {
+                    failed=true;error="CPU shape ownership published before post-correction stress";
+                }
                 postStressInspected=true;
+            }
+            if(fixture && inspected && !std::strcmp(name,"GpuDestruction.finalShapePublication")) {
+                ++shapePublications;
+                if(!postStressInspected || fixture->shapes[1]->getActor()!=fixture->parent) {
+                    failed=true;error="public shape owner changed before final publication";
+                }
             }
             return nullptr;
         }
         void zoneEnd(void*,const char* name,bool,PxU64)override {
+            if(fixture && !bindingsInspected && !std::strcmp(name,"GpuDestruction.applyBindings")) {
+                auto* shape=static_cast<NpShape*>(fixture->shapes[1]);
+                if(shape->getActor()!=fixture->parent
+                    || &shape->getCore().getExclusiveSim()->getActor()==static_cast<NpRigidDynamic*>(fixture->parent)->getCore().getSim()) {
+                    failed=true;error="simulation and public shape ownership were not separated";
+                }
+                bindingsInspected=true;
+            }
             if(!fixture || inspected || std::strcmp(name,"GpuDestruction.restoreInstall"))return;
             try {
                 const auto view=fixture->stage->getDeviceView();
@@ -58,6 +76,7 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
     if(observe.failed)throw std::runtime_error(observe.error);
     require(observe.inspected,"no corrected GPU installation observed");
     require(observe.postStressInspected,"no second stress boundary observed");
+    require(observe.bindingsInspected && observe.shapePublications==1,"shape observation was not published exactly once after correction");
     const auto status=f.stage->getLastStatus();
     require(status.correctionPasses==1 && status.stressPasses==2 && status.brokenBonds==1,
         "property fixture lost correction or changed fracture");

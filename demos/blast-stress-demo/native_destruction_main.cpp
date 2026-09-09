@@ -8,6 +8,7 @@
 #include "native_graph_diagnostics.h"
 #include "native_graph_boundary_audit.h"
 #include "native_gpu_consumer.h"
+#include "native_stress_trace.h"
 #include "PxgSimulationCore.h"
 #include "PxgSimulationController.h"
 #include <iomanip>
@@ -26,6 +27,9 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#ifdef NATIVE_FORCE_FRESHNESS_DIAGNOSTIC
+#include "native_force_freshness_audit.h"
+#endif
 using namespace physx;
 using namespace blast_demo;
 namespace {
@@ -38,7 +42,7 @@ using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
 int run(int argc,char** argv){
     const auto initializationBegin=Clock::now();
-    bool standardScene=false,standardSleeping=true;
+    bool standardScene=false,standardSleeping=true,traceStress=false;
     unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
@@ -52,6 +56,7 @@ int run(int argc,char** argv){
         else if(flag=="--frame-strength")frameStrength=std::stof(value);
         else if(flag=="--material-strength")materialStrength=std::stof(value);
         else if(flag=="--projectile-mass")projectileMass=std::stof(value);
+        else if(flag=="--trace-stress"){require(std::string(value)=="0" || std::string(value)=="1","--trace-stress requires 0 or 1");traceStress=std::string(value)=="1";}
         else if(flag=="--trace-motion"){require(std::string(value)=="0" || std::string(value)=="1","--trace-motion requires 0 or 1");traceMotion=std::string(value)=="1";}
         else if(flag=="--free-bodies")freeBodies=std::stoul(value);
         else if(flag=="--workload")workload=value;
@@ -190,6 +195,7 @@ int run(int argc,char** argv){
         gpuView.direction=(focus-gpuView.eye).getNormalized();gpuView.fovDegrees=40;
     }
     require(!traceMotion || (gpuRender && auditMotion && recordFps==60),"motion trace requires GPU rendering, motion audit and 60 fps observation");
+    NativeStressTrace stressTrace(traceStress,output);
     std::ofstream motionTrace,bodyTrace;
     if(traceMotion){bodyTrace.open(output+"/native.body-words.csv");bodyTrace<<"step,body";for(unsigned i=0;i<sizeof(PxgBodySim)/4;++i)bodyTrace<<",word"<<i;bodyTrace<<"\n";}
     if(traceMotion) {
@@ -222,6 +228,9 @@ int run(int argc,char** argv){
     shots.reserve(plannedShots);
     const double initializationMs=ms(initializationBegin);
     for(unsigned frame=0;frame<frames;++frame){
+#ifdef NATIVE_FORCE_FRESHNESS_DIAGNOSTIC
+        poisonNormalForceWriteback(scene,cuda,frame);
+#endif
         const auto tick=Clock::now();const auto completeStartNs=nativeProfileTimestamp();
         const unsigned firstLaunched=launched;const float time=frame*dt;
         while(launched<plannedShots && time>=launchWindow*float(launched)/float(plannedShots)){
@@ -274,6 +283,7 @@ int run(int argc,char** argv){
         phaseProfiler.acceptedFrame();
         const auto phaseOutputEndNs=profilePhases?nativeProfileTimestamp():0;
         // Optional observations/graphics and log writes cannot feed physics.
+        stressTrace.observe(frame,view,cuda);
         for(unsigned id=firstLaunched;id<launched;++id){
             const auto& r=launchRecords[id];
             launches<<r.id<<','<<r.step<<','<<r.building<<','<<r.position.x<<','<<r.position.y<<','<<r.position.z<<','<<r.velocity.x<<','<<r.velocity.y<<','<<r.velocity.z<<','<<r.ceiling<<'\n';
@@ -370,6 +380,7 @@ int run(int argc,char** argv){
     else require(totalCorrections && totalBroken && peakClusters>buildings,"native bombardment did not demonstrate destruction");if(recordState)require(writer.finish(),"state stream finalization failed");
     gpuConsumer.finishVideo();
     gpuActivity.finish();
+    stressTrace.finish();
     std::sort(times.begin(),times.end());auto percentile=[&](double p){return times[std::min(times.size()-1,size_t(p*times.size()))];};
     if(observePoses){PxScopedCudaLock lock(cuda);check(cuEventDestroy(observationIdsReady));check(cuMemFree(deviceIds));check(cuMemFree(devicePoses));}
     writeNativeGraphDiagnostics(scene,output+"/native.graph-diagnostics.json");

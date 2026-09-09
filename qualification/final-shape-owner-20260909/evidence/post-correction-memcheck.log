@@ -1,0 +1,8 @@
+========= COMPUTE-SANITIZER
+shape publication: bindings=2 publications=1 failed=0
+post-stress complete=1 error=0 stage=0 passes=2 correction=1 broken=2 second=1
+shape publication: bindings=2 publications=1 failed=0
+post-stress complete=1 error=0 stage=0 passes=2 correction=1 broken=2 second=1
+post-correction: 4 chunks, 2 bonds, 2 columns, ordinary sentinel; both verdicts and one-time motion passed
+post-correction: 4 chunks, 2 bonds, 2 columns, ordinary sentinel; both verdicts and one-time motion passed
+========= ERROR SUMMARY: 0 errors

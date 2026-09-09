@@ -1,13 +1,31 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #pragma once
+#include <foundation/PxProfiler.h>
 // Two independent loaded columns. The weak bond fails on the trial; the
 // subfatal bond loses section once and fails only when stress is re-evaluated.
 // The latter must split at the accepted pose without a third physics pass.
 void postCorrectionFracture(bool reports) {
+    PxRigidDynamic* owners[2]{};PxShape* shapes[4]{};
+    struct Observe final:PxProfilerCallback {
+        PxRigidDynamic** owners;PxShape** shapes;unsigned bindings=0,publications=0;bool failed=false,watching=false;
+        Observe(PxRigidDynamic** o,PxShape** s):owners(o),shapes(s) {require(!PxGetProfilerCallback(),"shape observer occupied");PxSetProfilerCallback(this);}
+        ~Observe()override{PxSetProfilerCallback(nullptr);}
+        void* zoneStart(const char* name,bool,PxU64)override {
+            if(watching && !std::strcmp(name,"GpuDestruction.finalShapePublication")) {
+                ++publications;if(bindings!=2)failed=true;
+            }
+            return nullptr;
+        }
+        void zoneEnd(void*,const char* name,bool,PxU64)override {
+            if(watching && !std::strcmp(name,"GpuDestruction.applyBindings")) {
+                ++bindings;
+                for(unsigned c=0;c<2;++c)if(shapes[2*c+1]->getActor()!=owners[c])failed=true;
+            }
+        }
+    } publication(owners,shapes);
     Events events;blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,false,false,false,false,PxSolverType::eTGS,false,reports);
     auto& scene=context.scene();auto& physics=context.physics();scene.setGravity(PxVec3(0));
-    PxRigidDynamic* owners[2]{};PxShape* shapes[4]{};
     PxDestructionStressChunk chunks[4]{};PxDestructionChunkMassProperties mass[4]{};
     PxDestructionStressCluster clusters[2]{};PxDestructionStressBond bonds[2]{};
     for(unsigned c=0;c<2;++c) {
@@ -45,8 +63,13 @@ void postCorrectionFracture(bool reports) {
     desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;
     require(stage->configureStress(desc),"post-stress configuration failed");
     scene.setGravity(PxVec3(0,-9.81f,0));sentinel->setLinearVelocity(PxVec3(3,0,0));
+    publication.watching=true;
     const auto before=sentinel->getGlobalPose().p;
     scene.simulate(1.f/60);PxU32 error=0;const bool complete=scene.fetchResults(true,&error);
+    publication.watching=false;
+    std::fprintf(stderr,"shape publication: bindings=%u publications=%u failed=%u\n",publication.bindings,publication.publications,publication.failed);
+    require(!publication.failed && publication.bindings==2 && publication.publications==1,
+        "public shape owners did not wait for the union of both fracture evaluations");
     const auto status=stage->getLastStatus();
     std::fprintf(stderr,"post-stress complete=%u error=%u stage=%u passes=%u correction=%u broken=%u second=%u\n",
         complete,error,status.error,status.stressPasses,status.correctionPasses,status.brokenBonds,status.postCorrectionBrokenBonds);
@@ -59,6 +82,26 @@ void postCorrectionFracture(bool reports) {
     require(late && late!=owners[1],"second-pass fragment kept original owner");
     require((late->getGlobalPose().transform(shapes[3]->getLocalPose().p)-PxVec3(10,5,0)).magnitude()<1e-5f
         && late->getLinearVelocity().magnitude()<1e-5f,"second-pass fragment was rewound or integrated a third time");
+    // Final CPU observation must not overwrite the exposed last-trial binding
+    // batch with a different, two-pass publication batch (whose source is unset).
+    {
+        const auto view=stage->getDeviceView();
+        PxScopedCudaLock lock(*context.cudaContextManager());
+        require(cuEventSynchronize(view.readyEvent)==CUDA_SUCCESS,"trial binding view event failed");
+        PxDestructionCollisionPreparationStatus prepared{};
+        require(cuMemcpyDtoH(&prepared,CUdeviceptr(view.collisionPreparation),sizeof(prepared))==CUDA_SUCCESS,
+            "trial binding status readback failed");
+        require(prepared.count>0 && prepared.count<=4,"missing final trial binding view");
+        std::vector<PxDestructionCollisionBinding> bindings(prepared.count);
+        require(cuMemcpyDtoH(bindings.data(),CUdeviceptr(view.trialCollisionBindings),bindings.size()*sizeof(bindings[0]))==CUDA_SUCCESS,
+            "trial binding view readback failed");
+        for(const auto& binding:bindings) {
+            require(binding.chunk<4 && binding.shape==chunks[binding.chunk].contactIndex,
+                "final observation overwrote trial collision identity");
+            require(binding.sourceBody!=PX_INVALID_U32 && binding.targetBody!=PX_INVALID_U32,
+                "final observation overwrote trial collision ownership");
+        }
+    }
     BodyObserver observer(*context.cudaContextManager());
     // Final observation must include owners changed by EITHER pass, once each.
     // The second verdict must not replace the first pass's pending publication.

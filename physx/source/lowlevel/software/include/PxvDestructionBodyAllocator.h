@@ -32,6 +32,9 @@ public:
     // on device. Called at the internal post-solve barrier, never via public API.
     virtual bool applyBindings(const PxDestructionCollisionBinding*, PxU32,
         const PxvDestructionBodyRequest*, const PxU32*, PxU32) { return false; }
+    // Final GPU-selected ownership union; simulation links already match these
+    // owners. This changes only accepted actor/query observations.
+    virtual bool publishShapeOwners(const PxDestructionCollisionBinding*,PxU32) { return false; }
     virtual void acceptReservations() {}
     virtual void discardReservations() { clear(); }
     virtual void clear() = 0;

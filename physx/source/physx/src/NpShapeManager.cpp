@@ -182,7 +182,7 @@ bool NpShapeManager::rebindShape(PxRigidActor& from, PxRigidActor& to, PxShape& 
 }
 
 bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, PxShape& shape,
-    const PxTransform& shapeToActor, bool nativeTransaction)
+    const PxTransform& shapeToActor, bool nativeTransaction, bool deferObservation)
 {
     if (&from == &to || from.getConcreteType() != PxConcreteType::eRIGID_DYNAMIC
         || to.getConcreteType() != PxConcreteType::eRIGID_DYNAMIC || !shapeToActor.isValid()) return false;
@@ -192,7 +192,7 @@ bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, P
     NpScene* scene = source.getNpScene();
     if (!scene || scene != target.getNpScene() || (!nativeTransaction && scene->isAPIWriteForbidden())
         || !(scene->getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
-        || !s.isExclusiveFast() || s.mExclusiveShapeActor != &from
+        || !s.isExclusiveFast() || (!deferObservation && s.mExclusiveShapeActor != &from)
         || source.getAggregate() || target.getAggregate()
         || s.getFlagsFast().isSet(PxShapeFlag::eTRIGGER_SHAPE)) return false;
     const PxGeometryType::Enum kind = s.getCore().getGeometryType();
@@ -211,6 +211,12 @@ bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, P
         PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION,PX_FL,
             "Native GPU destruction requires the built-in persistent query ownership implementation");
         return false;
+    }
+    if(deferObservation) {
+        // GPU ownership already changed. Only simulation registration is still
+        // needed for correction; actor/query observation waits for acceptance.
+        if(!nativeTransaction || &sim->getActor()!=source.getCore().getSim())return false;
+        return sim->rebindRigidOwner(*destination,shapeToActor,true);
     }
     const PxU32 index = s.getShapeManagerArrayIndex(a.mShapes);
     if (index == PX_INVALID_U32) return false;
@@ -237,6 +243,30 @@ bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, P
     s.mExclusiveShapeActor = &to;
     s.setShapeManagerArrayIndex(targetIndex);
     if (isSceneQuery(s) && !nativeTransaction) b.setupSceneQuery_(scene->getSQAPI(), target, to, s);
+    return true;
+}
+
+bool NpShapeManager::publishNativeShapeOwner(PxRigidActor& to,PxShape& shape)
+{
+    auto& s=static_cast<NpShape&>(shape);
+    if(!s.isExclusiveFast() || to.getConcreteType()!=PxConcreteType::eRIGID_DYNAMIC
+        || !s.mExclusiveShapeActor || s.mExclusiveShapeActor->getConcreteType()!=PxConcreteType::eRIGID_DYNAMIC)return false;
+    auto& source=static_cast<NpRigidDynamic&>(*s.mExclusiveShapeActor);
+    auto& target=static_cast<NpRigidDynamic&>(to);auto* scene=source.getNpScene();
+    auto* sim=s.getCore().getExclusiveSim();
+    if(!scene || target.getNpScene()!=scene || !sim || &sim->getActor()!=target.getCore().getSim())return false;
+    if(&source==&target)return true;
+    auto& a=source.getShapeManager();auto& b=target.getShapeManager();
+    const PxU32 index=s.getShapeManagerArrayIndex(a.mShapes);
+    if(index==PX_INVALID_U32)return false;
+    auto& storage=NpFactory::getInstance().getPtrTableStorageManager();
+    const PxU32 targetIndex=b.mShapes.getCount();b.mShapes.add(&s,storage);
+    if(isSceneQuery(s) && !scene->getNpSQ().rebindNativeGpuQuery(source,target,s)) {
+        b.mShapes.replaceWithLast(targetIndex,storage);return false;
+    }
+    void** ptrs=a.mShapes.getPtrs();const PxU32 last=a.mShapes.getCount()-1;
+    if(index!=last)static_cast<NpShape*>(ptrs[last])->setShapeManagerArrayIndex(index);
+    a.mShapes.replaceWithLast(index,storage);s.mExclusiveShapeActor=&to;s.setShapeManagerArrayIndex(targetIndex);
     return true;
 }
 

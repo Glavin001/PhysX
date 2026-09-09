@@ -67,7 +67,7 @@ def motion(path, count):
 
 def options(command):
     require(len(command) % 2 == 1, 'Malformed captured command')
-    ignored = {'--seconds', '--steps', '--output', '--motion-path', '--gpu-video', '--gpu-camera', '--color-by-cluster'}
+    ignored = {'--seconds', '--steps', '--output', '--motion-path', '--gpu-video', '--gpu-camera', '--color-by-cluster', '--trace-stress'}
     return {k: v for k, v in zip(command[1::2], command[2::2]) if k not in ignored}
 
 

@@ -1,0 +1,12 @@
+{
+  "steps": 64,
+  "chunks": 444,
+  "bonds": 896,
+  "projectiles": 1,
+  "physical_signature": "57ae7c98a25e5517019eca7f72fddb853d0033175b61a081de75cfb64bef90b6",
+  "complete_partition_valid": true,
+  "compatibility_after_gpu_preparation": true,
+  "final_publication_explicit_and_disjoint": true,
+  "final_shape_publication_exercised": true,
+  "performance_qualification": false
+}

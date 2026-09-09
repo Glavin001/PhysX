@@ -636,7 +636,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction)
-            mDestruction = PxCreateDestructionRuntimeV6(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV7(mCudaContextManager->getContext(), scene, gate, allocator);
         return mDestruction;
     }
 

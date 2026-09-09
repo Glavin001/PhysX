@@ -1,0 +1,71 @@
+{
+  "2-candidate-shots": {
+    "normal_contacts": {
+      "tick": 59,
+      "baseline": 145969,
+      "other": 145869
+    },
+    "broken_bonds": {
+      "tick": 78,
+      "baseline": 70332,
+      "other": 70283
+    },
+    "fragment_bodies": {
+      "tick": 78,
+      "baseline": 15162,
+      "other": 15151
+    },
+    "awake_fragment_bodies": {
+      "tick": 78,
+      "baseline": 14862,
+      "other": 14850
+    },
+    "native_corrections": null
+  },
+  "3-candidate-shots": {
+    "normal_contacts": {
+      "tick": 59,
+      "baseline": 145969,
+      "other": 145869
+    },
+    "broken_bonds": {
+      "tick": 78,
+      "baseline": 70332,
+      "other": 70283
+    },
+    "fragment_bodies": {
+      "tick": 78,
+      "baseline": 15162,
+      "other": 15151
+    },
+    "awake_fragment_bodies": {
+      "tick": 78,
+      "baseline": 14862,
+      "other": 14850
+    },
+    "native_corrections": null
+  },
+  "4-baseline-shots": {
+    "normal_contacts": {
+      "tick": 79,
+      "baseline": 371653,
+      "other": 371713
+    },
+    "broken_bonds": {
+      "tick": 78,
+      "baseline": 70332,
+      "other": 70283
+    },
+    "fragment_bodies": {
+      "tick": 78,
+      "baseline": 15162,
+      "other": 15151
+    },
+    "awake_fragment_bodies": {
+      "tick": 78,
+      "baseline": 14862,
+      "other": 14850
+    },
+    "native_corrections": null
+  }
+}

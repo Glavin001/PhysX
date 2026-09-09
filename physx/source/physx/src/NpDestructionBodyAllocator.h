@@ -234,7 +234,7 @@ public:
             if(!from || !to || from==to || !owners.find(b.sourceBody) || b.shape>=shapeCapacity
                 || !shapes[b.shape] || !seen.insert(b.shape,i))return false;
             auto* sim=shapes[b.shape];auto* shape=static_cast<NpShape*>(sim->getPxShape());
-            if(!shape || sim->getElementID()!=b.shape || shape->getActor()!=from || !shape->isExclusiveFast()
+            if(!shape || sim->getElementID()!=b.shape || (needsHostProperties()? &sim->getActor()!=from->getCore().getSim():shape->getActor()!=from) || !shape->isExclusiveFast()
                 || shape->getCore().getExclusiveSim()!=sim || !sim->isInBroadPhase()
                 || shape->getFlagsFast().isSet(PxShapeFlag::eTRIGGER_SHAPE)
                 || (shape->getFlagsFast().isSet(PxShapeFlag::eSCENE_QUERY_SHAPE)
@@ -270,8 +270,26 @@ public:
         for(PxU32 i=0;i<count;++i) {
             const auto b=bindings[i];auto* shape=static_cast<NpShape*>(shapes[b.shape]->getPxShape());
             if(!NpShapeManager::rebindShapeInternal(*source(b.sourceBody),*source(b.targetBody,true),
-                *shape,shape->getLocalPoseFast(),true))return false;
+                *shape,shape->getLocalPoseFast(),true,needsHostProperties()))return false;
         }
+        }
+        return true;
+    }
+    bool publishShapeOwners(const PxDestructionCollisionBinding* bindings,PxU32 count) override {
+        if(count && !bindings)return false;
+        auto* controller=mScene.getScScene().getSimulationController();
+        auto** shapes=controller->getShapeSims();const PxU32 capacity=controller->getNbShapes();
+        // Validate the entire GPU-selected final batch before publication.
+        for(PxU32 i=0;i<count;++i) {
+            const auto& b=bindings[i];auto* target=source(b.targetBody,true);
+            if(!target || b.shape>=capacity || !shapes[b.shape]
+                || &shapes[b.shape]->getActor()!=target->getCore().getSim())return false;
+        }
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.finalShapePublication",false,
+            PxU64(reinterpret_cast<size_t>(this)));
+        for(PxU32 i=0;i<count;++i) {
+            const auto& b=bindings[i];auto* shape=shapes[b.shape]->getPxShape();
+            if(!NpShapeManager::publishNativeShapeOwner(*source(b.targetBody,true),*shape))return false;
         }
         return true;
     }

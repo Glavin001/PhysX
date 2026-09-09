@@ -83,10 +83,16 @@ class TimingAccounting(unittest.TestCase):
     def test_final_publication_is_not_trial_or_double_counted(self):
         by={'acceptCorrection':[(0,20)],'submit':[(20,40)],'finalPublication':[(40,90)]}
         p=r.partition([(0,100)],by)
-        self.assertAlmostEqual(p['finalPublication'],.00005)
+        self.assertAlmostEqual(p['finalPublication.other'],.00005)
         self.assertAlmostEqual(p['trial.other'],.00001)
         self.assertAlmostEqual(sum(p.values()),.0001)
         self.assertIn('finalPublication',r.LABELS)
+        p=r.partition([(0,100)],dict(by,finalShapePublication=[(60,80)]))
+        self.assertAlmostEqual(p['finalShapePublication'],.00002)
+        self.assertAlmostEqual(p['finalPublication.other'],.00003)
+        self.assertAlmostEqual(sum(p.values()),.0001)
+        with self.assertRaisesRegex(ValueError,'escapes'):
+            r.partition([(0,100)],dict(by,finalShapePublication=[(20,50)]))
         with self.assertRaisesRegex(ValueError,'Overlapping'):
             r.partition([(0,100)],dict(by,finalPublication=[(30,90)]))
 

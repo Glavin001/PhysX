@@ -36,6 +36,7 @@ def main():
     parser.add_argument('--expected-runtime',type=Path,help='Require this actual mapped destruction runtime (isolated candidate audit)')
     parser.add_argument('--tier',choices=['early','screen','full'],default='full')
     parser.add_argument('--reference',type=Path,help='Previously audited, mode-matched capture; required for prefixes')
+    parser.add_argument('--trace-stress',action='store_true',help='Diagnostic accepted health/last-solve forces and chunk inputs; not a performance capture')
     parser.add_argument('--video',action='store_true',help='Also encode the audited GPU-rendered penetration view')
     args=parser.parse_args();out=args.output.resolve();binary=args.binary.resolve()
     if args.tier!='full' and not args.reference:parser.error('--reference is required for prefix comparisons')
@@ -51,6 +52,7 @@ def main():
     if args.standard_scene:
         cmd += ['--standard-scene','1','--sleeping',str(args.sleeping)]
         cmd[cmd.index('--gpu-connectivity-owner')+1]='0'
+    if args.trace_stress:cmd += ['--trace-stress','1']
     if args.video:
         cmd += ['--gpu-video',str(out/'native.mp4'),'--gpu-camera','penetration','--color-by-cluster','1']
     for option in ['--record-state','--gpu-render','--audit-motion','--trace-motion']:

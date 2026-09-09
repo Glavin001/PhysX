@@ -116,7 +116,8 @@ public:
 private:
     friend class NpDestructionBodyAllocator;
     static bool rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, PxShape& shape,
-        const PxTransform& shapeToActor, bool nativeTransaction);
+        const PxTransform& shapeToActor, bool nativeTransaction, bool deferObservation = false);
+    static bool publishNativeShapeOwner(PxRigidActor& to, PxShape& shape);
 					Cm::PtrTable			mShapes;
 					Sq::PruningStructure*	mPruningStructure;  // Shape scene query data are pre-build in pruning structure
 //					NpCompoundId			mSqCompoundId;

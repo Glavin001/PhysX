@@ -35,6 +35,7 @@ void check(cudaError_t e) { if(e!=cudaSuccess) throw std::runtime_error(cudaGetE
 template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T)*std::max<size_t>(n,1))); }
 #include "PxgDestructionMaterial.cuh"
 #include "PxgDestructionCommittedChanges.cuh"
+#include "PxgDestructionShapePublication.cuh"
 // Rebind compact runtime cluster slots entirely on device after acceptance.
 __global__ void acceptClusterBindings(PxDestructionTopologyDeviceView topology,
     const PxU32* targets,PxDestructionStressCluster* clusters,const PxDestructionStageStatus* status) {
@@ -375,7 +376,8 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
 // the motion owner changes; geometry, local bounds and registration stay resident.
 __global__ void installNativeCollisionOwners(const PxDestructionCollisionBinding* bindings,
     PxU32 count,PxgShapeSim* shapes,PxU32 capacity,PxNodeIndex* shapeToBody,PxU32 remapCapacity,
-    PxU64* ownerGenerations,PxU64 generation) {
+    PxU64* ownerGenerations,PxU64 generation,PxU64* publicationEpochs,PxU32* publicationTargets,
+    const PxDestructionStageStatus* stage) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bindings[i];
     if(b.shape>=capacity || b.shape>=remapCapacity || b.targetBody==PX_INVALID_U32) {asm volatile("trap;");return;}
@@ -390,7 +392,10 @@ __global__ void installNativeCollisionOwners(const PxDestructionCollisionBinding
     // Broad phase's NEW flag assumes old pair managers were removed. Only
     // migrating shapes require that lifecycle; retained owners keep their
     // existing pairs while the correction resets their solver/contact caches.
-    if(b.sourceBody!=b.targetBody)ownerGenerations[b.shape]=generation;
+    if(b.sourceBody!=b.targetBody) {
+        ownerGenerations[b.shape]=generation;
+        if(publicationEpochs) {publicationEpochs[b.chunk]=stage->frame;publicationTargets[b.chunk]=b.targetBody;}
+    }
 }
 struct HasMigratingCollisionBinding {
     __host__ __device__ bool operator()(const PxDestructionCollisionBinding& b) const {
@@ -467,7 +472,7 @@ class Runtime final : public PxgDestructionRuntime {
     // pinned transfer, not a status-copy chain between device stages.
     struct Completion {
         PxDestructionStageStatus stage;
-        PxU32 propertyCount;
+        PxU32 propertyCount, shapeCount;
         PxDestructionBodyPreparationStatus body;
         PxDestructionBodyAllocationStatus allocation;
         PxDestructionCollisionPreparationStatus collision;
@@ -525,6 +530,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionCorrectionPreparationStatus* mCorrectionPreparation{};
     void* mCorrectionScratch{};size_t mCorrectionScratchBytes{};
     PxU64* mPropertyEpochs{};PxU32* mPropertyCount{};PxU32 mPendingPropertyCapacity=0;
+    PxU64* mShapePublicationEpochs{};PxU32* mShapePublicationTargets{};PxU32 mPendingShapeCapacity=0;
     PxU32 mCorrectionBodyCapacity{};
     bool mCollisionPreparationSubmitted=false,mCorrectionPreparationSubmitted=false;
     PxU64 mRestoredCheckpointGeneration{};
@@ -939,6 +945,7 @@ public:
         cudaFree(mCorrectionOwnerRequests);mCorrectionOwnerRequests=nullptr;
         cudaFree(mCorrectionOwnerTargets);mCorrectionOwnerTargets=nullptr;
         cudaFree(mPropertyEpochs);mPropertyEpochs=nullptr;mPropertyCount=nullptr;mPendingPropertyCapacity=0;
+        cudaFree(mShapePublicationEpochs);cudaFree(mShapePublicationTargets);mShapePublicationEpochs=nullptr;mShapePublicationTargets=nullptr;mPendingShapeCapacity=0;
         cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
         mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
@@ -1119,12 +1126,19 @@ public:
                     &mCorrectionPreparation->count,d.chunkCount,HasCorrectionBody{},mStream));
                 if(mBodyAllocator->needsHostProperties()) {
                     allocate(mPropertyEpochs,d.chunkCount);mPropertyCount=&mCompletion->propertyCount;
+                    allocate(mShapePublicationEpochs,d.chunkCount);allocate(mShapePublicationTargets,d.chunkCount);
+                    check(cudaMemsetAsync(mShapePublicationEpochs,0,d.chunkCount*sizeof(PxU64),mStream));
                     check(cudaMemsetAsync(mPropertyEpochs,0,d.chunkCount*sizeof(PxU64),mStream));
                     size_t propertyBytes=0;
                     check(cub::DeviceSelect::If(nullptr,propertyBytes,cub::CountingInputIterator<PxU32>(0),
                         mCorrectionOwnerTargets,mPropertyCount,d.chunkCount,
                         HasChangedProperties{mTopology->accepted().activeClusters,mPropertyEpochs,mStatus},mStream));
                     mCorrectionScratchBytes=std::max(mCorrectionScratchBytes,propertyBytes);
+                    size_t shapeBytes=0;
+                    check(cub::DeviceSelect::If(nullptr,shapeBytes,cub::CountingInputIterator<PxU32>(0),
+                        mCorrectionOwnerTargets,&mCompletion->shapeCount,d.chunkCount,
+                        HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
+                    mCorrectionScratchBytes=std::max(mCorrectionScratchBytes,shapeBytes);
                 }
                 check(cudaMalloc(&mCorrectionScratch,mCorrectionScratchBytes));
                 allocate(mTrialBodies,d.chunkCount);mBodyPreparation=&mCompletion->body;
@@ -1211,7 +1225,7 @@ public:
                 if(mHostStatus->error || mHostStatus->correctionPasses!=1 || mHostStatus->stressPasses!=1)return false;
                 mFirstPassStatus=*mHostStatus;
             }
-            if(!postCorrection){mInstalledOwnerGeneration=0;mPendingPropertyCapacity=0;}
+            if(!postCorrection){mInstalledOwnerGeneration=0;mPendingPropertyCapacity=0;mPendingShapeCapacity=0;}
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
             startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,postCorrection);
             if(mTopology && !postCorrection)mChanges.start(mTopology->accepted(),mStatus,mStream);
@@ -1242,15 +1256,30 @@ public:
                     capacity,mTrialBodies,mClusters,mMotionStorage.bodies,mCorrectionBodies,mStatus);
                 check(cudaMemcpyAsync(observations.data(),mCorrectionBodies,capacity*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
             }
+            const PxU32 shapeCapacity=std::min(mN,mPendingShapeCapacity);
+            std::vector<PxDestructionCollisionBinding> shapeObservations(shapeCapacity);
+            if(shapeCapacity) {
+                // Reuse private preparation scratch. The compact trial batch
+                // remains exposed by getDeviceView with its original count.
+                check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
+                    cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,&mCompletion->shapeCount,mN,
+                    HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
+                gatherFinalShapeOwners<<<(shapeCapacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,
+                    &mCompletion->shapeCount,shapeCapacity,mChunks,mShapePublicationTargets,mCollisionBindings,mStatus);
+                check(cudaMemcpyAsync(shapeObservations.data(),mCollisionBindings,
+                    shapeCapacity*sizeof(shapeObservations[0]),cudaMemcpyDeviceToHost,mStream));
+            }
             check(cudaGetLastError());
             // Selected count shares the mandatory completion transfer. No
             // count-read/wait/resubmit boundary is needed to size the payload.
-            check(cudaMemcpyAsync(mHostCompletion,mCompletion,sizeof(*mStatus)+(capacity?sizeof(PxU32):0),cudaMemcpyDeviceToHost,mStream));
+            check(cudaMemcpyAsync(mHostCompletion,mCompletion,sizeof(*mStatus)+((capacity||shapeCapacity)?2*sizeof(PxU32):0),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             count=capacity?mHostCompletion->propertyCount:0;
             if(mHostStatus->error || count>capacity)return false;
             if(count && !mBodyAllocator->publishCorrectionProperties(observations.data(),count))return false;
-            mPendingPropertyCapacity=0;mPostCorrection=false;return true;
+            const PxU32 shapeCount=shapeCapacity?mHostCompletion->shapeCount:0;
+            if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(shapeObservations.data(),shapeCount)))return false;
+            mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPostCorrection=false;return true;
         }catch(...){mFailed=true;return false;}
     }
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
@@ -1698,7 +1727,7 @@ public:
             const PxU32 count=mHostCompletion->collision.count;
             correctionMarker(4,stream);
             if(count)installNativeCollisionOwners<<<(count+127)/128,128,0,stream>>>(mCompactCollisionBindings,count,shapes,capacity,shapeToBody,remapCapacity,
-                mShapeOwnerGenerations,mCheckpointGeneration);
+                mShapeOwnerGenerations,mCheckpointGeneration,mShapePublicationEpochs,mShapePublicationTargets,mStatus);
             correctionMarker(5,stream);
             check(cudaGetLastError());check(cudaEventRecord(mReady,stream));
             mInstalledOwnerGeneration=count?mCheckpointGeneration:0;return true;
@@ -1769,6 +1798,8 @@ public:
             // budget. CUDA selects the union of changed surviving owners once.
             if(mPropertyEpochs)mPendingPropertyCapacity=PxU32(std::min<PxU64>(mN,
                 PxU64(mPendingPropertyCapacity)+mHostCompletion->correction.count));
+            if(mShapePublicationEpochs)mPendingShapeCapacity=PxU32(std::min<PxU64>(mN,
+                PxU64(mPendingShapeCapacity)+mHostCompletion->collision.migrating));
             check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             collectCorrectionTimings();
@@ -1790,7 +1821,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV6(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV7(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 

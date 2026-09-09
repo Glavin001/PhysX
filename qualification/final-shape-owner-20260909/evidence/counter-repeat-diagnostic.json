@@ -1,0 +1,2705 @@
+[
+  {
+    "capture": "wall-baseline-control",
+    "differences": [
+      {
+        "step": 82,
+        "changes": {
+          "stress_iterations": [
+            "178",
+            "202"
+          ]
+        }
+      },
+      {
+        "step": 83,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 84,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "197"
+          ]
+        }
+      },
+      {
+        "step": 85,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 86,
+        "changes": {
+          "stress_iterations": [
+            "165",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 87,
+        "changes": {
+          "stress_iterations": [
+            "181",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 88,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 90,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 92,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 93,
+        "changes": {
+          "stress_iterations": [
+            "157",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 94,
+        "changes": {
+          "stress_iterations": [
+            "163",
+            "206"
+          ]
+        }
+      },
+      {
+        "step": 95,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "164"
+          ]
+        }
+      },
+      {
+        "step": 96,
+        "changes": {
+          "stress_iterations": [
+            "162",
+            "186"
+          ]
+        }
+      },
+      {
+        "step": 97,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 98,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 99,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 100,
+        "changes": {
+          "stress_iterations": [
+            "198",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 101,
+        "changes": {
+          "stress_iterations": [
+            "171",
+            "198"
+          ]
+        }
+      },
+      {
+        "step": 102,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 103,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 104,
+        "changes": {
+          "stress_iterations": [
+            "164",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 106,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "201"
+          ]
+        }
+      },
+      {
+        "step": 107,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "191"
+          ]
+        }
+      },
+      {
+        "step": 108,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 109,
+        "changes": {
+          "stress_iterations": [
+            "154",
+            "157"
+          ]
+        }
+      },
+      {
+        "step": 111,
+        "changes": {
+          "stress_iterations": [
+            "209",
+            "167"
+          ]
+        }
+      },
+      {
+        "step": 112,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 113,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "210"
+          ]
+        }
+      },
+      {
+        "step": 117,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 118,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "201"
+          ]
+        }
+      },
+      {
+        "step": 119,
+        "changes": {
+          "stress_iterations": [
+            "208",
+            "210"
+          ]
+        }
+      },
+      {
+        "step": 121,
+        "changes": {
+          "stress_iterations": [
+            "147",
+            "148"
+          ]
+        }
+      },
+      {
+        "step": 125,
+        "changes": {
+          "stress_iterations": [
+            "161",
+            "155"
+          ]
+        }
+      },
+      {
+        "step": 126,
+        "changes": {
+          "stress_iterations": [
+            "184",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 127,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "163"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "capture": "wall-baseline-repeat-2",
+    "differences": [
+      {
+        "step": 82,
+        "changes": {
+          "stress_iterations": [
+            "178",
+            "202"
+          ]
+        }
+      },
+      {
+        "step": 83,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 84,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "197"
+          ]
+        }
+      },
+      {
+        "step": 85,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 86,
+        "changes": {
+          "stress_iterations": [
+            "165",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 87,
+        "changes": {
+          "stress_iterations": [
+            "181",
+            "185"
+          ]
+        }
+      },
+      {
+        "step": 90,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "155"
+          ]
+        }
+      },
+      {
+        "step": 91,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 92,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 93,
+        "changes": {
+          "stress_iterations": [
+            "157",
+            "152"
+          ]
+        }
+      },
+      {
+        "step": 94,
+        "changes": {
+          "stress_iterations": [
+            "163",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 95,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 96,
+        "changes": {
+          "stress_iterations": [
+            "162",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 97,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 98,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 99,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "187"
+          ]
+        }
+      },
+      {
+        "step": 100,
+        "changes": {
+          "stress_iterations": [
+            "198",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 101,
+        "changes": {
+          "stress_iterations": [
+            "171",
+            "197"
+          ]
+        }
+      },
+      {
+        "step": 102,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 103,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 104,
+        "changes": {
+          "stress_iterations": [
+            "164",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 106,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "201"
+          ]
+        }
+      },
+      {
+        "step": 107,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 108,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 109,
+        "changes": {
+          "stress_iterations": [
+            "154",
+            "183"
+          ]
+        }
+      },
+      {
+        "step": 112,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 113,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 114,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "184"
+          ]
+        }
+      },
+      {
+        "step": 115,
+        "changes": {
+          "stress_iterations": [
+            "190",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 116,
+        "changes": {
+          "stress_iterations": [
+            "203",
+            "204"
+          ]
+        }
+      },
+      {
+        "step": 117,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "146"
+          ]
+        }
+      },
+      {
+        "step": 118,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 121,
+        "changes": {
+          "stress_iterations": [
+            "147",
+            "185"
+          ]
+        }
+      },
+      {
+        "step": 122,
+        "changes": {
+          "stress_iterations": [
+            "151",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 123,
+        "changes": {
+          "stress_iterations": [
+            "194",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 125,
+        "changes": {
+          "stress_iterations": [
+            "161",
+            "159"
+          ]
+        }
+      },
+      {
+        "step": 126,
+        "changes": {
+          "stress_iterations": [
+            "184",
+            "160"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "capture": "wall-baseline-repeat-3",
+    "differences": [
+      {
+        "step": 82,
+        "changes": {
+          "stress_iterations": [
+            "178",
+            "180"
+          ]
+        }
+      },
+      {
+        "step": 83,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 85,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 86,
+        "changes": {
+          "stress_iterations": [
+            "165",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 87,
+        "changes": {
+          "stress_iterations": [
+            "181",
+            "164"
+          ]
+        }
+      },
+      {
+        "step": 88,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 90,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "161"
+          ]
+        }
+      },
+      {
+        "step": 91,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 92,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 93,
+        "changes": {
+          "stress_iterations": [
+            "157",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 94,
+        "changes": {
+          "stress_iterations": [
+            "163",
+            "166"
+          ]
+        }
+      },
+      {
+        "step": 95,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 96,
+        "changes": {
+          "stress_iterations": [
+            "162",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 97,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 98,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 99,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 100,
+        "changes": {
+          "stress_iterations": [
+            "198",
+            "171"
+          ]
+        }
+      },
+      {
+        "step": 101,
+        "changes": {
+          "stress_iterations": [
+            "171",
+            "197"
+          ]
+        }
+      },
+      {
+        "step": 102,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 104,
+        "changes": {
+          "stress_iterations": [
+            "164",
+            "186"
+          ]
+        }
+      },
+      {
+        "step": 107,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "201"
+          ]
+        }
+      },
+      {
+        "step": 109,
+        "changes": {
+          "stress_iterations": [
+            "154",
+            "157"
+          ]
+        }
+      },
+      {
+        "step": 110,
+        "changes": {
+          "stress_iterations": [
+            "203",
+            "186"
+          ]
+        }
+      },
+      {
+        "step": 111,
+        "changes": {
+          "stress_iterations": [
+            "209",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 112,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 113,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "168"
+          ]
+        }
+      },
+      {
+        "step": 115,
+        "changes": {
+          "stress_iterations": [
+            "190",
+            "191"
+          ]
+        }
+      },
+      {
+        "step": 117,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 118,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 120,
+        "changes": {
+          "stress_iterations": [
+            "159",
+            "161"
+          ]
+        }
+      },
+      {
+        "step": 121,
+        "changes": {
+          "stress_iterations": [
+            "147",
+            "148"
+          ]
+        }
+      },
+      {
+        "step": 123,
+        "changes": {
+          "stress_iterations": [
+            "194",
+            "164"
+          ]
+        }
+      },
+      {
+        "step": 124,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "166"
+          ]
+        }
+      },
+      {
+        "step": 125,
+        "changes": {
+          "stress_iterations": [
+            "161",
+            "163"
+          ]
+        }
+      },
+      {
+        "step": 126,
+        "changes": {
+          "stress_iterations": [
+            "184",
+            "192"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "capture": "wall-candidate-repeat-3",
+    "differences": [
+      {
+        "step": 82,
+        "changes": {
+          "stress_iterations": [
+            "178",
+            "202"
+          ]
+        }
+      },
+      {
+        "step": 83,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 84,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 85,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 86,
+        "changes": {
+          "stress_iterations": [
+            "165",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 87,
+        "changes": {
+          "stress_iterations": [
+            "181",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 88,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 91,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "191"
+          ]
+        }
+      },
+      {
+        "step": 92,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 93,
+        "changes": {
+          "stress_iterations": [
+            "157",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 94,
+        "changes": {
+          "stress_iterations": [
+            "163",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 95,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 96,
+        "changes": {
+          "stress_iterations": [
+            "162",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 97,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 98,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 99,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "166"
+          ]
+        }
+      },
+      {
+        "step": 100,
+        "changes": {
+          "stress_iterations": [
+            "198",
+            "171"
+          ]
+        }
+      },
+      {
+        "step": 101,
+        "changes": {
+          "stress_iterations": [
+            "171",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 102,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "191"
+          ]
+        }
+      },
+      {
+        "step": 103,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 104,
+        "changes": {
+          "stress_iterations": [
+            "164",
+            "191"
+          ]
+        }
+      },
+      {
+        "step": 105,
+        "changes": {
+          "stress_iterations": [
+            "201",
+            "171"
+          ]
+        }
+      },
+      {
+        "step": 106,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 108,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 109,
+        "changes": {
+          "stress_iterations": [
+            "154",
+            "160"
+          ]
+        }
+      },
+      {
+        "step": 113,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "184"
+          ]
+        }
+      },
+      {
+        "step": 114,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 115,
+        "changes": {
+          "stress_iterations": [
+            "190",
+            "191"
+          ]
+        }
+      },
+      {
+        "step": 116,
+        "changes": {
+          "stress_iterations": [
+            "203",
+            "204"
+          ]
+        }
+      },
+      {
+        "step": 117,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "153"
+          ]
+        }
+      },
+      {
+        "step": 118,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "201"
+          ]
+        }
+      },
+      {
+        "step": 120,
+        "changes": {
+          "stress_iterations": [
+            "159",
+            "186"
+          ]
+        }
+      },
+      {
+        "step": 121,
+        "changes": {
+          "stress_iterations": [
+            "147",
+            "191"
+          ]
+        }
+      },
+      {
+        "step": 122,
+        "changes": {
+          "stress_iterations": [
+            "151",
+            "184"
+          ]
+        }
+      },
+      {
+        "step": 123,
+        "changes": {
+          "stress_iterations": [
+            "194",
+            "164"
+          ]
+        }
+      },
+      {
+        "step": 127,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "196"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "capture": "wall-candidate-repeat-4",
+    "differences": [
+      {
+        "step": 83,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 84,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 85,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 86,
+        "changes": {
+          "stress_iterations": [
+            "165",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 87,
+        "changes": {
+          "stress_iterations": [
+            "181",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 88,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 91,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 93,
+        "changes": {
+          "stress_iterations": [
+            "157",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 94,
+        "changes": {
+          "stress_iterations": [
+            "163",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 95,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "170"
+          ]
+        }
+      },
+      {
+        "step": 96,
+        "changes": {
+          "stress_iterations": [
+            "162",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 97,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 98,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 99,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "163"
+          ]
+        }
+      },
+      {
+        "step": 100,
+        "changes": {
+          "stress_iterations": [
+            "198",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 101,
+        "changes": {
+          "stress_iterations": [
+            "171",
+            "197"
+          ]
+        }
+      },
+      {
+        "step": 102,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 103,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 104,
+        "changes": {
+          "stress_iterations": [
+            "164",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 106,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "198"
+          ]
+        }
+      },
+      {
+        "step": 108,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 109,
+        "changes": {
+          "stress_iterations": [
+            "154",
+            "183"
+          ]
+        }
+      },
+      {
+        "step": 111,
+        "changes": {
+          "stress_iterations": [
+            "209",
+            "208"
+          ]
+        }
+      },
+      {
+        "step": 112,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 113,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "185"
+          ]
+        }
+      },
+      {
+        "step": 114,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "201"
+          ]
+        }
+      },
+      {
+        "step": 115,
+        "changes": {
+          "stress_iterations": [
+            "190",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 116,
+        "changes": {
+          "stress_iterations": [
+            "203",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 117,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "198"
+          ]
+        }
+      },
+      {
+        "step": 118,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 119,
+        "changes": {
+          "stress_iterations": [
+            "208",
+            "210"
+          ]
+        }
+      },
+      {
+        "step": 120,
+        "changes": {
+          "stress_iterations": [
+            "159",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 121,
+        "changes": {
+          "stress_iterations": [
+            "147",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 122,
+        "changes": {
+          "stress_iterations": [
+            "151",
+            "184"
+          ]
+        }
+      },
+      {
+        "step": 123,
+        "changes": {
+          "stress_iterations": [
+            "194",
+            "164"
+          ]
+        }
+      },
+      {
+        "step": 125,
+        "changes": {
+          "stress_iterations": [
+            "161",
+            "185"
+          ]
+        }
+      },
+      {
+        "step": 126,
+        "changes": {
+          "stress_iterations": [
+            "184",
+            "148"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "capture": "wall-fixed-standard",
+    "differences": [
+      {
+        "step": 82,
+        "changes": {
+          "stress_iterations": [
+            "178",
+            "202"
+          ]
+        }
+      },
+      {
+        "step": 83,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 84,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 85,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "192"
+          ]
+        }
+      },
+      {
+        "step": 86,
+        "changes": {
+          "stress_iterations": [
+            "165",
+            "162"
+          ]
+        }
+      },
+      {
+        "step": 87,
+        "changes": {
+          "stress_iterations": [
+            "181",
+            "164"
+          ]
+        }
+      },
+      {
+        "step": 90,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "161"
+          ]
+        }
+      },
+      {
+        "step": 91,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 92,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 93,
+        "changes": {
+          "stress_iterations": [
+            "157",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 94,
+        "changes": {
+          "stress_iterations": [
+            "163",
+            "155"
+          ]
+        }
+      },
+      {
+        "step": 95,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "162"
+          ]
+        }
+      },
+      {
+        "step": 96,
+        "changes": {
+          "stress_iterations": [
+            "162",
+            "187"
+          ]
+        }
+      },
+      {
+        "step": 97,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "161"
+          ]
+        }
+      },
+      {
+        "step": 98,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "160"
+          ]
+        }
+      },
+      {
+        "step": 99,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 100,
+        "changes": {
+          "stress_iterations": [
+            "198",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 101,
+        "changes": {
+          "stress_iterations": [
+            "171",
+            "170"
+          ]
+        }
+      },
+      {
+        "step": 102,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 104,
+        "changes": {
+          "stress_iterations": [
+            "164",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 105,
+        "changes": {
+          "stress_iterations": [
+            "201",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 106,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 107,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 108,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "174"
+          ]
+        }
+      },
+      {
+        "step": 109,
+        "changes": {
+          "stress_iterations": [
+            "154",
+            "183"
+          ]
+        }
+      },
+      {
+        "step": 112,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 113,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "191"
+          ]
+        }
+      },
+      {
+        "step": 115,
+        "changes": {
+          "stress_iterations": [
+            "190",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 117,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "171"
+          ]
+        }
+      },
+      {
+        "step": 119,
+        "changes": {
+          "stress_iterations": [
+            "208",
+            "210"
+          ]
+        }
+      },
+      {
+        "step": 120,
+        "changes": {
+          "stress_iterations": [
+            "159",
+            "155"
+          ]
+        }
+      },
+      {
+        "step": 121,
+        "changes": {
+          "stress_iterations": [
+            "147",
+            "148"
+          ]
+        }
+      },
+      {
+        "step": 125,
+        "changes": {
+          "stress_iterations": [
+            "161",
+            "153"
+          ]
+        }
+      },
+      {
+        "step": 126,
+        "changes": {
+          "stress_iterations": [
+            "184",
+            "156"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "capture": "wall-standard",
+    "differences": [
+      {
+        "step": 82,
+        "changes": {
+          "stress_iterations": [
+            "178",
+            "202"
+          ]
+        }
+      },
+      {
+        "step": 84,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "200"
+          ],
+          "bonds_broken": [
+            "0",
+            "1"
+          ]
+        }
+      },
+      {
+        "step": 85,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "199"
+          ],
+          "bonds_broken": [
+            "0",
+            "1"
+          ]
+        }
+      },
+      {
+        "step": 86,
+        "changes": {
+          "stress_iterations": [
+            "165",
+            "211"
+          ]
+        }
+      },
+      {
+        "step": 87,
+        "changes": {
+          "stress_iterations": [
+            "181",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 88,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "177"
+          ]
+        }
+      },
+      {
+        "step": 89,
+        "changes": {
+          "stress_iterations": [
+            "205",
+            "206"
+          ]
+        }
+      },
+      {
+        "step": 90,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "167"
+          ]
+        }
+      },
+      {
+        "step": 91,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 92,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 93,
+        "changes": {
+          "stress_iterations": [
+            "157",
+            "205"
+          ]
+        }
+      },
+      {
+        "step": 94,
+        "changes": {
+          "stress_iterations": [
+            "163",
+            "207"
+          ]
+        }
+      },
+      {
+        "step": 95,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 96,
+        "changes": {
+          "stress_iterations": [
+            "162",
+            "157"
+          ]
+        }
+      },
+      {
+        "step": 97,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 98,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 99,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 100,
+        "changes": {
+          "stress_iterations": [
+            "198",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 101,
+        "changes": {
+          "stress_iterations": [
+            "171",
+            "198"
+          ]
+        }
+      },
+      {
+        "step": 102,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 103,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "197"
+          ]
+        }
+      },
+      {
+        "step": 104,
+        "changes": {
+          "stress_iterations": [
+            "164",
+            "165"
+          ]
+        }
+      },
+      {
+        "step": 105,
+        "changes": {
+          "stress_iterations": [
+            "201",
+            "200"
+          ]
+        }
+      },
+      {
+        "step": 106,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 107,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "197"
+          ]
+        }
+      },
+      {
+        "step": 108,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 109,
+        "changes": {
+          "stress_iterations": [
+            "154",
+            "163"
+          ]
+        }
+      },
+      {
+        "step": 110,
+        "changes": {
+          "stress_iterations": [
+            "203",
+            "205"
+          ]
+        }
+      },
+      {
+        "step": 111,
+        "changes": {
+          "stress_iterations": [
+            "209",
+            "210"
+          ]
+        }
+      },
+      {
+        "step": 112,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "198"
+          ]
+        }
+      },
+      {
+        "step": 113,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 114,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 115,
+        "changes": {
+          "stress_iterations": [
+            "190",
+            "198"
+          ]
+        }
+      },
+      {
+        "step": 116,
+        "changes": {
+          "stress_iterations": [
+            "203",
+            "204"
+          ]
+        }
+      },
+      {
+        "step": 117,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 118,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "205"
+          ]
+        }
+      },
+      {
+        "step": 119,
+        "changes": {
+          "stress_iterations": [
+            "208",
+            "211"
+          ]
+        }
+      },
+      {
+        "step": 120,
+        "changes": {
+          "stress_iterations": [
+            "159",
+            "188"
+          ]
+        }
+      },
+      {
+        "step": 121,
+        "changes": {
+          "stress_iterations": [
+            "147",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 122,
+        "changes": {
+          "stress_iterations": [
+            "151",
+            "184"
+          ]
+        }
+      },
+      {
+        "step": 123,
+        "changes": {
+          "stress_iterations": [
+            "194",
+            "163"
+          ]
+        }
+      },
+      {
+        "step": 124,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 125,
+        "changes": {
+          "stress_iterations": [
+            "161",
+            "187"
+          ]
+        }
+      },
+      {
+        "step": 126,
+        "changes": {
+          "stress_iterations": [
+            "184",
+            "187"
+          ]
+        }
+      },
+      {
+        "step": 127,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "197"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "capture": "wall-standard-repeat",
+    "differences": [
+      {
+        "step": 82,
+        "changes": {
+          "stress_iterations": [
+            "178",
+            "202"
+          ]
+        }
+      },
+      {
+        "step": 83,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 84,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "198"
+          ]
+        }
+      },
+      {
+        "step": 85,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 86,
+        "changes": {
+          "stress_iterations": [
+            "165",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 87,
+        "changes": {
+          "stress_iterations": [
+            "181",
+            "163"
+          ]
+        }
+      },
+      {
+        "step": 88,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "203"
+          ]
+        }
+      },
+      {
+        "step": 90,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "183"
+          ]
+        }
+      },
+      {
+        "step": 91,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 92,
+        "changes": {
+          "stress_iterations": [
+            "193",
+            "170"
+          ]
+        }
+      },
+      {
+        "step": 93,
+        "changes": {
+          "stress_iterations": [
+            "157",
+            "184"
+          ]
+        }
+      },
+      {
+        "step": 94,
+        "changes": {
+          "stress_iterations": [
+            "163",
+            "193"
+          ]
+        }
+      },
+      {
+        "step": 95,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "166"
+          ]
+        }
+      },
+      {
+        "step": 96,
+        "changes": {
+          "stress_iterations": [
+            "162",
+            "161"
+          ]
+        }
+      },
+      {
+        "step": 97,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 98,
+        "changes": {
+          "stress_iterations": [
+            "187",
+            "194"
+          ]
+        }
+      },
+      {
+        "step": 99,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "162"
+          ]
+        }
+      },
+      {
+        "step": 100,
+        "changes": {
+          "stress_iterations": [
+            "198",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 102,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "195"
+          ]
+        }
+      },
+      {
+        "step": 103,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "196"
+          ]
+        }
+      },
+      {
+        "step": 104,
+        "changes": {
+          "stress_iterations": [
+            "164",
+            "187"
+          ]
+        }
+      },
+      {
+        "step": 106,
+        "changes": {
+          "stress_iterations": [
+            "197",
+            "201"
+          ]
+        }
+      },
+      {
+        "step": 107,
+        "changes": {
+          "stress_iterations": [
+            "202",
+            "189"
+          ]
+        }
+      },
+      {
+        "step": 108,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "199"
+          ]
+        }
+      },
+      {
+        "step": 109,
+        "changes": {
+          "stress_iterations": [
+            "154",
+            "155"
+          ]
+        }
+      },
+      {
+        "step": 111,
+        "changes": {
+          "stress_iterations": [
+            "209",
+            "208"
+          ]
+        }
+      },
+      {
+        "step": 112,
+        "changes": {
+          "stress_iterations": [
+            "189",
+            "190"
+          ]
+        }
+      },
+      {
+        "step": 113,
+        "changes": {
+          "stress_iterations": [
+            "192",
+            "187"
+          ]
+        }
+      },
+      {
+        "step": 117,
+        "changes": {
+          "stress_iterations": [
+            "196",
+            "170"
+          ]
+        }
+      },
+      {
+        "step": 118,
+        "changes": {
+          "stress_iterations": [
+            "200",
+            "201"
+          ]
+        }
+      },
+      {
+        "step": 119,
+        "changes": {
+          "stress_iterations": [
+            "208",
+            "210"
+          ]
+        }
+      },
+      {
+        "step": 120,
+        "changes": {
+          "stress_iterations": [
+            "159",
+            "160"
+          ]
+        }
+      },
+      {
+        "step": 121,
+        "changes": {
+          "stress_iterations": [
+            "147",
+            "148"
+          ]
+        }
+      },
+      {
+        "step": 125,
+        "changes": {
+          "stress_iterations": [
+            "161",
+            "152"
+          ]
+        }
+      },
+      {
+        "step": 126,
+        "changes": {
+          "stress_iterations": [
+            "184",
+            "162"
+          ]
+        }
+      },
+      {
+        "step": 127,
+        "changes": {
+          "stress_iterations": [
+            "195",
+            "194"
+          ]
+        }
+      }
+    ]
+  }
+]
