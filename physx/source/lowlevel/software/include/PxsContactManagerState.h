@@ -72,7 +72,9 @@ namespace physx
 		PxU8 prevPatches;					//Previous number of patches
 		PxU16 nbContacts;					//Num contacts
 		PxU16 flags;						//Not really part of outputs, but we have 4 bytes of padding, so why not?
-		PxU8 pad[8];
+		// Current solved-response pass; retained geometry alone does not imply forces.
+		// Reuses former padding, preserving the contact-output layout.
+		PxU64 nativeResponseEpoch;
 
 		PX_FORCE_INLINE PxU32* getInternalFaceIndice()	const
 		{

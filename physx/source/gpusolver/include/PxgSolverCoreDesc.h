@@ -235,6 +235,8 @@ namespace physx
 
 		PxgSolverReferences* solverBodyReferences;
 		PxsContactManagerOutput* contactManagerOutputBase;
+		const PxgBlockWorkUnit* nativeContactWorkUnits;
+		PxU64 nativeResponseEpoch;
 		PxgBodySim*	mBodySimBufferDeviceData;
 		PxgBodySimVelocities* mBodySimPrevVelocitiesBufferDeviceData;
 

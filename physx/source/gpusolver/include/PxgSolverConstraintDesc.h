@@ -185,6 +185,7 @@ struct PxgBlockConstraintBatch
 struct PxgBlockWorkUnit
 {
 	PX_ALIGN(128, PxU32 mWriteback[32]);
+	PX_ALIGN(128, PxU32 mContactManagerOutputIndex[32]);
 	
 	PX_ALIGN(128, float	mRestDistance[32]);
 

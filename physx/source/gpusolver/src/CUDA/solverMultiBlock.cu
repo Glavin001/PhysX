@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
+#include "PxgContactResponse.cuh"
 #include "common/PxPhysXCommonConfig.h"
 #include <cuda.h>
 #include <sm_35_intrinsics.h>
@@ -587,6 +588,8 @@ extern "C" __global__ void writebackBlocks(
 			{
 				writeBackContactBlock(batch, threadIndexInWarp, solverBodyDatas, startAddress, &index[warpIndexInBlock], contactHeaders, frictionHeaders, contactPoints, frictions,
 					baseWritebackForceBuffer, baseFrictionPatches[batch.mConstraintBatchIndex], frictionPatches);
+                publishContactResponse(*constraintPrepDesc,batch,
+                    contactHeaders[batch.mConstraintBatchIndex],threadIndexInWarp);
 			}
 			else
 			{

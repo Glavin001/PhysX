@@ -10,6 +10,7 @@
 #include "PxgDestructionRuntime.h"
 #include "PxgContext.h"
 #include "PxgSolverCore.h"
+#include "../native_force_freshness_audit.h"
 #include "native_contact_graph_check.h"
 #include "native_pre_solve_check.h"
 #include "PxgNphaseImplementationContext.h"
@@ -117,6 +118,7 @@ struct Fixture {
 #include "native_initialization_failure_check.h"
 #include "native_preparation_order_check.h"
 #include "native_accepted_properties_check.h"
+#include "native_contact_response_check.h"
 #include "native_kinematic_inputs_check.h"
 #include "native_fracture_fallback_check.h"
 // Compare the actual solver device buffers with an independent full snapshot
@@ -700,6 +702,7 @@ int main(int argc,char** argv){try{
     if(argc==3 && std::strcmp(argv[1],"--kinematic-inputs-capture")==0){for(unsigned a=0;a<3;++a){nativeKinematicInputs(PxSolverType::ePGS,argv[2],a);nativeKinematicInputs(PxSolverType::eTGS,argv[2],a);}return 0;}
     if(argc==2) {
         const std::string mode=argv[1];
+        if(mode=="--contact-response"){contactResponseFreshness(PxSolverType::ePGS);contactResponseFreshness(PxSolverType::eTGS);return 0;}
         if(mode=="--connectivity-owner"){solverMetadata(PxSolverType::ePGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true,true);return 0;}
         if(mode=="--pre-solve-islands"){solverMetadata(PxSolverType::ePGS,false,true);solverMetadata(PxSolverType::eTGS,false,true);solverMetadata(PxSolverType::eTGS,true,true);return 0;}
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}

@@ -435,6 +435,8 @@ namespace physx
 		PxgTypedCudaBuffer<PxReal>					mForceBuffer; // contact write back buffer
 		PxgTypedCudaBuffer<PxFrictionPatch>			mFrictionPatches;
 
+		// Advances for every NP pass, including idle passes and correction.
+		PxU64 mNativeResponseEpoch = 0;
 		CUdeviceptr						mGpuContactManagerOutputBase;
 
 		PxgTypedCudaBuffer<PxU32>		mArtiStaticContactIndices;

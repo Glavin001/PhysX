@@ -1816,6 +1816,17 @@ void PxgGpuNarrowphaseCore::fetchNarrowPhaseResults(
     // Touch flags, pair layout and ownership belong to this new NP pass. A
     // prior trial, corrected pass or simulation step must never be reused.
     mDestructionGraphCachedGeneration=0;
+    // A sleeping pair can retain geometry and force offsets without a solver
+    // write this pass. Never let its last response look current, even if this
+    // pass schedules no solver islands. Zero is reserved for never solved.
+    PxU64& responseEpoch=mGpuContext->mGpuSolverCore->mNativeResponseEpoch;
+    if(responseEpoch==~PxU64(0)) {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,
+            "Native contact response epoch exhausted");
+        mCudaContext->setAbortMode(true);
+        return;
+    }
+    ++responseEpoch;
 
 	PxU32 numTests = 0;
 	for (PxU32 i = GPU_BUCKET_ID::eConvex; i < GPU_BUCKET_ID::eCount; ++i)
@@ -8276,6 +8287,7 @@ void PxgGpuNarrowphaseCore::registerContactManagerInternal(PxsContactManager* cm
         itInputs.pushBack(pair);
     }
 
+	output.nativeResponseEpoch=0; // New/recycled managers have no solved response.
 	itOutputs.pushBack(output);
 	itCms.pushBack(cm);
 	itSI.pushBack(shapeInteraction);
@@ -9471,6 +9483,7 @@ bool PxgGpuNarrowphaseCore::borrowDestructionSolvedContacts(PxgDestructionSolved
     view.forces=reinterpret_cast<const PxReal*>(mForceAndIndiceStream);
     view.friction=reinterpret_cast<const PxU8*>(mGpuContext->mGpuSolverCore->mFrictionPatches.getDevicePtr());
     view.pairCount=mTotalNumPairs;
+    view.responseEpoch=mGpuContext->mGpuSolverCore->mNativeResponseEpoch;
     return mCudaContext->eventRecord(readyEvent,mStream)==CUDA_SUCCESS;
 }
 

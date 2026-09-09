@@ -176,7 +176,8 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i>=contacts.pairCount)return;
     const auto& output=contacts.outputs[i];
-    if(!output.nbContacts)return;
+    if(!output.nbContacts || !contacts.responseEpoch ||
+        output.nativeResponseEpoch!=contacts.responseEpoch)return;
     const auto& input=contacts.inputs[i];
     // Resolve a descriptor in registers; never export/store an adapter payload.
     PxGpuContactPair p{};
@@ -1789,7 +1790,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV5(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV6(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 

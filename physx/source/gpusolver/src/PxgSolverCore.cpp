@@ -467,6 +467,8 @@ void PxgSolverCore::constructSolverDesc(PxgSolverCoreDesc& scDesc, PxU32 numIsla
 	scDesc.solverBodyReferences = reinterpret_cast<PxgSolverReferences*>(mSolverBodyReferences.getDevicePtr());
 
 	scDesc.contactManagerOutputBase = reinterpret_cast<PxsContactManagerOutput*>(mGpuContactManagerOutputBase);
+	scDesc.nativeContactWorkUnits = reinterpret_cast<const PxgBlockWorkUnit*>(mBlockWorkUnits.getDevicePtr());
+	scDesc.nativeResponseEpoch = mNativeResponseEpoch;
 
 	scDesc.islandContextPool = reinterpret_cast<PxgIslandContext*>(islandContextPoold);
 	scDesc.motionVelocityArray = reinterpret_cast<float4*>(motionVelocityArrayd);

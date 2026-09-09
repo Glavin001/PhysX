@@ -968,6 +968,7 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 				const PxU32 tIndex = PxsContactManagerBase::computeBucketIndexFromId(npIndex);
 				const PxU32 cmOutputIndex = shDesc.mCmOutputOffsets[tIndex] + (npIndex >> PxsContactManagerBase::MaxBucketBits);
 
+				n.mContactManagerOutputIndex[threadIndexInWarp] = cmOutputIndex;
 				batch.shapeInteraction[threadIndexInWarp] = shDesc.mShapeInteractions[cmOutputIndex];
 				n.mRestDistance[threadIndexInWarp] = shDesc.mRestDistances[cmOutputIndex];
 				n.mTorsionalFrictionData[threadIndexInWarp] = torsionalData[cmOutputIndex];

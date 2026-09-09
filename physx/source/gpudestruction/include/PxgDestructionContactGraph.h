@@ -22,6 +22,7 @@ struct PxgDestructionSolvedContacts {
     const PxReal* forces=NULL;
     const PxU8* friction=NULL;
     PxU32 pairCount=0;
+    PxU64 responseEpoch=0; // Normal/friction outputs must have this solve stamp.
 };
 // Bit values from PxcNpWorkUnitFlag, checked at the host integration boundary.
 struct PxgDestructionContactFlags {
