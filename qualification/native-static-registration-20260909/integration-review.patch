@@ -449,7 +449,7 @@
  		PX_PROFILE_ZONE("Rigid Static constraint", 0);
  		PxgBodySimManager& bodyManager = getSimulationController()->getBodySimManager();
  
-@@ -1178,6 +1179,33 @@
+@@ -1178,6 +1179,42 @@
  		}
  	};
  
@@ -469,6 +469,15 @@
 +        // Preserve upstream historical capacity maxima; these do not suppress work.
 +        manager.mMaxStaticRBContacts=PxMax(manager.mMaxStaticRBContacts,stats.maxContacts);
 +        manager.mMaxStaticRBJoints=PxMax(manager.mMaxStaticRBJoints,stats.maxJoints);
++        // The existing solver interface accepts 32-bit element counts. Validate
++        // BEFORE any multiplication in allocation/batching, not after wrapping.
++        const PxU64 contactElements=PxU64(manager.mMaxStaticRBContacts)*mBodyCount;
++        const PxU64 jointElements=PxU64(manager.mMaxStaticRBJoints)*mBodyCount;
++        if(contactElements>0xffffffffull || jointElements>0xffffffffull) {
++            PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY,PX_FL,
++                "Native static constraint layout exceeds the solver address range.");
++            return false;
++        }
 +        return true;
 +    }
 +    void PxgGpuContext::gatherNativeStaticConstraints(CUdeviceptr active,CUdeviceptr contacts,PxU32 contactCapacity,
@@ -483,7 +492,7 @@
      bool PxgGpuContext::usesNativeKinematicInputs()
      {
          return !mEnableDirectGPUAPI && getSimulationController()->usesDeviceDestructionContactInputs();
-@@ -1737,7 +1765,7 @@
+@@ -1737,7 +1774,7 @@
  			mArtiStaticJointIndices.begin(), mArtiStaticJointIndices.size(), mArtiStaticContactCounts.begin(), mArtiStaticJointCounts.begin(),
  			mArtiSelfContactIndices.begin(), mArtiSelfContactIndices.size(),
  			mArtiSelfJointIndices.begin(), mArtiSelfJointIndices.size(), mArtiSelfContactCounts.begin(), mArtiSelfJointCounts.begin(),
@@ -492,7 +501,7 @@
  			mRigidStaticContactCounts.begin(), mRigidStaticJointCounts.begin(), mLengthScale, hasForceThresholds);
  
  		//Make sure that the GPU articulation work has completed now...
-@@ -2458,6 +2486,13 @@
+@@ -2458,6 +2495,13 @@
  	Cm::PinnableArray<PxU32>& islandStaticTouchCounts = mIslandStaticTouchCounts;
  
  	const PxU32 nbConstraints = islandSim.getNbActiveEdges(IG::Edge::eCONSTRAINT);

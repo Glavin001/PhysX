@@ -125,6 +125,15 @@ edit(path,'    bool PxgGpuContext::usesNativeKinematicInputs()','''    bool PxgG
         // Preserve upstream historical capacity maxima; these do not suppress work.
         manager.mMaxStaticRBContacts=PxMax(manager.mMaxStaticRBContacts,stats.maxContacts);
         manager.mMaxStaticRBJoints=PxMax(manager.mMaxStaticRBJoints,stats.maxJoints);
+        // The existing solver interface accepts 32-bit element counts. Validate
+        // BEFORE any multiplication in allocation/batching, not after wrapping.
+        const PxU64 contactElements=PxU64(manager.mMaxStaticRBContacts)*mBodyCount;
+        const PxU64 jointElements=PxU64(manager.mMaxStaticRBJoints)*mBodyCount;
+        if(contactElements>0xffffffffull || jointElements>0xffffffffull) {
+            PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY,PX_FL,
+                "Native static constraint layout exceeds the solver address range.");
+            return false;
+        }
         return true;
     }
     void PxgGpuContext::gatherNativeStaticConstraints(CUdeviceptr active,CUdeviceptr contacts,PxU32 contactCapacity,

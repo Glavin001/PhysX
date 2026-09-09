@@ -40,12 +40,12 @@
       "sha256": "ead708210047160da8d3c37fe008e4eb27521d74d7d3fbd4a47c97915e36cb58"
     },
     "qualification/native-static-registration-20260909/integration-review.patch": {
-      "bytes": 36078,
-      "sha256": "7486b2233fbfe7afd39d04a315c5a2a36d5d398d17600e2000bef4803391c604"
+      "bytes": 36681,
+      "sha256": "572cfa1aedb09db49361da85cee0b6056ecfd5e5c8a46eb91ccf4cd808ae3e5a"
     },
     "qualification/native-static-registration-20260909/prepare-integration-patch.py": {
-      "bytes": 15107,
-      "sha256": "63aef4406fa8bfd7a47fd775dd3f965c6c4e97c02508938c534b9b8cd4d1b63c"
+      "bytes": 15701,
+      "sha256": "a2301c5d2f036e4a59f8a355325cc56b23abc9885e191cb4c1c1625b2c7aab35"
     }
   }
 }
