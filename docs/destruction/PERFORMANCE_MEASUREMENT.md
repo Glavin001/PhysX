@@ -48,6 +48,39 @@ The dedicated downtown idle command is `embedded_city_bench FRESH 1 600 0
 fractured-downtown.json`; pair it with a recorded destruction run before drawing
 an optimization conclusion. Preserve the existing 256-building bombardment tape.
 
+## Independent optimization outcomes
+
+Track benefits by regime, not a single pass/fail speedup label. Massive-destruction
+peaks remain the primary scheduling priority, but a qualified idle or settling
+improvement is a valid result without reducing fracture peaks. Do not discard it
+solely because another regime is unchanged. Meeting a deadline is not the end of
+optimization.
+
+| Regime | What to measure and distinguish |
+|---|---|
+| Pristine idle | Fresh undamaged scene, no impacts; complete-step distributions and all-step peak |
+| Active destruction | Recorded impacts/cuts, fracture peaks and the entire impact/aftermath maximum |
+| Settling | Damaged scene with moving fragments/contact work; report awake bodies and contact/stress work |
+| Sleeping rubble | Damaged scene after sleep; measure residual work separately from pristine idle |
+| Reactivation | Recorded impacts/support/load changes after settling; wakeup peak, fresh stress and correct damage |
+| Initialization/growth | Initialization separately; first-step and runtime growth remain in all-step peaks |
+
+Use state/command-based window definitions fixed before comparison; never choose
+windows to exclude slow samples. Every sample stays in the whole-run report.
+If a regime is not reached or measured, mark it unmeasured rather than inferring
+its performance from another regime. Sleeping-body counts alone do not certify
+stress reuse or absence of continuing material evolution.
+
+Before each experiment name its target regime, whole-step metric, physical oracle
+and cross-regime regression checks. Record each outcome independently as measured
+benefit, no demonstrated change, regression or unmeasured, with its qualification
+level. Compare matched inputs and repeat counts. A kernel improvement must produce
+a useful whole-step benefit in its target regime; it need not improve all regimes.
+Do not average away a regression in another regime or trade it away silently.
+Five-run and endurance requirements remain; a short-screen win is not promoted
+production qualification. No single deadline failure invalidates an independently
+verified improvement, and no idle win establishes a destruction-peak win.
+
 ## What a metric means
 
 | Metric | Meaning / limitation |

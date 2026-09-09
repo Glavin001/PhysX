@@ -2,6 +2,34 @@
 
 This is a status index, not a completion claim. Historical rejected experiments remain in OPTIMIZATION_INDEX.json. The current candidate receipt contains actual tests and paired measurements.
 
+## Priority checklist and separate benefit tracks
+
+Ordered by the current evidence for substantial **destruction-peak** opportunity,
+not promised savings. These overlap, so their exposures cannot be added. Idle,
+settling and sleeping benefits are independently valuable and are tracked below.
+
+| Priority | Status | Work / next action | Primary benefit to verify |
+|---|---|---|---|
+| 1 | 🔍 Reviewed; implementation remaining | C1–C6: persistent fragment/contact ownership and GPU lifecycle; preserve actor, island, contact and generation consistency | Fracture bursts and contact churn |
+| 2 | ⬜ Remaining candidates | S6–S10, S13–S18: resident stress layout, scheduling, reductions and qualified preconditioning | Active stress and long solver tails |
+| 3 | ⬜ Remaining | C7–C9: compact checkpoints and validated affected correction sets | Corrected steps; includes ordinary bodies/constraints |
+| 4 | 🚧 Partial | S1–S4, S12, T2–T8, O1–O3: dirty components, local topology/mass, structural activity | Local impacts in large scenes, idle and settling |
+| 5 | ⬜ Remaining | L2–L8, S19, T9, O4: contact/material passes, sparse events and accepted publication | Contact-heavy rubble, fracture bursts and publication |
+| 6 | ⬜ Remaining | A2–A7, C10–C11: shared storage, setup, remaining unnecessary work and collision hierarchy evaluation | Initialization/growth, world scaling and recurring overhead |
+| Separate idle track | 🚧 Implemented and short-screen tested; not promoted | S2 / partial S12 / O1: exact GPU settled-stress reuse; qualify idle gain and cross-regime regressions | Measured pristine-idle benefit; no demonstrated destruction-peak benefit |
+| Retained foundations | ✅ Existing | Persistent assets, internal contact borrowing, resident iterations, cached local inverses, unchanged-topology bypass, committed consumers | Preserve these while replacing remaining work |
+| Qualification | 🛡️ Incomplete | Controlled identities, all relevant regimes, five 60-second runs and endurance | Correctness and independently qualified benefits |
+
+The settled-reuse [receipt](../../qualification/native-settled-local-20260909/README.md)
+records lower intact-idle cost in matched short city/downtown screens. Settling,
+sleeping-rubble and reactivation benefits are not established by those idle
+measurements. Peak results do not yet establish a destruction improvement or
+complete non-regression qualification. An idle win does **not** need a fracture-
+peak win to qualify; it needs correctness and cross-regime regression checks.
+See the [measurement contract](PERFORMANCE_MEASUREMENT.md#independent-optimization-outcomes).
+
+## All responsibilities
+
 | ID | Status | Responsibility | Current implementation / review entry point |
 |---|---|---|---|
 | A1 | ✅ Retained | Persistent assets | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
@@ -31,7 +59,7 @@ This is a status index, not a completion claim. Historical rejected experiments 
 | S18 | ⬜ Remaining | Precision and dense kernels | [StressSolveSubmission.inl](../../blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl) |
 | S19 | ⬜ Remaining | Separate force-export pass | [StressSolveSubmission.inl](../../blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl) |
 | L1 | ✅ Retained | Borrow solved contact buffers | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
-| L2 | ⬜ Remaining | Shape-to-chunk lookup | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
+| L2 | ❌ Standalone index rejected | Shape-to-chunk lookup | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
 | L3 | ⬜ Remaining | Contact work mapping | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
 | L4 | ⬜ Remaining | Load accumulation | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
 | L5 | ⬜ Remaining | Immutable material arithmetic | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
@@ -73,3 +101,8 @@ The three in-progress entries overlap: S2 implements exact-input reuse; S12 pres
 C1–C6 remain the leading architectural work. Merely retaining a contact manager while its ActorSim references, island edge, work-unit pointers or reporting owner remain stale is incorrect. GPU slot allocation currently selects CPU-granted indices and waits for CPU compatibility construction.
 
 Evidence: [candidate receipt](../../qualification/native-settled-local-20260909/README.md), [idle](../../qualification/native-settled-local-20260909/idle/report.md), [bombardment](../../qualification/native-settled-local-20260909/shots/report.md).
+
+L2: the standalone paged GPU index passed correctness but did not establish a
+useful complete-step improvement; production edits were reverted.
+[Experiment receipt](../../qualification/native-chunk-index-20260909/README.md).
+Sharing chunk identity with the final ownership representation remains open.

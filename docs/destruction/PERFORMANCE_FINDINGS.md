@@ -1,3 +1,19 @@
+## 2026-09-09: standalone contact-to-chunk index screened and reverted
+
+[Evidence](../../qualification/native-chunk-index-20260909/README.md). A persistent
+paged GPU table replaces per-endpoint binary searches and skips ordinary-only
+pairs before descriptor loads. Independent sparse/full-width/recycled-ID tests,
+memcheck/initcheck, ten ordinary/material regressions and exact frozen wall pass.
+Two matched runs per arm/regime, 256 buildings / 113,664 chunks / 229,376 bonds /
+768 shots / 600 steps: fracture peaks overlap (baseline134.671–138.395 ms,
+candidate134.923–135.188 ms); complete means show no consistent improvement.
+Pristine idle is also measured. A separate diagnostic at matching peak physical
+counts changes the contact-load interval0.278528→0.271360 ms, not a proved
+whole-step win. Production edits are reverted; candidate patch and binaries are
+archived. Do not present this as an accepted peak optimization or repeat the
+same table experiment. Final GPU ownership/shared identities and active stress
+remain higher priorities. No service changes.
+
 ## 2026-09-09: exact settled certificates reduce idle, peak optimization unfinished
 
 [Implementation and paired evidence](../../qualification/native-settled-local-20260909/README.md).

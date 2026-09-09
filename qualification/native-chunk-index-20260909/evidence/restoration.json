@@ -1,0 +1,7 @@
+{
+  "production_source_reverted": true,
+  "restored_runtime": "out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+  "restored_runtime_sha256": "9d070dc99b726b079109e3289ce999b0e247e11746b2f4820009faaca8db593c",
+  "live_modules_changed": false,
+  "full_plan_complete": false
+}

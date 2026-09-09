@@ -2868,11 +2868,13 @@
         "id": "L2",
         "title": "Shape-to-chunk lookup",
         "group": "loads/materials",
-        "status": "remaining",
+        "status": "experiment_rejected",
         "source": "physx/source/gpudestruction/src/PxgDestructionRuntime.cu",
-        "qualification": "existing evidence only; no new implementation or speedup claimed",
+        "qualification": "Standalone paged GPU index: focused CUDA tests, memcheck/initcheck, ten integration tests and frozen penetration pass; paired city screens do not establish useful complete-step gain. Production edits reverted. Final shared ownership identity remains open.",
         "dependencies": [],
-        "evidence": []
+        "evidence": [
+          "qualification/native-chunk-index-20260909/README.md"
+        ]
       },
       {
         "id": "L3",
@@ -3274,6 +3276,26 @@
       "Contact migration still depends on CPU ActorSim references, island edges and contact-manager mappings; simply retaining a manager is invalid.",
       "First implemented responsibility is independently useful GPU-certified stress reuse while the C1-C6 ownership migration remains pending; this is an explicit deviation from the planned implementation order, not completion of that migration.",
       "Historical Direct GPU penetration golden differs from current ordinary-scene baseline. Exact mode-matched baseline/candidate identities agree; the historical gate was not weakened."
-    ]
+    ],
+    "regime_acceptance": {
+      "primary_scheduling_priority": "active destruction complete-step peaks",
+      "independent_regimes": [
+        "pristine idle",
+        "active destruction",
+        "settling",
+        "sleeping rubble",
+        "reactivation",
+        "initialization and runtime growth"
+      ],
+      "promotion_rule": "Verify whole-step benefit in the declared target regime, physical equivalence and cross-regime regression checks. An idle benefit does not require a destruction-peak benefit. Existing five-run/endurance gates remain.",
+      "current_settled_reuse_evidence": {
+        "pristine_idle": "benefit measured in short paired screens; not full qualification",
+        "active_destruction": "no demonstrated peak improvement; non-regression not yet qualified",
+        "settling": "not separately qualified",
+        "sleeping_rubble": "not separately qualified",
+        "reactivation": "focused correctness coverage; performance not separately qualified",
+        "receipt": "qualification/native-settled-local-20260909/README.md"
+      }
+    }
   }
 }

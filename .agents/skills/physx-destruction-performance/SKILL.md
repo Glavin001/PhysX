@@ -47,7 +47,10 @@ resolve the documentation below relative to this skill, not the shell cwd.
    native within-step-convergence contract; discuss/qualify it separately.
 5. Build all affected ABI consumers before execution. Run focused checks and the
    frozen penetration regression. Screen candidates on matched untraced inputs;
-   profile separately. Reject isolated-kernel wins that fail whole-step peaks.
+   profile separately. Judge whole-step improvement in the declared target regime
+   (idle, settling, sleeping rubble or active destruction), and check the other
+   regimes for regressions. An idle win does not require a fracture-peak win;
+   an isolated-kernel win alone is insufficient.
 6. Record one outcome: accepted with its actual qualification level, rejected
    with evidence and reverted production changes, or still unqualified WIP.
    Preserve a patch, hashes and raw samples for rejected experiments; don't

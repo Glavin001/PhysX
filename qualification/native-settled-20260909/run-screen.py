@@ -20,13 +20,17 @@ def main():
     parser.add_argument('--reports',type=Path,default=SDK/'qualification/native-settled-20260909')
     parser.add_argument('--scene',help='Existing consumer scene filename')
     parser.add_argument('--commands',type=Path,help='Existing recorded command tape for an explicit scene')
+    parser.add_argument('--baseline-runtime',type=Path,default=LIVE/'libPhysXDestructionGpuRuntime_64.so',help='Immutable baseline runtime; defaults to the recorded live baseline')
+    parser.add_argument('--title',default='Exact settled stress reuse',help='Mechanism named in the generated reports')
     args=parser.parse_args()
     if bool(args.scene)!=bool(args.commands):parser.error('--scene and --commands must be supplied together')
+    baseline=args.baseline_runtime.resolve()
+    if baseline.name!='libPhysXDestructionGpuRuntime_64.so' or not baseline.is_file():parser.error('--baseline-runtime must name an existing native runtime library')
     ROOT=args.capture.resolve();OUT=ROOT/'screen';CANDIDATE=ROOT/'candidate'
     OUT.mkdir(parents=True,exist_ok=False)
     receipt={'schema':1,'sequence':[],'benchmark_sha256':sha(BINARY),'service_changes':False}
     for ordinal,arm in enumerate(['baseline','candidate','candidate','baseline']):
-        runtime=(LIVE if arm=='baseline' else CANDIDATE)/'libPhysXDestructionGpuRuntime_64.so'
+        runtime=baseline if arm=='baseline' else CANDIDATE/'libPhysXDestructionGpuRuntime_64.so'
         expected={runtime.name:runtime.resolve(),'libPhysXGpuActivity_64.so':(LIVE/'libPhysXGpuActivity_64.so').resolve()}
         env=os.environ.copy();env['LD_LIBRARY_PATH']=str(runtime.parent)+':'+str(LIVE)+':/usr/local/cuda/lib64'
         env.pop('VIBE_EMBEDDED_AUDIT_EVERY_TICK',None)
@@ -63,5 +67,5 @@ def main():
     for regime in ['idle','shots']:
         base=[OUT/f'{i}-baseline-{regime}' for i in [1,4]]
         candidate=[OUT/f'{i}-candidate-{regime}' for i in [2,3]]
-        subprocess.run(['python3',str(SDK/'tools/scripts/compare-vibe-consumer-bench.py'),'--baseline',*map(str,base),'--candidates',*map(str,candidate),'--output',str(args.reports.resolve()/regime),'--title','Exact settled stress reuse — '+regime],check=True)
+        subprocess.run(['python3',str(SDK/'tools/scripts/compare-vibe-consumer-bench.py'),'--baseline',*map(str,base),'--candidates',*map(str,candidate),'--output',str(args.reports.resolve()/regime),'--title',args.title+' — '+regime],check=True)
 if __name__=='__main__':main()

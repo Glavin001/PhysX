@@ -1,0 +1,6 @@
+{
+  "out/native-chunk-index-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "f6bfe73470a2fa3cef5723ab502091e436059cd2fb80ef5353006c50a67c5c3e",
+  "out/native-settled-local-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "69f601ad367b7b6977e628907c8953ed4a2606d6862572b2e83b27a5ad63f15b",
+  "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5",
+  "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+}

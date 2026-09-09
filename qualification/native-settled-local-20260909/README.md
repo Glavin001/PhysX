@@ -91,7 +91,10 @@ with the candidate in `CAPTURE/candidate/`. Add `--scene fractured-downtown.json
 loaded modules and refuses an occupied GPU; it never stops services.
 
 Before promotion: preserve current-mode controlled identities, qualify five
-60-second runs and endurance, and demonstrate useful peak improvement. The leading
+60-second runs and endurance, confirm the idle benefit and check destruction,
+settling and wakeup costs for regressions. An idle optimization does not require
+a destruction-peak improvement. The existing short screens do not yet establish
+non-regression at destruction peaks. The leading
 remaining architectural work is C1–C6. CPU-created BodySim records, ActorSim references,
 island edges and contact-manager bookkeeping still precede corrected physics.
 Simply retaining a manager or delaying these CPU records leaves stale owners.

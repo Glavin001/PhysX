@@ -1,0 +1,253 @@
+diff --git a/physx/source/gpudestruction/CMakeLists.txt b/physx/source/gpudestruction/CMakeLists.txt
+index 6b568b98..dcb67c19 100644
+--- a/physx/source/gpudestruction/CMakeLists.txt
++++ b/physx/source/gpudestruction/CMakeLists.txt
+@@ -18,6 +18,10 @@ target_link_libraries(PhysXDestructionTopologyGpu PUBLIC CUDA::cudart)
+ 
+ include(CTest)
+ if(BUILD_TESTING)
++    add_executable(destruction_chunk_index_test tests/chunk_index_test.cu)
++    target_link_libraries(destruction_chunk_index_test PRIVATE PhysXDestructionTopologyGpu)
++    set_target_properties(destruction_chunk_index_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "89")
++    add_test(NAME destruction_gpu_chunk_index COMMAND destruction_chunk_index_test)
+     add_executable(destruction_committed_changes_test tests/committed_changes_test.cu)
+     target_link_libraries(destruction_committed_changes_test PRIVATE PhysXDestructionTopologyGpu)
+     target_include_directories(destruction_committed_changes_test PRIVATE ../../../blast/include/extensions/stressgpu)
+diff --git a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+index 33e3f459..d80c3611 100644
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -9,6 +9,7 @@
+ #include "PxgShapeSim.h"
+ #include "PxgContactManager.h"
+ #include "PxgDestructionContactGraph.cuh"
++#include "PxgDestructionChunkIndex.cuh"
+ #include "PxgSolverIslandMetadata.cuh"
+ #include "PxgPreSolveIslands.cuh"
+ #include "PxShape.h"
+@@ -76,12 +77,7 @@ __global__ void buildNativeContactInputs(PxgContactManagerInput* inputs,PxU32 co
+     }
+     inputs[i]=input;
+ }
+-struct Lookup { PxU32 contact, chunk; };
+-__device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
+-    PxU32 a=0,b=count;
+-    while(a<b) { PxU32 m=a+(b-a)/2; if(map[m].contact<contact)a=m+1;else b=m; }
+-    return a<count && map[a].contact==contact ? map[a].chunk : PX_INVALID_U32;
+-}
++using Lookup=destructionChunkIndex::Entry;
+ __device__ void add(PxVec3& target,const PxVec3& value) {
+     atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
+ }
+@@ -160,7 +156,7 @@ __device__ void contactRate(PxU32 a,PxU32 b,const PxGpuContactPair& pair,const P
+         if(cb && chunks[b].volume>0)atomicMax(reinterpret_cast<unsigned*>(rates+b),__float_as_uint(closing/cbrtf(chunks[b].volume)));
+     }
+ }
+-__global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Lookup* map, PxU32 maps, const PxDestructionStressChunk* chunks,
++__global__ void routeContacts(PxgDestructionSolvedContacts contacts, destructionChunkIndex::View chunkIndex, const PxDestructionStressChunk* chunks,
+     const PxTransform* poses, float invDt, PxDestructionVectorPair* inputs,
+     PxDestructionSurfaceLoad* surface, PxDestructionStageStatus* status,
+     const PxgBodySim* bodies,const PxDestructionMaterial* materials,float* rates) {
+@@ -169,6 +165,8 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
+     const auto& output=contacts.outputs[i];
+     if(!output.nbContacts)return;
+     const auto& input=contacts.inputs[i];
++    const PxU32 a=chunkIndex.find(input.transformCacheRef0), b=chunkIndex.find(input.transformCacheRef1);
++    if(a==PX_INVALID_U32 && b==PX_INVALID_U32)return;
+     // Resolve a descriptor in registers; never export/store an adapter payload.
+     PxGpuContactPair p{};
+     p.transformCacheRef0=input.transformCacheRef0;p.transformCacheRef1=input.transformCacheRef1;
+@@ -184,8 +182,6 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
+     }
+     p.frictionPatches=const_cast<PxU8*>(contacts.friction+patchOffset/sizeof(PxContactPatch)*sizeof(PxFrictionPatch));
+     p.nbPatches=output.nbPatches;p.nbContacts=output.nbContacts;
+-    const PxU32 a=findChunk(map,maps,p.transformCacheRef0), b=findChunk(map,maps,p.transformCacheRef1);
+-    if(a==PX_INVALID_U32 && b==PX_INVALID_U32)return;
+     if(p.nbContacts && p.contactPatches && p.contactPoints && p.contactForces) {
+         PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);
+         PxU32 point=0;
+@@ -495,7 +491,7 @@ class Runtime final : public PxgDestructionRuntime {
+     ExtStressGpuSolver* mSolver{}; ExtStressGpuSolveParams mParams;
+     PxDestructionStressChunk* mChunks{}; PxDestructionStressCluster* mClusters{};
+     PxTransform* mPoses{}; PxVec3* mAngular{};
+-    Lookup* mMap{}; PxU32 mMapCount{},mN{},mM{},mC{};
++    PxU32* mMap{}; PxU32 mMapFirstPage{},mMapCount{},mN{},mM{},mC{};
+     bool mOwnInputs=false;
+     PxDestructionVectorPair* mInputs{}; PxDestructionSurfaceLoad* mSurface{};
+     PxDestructionStageStatus* mStatus{}; PxDestructionStageStatus* mHostStatus{};
+@@ -988,7 +984,7 @@ public:
+         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
+         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
+         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
+-        mN=mM=mC=mMapCount=0;
++        mN=mM=mC=mMapCount=mMapFirstPage=0;
+     }
+     bool configureStress(const PxDestructionStressDesc& d) override {
+         if(!mWriteAllowed(mScene) || !d.chunks || (d.bondCount && !d.bonds) || !d.clusters
+@@ -1033,6 +1029,7 @@ public:
+         }
+         std::sort(map.begin(),map.end(),[](const Lookup&a,const Lookup&b){return a.contact<b.contact;});
+         for(size_t i=1;i<map.size();++i)if(map[i-1].contact==map[i].contact)return false;
++        const auto chunkIndex=destructionChunkIndex::build(map);
+         for(PxU32 i=0;i<d.bondCount;++i) {
+             const auto b=d.bonds[i];
+             if(b.chunk0>=d.chunkCount || b.chunk1>=d.chunkCount || b.chunk0==b.chunk1
+@@ -1083,15 +1080,15 @@ public:
+                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
+             }
+             allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));
+-            allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,map.size());
++            allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,chunkIndex.entries.size());
+             if(mSolver) mInputs=reinterpret_cast<PxDestructionVectorPair*>(mSolver->deviceView().nodeInputs);
+             else {allocate(mInputs,d.chunkCount);mOwnInputs=true;}
+             if(!mInputs)throw std::runtime_error("missing resident destruction inputs");
+             allocate(mSurface,d.chunkCount);
+             check(cudaMemcpy(mChunks,d.chunks,sizeof(*mChunks)*d.chunkCount,cudaMemcpyHostToDevice));
+             check(cudaMemcpy(mClusters,d.clusters,sizeof(*mClusters)*d.clusterCount,cudaMemcpyHostToDevice));
+-            if(!map.empty())check(cudaMemcpy(mMap,map.data(),sizeof(*mMap)*map.size(),cudaMemcpyHostToDevice));
+-            mN=d.chunkCount;mM=d.bondCount;mC=d.clusterCount;mMapCount=PxU32(map.size());
++            if(!chunkIndex.entries.empty())check(cudaMemcpy(mMap,chunkIndex.entries.data(),sizeof(*mMap)*chunkIndex.entries.size(),cudaMemcpyHostToDevice));
++            mN=d.chunkCount;mM=d.bondCount;mC=d.clusterCount;mMapCount=chunkIndex.pageCount;mMapFirstPage=chunkIndex.firstPage;
+             if(d.materialCount) {
+                 allocate(mMaterials,d.materialCount);allocate(mBonds,d.bondCount);allocate(mHealth,d.bondCount);
+                 allocate(mRates,d.chunkCount);allocate(mNodeBegin,begin.size());allocate(mNodeRefs,refs.size());
+@@ -1227,7 +1224,7 @@ public:
+             check(cudaStreamWaitEvent(mStream,mInput,0));stageMarker(0);
+             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
+             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
+-            if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
++            if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,{mMap,mMapFirstPage,mMapCount},mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
+             check(cudaEventRecord(mReady,mStream));
+             stageMarker(1);
+             const PxDestructionVectorPair* forces=nullptr;
+diff --git a/physx/source/gpudestruction/src/PxgDestructionChunkIndex.cuh b/physx/source/gpudestruction/src/PxgDestructionChunkIndex.cuh
+new file mode 100644
+index 00000000..4dbf045a
+--- /dev/null
++++ b/physx/source/gpudestruction/src/PxgDestructionChunkIndex.cuh
+@@ -0,0 +1,58 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "foundation/PxSimpleTypes.h"
++#include <algorithm>
++#include <limits>
++#include <stdexcept>
++#include <vector>
++
++namespace physx { namespace destructionChunkIndex {
++// Immutable shape identities are independent of mutable rigid ownership. This
++// index is installed with the asset coupling and survives every cluster split.
++// Two indexed reads replace a scene-wide binary search for each contact endpoint.
++// Pages keep holes in PhysX's shape-ID domain from allocating a full chunk table.
++constexpr PxU32 pageBits=10;
++constexpr PxU32 pageSize=1u<<pageBits;
++constexpr PxU32 invalid=~PxU32(0);
++struct Entry { PxU32 contact,chunk; };
++struct View {
++    const PxU32* entries;
++    PxU32 firstPage,pageCount;
++    __device__ PxU32 find(PxU32 contact) const {
++        const PxU32 page=contact>>pageBits;
++        if(contact==invalid || page<firstPage || page-firstPage>=pageCount)return invalid;
++        const PxU32 offset=entries[page-firstPage];
++        return offset==invalid ? invalid : entries[offset+(contact&(pageSize-1))];
++    }
++};
++struct Storage {
++    std::vector<PxU32> entries;
++    PxU32 firstPage=0,pageCount=0;
++};
++// Asset installation only; no host work or copies are needed during simulation.
++// The directory spans at most 2^22 words even for the full 32-bit shape domain.
++inline Storage build(const std::vector<Entry>& sorted) {
++    Storage out;
++    if(sorted.empty())return out;
++    for(size_t i=0;i<sorted.size();++i)
++        if(sorted[i].contact==invalid || sorted[i].chunk==invalid
++            || (i && sorted[i-1].contact>=sorted[i].contact))
++            throw std::invalid_argument("invalid or duplicate destruction shape identity");
++    out.firstPage=sorted.front().contact>>pageBits;
++    out.pageCount=(sorted.back().contact>>pageBits)-out.firstPage+1;
++    out.entries.assign(out.pageCount,invalid);
++    for(const Entry& e:sorted) {
++        const PxU32 page=(e.contact>>pageBits)-out.firstPage;
++        PxU32 offset=out.entries[page];
++        if(offset==invalid) {
++            if(out.entries.size()>size_t(invalid)-pageSize)
++                throw std::length_error("destruction shape index capacity exceeded");
++            offset=PxU32(out.entries.size());
++            out.entries.resize(out.entries.size()+pageSize,invalid);
++            out.entries[page]=offset;
++        }
++        out.entries[offset+(e.contact&(pageSize-1))]=e.chunk;
++    }
++    return out;
++}
++}} // namespace physx::destructionChunkIndex
+diff --git a/physx/source/gpudestruction/tests/chunk_index_test.cu b/physx/source/gpudestruction/tests/chunk_index_test.cu
+new file mode 100644
+index 00000000..cb6cdd80
+--- /dev/null
++++ b/physx/source/gpudestruction/tests/chunk_index_test.cu
+@@ -0,0 +1,61 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++#include <cuda_runtime.h>
++#include "../src/PxgDestructionChunkIndex.cuh"
++#include <cstdio>
++#include <map>
++#include <random>
++using namespace physx;
++using namespace destructionChunkIndex;
++void check(cudaError_t e) { if(e!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(e)); }
++void require(bool ok,const char* message) { if(!ok)throw std::runtime_error(message); }
++template<class T> struct Device {
++    T* p=nullptr;
++    explicit Device(size_t n) { check(cudaMalloc(&p,std::max(size_t(1),n)*sizeof(T))); }
++    ~Device() { cudaFree(p); }
++    void put(const std::vector<T>& v) { if(!v.empty())check(cudaMemcpy(p,v.data(),v.size()*sizeof(T),cudaMemcpyHostToDevice)); }
++    std::vector<T> get(size_t n) { std::vector<T> v(n);if(n)check(cudaMemcpy(v.data(),p,n*sizeof(T),cudaMemcpyDeviceToHost));return v; }
++};
++__global__ void query(View view,const PxU32* queries,PxU32 n,PxU32* result) {
++    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i<n)result[i]=view.find(queries[i]);
++}
++void run(std::vector<Entry> values,std::vector<PxU32> queries) {
++    std::map<PxU32,PxU32> oracle;
++    for(auto e:values) { require(oracle.emplace(e.contact,e.chunk).second,"duplicate fixture identity");queries.push_back(e.contact); }
++    std::sort(values.begin(),values.end(),[](Entry a,Entry b){return a.contact<b.contact;});
++    const auto data=build(values);
++    Device<PxU32> entries(data.entries.size()),q(queries.size()),output(queries.size()+2);
++    entries.put(data.entries);q.put(queries);
++    constexpr PxU32 guard=0xabcdefab;output.put(std::vector<PxU32>(queries.size()+2,guard));
++    query<<<(queries.size()+127)/128,128>>>({data.entries.empty()?nullptr:entries.p,data.firstPage,data.pageCount},q.p,PxU32(queries.size()),output.p+1);
++    check(cudaGetLastError());check(cudaDeviceSynchronize());
++    const auto result=output.get(queries.size()+2);
++    require(result.front()==guard && result.back()==guard,"query output overwrote guards");
++    for(size_t i=0;i<queries.size();++i) {
++        const auto it=oracle.find(queries[i]);
++        require(result[i+1]==(it==oracle.end()?invalid:it->second),"GPU chunk lookup differs from independent identity oracle");
++    }
++    require(entries.get(data.entries.size())==data.entries,"query mutated persistent index");
++}
++int main() { try {
++    run({}, {0,1023,1024,invalid-1,invalid});
++    const std::vector<PxU32> boundaries={0,1,1022,1023,1024,1025,2047,2048,4096,invalid-2,invalid-1,invalid};
++    run({{1023,7},{1024,9},{2048,3}},boundaries);
++    run({{invalid-1,77}},boundaries); // High IDs alone must not allocate their entire address prefix.
++    run({{0,9},{invalid-1,10}},boundaries); // Full-width holes, absent directory pages.
++    // Replacement removes old shape mappings and can assign a recycled ID to a
++    // different authored chunk. A replacement index cannot retain a stale entry.
++    run({{1023,800},{4096,22}},boundaries);
++    for(const auto& bad:std::vector<std::vector<Entry>>{{{1,0},{1,2}},{{2,0},{1,1}},{{invalid,1}},{{1,invalid}}}) {
++        bool rejected=false;try { build(bad); } catch(const std::invalid_argument&) { rejected=true; }
++        require(rejected,"invalid mapping was accepted");
++    }
++    std::mt19937 random(413);std::vector<Entry> city;std::vector<PxU32> queries;
++    constexpr PxU32 n=113664;
++    for(PxU32 i=0;i<n;++i)city.push_back({2*i+17,(i*971)%n});
++    std::shuffle(city.begin(),city.end(),random);
++    for(PxU32 i=0;i<2*n;++i)queries.push_back(random()%(3*n));
++    run(city,queries);
++    std::puts("GPU chunk index passed: empty/sparse/full-width IDs, holes, replacement/reuse, invalid inputs and 113664 identities with 340992 queries");
++    return 0;
++} catch(const std::exception& e) { std::fprintf(stderr,"%s\n",e.what());return 1; } }
