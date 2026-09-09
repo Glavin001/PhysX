@@ -385,6 +385,7 @@ PxgSimulationCore::PxgSimulationCore(PxgCudaKernelWranglerManager* gpuKernelWran
 	mGpuConstraintIdMapDevice(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mUpdatedBodySimBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mNewBodySimBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mKinematicInputs(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mNewArticulationBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION_ARTICULATION),
 	mNewLinkBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mNewLinkWakeCounterBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
@@ -725,6 +726,16 @@ void PxgSimulationCore::gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityU
 	const PxU32 nbNewLinks = newLinkPool.size();
 
 	reserveBodySimStorage(nbTotalBodies, enableBodyAccelerations);
+	// Once initialized, retain authored input updates through clear/reconfigure.
+	// No inactive-body scan is needed: existing command producers own updates.
+	if(mGpuContext->usesNativeKinematicInputs() || mKinematicInputs.getDevicePtr())
+	{
+		const PxU64 oldBytes = mKinematicInputs.getSize();
+		mKinematicInputs.allocateCopyOldDataAsync(size_t(nbTotalBodies)*sizeof(PxgKinematicMotionInput), mCudaContext, mStream, PX_FL);
+		const PxU64 bytes = mKinematicInputs.getSize();
+		if(bytes > oldBytes)
+			mCudaContext->memsetD32Async(mKinematicInputs.getDevicePtr()+oldBytes, 0, (bytes-oldBytes)/sizeof(PxU32), mStream);
+	}
 
 	//This will dma articulation 
 	if (nbTotalArticulations > mNbTotalArticulations)
@@ -1062,6 +1073,7 @@ void PxgSimulationCore::gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityU
 		//fill in descriptor
 		PxgNewBodiesDesc& newBodiesDesc = mNewBodiesDesc.get();
 		newBodiesDesc.mNewBodySim = mNewBodySimBuffer.getTypedPtr();
+		newBodiesDesc.mKinematicInputs = mKinematicInputs.getTypedPtr();
 		newBodiesDesc.mBodySimBufferDeviceData = getBodySimBufferDeviceData().getPointer();
 		// PdHC: For new bodies, kernel will initialize their previous velocities to their initial velocity
 		newBodiesDesc.mPrevVelocitiesBuffer = getBodySimPrevVelocitiesBufferDeviceData().getPointer();

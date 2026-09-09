@@ -903,8 +903,9 @@ void PxgCudaSolverCore::preIntegration(const PxU32 offset, const PxU32 nbSolverB
 		CUdeviceptr outVelocities = mOutVelocityPool.getDevicePtr();
         // Ordinary native mode publishes CPU mass frames only after correction.
         // Direct-GPU historical reference mode has no such host publication.
-        const auto nativeBodySims=mGpuContext->getEnableDirectGPUAPI()
-            ? PxgDevicePointer<PxgBodySim>(0) : mGpuContext->getSimulationCore()->getBodySimBufferDevicePtr();
+        const auto nativeBodySims=mGpuContext->usesNativeKinematicInputs()
+            ? mGpuContext->getSimulationCore()->getBodySimBufferDevicePtr() : PxgDevicePointer<PxgBodySim>(0);
+        const auto kinematicInputs=mGpuContext->getSimulationCore()->getKinematicInputs();
 
 		PxCudaKernelParam kernelParams[] =
 		{
@@ -916,7 +917,8 @@ void PxgCudaSolverCore::preIntegration(const PxU32 offset, const PxU32 nbSolverB
 			PX_CUDA_KERNEL_PARAM(outVelocities),
 			PX_CUDA_KERNEL_PARAM(islandNodeIndices),
 			PX_CUDA_KERNEL_PARAM(solverBodyIndices),
-            PX_CUDA_KERNEL_PARAM(nativeBodySims)
+            PX_CUDA_KERNEL_PARAM(nativeBodySims),
+            PX_CUDA_KERNEL_PARAM(kinematicInputs)
 		};
 
 		CUresult launchResult = mCudaContext->launchKernel(staticInitFunction, nbStaticBlocks, 1, 1, PxgKernelBlockDim::PRE_INTEGRATION, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);

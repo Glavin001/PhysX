@@ -22,6 +22,14 @@ an audited mode-matched reference. The known contact-retention failure is caught
 at step 17 in both modes. Native lifecycle integration and the physical fix are
 still unfinished. [Fast-tier receipt](../../qualification/native-prefix-20260909/README.md).
 
+Native ordinary kinematic solver-input construction is now GPU-owned; only the
+world CPU solver record uploads. Prescribed ordinary motion is retained separately
+from collision state, while destruction uses installed GPU motion directly.
+[Receipt](../../qualification/native-kinematic-inputs-20260909/README.md).
+Controlled parity/lifetime checks pass; the short paired screen shows no speedup
+and an observed 0.9% higher worst fracture peak. CPU CCD/activity/iteration metadata,
+simulation registration and shape rebinding remain. This is partial ranked #1.
+
 ## Architectural progress versus performance rejection
 
 User clarification: a physically equivalent, maintainable step toward the final

@@ -3312,6 +3312,18 @@
       "public_abi": 15,
       "performance": "short paired screen: observed worst fracture peak 2.3% higher; no speedup or full qualification claim",
       "remaining": "GPU simulation registration/activity and collision ownership consumers before proceeding to ranked 2"
+    },
+    "native_kinematic_inputs_continuation": {
+      "status": "partial-ranked-1",
+      "receipt": "qualification/native-kinematic-inputs-20260909/README.md",
+      "host_solver_input_records": 1,
+      "ordinary_prescribed_input_bytes_per_allocated_node": 80,
+      "extra_kernels": 0,
+      "public_abi": 15,
+      "private_runtime_factory": "V5",
+      "verification": "44 affected tests, expanded platform and identity reuse oracle, focused memcheck, frozen600, ordinary128",
+      "performance": "ABBA96 short screen; worst fracture peak observed 0.9% higher, no speedup or full qualification claim",
+      "remaining": "CPU CCD/iteration/activity metadata, GPU simulation registration and ownership/contact consumers; ranked 2-7 pending"
     }
   },
   "replacement_plan_20260909": {

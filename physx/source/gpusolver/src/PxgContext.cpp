@@ -1076,7 +1076,10 @@ namespace physx
 			{
 				PxsRigidBody& rigidBody = *getRigidBodyFromIG(islandSim, mKinematicNodes[i]);
 				const PxsBodyCore& core = rigidBody.getCore();
-				copyToSolverBodyStaticAndKinematic(mSolverBodyDataPool[i], mSolverTxIData[i], core, mKinematicNodes[i]);
+                // Native solver records are produced from resident GPU bodies.
+                // CPU CCD history remains a separate upstream responsibility.
+                if(mSolverBodyDataPool)
+                    copyToSolverBodyStaticAndKinematic(mSolverBodyDataPool[i], mSolverTxIData[i], core, mKinematicNodes[i]);
 				//mActiveNodeIndex[mSolverBodyStartIndex + i] = mKinematicNodes[i];
 				rigidBody.saveLastCCDTransform();
 			}
@@ -1175,6 +1178,11 @@ namespace physx
 		}
 	};
 
+    bool PxgGpuContext::usesNativeKinematicInputs()
+    {
+        return !mEnableDirectGPUAPI && getSimulationController()->usesDeviceDestructionContactInputs();
+    }
+
 	void PxgGpuContext::doPreIntegrationTaskCommon(physx::PxBaseTask* continuation)
 	{
 		// AD: this task currently assumes we only have 1 solver island. If there is a variable amount of islands,
@@ -1241,14 +1249,15 @@ namespace physx
 			}
 		}
 
+        const bool nativeKinematics=usesNativeKinematicInputs();
 		const PxU32 kinematicBatchSize = 1024u;
 		const PxNodeIndex*const kinematicIndices = islandSim.getActiveKinematics();
 
 		for (PxU32 a = 0; a < mKinematicCount; a += kinematicBatchSize)
 		{
 			PxgSetupKinematicTask* task = PX_PLACEMENT_NEW(mFlushPool.allocate(sizeof(PxgSetupKinematicTask)), PxgSetupKinematicTask)
-				(kinematicIndices + a, mActiveNodeIndex.begin(), PxMin(mKinematicCount - a, kinematicBatchSize), mIslandManager, a + 1, mSolverBodyDataPool.begin() + a + 1,
-					mSolverBodySleepDataPool.begin() + a + 1, mSolverTxIDataPool.begin() + a + 1);
+				(kinematicIndices + a, mActiveNodeIndex.begin(), PxMin(mKinematicCount - a, kinematicBatchSize), mIslandManager, a + 1, nativeKinematics ? NULL : mSolverBodyDataPool.begin() + a + 1,
+                    mSolverBodySleepDataPool.begin() + a + 1, nativeKinematics ? NULL : mSolverTxIDataPool.begin() + a + 1);
 			task->setContinuation(continuation);
 			task->removeReference();
 		}
@@ -2311,10 +2320,12 @@ void PxgGpuContext::update(	Cm::FlushPool& flushPool, PxBaseTask* continuation, 
 			mActiveNodeIndex.reserve(totalArticulationAlignedCounts);
 		}
 
-		if ((kinematicCount + 31 + 1) > mSolverBodyDataPool.capacity())
-		{
-			mSolverBodyDataPool.reserve((kinematicCount + 31 + 1) & (~31));
-		}
+        // Only the world record crosses the host boundary in native mode.
+        // Ordinary kinematics already upload their authored commands to body
+        // storage; destruction bodies are initialized/installed there on GPU.
+        const PxU32 hostSolverInputs=usesNativeKinematicInputs()?1:1+kinematicCount;
+        if(hostSolverInputs>mSolverBodyDataPool.capacity())
+            mSolverBodyDataPool.reserve((hostSolverInputs+31)&(~31));
 
 		mActiveNodeIndex.forceSize_Unsafe(1 + kinematicCount + bodyCount + articulationCount);
 
@@ -2324,7 +2335,7 @@ void PxgGpuContext::update(	Cm::FlushPool& flushPool, PxBaseTask* continuation, 
 
 		mBody2WorldPool.forceSize_Unsafe(totalBodySize);
 		//we don't need to create dynamic solver body data in cpu anymore
-		mSolverBodyDataPool.forceSize_Unsafe(1 + kinematicCount);
+        mSolverBodyDataPool.forceSize_Unsafe(hostSolverInputs);
 		//we need to dma up static+kinematic part of the sleepData and we dma up the whole sleepData array
 		mSolverBodySleepDataPool.forceSize_Unsafe(totalBodySize);
 		mSolverTxIDataPool.forceSize_Unsafe(totalBodySize);

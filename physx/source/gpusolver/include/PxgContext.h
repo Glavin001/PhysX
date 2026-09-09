@@ -391,6 +391,7 @@ namespace physx
 
 		//this method make sure we get PxgSimultionController instead of PxsSimulationController
 		PxgSimulationController*			getSimulationController();
+        bool usesNativeKinematicInputs();
 
 		virtual void						setSimulationController(PxsSimulationController* mSimulationController)	PX_OVERRIDE;
 

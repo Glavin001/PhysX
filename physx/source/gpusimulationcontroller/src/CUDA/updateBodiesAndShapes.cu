@@ -75,6 +75,23 @@ PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, maxLinearVelocitySqX_maxAngularVelo
 PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, articulationRemapId) % sizeof(uint4) == 0));
 PX_COMPILE_TIME_ASSERT(((offsetof(PxgBodySim, internalFlags) - offsetof(PxgBodySim, articulationRemapId)) == sizeof(PxU32)));
 
+// This state serves ordinary prescribed motion only. GPU-owned destruction
+// placeholders must not become solver inputs or cause full motion copies.
+__device__ __forceinline__ void recordKinematicInput(const PxgNewBodiesDesc* desc, PxU32 row, PxU32 bodyIndex)
+{
+	if(!desc->mKinematicInputs) return;
+	const auto& command = desc->mNewBodySim[row];
+	auto& input = desc->mKinematicInputs[bodyIndex];
+	input.valid = command.linearVelocityXYZ_inverseMassW.w == 0
+		&& !(command.internalFlags & PxsRigidBody::eDESTRUCTION_MASS_GPU);
+	if(input.valid)
+	{
+		input.body2World = command.body2World;
+		input.linearVelocity = command.linearVelocityXYZ_inverseMassW;
+		input.angularVelocity = command.angularVelocityXYZ_maxPenBiasW;
+	}
+}
+
 extern "C" __global__ void updateBodiesLaunch(const PxgNewBodiesDesc* scDesc)
 {
 	const uint4* gBodySim = reinterpret_cast<const uint4*>(scDesc->mNewBodySim);
@@ -97,6 +114,8 @@ extern "C" __global__ void updateBodiesLaunch(const PxgNewBodiesDesc* scDesc)
 			data = gBodySim[i * PXG_BODY_SIM_UINT4_SIZE + index];
 
 		const PxU32 bodyIndex = __shfl_sync(mask_loop, data.w, PXG_BODY_SIM_BODYSIM_INDEX_IND, 16);
+		if(index == 0) recordKinematicInput(scDesc, i, bodyIndex);
+
 
 		if (index < PXG_BODY_SIM_UINT4_SIZE)
 			gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + index] = data;
@@ -129,6 +148,8 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 			data = gBodySim[i * PXG_BODY_SIM_UINT4_SIZE + index];
 
 		const PxU32 bodyIndex = __shfl_sync(mask_loop, data.w, PXG_BODY_SIM_BODYSIM_INDEX_IND, 16);
+		if(index == 0) recordKinematicInput(scDesc, i, bodyIndex);
+
 		const PxU32 internalFlags = __shfl_sync(mask_loop, data.y, PXG_BODY_SIM_FLAGS_IND, 16);
 		// preist: note that we copy this flag to persistent GPU memory on first transfer, but that is no problem
 		// because we only check the update data flag here which will be reset on CPU

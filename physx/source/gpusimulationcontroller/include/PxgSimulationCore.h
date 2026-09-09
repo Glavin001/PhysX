@@ -240,6 +240,10 @@ namespace physx
 
 		// PT: wrappers to make it easier to find the places where this is used.
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySim>		getBodySimBufferDevicePtr()		const	{ return mBodySimCudaBuffer.getTypedDevicePtr();									}
+		PX_FORCE_INLINE PxgKinematicMotionInput* getKinematicInputs() const
+		{
+			return mKinematicInputs.getTypedPtr();
+		}
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySim>		getBodySimBufferDeviceData() { return mBodySimCudaBuffer.getTypedDevicePtr(); }
 
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySimVelocities>	getBodySimPrevVelocitiesBufferDevicePtr()	const	{ return mBodySimPreviousVelocitiesCudaBuffer.getTypedDevicePtr();	}
@@ -497,6 +501,7 @@ namespace physx
 
 		PxgTypedCudaBuffer<PxgBodySimVelocityUpdate>	mUpdatedBodySimBuffer;
 		PxgTypedCudaBuffer<PxgBodySim>	mNewBodySimBuffer;
+		PxgTypedCudaBuffer<PxgKinematicMotionInput> mKinematicInputs;
 		PxgTypedCudaBuffer<PxgArticulation>	mNewArticulationBuffer;
 		PxgTypedCudaBuffer<PxgArticulationLink>	mNewLinkBuffer;
 		PxgTypedCudaBuffer<PxReal>	mNewLinkWakeCounterBuffer;

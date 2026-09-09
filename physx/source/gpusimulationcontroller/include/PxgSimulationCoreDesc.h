@@ -50,6 +50,7 @@ namespace physx
 	struct PxgSolverBodySleepData;
 	struct PxgShape;
 	struct PxgBodySim;
+	struct PxgKinematicMotionInput;
 	struct PxgBodySimVelocities;
 	struct PxgShapeSim;
 	struct PxgArticulationLink;
@@ -77,6 +78,7 @@ namespace physx
 	struct PxgNewBodiesDesc
 	{
 		const PxgBodySim*	mNewBodySim;
+		PxgKinematicMotionInput* mKinematicInputs;
 		PxgBodySim*			mBodySimBufferDeviceData;
 		PxgBodySimVelocities*	mPrevVelocitiesBuffer;		// PdHC: Previous velocities buffer for acceleration computation
 		PxU32				mNbNewBodies;	//number of newly added bodies

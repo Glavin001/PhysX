@@ -90,6 +90,16 @@ struct PxgBodySimVelocityUpdate
 	float4 externalAngularAccelerationXYZ;
 };
 
+	// Prescribed kinematic motion differs from persistent collision state in
+	// ordinary native mode. Preserve only these solver inputs when their command
+	// staging buffer is reused; destruction motion remains in PxgBodySim.
+	struct PxgKinematicMotionInput
+	{
+		PxAlignedTransform body2World;
+		float4 linearVelocity, angularVelocity;
+		PxU32 valid;
+	};
+
 }//physx
 
 #endif

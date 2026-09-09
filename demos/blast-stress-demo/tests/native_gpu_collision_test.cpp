@@ -117,6 +117,7 @@ struct Fixture {
 #include "native_initialization_failure_check.h"
 #include "native_preparation_order_check.h"
 #include "native_accepted_properties_check.h"
+#include "native_kinematic_inputs_check.h"
 #include "native_fracture_fallback_check.h"
 // Compare the actual solver device buffers with an independent full snapshot
 // captured before solving, not the later (potentially split) native islands.
@@ -696,11 +697,13 @@ void crushRemoval() {
 }
 }
 int main(int argc,char** argv){try{
+    if(argc==3 && std::strcmp(argv[1],"--kinematic-inputs-capture")==0){for(unsigned a=0;a<3;++a){nativeKinematicInputs(PxSolverType::ePGS,argv[2],a);nativeKinematicInputs(PxSolverType::eTGS,argv[2],a);}return 0;}
     if(argc==2) {
         const std::string mode=argv[1];
         if(mode=="--connectivity-owner"){solverMetadata(PxSolverType::ePGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,false,true,true,true,true);solverMetadata(PxSolverType::eTGS,true,true,true,true,true);return 0;}
         if(mode=="--pre-solve-islands"){solverMetadata(PxSolverType::ePGS,false,true);solverMetadata(PxSolverType::eTGS,false,true);solverMetadata(PxSolverType::eTGS,true,true);return 0;}
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
+        if(mode=="--kinematic-inputs"){for(unsigned a=0;a<3;++a){nativeKinematicInputs(PxSolverType::ePGS,nullptr,a);nativeKinematicInputs(PxSolverType::eTGS,nullptr,a);}nativeKinematicInputReuse(PxSolverType::ePGS);nativeKinematicInputReuse(PxSolverType::eTGS);return 0;}
         if(mode=="--accepted-properties"){acceptedPropertiesOnly();return 0;}
         if(mode=="--accepted-properties-pgs"){acceptedPropertiesOnly(PxSolverType::ePGS);return 0;}
         if(mode=="--preparation-before-compatibility"){preparationBeforeCompatibility();return 0;}
