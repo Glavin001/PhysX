@@ -25,6 +25,16 @@ struct PxgDestructionRegistrationView {
     PxgDestructionRegistrationBatch* batch;
     PxU32 capacity, pageSize;
 };
+// The producer writes a compact command tape and then publishes count on its
+// ordered stream. Batch boundaries are part of numerical registration order.
+struct PxgDestructionRegistrationCommand {
+    PxU32 releaseOffset, releaseCount, assignOffset, assignCount;
+};
+struct PxgDestructionRegistrationQueue {
+    const PxgDestructionRegistrationCommand* commands;
+    const PxU32* count;
+    PxU32 commandCapacity, releaseCapacity, assignCapacity;
+};
 enum PxgDestructionRegistrationError : PxU32 {
     eREGISTRATION_CAPACITY = 1,
     eREGISTRATION_STALE_HANDLE = 2,

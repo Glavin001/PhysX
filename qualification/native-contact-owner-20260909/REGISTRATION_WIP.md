@@ -51,3 +51,23 @@ would not qualify this disconnected transaction.
    honor that order, including ordinary contacts and wake transitions.
 4. Re-run native lifecycle tests and the exact frozen wall oracle before paired
    idle/destruction performance screens.
+
+## Device batch queue extension
+
+The allocator also consumes a producer-counted device command queue in one
+cooperative launch. Later batches can read handles assigned by earlier batches
+without host observation. Queue bounds are checked before payload access;
+per-batch canonical atomicity is retained. An error stops subsequent batches,
+while earlier internal registrations remain allocated: the containing simulation
+must reject publication on the latched failure. This is not whole-queue rollback.
+
+An additional 101-batch deterministic test covers GPU-produced handle dependencies,
+producer/consumer stream event ordering, unused poisoned command capacity, empty
+queues, invalid command offsets and queue-count overflow. Normal execution and all
+four CUDA sanitizer modes pass. [Queue evidence](evidence/registration-queue/receipt.json)
+records the exact updated source/binary hashes; the earlier receipt remains intact.
+
+There is still no native call site or measured engine improvement from this queue.
+It avoids introducing per-batch CPU decisions/launches into the planned native
+registration integration. Its own potential saving has not been measured; the
+larger opportunity remains persistent contact ownership and lifecycle migration.

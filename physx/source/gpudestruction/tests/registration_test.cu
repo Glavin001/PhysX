@@ -148,8 +148,75 @@ void errorsAndGrowth(){
     invalid.entries.put({{}});invalid.free.put({0});
     atomicFailure(invalid,{},1,eREGISTRATION_INVALID_STATE);
 }
+// Native producers can refer to earlier GPU-assigned handles. No host observes
+// or re-uploads those handles between command batches.
+struct QueueAccess {
+    const PxU32* source;
+    Handle* assigned;
+    __device__ Handle release(PxU32 i)const{return assigned[source[i]];}
+    __device__ void assign(PxU32 i,Handle h)const{assigned[i]=h;}
+};
+__global__ void publishCount(PxU32* destination,PxU32 count){*destination=count;}
+void queuedLifecycle(){
+    Arena gpu(32768,256);Reference ref{256};
+    std::vector<PxgDestructionRegistrationCommand> commands;
+    std::vector<Handle> expected;
+    std::vector<PxU32> active,sources;
+    std::mt19937 rng(0x259971);
+    for(PxU32 batch=0;batch<101;++batch){
+        std::shuffle(active.begin(),active.end(),rng);
+        const PxU32 retire=PxU32(std::min(active.size(),size_t(rng()%513)));
+        const PxU32 add=batch==0?1025:batch==100?0:rng()%513;
+        const PxU32 releaseOffset=PxU32(sources.size()),assignOffset=PxU32(expected.size());
+        std::vector<Handle> releases;
+        for(PxU32 i=0;i<retire;++i){
+            const auto index=active.back();active.pop_back();sources.push_back(index);releases.push_back(expected[index]);
+        }
+        const auto assigned=ref.transact(releases,add);
+        for(PxU32 i=0;i<add;++i)active.push_back(assignOffset+i);
+        expected.insert(expected.end(),assigned.begin(),assigned.end());
+        commands.push_back({releaseOffset,retire,assignOffset,add});
+    }
+    const PxU32 actualCount=PxU32(commands.size());
+    // The device count, not backing capacity, determines valid commands.
+    commands.push_back({~PxU32(0),~PxU32(0),~PxU32(0),~PxU32(0)});
+    Device<PxgDestructionRegistrationCommand> tape(commands.size());tape.put(commands);
+    Device<PxU32> count(1),input(sources.size());input.put(sources);
+    Device<Handle> output(expected.size()+1);output.put(std::vector<Handle>(expected.size()+1,{0xdeadbeef,0xcafef00d}));
+    PxgDestructionRegistrationQueue queue={tape.p,count.p,PxU32(commands.size()),PxU32(sources.size()),PxU32(expected.size())};
+    int residency=0;check(destructionRegistration::queueResidentBlocks<QueueAccess>(residency));
+    cudaStream_t producer,consumer;cudaEvent_t ready;
+    check(cudaStreamCreateWithFlags(&producer,cudaStreamNonBlocking));
+    check(cudaStreamCreateWithFlags(&consumer,cudaStreamNonBlocking));
+    check(cudaEventCreateWithFlags(&ready,cudaEventDisableTiming));
+    publishCount<<<1,1,0,producer>>>(count.p,actualCount);
+    check(cudaEventRecord(ready,producer));check(cudaStreamWaitEvent(consumer,ready,0));
+    check(destructionRegistration::launchQueue(gpu.view(),QueueAccess{input.p,output.p},queue,residency,std::min(8,residency),consumer));
+    check(cudaStreamSynchronize(consumer));
+    compareHandles(output.get(expected.size()),expected);gpu.compare(ref);
+    require(same(output.get(expected.size()+1).back(),{0xdeadbeef,0xcafef00d}),"queue overwrote unused output capacity");
+    // An empty producer queue never reads the poisoned command capacity.
+    publishCount<<<1,1,0,consumer>>>(count.p,0);
+    check(destructionRegistration::launchQueue(gpu.view(),QueueAccess{input.p,output.p},queue,residency,1,consumer));
+    check(cudaStreamSynchronize(consumer));gpu.compare(ref);
+    // Overflow is latched before any command executes or touches payloads.
+    const auto before=gpu.state.get(1)[0];
+    publishCount<<<1,1,0,consumer>>>(count.p,PxU32(commands.size()+1));
+    check(destructionRegistration::launchQueue(gpu.view(),QueueAccess{input.p,output.p},queue,residency,1,consumer));
+    check(cudaStreamSynchronize(consumer));auto after=gpu.state.get(1)[0];
+    require(after.error==eREGISTRATION_INVALID_STATE && after.epoch==before.epoch,"queue overflow executed a command");
+    after.error=0;gpu.state.put({after});
+    // Bad payload offsets are likewise rejected without reading them.
+    tape.put({commands.back()});publishCount<<<1,1,0,consumer>>>(count.p,1);
+    check(destructionRegistration::launchQueue(gpu.view(),QueueAccess{input.p,output.p},queue,residency,1,consumer));
+    check(cudaStreamSynchronize(consumer));after=gpu.state.get(1)[0];
+    require(after.error==eREGISTRATION_INVALID_STATE && after.epoch==before.epoch,"invalid queue offsets executed a command");
+    after.error=0;gpu.state.put({after});gpu.compare(ref);
+    require(destructionRegistration::launchQueue(gpu.view(),QueueAccess{input.p,output.p},queue,residency,residency+1,consumer)==cudaErrorInvalidValue,"illegal cooperative launch accepted");
+    check(cudaEventDestroy(ready));check(cudaStreamDestroy(producer));check(cudaStreamDestroy(consumer));
+}
 int main(){try{
-    lifecycle();errorsAndGrowth();
-    std::puts("GPU registration passed: 300 deterministic mixed lifecycle batches; paged order, generations, aliased commands, multi-block tails, atomic stale/duplicate/overflow failures and growth/retry");
+    lifecycle();errorsAndGrowth();queuedLifecycle();
+    std::puts("GPU registration passed: 300 mixed lifecycle batches and 101 device-queued batches; paged order, GPU-produced handle dependencies, generations, aliasing, atomic failures, growth/retry and stream ordering");
     return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

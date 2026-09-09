@@ -8,7 +8,7 @@ namespace physx { namespace destructionRegistration {
 // one. Native geometry/owner packets can supply adapters without repacking them.
 // Release and destination storage may alias: all releases finish before writes.
 template<class Access>
-__global__ void transact(PxgDestructionRegistrationView view,Access access,
+__device__ void transactBatch(PxgDestructionRegistrationView view,Access access,
     PxU32 releaseCount,PxU32 allocateCount) {
     const auto grid=cooperative_groups::this_grid();
     const PxU64 lane=grid.thread_rank(),stride=grid.size();
@@ -90,10 +90,53 @@ __global__ void transact(PxgDestructionRegistrationView view,Access access,
     }
 }
 
+template<class Access>
+__global__ void transact(PxgDestructionRegistrationView view,Access access,
+    PxU32 releaseCount,PxU32 allocateCount) {
+    transactBatch(view,access,releaseCount,allocateCount);
+}
+
+// Queue adapters offset native access without copying release/output payloads.
+template<class Access> struct BatchAccess {
+    Access source;
+    PxU32 releaseOffset,assignOffset;
+    __device__ PxgDestructionRegistrationHandle release(PxU32 i)const {
+        return source.release(releaseOffset+i);
+    }
+    __device__ void assign(PxU32 i,PxgDestructionRegistrationHandle h)const {
+        source.assign(assignOffset+i,h);
+    }
+};
+template<class Access>
+__global__ void transactQueue(PxgDestructionRegistrationView view,Access access,
+    PxgDestructionRegistrationQueue queue) {
+    const auto grid=cooperative_groups::this_grid();
+    const PxU32 count=*queue.count;
+    if(grid.thread_rank()==0 && count>queue.commandCapacity)
+        atomicOr(&view.state->error,PxU32(eREGISTRATION_INVALID_STATE));
+    grid.sync();
+    if(view.state->error)return;
+    for(PxU32 i=0;i<count;++i) {
+        const auto command=queue.commands[i];
+        if(grid.thread_rank()==0 && (PxU64(command.releaseOffset)+command.releaseCount>queue.releaseCapacity
+            || PxU64(command.assignOffset)+command.assignCount>queue.assignCapacity))
+            atomicOr(&view.state->error,PxU32(eREGISTRATION_INVALID_STATE));
+        grid.sync();
+        if(view.state->error)return;
+        if(command.releaseCount || command.assignCount)
+            transactBatch(view,BatchAccess<Access>{access,command.releaseOffset,command.assignOffset},
+                command.releaseCount,command.assignCount);
+        // transactBatch commits counters on thread zero after its final barrier.
+        // Publish that commit before the next batch's validation reads it.
+        grid.sync();
+        if(view.state->error)return;
+    }
+}
+
 // Qualify residency once per kernel specialization when its owner is created.
 // There is no ordinary-launch/CPU fallback for an unsupported CUDA environment.
-template<class Access>
-cudaError_t residentBlocks(int& blocks) {
+template<class Kernel>
+cudaError_t residentBlocksFor(Kernel kernel,int& blocks) {
     int device=0,cooperative=0,major=0,minor=0,sms=0,perSm=0;
     auto result=cudaGetDevice(&device);if(result!=cudaSuccess)return result;
     result=cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device);if(result!=cudaSuccess)return result;
@@ -101,9 +144,13 @@ cudaError_t residentBlocks(int& blocks) {
     result=cudaDeviceGetAttribute(&minor,cudaDevAttrComputeCapabilityMinor,device);if(result!=cudaSuccess)return result;
     if(!cooperative || major!=8 || minor!=9)return cudaErrorNotSupported;
     result=cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device);if(result!=cudaSuccess)return result;
-    result=cudaOccupancyMaxActiveBlocksPerMultiprocessor(&perSm,transact<Access>,128,0);if(result!=cudaSuccess)return result;
+    result=cudaOccupancyMaxActiveBlocksPerMultiprocessor(&perSm,kernel,128,0);if(result!=cudaSuccess)return result;
     blocks=perSm*sms;return blocks?cudaSuccess:cudaErrorNotSupported;
 }
+template<class Access>
+cudaError_t residentBlocks(int& blocks) {return residentBlocksFor(transact<Access>,blocks);}
+template<class Access>
+cudaError_t queueResidentBlocks(int& blocks) {return residentBlocksFor(transactQueue<Access>,blocks);}
 template<class Access>
 cudaError_t launch(PxgDestructionRegistrationView view,Access access,PxU32 releases,
     PxU32 allocations,int residency,cudaStream_t stream) {
@@ -115,5 +162,16 @@ cudaError_t launch(PxgDestructionRegistrationView view,Access access,PxU32 relea
     void* arguments[]={&view,&access,&releases,&allocations};
     return cudaLaunchCooperativeKernel(reinterpret_cast<void*>(transact<Access>),
         dim3(blocks?blocks:1),dim3(128),arguments,0,stream);
+}
+// Grid size is chosen at initialization for the workload, within measured legal
+// residency. Device count controls work; no queue-count readback is required.
+template<class Access>
+cudaError_t launchQueue(PxgDestructionRegistrationView view,Access access,
+    PxgDestructionRegistrationQueue queue,int residency,int blocks,cudaStream_t stream) {
+    if(!view.state || !view.batch || !view.entries || !view.freeSlots || !queue.commands
+        || !queue.count || blocks<=0 || blocks>residency)return cudaErrorInvalidValue;
+    void* arguments[]={&view,&access,&queue};
+    return cudaLaunchCooperativeKernel(reinterpret_cast<void*>(transactQueue<Access>),
+        dim3(blocks),dim3(128),arguments,0,stream);
 }
 }}
