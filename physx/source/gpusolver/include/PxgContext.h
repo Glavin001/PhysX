@@ -342,6 +342,19 @@ namespace physx
             mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!enabled,!(mCudaPreSolveSupport && enabled)); }
         void enableCudaPreSolveSupport(bool enabled) { if(!enabled)mIslandManager.restoreHostConnectivity(); if(enabled!=mCudaPreSolveSupport)mPreForceNodeSnapshot=true;mCudaPreSolveSupport=enabled;
             mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!mCudaPreSolveContacts,!(enabled && mCudaPreSolveContacts)); }
+        void activateDestructionNodeTracking() {
+            // Called only when the scene first requests its destruction API.
+            // Explicit diagnostic/reference settings remain authoritative.
+            enableCudaPreSolveIslands(mCudaPreSolveIslands);
+        }
+        void acknowledgeNativeNodeBirths(const PxU32* indices,PxU32 count) {
+            // These births already exist in the GPU roster. Preserve ordinary
+            // commands and retained-owner type changes; only new nodes qualify.
+            // Roster production also runs with ordinary sleeping enabled;
+            // full union-find ownership has a narrower, independent contract.
+            if(mCudaPreSolveIslands && mCudaPreSolveContacts && mCudaPreSolveSupport)
+                for(PxU32 i=0;i<count;++i)mIslandManager.getAccurateIslandSim().acknowledgeDeviceNodeBirth(indices[i]);
+        }
         bool preSolveNodesUseNativeSupport() const { return mPreSolveNodesUseNativeSupport; }
         CUdeviceptr getPreSolveSupportDevicePointer() const { return mPreSolveSupportDevicePointer; }
         PxU64 getCudaPreSolveSupportPasses() const { return mCudaPreSolveSupportPasses; }
@@ -581,14 +594,14 @@ namespace physx
         Cm::PinnableArray<PxvPreSolveNodeUpdate> mPreSolveNodes;
         Cm::PinnableArray<PxvPreSolveEdge> mPreSolveMerges;
         Cm::PinnableArray<PxU32> mPreSolveRetired;
-        bool mCudaPreSolveContacts=false,mCudaPreSolveSupport=false,mPreSolveNodesUseNativeSupport=true;
+        bool mCudaPreSolveContacts=true,mCudaPreSolveSupport=true,mPreSolveNodesUseNativeSupport=true;
         CUdeviceptr mPreSolveSupportDevicePointer=0;
         PxU64 mCudaPreSolveSupportPasses=0;
         PxU64 mCudaPreSolveContactPasses=0,mCudaPreSolveContactPairs=0,mCudaPreSolveRetiredBytes=0;
         // Ordinary sleeping consumes a GPU-repaired native membership mirror.
         // Do not discard that mirror until the sleep scheduler consumes device components.
         bool mPreSolveSleepingDisabled;
-        bool mCudaPreSolveIslands=false,mPreForceNodeSnapshot=true;
+        bool mCudaPreSolveIslands=true,mPreForceNodeSnapshot=true;
         PxU64 mCudaPreSolvePasses=0,mCudaPreSolveFallbacks=0,mCudaPreSolveHostBytes=0;
         PxU64 mCudaPreSolveFullHostBytes=0,mCudaPreSolveNodeUpdates=0,mCudaPreSolveFullSnapshots=0;
 

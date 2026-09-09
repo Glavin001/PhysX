@@ -1,0 +1,18 @@
+START 1-baseline-idle
+PASS 1-baseline-idle
+START 1-baseline-shots
+PASS 1-baseline-shots
+START 2-candidate-idle
+PASS 2-candidate-idle
+START 2-candidate-shots
+PASS 2-candidate-shots
+START 3-candidate-idle
+PASS 3-candidate-idle
+START 3-candidate-shots
+PASS 3-candidate-shots
+START 4-baseline-idle
+PASS 4-baseline-idle
+START 4-baseline-shots
+PASS 4-baseline-shots
+/root/workspace/physx-2/qualification/native-node-birth-20260909/idle/report.md
+/root/workspace/physx-2/qualification/native-node-birth-20260909/shots/report.md

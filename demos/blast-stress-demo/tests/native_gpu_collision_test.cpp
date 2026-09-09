@@ -710,6 +710,7 @@ int main(int argc,char** argv){try{
         if(mode=="--kinematic-inputs"){for(unsigned a=0;a<3;++a){nativeKinematicInputs(PxSolverType::ePGS,nullptr,a);nativeKinematicInputs(PxSolverType::eTGS,nullptr,a);}nativeKinematicInputReuse(PxSolverType::ePGS);nativeKinematicInputReuse(PxSolverType::eTGS);return 0;}
         if(mode=="--accepted-properties"){acceptedPropertiesOnly();return 0;}
         if(mode=="--accepted-properties-pgs"){acceptedPropertiesOnly(PxSolverType::ePGS);return 0;}
+        if(mode=="--native-node-births"){preparationBeforeCompatibility(true);return 0;}
         if(mode=="--preparation-before-compatibility"){preparationBeforeCompatibility();return 0;}
         if(mode=="--fracture-connectivity-fallback"){fractureConnectivityFallback();return 0;}
         if(mode=="--initialization-failure"){nativeInitializationFailure();return 0;}

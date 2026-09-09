@@ -231,8 +231,8 @@ See the [measurement contract](PERFORMANCE_MEASUREMENT.md#independent-optimizati
 | T8 | ⬜ Remaining | Ownership indexing | [PxgDestructionTransaction.cuh](../../physx/source/gpudestruction/src/PxgDestructionTransaction.cuh) |
 | T9 | ⬜ Remaining | Sparse committed events | [PxgDestructionCommittedChanges.cuh](../../physx/source/gpudestruction/src/PxgDestructionCommittedChanges.cuh) |
 | T10 | 🛡️ Required | Storage lifetime | [PxgDestructionTransaction.cuh](../../physx/source/gpudestruction/src/PxgDestructionTransaction.cuh) |
-| C1 | ⬜ Remaining | Motion-slot lifecycle | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
-| C2 | ⬜ Remaining | Fragment simulation metadata | [NpDestructionBodyAllocator.h](../../physx/source/physx/src/NpDestructionBodyAllocator.h) |
+| C1 | 🚧 In progress | Motion-slot lifecycle | [PxgDestructionRuntime.cu](../../physx/source/gpudestruction/src/PxgDestructionRuntime.cu) |
+| C2 | 🚧 In progress | Fragment simulation metadata | [NpDestructionBodyAllocator.h](../../physx/source/physx/src/NpDestructionBodyAllocator.h) |
 | C3 | 🚧 Unqualified WIP | Persistent contact ownership | [ScShapeInteraction.cpp](../../physx/source/simulationcontroller/src/ScShapeInteraction.cpp) |
 | C4 | 🚧 Unqualified WIP | Migration-driven contact churn | [ScShapeSimBase.cpp](../../physx/source/simulationcontroller/src/ScShapeSimBase.cpp) |
 | C5 | ⬜ Remaining | Shape ownership transactions | [NpShapeManager.cpp](../../physx/source/physx/src/NpShapeManager.cpp) |
@@ -278,3 +278,17 @@ The GPU solver-registration transaction now has standalone lifecycle and CUDA
 sanitizer coverage. Native contact command plumbing and ordered event publication
 remain pending; the wall failure is not fixed by this isolated test.
 [Registration WIP receipt](../../qualification/native-contact-owner-20260909/REGISTRATION_WIP.md).
+
+## GPU birth registry continuation — 2026-09-09
+
+C1/C2 now produce fragment lifetime/type birth records during GPU allocation,
+before CPU construction. The GPU pre-solve roster consumes them by default for
+destruction; redundant CPU birth updates are suppressed. Mutable registration and
+completed-phase views have separate lifetimes. CPU active-list/iteration/contact
+registration still precedes correction: ranked1 incomplete, ranked2–7 pending.
+The [receipt](../../qualification/native-node-birth-20260909/README.md) records
+54 unique selected tests, scoped sanitizers, both wall modes, both large demo
+audit modes and exact consumer publication auditing. Short paired city/idle
+screens establish no peak speedup; a late counted trajectory divergence remains
+unisolated. This is architectural progress with bounded qualification, not full
+performance or physical-equivalence promotion.

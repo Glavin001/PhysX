@@ -1,0 +1,44 @@
+[
+  {
+    "path": "out/vibe-native/release/deps/libvibe_land_physx_bridge-29a04644e05b689f.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libvibe_land_physx_bridge-29a04644e05b689f.rlib",
+    "sha256": "944d00aab0556fa3c804df191dccda32634ce2ed9495b530a67162ad71621ab7",
+    "bytes": 18101528
+  },
+  {
+    "path": "out/vibe-native/release/deps/libsyn-3c481643b0088bb9.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libsyn-3c481643b0088bb9.rlib",
+    "sha256": "949d58769d30107a252e287ac15d8aaf6b4056e35de58eed656eb76c98e8b8fa",
+    "bytes": 12545350
+  },
+  {
+    "path": "out/vibe-native/release/deps/libnalgebra-b58e7b85daac3d08.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libnalgebra-b58e7b85daac3d08.rlib",
+    "sha256": "80a1361c570e683f1aa278c1ba759a5415dad4debc37c39c9df23f52a749e56e",
+    "bytes": 11477278
+  },
+  {
+    "path": "out/vibe-native/release/deps/libnalgebra-a57f26e71639da09.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libnalgebra-a57f26e71639da09.rlib",
+    "sha256": "340189698c4280aa0a8ee3c2bb10e1a79d3bb0b520c50fb4cfd312d3f14ac722",
+    "bytes": 11477278
+  },
+  {
+    "path": "out/vibe-native/release/deps/libtokio-777b0909795c5daf.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libtokio-777b0909795c5daf.rlib",
+    "sha256": "fa89db33ff0b95b16ca9b1ef0c54330e37c009b1a58c810ada0b7b54291bffec",
+    "bytes": 10739128
+  },
+  {
+    "path": "out/vibe-native/release/deps/libglam-dea6179c05b9c367.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libglam-dea6179c05b9c367.rlib",
+    "sha256": "69bd5e61a7cf587e6c96360324c728f96c31a1a96df0d16851618a35da9205e3",
+    "bytes": 10426694
+  },
+  {
+    "path": "out/vibe-native/release/deps/libaws_lc_sys-b611137b9069f9b4.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libaws_lc_sys-b611137b9069f9b4.rlib",
+    "sha256": "602c16be9128161917f766fa064b46a8f1cd757d1c9a85e038464adcadc9437f",
+    "bytes": 9685564
+  }
+]

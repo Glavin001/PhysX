@@ -1,0 +1,22 @@
+{
+  "demos/blast-stress-demo/CMakeLists.txt": "03ac4bf7a70eb65d3fa3964462636450d1ce0556ffb7dfb74d7a06965443b45e",
+  "demos/blast-stress-demo/tests/native_bombardment_contacts_test.py": "8527f6617fc96b4b01ec7cb7b99de14b6682b8270a024904e10c144b9480ff3b",
+  "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "7bbbec04566de0b33bd67d2598d74f54b6005141926f92b4726a1aad8cd46720",
+  "demos/blast-stress-demo/tests/native_preparation_order_check.h": "90cef96d7bf0b6cf467d4b6adac557471a9c87fa664293fb38b0c33135645125",
+  "docs/destruction/IMPLEMENTATION_LEDGER.md": "0f79a4e554142f6f879d7c19841b99fcdf677ed2d47ec1ea6903c90b7f708cf8",
+  "docs/destruction/OPTIMIZATION_INDEX.json": "3b7b3907428622b870b161614e05dbe412a818dd39aef631da8fcdf1a3900818",
+  "docs/destruction/PERFORMANCE_HANDOFF.md": "1d414573074e603ab38a26e45489bbd2c4766a2c0cb77448a60baa66bf6a8cee",
+  "physx/include/PxDestructionScene.h": "79b38aef08efbf08740ab2f21c5688b60fd964660b3a86366bc7d0cb2847a205",
+  "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "11c047549b5bb74e752f26fd9e4b6ff20e83507e2ee042a7606e592bb3bd5109",
+  "physx/source/gpudestruction/src/PxgDestructionMotionSlots.cuh": "36f2c98362388f81b39280f4081534fa17fd0172a86160a4bc697ee7fbaab209",
+  "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "cb42e2513e09ac585f9965e5fedf20aab45491065efe352e6ced9d30744a4f9a",
+  "physx/source/gpudestruction/src/PxgPreSolveStorage.inl": "5766b9fda7419c1852d97adf226d233d9ebfa1085bb7e7bcbd2eea534234c0e5",
+  "physx/source/gpudestruction/tests/motion_slots_test.cu": "c6273be286534b06a1bc52fbb693767b3afdf13d629436d67de6888d9508c981",
+  "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "9661631cd82012a9949da65e67f3d969f91dcca5edda59e6a99e202ebcb570fa",
+  "physx/source/gpusolver/include/PxgContext.h": "801ec4a95a5ff77b2a14633db6613c4d2af845372bc1181050523897ff65afa7",
+  "physx/source/lowlevel/software/include/PxsIslandSim.h": "fbb8a123351195c3b76f65fc52241bae9b43c05e296acbf8cd59ff02d9a0865f",
+  "out/native-node-birth-20260909/wall/quality.json": "920a75e8f4cbac39632e275a358946d8ee2c1f9b16f419a7cdd0b61cba9ab4ff",
+  "out/native-node-birth-20260909/wall-standard/quality.json": "a33618a3cd44d106e71b4380b060ca7a0af4b7e5dcfb791948b20fd2166c344f",
+  "out/native-node-birth-20260909/consumer-audit/report.json": "99f0e95e8545df5c933f68b1a8aa135cf9caf4ef675f83bb92f5ed14f1d4d4e3",
+  "out/native-node-birth-20260909/screen/receipt.json": "66d4ec0596c50caffb6977dd0b137ab117c1ac621dd0693498e4e6dc54717c8c"
+}

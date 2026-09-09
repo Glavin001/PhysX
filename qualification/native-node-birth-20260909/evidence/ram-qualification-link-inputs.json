@@ -1,0 +1,74 @@
+[
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libvibe_land_physx_bridge-29a04644e05b689f.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libvibe_land_physx_bridge-29a04644e05b689f.rlib",
+    "sha256": "229e08f9219c01b5e4a8e99738ae23a6cd2ae3116a7348fa2160be0c75d46a5b",
+    "bytes": 18101528
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libsyn-f468eb284a4a1278.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libsyn-f468eb284a4a1278.rlib",
+    "sha256": "66deceafca9a4e7c919f9a755eb66db7fdf1db33e61ad49da6868909c7fd6829",
+    "bytes": 9121976
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libsyn-37fb9b788032ebcd.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libsyn-37fb9b788032ebcd.rlib",
+    "sha256": "36cf55f2ad3cd763a158d8f2370855ad92dc0a3aaad96e15b72946badc61ff72",
+    "bytes": 9088616
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libparry3d-d7fe88238d665925.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libparry3d-d7fe88238d665925.rlib",
+    "sha256": "8ae8e4664e566735707f663da31adcb2f237e042835dc77dbd80ea8b360e568f",
+    "bytes": 8818990
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libparry3d-22a72479c3980322.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libparry3d-22a72479c3980322.rlib",
+    "sha256": "74a151783fd4e13d2c20076cbbb622bfc6e5bc60196a5016e2ab6cba08fee061",
+    "bytes": 8760484
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libring-d65ed72dd46b1c2f.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libring-d65ed72dd46b1c2f.rlib",
+    "sha256": "bca27b2c00efbc2084a18b028e37012431812127e233b922ae78b3d8a4729b0b",
+    "bytes": 7485582
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libcxx_build-f4d02dd0d9b36122.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libcxx_build-f4d02dd0d9b36122.rlib",
+    "sha256": "d9f532a5d76c7c072804036e0e93df7f26f9e6586dadad591a2c9ac0a4589882",
+    "bytes": 7436752
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/librustls-d65d50db4c1d543b.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/librustls-d65d50db4c1d543b.rlib",
+    "sha256": "c82bca152ebb17caad8c3b3deb6745ae897a65a260e8b68023e31782aca0da01",
+    "bytes": 7003902
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/librapier3d-854edc757183809d.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/librapier3d-854edc757183809d.rlib",
+    "sha256": "892f1653ef6935b053abaad2ee071614f60e781a0cda641f1d9c4261989b0b62",
+    "bytes": 6702680
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libaxum-0206444d4fe8bcc2.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libaxum-0206444d4fe8bcc2.rlib",
+    "sha256": "9c51c62b03de4d236113aefc3f5808ff0b1d3260ca411b21f03138553c976c3c",
+    "bytes": 6690952
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libh2-d6b8d2c58c2ca92f.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libh2-d6b8d2c58c2ca92f.rlib",
+    "sha256": "ba187b352ee5a8497246618dad5752a2e8437592d7d2b4ac14a918c42f68216b",
+    "bytes": 6420456
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libopenssl-ce84654fed4dcf7c.rlib",
+    "target": "/dev/shm/physx-native-birth-qualification-link-inputs/libopenssl-ce84654fed4dcf7c.rlib",
+    "sha256": "de0e22104bc96cd6d3a2f19692bb6f77be0f74c219da9714095e6b8d8565efcd",
+    "bytes": 6372300
+  }
+]

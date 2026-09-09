@@ -1,0 +1,12 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 81: physx_native_gpu_bombardment_contacts
+1/1 Test #81: physx_native_gpu_bombardment_contacts ...   Passed   13.12 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+gpu            =  13.12 sec*proc (1 test)
+integration    =  13.12 sec*proc (1 test)
+
+Total Test time (real) =  13.13 sec

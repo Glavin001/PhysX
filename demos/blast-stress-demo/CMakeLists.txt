@@ -692,6 +692,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_gpu_contact_lifetime_exhaustion COMMAND native_gpu_collision_test --lifetime-exhaustion)
     add_test(NAME physx_native_gpu_initialization_failure COMMAND native_gpu_collision_test --initialization-failure)
     add_test(NAME physx_native_gpu_preparation_before_compatibility COMMAND native_gpu_collision_test --preparation-before-compatibility)
+    add_test(NAME physx_native_gpu_node_births COMMAND native_gpu_collision_test --native-node-births)
     add_test(NAME physx_native_gpu_kinematic_inputs COMMAND native_gpu_collision_test --kinematic-inputs)
     add_test(NAME physx_native_gpu_accepted_properties COMMAND native_gpu_collision_test --accepted-properties)
     add_test(NAME physx_native_gpu_accepted_properties_pgs COMMAND native_gpu_collision_test --accepted-properties-pgs)
@@ -819,7 +820,9 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     add_test(NAME physx_native_gpu_bombardment_contacts COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_bombardment_contacts_test.py $<TARGET_FILE:native_destruction_demo>)
-    set_tests_properties(physx_native_gpu_bombardment_contacts PROPERTIES
+    add_test(NAME physx_native_standard_bombardment_contacts COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_bombardment_contacts_test.py $<TARGET_FILE:native_destruction_demo> --standard-scene)
+    set_tests_properties(physx_native_gpu_bombardment_contacts physx_native_standard_bombardment_contacts PROPERTIES
         RUN_SERIAL TRUE TIMEOUT 300 LABELS "gpu;integration")
 
     add_executable(native_gpu_resimulation_test tests/native_gpu_resimulation_test.cpp physx_scene.cpp)

@@ -3361,6 +3361,14 @@
       "status": "not implemented; equations and factor reuse/invalidation must be qualified in production CUDA replay"
     },
     "lifecycle_receipt": "qualification/device-preparation-20260909/README.md",
-    "completion_record": "Canonical GPU completion statuses share one allocation/pinned observation; one mandatory status copy after device-controlled preparation"
+    "completion_record": "Canonical GPU completion statuses share one allocation/pinned observation; one mandatory status copy after device-controlled preparation",
+    "latest_lifecycle_increment": {
+      "receipt": "qualification/native-node-birth-20260909/README.md",
+      "status": "partial-ranked-1; GPU node births consumed before CPU birth upload; CPU active scheduling and contact registration remain",
+      "private_runtime_factory": "V9",
+      "public_abi": 15,
+      "qualified": "53 native suite tests plus new ordinary bombardment audit; both wall modes; scoped sanitizers; every-tick consumer ownership audit",
+      "performance": "96-step ABBA idle/destruction, no demonstrated peak gain; repeatable counted trajectory divergence from tick77 remains unisolated"
+    }
   }
 }

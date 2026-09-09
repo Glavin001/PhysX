@@ -635,8 +635,10 @@ namespace physx
 
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
-        if(!mDestruction)
-            mDestruction = PxCreateDestructionRuntimeV8(mCudaContextManager->getContext(), scene, gate, allocator);
+        if(!mDestruction) {
+            mDestruction = PxCreateDestructionRuntimeV9(mCudaContextManager->getContext(), scene, gate, allocator);
+            if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
+        }
         return mDestruction;
     }
 
@@ -873,6 +875,7 @@ namespace physx
                         body.mInternalFlags &= ~(PxsRigidBody::eFIRST_BODY_COPY_GPU | PxsRigidBody::eVELOCITY_COPY_GPU);
                         body.mGpuHostDirty=0;mBodySimManager.mUpdatedMap.reset(id);
                     }
+                    mDynamicContext->acknowledgeNativeNodeBirths(mDestruction->reservedBodyIndices(),mDestruction->reservedBodyCount());
                     auto& pending=mBodySimManager.mNewOrUpdatedBodySims;PxU32 kept=0;
                     for(PxU32 i=0;i<pending.size();++i)if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
                     pending.forceSize_Unsafe(kept);

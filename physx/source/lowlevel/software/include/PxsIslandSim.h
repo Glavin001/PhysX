@@ -675,6 +675,7 @@ public:
     const PxBitMap& getSolverStaticTouchPages() const { return mSolverStaticTouchPages; }
     void trackPreSolveMerges(bool enabled,bool record=true,bool support=true) { mRecordPreSolveSupport=support;mRecordPreSolveMerges=record;mTrackPreSolveMerges=enabled;if(!enabled){mPreSolveMerges.clear();mPreSolveNodeChanges.clear();} }
     const PxBitMap& getPreSolveNodeChanges() const { return mPreSolveNodeChanges; }
+    void acknowledgeDeviceNodeBirth(PxU32 node) { mPreSolveNodeChanges.boundedReset(node); }
     void acknowledgePreSolveNodes() { mPreSolveNodeChanges.clear(); }
     PxU64 getPreSolveLifetime(PxU32 index) const { return index<mPreSolveLifetimes.size()?mPreSolveLifetimes[index]:0; }
     const PxArray<PxvPreSolveEdge>& getPreSolveMerges() const { return mPreSolveMerges; }

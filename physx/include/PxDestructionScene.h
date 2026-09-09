@@ -84,7 +84,7 @@ struct PxDestructionStressDesc {
     // Use CUDA contact components for rigid island repair, including ordinary
     // sleeping scenes. Native sleep scheduling still needs its membership mirror.
     // Unsupported graph state retains the original traversal; false is the reference.
-    bool gpuIslandRepair = false;
+    bool gpuIslandRepair = true;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;

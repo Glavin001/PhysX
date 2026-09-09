@@ -6,6 +6,7 @@
 struct NativeMotionAddresses {
     const PxU32* indices;PxU32 capacity;PxgDestructionMotionStorage storage;
     PxU32* ordinals;PxU32* error;
+    PxvPreSolveNode* nodes;PxU32 nodeCapacity;
 };
 __global__ void registerNativeMotionAddresses(NativeMotionAddresses v) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=v.capacity)return;
@@ -13,6 +14,20 @@ __global__ void registerNativeMotionAddresses(NativeMotionAddresses v) {
     const PxU32 id=v.indices[i];
     if(id>=v.storage.capacity){atomicOr(v.error,16u);return;}
     if(atomicCAS(v.ordinals+id,~PxU32(0),i)!=~PxU32(0))atomicOr(v.error,4u);
+}
+struct NativeNodeBirthTransaction {
+    PxU64 generation;PxU32 first,count,initialize;
+};
+// Preserve device-created nodes when the CPU-observed address domain catches
+// up. Unbound holes remain inactive; no capacity slot becomes a solver body.
+__global__ void clearNewNativeNodeRange(PxvPreSolveNode* nodes,PxU32 first,PxU32 end,
+    const NativeMotionAddresses* addresses,const PxDestructionMotionSlotStatus* pool) {
+    const PxU64 index=PxU64(first)+blockIdx.x*blockDim.x+threadIdx.x;if(index>=end)return;
+    if(addresses && pool && index<addresses->storage.capacity && addresses->ordinals) {
+        const PxU32 ordinal=addresses->ordinals[index];
+        if(ordinal!=~PxU32(0) && PxU64(ordinal)<PxU64(pool->committed)+pool->pending)return;
+    }
+    nodes[index]={};
 }
 struct NativeMotionAllocationView {
     PxDestructionMotionSlotStatus* pool;
@@ -26,6 +41,7 @@ struct NativeMotionAllocationView {
     PxU32 requestCapacity,blocks;
     const PxDestructionClusterBodyState* candidates;
     cudaGraphConditionalHandle continuation{};
+    NativeNodeBirthTransaction* births{};
 };
 __global__ void beginNativeMotionAllocation(NativeMotionAllocationView v,cudaGraphConditionalHandle work) {
     const auto p=*v.preparation;const auto addresses=*v.addresses;
@@ -83,6 +99,8 @@ __device__ void prefixNativeMotionRequests(NativeMotionAllocationView v) {
     }
     if(count!=v.preparation->allocationRequests)v.allocation->error|=2u;
     v.pool->error=v.allocation->error; // immutable guard during parallel compaction
+    v.births->initialize=v.births->generation!=v.preparation->generation
+        || v.births->first!=v.pool->committed || v.births->count!=count;
 }
 __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
     if(v.pool->error)return;
@@ -114,6 +132,9 @@ __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
                 if(sourceOrdinal!=~PxU32(0) && sourceOrdinal>=v.pool->committed)
                     atomicOr(&v.allocation->error,4u);
             }
+            if(!v.addresses->nodes || id>=v.addresses->nodeCapacity
+                || (v.births->initialize && v.addresses->nodes[id].lifetime==~PxU64(0)))
+                atomicOr(&v.allocation->error,16u);
             const auto candidate=v.candidates[request.candidateSlot];
             if(candidate.cluster!=request.cluster || candidate.sourceBody!=request.sourceBody || candidate.supported!=request.supported)
                 atomicOr(&v.allocation->error,16u);
@@ -132,6 +153,10 @@ __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
             const auto storage=v.addresses->storage;
             const auto b=nativeCandidateState(v.candidates[request.candidateSlot],storage.bodies[request.sourceBody],id);
             storage.bodies[id]=b;
+            if(v.births->initialize) {
+                auto& node=v.addresses->nodes[id];
+                node={node.lifetime+1,0,PxU32(!request.supported)};
+            }
             if(storage.previous){storage.previous[id].linearVelocity=b.linearVelocityXYZ_inverseMassW;
                 storage.previous[id].angularVelocity=b.angularVelocityXYZ_maxPenBiasW;}
             if(storage.accelerations)storage.accelerations[id]={};
@@ -145,6 +170,10 @@ __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
             if(v.allocation->error&16u){v.allocation->initializationError=1u;v.stage->error|=512u;}
         }
         else {
+            // Only the transaction identity changes here. Parallel writers
+            // read the separate initialize flag, never these receipt fields.
+            v.births->generation=v.preparation->generation;
+            v.births->first=v.pool->committed;v.births->count=v.preparation->allocationRequests;
             v.pool->pending=v.preparation->allocationRequests;
             v.allocation->reserved=v.pool->pending;v.allocation->initialized=v.pool->pending;v.allocation->valid=1;
             if(v.continuation)cudaGraphSetConditional(v.continuation,1);
@@ -170,6 +199,7 @@ class NativeMotionAllocation {
     cudaGraph_t mGraph{};
     cudaGraphExec_t mExecutable{};
     PxU32 mOrdinalCapacity{};
+    NativeNodeBirthTransaction* mBirths{};
     cudaError_t registerAddresses(cudaStream_t stream) {
         auto& v=mHostAddresses;
         if(v.capacity && v.storage.capacity!=mOrdinalCapacity) {
@@ -204,9 +234,15 @@ class NativeMotionAllocation {
 public:
     void clear() {
         if(mExecutable)cudaGraphExecDestroy(mExecutable);if(mGraph)cudaGraphDestroy(mGraph);
-        cudaFree(mHostAddresses.ordinals);cudaFree(mHostAddresses.error);
+        cudaFree(mHostAddresses.ordinals);cudaFree(mHostAddresses.error);cudaFree(mBirths);mBirths=nullptr;
         mHostAddresses={};mOrdinalCapacity=0;
         cudaFree(mAddresses);cudaFree(mOffsets);mExecutable=nullptr;mGraph=nullptr;mAddresses=nullptr;mOffsets=nullptr;
+    }
+    const NativeMotionAddresses* addressView() const {return mAddresses;}
+    cudaError_t setNodes(PxvPreSolveNode* nodes,PxU32 capacity,cudaStream_t stream) {
+        if(mHostAddresses.nodes==nodes && mHostAddresses.nodeCapacity==capacity)return cudaSuccess;
+        mHostAddresses.nodes=nodes;mHostAddresses.nodeCapacity=capacity;
+        return cudaMemcpyAsync(mAddresses,&mHostAddresses,sizeof(mHostAddresses),cudaMemcpyHostToDevice,stream);
     }
     cudaError_t setCapacity(const PxU32* indices,PxU32 capacity,cudaStream_t stream) {
         mHostAddresses.indices=indices;mHostAddresses.capacity=capacity;
@@ -243,7 +279,9 @@ public:
         e=cudaMalloc(&mAddresses,sizeof(*mAddresses));if(e!=cudaSuccess)return e;
         e=cudaMalloc(&mHostAddresses.error,sizeof(PxU32));if(e!=cudaSuccess)return e;
         e=cudaMalloc(&mOffsets,v.blocks*sizeof(*mOffsets));if(e!=cudaSuccess)return e;
-        v.addresses=mAddresses;v.blockOffsets=mOffsets;
+        e=cudaMalloc(&mBirths,sizeof(*mBirths));if(e!=cudaSuccess)return e;
+        e=cudaMemsetAsync(mBirths,0,sizeof(*mBirths),stream);if(e!=cudaSuccess)return e;
+        v.addresses=mAddresses;v.blockOffsets=mOffsets;v.births=mBirths;
         e=setCapacity(nullptr,0,stream);if(e!=cudaSuccess)return e;
         e=cudaGraphCreate(&mGraph,0);if(e!=cudaSuccess)return e;
         if(continuation){e=cudaGraphConditionalHandleCreate(&v.continuation,mGraph,0,cudaGraphCondAssignDefault);if(e!=cudaSuccess)return e;}

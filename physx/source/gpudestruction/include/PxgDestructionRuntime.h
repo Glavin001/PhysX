@@ -114,7 +114,10 @@ public:
     // Pre-solve components retain previous connectivity and merge new native
     // edges. Outputs are ordered on the supplied solver stream.
     virtual bool canBuildPreSolveIslands() const = 0;
+    // Last solver phase snapshot is immutable until the next pre-solve build.
     virtual const PxvPreSolveNode* preSolveNodeView() const = 0;
+    // Current registry may additionally contain post-solve GPU fragment births.
+    virtual const PxvPreSolveNode* nativeNodeView() const = 0;
     virtual const PxU32* preSolveSupportView() const = 0;
     virtual bool preSolveNodeSnapshotRequired(PxU32 count) const = 0;
     virtual bool buildPreSolveIslands(const PxvPreSolveNodeUpdate* updates,PxU32 updateCount,PxU32 count,bool fullSnapshot,
@@ -139,7 +142,7 @@ public:
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
 // violating lifecycle ordering. Public scene ABI is intact.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV8(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV9(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

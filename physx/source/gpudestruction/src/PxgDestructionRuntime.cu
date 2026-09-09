@@ -552,6 +552,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxU64 mGraphGeneration{};
     void* mPreNodeStorage=nullptr;
     PxvPreSolveNode *mPreNodes{},*mPrePrevious{};
+    PxU32 mPreRegistryCapacity{};
     PxvPreSolveNodeUpdate* mPreUpdates{};
     PxU32 mPreUpdateCapacity{};
     PxU32 *mPreRetired{},*mPreRetiredMask{};
@@ -615,7 +616,8 @@ public:
             && mBodyAllocator->readRigidBodyData(data,indices,type,count,start,finish);
     }
     bool canBuildPreSolveIslands() const override { return mBodyAllocator && mBodyAllocator->supportsGpuIslandRepair(); }
-    const PxvPreSolveNode* preSolveNodeView() const override { return mPreNodes; }
+    const PxvPreSolveNode* preSolveNodeView() const override { return mPrePrevious; }
+    const PxvPreSolveNode* nativeNodeView() const override { return mPreNodes; }
     const PxU32* preSolveSupportView() const override { return mPreSupport; }
     bool preSolveNodeSnapshotRequired(PxU32) const override { return !mPreRosterValid; }
 #include "PxgPreSolveStorage.inl"
@@ -637,6 +639,9 @@ public:
         try {
             Context current(mContext);const auto cudaStream=reinterpret_cast<cudaStream_t>(stream);
             check(cudaStreamWaitEvent(cudaStream,mPreReady,0));
+            // Native births are produced by allocation, independently of the
+            // CPU materializer. Order the roster consumer after that producer.
+            check(cudaStreamWaitEvent(cudaStream,mReady,0));
             if(mGraphView.generation)check(cudaStreamWaitEvent(cudaStream,mGraphReady,0));
             bool usable=mPrePreviousCount && mGraphView.generation && mGraphView.nodeCapacity>=mPrePreviousCount
                 && mPreSourceGraphGeneration!=~PxU64(0) && mGraphView.generation==mPreSourceGraphGeneration+1;
@@ -675,7 +680,8 @@ public:
             }
             // Native node domains can grow across unused handle holes. Those
             // holes must start inactive even when the allocation already fits.
-            if(count>mPrePreviousCount)check(cudaMemsetAsync(mPreNodes+mPrePreviousCount,0,size_t(count-mPrePreviousCount)*sizeof(PxvPreSolveNode),cudaStream));
+            if(count>mPrePreviousCount)clearNewNativeNodeRange<<<(PxU64(count-mPrePreviousCount)+127)/128,128,0,cudaStream>>>(
+                mPreNodes,mPrePreviousCount,count,mMotionAllocation.addressView(),mMotionSlots);
             if(updateCount) {
                 check(cudaMemcpyAsync(mPreUpdates,updates,size_t(updateCount)*sizeof(*updates),cudaMemcpyHostToDevice,cudaStream));
                 destructionPreSolve::updateNodes<<<(updateCount+127)/128,128,0,cudaStream>>>(mPreUpdates,updateCount,mPreNodes,count);
@@ -906,8 +912,8 @@ public:
         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
-        cudaEventSynchronize(mPreReady);
-        cudaFree(mPreNodeStorage);mPreNodeStorage=nullptr;mPreNodes=nullptr;mPrePrevious=nullptr;
+        cudaEventSynchronize(mPreReady);cudaEventSynchronize(mReady);
+        cudaFree(mPreNodeStorage);cudaFree(mPreNodes);mPreNodeStorage=nullptr;mPreNodes=nullptr;mPrePrevious=nullptr;mPreRegistryCapacity=0;
         cudaFree(mPreUpdates);mPreUpdates=nullptr;mPreUpdateCapacity=0;mPreRosterValid=false;
         cudaFree(mPreRetired);mPreRetired=nullptr;cudaFree(mPreRetiredMask);mPreRetiredMask=nullptr;
         cudaFree(mPreContactStatus);mPreContactStatus=nullptr;mPreRetiredCapacity=mPrePairCapacity=0;
@@ -1302,6 +1308,7 @@ public:
             check(cudaStreamWaitEvent(mStream,mInput,0));
             if(mTopology) {
                 check(mMotionAllocation.setStorage(storage,mStream));
+                check(mMotionAllocation.setNodes(mPreNodes,mPreRegistryCapacity,mStream));
                 prepareDeviceInputs();
             }
             stageMarker(0);
@@ -1450,6 +1457,10 @@ public:
                 throw std::runtime_error("native motion storage capacity grant failed");
             check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(mMotionProducerStream)));
             check(cudaStreamWaitEvent(mStream,mInput,0));
+            check(cudaStreamWaitEvent(mStream,mPreReady,0));
+            if(mGraphView.generation)check(cudaStreamWaitEvent(mStream,mGraphReady,0));
+            growNativeNodeStorage(mMotionStorage.capacity,mStream);
+            check(mMotionAllocation.setNodes(mPreNodes,mPreRegistryCapacity,mStream));
             PxU32* next=nullptr;allocate(next,capacity);
             try {check(cudaMemcpyAsync(next,granted,size_t(capacity)*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));}
             catch(...){cudaFree(next);throw;}
@@ -1825,7 +1836,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV8(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV9(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 

@@ -1,6 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxDestructionScene.h"
 #include "PxvDestructionBodyAllocator.h"
+#include "PxvIslandMetadata.h"
 #include "PxgDestructionMotionStorage.h"
 #include "PxgBodySim.h"
 #include "PxsRigidBody.h"
@@ -33,7 +34,8 @@ struct Fixture {
     PxU32 *granted,*selected,*owners;
     PxDestructionClusterBodyState* candidates;
     PxgBodySim* bodies;PxgBodySimVelocities* previous;PxgRigidBodyAcceleration* accelerations;
-    PxU32 storageCapacity;
+    PxU32 storageCapacity;PxU64 generation=16;
+    PxvPreSolveNode* nodes;
     std::vector<PxvDestructionBodyRequest> requests;
     std::vector<PxU32> addresses;
     explicit Fixture(unsigned n):size(n),requests(n),addresses(n+32) {
@@ -41,19 +43,21 @@ struct Fixture {
         granted=make<PxU32>(n+32);selected=make<PxU32>(n);owners=make<PxU32>(n);
         storageCapacity=128+3*(n+32);bodies=make<PxgBodySim>(storageCapacity);
         previous=make<PxgBodySimVelocities>(storageCapacity);accelerations=make<PxgRigidBodyAcceleration>(storageCapacity);
-        candidates=make<PxDestructionClusterBodyState>(n);
+        candidates=make<PxDestructionClusterBodyState>(n);nodes=make<PxvPreSolveNode>(storageCapacity);
         CUDA(graph.initialize({pool,nullptr,prep,input,compact,selected,owners,nullptr,allocation,stage,size,0,candidates},0));
         for(unsigned i=0;i<n+32;++i)addresses[i]=64+3*i;
         CUDA(graph.setStorage({bodies,previous,accelerations,storageCapacity},0));
+        CUDA(graph.setNodes(nodes,storageCapacity,0));
         CUDA(cudaMemcpy(granted,addresses.data(),addresses.size()*sizeof(PxU32),cudaMemcpyHostToDevice));
     }
     ~Fixture(){graph.clear();for(void* p:{(void*)pool,(void*)prep,(void*)allocation,(void*)stage,(void*)input,(void*)compact,
-        (void*)granted,(void*)selected,(void*)owners,(void*)candidates,(void*)bodies,(void*)previous,(void*)accelerations})CUDA(cudaFree(p));}
+        (void*)granted,(void*)selected,(void*)owners,(void*)candidates,(void*)bodies,(void*)previous,(void*)accelerations,(void*)nodes})CUDA(cudaFree(p));}
     void reset(unsigned count,unsigned requested,unsigned committed=0,unsigned stageError=8) {
         put(pool,PxDestructionMotionSlotStatus{0,committed,7,55});
-        put(prep,PxDestructionBodyPreparationStatus{17,count,1,0,requested});
+        put(prep,PxDestructionBodyPreparationStatus{++generation,count,1,0,requested});
         PxDestructionStageStatus s{};s.error=stageError;put(stage,s);
         CUDA(cudaMemset(owners,0xff,size*sizeof(PxU32)));
+        CUDA(cudaMemset(nodes,0,storageCapacity*sizeof(*nodes)));
         CUDA(cudaMemset(compact,0xcc,size*sizeof(PxvDestructionBodyRequest)));
         CUDA(cudaMemset(selected,0xcc,size*sizeof(PxU32)));
         CUDA(cudaMemcpy(input,requests.data(),size*sizeof(PxvDestructionBodyRequest),cudaMemcpyHostToDevice));
@@ -84,18 +88,23 @@ struct Fixture {
     }
     void check(unsigned count,unsigned committed) {
         const auto a=get(allocation);const auto p=get(pool);
-        CHECK(a.valid && !a.error && a.count==count && a.generation==17 && p.committed==committed);
+        CHECK(a.valid && !a.error && a.count==count && a.generation==generation && p.committed==committed);
         std::vector<PxU32> result(size),chosen(size);std::vector<PxvDestructionBodyRequest> output(size);
         CUDA(cudaMemcpy(result.data(),owners,size*sizeof(PxU32),cudaMemcpyDeviceToHost));
         CUDA(cudaMemcpy(chosen.data(),selected,size*sizeof(PxU32),cudaMemcpyDeviceToHost));
         CUDA(cudaMemcpy(output.data(),compact,size*sizeof(PxvDestructionBodyRequest),cudaMemcpyDeviceToHost));
+        std::vector<PxvPreSolveNode> nodeState(storageCapacity);
+        CUDA(cudaMemcpy(nodeState.data(),nodes,nodeState.size()*sizeof(*nodes),cudaMemcpyDeviceToHost));
         unsigned selectedCount=0;
         for(unsigned i=0;i<size;++i) {
             if(i<count && requests[i].needsBody) {
                 CHECK(result[i]==addresses[committed+selectedCount]);
                 CHECK(chosen[selectedCount]==result[i]);
                 const auto r=output[selectedCount];CHECK(r.cluster==requests[i].cluster && r.sourceBody==requests[i].sourceBody);
-                CHECK(r.supported==requests[i].supported && r.needsBody==1 && r.candidateSlot==i);++selectedCount;
+                CHECK(r.supported==requests[i].supported && r.needsBody==1 && r.candidateSlot==i);
+                const auto node=nodeState[result[i]];
+                CHECK(node.lifetime==1 && node.live==PxU32(!r.supported) && !node.staticTouches);
+                ++selectedCount;
             } else CHECK(result[i]==(~PxU32(0)));
         }
         // Independent physical checks on representative allocated slots. Allocation
@@ -144,6 +153,10 @@ void addressIsolation() {
     f.requests[0].sourceBody=f.addresses[0];f.reset(444,444,1);
     auto parent=get(f.bodies+7);put(f.bodies+f.addresses[0],parent);
     f.run(476);f.check(444,1);
+    put(f.nodes+7,PxvPreSolveNode{9,3,1});
+    clearNewNativeNodeRange<<<(f.storageCapacity+127)/128,128>>>(f.nodes,0,f.storageCapacity,f.graph.addressView(),f.pool);
+    CUDA(cudaDeviceSynchronize());f.check(444,1);
+    CHECK(!get(f.nodes+7).live && !get(f.nodes+f.addresses[475]).lifetime);
     std::puts("GPU grant uniqueness, source/target isolation, immutable lookup and committed-parent split: PASS");
 }
 int main(int argc,char** argv) {
@@ -197,6 +210,10 @@ int main(int argc,char** argv) {
     finishNativeBodyShadowRegistration<<<1,1>>>(false,f.allocation,f.stage);
     commitNativeMotionSlots<<<1,1>>>(f.pool,f.stage);CUDA(cudaDeviceSynchronize());
     CHECK((get(f.allocation).error&8) && !get(f.allocation).valid && get(f.pool).committed==0);
+    f.reset(444,444);
+    put(f.nodes+f.addresses[220],PxvPreSolveNode{~PxU64(0),0,0});
+    f.run(476);f.unchanged();CHECK(get(f.allocation).error&16);
+    CHECK(get(f.nodes+f.addresses[0]).lifetime==0 && get(f.bodies+f.addresses[0]).linearVelocityXYZ_inverseMassW.x==0);
     // Retained owners carry real pre-existing IDs, not just sentinel values.
     for(unsigned i=0;i<f.size;++i)f.requests[i].needsBody=i==3 || i==130;
     f.reset(444,2);std::vector<PxU32> retained(444,7);
