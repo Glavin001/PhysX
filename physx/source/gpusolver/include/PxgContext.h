@@ -405,6 +405,9 @@ namespace physx
 		//this method make sure we get PxgSimultionController instead of PxsSimulationController
 		PxgSimulationController*			getSimulationController();
         bool usesNativeKinematicInputs();
+        void prepareNativeRigidIterationLimits(CUdeviceptr active,CUstream stream);
+        PxU64 getNativeRigidIterationPasses() const {return mNativeRigidIterationPasses;}
+        void getCachedIterationLimits(PxU32& position,PxU32& velocity) const {position=PxU32(mCachedPositionIterations);velocity=PxU32(mCachedVelocityIterations);}
 
 		virtual void						setSimulationController(PxsSimulationController* mSimulationController)	PX_OVERRIDE;
 
@@ -602,6 +605,7 @@ namespace physx
         // Do not discard that mirror until the sleep scheduler consumes device components.
         bool mPreSolveSleepingDisabled;
         bool mCudaPreSolveIslands=true,mPreForceNodeSnapshot=true;
+        bool mNativeRigidIterationPending=false;PxU64 mNativeRigidIterationPasses=0;
         PxU64 mCudaPreSolvePasses=0,mCudaPreSolveFallbacks=0,mCudaPreSolveHostBytes=0;
         PxU64 mCudaPreSolveFullHostBytes=0,mCudaPreSolveNodeUpdates=0,mCudaPreSolveFullSnapshots=0;
 

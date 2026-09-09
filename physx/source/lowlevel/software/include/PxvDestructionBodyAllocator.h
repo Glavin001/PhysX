@@ -20,6 +20,7 @@ struct PxvDestructionBodyProperties {
     PxReal maxPenBias,maxContactImpulse,contactReportThreshold,offsetSlop;
     PxReal sleepThreshold,freezeThreshold;
     PxU16 lockFlags,disableGravity;
+    PxU32 solverIterationCounts;
 };
 class PxvDestructionBodyAllocator {
 public:

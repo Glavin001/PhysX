@@ -1,0 +1,6 @@
+{
+  "libPhysXGpuActivity_64.so": "fcab46993a9532be060859b6e096ddbe75c59c2f210d03cdf1c6d763c7c1111b",
+  "libPhysXDestructionGpuRuntime_64.so": "f5871509963e69103bbfff0b1d0381d04a05bf033d96e6574f777e00c76e4319",
+  "libPhysX_static_64.a": "6a11eeff96ddc423856ca2f7b95710889f98c380f5df0220ad2d04ebffa33409",
+  "embedded_city_bench": "b1b67cc13631da20913b9ddd6eeb122f306276ca5d12ff77acfc4712023125ce"
+}

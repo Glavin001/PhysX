@@ -578,6 +578,7 @@ PxIntBool Sc::BodyCore::isFrozen() const
 void Sc::BodyCore::setSolverIterationCounts(PxU16 c)	
 { 
 	mCore.solverIterationCounts = c;
+    gpu_updateBodySim(*this);
 	Sc::BodySim* sim = getSim();
 	if (sim)
 		sim->getScene().setDynamicsDirty();

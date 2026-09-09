@@ -42,6 +42,8 @@ public:
     // foundation singleton from the CUDA runtime shared library.
     virtual void setProfiler(PxProfilerCallback* callback, PxU64 context) = 0;
     virtual bool configured() const = 0;
+    virtual bool prepareRigidIterationLimits(const PxgBodySim*,PxU32,const PxNodeIndex*,PxU32,PxU32,CUstream) = 0;
+    virtual bool readRigidIterationLimits(PxU32& position,PxU32& velocity) = 0;
     virtual bool correctionEnabled() const = 0;
     virtual bool gpuIslandRepairEnabled() const = 0;
     // Ordered host observation for the existing CPU island registry. Membership packs n heads followed by n successors, in node-ID order;
@@ -142,7 +144,7 @@ public:
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
 // violating lifecycle ordering. Public scene ABI is intact.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV9(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV10(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

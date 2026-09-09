@@ -291,6 +291,7 @@ void PxgSolverCore::allocateSolverBodyBuffersCommon(PxU32 numSolverBodies, Cm::P
 
 	mCudaContext->memsetD32Async(mSolverBodyIndices.getDevicePtr(), 0xFFffFFff, numSolverBodies, mStream);
 	mCudaContext->memcpyHtoDAsync(mIslandNodeIndices2.getDevicePtr(), islandNodeIndices.begin(), sizeof(PxNodeIndex) *islandNodeIndices.size(), mStream);
+    mGpuContext->prepareNativeRigidIterationLimits(mIslandNodeIndices2.getDevicePtr(),mStream);
 
 	synchronizeStreams(mCudaContext, mStream, mGpuContext->getArticulationCore()->getStream());
 

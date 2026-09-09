@@ -3363,12 +3363,13 @@
     "lifecycle_receipt": "qualification/device-preparation-20260909/README.md",
     "completion_record": "Canonical GPU completion statuses share one allocation/pinned observation; one mandatory status copy after device-controlled preparation",
     "latest_lifecycle_increment": {
-      "receipt": "qualification/native-node-birth-20260909/README.md",
-      "status": "partial-ranked-1; GPU node births consumed before CPU birth upload; CPU active scheduling and contact registration remain",
-      "private_runtime_factory": "V9",
+      "receipt": "qualification/native-iteration-limits-20260909/README.md",
+      "status": "partial-ranked-1; native iteration settings/maxima GPU-owned; CPU active ordering, launch loop and contact registration remain",
+      "private_runtime_factory": "V10",
       "public_abi": 15,
-      "qualified": "53 native suite tests plus new ordinary bombardment audit; both wall modes; scoped sanitizers; every-tick consumer ownership audit",
-      "performance": "96-step ABBA idle/destruction, no demonstrated peak gain; repeatable counted trajectory divergence from tick77 remains unisolated"
+      "qualified": "54 selected native tests plus new reduction oracle; four scoped sanitizers, PGS/TGS property gates, frozen600/ordinary128",
+      "performance": "96-step ABBA idle/destruction, overlapping peak ranges; reported physical counters match31ebf778",
+      "added_cost": "16 bytes per GPU body capacity slot; fixed reduction scratch, one/two kernels and 12-byte completion when limits are dirty"
     }
   }
 }

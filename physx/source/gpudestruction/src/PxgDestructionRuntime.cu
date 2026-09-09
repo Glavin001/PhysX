@@ -33,6 +33,7 @@ struct Context {
 };
 void check(cudaError_t e) { if(e!=cudaSuccess) throw std::runtime_error(cudaGetErrorString(e)); }
 template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T)*std::max<size_t>(n,1))); }
+#include "PxgRigidIterationLimits.cuh"
 #include "PxgDestructionMaterial.cuh"
 #include "PxgDestructionCommittedChanges.cuh"
 #include "PxgDestructionShapePublication.cuh"
@@ -566,6 +567,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxU64 mPreSourceGraphGeneration{};
 
     cudaEvent_t mGraphReady{};
+    NativeRigidIterationLimits mRigidIterationLimits;
     bool mPending=false; bool mFailed=false;
     bool mCorrectionEnabled=false, mGpuIslandRepair=false;
     PxU32 *mGraphHostAccurate{}, *mGraphHostSpeculative{};
@@ -583,6 +585,7 @@ class Runtime final : public PxgDestructionRuntime {
 public:
     Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
         Context current(c);
+        mRigidIterationLimits.initialize();
         check(cudaStreamCreateWithFlags(&mStream,cudaStreamNonBlocking));
         check(cudaEventCreateWithFlags(&mInput,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mReady,cudaEventDisableTiming));
@@ -596,6 +599,16 @@ public:
         check(cudaMemset(mCompletion,0,sizeof(*mCompletion)));
         mStatus=&mCompletion->stage;mHostStatus=&mHostCompletion->stage;
         check(cudaEventRecord(mReady,mStream));
+    }
+    bool prepareRigidIterationLimits(const PxgBodySim* bodies,PxU32 capacity,const PxNodeIndex* active,PxU32 offset,PxU32 count,CUstream stream) override {
+        if(mFailed)return false;
+        try {Context current(mContext);mRigidIterationLimits.prepare(bodies,capacity,active,offset,count,reinterpret_cast<cudaStream_t>(stream));return true;}
+        catch(...){mFailed=true;return false;}
+    }
+    bool readRigidIterationLimits(PxU32& position,PxU32& velocity) override {
+        if(mFailed)return false;
+        try {Context current(mContext);mRigidIterationLimits.read(position,velocity);return true;}
+        catch(...){mFailed=true;return false;}
     }
     void setProfiler(PxProfilerCallback* callback,PxU64 context) override {mProfiler=callback;mProfileContext=context;}
     bool buildContactInputs(PxgContactManagerInput* inputs,PxU32 count,
@@ -908,6 +921,7 @@ public:
         for(auto event:mStageEvents)if(event)cudaEventDestroy(event);
         for(auto event:mMotionAllocationEvents)if(event)cudaEventDestroy(event);
         for(auto event:mCorrectionEvents)if(event)cudaEventDestroy(event);
+        mRigidIterationLimits.clear();
         cudaFree(mCompletion);cudaFreeHost(mHostCompletion);
         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
@@ -1836,7 +1850,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV9(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV10(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 

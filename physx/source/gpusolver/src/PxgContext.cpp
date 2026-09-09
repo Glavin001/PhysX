@@ -1183,6 +1183,19 @@ namespace physx
         return !mEnableDirectGPUAPI && getSimulationController()->usesDeviceDestructionContactInputs();
     }
 
+    void PxgGpuContext::prepareNativeRigidIterationLimits(CUdeviceptr active,CUstream stream)
+    {
+        mNativeRigidIterationPending=false;
+        if(!isStateDirty() || !usesNativeKinematicInputs())return;
+        auto* runtime=getSimulationController()->getNativeDestructionRuntime();
+        auto* simulation=getSimulationCore();
+        const bool ok=runtime && runtime->prepareRigidIterationLimits(
+            simulation->getBodySimBufferDevicePtr().getPointer(),simulation->getBodySimStorageCapacity(),
+            reinterpret_cast<const PxNodeIndex*>(active),1+mKinematicCount,mBodyCount,stream);
+        if(!ok){getNarrowphaseCore()->mCudaContext->setAbortMode(true);return;}
+        mNativeRigidIterationPending=true;
+    }
+
 	void PxgGpuContext::doPreIntegrationTaskCommon(physx::PxBaseTask* continuation)
 	{
 		// AD: this task currently assumes we only have 1 solver island. If there is a variable amount of islands,
@@ -1219,7 +1232,16 @@ namespace physx
 			mCachedPositionIterations = 0;
 			mCachedVelocityIterations = 0;
 
-			//Loop through and fill in properties from all the rigid bodies...
+            if(usesNativeKinematicInputs()) {
+                PX_PROFILE_ZONE("GpuDynamics.NativeIterationLimitsCompletion",0);
+                PxU32 position=0,velocity=0;
+                auto* runtime=getSimulationController()->getNativeDestructionRuntime();
+                if(!mNativeRigidIterationPending || !runtime || !runtime->readRigidIterationLimits(position,velocity))
+                    getNarrowphaseCore()->mCudaContext->setAbortMode(true);
+                else {mCachedPositionIterations=PxI32(position);mCachedVelocityIterations=PxI32(velocity);++mNativeRigidIterationPasses;}
+                mNativeRigidIterationPending=false;
+            }
+            else
 			for (PxU32 a = 0; a < mBodyCount; a += atomBatchSize)
 			{
 				PxgAtomIntegrationTask* task = static_cast<PxgAtomIntegrationTask*>(mFlushPool.allocate(sizeof(PxgAtomIntegrationTask)));

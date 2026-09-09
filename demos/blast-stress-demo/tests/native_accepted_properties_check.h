@@ -39,6 +39,11 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
                     || PxAbs(simulated->getAngularDamping()-.23f)<1e-6f) {
                     failed=true;error="CPU physical settings inherited before corrected GPU simulation";
                 }
+                PxU32 position=0,velocity=0;
+                if(simulated)simulated->getSolverIterationCounts(position,velocity);
+                if(position==7 && velocity==3) {
+                    failed=true;error="CPU ancestor iteration settings still precede corrected simulation";
+                }
                 bindingsInspected=true;
             }
             if(!fixture || inspected || std::strcmp(name,"GpuDestruction.restoreInstall"))return;
@@ -123,6 +128,16 @@ void acceptedPropertiesOnly(PxSolverType::Enum solver=PxSolverType::eTGS) {
         require((cpu.linearVelocity-PxVec3(device.linearVelocityXYZ_inverseMassW.x,device.linearVelocityXYZ_inverseMassW.y,
             device.linearVelocityXYZ_inverseMassW.z)).magnitude()<1e-5f,"accepted CPU velocity is stale");
     }
+    auto& gpu=*static_cast<PxgGpuContext*>(static_cast<NpScene&>(f.scene).getScScene().getDynamicsContext());
+    require(gpu.getNativeRigidIterationPasses()>0,"GPU iteration limits never consumed");
+    gpu.getCachedIterationLimits(position,velocity);
+    require(position==7 && velocity==3,"corrected launch limits came from CPU placeholders");
+    detached->setSolverIterationCounts(11,5);
     step(f.scene);require(f.context.healthy(),"next ordinary tick failed after accepted property publication");
+    PxgBodySim updated;
+    {PxScopedCudaLock lock(f.cuda);check(cuMemcpyDtoH(&updated,CUdeviceptr(f.core.getBodySimBufferDevicePtr().getPointer()+detached->getGPUIndex()),sizeof(updated)));}
+    require(updated.solverConfig.x==(11u|(5u<<8)),"ordinary iteration setter did not update GPU settings");
+    gpu.getCachedIterationLimits(position,velocity);
+    require(position==11 && velocity==5,"launch limits ignored the ordinary iteration setter");
     std::puts("6 chunks / 3 bonds plus one ordinary body: both GPU stress passes before CPU mass/COM/motion; final properties and inherited settings passed");
 }

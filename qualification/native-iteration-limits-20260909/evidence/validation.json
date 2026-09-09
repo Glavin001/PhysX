@@ -1,0 +1,116 @@
+[
+  {
+    "name": "final-focused",
+    "command": [
+      "ctest",
+      "--test-dir",
+      "out/destruction-sdk",
+      "-R",
+      "physx_native_gpu_accepted_properties|destruction_gpu_rigid_iteration_limits",
+      "--output-on-failure",
+      "-j1"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "limits-memcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_rigid_iteration_limits_test"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "limits-initcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "initcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_rigid_iteration_limits_test"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "limits-synccheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "synccheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_rigid_iteration_limits_test"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "limits-racecheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "racecheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_rigid_iteration_limits_test"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "accepted-properties-initcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "initcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/reference/native_gpu_collision_test",
+      "--accepted-properties"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "accepted-properties-pgs-initcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "initcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/reference/native_gpu_collision_test",
+      "--accepted-properties-pgs"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "wall-driver",
+    "command": [
+      "python3",
+      "tools/scripts/run-destruction-penetration-regression.py",
+      "out/native-iteration-limits-20260909/wall",
+      "--expected-runtime",
+      "/root/workspace/physx-2/out/native-iteration-limits-20260909/candidate/libPhysXDestructionGpuRuntime_64.so"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "wall-standard-driver",
+    "command": [
+      "python3",
+      "tools/scripts/run-destruction-penetration-regression.py",
+      "out/native-iteration-limits-20260909/wall-standard",
+      "--standard-scene",
+      "--tier",
+      "screen",
+      "--reference",
+      "out/native-node-birth-20260909/wall-standard",
+      "--expected-runtime",
+      "/root/workspace/physx-2/out/native-iteration-limits-20260909/candidate/libPhysXDestructionGpuRuntime_64.so"
+    ],
+    "exit": 1
+  }
+]

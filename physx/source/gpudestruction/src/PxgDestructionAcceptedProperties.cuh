@@ -36,5 +36,6 @@ __global__ void gatherFinalProperties(const PxU32* slots,const PxU32* count,PxU3
     observation.sleepThreshold=b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.z;
     observation.freezeThreshold=b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.x;
     observation.lockFlags=b.lockFlags;observation.disableGravity=b.disableGravity;
+    observation.solverIterationCounts=b.solverConfig.x;
     observations[i]=observation;
 }

@@ -73,6 +73,8 @@ struct PxgBodySim
     // Authored values, including while the effective body is kinematic. Native
     // fragments becoming dynamic inherit these without CPU configuration reads.
     float4      dynamicLimitsDamping;
+    // x: packed position/velocity iteration counts; remaining lanes reserved/zero.
+    uint4       solverConfig;
 
 };
 

@@ -68,7 +68,7 @@ static const PxU32 PXG_BODY_SIM_BODY2ACTOR_IND = offsetof(PxgBodySim, body2Actor
 static const PxU32 PXG_BODY_SIM_SIZE_WITHOUT_ACCELERATION = offsetof(PxgBodySim, externalLinearAcceleration) / sizeof(uint4);
 
 // assert to ensure proper updateBodiesLaunch/updateBodiesLaunchDirectAPI
-PX_COMPILE_TIME_ASSERT((sizeof(PxgBodySim) < 16 * sizeof(uint4)));
+PX_COMPILE_TIME_ASSERT((sizeof(PxgBodySim) <= 16 * sizeof(uint4)));
 PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, linearVelocityXYZ_inverseMassW) == 0));
 PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, angularVelocityXYZ_maxPenBiasW) == sizeof(float4)));
 PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW) == (2 * sizeof(float4))));
@@ -102,7 +102,7 @@ extern "C" __global__ void updateBodiesLaunch(const PxgNewBodiesDesc* scDesc)
 
 	const PxU32 idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-	// Each PxgBodySim uses 15 uint4 lanes. Reserve a half-warp so shuffle
+	// Each PxgBodySim uses 16 uint4 lanes. Reserve a half-warp so shuffle
 	// groups still have a power-of-two width.
 	//for (PxU32 i = idx / 16; i < totalNbBodies; i += (blockDim.x * gridDim.x) / 16)
 	PxU32 mask_loop = FULL_MASK;
@@ -135,7 +135,7 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 
 	const PxU32 idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-	// Each PxgBodySim uses 15 uint4 lanes. Reserve a half-warp so shuffle
+	// Each PxgBodySim uses 16 uint4 lanes. Reserve a half-warp so shuffle
 	// groups still have a power-of-two width.
 	//for (PxU32 i = idx / 16; i < totalNbBodies; i += (blockDim.x * gridDim.x) / 16)
 	PxU32 mask_loop = FULL_MASK;
@@ -266,7 +266,8 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 
 				__syncwarp(sync_mask);
 			}
-            else if(index == offsetof(PxgBodySim, dynamicLimitsDamping) / sizeof(uint4))
+            else if(index == offsetof(PxgBodySim, dynamicLimitsDamping) / sizeof(uint4)
+                || index == offsetof(PxgBodySim, solverConfig) / sizeof(uint4))
                 gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + index] = data;
 		}
 	}

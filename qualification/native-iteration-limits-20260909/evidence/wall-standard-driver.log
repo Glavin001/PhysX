@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 122, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 114, in main
+    result=module.verify(out,golden) if args.tier=='full' else module.verify(out,args.reference.resolve(),steps)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/workspace/physx-2/tools/scripts/verify-native-prefix.py", line 97, in verify
+    require(quality.get('all_stress_steps_converged') is True, 'Reference lacks physical quality audit')
+  File "/root/workspace/physx-2/tools/scripts/verify-native-prefix.py", line 34, in require
+    raise ValueError(message)
+ValueError: Reference lacks physical quality audit

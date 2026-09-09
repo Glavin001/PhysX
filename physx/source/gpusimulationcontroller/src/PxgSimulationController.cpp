@@ -636,7 +636,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction) {
-            mDestruction = PxCreateDestructionRuntimeV9(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV10(mCudaContextManager->getContext(), scene, gate, allocator);
             if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
         }
         return mDestruction;
@@ -1659,6 +1659,7 @@ namespace physx
 			bodySim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex = make_float4(0.f, core->wakeCounter, core->sleepThreshold, reinterpret_cast<const PxReal&>(index.nodeIndex));
 			bodySim.articulationRemapId = index.remapIndex;
             bodySim.dynamicLimitsDamping=make_float4(0.f);
+            bodySim.solverConfig=make_uint4(0,0,0,0);
 			bodySim.internalFlags = PxsRigidBody::eFIRST_BODY_COPY_GPU;
 			//Note: we can raise eFIRST_BODY_COPY_GPU here because this function only processes new articulations.
 			//We therefore know that every articulation encountered here is a new articulation.
@@ -2762,6 +2763,7 @@ namespace physx
 			bodySim.angularVelocityXYZ_maxPenBiasW = make_float4(reinterpret_cast<float3&>(bcLL.angularVelocity), bcLL.maxPenBias);
 			bodySim.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW = make_float4(bcLL.maxLinearVelocitySq, bcLL.maxAngularVelocitySq, bcLL.linearDamping, bcLL.angularDamping);
             bodySim.dynamicLimitsDamping=make_float4(rbLL.mGpuDynamicLimitsDamping.x,rbLL.mGpuDynamicLimitsDamping.y,rbLL.mGpuDynamicLimitsDamping.z,rbLL.mGpuDynamicLimitsDamping.w);
+            bodySim.solverConfig=make_uint4(bcLL.solverIterationCounts,0,0,0);
 			bodySim.inverseInertiaXYZ_contactReportThresholdW = make_float4(reinterpret_cast<float3&>(bcLL.inverseInertia), bcLL.contactReportThreshold);
 			bodySim.body2World = PxAlignedTransform(bcLL.body2World.p.x, bcLL.body2World.p.y, bcLL.body2World.p.z,
 				PxAlignedQuat(bcLL.body2World.q.x, bcLL.body2World.q.y, bcLL.body2World.q.z, bcLL.body2World.q.w));

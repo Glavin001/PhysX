@@ -292,3 +292,14 @@ audit modes and exact consumer publication auditing. Short paired city/idle
 screens establish no peak speedup; a late counted trajectory divergence remains
 unisolated. This is architectural progress with bounded qualification, not full
 performance or physical-equivalence promotion.
+
+## GPU solver settings continuation — 2026-09-09
+
+C2 now inherits iteration settings in GPU body storage and computes active rigid
+launch maxima there. The intermediate CPU ancestor read and native rigid maxima
+scan are deleted. Final accepted publication supplies CPU settings. A 12-byte
+completion still feeds upstream host launch loops; CPU active ordering/dirty
+ownership/contact registration remain. [Qualification receipt](../../qualification/native-iteration-limits-20260909/README.md)
+records the 55 unique selected checks, scoped sanitizers, both wall modes and
+paired 96-step city/idle screens. Counts match31ebf778; peak timings overlap.
+This is architectural progress, not rank1 completion or a robust performance win.

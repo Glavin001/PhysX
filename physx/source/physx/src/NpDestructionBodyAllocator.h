@@ -65,6 +65,7 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         state.contactReportThreshold=observation.contactReportThreshold;state.offsetSlop=observation.offsetSlop;
         state.sleepThreshold=observation.sleepThreshold;state.freezeThreshold=observation.freezeThreshold;
         state.disableGravity=observation.disableGravity;state.lockFlags=PxRigidDynamicLockFlags(observation.lockFlags);
+        state.solverIterationCounts=PxU16(observation.solverIterationCounts);
         core.getSim()->getLowLevelBody().mGpuDynamicLimitsDamping=PxVec4(maxLinear,maxAngular,linearDamping,angularDamping);
         if(auto* simState=core.getSim()->getSimStateData(true)) {
             auto* kine=simState->getKinematicData();
@@ -253,13 +254,8 @@ public:
             else flags.clear(PxRigidBodyFlag::eKINEMATIC);
             core.setFlags(flags,true);
             core.getSim()->getLowLevelBody().mInternalFlags|=PxsRigidBody::eDESTRUCTION_MASS_GPU;
-            // Scheduling still consumes CPU settings until native registration
-            // replaces it. Fitted mass/COM/motion are observed only at acceptance.
-            // The existing host launch scheduler still consumes iteration counts.
-            // All other physical settings are already inherited on GPU and reach
-            // CPU compatibility records only in final accepted publication.
-            if(needsHostProperties())core.getCore().solverIterationCounts=
-                source(requests[i].sourceBody)->getCore().getCore().solverIterationCounts;
+            // Physical settings, including solver iterations, are inherited on
+            // GPU and reach CPU records only through final accepted publication.
             if(!requests[i].supported) {
                 core.getSim()->setActive(true);
                 // Reservations begin with ready-for-sleep island flags. Installing

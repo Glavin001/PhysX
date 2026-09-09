@@ -1,0 +1,182 @@
+[
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/librapier3d-565fc0b997421206.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/librapier3d-565fc0b997421206.rlib",
+    "sha256": "163adc24702d6217d6d52318efdd539f22dee5552b2a9f45701d5e268cf8b38c",
+    "bytes": 6229134
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libdestruction_codec.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libdestruction_codec.rlib",
+    "sha256": "17e362298df171dc6dbce20bbed0d4791b34cd442a1cf63239d0b12608c3e865",
+    "bytes": 5791846
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libfutures_util-a56eabe01212ca39.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libfutures_util-a56eabe01212ca39.rlib",
+    "sha256": "e4ae5f8cdad747c1e6b8d83f26656c59a1f17049017a04082a7f614e608be481",
+    "bytes": 5599220
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libserde_core-5e209b8c6f05bfee.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libserde_core-5e209b8c6f05bfee.rlib",
+    "sha256": "2cbe1b2139fc096a8217e32881a4bfd992abbb8100c04e2ca1e30aebfd0baea9",
+    "bytes": 5448418
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libserde_core-05d2faf7cc8cc8c6.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libserde_core-05d2faf7cc8cc8c6.rlib",
+    "sha256": "c129afdf3274cf9f45fd246fbf2887c69eece8951f4b7c5f908df1b00379aee5",
+    "bytes": 5448162
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libvibe_land_shared.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libvibe_land_shared.rlib",
+    "sha256": "d1a0a5fb78c2ace571fb61aa944c5486181736cce7398d371651a92e2244db09",
+    "bytes": 5147110
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libquinn_proto-bfef124e73fda064.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libquinn_proto-bfef124e73fda064.rlib",
+    "sha256": "f0d97887902d9e86576c8716fef06c12c720390769adb0df47542576baac405b",
+    "bytes": 4547368
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libiri_string-7e1041da83f85507.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libiri_string-7e1041da83f85507.rlib",
+    "sha256": "7d20c953747fbe4caba1148f53aa3d755dd3b46efe2ebf8c9a2f2e1403f4c6ff",
+    "bytes": 4546920
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libderanged-d851e936c155b532.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libderanged-d851e936c155b532.rlib",
+    "sha256": "6c41e29477ae8e218fca582048bf687af94893e03776e17769eedf0cb5214a8c",
+    "bytes": 4434670
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libwide-2e9ea6b06ee8fe7c.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libwide-2e9ea6b06ee8fe7c.rlib",
+    "sha256": "f7ea8676024fb531b492a78f67a2dea9e097fd9c0d2a430b41be3888d3a343d2",
+    "bytes": 4404174
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libregex_automata-72bd3bcd61c46a24.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libregex_automata-72bd3bcd61c46a24.rlib",
+    "sha256": "d16a4d587f5994b81535f147ab994654c660564925ca00799ae3f7bfd714b0ee",
+    "bytes": 4213312
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/liblibc-63f3f1b897e9c1c6.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/liblibc-63f3f1b897e9c1c6.rlib",
+    "sha256": "962a58f41f95a0091f2d1f994ae8af63e3be039b841c443d9fd027be9a876c10",
+    "bytes": 4077316
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libtime-5c0d777ee3ba26a2.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libtime-5c0d777ee3ba26a2.rlib",
+    "sha256": "907ec6e6a9615bad3ae3a534b6eb2cfd6f4ac403bb1e5eb740b82770c7a8b0e1",
+    "bytes": 4000174
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/liblibc-cad7d686f4a67f14.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/liblibc-cad7d686f4a67f14.rlib",
+    "sha256": "9fd34344e31fc87d2bc68e0b7b5cf127893e2f17523fa51c9b490aeed360b726",
+    "bytes": 3981792
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libnom-b87ed8e86418d370.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libnom-b87ed8e86418d370.rlib",
+    "sha256": "8d86a5d9ca5c0bf2021342fbea76b7e8f06b0c2020666d09b30806dfd1b860b0",
+    "bytes": 3906028
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libvibe_land_destruction-24e32bbe0f5f7c36.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libvibe_land_destruction-24e32bbe0f5f7c36.rlib",
+    "sha256": "153d588d371c003ce00e5d1e8fbee6152ef1e8e2b05026e5dd1058bfba8987ef",
+    "bytes": 3733154
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libvibe_land_destruction-c87f25f5b6155ddf.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libvibe_land_destruction-c87f25f5b6155ddf.rlib",
+    "sha256": "3fafe21eeba74386b7b1117888e08488a81f4a6d2efae226bcea0aa42ab5926f",
+    "bytes": 3731176
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libvibe_land_destruction-744f8de4c6be319c.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libvibe_land_destruction-744f8de4c6be319c.rlib",
+    "sha256": "1813b6fdeda9e97271bd5b85aa329f0df2254bf1b6ac1f85ab482e84762e4649",
+    "bytes": 3727960
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libvibe_land_destruction-ae5de282db1832f1.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libvibe_land_destruction-ae5de282db1832f1.rlib",
+    "sha256": "c60c36b95e872e62ae0fe1d8bc0e0767de1a81186e5ca2b04d1b36243f4c661a",
+    "bytes": 3726554
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libcc-719c26f2c1935bf3.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libcc-719c26f2c1935bf3.rlib",
+    "sha256": "a90f41bdb0a27f96d2fd2f1c5f9f9e5b4f53f2bc67ab22b20a67d60b2a1cc005",
+    "bytes": 3530364
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libclap_builder-efa02f8dcc823178.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libclap_builder-efa02f8dcc823178.rlib",
+    "sha256": "d136fe1c3109d1a45939ac1eab9cd12865cb5a2b0dd1eb49127809e18ef31846",
+    "bytes": 3390598
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libspade-e01a3d837ae744fb.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libspade-e01a3d837ae744fb.rlib",
+    "sha256": "829348a95c195b3d94787682b2046c5d85ca8d762d76386e0729f2d8e8bd163c",
+    "bytes": 3185238
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libspade-f65c7a02fd5314b0.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libspade-f65c7a02fd5314b0.rlib",
+    "sha256": "e1061f4a15782b06ac0f063d2151cf2b10a17ca0f576fe6cc907d78a246ce2dd",
+    "bytes": 3185198
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libicu_properties-32082f6469c6bf86.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libicu_properties-32082f6469c6bf86.rlib",
+    "sha256": "94a6cc037a3b9ca8752a3062e277c00b121b5dd30cfde78919b20bcbfe66b37b",
+    "bytes": 3139156
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libreqwest-8d1fea7a50074d4a.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libreqwest-8d1fea7a50074d4a.rlib",
+    "sha256": "f5f891613985f8e8a43dc2b75fc2e0fbb3c9f39bc46f597dff7a61daff823ec6",
+    "bytes": 3129934
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libtracing_subscriber-2f38afb7041d78e8.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libtracing_subscriber-2f38afb7041d78e8.rlib",
+    "sha256": "914e6f9e7f39a889c24489b8a51ff901712a6d5562533d9a0c717cffffebbb34",
+    "bytes": 2939252
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libnum_bigint-0243e19654359793.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libnum_bigint-0243e19654359793.rlib",
+    "sha256": "c591edf38c4deee03ca3b86836d3d45d2ae272c9f9d2bcc9606d0759f1647586",
+    "bytes": 2710250
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libhyper_util-de827fef6829b3a5.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libhyper_util-de827fef6829b3a5.rlib",
+    "sha256": "5486f6f6de381e7cd8c30f29bf2797cda7fb9ffe312ace7b6d92ec85007a92cd",
+    "bytes": 2695208
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libwtransport-19b58ca22407556e.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libwtransport-19b58ca22407556e.rlib",
+    "sha256": "eaf3d8941f3550f9ae2df34b2cac0e6701cfc5dc6e0d7a21974494ffaccc2de3",
+    "bytes": 2689582
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-native/release/deps/libaws_lc_rs-c7db58f9c600f8e9.rlib",
+    "target": "/dev/shm/physx-iteration-limit-link-inputs/libaws_lc_rs-c7db58f9c600f8e9.rlib",
+    "sha256": "6e41d2d1ceb08fff2291c75e0fb34e63d0e4cf2b829f6088fa370f511bbadf5c",
+    "bytes": 2673958
+  }
+]
