@@ -24,7 +24,7 @@
 //
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
-// Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
+// Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
 
 #include "ScInteraction.h"
@@ -33,11 +33,11 @@
 using namespace physx;
 
 Sc::Interaction::Interaction(ActorSim& actor0, ActorSim& actor1, InteractionType::Enum type, PxU8 flags) :
-	mActor0				(&actor0),
-	mActor1				(&actor1),
-	mSceneId			(PX_INVALID_INTERACTION_SCENE_ID), 
+	mActor0				(actor0),
+	mActor1				(actor1),
+	mSceneId			(PX_INVALID_INTERACTION_SCENE_ID),
 	mActorId0			(PX_INVALID_INTERACTION_ACTOR_ID),
-	mActorId1			(PX_INVALID_INTERACTION_ACTOR_ID), 
+	mActorId1			(PX_INVALID_INTERACTION_ACTOR_ID),
 	mInteractionType	(PxTo8(type)),
 	mInteractionFlags	(flags),
 	mDirtyFlags			(0)
@@ -48,7 +48,7 @@ Sc::Interaction::Interaction(ActorSim& actor0, ActorSim& actor1, InteractionType
 
 void Sc::Interaction::addToDirtyList()
 {
-	getActorSim0().getScene().getNPhaseCore()->addToDirtyInteractionList(this);		
+	getActorSim0().getScene().getNPhaseCore()->addToDirtyInteractionList(this);
 }
 
 void Sc::Interaction::removeFromDirtyList()
@@ -66,22 +66,4 @@ void Sc::Interaction::setClean(bool removeFromList)
 	}
 
 	mDirtyFlags = 0;
-}
-
-// Called only at the native topology transaction boundary, with no actor-list
-// iteration in flight except the reverse traversal that owns the transaction.
-void Sc::Interaction::rebindActorReference(ActorSim& previous, ActorSim& next)
-{
-    PX_ASSERT(&previous.getScene()==&next.getScene());
-    PX_ASSERT(mActor0==&previous || mActor1==&previous);
-    PX_ASSERT(mActor0!=&next && mActor1!=&next);
-    previous.unregisterInteractionFromActor(this);
-    if(mActor0==&previous)mActor0=&next;else mActor1=&next;
-    next.registerInteractionInActor(this);
-}
-
-void Sc::Interaction::swapActorReferences()
-{
-    PxSwap(mActor0,mActor1);
-    PxSwap(mActorId0,mActorId1);
 }

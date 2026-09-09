@@ -71,10 +71,10 @@ namespace Sc
 		// Interactions automatically unregister themselves from the actors here
 		PX_FORCE_INLINE void			unregisterFromActors();
 
-		PX_FORCE_INLINE	ActorSim&		getActorSim0()	const	{ return *mActor0; }
-		PX_FORCE_INLINE	ActorSim&		getActorSim1()	const	{ return *mActor1; }
+		PX_FORCE_INLINE	ActorSim&		getActorSim0()	const	{ return mActor0; }
+		PX_FORCE_INLINE	ActorSim&		getActorSim1()	const	{ return mActor1; }
 
-		PX_FORCE_INLINE Scene&			getScene() const { return mActor0->getScene(); }
+		PX_FORCE_INLINE Scene&			getScene() const { return mActor0.getScene(); }
 
 		PX_FORCE_INLINE	InteractionType::Enum getType() const { return InteractionType::Enum(mInteractionType); }
 
@@ -109,16 +109,12 @@ namespace Sc
 
 		PX_FORCE_INLINE PxU8			getDirtyFlags() const { return mDirtyFlags; }
 
-	protected:
-        void rebindActorReference(ActorSim& previous, ActorSim& next);
-        void swapActorReferences();
-
 	private:
 						void			addToDirtyList();
 						void			removeFromDirtyList();
 
-						ActorSim*		mActor0;
-						ActorSim*		mActor1;
+						ActorSim&		mActor0;
+						ActorSim&		mActor1;
 
 		// PT: TODO: merge the 6bits of the 3 PxU8s in the top bits of the 3 PxU32s
 						PxU32			mSceneId;	// PT: TODO: merge this with mInteractionType
@@ -140,21 +136,21 @@ namespace Sc
 
 PX_FORCE_INLINE void Sc::Interaction::registerInActors()
 {
-	mActor0->registerInteractionInActor(this);
-	mActor1->registerInteractionInActor(this);
+	mActor0.registerInteractionInActor(this);
+	mActor1.registerInteractionInActor(this);
 }
 
 PX_FORCE_INLINE void Sc::Interaction::unregisterFromActors()
 {
-	mActor0->unregisterInteractionFromActor(this);
-	mActor1->unregisterInteractionFromActor(this);
+	mActor0.unregisterInteractionFromActor(this);
+	mActor1.unregisterInteractionFromActor(this);
 }
 
 PX_FORCE_INLINE	void Sc::Interaction::setActorId(ActorSim* actor, PxU32 id)
 {
 	PX_ASSERT(id != PX_INVALID_INTERACTION_ACTOR_ID);
-	PX_ASSERT(mActor0 == actor || mActor1 == actor);
-	if(mActor0 == actor)
+	PX_ASSERT(&mActor0 == actor || &mActor1 == actor);
+	if(&mActor0 == actor)
 		mActorId0 = id;
 	else
 		mActorId1 = id;
@@ -162,8 +158,8 @@ PX_FORCE_INLINE	void Sc::Interaction::setActorId(ActorSim* actor, PxU32 id)
 
 PX_FORCE_INLINE	PxU32 Sc::Interaction::getActorId(const ActorSim* actor) const
 {
-	PX_ASSERT(mActor0 == actor || mActor1 == actor);
-	return mActor0 == actor ? mActorId0 : mActorId1;
+	PX_ASSERT(&mActor0 == actor || &mActor1 == actor);
+	return &mActor0 == actor ? mActorId0 : mActorId1;
 }
 
 PX_FORCE_INLINE PxIntBool Sc::Interaction::isElementInteraction() const

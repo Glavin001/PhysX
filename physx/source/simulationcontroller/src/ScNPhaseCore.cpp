@@ -106,7 +106,7 @@ void NPhaseCore::onOverlapRemoved(ElementSim* volume0, ElementSim* volume1, PxU3
 }
 
 // MS: TODO: optimize this for the actor release case?
-void NPhaseCore::onVolumeRemoved(ElementSim* volume, PxU32 flags, PxsContactManagerOutputIterator& outputs, BodySim* nativeOwner)
+void NPhaseCore::onVolumeRemoved(ElementSim* volume, PxU32 flags, PxsContactManagerOutputIterator& outputs)
 {
 	const PxU32 ccdPass = 0;
 
@@ -123,9 +123,7 @@ void NPhaseCore::onVolumeRemoved(ElementSim* volume, PxU32 flags, PxsContactMana
 					(interaction->getType() == InteractionType::eOVERLAP) ||
 					(interaction->getType() == InteractionType::eTRIGGER) );
 
-        const bool retained=nativeOwner && interaction->getType()==InteractionType::eOVERLAP
-            && static_cast<ShapeInteraction*>(interaction)->rebindNativeRigidOwner(*static_cast<ShapeSimBase*>(volume),*nativeOwner);
-        if(!retained)releaseElementPair(interaction, flags, volume, ccdPass, true, outputs);
+		releaseElementPair(interaction, flags, volume, ccdPass, true, outputs);
 
 		interaction = iter.getNext();
 	}
@@ -181,7 +179,7 @@ void NPhaseCore::managerNewTouch(ShapeInteraction& interaction)
 	}
 }
 
-bool NPhaseCore::shouldSwapContactBodies(ActorSim& rs0, ActorSim& rs1)
+static bool shouldSwapBodies(const ShapeSimBase& s0, const ShapeSimBase& s1)
 {
 	/*
 	This tries to ensure that if one of the bodies is static or kinematic, it will be body B
@@ -200,10 +198,12 @@ bool NPhaseCore::shouldSwapContactBodies(ActorSim& rs0, ActorSim& rs1)
 	// - a proper static body
 	// - a kinematic dynamic body
 	// - an articulation link with a fixed base
+	ActorSim& rs0 = s0.getActor();
 	const PxActorType::Enum actorType0 = rs0.getActorType();
 	if(actorType0 == PxActorType::eRIGID_STATIC)
 		return true;
 
+	ActorSim& rs1 = s1.getActor();
 	const PxActorType::Enum actorType1 = rs1.getActorType();
 
 	const bool isDyna0 = actorType0 == PxActorType::eRIGID_DYNAMIC;
@@ -262,7 +262,7 @@ ShapeInteraction* NPhaseCore::createShapeInteraction(ShapeSimBase& s0, ShapeSimB
 	ShapeSimBase* _s0 = &s0;
 	ShapeSimBase* _s1 = &s1;
 
-	if(shouldSwapContactBodies(s0.getActor(), s1.getActor()))
+	if(shouldSwapBodies(s0, s1))
 		PxSwap(_s0, _s1);
 
 	PX_ASSERT(_s0->getActor().getNodeIndex().isValid()); // after the swap the first shape must not be part of a static body

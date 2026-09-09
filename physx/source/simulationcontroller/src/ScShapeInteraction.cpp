@@ -24,8 +24,8 @@
 //
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
-// Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
-           
+// Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
+
 #include "ScShapeInteraction.h"
 #if PX_SUPPORT_GPU_PHYSX
 #include "ScParticleSystemSim.h"
@@ -186,21 +186,20 @@ void Sc::ShapeInteraction::setContactReportPostSolverVelocity(ContactStreamManag
 	Scene& scene = getScene();
 	NPhaseCore* npcore = scene.getNPhaseCore();
 	PxU8* stream = npcore->getContactReportPairData(cs.bufferIndex);
-	
+
 	ActorPairReport& apr = getActorPairReport();
 	cs.setContactReportPostSolverVelocity(stream, apr.getActorA(), apr.getActorB());
 }
 
 void Sc::ShapeInteraction::resetManagerCachedState() const
 {
-    if(readFlag(NATIVE_OWNER_PENDING)) { if(mManager)mManager->resetCachedState();return; }
 	if(mManager)
 	{
 		Sc::Scene& scene = getScene();
 		PxvNphaseImplementationContext* nphaseImplementationContext = scene.getLowLevelContext()->getNphaseImplementationContext();
 		PX_ASSERT(nphaseImplementationContext);
 
-		mManager->resetCachedState();	
+		mManager->resetCachedState();
 		nphaseImplementationContext->refreshContactManager(mManager);
 	}
 }
@@ -237,7 +236,7 @@ void Sc::ShapeInteraction::processUserNotificationSync()
 	aPairReport.createContactStreamManager(*npcore);
 }
 
-void Sc::ShapeInteraction::processUserNotificationAsync(PxU32 contactEvent, PxU16 infoFlags, bool touchLost, 
+void Sc::ShapeInteraction::processUserNotificationAsync(PxU32 contactEvent, PxU16 infoFlags, bool touchLost,
 	PxU32 ccdPass, bool useCurrentTransform, PxsContactManagerOutputIterator& outputs, ContactReportAllocationManager* alloc)
 {
 	contactEvent = (!ccdPass) ? contactEvent : (contactEvent | PxPairFlag::eNOTIFY_TOUCH_CCD);
@@ -408,7 +407,7 @@ void Sc::ShapeInteraction::processUserNotificationAsync(PxU32 contactEvent, PxU1
 
 		//!!! why is alignment important here?
 		PX_ASSERT(0==(reinterpret_cast<uintptr_t>(stream) & 0x0f));  // check 16Byte alignment
-		
+
 		mReportStreamIndex = cs.currentPairCount;
 		cp->shapes[0] = shapeA.getPxShape();
 		cp->shapes[1] = shapeB.getPxShape();
@@ -433,7 +432,7 @@ void Sc::ShapeInteraction::processUserNotificationAsync(PxU32 contactEvent, PxU1
 	else
 	{
 		// this shape pair is in the contact notification stream already but there is a second event (can happen with force threshold reports, for example).
-		
+
 		PX_ASSERT(mReportStreamIndex < cs.currentPairCount);
 		cp = &pairStream[mReportStreamIndex];
 		cp->events |= contactEvent;
@@ -493,7 +492,7 @@ void Sc::ShapeInteraction::processUserNotificationAsync(PxU32 contactEvent, PxU1
 			infoFlags |= unswapped ? 0 : PxContactPairFlag::eINTERNAL_CONTACTS_ARE_FLIPPED;
 
 			//PX_ASSERT(0==(reinterpret_cast<const uintptr_t>(impulses) & 0x0f));
-			
+
 			const PxU32 impulseSize = impulses ? (nbPoints * sizeof(PxReal)) : 0;
 			if(impulseSize)
 				infoFlags |= PxContactPairFlag::eINTERNAL_HAS_IMPULSES;
@@ -549,7 +548,7 @@ void Sc::ShapeInteraction::sendLostTouchReport(bool shapeVolumeRemoved, PxU32 cc
 	const bool useCurrentTransform = false;
 
 	const PxU32 triggeredFlags = notifyTouchLost | notifyThresholdLost;
-	PX_ASSERT(triggeredFlags); 
+	PX_ASSERT(triggeredFlags);
 	processUserNotification(triggeredFlags, infoFlag, true, ccdPass, useCurrentTransform, outputs);
 
 	if(shapeVolumeRemoved)
@@ -637,7 +636,7 @@ PxU32 Sc::ShapeInteraction::getContactPointData(const void*& contactPatches, con
 					else
 						return (startOffset + 1);
 				}
-				
+
 				idx++;
 				ccdContactStream = ccdContactStream->nextStream;
 			}
@@ -669,7 +668,7 @@ void Sc::ShapeInteraction::managerNewTouch(PxU32 ccdPass, PxsContactManagerOutpu
 	// PT: new design: don't create ActorPair instances for non-report pairs
 	if(isReportPair())
 		adjustCountersOnNewTouch();
-	
+
 	if(!isReportPair())
 		return;
 	else
@@ -677,7 +676,7 @@ void Sc::ShapeInteraction::managerNewTouch(PxU32 ccdPass, PxsContactManagerOutpu
 		PX_ASSERT(hasTouch());
 		PX_ASSERT(!readFlag(IS_IN_PERSISTENT_EVENT_LIST));
 		PX_ASSERT(!readFlag(IS_IN_FORCE_THRESHOLD_EVENT_LIST));
-		
+
 		const PxU32 pairFlags = getPairFlags();
 		if(pairFlags & PxPairFlag::eNOTIFY_TOUCH_FOUND)
 		{
@@ -711,7 +710,7 @@ bool Sc::ShapeInteraction::managerLostTouch(PxU32 ccdPass, PxsContactManagerOutp
 	if(isReportPair())
 	{
 		PX_ASSERT(hasTouch());
-		
+
 		sendLostTouchReport(false, ccdPass, outputs);
 
 		if(readFlag(IS_IN_CONTACT_EVENT_LIST))
@@ -768,7 +767,7 @@ PX_FORCE_INLINE void Sc::ShapeInteraction::updateFlags(const Sc::Scene& scene, c
 
 	// Check if contact points needed
 	setFlag(CONTACTS_COLLECT_POINTS, (	(pairFlags & PxPairFlag::eNOTIFY_CONTACT_POINTS) ||
-										(pairFlags & PxPairFlag::eMODIFY_CONTACTS) || 
+										(pairFlags & PxPairFlag::eMODIFY_CONTACTS) ||
 #if PX_SUPPORT_GPU_PHYSX
 										scene.getSimulationController()->getEnableOVDCollisionReadback() ||
 #endif
@@ -938,7 +937,6 @@ void Sc::ShapeInteraction::updateState(const PxU8 externalDirtyFlags)
 			createManager(NULL);
 		}
 	}
-    setFlag(NATIVE_OWNER_PENDING,false);
 }
 
 bool Sc::ShapeInteraction::onActivate(PxsContactManager* contactManager)
@@ -962,11 +960,11 @@ bool Sc::ShapeInteraction::onActivate(PxsContactManager* contactManager)
 bool Sc::ShapeInteraction::onDeactivate()
 {
 	PX_ASSERT(!getActor0().isStaticRigid() || !getActor1().isStaticRigid());
-	
+
 	const ActorSim& bodySim0 = getActor0();
 	const ActorSim& bodySim1 = getActor1();
 
-	PX_ASSERT(	(bodySim0.isStaticRigid() && !bodySim1.isStaticRigid() && !bodySim1.isActive()) || 
+	PX_ASSERT(	(bodySim0.isStaticRigid() && !bodySim1.isStaticRigid() && !bodySim1.isActive()) ||
 				(bodySim1.isStaticRigid() && !bodySim0.isStaticRigid() && !bodySim0.isActive()) ||
 				((!bodySim0.isStaticRigid() && !bodySim1.isStaticRigid() && (!bodySim0.isActive() || !bodySim1.isActive()))) );
 
@@ -984,13 +982,13 @@ bool Sc::ShapeInteraction::onDeactivate()
 			if((!readFlag(TOUCH_KNOWN)) && mManager->touchStatusKnown() && (!mManager->getTouchStatus()))
 			{
 				// for pairs that are inserted asleep, we do not know the touch state. If they run through narrowphase and a touch is found,
-				// then a managerNewTouch() call will inform this object about the found touch. However, if narrowphase detects that there 
+				// then a managerNewTouch() call will inform this object about the found touch. However, if narrowphase detects that there
 				// is no touch, this object will not be informed about it. The low level manager will always know though. Now, before destroying
 				// the pair manager, we need to record "does not have touch" state if available.
 				raiseFlag(HAS_NO_TOUCH);
 			}
 
-			destroyManager();	
+			destroyManager();
 			if(mEdgeIndex != IG_INVALID_EDGE)
 				islandManager->clearEdgeRigidCM(mEdgeIndex);
 		}
@@ -1176,73 +1174,18 @@ void Sc::ShapeInteraction::onShapeChangeWhileSleeping(bool shapeOfDynamicChanged
 
 		//deformable volume/dynamic before static
 		ActorSim& body0 = getActor0();
-	
+
 		if(shapeOfDynamicChanged && !readFlag(TOUCH_KNOWN))
 		{
 			// conservative approach: if a pair was added asleep, and a body/shape gets moved, we want to check next frame
 			// whether the other body should get woken up. The motivation behind this is to get a similar behavior as in
-			// the case where the objects fell asleep rather than have been added asleep (in that case the object will be 
+			// the case where the objects fell asleep rather than have been added asleep (in that case the object will be
 			// woken up with one frame delay).
 
 			ActorSim& body1 = getActor1();
-			
+
 			if(body1.isDynamicRigid() && !readFlag(ShapeInteraction::CONTACTS_RESPONSE_DISABLED))  // the first shape always belongs to a dynamic body, hence no need to test body0
 				scene.addToLostTouchList(body0, body1);  // note: this will cause duplicate entries if the pair loses AABB overlap the next frame
 		}
 	}
-}
-
-
-// Persistent pair storage follows chunk geometry; the island edge and body
-// pointers follow the current rigid owner. Reporting/CCD/modification pairs
-// retain the complete reconstruction path until their migration is qualified.
-bool Sc::ShapeInteraction::rebindNativeRigidOwner(ShapeSimBase& shape, BodySim& owner)
-{
-    ActorSim& previous=shape.getActor();
-    const bool first=&shape==&getShape0();
-    ActorSim& other=first?getActor1():getActor0();
-    if((!first && &shape!=&getShape1()) || !previous.isDynamicRigid()
-        || previous.getActorType()!=PxActorType::eRIGID_DYNAMIC || &previous==&owner || &other==&owner
-        || (!other.isStaticRigid() && other.getActorType()!=PxActorType::eRIGID_DYNAMIC)
-        || !mManager || mActorPair || isReportPair()
-        || readInteractionFlag(InteractionFlag::eIS_FILTER_PAIR)
-        || (getPairFlags() & (PxU32(PxPairFlag::eDETECT_CCD_CONTACT) | PxU32(PxPairFlag::eMODIFY_CONTACTS))))return false;
-    Scene& scene=getScene();
-    auto* np=scene.getLowLevelContext()->getNphaseImplementationContext();
-    if(!np->beginNativeContactOwnerChange(mManager))return false;
-    if((hasTouch() || !hasKnownTouchState()) && !other.isStaticRigid())other.internalWakeUp();
-    auto* islands=scene.getSimpleIslandManager();
-    islands->removeConnection(mEdgeIndex);
-    previous.unregisterCountedInteraction();owner.registerCountedInteraction();
-    rebindActorReference(previous,owner);
-    // Use the same canonical body order as newly created PhysX contacts. The
-    // queued GPU transaction reverses the input and invalidates oriented PCM.
-    if(NPhaseCore::shouldSwapContactBodies(getActor0(),getActor1())) {
-        swapActorReferences();PxSwap(mElement0,mElement1);
-    }
-    ActorSim& a=getActor0();ActorSim& b=getActor1();
-    updateFlags(scene,a,b,getPairFlags());
-    auto& unit=mManager->getWorkUnit();
-    mManager->mRigidBody0=&static_cast<BodySim&>(a).getLowLevelBody();
-    mManager->mRigidBody1=b.isDynamicRigid()?&static_cast<BodySim&>(b).getLowLevelBody():NULL;
-    unit.mRigidCore0=&static_cast<BodySim&>(a).getBodyCore().getCore();
-    unit.mRigidCore1=b.isDynamicRigid()?&static_cast<BodySim&>(b).getBodyCore().getCore():&static_cast<ShapeSim&>(getShape1()).getPxsRigidCore();
-    unit.setShapeCore0(&getShape0().getCore());unit.setShapeCore1(&getShape1().getCore());
-    unit.mTransformCache0=getShape0().getTransformCacheID();unit.mTransformCache1=getShape1().getTransformCacheID();
-    unit.mFlags &= ~(PxcNpWorkUnitFlag::eHAS_KINEMATIC_ACTOR | PxcNpWorkUnitFlag::eDISABLE_RESPONSE | PxcNpWorkUnitFlag::eOUTPUT_CONSTRAINTS);
-    if(b.isDynamicRigid() && static_cast<BodySim&>(b).isKinematic())unit.mFlags|=PxcNpWorkUnitFlag::eHAS_KINEMATIC_ACTOR;
-    if(readFlag(CONTACTS_RESPONSE_DISABLED))unit.mFlags|=PxcNpWorkUnitFlag::eDISABLE_RESPONSE;
-    else unit.mFlags|=PxcNpWorkUnitFlag::eOUTPUT_CONSTRAINTS;
-    setupDominance(unit,scene,a,b);
-    const PxReal slop0=mManager->mRigidBody0?mManager->mRigidBody0->getCore().offsetSlop:0.0f;
-    const PxReal slop1=mManager->mRigidBody1?mManager->mRigidBody1->getCore().offsetSlop:0.0f;
-    unit.mOffsetSlop=PxMax(slop0,slop1);
-    mEdgeIndex=islands->addContactManager(mManager,a.getNodeIndex(),b.isStaticRigid()?PxNodeIndex():b.getNodeIndex(),this,IG::Edge::eCONTACT_MANAGER);
-    // The old touch belonged to the trial body edge. Let narrowphase establish
-    // touch for the new edge after restored motion, exactly as for a new pair.
-    clearFlag(TOUCH_KNOWN);unit.mStatusFlags=0;
-    raiseFlag(NATIVE_OWNER_PENDING);
-    raiseFlag(NATIVE_CONTACT_RETAINED);
-    setDirty(InteractionDirtyFlag::eBODY_KINEMATIC | InteractionDirtyFlag::eDOMINANCE);
-    return true;
 }

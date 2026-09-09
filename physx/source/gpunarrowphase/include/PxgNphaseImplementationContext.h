@@ -197,7 +197,6 @@ namespace physx
 		virtual void				unregisterContactManager(PxsContactManager* cm)	PX_OVERRIDE PX_FINAL;
 		virtual void				refreshContactManager(PxsContactManager* cm)	PX_OVERRIDE PX_FINAL;
 
-        virtual bool beginNativeContactOwnerChange(PxsContactManager* manager) PX_OVERRIDE PX_FINAL;
         virtual bool rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor, bool deviceOwnerTransaction) PX_OVERRIDE PX_FINAL;
 		virtual void				registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, PxActor* actor, const bool isFemCloth)	PX_OVERRIDE PX_FINAL;
 		virtual void				updateShapeMaterial(const PxsShapeCore& shapeCore)	PX_OVERRIDE PX_FINAL;

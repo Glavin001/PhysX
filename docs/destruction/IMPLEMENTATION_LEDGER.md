@@ -4,11 +4,17 @@ This is a status index, not a completion claim. Historical rejected experiments 
 
 ## Latest replacement plan
 
-The [approved replacement plan](REPLACEMENT_PLAN.md) now governs implementation
-order: GPU fragment/contact lifecycle; cluster-frame publication and local activity;
-factored substructures/interface solving; selective correction/collision organization;
-remaining passes. The opportunity ranking below is exposure ranking, not that
-implementation sequence. Conditional savings in the plan are not measured wins.
+The latest user instruction makes the **Ranked replacements** table in the
+[approved plan](REPLACEMENT_PLAN.md) the implementation order, superseding its
+later grouped execution table: **1 lifecycle → 2 structural solving → 3 persistent
+contacts → 4 cluster publication → 5 selective correction → 6 local activity and
+topology → 7 remaining passes**. Conditional savings are not measured wins.
+
+The unqualified contact-retention activation path from `baed87a9` is deferred:
+its production changes are removed, while its original commit, failed oracle,
+ordering experiments and standalone GPU tests remain available. The incomplete
+registration-feed draft is archived separately. Do not build lifecycle work on
+the known failing wall trajectory or reactivate #3 ahead of #2.
 
 The existing wall runner now supports `--tier early` (32 steps), `--tier screen`
 (128 steps) and the unchanged default `--tier full` (600 steps). Prefixes require
@@ -24,12 +30,13 @@ settling and sleeping benefits are independently valuable and are tracked below.
 
 | Priority | Status | Work / next action | Primary benefit to verify |
 |---|---|---|---|
-| 1 | 🚧 C3/C4 prototype; physical gate failing | C1–C6: persistent fragment/contact ownership and GPU lifecycle; preserve actor, island, contact and generation consistency | Fracture bursts and contact churn |
-| 2 | ⬜ Remaining candidates | S6–S10, S13–S18: resident stress layout, scheduling, reductions and qualified preconditioning | Active stress and long solver tails |
-| 3 | ⬜ Remaining | C7–C9: compact checkpoints and validated affected correction sets | Corrected steps; includes ordinary bodies/constraints |
-| 4 | 🚧 Partial | S1–S4, S12, T2–T8, O1–O3: dirty components, local topology/mass, structural activity | Local impacts in large scenes, idle and settling |
-| 5 | ⬜ Remaining | L2–L8, S19, T9, O4: contact/material passes, sparse events and accepted publication | Contact-heavy rubble, fracture bursts and publication |
-| 6 | ⬜ Remaining | A2–A7, C10–C11: shared storage, setup, remaining unnecessary work and collision hierarchy evaluation | Initialization/growth, world scaling and recurring overhead |
+| 1 | 🚧 Active; CPU prerequisites remain | GPU fragment motion allocation, simulation metadata and ownership transactions | Fracture bursts; remove CPU dependencies before corrected physics |
+| 2 | ⬜ Next after lifecycle | Factored local interiors, projected interface solve and recovery of original bond responses; exact production-CUDA replay first | Active stress and sequential sparse work |
+| 3 | ⏸️ Unqualified prototype deferred | Persistent geometry with independently versioned numerical registration/activation | Migration-driven contact churn; fix known ordering failure |
+| 4 | ⬜ Remaining | Separate cluster-frame changes from actual chunk membership changes | Accepted publication; retained COM changes must not expand every chunk |
+| 5 | ⬜ Remaining | Explicit contact/constraint closure and validated selective correction | Corrected steps, including ordinary bodies and supported constraints |
+| 6 | 🚧 Partial foundations; scheduled sixth | Dirty activity, exact structural reuse, affected-component topology and mass | Local impacts, pristine idle, settling and world-size scaling |
+| 7 | ⬜ Remaining | Contact/material fusion, mass specialization, storage/setup and redundant-pass deletion | Remaining necessary work across regimes |
 | Separate idle track | 🚧 Implemented and short-screen tested; not promoted | S2 / partial S12 / O1: exact GPU settled-stress reuse; qualify idle gain and cross-regime regressions | Measured pristine-idle benefit; no demonstrated destruction-peak benefit |
 | Retained foundations | ✅ Existing | Persistent assets, internal contact borrowing, resident iterations, cached local inverses, unchanged-topology bypass, committed consumers | Preserve these while replacing remaining work |
 | Qualification | 🛡️ Incomplete | Controlled identities, all relevant regimes, five 60-second runs and endurance | Correctness and independently qualified benefits |

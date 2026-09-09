@@ -1,0 +1,290 @@
+diff --git a/physx/source/common/src/CmPool.h b/physx/source/common/src/CmPool.h
+index c4c0d2a8..aa26bf27 100644
+--- a/physx/source/common/src/CmPool.h
++++ b/physx/source/common/src/CmPool.h
+@@ -66,6 +66,8 @@ public:
+ 				;
+ 	}
+ 
++	PX_INLINE PxU32 getSlabSize() const { return mEltsPerSlab; }
++
+ 	PX_INLINE ~PoolList()
+ 	{
+ 		destroy();
+diff --git a/physx/source/gpudestruction/include/PxgDestructionRuntime.h b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+index 455313a3..f2d60e1f 100644
+--- a/physx/source/gpudestruction/include/PxgDestructionRuntime.h
++++ b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+@@ -6,6 +6,7 @@
+ #include "PxContact.h"
+ #include "PxgDestructionContactGraph.h"
+ #include "PxgContactOwnership.h"
++#include "PxgDestructionRegistration.h"
+ #include "PxgDestructionOwnership.h"
+ #include "PxvDestructionBodyAllocator.h"
+ namespace physx {
+@@ -91,6 +92,9 @@ public:
+     virtual void release() = 0;
+     // Resolve persistent shape IDs into GPU narrowphase descriptors on the
+     // caller's ordered NP stream. Pair allocation/filtering is still separate.
++    virtual bool submitContactRegistrations(const PxgDestructionRegistrationCommand* commands,PxU32 commandCount,
++        const PxU32* contacts,PxU32 contactCount,PxU32 contactCapacity,PxU32 pageSize,
++        PxgContactGraphSequence* sequence,CUstream stream) = 0;
+     virtual bool updateContactOwners(const PxgDestructionContactOwnerUpdate* updates, PxU32 count,
+         PxgContactGraphSequence* sequence, CUstream stream) = 0;
+     virtual bool buildContactInputs(PxgContactManagerInput* inputs, PxU32 count,
+diff --git a/physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h b/physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h
+index f8ab024e..76849c32 100644
+--- a/physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h
++++ b/physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h
+@@ -40,6 +40,7 @@
+ #include "PxsContactManagerState.h"
+ 
+ #include "PxgContactManager.h"
++#include "PxgDestructionRegistration.h"
+ #include "PxgContactOwnership.h"
+ #include "PxgCudaBuffer.h"
+ #include "PxgCudaPagedLinearAllocator.h"
+@@ -323,6 +324,10 @@ namespace physx
+         struct PendingContactOwner { PxU32 bucket,oldEdge; };
+         PxHashMap<PxsContactManager*,PendingContactOwner> mPendingContactOwners;
+         Cm::PinnableArray<PxgDestructionContactOwnerUpdate> mContactOwnerPackets;
++        Cm::PinnableArray<PxgDestructionRegistrationCommand> mRegistrationCommands;
++        Cm::PinnableArray<PxU32> mRegistrationContacts;
++        PxU32 mRegistrationPageSize=0,mRegistrationContactCapacity=0;
++        bool mRegistrationInputError=false;
+         PxU64 mDestructionContactOwnersRetained=0;
+         PxU32 mDestructionGraphFallbackPairs = 0;
+         // A receipt for one merged NP pass, consumed only at finalization.
+@@ -578,6 +583,8 @@ namespace physx
+ 		void unregisterContactManager(PxsContactManager* manager, const PxU32 bucketId);
+ 		void refreshContactManager(PxsContactManager* manager, PxsContactManagerOutput* cmOutputs, PxgContactManagerInput& input, const PxU32 bucketId);
+ 
++        void queueNativeContactRegistrations(PxsContactManager* const* managers,PxU32 count,bool retiring,PxU32 pageSize);
++        bool flushNativeContactRegistrations();
+         bool beginNativeContactOwnerChange(PxsContactManager* manager,PxU32 bucket);
+         bool flushNativeContactOwners();
+ 		void removeLostPairs();
+diff --git a/physx/source/gpunarrowphase/include/PxgNphaseImplementationContext.h b/physx/source/gpunarrowphase/include/PxgNphaseImplementationContext.h
+index e3087c28..f03271d4 100644
+--- a/physx/source/gpunarrowphase/include/PxgNphaseImplementationContext.h
++++ b/physx/source/gpunarrowphase/include/PxgNphaseImplementationContext.h
+@@ -197,6 +197,7 @@ namespace physx
+ 		virtual void				unregisterContactManager(PxsContactManager* cm)	PX_OVERRIDE PX_FINAL;
+ 		virtual void				refreshContactManager(PxsContactManager* cm)	PX_OVERRIDE PX_FINAL;
+ 
++        virtual void nativeContactManagerBatch(PxsContactManager* const* managers,PxU32 count,bool retiring,PxU32 pageSize) PX_OVERRIDE PX_FINAL;
+         virtual bool beginNativeContactOwnerChange(PxsContactManager* manager) PX_OVERRIDE PX_FINAL;
+         virtual bool rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor, bool deviceOwnerTransaction) PX_OVERRIDE PX_FINAL;
+ 		virtual void				registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, PxActor* actor, const bool isFemCloth)	PX_OVERRIDE PX_FINAL;
+diff --git a/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp b/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp
+index f2ab6a26..735cfbb2 100644
+--- a/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp
++++ b/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp
+@@ -124,6 +124,8 @@ PxgGpuNarrowphaseCore::PxgGpuNarrowphaseCore(PxgCudaKernelWranglerManager* gpuKe
+ 	mLostFoundPairsOutputData(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
+ 	mLostFoundPairsCms(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
+     mContactOwnerPackets(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
++    mRegistrationCommands(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
++    mRegistrationContacts(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
+     mContactGraphSequence(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+ 	mPairManagementData(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
+ 	mGpuPairManagementData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+@@ -8931,7 +8933,7 @@ bool validateInputPairs(PxgContactManagers& gpuConvexConvexManagers, PxgGpuConta
+ 
+ void PxgGpuNarrowphaseCore::removeLostPairs()
+ {
+-    if(!flushNativeContactOwners()){mCudaContext->setAbortMode(true);return;}
++    if(!flushNativeContactRegistrations() || !flushNativeContactOwners()){mCudaContext->setAbortMode(true);return;}
+     mDestructionGraphCachedGeneration=0;
+ 	/*
+ 		This remove algorithm mirrors the behavior of the GPU reduce-and-remove algorithm.
+@@ -9757,3 +9759,35 @@ bool PxgGpuNarrowphaseCore::flushNativeContactOwners()
+     mPendingContactOwners.clear();
+     return true;
+ }
++
++// Capture lifecycle batches at their existing serialization boundary. These
++// indices locate compatibility records; GPU allocation owns registration slots.
++void PxgGpuNarrowphaseCore::queueNativeContactRegistrations(PxsContactManager* const* managers,PxU32 count,bool retiring,PxU32 pageSize)
++{
++    if(!count || !mGpuContext || !mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs())return;
++    if(!pageSize || (mRegistrationPageSize && mRegistrationPageSize!=pageSize)
++        || PxU64(mRegistrationContacts.size())+count>PX_MAX_U32) {mRegistrationInputError=true;return;}
++    mRegistrationPageSize=pageSize;
++    const PxU32 offset=mRegistrationContacts.size();
++    for(PxU32 i=0;i<count;++i) {
++        const PxU32 index=managers[i]->getIndex();
++        if(index==PX_MAX_U32){mRegistrationInputError=true;return;}
++        mRegistrationContacts.pushBack(index);
++        mRegistrationContactCapacity=PxMax(mRegistrationContactCapacity,index+1);
++    }
++    mRegistrationCommands.pushBack(retiring?PxgDestructionRegistrationCommand{offset,count,0,0}
++        :PxgDestructionRegistrationCommand{0,0,offset,count});
++}
++
++bool PxgGpuNarrowphaseCore::flushNativeContactRegistrations()
++{
++    if(mRegistrationInputError)return false;
++    if(!mRegistrationCommands.size())return true;
++    auto* runtime=mGpuContext->getSimulationController()->getNativeDestructionRuntime();
++    if(!runtime || !runtime->submitContactRegistrations(mRegistrationCommands.begin(),mRegistrationCommands.size(),
++        mRegistrationContacts.begin(),mRegistrationContacts.size(),mRegistrationContactCapacity,mRegistrationPageSize,
++        mContactGraphSequence.getTypedPtr(),mStream))return false;
++    // The NP task owns these pinned upload arrays through its completion fence.
++    mRegistrationCommands.forceSize_Unsafe(0);mRegistrationContacts.forceSize_Unsafe(0);
++    return true;
++}
+diff --git a/physx/source/gpunarrowphase/src/PxgNphaseImplementationContext.cpp b/physx/source/gpunarrowphase/src/PxgNphaseImplementationContext.cpp
+index bfc92c00..9458a834 100644
+--- a/physx/source/gpunarrowphase/src/PxgNphaseImplementationContext.cpp
++++ b/physx/source/gpunarrowphase/src/PxgNphaseImplementationContext.cpp
+@@ -1862,6 +1862,11 @@ PxsContactManagerOutputIterator PxgNphaseImplementationContext::getContactManage
+ void PxgNphaseImplementationContext::acquireContext() { mGpuNarrowphaseCore->acquireContext(); }
+ void PxgNphaseImplementationContext::releaseContext() { mGpuNarrowphaseCore->releaseContext();  }
+ 
++void PxgNphaseImplementationContext::nativeContactManagerBatch(PxsContactManager* const* managers,PxU32 count,bool retiring,PxU32 pageSize)
++{
++    mGpuNarrowphaseCore->queueNativeContactRegistrations(managers,count,retiring,pageSize);
++}
++
+ bool PxgNphaseImplementationContext::beginNativeContactOwnerChange(PxsContactManager* manager)
+ {
+     if(mGpuContactManagerBitMap[GPU_BUCKET_ID::eFallback].test(manager->getIndex()))return false;
+diff --git a/physx/source/lowlevel/software/include/PxsContext.h b/physx/source/lowlevel/software/include/PxsContext.h
+index 0770a988..6a2b1450 100644
+--- a/physx/source/lowlevel/software/include/PxsContext.h
++++ b/physx/source/lowlevel/software/include/PxsContext.h
+@@ -99,6 +99,9 @@ public:
+ 					void						destroyCache(Gu::Cache& cache);
+ 					void						destroyContactManager(PxsContactManager* cm);
+ 
++    void preallocateContactManagers(PxU32 count,PxsContactManager** managers);
++    void releaseUnusedContactManager(PxsContactManager* manager);
++
+ 	PX_FORCE_INLINE	PxU64						getContextId() const { return mContextID; }
+ 
+ 	// Collision properties
+diff --git a/physx/source/lowlevel/software/include/PxvNphaseImplementationContext.h b/physx/source/lowlevel/software/include/PxvNphaseImplementationContext.h
+index a51b944e..8008f408 100644
+--- a/physx/source/lowlevel/software/include/PxvNphaseImplementationContext.h
++++ b/physx/source/lowlevel/software/include/PxvNphaseImplementationContext.h
+@@ -126,6 +126,7 @@ public:
+ 	virtual void						unregisterContactManager(PxsContactManager* cm) = 0;
+ 	virtual void						refreshContactManager(PxsContactManager* cm) = 0;
+ 
++    virtual void nativeContactManagerBatch(PxsContactManager* const*, PxU32, bool, PxU32) {}
+     virtual bool beginNativeContactOwnerChange(PxsContactManager*) { return false; }
+     virtual bool rebindShapeInstance(const PxNodeIndex&, const PxsShapeCore&, PxU32, PxActor*, bool) { return false; }
+ 	virtual void						registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, PxActor* actor, const bool isDeformableSurface = false) = 0;
+diff --git a/physx/source/lowlevel/software/src/PxsContext.cpp b/physx/source/lowlevel/software/src/PxsContext.cpp
+index 3db071ba..b458d394 100644
+--- a/physx/source/lowlevel/software/src/PxsContext.cpp
++++ b/physx/source/lowlevel/software/src/PxsContext.cpp
+@@ -262,6 +262,20 @@ void PxsContext::createTransformCache(Cm::VirtualAllocatorCallback& allocator, C
+ 	mTransformCache = PX_NEW(PxsTransformCache)(allocator, fallback);
+ }
+ 
++void PxsContext::preallocateContactManagers(PxU32 count,PxsContactManager** managers)
++{
++    const PxU32 granted=mContactManagerPool.preallocate(count,managers);
++    if(mNpImplementationContext && granted)
++        mNpImplementationContext->nativeContactManagerBatch(managers,granted,false,mContactManagerPool.getSlabSize());
++}
++
++void PxsContext::releaseUnusedContactManager(PxsContactManager* manager)
++{
++    if(mNpImplementationContext)
++        mNpImplementationContext->nativeContactManagerBatch(&manager,1,true,mContactManagerPool.getSlabSize());
++    mContactManagerPool.put(manager);
++}
++
+ PxsContactManager* PxsContext::createContactManager(PxsContactManager* contactManager, bool useCCD)
+ {
+ 	PxsContactManager* cm = contactManager? contactManager : mContactManagerPool.get();
+@@ -269,8 +283,11 @@ PxsContactManager* PxsContext::createContactManager(PxsContactManager* contactMa
+ 	{
+ 		cm->getWorkUnit().clearCachedState();
+ 
+-		if(!contactManager)
+-			setActiveContactManager(cm, useCCD);
++		if(!contactManager) {
++            if(mNpImplementationContext)
++                mNpImplementationContext->nativeContactManagerBatch(&cm,1,false,mContactManagerPool.getSlabSize());
++            setActiveContactManager(cm, useCCD);
++        }
+ 	}
+ 	else
+ 	{
+@@ -326,7 +343,7 @@ void PxsContext::destroyContactManager(PxsContactManager* cm)
+ 		mActiveContactManagersWithCCD.growAndReset(idx);
+ 	//mActiveContactManager.growAndReset(idx);
+ 	mContactManagerTouchEvent.growAndReset(idx);
+-	mContactManagerPool.put(cm);
++	releaseUnusedContactManager(cm);
+ }
+ 
+ void PxsContext::destroyCache(Gu::Cache& cache)
+diff --git a/physx/source/simulationcontroller/src/ScPipeline.cpp b/physx/source/simulationcontroller/src/ScPipeline.cpp
+index d634e550..e5f71777 100644
+--- a/physx/source/simulationcontroller/src/ScPipeline.cpp
++++ b/physx/source/simulationcontroller/src/ScPipeline.cpp
+@@ -764,7 +764,7 @@ void Sc::Scene::preallocateContactManagers(PxBaseTask* continuation)
+ 	struct OverlapTaskCreator
+ 	{
+ 		NPhaseCore* const					mCore;
+-		Cm::PoolList<PxsContactManager>&	mCMPool;
++		PxsContext& mContext;
+ 		Cm::FlushPool&						mFlushPool;
+ 		PxBaseTask* const					mContinuation;
+ 		const AABBOverlap* const			mPairs;
+@@ -775,11 +775,11 @@ void Sc::Scene::preallocateContactManagers(PxBaseTask* continuation)
+ 		const PxU64							mContextId;
+ 
+ 		OverlapTaskCreator(
+-			NPhaseCore* const PX_RESTRICT core, Cm::PoolList<PxsContactManager>& cmPool, Cm::FlushPool& flushPool, PxBaseTask* const continuation,
++			NPhaseCore* const PX_RESTRICT core, PxsContext& context, Cm::FlushPool& flushPool, PxBaseTask* const continuation,
+ 			const AABBOverlap* const pairs, const FilterInfo* const fInfo,
+ 			PxsContactManager** const cms, ShapeInteraction** const shapeInter, ElementInteractionMarker** const markerIter,
+ 			PxU64 contextId) :
+-			mCore(core), mCMPool(cmPool), mFlushPool(flushPool), mContinuation(continuation),
++			mCore(core), mContext(context), mFlushPool(flushPool), mContinuation(continuation),
+ 			mPairs(pairs), mFilterInfo(fInfo),
+ 			mContactManagers(cms), mShapeInteractions(shapeInter), mMarkerIteractions(markerIter),
+ 			mContextId(contextId)
+@@ -799,7 +799,7 @@ void Sc::Scene::preallocateContactManagers(PxBaseTask* continuation)
+ 			const PxU32 nbToCreate = createdCurrIdx - createdStartIdx;
+ 			const PxU32 nbToSuppress = suppressedCurrIdx - suppressedStartIdx;
+ 
+-			mCMPool.preallocate(nbToCreate, mContactManagers + createdStartIdx);
++			mContext.preallocateContactManagers(nbToCreate, mContactManagers + createdStartIdx);
+ 
+ 			for (PxU32 i = 0; i < nbToCreate; ++i)
+ 				mShapeInteractions[createdStartIdx + i] = mCore->mShapeInteractionPool.allocate();
+@@ -822,11 +822,10 @@ void Sc::Scene::preallocateContactManagers(PxBaseTask* continuation)
+ 	ElementInteractionMarker** const markerIter = mPreallocatedInteractionMarkers.begin();
+ 
+ 	Cm::FlushPool& flushPool = mLLContext->getTaskPool();
+-	Cm::PoolList<PxsContactManager>& cmPool = mLLContext->getContactManagerPool();
+ 
+ 	FilterInfo* const fInfo = mFilterInfo.begin();
+ 
+-	OverlapTaskCreator overlapTaskCreator(mNPhaseCore, cmPool, flushPool, continuation, pairs, fInfo, cms, shapeInter, markerIter, mContextId);
++	OverlapTaskCreator overlapTaskCreator(mNPhaseCore, *mLLContext, flushPool, continuation, pairs, fInfo, cms, shapeInter, markerIter, mContextId);
+ 
+ 	PxU32 batchSize = 0;
+ 	PxU32 suppressedStartIdx = 0;
+@@ -1120,12 +1119,11 @@ void Sc::Scene::postBroadPhaseStage2(PxBaseTask* continuation)
+ 		{
+ 			PxU32 nb = mPreallocatedContactManagers.size();
+ 			PxsContactManager** managers = mPreallocatedContactManagers.begin();
+-			Cm::PoolList<PxsContactManager>& pool = mLLContext->getContactManagerPool();
+ 			while(nb--)
+ 			{
+ 				PxsContactManager* current = *managers++;
+ 				if(!isPointerMarkedAsUsed(current))
+-					pool.put(current);
++					mLLContext->releaseUnusedContactManager(current);
+ 			}
+ 		}
+ 

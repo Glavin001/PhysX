@@ -46,7 +46,6 @@ namespace physx
 class PxsContactManagerOutputIterator;
 namespace Sc
 {
-    class BodySim;
 	class ContactReportAllocationManager;
 
 	PX_FORCE_INLINE IG::Edge::EdgeType getInteractionEdgeType(PxActorType::Enum actorTypeLargest)
@@ -78,9 +77,6 @@ namespace Sc
 		{
 			PAIR_FLAGS_MASK					= (PxPairFlag::eNEXT_FREE - 1),	// Bits where the PxPairFlags get stored
 			NEXT_FREE						= ((PAIR_FLAGS_MASK << 1) & ~PAIR_FLAGS_MASK),
-
-            NATIVE_OWNER_PENDING = (NEXT_FREE << 9),
-            NATIVE_CONTACT_RETAINED = (NEXT_FREE << 10),
 
 			HAS_TOUCH						= (NEXT_FREE << 0),		// Tracks the last know touch state
 			HAS_NO_TOUCH					= (NEXT_FREE << 1),		// Tracks the last know touch state
@@ -171,7 +167,6 @@ namespace Sc
 		PX_FORCE_INLINE	Sc::ActorSim&			getActor0()	{ return getActorSim0();			}
 		PX_FORCE_INLINE	Sc::ActorSim&			getActor1()	{ return getActorSim1();			}
 
-        bool rebindNativeRigidOwner(ShapeSimBase& shape, BodySim& owner);
 	private:
 						ActorPair*				mActorPair;
 						PxsContactManager*		mManager;
