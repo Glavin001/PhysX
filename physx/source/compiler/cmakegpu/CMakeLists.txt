@@ -84,16 +84,17 @@ ENDIF()
 
 SET(SOURCE_DISTRO_FILE_LIST "")
 
-# This fork's integrated GPU module links the RTX 4090 destruction runtime.
+
+# This fork's integrated GPU module links the integrated destruction runtime.
 # Compile only its supported architecture, including in reused CMake caches.
 # Leaving the upstream multi-architecture list here multiplies every rebuild
 # and embeds unrelated device programs in the native module.
 SET(PX_DESTRUCTION_CUDA_ARCHITECTURES "89" CACHE STRING "Native destruction CUDA architectures")
-IF(NOT PX_DESTRUCTION_CUDA_ARCHITECTURES STREQUAL "89")
-    MESSAGE(FATAL_ERROR "Integrated destruction requires RTX 4090 architecture 89")
+IF(NOT PX_DESTRUCTION_CUDA_ARCHITECTURES MATCHES "^(89|120)$")
+    MESSAGE(FATAL_ERROR "Integrated destruction requires architecture 89 or 120")
 ENDIF()
-SET(CMAKE_CUDA_ARCHITECTURES "89-real")
-SET(ARCH_CODE_LIST "" CACHE INTERNAL "Native module uses CMake's sm_89 generation" FORCE)
+SET(CMAKE_CUDA_ARCHITECTURES "${PX_DESTRUCTION_CUDA_ARCHITECTURES}-real")
+SET(ARCH_CODE_LIST "" CACHE INTERNAL "Native module uses CMake's selected architecture" FORCE)
 
 # Force response files off because clangd does not parse them
 set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES 0)

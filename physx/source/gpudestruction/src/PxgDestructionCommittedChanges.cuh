@@ -59,7 +59,7 @@ public:
         if(mN>unsigned(INT_MAX) || mM>unsigned(INT_MAX))throw std::runtime_error("destruction publication capacity exceeds CUDA selection limit");
         allocate(mChunks,mN);allocate(mBonds,mM);allocate(mIndices,mN);allocate(mRows,mN);allocate(mBroken,mM);allocate(mStatus,1);
         check(cudaMemsetAsync(mStatus,0,sizeof(*mStatus),stream));
-        cub::CountingInputIterator<PxU32> ids(0);size_t chunkBytes=0,bondBytes=0;
+        thrust::counting_iterator<PxU32> ids(0);size_t chunkBytes=0,bondBytes=0;
         check(cub::DeviceSelect::Flagged(nullptr,chunkBytes,ids,mChunks,mIndices,&mStatus->chunkCount,mN,stream));
         if(mM)check(cub::DeviceSelect::Flagged(nullptr,bondBytes,ids,mBonds,mBroken,&mStatus->bondCount,mM,stream));
         mBytes=std::max(chunkBytes,bondBytes);check(cudaMalloc(&mScratch,std::max(size_t(1),mBytes)));
@@ -70,7 +70,7 @@ public:
         cudaGraphNode_t start=nullptr;check(cudaGraphAddKernelNode(&start,mGraph,nullptr,0,&kernel));
         cudaGraphNodeParams conditional{};conditional.type=cudaGraphNodeTypeConditional;
         conditional.conditional.handle=work;conditional.conditional.type=cudaGraphCondTypeIf;conditional.conditional.size=1;
-        cudaGraphNode_t node=nullptr;check(cudaGraphAddNode(&node,mGraph,&start,1,&conditional));
+        cudaGraphNode_t node=nullptr;check(cudaGraphAddNode(&node,mGraph,&start,nullptr,1,&conditional));
         const auto body=conditional.conditional.phGraph_out[0];
         check(cudaStreamBeginCaptureToGraph(stream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal));
         check(cub::DeviceSelect::Flagged(mScratch,mBytes,ids,mChunks,mIndices,&mStatus->chunkCount,mN,stream));

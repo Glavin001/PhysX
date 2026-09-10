@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 122, in <module>
+    if __name__=='__main__':main()
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 114, in main
+    result=module.verify(out,golden) if args.tier=='full' else module.verify(out,args.reference.resolve(),steps)
+  File "/root/workspace/physx-2/tools/scripts/verify-native-penetration.py", line 64, in verify
+    assert int(after['supported'])==0 and displacement>1.0
+AssertionError

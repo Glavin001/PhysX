@@ -25,7 +25,7 @@ __device__ __forceinline__ void prefixPackingBlocks(PackingBuffers b,PackingShar
     if(!threadIdx.x)shared.carry=0;__syncthreads();
     for(unsigned base=0;base<blocks;base+=Threads){
         const unsigned i=base+threadIdx.x,value=i<blocks?b.partial[i]:0;unsigned prefix,total;
-        if constexpr(Maximum)PackingScan(shared.temp.scan).ExclusiveScan(value,prefix,0u,cub::Max(),total);
+        if constexpr(Maximum)PackingScan(shared.temp.scan).ExclusiveScan(value,prefix,0u,cuda::maximum<>(),total);
         else PackingScan(shared.temp.scan).ExclusiveSum(value,prefix,total);
         if(i<blocks)b.partial[i]=Maximum?max(shared.carry,prefix):shared.carry+prefix;
         __syncthreads();if(!threadIdx.x)shared.carry=Maximum?max(shared.carry,total):shared.carry+total;__syncthreads();
@@ -34,7 +34,7 @@ __device__ __forceinline__ void prefixPackingBlocks(PackingBuffers b,PackingShar
 }
 __device__ __forceinline__ void localRowPrefix(PackingBuffers b,PackingShared& shared,unsigned block,unsigned nodes){
     const unsigned i=block*Threads+threadIdx.x,value=i<=nodes?b.begin[i]:0;unsigned prefix,total;
-    PackingScan(shared.temp.scan).InclusiveScan(value,prefix,cub::Max(),total);
+    PackingScan(shared.temp.scan).InclusiveScan(value,prefix,cuda::maximum<>(),total);
     if(i<=nodes)b.begin[i]=prefix;if(!threadIdx.x)b.partial[block]=total;__syncthreads();
 }
 __device__ __forceinline__ void localRadix(PackingBuffers b,PackingShared& shared,unsigned block,unsigned bit,unsigned tilesCapacity){

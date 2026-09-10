@@ -573,7 +573,7 @@ CudaCtxMgr::CudaCtxMgr(const PxCudaContextManagerDesc& desc, PxErrorCallback& er
 				return;
 			}
 			
-			status = cuCtxCreate(&mCtx, (unsigned int)flags, mDevHandle);
+			status = cuCtxCreate(&mCtx, nullptr, (unsigned int)flags, mDevHandle);
 			if (CUDA_SUCCESS != status)
 			{
 				const size_t bufferSize = 128;

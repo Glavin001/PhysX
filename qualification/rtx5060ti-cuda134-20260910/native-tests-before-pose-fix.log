@@ -1,0 +1,614 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start  38: physx_native_gpu_material
+ 1/61 Test  #38: physx_native_gpu_material ..................................   Passed    1.55 sec
+      Start  39: physx_native_gpu_destruction
+ 2/61 Test  #39: physx_native_gpu_destruction ...............................   Passed    1.76 sec
+      Start  46: physx_native_gpu_body_state
+ 3/61 Test  #46: physx_native_gpu_body_state ................................   Passed    0.85 sec
+      Start  47: physx_native_gpu_body_allocation
+ 4/61 Test  #47: physx_native_gpu_body_allocation ...........................   Passed    5.17 sec
+      Start  48: physx_native_gpu_incremental_pairs
+ 5/61 Test  #48: physx_native_gpu_incremental_pairs .........................   Passed    0.54 sec
+      Start  49: physx_native_gpu_pairs
+ 6/61 Test  #49: physx_native_gpu_pairs .....................................   Passed    1.14 sec
+      Start  50: physx_native_gpu_motion_slots
+ 7/61 Test  #50: physx_native_gpu_motion_slots ..............................   Passed    0.62 sec
+      Start  51: physx_native_gpu_collision_preparation
+ 8/61 Test  #51: physx_native_gpu_collision_preparation .....................   Passed    6.80 sec
+      Start  52: physx_native_gpu_contact_response
+ 9/61 Test  #52: physx_native_gpu_contact_response ..........................   Passed    1.80 sec
+      Start  53: physx_native_gpu_retained_registry
+10/61 Test  #53: physx_native_gpu_retained_registry .........................   Passed    0.74 sec
+      Start  54: physx_native_gpu_contact_lifetime_exhaustion
+11/61 Test  #54: physx_native_gpu_contact_lifetime_exhaustion ...............   Passed    1.22 sec
+      Start  55: physx_native_gpu_initialization_failure
+12/61 Test  #55: physx_native_gpu_initialization_failure ....................   Passed    0.71 sec
+      Start  56: physx_native_gpu_preparation_before_compatibility
+13/61 Test  #56: physx_native_gpu_preparation_before_compatibility ..........   Passed    0.77 sec
+      Start  57: physx_native_gpu_node_births
+14/61 Test  #57: physx_native_gpu_node_births ...............................   Passed    0.80 sec
+      Start  58: physx_native_gpu_kinematic_inputs
+15/61 Test  #58: physx_native_gpu_kinematic_inputs ..........................   Passed    9.24 sec
+      Start  59: physx_native_gpu_accepted_properties
+16/61 Test  #59: physx_native_gpu_accepted_properties .......................   Passed    0.75 sec
+      Start  60: physx_native_gpu_accepted_properties_pgs
+17/61 Test  #60: physx_native_gpu_accepted_properties_pgs ...................   Passed    0.81 sec
+      Start  61: physx_native_gpu_state_initcheck_accepted-properties
+18/61 Test  #61: physx_native_gpu_state_initcheck_accepted-properties .......***Failed    3.83 sec
+========= COMPUTE-SANITIZER
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c810
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf77] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c814
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf77] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c814
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c814
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c814
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x180 in PxgDestructionSlots.cuh:32
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc0cc10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x180 in PxgDestructionSlots.cuh:32
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc0cc14
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc10210
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf77] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf77] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x180 in PxgDestructionSlots.cuh:32
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc10610
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x180 in PxgDestructionSlots.cuh:32
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc10614
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c29] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc10210
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x100d97] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Transaction::prepare(physx::PxgDestructionEdit const*, unsigned int const*, unsigned int, unsigned int const*, unsigned int, void*, void*, physx::PxDestructionClusterMotion const*) [0x4a521] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::advance(float, physx::PxVec3T<float> const&, physx::PxgDestructionMotionStorage const&, CUstream_st*, bool (*)(void*, unsigned int, physx::PxgDestructionMotionStorage&), void*, physx::PxgDestructionSolvedContacts const&, physx::PxgDestructionCollisionStorage const&) [0x33584] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgSimulationController::advanceDestruction(float, physx::PxVec3T<float> const&, bool, bool) [0xe7017] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Sc::Scene::finalizationPhase(physx::PxBaseTask*) [0x1e4662] in native_gpu_collision_test
+=========         Host Frame: physx::Cm::DelegateTask<physx::Sc::Scene, &physx::Sc::Scene::finalizationPhase>::run() [0x1ca3d7] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xd36ed] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x4b35e6] in native_gpu_collision_test
+=========         Host Frame: start_thread in pthread_create.c:442 [0x94a82] in libc.so.6
+=========         Host Frame:  [0x1268df] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x100d97] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Transaction::prepare(physx::PxgDestructionEdit const*, unsigned int const*, unsigned int, unsigned int const*, unsigned int, void*, void*, physx::PxDestructionClusterMotion const*) [0x4a521] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::advance(float, physx::PxVec3T<float> const&, physx::PxgDestructionMotionStorage const&, CUstream_st*, bool (*)(void*, unsigned int, physx::PxgDestructionMotionStorage&), void*, physx::PxgDestructionSolvedContacts const&, physx::PxgDestructionCollisionStorage const&) [0x33584] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgSimulationController::advanceDestruction(float, physx::PxVec3T<float> const&, bool, bool) [0xe7017] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Sc::Scene::finalizationPhase(physx::PxBaseTask*) [0x1e4662] in native_gpu_collision_test
+=========         Host Frame: physx::Cm::DelegateTask<physx::Sc::Scene, &physx::Sc::Scene::finalizationPhase>::run() [0x1ca3d7] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xd36ed] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x4b35e6] in native_gpu_collision_test
+=========         Host Frame: start_thread in pthread_create.c:442 [0x94a82] in libc.so.6
+=========         Host Frame:  [0x1268df] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (1,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x100d97] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Transaction::prepare(physx::PxgDestructionEdit const*, unsigned int const*, unsigned int, unsigned int const*, unsigned int, void*, void*, physx::PxDestructionClusterMotion const*) [0x4a521] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::advance(float, physx::PxVec3T<float> const&, physx::PxgDestructionMotionStorage const&, CUstream_st*, bool (*)(void*, unsigned int, physx::PxgDestructionMotionStorage&), void*, physx::PxgDestructionSolvedContacts const&, physx::PxgDestructionCollisionStorage const&) [0x33584] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgSimulationController::advanceDestruction(float, physx::PxVec3T<float> const&, bool, bool) [0xe7017] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Sc::Scene::finalizationPhase(physx::PxBaseTask*) [0x1e4662] in native_gpu_collision_test
+=========         Host Frame: physx::Cm::DelegateTask<physx::Sc::Scene, &physx::Sc::Scene::finalizationPhase>::run() [0x1ca3d7] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xd36ed] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x4b35e6] in native_gpu_collision_test
+=========         Host Frame: start_thread in pthread_create.c:442 [0x94a82] in libc.so.6
+=========         Host Frame:  [0x1268df] in libc.so.6
+========= 
+6 chunks / 3 bonds plus one ordinary body: both GPU stress passes before CPU mass/COM/motion; final properties and inherited settings passed
+========= ERROR SUMMARY: 17 errors
+
+      Start  62: physx_native_gpu_state_initcheck_accepted-properties-pgs
+19/61 Test  #62: physx_native_gpu_state_initcheck_accepted-properties-pgs ...***Failed    4.01 sec
+========= COMPUTE-SANITIZER
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c810
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf77] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c814
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf77] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c814
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c814
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc0c814
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x180 in PxgDestructionSlots.cuh:32
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc0cc10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x180 in PxgDestructionSlots.cuh:32
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc0cc14
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopology::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a21] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49a71] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc10210
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf77] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf77] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x180 in PxgDestructionSlots.cuh:32
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc10610
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x180 in PxgDestructionSlots.cuh:32
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc10614
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: physx::(anonymous namespace)::Topology::rebuild(bool, bool) [0x4cf49] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Topology::init(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int, physx::(anonymous namespace)::Topology const*) [0x4e39b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgDestructionTopologyTransaction::create(physx::PxDestructionChunkMassProperties const*, unsigned int, physx::PxDestructionBondEndpoints const*, unsigned int) [0x49ba5] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::configureStress(physx::PxDestructionStressDesc const&) [0x4104b] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: (anonymous namespace)::acceptedPropertiesOnly(physx::PxSolverType::Enum) [0x3a1ea] in native_gpu_collision_test
+=========         Host Frame: main [0x35c35] in native_gpu_collision_test
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x1001fc10210
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x100d97] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Transaction::prepare(physx::PxgDestructionEdit const*, unsigned int const*, unsigned int, unsigned int const*, unsigned int, void*, void*, physx::PxDestructionClusterMotion const*) [0x4a521] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::advance(float, physx::PxVec3T<float> const&, physx::PxgDestructionMotionStorage const&, CUstream_st*, bool (*)(void*, unsigned int, physx::PxgDestructionMotionStorage&), void*, physx::PxgDestructionSolvedContacts const&, physx::PxgDestructionCollisionStorage const&) [0x33584] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgSimulationController::advanceDestruction(float, physx::PxVec3T<float> const&, bool, bool) [0xe7017] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Sc::Scene::finalizationPhase(physx::PxBaseTask*) [0x1e4662] in native_gpu_collision_test
+=========         Host Frame: physx::Cm::DelegateTask<physx::Sc::Scene, &physx::Sc::Scene::finalizationPhase>::run() [0x1ca3d7] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xd36ed] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x4b35e6] in native_gpu_collision_test
+=========         Host Frame: start_thread in pthread_create.c:442 [0x94a82] in libc.so.6
+=========         Host Frame:  [0x1268df] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::compactFreeMotionSlots(const unsigned int *, const unsigned int *, unsigned int *, unsigned int)+0x110 in PxgDestructionSlots.cuh:24
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x100d97] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Transaction::prepare(physx::PxgDestructionEdit const*, unsigned int const*, unsigned int, unsigned int const*, unsigned int, void*, void*, physx::PxDestructionClusterMotion const*) [0x4a521] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::advance(float, physx::PxVec3T<float> const&, physx::PxgDestructionMotionStorage const&, CUstream_st*, bool (*)(void*, unsigned int, physx::PxgDestructionMotionStorage&), void*, physx::PxgDestructionSolvedContacts const&, physx::PxgDestructionCollisionStorage const&) [0x33584] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgSimulationController::advanceDestruction(float, physx::PxVec3T<float> const&, bool, bool) [0xe7017] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Sc::Scene::finalizationPhase(physx::PxBaseTask*) [0x1e4662] in native_gpu_collision_test
+=========         Host Frame: physx::Cm::DelegateTask<physx::Sc::Scene, &physx::Sc::Scene::finalizationPhase>::run() [0x1ca3d7] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xd36ed] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x4b35e6] in native_gpu_collision_test
+=========         Host Frame: start_thread in pthread_create.c:442 [0x94a82] in libc.so.6
+=========         Host Frame:  [0x1268df] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at physx::<unnamed>::allocateMotionSlots(const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, const unsigned int *, unsigned int *, unsigned int *, unsigned long *, physx::PxDestructionTopologyStatus *, unsigned int)+0x140 in PxgDestructionSlots.cuh:31
+=========     by thread (1,0,0) in block (0,0,0)
+=========     Address 0x1001fc10214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x100d97] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Transaction::prepare(physx::PxgDestructionEdit const*, unsigned int const*, unsigned int, unsigned int const*, unsigned int, void*, void*, physx::PxDestructionClusterMotion const*) [0x4a521] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::(anonymous namespace)::Runtime::advance(float, physx::PxVec3T<float> const&, physx::PxgDestructionMotionStorage const&, CUstream_st*, bool (*)(void*, unsigned int, physx::PxgDestructionMotionStorage&), void*, physx::PxgDestructionSolvedContacts const&, physx::PxgDestructionCollisionStorage const&) [0x33584] in libPhysXDestructionGpuRuntime_64.so
+=========         Host Frame: physx::PxgSimulationController::advanceDestruction(float, physx::PxVec3T<float> const&, bool, bool) [0xe7017] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Sc::Scene::finalizationPhase(physx::PxBaseTask*) [0x1e4662] in native_gpu_collision_test
+=========         Host Frame: physx::Cm::DelegateTask<physx::Sc::Scene, &physx::Sc::Scene::finalizationPhase>::run() [0x1ca3d7] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xd36ed] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x4b35e6] in native_gpu_collision_test
+=========         Host Frame: start_thread in pthread_create.c:442 [0x94a82] in libc.so.6
+=========         Host Frame:  [0x1268df] in libc.so.6
+========= 
+6 chunks / 3 bonds plus one ordinary body: both GPU stress passes before CPU mass/COM/motion; final properties and inherited settings passed
+========= ERROR SUMMARY: 17 errors
+
+      Start  63: physx_native_gpu_solver_metadata
+20/61 Test  #63: physx_native_gpu_solver_metadata ...........................   Passed    2.96 sec
+      Start  64: physx_native_gpu_pre_solve_islands
+21/61 Test  #64: physx_native_gpu_pre_solve_islands .........................   Passed    2.06 sec
+      Start  65: physx_native_gpu_pre_solve_contacts
+22/61 Test  #65: physx_native_gpu_pre_solve_contacts ........................   Passed    2.08 sec
+      Start  66: physx_native_gpu_pre_solve_support
+23/61 Test  #66: physx_native_gpu_pre_solve_support .........................   Passed    2.22 sec
+      Start  67: physx_native_gpu_connectivity_owner
+24/61 Test  #67: physx_native_gpu_connectivity_owner ........................   Passed    2.38 sec
+      Start  68: physx_native_gpu_kinematic_support
+25/61 Test  #68: physx_native_gpu_kinematic_support .........................   Passed    1.19 sec
+      Start  69: physx_native_gpu_rigid_checkpoint
+26/61 Test  #69: physx_native_gpu_rigid_checkpoint ..........................   Passed    4.05 sec
+      Start  70: physx_native_gpu_correction_bodies
+27/61 Test  #70: physx_native_gpu_correction_bodies .........................   Passed    6.59 sec
+      Start  71: physx_native_demo_projectile_launch
+28/61 Test  #71: physx_native_demo_projectile_launch ........................   Passed    0.01 sec
+      Start  72: physx_native_gpu_visual_consumer
+29/61 Test  #72: physx_native_gpu_visual_consumer ...........................   Passed    0.33 sec
+      Start  73: physx_native_gpu_connectivity_fracture
+30/61 Test  #73: physx_native_gpu_connectivity_fracture .....................   Passed    4.26 sec
+      Start  74: physx_native_profile_accounting
+31/61 Test  #74: physx_native_profile_accounting ............................   Passed    0.12 sec
+      Start  75: physx_native_gpu_consumer
+32/61 Test  #75: physx_native_gpu_consumer ..................................   Passed    9.13 sec
+      Start  76: physx_native_gpu_renderer
+33/61 Test  #76: physx_native_gpu_renderer ..................................   Passed    9.93 sec
+      Start  77: physx_native_gpu_retained_contact_graph
+34/61 Test  #77: physx_native_gpu_retained_contact_graph ....................   Passed    3.52 sec
+      Start  78: physx_native_gpu_bombardment_contacts
+35/61 Test  #78: physx_native_gpu_bombardment_contacts ......................***Failed   40.72 sec
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=33.61ms
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=8.36ms
+native t=2.0 chunks=113664 bonds=229376 clusters=11324 shots=256 broken=54262 corrections=32 step=315.56ms
+
+Failed audit retained at /tmp/physx-bombardment-contacts-s3eh674l
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_bombardment_contacts_test.py", line 40, in <module>
+    assert summary['max_motion_position_error'] == 0
+AssertionError
+
+      Start  79: physx_native_standard_bombardment_contacts
+36/61 Test  #79: physx_native_standard_bombardment_contacts .................***Failed   39.46 sec
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=37.32ms
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=9.58ms
+native t=2.0 chunks=113664 bonds=229376 clusters=10945 shots=256 broken=53105 corrections=30 step=162.79ms
+
+Failed audit retained at /tmp/physx-bombardment-contacts-3on56z49
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_bombardment_contacts_test.py", line 40, in <module>
+    assert summary['max_motion_position_error'] == 0
+AssertionError
+
+      Start  80: physx_native_gpu_resimulation
+37/61 Test  #80: physx_native_gpu_resimulation ..............................   Passed   14.28 sec
+      Start  81: physx_native_standard_reported_reuse
+38/61 Test  #81: physx_native_standard_reported_reuse .......................   Passed    5.07 sec
+      Start  82: physx_native_standard_reuse
+39/61 Test  #82: physx_native_standard_reuse ................................   Passed    2.74 sec
+      Start  83: physx_native_post_correction
+40/61 Test  #83: physx_native_post_correction ...............................   Passed    1.30 sec
+      Start  84: physx_native_standard_awake
+41/61 Test  #84: physx_native_standard_awake ................................   Passed    1.00 sec
+      Start  85: physx_native_standard_sleep
+42/61 Test  #85: physx_native_standard_sleep ................................   Passed    2.70 sec
+      Start  86: physx_native_compound_sleep
+43/61 Test  #86: physx_native_compound_sleep ................................   Passed    0.98 sec
+      Start  87: physx_native_standard_sleep_boundary
+44/61 Test  #87: physx_native_standard_sleep_boundary .......................   Passed    4.34 sec
+      Start  88: physx_native_standard_gpu_islands
+45/61 Test  #88: physx_native_standard_gpu_islands ..........................   Passed    3.02 sec
+      Start  89: physx_native_standard_wake_boundary
+46/61 Test  #89: physx_native_standard_wake_boundary ........................   Passed    2.52 sec
+      Start  90: physx_native_standard_late_impact
+47/61 Test  #90: physx_native_standard_late_impact ..........................   Passed    2.57 sec
+      Start  91: physx_native_gpu_group_filtering
+48/61 Test  #91: physx_native_gpu_group_filtering ...........................   Passed    3.20 sec
+      Start  92: physx_native_gpu_publication
+49/61 Test  #92: physx_native_gpu_publication ...............................   Passed    2.99 sec
+      Start  93: physx_native_gpu_shape_publication
+50/61 Test  #93: physx_native_gpu_shape_publication .........................   Passed    0.33 sec
+      Start 147: blast_stress_gpu_resident_motion_modes
+51/61 Test #147: blast_stress_gpu_resident_motion_modes .....................   Passed    1.24 sec
+      Start 148: blast_stress_gpu_resident_3d
+52/61 Test #148: blast_stress_gpu_resident_3d ...............................   Passed    6.62 sec
+      Start 150: blast_stress_gpu_resident_analytic
+53/61 Test #150: blast_stress_gpu_resident_analytic .........................   Passed    0.88 sec
+      Start 152: destruction_gpu_motion_slots
+54/61 Test #152: destruction_gpu_motion_slots ...............................   Passed    0.56 sec
+      Start 153: destruction_gpu_rigid_iteration_limits
+55/61 Test #153: destruction_gpu_rigid_iteration_limits .....................   Passed    0.38 sec
+      Start 154: destruction_gpu_registration
+56/61 Test #154: destruction_gpu_registration ...............................   Passed    0.38 sec
+      Start 155: destruction_gpu_contact_ownership
+57/61 Test #155: destruction_gpu_contact_ownership ..........................   Passed    0.33 sec
+      Start 156: destruction_gpu_committed_changes
+58/61 Test #156: destruction_gpu_committed_changes ..........................   Passed    0.34 sec
+      Start 157: destruction_gpu_topology
+59/61 Test #157: destruction_gpu_topology ...................................   Passed    0.59 sec
+      Start 158: destruction_gpu_body_state
+60/61 Test #158: destruction_gpu_body_state .................................   Passed    0.35 sec
+      Start 159: destruction_gpu_contact_graph
+61/61 Test #159: destruction_gpu_contact_graph ..............................   Passed    1.04 sec
+
+93% tests passed, 4 tests failed out of 61
+
+Label Time Summary:
+gpu            = 122.11 sec*proc (16 tests)
+integration    = 114.26 sec*proc (14 tests)
+sanitizer      =   7.84 sec*proc (2 tests)
+
+Total Test time (real) = 233.91 sec
+
+The following tests FAILED:
+	 61 - physx_native_gpu_state_initcheck_accepted-properties (Failed) gpu integration sanitizer
+	 62 - physx_native_gpu_state_initcheck_accepted-properties-pgs (Failed) gpu integration sanitizer
+	 78 - physx_native_gpu_bombardment_contacts (Failed)    gpu integration
+	 79 - physx_native_standard_bombardment_contacts (Failed) gpu integration
+Errors while running CTest

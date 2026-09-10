@@ -28,8 +28,11 @@
         int device=0;cudaDeviceProp properties{};
         checkCuda(cudaGetDevice(&device), "query destruction device");
         checkCuda(cudaGetDeviceProperties(&properties, device), "query destruction capabilities");
-        if(properties.major!=8 || properties.minor!=9 || std::string(properties.name)!="NVIDIA GeForce RTX 4090" || !properties.cooperativeLaunch)
-            throw std::runtime_error("Integrated destruction is compatible only with RTX 4090 sm_89 and cooperative CUDA execution");
+        const bool supportedDevice =
+            (properties.major==8 && properties.minor==9 && std::string(properties.name)=="NVIDIA GeForce RTX 4090") ||
+            (properties.major==12 && properties.minor==0 && std::string(properties.name)=="NVIDIA GeForce RTX 5060 Ti");
+        if(!supportedDevice || !properties.cooperativeLaunch)
+            throw std::runtime_error("Integrated destruction requires RTX 4090 sm_89 or RTX 5060 Ti sm_120 with cooperative CUDA execution");
 #endif
         prepare(nodes, bonds);
 computeIslands();

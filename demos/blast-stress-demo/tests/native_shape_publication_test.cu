@@ -1,3 +1,4 @@
+#include <thrust/iterator/counting_iterator.h>
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include <PxDestructionScene.h>
 #include <common/PxPhysXCommonConfig.h>
@@ -26,11 +27,11 @@ void run() {
     epochs[2]=9;targets[2]=20;epochs[2]=9;targets[2]=30;
     epochs[0]=9;targets[0]=40;epochs[1]=8;targets[1]=99;
     size_t bytes=0;
-    check(cub::DeviceSelect::If(nullptr,bytes,cub::CountingInputIterator<PxU32>(0),indices.data,count.data,4,
+    check(cub::DeviceSelect::If(nullptr,bytes,thrust::counting_iterator<PxU32>(0),indices.data,count.data,4,
         HasPendingShapeOwner{epochs.data,stage.data}));
     Storage<unsigned char> scratch{unsigned(bytes)};
     auto gather=[&](unsigned capacity) {
-        check(cub::DeviceSelect::If(scratch.data,bytes,cub::CountingInputIterator<PxU32>(0),indices.data,count.data,4,
+        check(cub::DeviceSelect::If(scratch.data,bytes,thrust::counting_iterator<PxU32>(0),indices.data,count.data,4,
             HasPendingShapeOwner{epochs.data,stage.data}));
         gatherFinalShapeOwners<<<1,32>>>(indices.data,count.data,capacity,chunks.data,targets.data,output.data,stage.data);
         check(cudaGetLastError());check(cudaDeviceSynchronize());

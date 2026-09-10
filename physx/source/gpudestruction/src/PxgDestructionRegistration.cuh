@@ -142,7 +142,7 @@ cudaError_t residentBlocksFor(Kernel kernel,int& blocks) {
     result=cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device);if(result!=cudaSuccess)return result;
     result=cudaDeviceGetAttribute(&major,cudaDevAttrComputeCapabilityMajor,device);if(result!=cudaSuccess)return result;
     result=cudaDeviceGetAttribute(&minor,cudaDevAttrComputeCapabilityMinor,device);if(result!=cudaSuccess)return result;
-    if(!cooperative || major!=8 || minor!=9)return cudaErrorNotSupported;
+    if(!cooperative || !((major==8 && minor==9) || (major==12 && minor==0)))return cudaErrorNotSupported;
     result=cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device);if(result!=cudaSuccess)return result;
     result=cudaOccupancyMaxActiveBlocksPerMultiprocessor(&perSm,kernel,128,0);if(result!=cudaSuccess)return result;
     blocks=perSm*sms;return blocks?cudaSuccess:cudaErrorNotSupported;

@@ -66,7 +66,7 @@ public:
                     cudaGraphNode_t choose;check(cudaGraphAddKernelNode(&choose,graph,&prior,1,&p));
                     cudaGraphNodeParams branch{};branch.type=cudaGraphNodeTypeConditional;
                     branch.conditional.handle=handle;branch.conditional.type=cudaGraphCondTypeIf;branch.conditional.size=1;
-                    check(cudaGraphAddNode(&tailCompletion,graph,&choose,1,&branch));
+                    check(cudaGraphAddNode(&tailCompletion,graph,&choose,nullptr,1,&branch));
                     graph=branch.conditional.phGraph_out[0];prior=nullptr;
                 }
                 mPacked.emplace_back(new RetiringPackedLevel(input,*mGraphs.back(),mStream,TerminalRetirement{mPool.buffers().owner,level,mSmoothers.back()->status()}));

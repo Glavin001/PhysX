@@ -216,7 +216,7 @@ class DeviceStressTopology
         cudaGraphNodeParams p{}; p.type=cudaGraphNodeTypeConditional;
         p.conditional.handle=handle; p.conditional.type=cudaGraphCondTypeIf; p.conditional.size=1;
         cudaGraphNode_t next;
-        checkCuda(cudaGraphAddNode(&next,g,prior?&prior:nullptr,prior?1:0,&p), "add stress topology condition");
+        checkCuda(cudaGraphAddNode(&next,g,prior?&prior:nullptr,nullptr,prior?1:0,&p), "add stress topology condition");
         prior=next; return p.conditional.phGraph_out[0];
     }
     void reductionOrder(unsigned kind)
@@ -241,7 +241,7 @@ class DeviceStressTopology
             sortedKeys,b.n,rangeBegin,rangeEnd);
         flagLargeStressComponents<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
             rangeBegin,rangeEnd,b.activeFlags,b.n);
-        cub::CountingInputIterator<unsigned> indices(0u);
+        thrust::counting_iterator<unsigned> indices(0u);
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,
             b.activeFlags,largeIslands,largeCount,b.n,captureStream), "compact large stress components");
     }
@@ -286,7 +286,7 @@ class DeviceStressTopology
         flattenDeviceStressTopology<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,b.n);
         labelDeviceStressBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,parent,rootFlags,b.bondIsland,b.m);
         labelDeviceStressNodes<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,rootFlags,b.nodeIsland,b.n,state);
-        cub::CountingInputIterator<unsigned> indices(0u);
+        thrust::counting_iterator<unsigned> indices(0u);
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         // Stable minimum-node IDs remain the connectivity truth. Iteration
         // scheduling uses a compact ascending list, built only on topology
@@ -318,7 +318,7 @@ class DeviceStressTopology
         if (deterministicReductionsEnabled()) { reductionOrder(0); reductionOrder(1); }
         finishDeviceStressRebuild<<<1,1,0,captureStream>>>(batch,state,b.activeCounts);
         cudaStreamCaptureStatus captureStatus;const cudaGraphNode_t* dependencies=nullptr;size_t dependencyCount=0;
-        checkCuda(cudaStreamGetCaptureInfo(captureStream,&captureStatus,nullptr,nullptr,&dependencies,&dependencyCount),"get stress topology completion dependency");
+        checkCuda(cudaStreamGetCaptureInfo(captureStream,&captureStatus,nullptr,nullptr,&dependencies,nullptr,&dependencyCount),"get stress topology completion dependency");
         if(dependencyCount!=1)throw std::runtime_error("Native topology requires a single committed completion dependency");
         cudaGraphNode_t completed=dependencies[0];cudaGraph_t captured=nullptr;
         checkCuda(cudaStreamEndCapture(captureStream,&captured), "finish stress topology capture");

@@ -1,0 +1,39 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 78: physx_native_gpu_bombardment_contacts
+1/2 Test #78: physx_native_gpu_bombardment_contacts ........***Failed   41.60 sec
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=28.37ms
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=7.03ms
+native t=2.0 chunks=113664 bonds=229376 clusters=11324 shots=256 broken=54262 corrections=32 step=307.73ms
+
+Failed audit retained at /tmp/physx-bombardment-contacts-9sercd3y
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_bombardment_contacts_test.py", line 40, in <module>
+    assert summary['max_motion_position_error'] == 0
+AssertionError
+
+    Start 79: physx_native_standard_bombardment_contacts
+2/2 Test #79: physx_native_standard_bombardment_contacts ...***Failed   41.49 sec
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=41.78ms
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=9.71ms
+native t=2.0 chunks=113664 bonds=229376 clusters=10945 shots=256 broken=53105 corrections=30 step=191.81ms
+
+Failed audit retained at /tmp/physx-bombardment-contacts-xtzg3_q5
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_bombardment_contacts_test.py", line 40, in <module>
+    assert summary['max_motion_position_error'] == 0
+AssertionError
+
+
+0% tests passed, 2 tests failed out of 2
+
+Label Time Summary:
+gpu            =  83.09 sec*proc (2 tests)
+integration    =  83.09 sec*proc (2 tests)
+
+Total Test time (real) =  83.10 sec
+
+The following tests FAILED:
+	 78 - physx_native_gpu_bombardment_contacts (Failed)    gpu integration
+	 79 - physx_native_standard_bombardment_contacts (Failed) gpu integration
+Errors while running CTest

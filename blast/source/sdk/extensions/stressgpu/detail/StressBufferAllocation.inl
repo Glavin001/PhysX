@@ -121,7 +121,7 @@
         {
             // Scratch for the order-preserving selects; sized for the larger
             // of the two so one buffer serves both.
-            cub::CountingInputIterator<std::uint32_t> identity(0u);
+            thrust::counting_iterator<std::uint32_t> identity(0u);
             std::size_t bondSelectBytes = 0;
             std::size_t nodeSelectBytes = 0;
             cub::DeviceSelect::Flagged(

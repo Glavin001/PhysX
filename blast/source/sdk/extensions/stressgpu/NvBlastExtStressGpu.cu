@@ -1,3 +1,4 @@
+#include <thrust/iterator/counting_iterator.h>
 // Copyright (c) 2026 NVIDIA Corporation. All rights reserved.
 
 #include "NvBlastExtStressGpu.h"
@@ -10,7 +11,6 @@
 #include <cub/device/device_radix_sort.cuh>
 #include <cub/device/device_select.cuh>
 #include <cub/device/device_scan.cuh>
-#include <cub/iterator/counting_input_iterator.cuh>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
@@ -2307,7 +2307,7 @@ private:
         // reuse cannot race. DeviceSelect writes each count straight into its
         // m_activeCounts slot, which is why the memset the atomic append
         // needed is gone.
-        cub::CountingInputIterator<std::uint32_t> identity(0u);
+        thrust::counting_iterator<std::uint32_t> identity(0u);
         flagActiveBonds<<<
             (m_bondCount + kBlockSize - 1) / kBlockSize,
             kBlockSize,

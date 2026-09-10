@@ -1,3 +1,4 @@
+#include <thrust/iterator/counting_iterator.h>
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxgDestructionRuntime.h"
 #include "PxgDestructionTopology.h"
@@ -1154,12 +1155,12 @@ public:
                     check(cudaMemsetAsync(mShapePublicationEpochs,0,d.chunkCount*sizeof(PxU64),mStream));
                     check(cudaMemsetAsync(mPropertyEpochs,0,d.chunkCount*sizeof(PxU64),mStream));
                     size_t propertyBytes=0;
-                    check(cub::DeviceSelect::If(nullptr,propertyBytes,cub::CountingInputIterator<PxU32>(0),
+                    check(cub::DeviceSelect::If(nullptr,propertyBytes,thrust::counting_iterator<PxU32>(0),
                         mCorrectionOwnerTargets,mPropertyCount,d.chunkCount,
                         HasChangedProperties{mTopology->accepted().activeClusters,mPropertyEpochs,mStatus},mStream));
                     mCorrectionScratchBytes=std::max(mCorrectionScratchBytes,propertyBytes);
                     size_t shapeBytes=0;
-                    check(cub::DeviceSelect::If(nullptr,shapeBytes,cub::CountingInputIterator<PxU32>(0),
+                    check(cub::DeviceSelect::If(nullptr,shapeBytes,thrust::counting_iterator<PxU32>(0),
                         mCorrectionOwnerTargets,&mCompletion->shapeCount,d.chunkCount,
                         HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
                     mCorrectionScratchBytes=std::max(mCorrectionScratchBytes,shapeBytes);
@@ -1274,7 +1275,7 @@ public:
             if(capacity) {
                 const auto topology=mTopology->accepted();
                 check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
-                    cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,mPropertyCount,mC,
+                    thrust::counting_iterator<PxU32>(0),mCorrectionOwnerTargets,mPropertyCount,mC,
                     HasChangedProperties{topology.activeClusters,mPropertyEpochs,mStatus},mStream));
                 gatherFinalProperties<<<(capacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,mPropertyCount,
                     capacity,mTrialBodies,mClusters,mMotionStorage.bodies,
@@ -1287,7 +1288,7 @@ public:
                 // Reuse private preparation scratch. The compact trial batch
                 // remains exposed by getDeviceView with its original count.
                 check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
-                    cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,&mCompletion->shapeCount,mN,
+                    thrust::counting_iterator<PxU32>(0),mCorrectionOwnerTargets,&mCompletion->shapeCount,mN,
                     HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
                 gatherFinalShapeOwners<<<(shapeCapacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,
                     &mCompletion->shapeCount,shapeCapacity,mChunks,mShapePublicationTargets,mCollisionBindings,mStatus);

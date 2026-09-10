@@ -3,8 +3,8 @@
 find_package(CUDAToolkit 12.3 REQUIRED)
 get_filename_component(DESTRUCTION_REPO_ROOT "${PHYSX_ROOT_DIR}/.." ABSOLUTE)
 set(PX_DESTRUCTION_CUDA_ARCHITECTURES "89" CACHE STRING "Native destruction CUDA architectures")
-if(NOT PX_DESTRUCTION_CUDA_ARCHITECTURES STREQUAL "89" OR CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "12.8")
-    message(FATAL_ERROR "Integrated destruction requires CUDA >= 12.8 and RTX 4090 architecture 89")
+if(NOT PX_DESTRUCTION_CUDA_ARCHITECTURES MATCHES "^(89|120)$" OR CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "13.4")
+    message(FATAL_ERROR "Integrated destruction requires CUDA >= 13.4 and architecture 89 or 120")
 endif()
 # Match the reference stress compiler's arithmetic, independently of upstream
 # PhysX's fast-math switches. Explicit user CUDA flags still apply.

@@ -53,6 +53,8 @@ IF(NOT CMAKE_CROSSCOMPILING AND (TARGET_BUILD_PLATFORM STREQUAL "windows" OR TAR
 		# The FIND_PACKAGE(CUDAToolkit) makes it easier if you have CUDA language enabled to link to
 		# CTK libraries by providing nice targets like CUDA::cudart
 		FIND_PACKAGE(CUDAToolkit REQUIRED)
+		# Toolkit headers are external; retain strict warnings for PhysX sources.
+		INCLUDE_DIRECTORIES(SYSTEM ${CUDAToolkit_INCLUDE_DIRS})
 
 		# We need to set CMAKE_CUDA_ARCHITECTURES with a default value
 		# see policy CMP0104

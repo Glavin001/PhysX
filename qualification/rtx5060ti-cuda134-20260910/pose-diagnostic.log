@@ -1,0 +1,3 @@
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=36.22ms
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=8.66ms
+FIRST_POSE_DIFFERENCE step=85 chunk=7548 error=1.34869913e-06 physical_p=(16,0.5,15.999999) observed_p=(16,0.5,15.999999) local=(-3.5,0,-3.5) authored=(-3.5,0,-3.5) physical_q=(-2.38598119e-09,-2.67016631e-09,-2.41478659e-09,0.99999994) observed_q=(-2.38598119e-09,-2.67016631e-09,-2.41478659e-09,1)

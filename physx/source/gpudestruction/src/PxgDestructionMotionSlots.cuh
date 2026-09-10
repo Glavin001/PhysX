@@ -269,7 +269,7 @@ public:
         cudaError_t e=cudaGetDevice(&device);if(e!=cudaSuccess)return e;
         e=cudaDeviceGetAttribute(&major,cudaDevAttrComputeCapabilityMajor,device);if(e!=cudaSuccess)return e;
         e=cudaDeviceGetAttribute(&minor,cudaDevAttrComputeCapabilityMinor,device);if(e!=cudaSuccess)return e;
-        if(major!=8 || minor!=9)return cudaErrorNotSupported;
+        if(!((major==8 && minor==9) || (major==12 && minor==0)))return cudaErrorNotSupported;
         int cooperative=0,sms=0,resident=0;
         e=cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device);if(e!=cudaSuccess)return e;
         e=cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device);if(e!=cudaSuccess)return e;
@@ -291,7 +291,7 @@ public:
         e=add(mGraph,prior,beginNativeMotionAllocation,1,1,v,work);if(e!=cudaSuccess)return e;
         cudaGraphNodeParams condition{};condition.type=cudaGraphNodeTypeConditional;
         condition.conditional.handle=work;condition.conditional.type=cudaGraphCondTypeIf;condition.conditional.size=1;
-        cudaGraphNode_t branch{};e=cudaGraphAddNode(&branch,mGraph,&prior,1,&condition);if(e!=cudaSuccess)return e;
+        cudaGraphNode_t branch{};e=cudaGraphAddNode(&branch,mGraph,&prior,nullptr,1,&condition);if(e!=cudaSuccess)return e;
         const auto body=condition.conditional.phGraph_out[0];prior=nullptr;
         e=add(body,prior,allocateNativeMotionRequests,v.blocks,128,v);if(e!=cudaSuccess)return e;
         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
@@ -299,7 +299,7 @@ public:
         if(continuation) {
             cudaGraphNodeParams next{};next.type=cudaGraphNodeTypeConditional;
             next.conditional.handle=v.continuation;next.conditional.type=cudaGraphCondTypeIf;next.conditional.size=1;
-            cudaGraphNode_t node{};e=cudaGraphAddNode(&node,mGraph,&branch,1,&next);if(e!=cudaSuccess)return e;
+            cudaGraphNode_t node{};e=cudaGraphAddNode(&node,mGraph,&branch,nullptr,1,&next);if(e!=cudaSuccess)return e;
             *continuation=next.conditional.phGraph_out[0];return cudaSuccess;
         }
         return instantiate(stream);

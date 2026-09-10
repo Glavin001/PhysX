@@ -294,7 +294,7 @@
             const cudaGraphNode_t* deps = nullptr;
             std::size_t depCount = 0;
             if (cudaStreamGetCaptureInfo(
-                    m_stream, &captureStatus, &captureId, &capturing, &deps, &depCount)
+                    m_stream, &captureStatus, &captureId, &capturing, &deps,nullptr, &depCount)
                     == cudaSuccess
                 && captureStatus == cudaStreamCaptureStatusActive
                 && capturing != nullptr)
@@ -346,7 +346,7 @@
         nodeParams.conditional.size = 1;
 
         cudaGraphNode_t whileNode = nullptr;
-        if (cudaGraphAddNode(&whileNode, capturing, deps, depCount, &nodeParams)
+        if (cudaGraphAddNode(&whileNode, capturing, deps,nullptr, depCount, &nodeParams)
                 != cudaSuccess
             || nodeParams.conditional.phGraph_out == nullptr)
         {
@@ -356,7 +356,7 @@
         // Everything captured after this point must depend on the while node,
         // or the epilogue would be free to run alongside the loop.
         if (cudaStreamUpdateCaptureDependencies(
-                m_stream, &whileNode, 1, cudaStreamSetCaptureDependencies) != cudaSuccess)
+                m_stream, &whileNode, nullptr, 1, cudaStreamSetCaptureDependencies) != cudaSuccess)
         {
             return false;
         }

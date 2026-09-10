@@ -95,7 +95,7 @@ class Transaction final : public PxgDestructionTopologyTransaction {
         cudaGraphNodeParams parameters{};parameters.type=cudaGraphNodeTypeConditional;
         parameters.conditional.handle=handle;parameters.conditional.type=cudaGraphCondTypeIf;parameters.conditional.size=1;
         cudaGraphNode_t next=nullptr;
-        if(cudaGraphAddNode(&next,graph,previous?&previous:nullptr,previous?1:0,&parameters)!=cudaSuccess)return false;
+        if(cudaGraphAddNode(&next,graph,previous?&previous:nullptr,nullptr,previous?1:0,&parameters)!=cudaSuccess)return false;
         previous=next;body=parameters.conditional.phGraph_out[0];return true;
     }
     template<class Function> bool capture(cudaGraph_t graph,Function function) {

@@ -78,4 +78,4 @@ void run(){
     std::puts("GPU consumer: rotated/offset chunks, sparse stable slots, removed chunks, slot reuse, projectile poses, clearance queries, event ordering and sticky invalid-view rejection passed");
 }
 }
-int main(){CUcontext context=nullptr;try{check(cuInit(0));CUdevice device;check(cuDeviceGet(&device,0));check(cuCtxCreate(&context,0,device));run();check(cuCtxDestroy(context));return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());if(context)cuCtxDestroy(context);return 1;}}
+int main(){CUcontext context=nullptr;try{check(cuInit(0));CUdevice device;check(cuDeviceGet(&device,0));check(cuCtxCreate(&context,nullptr,0,device));run();check(cuCtxDestroy(context));return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());if(context)cuCtxDestroy(context);return 1;}}

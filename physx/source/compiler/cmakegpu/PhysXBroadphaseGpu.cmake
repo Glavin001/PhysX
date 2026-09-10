@@ -134,7 +134,8 @@ TARGET_COMPILE_DEFINITIONS(PhysXBroadphaseGpu
 # Since we are setting the C++ standard explicitly for Linux
 # we need to do this for CUDA as well.
 IF(TARGET_BUILD_PLATFORM STREQUAL "linux")
-	TARGET_COMPILE_FEATURES(PhysXBroadphaseGpu PRIVATE cuda_std_11)
+	# Destruction pair canonicalization uses current CCCL/CUB.
+	SET_TARGET_PROPERTIES(PhysXBroadphaseGpu PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
 ENDIF()
 
 TARGET_COMPILE_OPTIONS(PhysXBroadphaseGpu PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${ARCH_CODE_LIST}>)
