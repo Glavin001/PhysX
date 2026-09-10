@@ -1,9 +1,15 @@
 ---
 name: physx-destruction-performance
-description: Reproduce, interpret and improve complete-step performance of this repository's integrated RTX 4090 PhysX destruction pipeline. Use for destruction peak investigations, GPU ownership or stress optimizations, benchmark comparisons and real-time destruction-capacity tests.
+description: Reproduce, interpret and improve complete-step performance of this repository's integrated PhysX GPU destruction pipeline. Use for destruction peak investigations, GPU ownership or stress optimizations, benchmark comparisons and real-time destruction-capacity tests.
 ---
 
 # PhysX destruction performance
+
+Current VM/toolchain and validation status are in [AGENTS.md](../../../AGENTS.md).
+Use the [VM validation skill](../../../.agent/skills/physx-vm-validation/SKILL.md)
+and [hardware-counter workflow](../../../.agent/skills/physx-destruction-profiling/SKILL.md)
+for the RTX 5060 Ti / CUDA 13.4 port. Older 4090/no-counter statements in dated
+playbooks describe historical evidence, not this machine.
 
 Optimize verified physical work per complete simulation advance. The primary
 workload is 256-building bombardment; sustained/staggered bombardment is a
@@ -79,9 +85,10 @@ resolve the documentation below relative to this skill, not the shell cwd.
 - Staggering changes input history and possibly the total fracture. It measures
   capacity; it is not an equal-input implementation speedup. Include late rubble
   and actual broken bonds/new clusters, not just projectile rate.
-- No available hardware counters means no proved bandwidth/compute/occupancy
-  bottleneck. Use event timelines, actual work counters and controlled matched
-  experiments; label remaining hypotheses.
+- Hardware counters are available on the new VM, but only the probe and a motion-
+  slot fixture have been captured so far. Profile actual peak kernels before
+  asserting bandwidth/compute/occupancy bottlenecks; use timelines and controlled
+  matched experiments to establish end-to-end benefit.
 - Timing report exit 2 can mean a completed run failed the deadline/duration
   gate. Inspect `campaign.json` and logs before retrying. Never hide that exit
   with an unconditional success wrapper.
@@ -89,8 +96,9 @@ resolve the documentation below relative to this skill, not the shell cwd.
 ## Scope and reporting
 
 Work stays in this repository. `vibe-land-4` and `blast-stress-solver-2` are
-read-only references. Current native optimization targets RTX 4090/sm_89 and
-CUDA >=12.8; do not introduce compatibility fallbacks. Keep unrelated upstream
+read-only references. Current VM work targets RTX 5060 Ti/sm_120 with CUDA >=13.4;
+RTX 4090/sm_89 records are historical controls. Do not introduce compatibility
+fallbacks. Keep unrelated upstream
 platform support and independent physical reference targets.
 
 Run GPU jobs sequentially and keep builds/heavy audits outside performance
