@@ -551,6 +551,11 @@ Five targeted memchecks and nine surrounding native CTests pass. The full
 
 ### Large restored city suite (2026-09-11)
 
+The [complete 52-scenario catalog](qualification/optimization-next20-20260910/snapshot-scenarios.md)
+also lists all 28 original structural/rigid-body cases. The city expansion does
+not replace them. Their historical continuation measurements and the newer
+independent single-tick protocol are labeled separately.
+
 Use `tools/profiles/destruction-snapshot-large.json` for 24 native saved states:
 25/64/256 buildings (11,100/28,416/113,664 chunks), eight phases each. Capture
 with the existing native demo and frozen ordinary A/B settings, then run

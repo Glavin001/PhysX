@@ -7,27 +7,27 @@ One full tick per fresh restore, fixed file inputs, ordinary GPU/TGS, dt=1/60, a
 | city25-intact-idle | PASS | 20 | 11.113 / 21.975 | 10.501 | 308.951 | 20 (100%) / 20 (100%) / 1 (5%) | [0] / [1] |
 | city25-airborne | PASS | 20 | 12.107 / 18.479 | 11.623 | 313.587 | 20 (100%) / 20 (100%) / 1 (5%) | [0] / [1] |
 | city25-initial-impact | PASS | 20 | 44.796 / 53.138 | 44.355 | 329.024 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city25-post-impact | FAIL — diagnostic only | 20 | 24.240 / 33.632 | 23.228 | 350.650 | 20 (100%) / 20 (100%) / 20 (100%) | [0] / [1] |
+| city25-post-impact | FAIL: bond-health equality | 20 | 24.240 / 33.632 | 23.228 | 350.650 | 20 (100%) / 20 (100%) / 20 (100%) | [0] / [1] |
 | city25-cascading-fracture | PASS | 20 | 40.561 / 52.502 | 39.862 | 335.852 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
 | city25-fragmented-loaded | PASS | 20 | 55.292 / 68.102 | 54.355 | 338.346 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city25-late-debris | FAIL — diagnostic only | 20 | 72.481 / 90.525 | 71.799 | 346.702 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city25-ten-second-debris | FAIL — diagnostic only | 20 | 74.306 / 87.830 | 74.220 | 352.175 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
+| city25-late-debris | FAIL: bond-health equality | 20 | 72.481 / 90.525 | 71.799 | 346.702 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
+| city25-ten-second-debris | FAIL: bond-health equality | 20 | 74.306 / 87.830 | 74.220 | 352.175 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
 | city64-intact-idle | PASS | 20 | 18.986 / 25.729 | 18.047 | 1079.660 | 20 (100%) / 20 (100%) / 17 (85%) | [0] / [1] |
 | city64-airborne | PASS | 20 | 19.901 / 23.106 | 19.696 | 1089.719 | 20 (100%) / 20 (100%) / 19 (95%) | [0] / [1] |
 | city64-initial-impact | PASS | 20 | 68.260 / 91.882 | 66.497 | 1061.398 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
 | city64-post-impact | PASS | 20 | 40.462 / 54.142 | 39.431 | 1126.852 | 20 (100%) / 20 (100%) / 20 (100%) | [0] / [1] |
 | city64-cascading-fracture | PASS | 20 | 62.321 / 76.200 | 62.552 | 1099.658 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city64-fragmented-loaded | FAIL — diagnostic only | 20 | 97.738 / 128.962 | 98.333 | 1147.446 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city64-late-debris | FAIL — diagnostic only | 20 | 148.717 / 176.702 | 146.781 | 1150.482 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city64-ten-second-debris | FAIL — diagnostic only | 20 | 106.140 / 128.426 | 103.733 | 1208.425 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
+| city64-fragmented-loaded | FAIL: bond-health equality | 20 | 97.738 / 128.962 | 98.333 | 1147.446 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
+| city64-late-debris | FAIL: bond-health equality | 20 | 148.717 / 176.702 | 146.781 | 1150.482 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
+| city64-ten-second-debris | FAIL: bond-health equality | 20 | 106.140 / 128.426 | 103.733 | 1208.425 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
 | city256-intact-idle | PASS | 20 | 69.177 / 85.129 | 68.948 | 1862.605 | 20 (100%) / 20 (100%) / 20 (100%) | [0] / [1] |
 | city256-airborne | PASS | 20 | 75.031 / 84.846 | 76.279 | 1846.996 | 20 (100%) / 20 (100%) / 20 (100%) | [0] / [1] |
 | city256-initial-impact | PASS | 20 | 260.453 / 288.678 | 262.524 | 1856.150 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
 | city256-post-impact | PASS | 20 | 149.502 / 172.789 | 149.128 | 1953.298 | 20 (100%) / 20 (100%) / 20 (100%) | [0] / [1] |
 | city256-cascading-fracture | PASS | 20 | 210.019 / 242.847 | 208.396 | 1998.266 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city256-fragmented-loaded | FAIL — diagnostic only | 20 | 323.701 / 363.873 | 324.648 | 2072.068 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city256-late-debris | FAIL — diagnostic only | 20 | 463.076 / 502.288 | 469.603 | 2097.327 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
-| city256-ten-second-debris | FAIL — diagnostic only | 20 | 274.528 / 357.086 | 268.619 | 2227.663 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
+| city256-fragmented-loaded | FAIL: bond-health equality | 20 | 323.701 / 363.873 | 324.648 | 2072.068 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
+| city256-late-debris | FAIL: bond-health equality | 20 | 463.076 / 502.288 | 469.603 | 2097.327 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
+| city256-ten-second-debris | FAIL: bond-health equality | 20 | 274.528 / 357.086 | 268.619 | 2227.663 | 20 (100%) / 20 (100%) / 20 (100%) | [1] / [2] |
 
 Repeatability qualification is explicit in each row. Failed comparisons remain failures; their timings are diagnostic only. The adjacent JSON reports measured motion differences and fracture/correction counts for every scenario. Scene scale and source-step metadata, when available, are listed below. Fresh restore rebuilds caches, so these timings do not replace warm continuous city trajectories.
 

@@ -1,5 +1,11 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Scenario navigation: [all 52 entries](qualification/optimization-next20-20260910/snapshot-scenarios.md)
+includes the original 28 bridge/cantilever/chain/flying-body/ladder/panel/tower
+and other cases plus 24 cities. The former have 2-restores × 10-tick diagnostics;
+the latter have 20-restores × 1-tick measurements. Uniform single-tick coverage
+of every structural case remains pending; do not imply the cities replaced them.
+
 
 Latest large-snapshot continuation (2026-09-11): added **24 native city cases**
 (25/64/256 buildings; 11,100/28,416/113,664 chunks; up to 229,376 bonds), eight

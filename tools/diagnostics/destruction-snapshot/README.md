@@ -1,5 +1,11 @@
 # Native destruction snapshots
 
+Start with the [complete 52-scenario catalog](../../../qualification/optimization-next20-20260910/snapshot-scenarios.md):
+28 original structural/rigid-body cases plus 24 added city cases. The original
+bridge, cantilever, chains, flying-body, ladder, panel and tower fixtures remain.
+The catalog explicitly distinguishes continuation diagnostics from independent
+single-tick measurements; the large-city runner covers only the added 24 cases.
+
 The [public API contract](../../../docs/destruction/SNAPSHOT.md) documents export,
 restore, ownership and command boundaries. The source here is also built as
 `native_destruction_snapshot_test` and registered as `physx_native_destruction_snapshot`.
