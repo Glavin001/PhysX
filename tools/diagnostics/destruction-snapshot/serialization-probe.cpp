@@ -82,16 +82,21 @@ void compareDestruction(PxScene& a,PxScene& b){
 bool replayPreIslands=false,replayPreContacts=false,replayPreSupport=false,replayConnectivity=false;
 struct World {
     void* memory=nullptr;PxCollection* objects=nullptr;PxScene* scene=nullptr;
+    double deserializeMs=0,sceneCreateMs=0,insertMs=0;
     ~World(){if(scene)scene->release();if(objects){PxCollectionExt::releaseObjects(*objects);objects->release();}free(memory);}
     void load(PxPhysics& physics,PxSerializationRegistry& registry,PxScene& source,Events& events,const PxDefaultMemoryOutputStream& bytes){
+        const auto a=std::chrono::steady_clock::now();
         require(posix_memalign(&memory,PX_SERIAL_FILE_ALIGN,bytes.getSize())==0,"aligned storage failed");
         std::memcpy(memory,bytes.getData(),bytes.getSize());objects=PxSerialization::createCollectionFromBinary(memory,registry);
         require(objects,"binary import failed");
+        const auto b=std::chrono::steady_clock::now();deserializeMs=std::chrono::duration<double,std::milli>(b-a).count();
         PxSceneDesc d(physics.getTolerancesScale());d.gravity=source.getGravity();d.cpuDispatcher=source.getCpuDispatcher();
         d.cudaContextManager=source.getCudaContextManager();d.filterShader=source.getFilterShader();d.flags=source.getFlags();
         d.broadPhaseType=PxBroadPhaseType::eGPU;d.simulationEventCallback=&events;d.solverType=source.getSolverType();
         d.gpuMaxNumPartitions=8;d.gpuDynamicsConfig=source.getGpuDynamicsConfig();scene=physics.createScene(d);
+        const auto c=std::chrono::steady_clock::now();sceneCreateMs=std::chrono::duration<double,std::milli>(c-b).count();
         require(scene && scene->addCollection(*objects),"fresh GPU collection insertion failed");
+        insertMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-c).count();
         auto* gpu=static_cast<PxgGpuContext*>(static_cast<NpScene&>(*scene).getScScene().getDynamicsContext());
         gpu->enableCudaPreSolveIslands(replayPreIslands);gpu->enableCudaPreSolveContacts(replayPreContacts);
         gpu->enableCudaPreSolveSupport(replayPreSupport);gpu->enableDeviceConnectivityOwnership(replayConnectivity);

@@ -3,6 +3,7 @@
 void replayFiles(const std::string& prefix,const char* directory,unsigned repetitions,bool impulse){
     require(repetitions>=2 && repetitions<=1000,"replay repetitions must be 2..1000");
     // PhysX streams use its allocator, so the foundation must outlive them.
+    const auto harnessStart=std::chrono::steady_clock::now();
     Events environmentEvents;blast_demo::SceneCapacity capacity;bool contactReports=true;
     std::ifstream settings(prefix+".scene");
     if(settings){unsigned version=0;settings>>version>>capacity.maxBodies>>capacity.maxShapes>>capacity.maxContactPairs
@@ -18,6 +19,7 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
         if(size){file.read(data.data(),size);require(bool(file),"snapshot file read failed");stream.write(data.data(),PxU32(size));}
     };
     read(prefix+".pxbin",bytes);read(prefix+".destruction",destruction);
+    const auto setupEnd=std::chrono::steady_clock::now();
     const bool destructive=destruction.getSize()!=0;require(bytes.getSize(),"empty PhysX snapshot");
     auto* registry=PxSerialization::createSerializationRegistry(context.physics());require(registry,"replay registry");
     std::ofstream report(std::string(directory)+"/replay.json");report<<std::setprecision(17);
@@ -29,8 +31,11 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
         for(unsigned i=0;i<repetitions;++i){
             World world;Events events;
             const auto begin=std::chrono::steady_clock::now();world.load(context.physics(),*registry,context.scene(),events,bytes);
+            const auto importStart=std::chrono::steady_clock::now();
             if(destructive){PxDefaultMemoryInputData input(destruction.getData(),destruction.getSize());
                 require(world.scene->getDestructionScene()->importState(input,*world.objects),"file destruction import failed");}
+            const auto restoreEnd=std::chrono::steady_clock::now();
+            const double importMs=std::chrono::duration<double,std::milli>(restoreEnd-importStart).count();
             const double restoreMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
             const auto previous=destructive?health(*world.scene):std::vector<float>();
             const auto frame=world.scene->getDestructionScene()->getLastStatus().frame;
@@ -72,8 +77,12 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
                     require(status.brokenBonds==baselineStatus.brokenBonds && status.correctionPasses==baselineStatus.correctionPasses && status.stressPasses==baselineStatus.stressPasses,"repeated fracture/correction outcome differs");}}
             catch(const std::exception& e){if(!motionMeasured)error.position=error.linear=error.angular=-1;repeatPassed=false;allRepeated=false;std::cerr<<"repeat "<<i<<" comparison failed: "<<e.what()<<std::endl;}
             if(!i){baselineStatus=status;baselineObjects=std::move(observedObjects);baselineDestruction=std::move(observedDestruction);}
+            const auto validationEnd=std::chrono::steady_clock::now();
             if(i)report<<',';
             report<<"{\"repeat\":"<<i<<",\"restore_ms\":"<<restoreMs<<",\"complete_step_ms\":"<<tickMs
+                <<",\"deserialize_ms\":"<<world.deserializeMs<<",\"scene_create_ms\":"<<world.sceneCreateMs<<",\"insert_ms\":"<<world.insertMs<<",\"destruction_import_ms\":"<<importMs
+                <<",\"pre_tick_validation_ms\":"<<std::chrono::duration<double,std::milli>(start-restoreEnd).count()
+                <<",\"post_tick_validation_ms\":"<<std::chrono::duration<double,std::milli>(validationEnd-completeEnd).count()
                 <<",\"command_ms\":"<<commandMs<<",\"simulate_fetch_ms\":"<<simulationMs<<",\"completion_ms\":"<<completionMs
                 <<",\"stress_iterations\":"<<status.iterations<<",\"broken_bonds\":"<<status.brokenBonds
                 <<",\"correction_passes\":"<<status.correctionPasses<<",\"stress_passes\":"<<status.stressPasses
