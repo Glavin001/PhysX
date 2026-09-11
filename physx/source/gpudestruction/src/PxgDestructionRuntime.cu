@@ -104,7 +104,7 @@ __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
     return a<count && map[a].contact==contact ? map[a].chunk : PX_INVALID_U32;
 }
 __device__ void add(PxVec3& target,const PxVec3& value) {
-    atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
+    target.x=__fadd_rn(target.x,value.x);target.y=__fadd_rn(target.y,value.y);target.z=__fadd_rn(target.z,value.z);
 }
 __global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool postCorrection) {
     const PxU64 frame=status->frame+(postCorrection?0:1); *status={}; status->frame=frame;
@@ -150,10 +150,10 @@ __device__ void contactLoad(PxU32 i,const PxDestructionStressChunk* chunks,
     const PxVec3 r=pose.transformInv(point)-c.position;
     add(surface[i].force,f); add(surface[i].torque,r.cross(f));
     float* v=surface[i].virial;
-    atomicAdd(v+0,r.x*f.x);atomicAdd(v+1,r.y*f.y);atomicAdd(v+2,r.z*f.z);
-    atomicAdd(v+3,0.5f*(r.x*f.y+r.y*f.x));
-    atomicAdd(v+4,0.5f*(r.x*f.z+r.z*f.x));
-    atomicAdd(v+5,0.5f*(r.y*f.z+r.z*f.y));
+    v[0]=__fadd_rn(v[0],r.x*f.x);v[1]=__fadd_rn(v[1],r.y*f.y);v[2]=__fadd_rn(v[2],r.z*f.z);
+    v[3]=__fadd_rn(v[3],0.5f*(r.x*f.y+r.y*f.x));
+    v[4]=__fadd_rn(v[4],0.5f*(r.x*f.z+r.z*f.x));
+    v[5]=__fadd_rn(v[5],0.5f*(r.y*f.z+r.z*f.y));
     if(c.mass>0)add(inputs[i].linear,f/c.mass);
 }
 __device__ PxVec3 bodyPointVelocity(PxNodeIndex index,const PxgBodySim* bodies,const PxVec3& point)
@@ -181,11 +181,10 @@ __device__ void contactRate(PxU32 a,PxU32 b,const PxGpuContactPair& pair,const P
         if(cb && chunks[b].volume>0)atomicMax(reinterpret_cast<unsigned*>(rates+b),__float_as_uint(closing/cbrtf(chunks[b].volume)));
     }
 }
-__global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Lookup* map, PxU32 maps, const PxDestructionStressChunk* chunks,
+__device__ void routeContactSide(PxgDestructionSolvedContacts contacts, const Lookup* map, PxU32 maps, const PxDestructionStressChunk* chunks,
     const PxTransform* poses, float invDt, PxDestructionVectorPair* inputs,
     PxDestructionSurfaceLoad* surface, PxDestructionStageStatus* status,
-    const PxgBodySim* bodies,const PxDestructionMaterial* materials,float* rates) {
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    const PxgBodySim* bodies,const PxDestructionMaterial* materials,float* rates,PxU32 i,PxU32 side) {
     if(i>=contacts.pairCount)return;
     const auto& output=contacts.outputs[i];
     if(!output.nbContacts || !contacts.responseEpoch ||
@@ -208,28 +207,80 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
     p.nbPatches=output.nbPatches;p.nbContacts=output.nbContacts;
     const PxU32 a=findChunk(map,maps,p.transformCacheRef0), b=findChunk(map,maps,p.transformCacheRef1);
     if(a==PX_INVALID_U32 && b==PX_INVALID_U32)return;
+    const bool count=side==0 || a==PX_INVALID_U32;
     if(p.nbContacts && p.contactPatches && p.contactPoints && p.contactForces) {
         PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);
         PxU32 point=0;
         while(it.hasNextPatch()) { it.nextPatch(); while(it.hasNextContact()) { it.nextContact();
             const PxVec3 impulse=it.getContactNormal()*p.contactForces[point++];
-            contactLoad(a,chunks,poses,it.getContactPoint(),impulse,invDt,inputs,surface);
-            contactLoad(b,chunks,poses,it.getContactPoint(),-impulse,invDt,inputs,surface);
-            contactRate(a,b,p,it.getContactPoint(),impulse,bodies,chunks,materials,rates,status);
-            atomicAdd(&status->normalContacts,1u);
+            if(side==0)contactLoad(a,chunks,poses,it.getContactPoint(),impulse,invDt,inputs,surface);
+            else contactLoad(b,chunks,poses,it.getContactPoint(),-impulse,invDt,inputs,surface);
+            if(count)contactRate(a,b,p,it.getContactPoint(),impulse,bodies,chunks,materials,rates,status);
+            if(count)atomicAdd(&status->normalContacts,1u);
         }}
     }
     if(p.frictionPatches && p.contactPatches) {
         PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
         while(it.hasNextPatch()) { it.nextPatch(); while(it.hasNextFrictionAnchor()) {it.nextFrictionAnchor();
             const auto impulse=it.getImpulse(); if(impulse.isZero())continue;
-            contactLoad(a,chunks,poses,it.getPosition(),impulse,invDt,inputs,surface);
-            contactLoad(b,chunks,poses,it.getPosition(),-impulse,invDt,inputs,surface);
-            contactRate(a,b,p,it.getPosition(),impulse,bodies,chunks,materials,rates,status);
-            atomicAdd(&status->frictionAnchors,1u);
+            if(side==0)contactLoad(a,chunks,poses,it.getPosition(),impulse,invDt,inputs,surface);
+            else contactLoad(b,chunks,poses,it.getPosition(),-impulse,invDt,inputs,surface);
+            if(count)contactRate(a,b,p,it.getPosition(),impulse,bodies,chunks,materials,rates,status);
+            if(count)atomicAdd(&status->frictionAnchors,1u);
         }}
     }
 }
+
+// Stable per-chunk ownership: integer keys contain chunk, pair ordinal and side.
+// Sorting removes scheduling-dependent floating-point atomic accumulation.
+__global__ void contactRouteKeys(PxgDestructionSolvedContacts contacts,const Lookup* map,
+    PxU32 maps,PxU64* keys) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=contacts.pairCount)return;
+    keys[2*i]=keys[2*i+1]=~PxU64(0);
+    const auto output=contacts.outputs[i];
+    if(!output.nbContacts || !contacts.responseEpoch || output.nativeResponseEpoch!=contacts.responseEpoch)return;
+    const auto input=contacts.inputs[i];
+    const PxU32 a=findChunk(map,maps,input.transformCacheRef0),b=findChunk(map,maps,input.transformCacheRef1);
+    if(a!=PX_INVALID_U32)keys[2*i]=(PxU64(a)<<32)|(2*i);
+    if(b!=PX_INVALID_U32)keys[2*i+1]=(PxU64(b)<<32)|(2*i+1);
+}
+__global__ void routeSortedContacts(const PxU64* keys,PxU32 count,
+    PxgDestructionSolvedContacts contacts,const Lookup* map,PxU32 maps,const PxDestructionStressChunk* chunks,
+    const PxTransform* poses,float invDt,PxDestructionVectorPair* inputs,
+    PxDestructionSurfaceLoad* surface,PxDestructionStageStatus* status,
+    const PxgBodySim* bodies,const PxDestructionMaterial* materials,float* rates) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxU64 key=keys[i];if(key==~PxU64(0))return;
+    const PxU32 chunk=PxU32(key>>32);
+    if(i && PxU32(keys[i-1]>>32)==chunk)return;
+    for(PxU32 j=i;j<count && PxU32(keys[j]>>32)==chunk;++j) {
+        const PxU32 pairSide=PxU32(keys[j]);
+        routeContactSide(contacts,map,maps,chunks,poses,invDt,inputs,surface,status,bodies,materials,rates,pairSide/2,pairSide&1);
+    }
+}
+struct StableContactRouting {
+    PxU64 *keys=nullptr,*sorted=nullptr;PxU32 capacity=0;
+    void* scratch=nullptr;size_t scratchBytes=0;
+    void clear(){cudaFree(keys);cudaFree(sorted);cudaFree(scratch);keys=sorted=nullptr;scratch=nullptr;capacity=0;scratchBytes=0;}
+    void route(PxgDestructionSolvedContacts contacts,const Lookup* map,PxU32 maps,
+        const PxDestructionStressChunk* chunks,const PxTransform* poses,float invDt,
+        PxDestructionVectorPair* inputs,PxDestructionSurfaceLoad* surface,PxDestructionStageStatus* status,
+        const PxgBodySim* bodies,const PxDestructionMaterial* materials,float* rates,cudaStream_t stream) {
+        if(!contacts.pairCount)return;
+        if(PxU64(contacts.pairCount)*2>PxU64(std::numeric_limits<int>::max()))throw std::runtime_error("contact routing capacity overflow");
+        const PxU32 n=2*contacts.pairCount;
+        if(n>capacity){
+            check(cudaFree(keys));keys=nullptr;check(cudaFree(sorted));sorted=nullptr;
+            allocate(keys,n);allocate(sorted,n);capacity=n;
+        }
+        size_t bytes=0;check(cub::DeviceRadixSort::SortKeys(nullptr,bytes,keys,sorted,int(n),0,64,stream));
+        if(bytes>scratchBytes){check(cudaFree(scratch));scratch=nullptr;check(cudaMalloc(&scratch,bytes));scratchBytes=bytes;}
+        contactRouteKeys<<<(contacts.pairCount+127)/128,128,0,stream>>>(contacts,map,maps,keys);
+        check(cub::DeviceRadixSort::SortKeys(scratch,scratchBytes,keys,sorted,int(n),0,64,stream));
+        routeSortedContacts<<<(n+127)/128,128,0,stream>>>(sorted,n,contacts,map,maps,chunks,poses,invDt,inputs,surface,status,bodies,materials,rates);
+        check(cudaGetLastError());
+    }
+};
 __global__ void finishStatus(const ExtStressGpuDeviceStatus* solve,PxDestructionStageStatus* status,
     const PxDestructionVectorPair* forces, PxU32 count) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
@@ -485,6 +536,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionStressChunk* mChunks{}; PxDestructionStressCluster* mClusters{};
     PxTransform* mPoses{}; PxVec3* mAngular{};
     Lookup* mMap{}; PxU32 mMapCount{},mN{},mM{},mC{};
+    StableContactRouting mContactRouting;
     bool mOwnInputs=false;
     PxDestructionVectorPair* mInputs{}; PxDestructionSurfaceLoad* mSurface{};
     // Producers write canonical completion records in one allocation. Their
@@ -962,6 +1014,7 @@ public:
     }
     void clear() {
         cudaEventSynchronize(mPreReady);cudaEventSynchronize(mReady);
+        mContactRouting.clear();
         cudaFree(mPreNodeStorage);cudaFree(mPreNodes);mPreNodeStorage=nullptr;mPreNodes=nullptr;mPrePrevious=nullptr;mPreRegistryCapacity=0;
         cudaFree(mPreUpdates);mPreUpdates=nullptr;mPreUpdateCapacity=0;mPreRosterValid=false;
         cudaFree(mPreRetired);mPreRetired=nullptr;cudaFree(mPreRetiredMask);mPreRetiredMask=nullptr;
@@ -1382,7 +1435,7 @@ public:
             stageMarker(0);
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
-            if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
+            mContactRouting.route(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates,mStream);
             check(cudaEventRecord(mReady,mStream));
             stageMarker(1);
             const PxDestructionVectorPair* forces=nullptr;

@@ -1,0 +1,4046 @@
+[
+  {
+    "name": "mem-city25-initial-impact",
+    "raw": "out/snapshot-large-20260911/mem-city25-initial-impact",
+    "receipt": {
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/mem-city25-initial-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "failed",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789111368.4403605,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "40 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1039481,
+      "modules": {
+        "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "6bda98b4c263664a3b12df86c0298bf24930047fd78214f04be19089585a8c56"
+      },
+      "exit_code": 97,
+      "error": "Probe failed or missing maps",
+      "after": {
+        "unix_seconds": 1789111376.6204364,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "41 C",
+            "clock": "2842 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 8.178764169002534
+    },
+    "memcheck_errors": 14
+  },
+  {
+    "name": "mem-compile-city25-impact",
+    "raw": "out/snapshot-large-20260911/mem-compile-city25-impact",
+    "receipt": {
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/mem-compile-city25-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "failed",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789119179.6246438,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1138827,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/compile-memcheck/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/compile-memcheck/libPhysXDestructionGpuRuntime_64.so": "3a270c9053130ff9bb996457c25195ec9154dbf8973b093a9e51133b27c16b25"
+      },
+      "exit_code": 97,
+      "error": "Probe failed or missing maps",
+      "after": {
+        "unix_seconds": 1789119193.1148489,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2625 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 13.48842709499877
+    },
+    "memcheck_errors": 6717
+  },
+  {
+    "name": "plain-explicit-city25-impact",
+    "raw": "out/snapshot-large-20260911/plain-explicit-city25-impact",
+    "receipt": {
+      "command": [
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/plain-explicit-city25-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "complete",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789119731.070876,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1144116,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/explicit-topology/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/explicit-topology/libPhysXDestructionGpuRuntime_64.so": "d99b6d3da393b9eb84c7a309c64f8a266766bd1c47b07dfbc28b8913bb0fe635"
+      },
+      "exit_code": 0,
+      "after": {
+        "unix_seconds": 1789119733.1352084,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "39 C",
+            "clock": "2632 MHz",
+            "utilization": "23 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 2.061828367994167
+    },
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 2,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 396.133923,
+          "complete_step_ms": 52.692475,
+          "command_ms": 0.000139,
+          "simulate_fetch_ms": 52.452573,
+          "completion_ms": 0.239763,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 283.128334,
+          "complete_step_ms": 40.889392,
+          "command_ms": 0.000145,
+          "simulate_fetch_ms": 40.632211,
+          "completion_ms": 0.257036,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": true,
+      "passed": true
+    }
+  },
+  {
+    "name": "mem-explicit-city25-impact",
+    "raw": "out/snapshot-large-20260911/mem-explicit-city25-impact",
+    "receipt": {
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/mem-explicit-city25-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "complete",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789119755.1271567,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1144320,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/explicit-topology/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/explicit-topology/libPhysXDestructionGpuRuntime_64.so": "d99b6d3da393b9eb84c7a309c64f8a266766bd1c47b07dfbc28b8913bb0fe635"
+      },
+      "exit_code": 0,
+      "after": {
+        "unix_seconds": 1789119764.2833803,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "39 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 9.154414403994451
+    },
+    "memcheck_errors": 0,
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 2,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 955.63244,
+          "complete_step_ms": 2564.819619,
+          "command_ms": 0.000152,
+          "simulate_fetch_ms": 2515.009145,
+          "completion_ms": 49.810322,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 636.667121,
+          "complete_step_ms": 2281.899568,
+          "command_ms": 0.000151,
+          "simulate_fetch_ms": 2233.932534,
+          "completion_ms": 47.966883,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": true,
+      "passed": true
+    }
+  },
+  {
+    "name": "mem-synchronized-city25-impact",
+    "raw": "out/snapshot-large-20260911/mem-synchronized-city25-impact",
+    "receipt": {
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/mem-synchronized-city25-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "complete",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789119945.0619705,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1145824,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/synchronized-topology/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/synchronized-topology/libPhysXDestructionGpuRuntime_64.so": "36cc558277bc3916c061629325c1571c68a199fbe71bf14379b5ac28102ad50a"
+      },
+      "exit_code": 0,
+      "after": {
+        "unix_seconds": 1789119954.279828,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "40 C",
+            "clock": "2835 MHz",
+            "utilization": "4 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 9.216126072002226
+    },
+    "memcheck_errors": 0,
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 2,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 1030.532304,
+          "complete_step_ms": 2532.419722,
+          "command_ms": 0.00015,
+          "simulate_fetch_ms": 2489.503894,
+          "completion_ms": 42.915678,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 588.847224,
+          "complete_step_ms": 2297.735604,
+          "command_ms": 0.000138,
+          "simulate_fetch_ms": 2269.062619,
+          "completion_ms": 28.672847,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": true,
+      "passed": true
+    }
+  },
+  {
+    "name": "mem-sync-before-city25-impact",
+    "raw": "out/snapshot-large-20260911/mem-sync-before-city25-impact",
+    "receipt": {
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/mem-sync-before-city25-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "complete",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789120130.3751922,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1147421,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/sync-before-topology/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/sync-before-topology/libPhysXDestructionGpuRuntime_64.so": "7f8d9a964df7348903ca0b06f5a51b2611b039703bfcd6f13382497dee03752c"
+      },
+      "exit_code": 0,
+      "after": {
+        "unix_seconds": 1789120139.6266387,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "40 C",
+            "clock": "2632 MHz",
+            "utilization": "10 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 9.250439117997303
+    },
+    "memcheck_errors": 0,
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 2,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 935.179966,
+          "complete_step_ms": 2567.150861,
+          "command_ms": 0.000164,
+          "simulate_fetch_ms": 2522.285803,
+          "completion_ms": 44.864894,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 599.429497,
+          "complete_step_ms": 2329.969108,
+          "command_ms": 0.000197,
+          "simulate_fetch_ms": 2270.527403,
+          "completion_ms": 59.441508,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": true,
+      "passed": true
+    }
+  },
+  {
+    "name": "mem-sync-after-city25-impact",
+    "raw": "out/snapshot-large-20260911/mem-sync-after-city25-impact",
+    "receipt": {
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/mem-sync-after-city25-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "failed",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789120159.103016,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1147683,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/sync-after-topology/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/sync-after-topology/libPhysXDestructionGpuRuntime_64.so": "e5e9730cc800e226bb0d35f0cd17b3d795c892579d6efc189cadf44e7cbbb45d"
+      },
+      "exit_code": 97,
+      "error": "Probe failed or missing maps",
+      "after": {
+        "unix_seconds": 1789120165.8402376,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "39 C",
+            "clock": "2842 MHz",
+            "utilization": "4 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 6.73690217800322
+    },
+    "memcheck_errors": 55
+  },
+  {
+    "name": "mem-sync-input-event-city25-impact",
+    "raw": "out/snapshot-large-20260911/mem-sync-input-event-city25-impact",
+    "receipt": {
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/mem-sync-input-event-city25-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "complete",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789120518.1351788,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "39 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1150407,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/sync-input-event-topology/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/sync-input-event-topology/libPhysXDestructionGpuRuntime_64.so": "f3c4482a412f7a05bf465e1286c53af3a51f7f9d4b99be82c101fa96504ea86f"
+      },
+      "exit_code": 0,
+      "after": {
+        "unix_seconds": 1789120527.1809745,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "40 C",
+            "clock": "2842 MHz",
+            "utilization": "10 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 9.043977558001643
+    },
+    "memcheck_errors": 0,
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 2,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 931.047056,
+          "complete_step_ms": 2587.299021,
+          "command_ms": 0.000146,
+          "simulate_fetch_ms": 2539.871088,
+          "completion_ms": 47.427787,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 603.240664,
+          "complete_step_ms": 2162.631758,
+          "command_ms": 0.000156,
+          "simulate_fetch_ms": 2116.579823,
+          "completion_ms": 46.051779,
+          "stress_iterations": 304,
+          "broken_bonds": 3412,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 537,
+          "stress_islands": 77,
+          "stress_active_nodes": 9040,
+          "stress_active_bonds": 16188,
+          "normal_contacts": 3931,
+          "friction_anchors": 625,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": true,
+      "passed": true
+    }
+  },
+  {
+    "name": "mem-upload-city25-impact",
+    "raw": "out/snapshot-large-20260911/mem-upload-city25-impact",
+    "receipt": {
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/mem-upload-city25-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2"
+      ],
+      "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+      "status": "failed",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "before": {
+        "unix_seconds": 1789120566.167685,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "39 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1150783,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/upload-topology/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/upload-topology/libPhysXDestructionGpuRuntime_64.so": "55b52a8054656c41130a8c739ee9c872c1406ea790477a61bf5e5f4aa6cbea5a"
+      },
+      "exit_code": 97,
+      "error": "Probe failed or missing maps",
+      "after": {
+        "unix_seconds": 1789120572.844403,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "40 C",
+            "clock": "2632 MHz",
+            "utilization": "4 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 6.675547495004139
+    },
+    "memcheck_errors": 98
+  },
+  {
+    "name": "observe-city25-post-impact",
+    "raw": "out/snapshot-large-20260911/observe-city25-post-impact",
+    "receipt": {
+      "command": [
+        "/root/workspace/physx-2/out/snapshot-large-20260911/observation-probe/serialization-probe",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/observe-city25-post-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83",
+        "--repetitions",
+        "20"
+      ],
+      "binary_sha256": "6167564d2134dbffa7cd28c08b0bb4724603521bc73e885428fb038b505946de",
+      "status": "failed",
+      "diagnostic_environment": {
+        "PHYSX_SNAPSHOT_DUMP_OBSERVATIONS": "1"
+      },
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.pxbin": "57418bdf1af61cd8a6f18481418de8a13e9af12fa6c1ad9faaa51f2a2e7da37e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.destruction": "0ff5545bc5f0d12dfd5aa6b9cc5d0ea3bf6cfc9c812a92847c0758ac4553b8b5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.metadata.json": "2da612d044e945453737fefc949422ae550e82326bcb161da66e861469958237"
+      },
+      "before": {
+        "unix_seconds": 1789119842.7813466,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1145064,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/libPhysXDestructionGpuRuntime_64.so": "6bda98b4c263664a3b12df86c0298bf24930047fd78214f04be19089585a8c56"
+      },
+      "exit_code": 1,
+      "error": "Probe failed or missing maps",
+      "after": {
+        "unix_seconds": 1789119853.6083376,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 10.829556829994544
+    },
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 20,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 378.785781,
+          "complete_step_ms": 27.819989,
+          "command_ms": 0.000125,
+          "simulate_fetch_ms": 27.640761,
+          "completion_ms": 0.179103,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 290.242183,
+          "complete_step_ms": 24.76682,
+          "command_ms": 0.000135,
+          "simulate_fetch_ms": 24.599241,
+          "completion_ms": 0.167444,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 2,
+          "restore_ms": 297.597818,
+          "complete_step_ms": 23.376023,
+          "command_ms": 0.000151,
+          "simulate_fetch_ms": 23.165596,
+          "completion_ms": 0.210276,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 3,
+          "restore_ms": 289.420753,
+          "complete_step_ms": 21.778115,
+          "command_ms": 0.000112,
+          "simulate_fetch_ms": 21.577539,
+          "completion_ms": 0.200464,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 4,
+          "restore_ms": 288.278312,
+          "complete_step_ms": 22.013528,
+          "command_ms": 0.000108,
+          "simulate_fetch_ms": 21.841129,
+          "completion_ms": 0.172291,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 5,
+          "restore_ms": 312.45851,
+          "complete_step_ms": 23.444208,
+          "command_ms": 0.000137,
+          "simulate_fetch_ms": 23.206912,
+          "completion_ms": 0.237159,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 6,
+          "restore_ms": 319.847343,
+          "complete_step_ms": 20.960392,
+          "command_ms": 0.000119,
+          "simulate_fetch_ms": 20.83186,
+          "completion_ms": 0.128413,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 7,
+          "restore_ms": 326.500656,
+          "complete_step_ms": 21.679866,
+          "command_ms": 0.000123,
+          "simulate_fetch_ms": 21.448604,
+          "completion_ms": 0.231139,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 8,
+          "restore_ms": 304.247936,
+          "complete_step_ms": 21.743318,
+          "command_ms": 0.00015,
+          "simulate_fetch_ms": 21.548113,
+          "completion_ms": 0.195055,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 9,
+          "restore_ms": 303.614341,
+          "complete_step_ms": 22.416512,
+          "command_ms": 0.000223,
+          "simulate_fetch_ms": 22.18251,
+          "completion_ms": 0.233779,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 10,
+          "restore_ms": 287.966155,
+          "complete_step_ms": 21.629136,
+          "command_ms": 0.000117,
+          "simulate_fetch_ms": 21.432764,
+          "completion_ms": 0.196255,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 11,
+          "restore_ms": 291.747827,
+          "complete_step_ms": 23.005831,
+          "command_ms": 0.000139,
+          "simulate_fetch_ms": 22.796103,
+          "completion_ms": 0.209589,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 12,
+          "restore_ms": 288.012607,
+          "complete_step_ms": 23.105332,
+          "command_ms": 0.000116,
+          "simulate_fetch_ms": 22.817151,
+          "completion_ms": 0.288065,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 13,
+          "restore_ms": 282.551,
+          "complete_step_ms": 21.760793,
+          "command_ms": 0.000147,
+          "simulate_fetch_ms": 21.56521,
+          "completion_ms": 0.195436,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 14,
+          "restore_ms": 291.367481,
+          "complete_step_ms": 22.716966,
+          "command_ms": 0.000123,
+          "simulate_fetch_ms": 22.524948,
+          "completion_ms": 0.191895,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 15,
+          "restore_ms": 290.365715,
+          "complete_step_ms": 22.716399,
+          "command_ms": 0.000177,
+          "simulate_fetch_ms": 22.523363,
+          "completion_ms": 0.192859,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 16,
+          "restore_ms": 290.851814,
+          "complete_step_ms": 22.828626,
+          "command_ms": 0.000404,
+          "simulate_fetch_ms": 22.603937,
+          "completion_ms": 0.224285,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 17,
+          "restore_ms": 299.819362,
+          "complete_step_ms": 19.157571,
+          "command_ms": 0.000116,
+          "simulate_fetch_ms": 18.973174,
+          "completion_ms": 0.184281,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 18,
+          "restore_ms": 286.433716,
+          "complete_step_ms": 21.370742,
+          "command_ms": 0.000106,
+          "simulate_fetch_ms": 21.214264,
+          "completion_ms": 0.156372,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 19,
+          "restore_ms": 286.708375,
+          "complete_step_ms": 20.851987,
+          "command_ms": 0.000113,
+          "simulate_fetch_ms": 20.696129,
+          "completion_ms": 0.155745,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": false,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": false,
+      "passed": false
+    }
+  },
+  {
+    "name": "observe-serial-city25-post-impact",
+    "raw": "out/snapshot-large-20260911/observe-serial-city25-post-impact",
+    "receipt": {
+      "command": [
+        "/root/workspace/physx-2/out/snapshot-large-20260911/observation-probe/serialization-probe",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/observe-serial-city25-post-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83",
+        "--repetitions",
+        "20"
+      ],
+      "binary_sha256": "6167564d2134dbffa7cd28c08b0bb4724603521bc73e885428fb038b505946de",
+      "status": "complete",
+      "diagnostic_environment": {
+        "PHYSX_SNAPSHOT_DUMP_OBSERVATIONS": "1"
+      },
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.pxbin": "57418bdf1af61cd8a6f18481418de8a13e9af12fa6c1ad9faaa51f2a2e7da37e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.destruction": "0ff5545bc5f0d12dfd5aa6b9cc5d0ea3bf6cfc9c812a92847c0758ac4553b8b5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.metadata.json": "2da612d044e945453737fefc949422ae550e82326bcb161da66e861469958237"
+      },
+      "before": {
+        "unix_seconds": 1789120017.039832,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1146490,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/serial-contact-control/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/serial-contact-control/libPhysXDestructionGpuRuntime_64.so": "2ccfee70283ad97b40b85eeb9f64f9a9d4dff9491d03ab0eca0df5253404172a"
+      },
+      "exit_code": 0,
+      "after": {
+        "unix_seconds": 1789120027.8821192,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "39 C",
+            "clock": "2662 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 10.8400950050127
+    },
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 20,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 381.982795,
+          "complete_step_ms": 36.192832,
+          "command_ms": 0.000106,
+          "simulate_fetch_ms": 35.994574,
+          "completion_ms": 0.198152,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 289.181587,
+          "complete_step_ms": 30.251794,
+          "command_ms": 8.3e-05,
+          "simulate_fetch_ms": 30.079594,
+          "completion_ms": 0.172117,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 2,
+          "restore_ms": 287.877189,
+          "complete_step_ms": 31.533361,
+          "command_ms": 9e-05,
+          "simulate_fetch_ms": 31.326195,
+          "completion_ms": 0.207076,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 3,
+          "restore_ms": 286.947328,
+          "complete_step_ms": 28.858871,
+          "command_ms": 9.3e-05,
+          "simulate_fetch_ms": 28.64414,
+          "completion_ms": 0.214638,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 4,
+          "restore_ms": 287.924317,
+          "complete_step_ms": 27.08596,
+          "command_ms": 8.8e-05,
+          "simulate_fetch_ms": 26.863096,
+          "completion_ms": 0.222776,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 5,
+          "restore_ms": 287.642438,
+          "complete_step_ms": 26.802575,
+          "command_ms": 8.9e-05,
+          "simulate_fetch_ms": 26.588385,
+          "completion_ms": 0.214101,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 6,
+          "restore_ms": 302.211696,
+          "complete_step_ms": 28.307749,
+          "command_ms": 8.5e-05,
+          "simulate_fetch_ms": 28.079241,
+          "completion_ms": 0.228423,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 7,
+          "restore_ms": 286.981597,
+          "complete_step_ms": 29.01444,
+          "command_ms": 8.2e-05,
+          "simulate_fetch_ms": 28.796037,
+          "completion_ms": 0.218321,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 8,
+          "restore_ms": 287.356857,
+          "complete_step_ms": 27.4697,
+          "command_ms": 8.4e-05,
+          "simulate_fetch_ms": 27.286224,
+          "completion_ms": 0.183392,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 9,
+          "restore_ms": 303.117836,
+          "complete_step_ms": 28.002868,
+          "command_ms": 9.1e-05,
+          "simulate_fetch_ms": 27.806286,
+          "completion_ms": 0.196491,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 10,
+          "restore_ms": 294.912027,
+          "complete_step_ms": 28.345811,
+          "command_ms": 9e-05,
+          "simulate_fetch_ms": 28.198639,
+          "completion_ms": 0.147082,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 11,
+          "restore_ms": 287.438279,
+          "complete_step_ms": 37.34717,
+          "command_ms": 0.000109,
+          "simulate_fetch_ms": 37.122944,
+          "completion_ms": 0.224117,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 12,
+          "restore_ms": 292.950306,
+          "complete_step_ms": 31.426068,
+          "command_ms": 8.1e-05,
+          "simulate_fetch_ms": 31.212638,
+          "completion_ms": 0.213349,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 13,
+          "restore_ms": 293.10563,
+          "complete_step_ms": 29.909251,
+          "command_ms": 8e-05,
+          "simulate_fetch_ms": 29.694847,
+          "completion_ms": 0.214324,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 14,
+          "restore_ms": 293.717249,
+          "complete_step_ms": 30.342913,
+          "command_ms": 8.4e-05,
+          "simulate_fetch_ms": 30.095788,
+          "completion_ms": 0.247041,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 15,
+          "restore_ms": 305.920416,
+          "complete_step_ms": 29.430825,
+          "command_ms": 8.2e-05,
+          "simulate_fetch_ms": 29.168831,
+          "completion_ms": 0.261912,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 16,
+          "restore_ms": 294.635443,
+          "complete_step_ms": 30.380753,
+          "command_ms": 8.1e-05,
+          "simulate_fetch_ms": 30.161178,
+          "completion_ms": 0.219494,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 17,
+          "restore_ms": 294.747025,
+          "complete_step_ms": 29.651288,
+          "command_ms": 9.5e-05,
+          "simulate_fetch_ms": 29.33805,
+          "completion_ms": 0.313143,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 18,
+          "restore_ms": 293.263874,
+          "complete_step_ms": 30.483876,
+          "command_ms": 8.1e-05,
+          "simulate_fetch_ms": 30.272111,
+          "completion_ms": 0.211684,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 19,
+          "restore_ms": 295.206047,
+          "complete_step_ms": 28.394739,
+          "command_ms": 8.1e-05,
+          "simulate_fetch_ms": 28.152656,
+          "completion_ms": 0.242002,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": true,
+      "passed": true
+    }
+  },
+  {
+    "name": "observe-stable-city25-post-impact",
+    "raw": "out/snapshot-large-20260911/observe-stable-city25-post-impact",
+    "receipt": {
+      "command": [
+        "/root/workspace/physx-2/out/snapshot-large-20260911/observation-probe/serialization-probe",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/observe-stable-city25-post-impact",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83",
+        "--repetitions",
+        "20"
+      ],
+      "binary_sha256": "6167564d2134dbffa7cd28c08b0bb4724603521bc73e885428fb038b505946de",
+      "status": "complete",
+      "diagnostic_environment": {
+        "PHYSX_SNAPSHOT_DUMP_OBSERVATIONS": "1"
+      },
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.pxbin": "57418bdf1af61cd8a6f18481418de8a13e9af12fa6c1ad9faaa51f2a2e7da37e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.destruction": "0ff5545bc5f0d12dfd5aa6b9cc5d0ea3bf6cfc9c812a92847c0758ac4553b8b5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.metadata.json": "2da612d044e945453737fefc949422ae550e82326bcb161da66e861469958237"
+      },
+      "before": {
+        "unix_seconds": 1789120466.920688,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "39 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1150022,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-contact-control/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-contact-control/libPhysXDestructionGpuRuntime_64.so": "84aa2939c7205bccad363edb5f44907b93c155b1f317fa28d777de555374cb7c"
+      },
+      "exit_code": 0,
+      "after": {
+        "unix_seconds": 1789120477.3543243,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "39 C",
+            "clock": "2670 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 10.429250095010502
+    },
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 20,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 389.029423,
+          "complete_step_ms": 29.394946,
+          "command_ms": 0.000128,
+          "simulate_fetch_ms": 29.150557,
+          "completion_ms": 0.244261,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 322.924004,
+          "complete_step_ms": 22.476929,
+          "command_ms": 8.6e-05,
+          "simulate_fetch_ms": 22.280048,
+          "completion_ms": 0.196795,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 2,
+          "restore_ms": 293.513138,
+          "complete_step_ms": 22.210245,
+          "command_ms": 8.4e-05,
+          "simulate_fetch_ms": 21.912304,
+          "completion_ms": 0.297857,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 3,
+          "restore_ms": 286.481358,
+          "complete_step_ms": 23.788,
+          "command_ms": 9.4e-05,
+          "simulate_fetch_ms": 23.588518,
+          "completion_ms": 0.199388,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 4,
+          "restore_ms": 289.073592,
+          "complete_step_ms": 23.119237,
+          "command_ms": 0.000103,
+          "simulate_fetch_ms": 22.902625,
+          "completion_ms": 0.216509,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 5,
+          "restore_ms": 287.881973,
+          "complete_step_ms": 23.006722,
+          "command_ms": 8.2e-05,
+          "simulate_fetch_ms": 22.799482,
+          "completion_ms": 0.207158,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 6,
+          "restore_ms": 291.537323,
+          "complete_step_ms": 21.503578,
+          "command_ms": 9.2e-05,
+          "simulate_fetch_ms": 21.318925,
+          "completion_ms": 0.184561,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 7,
+          "restore_ms": 288.874705,
+          "complete_step_ms": 22.292914,
+          "command_ms": 8e-05,
+          "simulate_fetch_ms": 22.09954,
+          "completion_ms": 0.193294,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 8,
+          "restore_ms": 288.94494,
+          "complete_step_ms": 21.296516,
+          "command_ms": 8.3e-05,
+          "simulate_fetch_ms": 21.07488,
+          "completion_ms": 0.221553,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 9,
+          "restore_ms": 290.453037,
+          "complete_step_ms": 22.826888,
+          "command_ms": 8.5e-05,
+          "simulate_fetch_ms": 22.643814,
+          "completion_ms": 0.182989,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 10,
+          "restore_ms": 295.951508,
+          "complete_step_ms": 22.218681,
+          "command_ms": 9.2e-05,
+          "simulate_fetch_ms": 21.997383,
+          "completion_ms": 0.221206,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 11,
+          "restore_ms": 292.144395,
+          "complete_step_ms": 22.591816,
+          "command_ms": 8.6e-05,
+          "simulate_fetch_ms": 22.402639,
+          "completion_ms": 0.189091,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 12,
+          "restore_ms": 291.031113,
+          "complete_step_ms": 21.396182,
+          "command_ms": 8.3e-05,
+          "simulate_fetch_ms": 21.143894,
+          "completion_ms": 0.252205,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 13,
+          "restore_ms": 289.082294,
+          "complete_step_ms": 22.503286,
+          "command_ms": 8.6e-05,
+          "simulate_fetch_ms": 22.304498,
+          "completion_ms": 0.198702,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 14,
+          "restore_ms": 295.520991,
+          "complete_step_ms": 22.664235,
+          "command_ms": 0.000118,
+          "simulate_fetch_ms": 22.459827,
+          "completion_ms": 0.20429,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 15,
+          "restore_ms": 300.71792,
+          "complete_step_ms": 21.168028,
+          "command_ms": 8.2e-05,
+          "simulate_fetch_ms": 20.980631,
+          "completion_ms": 0.187315,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 16,
+          "restore_ms": 292.262203,
+          "complete_step_ms": 22.036776,
+          "command_ms": 8.2e-05,
+          "simulate_fetch_ms": 21.822979,
+          "completion_ms": 0.213715,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 17,
+          "restore_ms": 290.478571,
+          "complete_step_ms": 21.925884,
+          "command_ms": 0.000107,
+          "simulate_fetch_ms": 21.722309,
+          "completion_ms": 0.203468,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 18,
+          "restore_ms": 289.049398,
+          "complete_step_ms": 21.492929,
+          "command_ms": 0.000113,
+          "simulate_fetch_ms": 21.290064,
+          "completion_ms": 0.202752,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 19,
+          "restore_ms": 293.315025,
+          "complete_step_ms": 22.125225,
+          "command_ms": 0.000114,
+          "simulate_fetch_ms": 21.71515,
+          "completion_ms": 0.409961,
+          "stress_iterations": 332,
+          "broken_bonds": 0,
+          "correction_passes": 0,
+          "stress_passes": 1,
+          "output_clusters": 526,
+          "stress_islands": 53,
+          "stress_active_nodes": 9027,
+          "stress_active_bonds": 16776,
+          "normal_contacts": 4675,
+          "friction_anchors": 1060,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": true,
+      "passed": true
+    }
+  },
+  {
+    "name": "serial-city256-late-debris",
+    "raw": "out/snapshot-large-20260911/serial-city256-late-debris",
+    "receipt": {
+      "command": [
+        "/root/workspace/physx-2/out/snapshot-large-20260911/observation-probe/serialization-probe",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/serial-city256-late-debris",
+        "--replay",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+        "--repetitions",
+        "20"
+      ],
+      "binary_sha256": "6167564d2134dbffa7cd28c08b0bb4724603521bc73e885428fb038b505946de",
+      "status": "complete",
+      "diagnostic_environment": {},
+      "snapshot_inputs": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+      },
+      "before": {
+        "unix_seconds": 1789120349.034092,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "38 C",
+            "clock": "2632 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "allowed": [
+        {
+          "pid": 1434,
+          "name": "/usr/lib/xorg/Xorg",
+          "type": "G"
+        },
+        {
+          "pid": 1946,
+          "name": "/usr/bin/kwin_x11",
+          "type": "G"
+        },
+        {
+          "pid": 2016,
+          "name": "/usr/bin/plasmashell",
+          "type": "G"
+        },
+        {
+          "pid": 5246,
+          "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+          "type": "G"
+        },
+        {
+          "pid": 435374,
+          "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+          "type": "C"
+        }
+      ],
+      "gpu_pid": 1148931,
+      "modules": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/serial-contact-control/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/serial-contact-control/libPhysXDestructionGpuRuntime_64.so": "2ccfee70283ad97b40b85eeb9f64f9a9d4dff9491d03ab0eca0df5253404172a"
+      },
+      "exit_code": 0,
+      "after": {
+        "unix_seconds": 1789120437.3797793,
+        "driver": "615.71.09",
+        "devices": [
+          {
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+            "temperature": "40 C",
+            "clock": "2842 MHz",
+            "utilization": "3 %",
+            "memory_used": "1309 MiB",
+            "processes": [
+              {
+                "pid": 1434,
+                "name": "/usr/lib/xorg/Xorg",
+                "type": "G"
+              },
+              {
+                "pid": 1946,
+                "name": "/usr/bin/kwin_x11",
+                "type": "G"
+              },
+              {
+                "pid": 2016,
+                "name": "/usr/bin/plasmashell",
+                "type": "G"
+              },
+              {
+                "pid": 5246,
+                "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+                "type": "G"
+              },
+              {
+                "pid": 435374,
+                "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+                "type": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "elapsed_monotonic_seconds": 88.3440775390045
+    },
+    "replay": {
+      "contract": "physical-file-replay-v20-complete-step",
+      "steps_per_restore": 1,
+      "repetitions": 20,
+      "projectile_impulse": false,
+      "samples": [
+        {
+          "repeat": 0,
+          "restore_ms": 2111.77198,
+          "complete_step_ms": 994.20297,
+          "command_ms": 0.000173,
+          "simulate_fetch_ms": 993.962186,
+          "completion_ms": 0.240611,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 1,
+          "restore_ms": 1988.050588,
+          "complete_step_ms": 917.910031,
+          "command_ms": 0.000172,
+          "simulate_fetch_ms": 917.557906,
+          "completion_ms": 0.351953,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 2,
+          "restore_ms": 1914.329004,
+          "complete_step_ms": 890.056184,
+          "command_ms": 0.000171,
+          "simulate_fetch_ms": 889.721305,
+          "completion_ms": 0.334708,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 3,
+          "restore_ms": 1944.343743,
+          "complete_step_ms": 898.069015,
+          "command_ms": 0.00018,
+          "simulate_fetch_ms": 897.762213,
+          "completion_ms": 0.306622,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 4,
+          "restore_ms": 1923.540271,
+          "complete_step_ms": 907.430225,
+          "command_ms": 0.000185,
+          "simulate_fetch_ms": 907.179908,
+          "completion_ms": 0.250132,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 5,
+          "restore_ms": 1937.662279,
+          "complete_step_ms": 892.277184,
+          "command_ms": 0.000176,
+          "simulate_fetch_ms": 891.945706,
+          "completion_ms": 0.331302,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 6,
+          "restore_ms": 1926.265956,
+          "complete_step_ms": 884.344129,
+          "command_ms": 0.000178,
+          "simulate_fetch_ms": 884.060631,
+          "completion_ms": 0.28332,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 7,
+          "restore_ms": 1887.907336,
+          "complete_step_ms": 887.645179,
+          "command_ms": 0.000245,
+          "simulate_fetch_ms": 887.356034,
+          "completion_ms": 0.2889,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 8,
+          "restore_ms": 1899.619203,
+          "complete_step_ms": 881.789145,
+          "command_ms": 0.00019,
+          "simulate_fetch_ms": 881.59088,
+          "completion_ms": 0.198075,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 9,
+          "restore_ms": 1936.812033,
+          "complete_step_ms": 886.031148,
+          "command_ms": 0.000167,
+          "simulate_fetch_ms": 885.766601,
+          "completion_ms": 0.26438,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 10,
+          "restore_ms": 1868.812499,
+          "complete_step_ms": 892.465,
+          "command_ms": 0.000173,
+          "simulate_fetch_ms": 892.172889,
+          "completion_ms": 0.291938,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 11,
+          "restore_ms": 1930.233608,
+          "complete_step_ms": 874.154753,
+          "command_ms": 0.000186,
+          "simulate_fetch_ms": 873.960505,
+          "completion_ms": 0.194062,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 12,
+          "restore_ms": 2001.940207,
+          "complete_step_ms": 873.443061,
+          "command_ms": 0.000158,
+          "simulate_fetch_ms": 873.138522,
+          "completion_ms": 0.304381,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 13,
+          "restore_ms": 1976.667787,
+          "complete_step_ms": 893.091271,
+          "command_ms": 0.00019,
+          "simulate_fetch_ms": 892.877234,
+          "completion_ms": 0.213847,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 14,
+          "restore_ms": 1975.26957,
+          "complete_step_ms": 890.25318,
+          "command_ms": 0.000184,
+          "simulate_fetch_ms": 890.013036,
+          "completion_ms": 0.23996,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 15,
+          "restore_ms": 2014.502438,
+          "complete_step_ms": 893.723302,
+          "command_ms": 0.000182,
+          "simulate_fetch_ms": 893.50931,
+          "completion_ms": 0.21381,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 16,
+          "restore_ms": 1951.9327,
+          "complete_step_ms": 887.222717,
+          "command_ms": 0.000267,
+          "simulate_fetch_ms": 886.993394,
+          "completion_ms": 0.229056,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 17,
+          "restore_ms": 2040.451838,
+          "complete_step_ms": 907.194156,
+          "command_ms": 0.000245,
+          "simulate_fetch_ms": 906.895657,
+          "completion_ms": 0.298254,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 18,
+          "restore_ms": 1938.28062,
+          "complete_step_ms": 877.512563,
+          "command_ms": 0.000191,
+          "simulate_fetch_ms": 877.2113,
+          "completion_ms": 0.301072,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        },
+        {
+          "repeat": 19,
+          "restore_ms": 1961.843117,
+          "complete_step_ms": 895.374311,
+          "command_ms": 0.000258,
+          "simulate_fetch_ms": 895.095908,
+          "completion_ms": 0.278145,
+          "stress_iterations": 1084,
+          "broken_bonds": 11051,
+          "correction_passes": 1,
+          "stress_passes": 2,
+          "output_clusters": 16135,
+          "stress_islands": 2762,
+          "stress_active_nodes": 83885,
+          "stress_active_bonds": 133656,
+          "normal_contacts": 267054,
+          "friction_anchors": 61120,
+          "repeatability_passed": true,
+          "motion_comparison_measured": true,
+          "position_error_m": 0,
+          "linear_error_m_s": 0,
+          "angular_error_rad_s": 0
+        }
+      ],
+      "simulation_completed": true,
+      "gpu_healthy": true,
+      "repeatability_passed": true,
+      "passed": true
+    }
+  }
+]

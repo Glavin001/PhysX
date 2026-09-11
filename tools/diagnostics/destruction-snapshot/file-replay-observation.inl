@@ -58,3 +58,34 @@ void compareObservedDestruction(const DestructionObservation& a,const Destructio
         std::cerr<<std::setprecision(10)<<"health differences="<<count<<" max="<<delta<<" bond="<<index<<" values="<<a.health[index]<<'/'<<b.health[index]<<std::endl;}
     require(a.health==b.health,"bond health changed between equivalent states");
 }
+
+// Optional diagnostic observations after the complete tick and outside its timer.
+// These are never restored and do not change the serialized physical-state contract.
+void dumpReplayObservations(PxScene& scene,const char* directory,unsigned repeat){
+    const char* enabled=std::getenv("PHYSX_SNAPSHOT_DUMP_OBSERVATIONS");
+    if(!enabled || std::strcmp(enabled,"1"))return;
+    const auto view=scene.getDestructionScene()->getDeviceView();
+    require(cuCtxPushCurrent(scene.getCudaContextManager()->getContext())==CUDA_SUCCESS,"dump context");
+    require(cuEventSynchronize(view.readyEvent)==CUDA_SUCCESS,"dump ready");
+    const std::string prefix=std::string(directory)+"/observation-"+std::to_string(repeat);
+    std::ofstream manifest(prefix+".json");manifest<<"{\"repeat\":"<<repeat<<",\"arrays\":[";
+    bool first=true;
+    auto dump=[&](const char* name,const auto* pointer,size_t count){
+        const size_t stride=sizeof(*pointer);std::vector<char> data(count*stride);
+        if(count)require(pointer && cuMemcpyDtoH(data.data(),CUdeviceptr(pointer),data.size())==CUDA_SUCCESS,"dump readback");
+        const std::string path=prefix+"-"+name+".bin";std::ofstream file(path,std::ios::binary);
+        file.write(data.data(),data.size());require(bool(file),"dump write");
+        if(!first)manifest<<',';first=false;
+        manifest<<"{\"name\":\""<<name<<"\",\"count\":"<<count<<",\"stride\":"<<stride<<'}';
+    };
+    dump("node-accelerations",view.nodeAccelerations,view.chunkCount);
+    dump("surface-loads",view.surfaceLoads,view.chunkCount);
+    dump("bond-forces",view.bondForces,view.bondCount);
+    dump("health",view.bondHealth,view.bondCount);
+    dump("active-bonds",view.acceptedTopology.activeBonds,view.bondCount);
+    PxDestructionStressTopologyStatus status{};
+    require(cuMemcpyDtoH(&status,CUdeviceptr(view.stressTopology),sizeof(status))==CUDA_SUCCESS,"dump generation");
+    manifest<<"],\"topology_generation\":"<<status.generation<<",\"solved_generation\":"<<status.solvedGeneration<<"}\n";
+    require(bool(manifest),"dump manifest");
+    CUcontext previous;require(cuCtxPopCurrent(&previous)==CUDA_SUCCESS,"dump context pop");
+}
