@@ -112,6 +112,76 @@ target_link_libraries(NvBlastExtStressPhysX PUBLIC blast_stress_core)
 
 if(BLAST_ENABLE_CUDA_STRESS)
     find_package(CUDAToolkit REQUIRED)
+    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13.4 AND CMAKE_CUDA_ARCHITECTURES MATCHES "(^|;)120(-real|-virtual)?(;|$)")
+        add_executable(stress_elastic_operator_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_operator_test.cu")
+        target_link_libraries(stress_elastic_operator_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_operator_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        set_target_properties(stress_elastic_operator_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        add_test(NAME blast_stress_six_channel_operator COMMAND stress_elastic_operator_test)
+        add_executable(stress_elastic_pcg_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_pcg_test.cu")
+        target_link_libraries(stress_elastic_pcg_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_pcg_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        set_target_properties(stress_elastic_pcg_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        add_test(NAME blast_stress_six_channel_pcg COMMAND stress_elastic_pcg_test)
+        add_executable(stress_elastic_setup_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_setup_test.cu")
+        target_link_libraries(stress_elastic_setup_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_setup_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        set_target_properties(stress_elastic_setup_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        add_test(NAME blast_stress_six_channel_setup COMMAND stress_elastic_setup_test)
+        add_executable(stress_elastic_components_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_components_test.cu")
+        target_link_libraries(stress_elastic_components_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_components_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        set_target_properties(stress_elastic_components_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        add_test(NAME blast_stress_six_channel_components COMMAND stress_elastic_components_test)
+        add_executable(stress_elastic_loads_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_loads_test.cu")
+        target_include_directories(stress_elastic_loads_test PRIVATE
+            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
+        target_link_libraries(stress_elastic_loads_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_loads_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        set_target_properties(stress_elastic_loads_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        add_test(NAME blast_stress_six_channel_loads COMMAND stress_elastic_loads_test)
+        add_executable(stress_elastic_partition_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_partition_test.cu")
+        target_include_directories(stress_elastic_partition_test PRIVATE
+            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
+        target_link_libraries(stress_elastic_partition_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_partition_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        set_target_properties(stress_elastic_partition_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        add_test(NAME blast_stress_six_channel_partition COMMAND stress_elastic_partition_test)
+        add_executable(stress_elastic_native_graph_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_native_graph_test.cu")
+        target_include_directories(stress_elastic_native_graph_test PRIVATE
+            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
+        target_link_libraries(stress_elastic_native_graph_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_native_graph_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        set_target_properties(stress_elastic_native_graph_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        add_test(NAME blast_stress_six_channel_native_graph COMMAND stress_elastic_native_graph_test)
+        add_executable(stress_elastic_load_join_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_load_join_test.cu")
+        target_include_directories(stress_elastic_load_join_test PRIVATE
+            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
+        target_link_libraries(stress_elastic_load_join_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_load_join_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        set_target_properties(stress_elastic_load_join_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        add_test(NAME blast_stress_six_channel_load_join COMMAND stress_elastic_load_join_test)
+        add_executable(stress_elastic_commands_test
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_commands_test.cu")
+        target_include_directories(stress_elastic_commands_test PRIVATE
+            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
+            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
+        target_link_libraries(stress_elastic_commands_test PRIVATE CUDA::cudart)
+        target_compile_options(stress_elastic_commands_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+        add_test(NAME blast_stress_six_channel_commands COMMAND stress_elastic_commands_test)
+    endif()
     target_sources(NvBlastExtStressPhysX PRIVATE
         "${BLAST_ROOT}/source/sdk/extensions/stressphysx/NvBlastExtStressPhysXContactGpu.cu")
     target_compile_definitions(NvBlastExtStressPhysX PRIVATE NVBLAST_ENABLE_DIRECT_GPU_CONTACT_DRAIN)
@@ -729,6 +799,44 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     add_executable(native_gpu_correction_body_test tests/native_gpu_correction_body_test.cpp physx_scene.cpp)
     get_target_property(NATIVE_CHECKPOINT_TEST_INCLUDES native_gpu_checkpoint_test INCLUDE_DIRECTORIES)
+    add_executable(native_command_wake_test tests/native_command_wake_test.cpp physx_scene.cpp)
+    target_include_directories(native_command_wake_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+    target_compile_definitions(native_command_wake_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_link_options(native_command_wake_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_command_wake_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
+    add_test(NAME physx_native_command_wake COMMAND native_command_wake_test)
+    add_executable(native_gpu_command_motion_test tests/native_gpu_command_motion_test.cu)
+    target_include_directories(native_gpu_command_motion_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/src"
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail"
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test")
+    target_compile_definitions(native_gpu_command_motion_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
+    target_compile_options(native_gpu_command_motion_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+    target_link_libraries(native_gpu_command_motion_test PRIVATE CUDA::cudart)
+    add_test(NAME physx_native_gpu_command_motion COMMAND native_gpu_command_motion_test)
+    add_executable(native_gpu_command_baseline_test tests/native_gpu_command_baseline_test.cu)
+    target_include_directories(native_gpu_command_baseline_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/src"
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail"
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test")
+    target_compile_definitions(native_gpu_command_baseline_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
+    target_compile_options(native_gpu_command_baseline_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+    target_link_libraries(native_gpu_command_baseline_test PRIVATE CUDA::cudart)
+    add_test(NAME physx_native_gpu_command_baseline COMMAND native_gpu_command_baseline_test)
+    add_executable(native_gpu_command_inputs_test tests/native_gpu_command_inputs_test.cu)
+    target_include_directories(native_gpu_command_inputs_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/src")
+    target_compile_definitions(native_gpu_command_inputs_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
+    target_compile_options(native_gpu_command_inputs_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+    target_link_libraries(native_gpu_command_inputs_test PRIVATE CUDA::cudart)
+    add_test(NAME physx_native_gpu_command_inputs COMMAND native_gpu_command_inputs_test)
+    add_executable(native_gpu_input_owners_test tests/native_gpu_input_owners_test.cu)
+    target_include_directories(native_gpu_input_owners_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/src")
+    target_compile_definitions(native_gpu_input_owners_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
+    target_compile_options(native_gpu_input_owners_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+    target_link_libraries(native_gpu_input_owners_test PRIVATE CUDA::cudart)
+    add_test(NAME physx_native_gpu_input_owners COMMAND native_gpu_input_owners_test)
     target_include_directories(native_gpu_correction_body_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
     target_compile_definitions(native_gpu_correction_body_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_link_options(native_gpu_correction_body_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
@@ -857,6 +965,18 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_options(native_group_filter_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_group_filter_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
     add_test(NAME physx_native_gpu_group_filtering COMMAND native_group_filter_test)
+
+    add_executable(native_destruction_snapshot_test
+        "${REPO_ROOT}/tools/diagnostics/destruction-snapshot/serialization-probe.cpp" physx_scene.cpp)
+    target_compile_definitions(native_destruction_snapshot_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_destruction_snapshot_test PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES} "${CMAKE_CURRENT_SOURCE_DIR}" "${PHYSX_ROOT}/include"
+        "${PHYSX_ROOT}/source/gpudestruction/include" "${PHYSX_ROOT}/source/gpusimulationcontroller/include" "${PHYSX_ROOT}/source/gpucommon/include")
+    target_link_options(native_destruction_snapshot_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_destruction_snapshot_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/snapshot-test-output")
+    add_test(NAME physx_native_destruction_snapshot COMMAND native_destruction_snapshot_test
+        "${CMAKE_CURRENT_BINARY_DIR}/snapshot-test-output" --require-complete-shapes)
+    set_tests_properties(physx_native_destruction_snapshot PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
 
     add_executable(native_gpu_publication_test tests/native_gpu_publication_test.cpp physx_scene.cpp)
     target_compile_definitions(native_gpu_publication_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)

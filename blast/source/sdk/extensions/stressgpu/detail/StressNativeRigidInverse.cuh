@@ -28,10 +28,12 @@ __device__ __noinline__ void buildNativeRigidInverseCoefficients(const double* f
     inverse[size_t(8)*stride+node]=kz/c;
     inverse[size_t(9)*stride+node]=1/c;
 }
+__device__ __forceinline__ void buildNativeMixedInverse(const NativeStressCycleView& h,unsigned node);
 __device__ __forceinline__ void buildNativeRigidInverse(const NativeStressCycleView& h,unsigned node){
     const auto generation=h.topology->generation;
     if(h.inverseValid[node] && h.inverseGeneration[node]==generation)return;
     buildNativeRigidInverseCoefficients(h.cycle.levels[0].diagonal.diagonal,h.fineInverse,h.inverseStride,node);
+    buildNativeMixedInverse(h,node);
     h.inverseGeneration[node]=generation;h.inverseValid[node]=1;
 }
 __device__ __forceinline__ StressHierarchy::Vector applyNativeRigidInverse(NativeStressCycleView h,unsigned node,StressHierarchy::Vector value){
@@ -45,3 +47,5 @@ __device__ __forceinline__ StressHierarchy::Vector applyNativeRigidInverse(Nativ
     x={fma(u20,rhs.z,x.x),fma(u21,rhs.z,x.y),fma(u22,rhs.z,x.z)};
     return {x,StressHierarchy::sub(StressHierarchy::mul(value.linear,p[9*stride]),StressHierarchy::cross(k,x))};
 }
+
+#include "StressNativeMixedInverse.cuh"

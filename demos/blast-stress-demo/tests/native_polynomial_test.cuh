@@ -50,9 +50,9 @@ void polynomialOperator(){
         auto multiply=[&](const std::vector<long double>& m,const std::vector<long double>& x){std::vector<long double> y(size);for(unsigned r=0;r<size;++r)for(unsigned c=0;c<size;++c)y[r]+=m[r*size+c]*x[c];return y;};
         long double worst=0,symmetry=0;std::vector<long double> actual(size*size);
         for(unsigned column=anchored?6:0;column<size;++column){std::vector<long double> x(size),r(size);r[column]=1;
-            const unsigned roots[2]={1,0};
-            for(auto root:roots){const auto ax=multiply(matrix,x);for(unsigned i=0;i<size;++i)r[i]=(i==column?1:0)-ax[i];const auto z=multiply(inverse,r);
-                const long double weight=1/(1.055L-.955L*cosl((2*root+1)*acosl(-1.L)/4));for(unsigned i=0;i<size;++i)x[i]+=weight*z[i];}
+            // Independent dense long-double block inverse is the candidate
+            // preconditioner oracle. Accuracy and SPD limits are unchanged.
+            x=multiply(inverse,r);
             for(unsigned node=0;node<n;++node){auto y=unpack(observed[size_t(column)*n+node]);for(unsigned k=0;k<6;++k){const auto row=node*6+k;actual[row*size+column]=y[k];worst=std::max(worst,fabsl(y[k]-x[row])/(1+fabsl(x[row])));}}
         }
         for(unsigned row=anchored?6:0;row<size;++row)for(unsigned col=anchored?6:0;col<size;++col)symmetry=std::max(symmetry,fabsl(actual[row*size+col]-actual[col*size+row])/(1+fabsl(actual[row*size+col])));

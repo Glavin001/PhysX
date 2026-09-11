@@ -10,6 +10,11 @@ __device__ __forceinline__ bool nativeHierarchyReady(const NativeStressCycleView
 __device__ __forceinline__ void nativeCycleRhs(const PersistentStressArgs& a,unsigned node){
     const auto w=a.m_residual[node];a.hierarchy.rhs[node]={{w.angular.x,w.angular.y,w.angular.z},{w.linear.x,w.linear.y,w.linear.z}};
 }
+// The same rounded FP32 D*v formerly recomputed by every neighboring row.
+// This scratch is component-owned; existing block barriers publish its writes.
+__device__ __forceinline__ void cacheNativeOperatorInput(const PersistentStressArgs& a,unsigned node,AngLin value){
+    const auto d=a.m_inertia[node];a.m_nsW[node]={mul(value.angular,d.angular),mul(value.linear,d.linear)};
+}
 __device__ __forceinline__ void storeNativeProjectedResidual(const PersistentStressArgs& a,unsigned node){
     const auto v=a.hierarchy.rhs[node];const AngLin r{{float(v.angular.x),float(v.angular.y),float(v.angular.z),0},{float(v.linear.x),float(v.linear.y),float(v.linear.z),0}};
     a.m_residual[node]=r;a.hierarchy.rhs[node]={{r.angular.x,r.angular.y,r.angular.z},{r.linear.x,r.linear.y,r.linear.z}};
@@ -17,16 +22,19 @@ __device__ __forceinline__ void storeNativeProjectedResidual(const PersistentStr
 // Keep the iterative residual on the same quotient as the directions. This
 // removes only null motion, not a stress load; otherwise roundoff-sized null
 // components can prevent a warm-started zero load from converging exactly.
-__device__ __forceinline__ void prepareNativeResidualComponent(const PersistentStressArgs& a,const unsigned* nodes,unsigned count,unsigned id){
-    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)nativeCycleRhs(a,nodes[i]);__syncthreads();
+__device__ __forceinline__ void prepareNativeResidualComponent(const PersistentStressArgs& a,const unsigned* nodes,unsigned count,unsigned id,bool publishPhysical=true){
+    const bool anchored=!StressHierarchy::motionDimension(a.hierarchy.modes.components[id]);
+    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const auto node=nodes[i];nativeCycleRhs(a,node);
+        if(publishPhysical && anchored)cacheNativeOperatorInput(a,node,a.m_residual[node]);}__syncthreads();
     // A fully anchored component has no null motion to project. Its RHS is
     // already the exact FP64 promotion of the FP32 residual. Rewriting both
     // through FP32 would reproduce the same values, so omit that round trip
     // and its trailing barrier. Free components retain the full projection.
     // The mode certificate belongs to the current validated topology above.
-    if(!StressHierarchy::motionDimension(a.hierarchy.modes.components[id]))return;
+    if(anchored)return;
     projectNativeNullspace(a,id,nodes,count,a.hierarchy.rhs);
-    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)storeNativeProjectedResidual(a,nodes[i]);__syncthreads();
+    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const auto node=nodes[i];storeNativeProjectedResidual(a,node);
+        if(publishPhysical)cacheNativeOperatorInput(a,node,a.m_residual[node]);}__syncthreads();
 }
 __device__ __forceinline__ void prepareNativeResidualGrid(const PersistentStressArgs& a,const unsigned* selected=nullptr){
     const auto grid=cooperative_groups::this_grid();const unsigned first=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
@@ -71,7 +79,7 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
     else {
         // Apply the fixed polynomial using cached local inverses.
         // Large components retain their cooperative multilevel schedule.
-        result=preconditionNativePolynomial(a,nodes,count);
+        result=preconditionNativeMixedBlock(a,nodes,count);
     }
     SUBPROBE_END(0)
     projectNativeNullspace(a,id,nodes,count,result);

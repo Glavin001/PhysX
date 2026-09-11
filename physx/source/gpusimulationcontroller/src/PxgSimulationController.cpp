@@ -26,6 +26,7 @@
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 
 #include "PxgSimulationController.h"
+#include "PxgDestructionNativeSnapshot.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxDirectGPUAPI.h"
 #include "PxsRigidBody.h"
@@ -636,7 +637,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction) {
-            mDestruction = PxCreateDestructionRuntimeV10(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV20(mCudaContextManager->getContext(), scene, gate, allocator);
             if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
         }
         return mDestruction;
@@ -778,7 +779,8 @@ namespace physx
             // to the original trial input and never schedule a third physics pass.
             if(!mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
                 mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
-                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream())) {
+                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream(),
+                PxgDestructionCheckpointPurpose::CorrectedMotion)) {
                 mDestructionError=1;return false;
             }
         }
@@ -2843,7 +2845,10 @@ namespace physx
 			mMaxLinks, mMaxDofs, mMaxMimicJoints, mMaxSpatialTendons, mMaxAttachments,
 			mMaxFixedTendons, mMaxTendonJoints, enableBodyAccelerations);
 
-		mSimulationCore->updateBodies(updatedBodySimPool.size(), mNewBodySimPool.size());
+		if(!mSimulationCore->updateBodies(updatedBodySimPool.size(), mNewBodySimPool.size(),
+            !mDestructionCorrecting && usesDeviceDestructionContactInputs()?mDestruction:nullptr,nbTotalBodies)) {
+            mDestructionError=1;mCudaContextManager->getCudaContext()->setAbortMode(true);
+        }
 
 		mSimulationCore->updateArticulations(mBodySimManager.mNewArticulationSims.size(), mArticulationUpdatePoolMapped.begin(),
 			mArticulationUpdatePoolMapped.size(), mArticulationDofDataPoolMapped.begin());
@@ -4742,4 +4747,4 @@ namespace physx
 #endif
 }
 
-
+#include "PxgDestructionNativeSnapshot.cpp.inl"

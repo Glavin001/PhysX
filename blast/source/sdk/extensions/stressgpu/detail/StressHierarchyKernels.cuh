@@ -35,6 +35,9 @@ struct Input {
     unsigned componentSolverMaxNodes=0;
     const unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
     const double* selfMatrices=nullptr;
+    // Optional native producer proof: unchanged incident live bonds and immutable coefficients.
+    const unsigned* fineDiagonalValid=nullptr;
+    const std::uint64_t* fineDiagonalGeneration=nullptr;
 };
 struct Status {
     std::uint64_t generation;

@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
+#include "PxgDestructionRuntime.h"
 #include "PxgSimulationCore.h"
 #include "PxDirectGPUAPI.h"
 #include "cudamanager/PxCudaContextManager.h"
@@ -2322,10 +2323,12 @@ void PxgSimulationCore::syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnf
 	nbUnfrozenShapesThisFrame = mUpdatedCacheAndBoundsDesc.get().mTotalUnfrozenShapes;
 }
 
-void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies)
+bool PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies, PxgDestructionRuntime* commandInputs, PxU32 bodyCount)
 {
     const auto updateVelocities = [&]()
 	{
+        if(commandInputs && !commandInputs->captureCommandInputs(getBodySimBufferDevicePtr().getPointer(),bodyCount,
+            reinterpret_cast<const PxgBodySimVelocityUpdate*>(mUpdatedBodySimBuffer.getDevicePtr()),nbUpdatedBodies,mStream))return false;
 		if (nbUpdatedBodies > 0)
 		{
 			CUdeviceptr descptr = mUpdatedBodiesDescBuffer.getDevicePtr();
@@ -2346,10 +2349,11 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 				PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU update bodies velocities kernel fail!\n");
 #endif
 		}
+        return true;
 	};
     const bool residentDestruction=!mGpuContext->getEnableDirectGPUAPI()
         && mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs();
-    if(!mGpuContext->getEnableDirectGPUAPI() && !residentDestruction) updateVelocities();
+    if(!mGpuContext->getEnableDirectGPUAPI() && !residentDestruction && !updateVelocities())return false;
 
 	{
 		if (nbNewBodies > 0)
@@ -2380,7 +2384,15 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 #endif
 		}
 	}
-    if(mGpuContext->getEnableDirectGPUHostAccess() || residentDestruction) updateVelocities();
+    if(mGpuContext->getEnableDirectGPUHostAccess() || residentDestruction) {
+        if(!updateVelocities())return false;
+    } else if(mGpuContext->getEnableDirectGPUAPI() && commandInputs) {
+        // This mode admits no ordinary host delta upload. Publish an explicit
+        // empty generation; direct GPU forces remain in checkpoint accumulators.
+        if(!commandInputs->captureCommandInputs(getBodySimBufferDevicePtr().getPointer(),bodyCount,
+            nullptr,0,mStream))return false;
+    }
+    return true;
 }
 
 void PxgSimulationCore::updateArticulations(const PxU32 nbNewArticulations, PxgArticulationSimUpdate* updates, 

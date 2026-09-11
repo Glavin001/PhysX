@@ -41,6 +41,10 @@ public:
     }
     ~ResidentHierarchy(){cudaStreamSynchronize(mStream);cudaFree(mStatus);}
     ResidentHierarchy(const ResidentHierarchy&)=delete;ResidentHierarchy& operator=(const ResidentHierarchy&)=delete;
+    void setFineDiagonalReuse(const unsigned* valid,const std::uint64_t* generation){
+        if(mAppended)throw std::runtime_error("Cannot change captured fine-factor ownership");
+        mInput.fineDiagonalValid=valid;mInput.fineDiagonalGeneration=generation;
+    }
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
         if(mAppended)throw std::runtime_error("Resident hierarchy already appended");
         Input input=mInput;cudaGraphNode_t tailCompletion=nullptr;

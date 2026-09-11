@@ -118,8 +118,12 @@ def main():
             rows.append(dict(arm=arm, run=run['name'], mean_ms=statistics.mean(run['times']),
                              peak_ms=run['times'][i], peak_step=int(run['frames'][i]['step']),
                              misses_8ms=sum(t > 8 for t in run['times']),
+                             misses_120hz=sum(t > 1000/120 for t in run['times']),
                              misses_60hz=sum(t > 1000/60 for t in run['times']),
+                             steps=len(run['times']),
                              peak_work={k: run['frames'][i][k] for k in FIELDS+['stress_iterations']}))
+            for budget in ('8ms', '120hz', '60hz'):
+                rows[-1]['misses_'+budget+'_percent'] = 100*rows[-1]['misses_'+budget]/rows[-1]['steps']
     aggregates = {arm: dict(runs=sum(r['arm'] == arm for r in rows),
                            mean_ms=statistics.mean(r['mean_ms'] for r in rows if r['arm'] == arm),
                            median_peak_ms=statistics.median(r['peak_ms'] for r in rows if r['arm'] == arm),
@@ -144,11 +148,13 @@ def main():
           '| Version | Runs | Mean ms | Median run peak ms | Worst ms |', '|---|---:|---:|---:|---:|']
     for arm, values in aggregates.items():
         md.append(f"| {arm} | {values['runs']} | {values['mean_ms']:.3f} | {values['median_peak_ms']:.3f} | {values['worst_ms']:.3f} |")
-    md += ['', '| Version/run | Peak step | Peak ms | Awake bodies | Contacts | Stress iterations | Misses >8 ms / >16.67 ms |',
-           '|---|---:|---:|---:|---:|---:|---:|']
+    md += ['', 'Deadline exceedances use strict >8 ms, >1000/120 ms and >1000/60 ms thresholds.', '',
+           '| Version/run | Peak step | Peak ms | Awake bodies | Contacts | Stress iterations | >8 ms | >120 Hz budget | >60 Hz budget |',
+           '|---|---:|---:|---:|---:|---:|---:|---:|---:|']
     for r in rows:
         w = r['peak_work']
-        md.append(f"| {r['arm']}/{r['run']} | {r['peak_step']} | {r['peak_ms']:.3f} | {w['awake_bodies']} | {w['contacts_frame']} | {w['stress_iterations']} | {r['misses_8ms']} / {r['misses_60hz']} |")
+        budgets = ' | '.join(f"{r['misses_'+b]}/{r['steps']} ({r['misses_'+b+'_percent']:.2f}%)" for b in ('8ms', '120hz', '60hz'))
+        md.append(f"| {r['arm']}/{r['run']} | {r['peak_step']} | {r['peak_ms']:.3f} | {w['awake_bodies']} | {w['contacts_frame']} | {w['stress_iterations']} | {budgets} |")
     md += ['', '## Same-step comparisons', '', '| Step | Baseline min / median / max ms | Candidate min / median / max ms |', '|---|---:|---:|']
     for step, values in same_steps.items():
         cells = [' / '.join(f'{values[arm][k]:.3f}' for k in ['min', 'median', 'max']) for arm in runs]

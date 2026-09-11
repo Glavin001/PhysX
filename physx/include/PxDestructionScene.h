@@ -1,12 +1,15 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 15
+#define PX_DESTRUCTION_SCENE_VERSION 16
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
 
 namespace physx {
+class PxCollection;
+class PxOutputStream;
+class PxInputData;
 
 // Experimental native destruction API. internalCorrectionLimit=1 enables the
 // rigid MVP: GPU stress/material/connectivity, persistent collision ownership,
@@ -196,6 +199,17 @@ public:
         CUevent startEvent=NULL, CUevent finishEvent=NULL) const = 0;
     virtual bool configureStress(const PxDestructionStressDesc& desc) = 0;
     virtual bool clearStress() = 0;
+    // Versioned native-build destruction state, paired with a PhysX binary
+    // collection. Every authored exclusive shape and current owner must have a
+    // nonzero stable collection ID. Export only at an accepted fetch boundary.
+    // Import into an unconfigured scene AFTER addCollection, before simulate.
+    // No physical tick is performed by import. Scene settings and future game
+    // commands remain the caller's responsibility. Imported actors retain the
+    // collection's ordinary ownership; newly created fragments are scene-owned.
+    // Structural caches are rebuilt; this is physical resume, not an assertion
+    // that PhysX contact caches or complete-step timings are identical.
+    virtual bool exportState(PxOutputStream& output, const PxCollection& objects) const = 0;
+    virtual bool importState(PxInputData& input, const PxCollection& objects) = 0;
     // Borrow until reconfiguration/scene release. Order device consumers before
     // the next simulate with setConsumerEvent; readyEvent orders observations.
     // Results are valid after the first completed step (status.frame > 0).

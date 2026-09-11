@@ -42,7 +42,8 @@ struct PxgDestructionEdit {
 class PxgDestructionTopology {
 public:
     static PxgDestructionTopology* create(const PxgDestructionChunk* chunks,
-        std::uint32_t chunkCount, const PxgDestructionBond* bonds, std::uint32_t bondCount);
+        std::uint32_t chunkCount, const PxgDestructionBond* bonds, std::uint32_t bondCount,
+        const std::uint32_t* initialActiveBonds = nullptr);
     virtual bool apply(const PxgDestructionEdit* deviceEdits, std::uint32_t editCount,
         void* producerReady = nullptr, void* consumerDone = nullptr) = 0;
     virtual PxgDestructionTopologyView view() const = 0;
@@ -67,7 +68,8 @@ protected:
 class PxgDestructionTopologyTransaction {
 public:
     static PxgDestructionTopologyTransaction* create(const PxgDestructionChunk* chunks,
-        std::uint32_t chunkCount, const PxgDestructionBond* bonds, std::uint32_t bondCount);
+        std::uint32_t chunkCount, const PxgDestructionBond* bonds, std::uint32_t bondCount,
+        const std::uint32_t* initialActiveBonds = nullptr);
     virtual bool prepare(const PxgDestructionEdit* deviceEdits, const std::uint32_t* deviceCount,
         std::uint32_t capacity, const std::uint32_t* deviceAbortFlags = nullptr,
         std::uint32_t abortMask = 0xffffffffu, void* producerReady = nullptr,

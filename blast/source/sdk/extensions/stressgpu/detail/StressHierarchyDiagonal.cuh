@@ -21,6 +21,11 @@ __device__ __forceinline__ double diagonalCoefficient(float4 r,float2 d,double s
 __device__ __forceinline__ void buildFineDiagonal(const Input& input,Buffers buffers,Status* status,unsigned logicalBlock){
     const unsigned lane=threadIdx.x&31u,node=logicalBlock*(Threads/32)+threadIdx.x/32;
     if(node>=input.nodes)return;
+    // The retained inverse was built only from a successfully validated fine
+    // factor. Its producer advances this proof only when every incident bond
+    // is unchanged; all other rows run the original assembly and checks.
+    if(input.fineDiagonalValid && input.fineDiagonalValid[node]
+        && input.fineDiagonalGeneration[node]==*input.generation)return;
     const unsigned row=lane<1?0:lane<3?1:lane<6?2:lane<10?3:lane<15?4:5;
     const unsigned col=lane<DiagonalEntries?lane-row*(row+1)/2:0;
     double coefficient=0;unsigned coupled=0;

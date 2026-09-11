@@ -49,6 +49,14 @@ class PeakAccounting(unittest.TestCase):
             'validatePreparation':.25,'preparationCompletion.other':.25,'publishReservedMetadata':.25,'correctedCollisionSolve':10}
         self.assertEqual(p.rank(a),p.rank(b))
 
+    def test_final_publication_preserves_complete_commit_cost(self):
+        a=fixture();b=copy.deepcopy(a)
+        a['profile']['wall_partition'][0]={'submit':5,'acceptCorrection':10}
+        b['profile']['wall_partition'][0]={'submit':5,'acceptCorrection':2,
+            'finalShapePublication':3,'finalPublication.other':5}
+        self.assertEqual(p.rank(a),p.rank(b))
+        self.assertEqual(sum(row['peak_ms'] for row in p.rank(b)['rows']),17)
+
     def test_overlapping_cuda_is_not_added(self):
         a=fixture();a['profile']['cuda_stages'][0]={'stress':1000}
         self.assertEqual(sum(row['peak_ms'] for row in p.rank(a)['rows']),17)

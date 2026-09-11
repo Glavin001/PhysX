@@ -305,6 +305,8 @@ namespace physx
 
 		virtual bool 	evaluateSDFDistances(PxVec4* /*localGradientAndSDFConcatenated*/, const PxShapeGPUIndex* /*shapeIndices*/, const PxVec4* /*localSamplePointsConcatenated*/, const PxU32* /*samplePointCountPerShape*/, PxU32 /*nbElements*/, PxU32 /*maxPointCount*/, CUevent /*startEvent = NULL*/, CUevent /*finishEvent = NULL*/) { return false; }
         virtual bool isRigidBodyRegistered(PxU32, const PxsRigidBody*) const { return false; }
+    virtual bool exportNativeSnapshot(const PxU32*,PxU32,void*,PxU32) const { return false; }
+    virtual bool importNativeSnapshot(const PxU32*,PxU32,const void*,PxU32) { return false; }
         virtual PxDestructionScene* getDestructionScene(void*, bool (*)(void*), PxvDestructionBodyAllocator*) { return NULL; }
         virtual bool advanceDestruction(PxReal, const PxVec3&, bool, bool) { return false; }
         virtual PxU32 getDestructionError() const { return 0; }

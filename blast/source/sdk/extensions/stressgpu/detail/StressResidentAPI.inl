@@ -118,4 +118,3 @@
         checkCuda(cudaEventRecord(m_statusReady,m_stream), "record stress topology update");
         return true;
     }
-

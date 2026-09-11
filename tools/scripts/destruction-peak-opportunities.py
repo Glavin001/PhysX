@@ -63,7 +63,9 @@ def group(key):
         return 'ownership'
     if key in ('restoreInstall', 'resetContactCaches', 'correctedCollisionSolve'):
         return 'correction'
-    return {'acceptCorrection': 'commit', 'checkpoint': 'checkpoint', 'trial.other': 'trial'}.get(key)
+    if key in ('acceptCorrection', 'finalShapePublication', 'finalPublication.other'):
+        return 'commit'
+    return {'checkpoint': 'checkpoint', 'trial.other': 'trial'}.get(key)
 
 def rank(run, count=10):
     times = complete(run)

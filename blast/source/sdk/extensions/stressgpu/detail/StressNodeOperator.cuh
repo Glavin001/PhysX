@@ -1,5 +1,5 @@
 // Private implementation fragment; included once inside the owning .cu namespace.
-// BEGIN UNCHANGED SOURCE
+// Shared physical operator; native components may supply pre-scaled inputs.
 // Global float atomics flush subnormal operands; preserve that behavior
 // before combining nonnegative node contributions in a block-local tree.
 __device__ __forceinline__ float stressSquaredContribution(float value)
@@ -50,6 +50,7 @@ __device__ __forceinline__ float stressSquaredContribution(float value)
 /// endpoint rather than stored. The workload is ~2 flops/byte on a machine that
 /// does 80, so recomputing is free and it removes a whole bond-length vector
 /// from the loop.
+template<bool PreScaled=false>
 __device__ __forceinline__ void nodeSpaceMatvecBody(
     AngLin* w,
     const AngLin* rho,
@@ -77,7 +78,8 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
     // q = w + beta q from drifting (the pipelined-CG trade).
     const std::uint32_t* iterationPtr,
     std::uint32_t refreshEvery, unsigned logicalBlock,
-    float* nodeContribution = nullptr)
+    float* nodeContribution = nullptr,
+    const AngLin* physicalInput = nullptr, const unsigned* cachedOther = nullptr)
 {
     if (refreshEvery != 0u && (*iterationPtr % refreshEvery) != 0u)
     {
@@ -115,9 +117,9 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
         return;
     }
 
-    const AngLin selfRho = rho[node];
-    const Vec4 selfAng = mul(selfRho.angular, inv.angular);
-    const Vec4 selfLin = mul(selfRho.linear, inv.linear);
+    const AngLin selfRho = PreScaled ? physicalInput[node] : rho[node];
+    const Vec4 selfAng = PreScaled ? selfRho.angular : mul(selfRho.angular, inv.angular);
+    const Vec4 selfLin = PreScaled ? selfRho.linear : mul(selfRho.linear, inv.linear);
 
     Vec4 accAng{0.0f, 0.0f, 0.0f, 0.0f};
     Vec4 accLin{0.0f, 0.0f, 0.0f, 0.0f};
@@ -138,16 +140,21 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
         {
             continue;
         }
-        const std::uint32_t other = isSecond ? node0[bond] : node1[bond];
-        const Inertia otherInv = inertia[other];
+        // Native component producers already formed D*rho. The current CSR
+        // cache makes neighbor lookup independent of the bond-index load and
+        // removes the subsequent neighbor-inertia dependency from this loop.
+        const std::uint32_t other = PreScaled ? cachedOther[i] : (isSecond ? node0[bond] : node1[bond]);
+        Inertia otherInv{};
+        if constexpr(!PreScaled)otherInv=inertia[other];
+        const bool otherFixed=PreScaled ? other==kNoIsland : (otherInv.angular==0.0f && otherInv.linear==0.0f);
         // Norm-only passes need the canonical endpoint's contribution once.
         // Reject the duplicate before loading motion/offsets or forming the
         // bond response. Matrix-vector passes still require both endpoints.
-        const bool owns = !isSecond || (otherInv.angular == 0.0f && otherInv.linear == 0.0f);
+        const bool owns = !isSecond || otherFixed;
         if (!w && !owns) continue;
-        const AngLin otherRho = rho[other];
-        const Vec4 otherAng = mul(otherRho.angular, otherInv.angular);
-        const Vec4 otherLin = mul(otherRho.linear, otherInv.linear);
+        const AngLin otherRho = PreScaled ? (otherFixed ? AngLin{} : physicalInput[other]) : rho[other];
+        const Vec4 otherAng = PreScaled ? otherRho.angular : mul(otherRho.angular, otherInv.angular);
+        const Vec4 otherLin = PreScaled ? otherRho.linear : mul(otherRho.linear, otherInv.linear);
 
         // t_j = (C^T D rho)_j, with node 0 first regardless of which side we
         // are on -- the sign convention is a property of the bond, not of the

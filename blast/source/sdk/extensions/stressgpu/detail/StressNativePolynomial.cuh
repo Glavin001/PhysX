@@ -24,28 +24,14 @@ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
     }
     return scaledValue(value,input.inertia[node]);
 }
+// Fixed block-Jacobi candidate: preserve the complete six-channel diagonal
+// inverse and outer projected PCG, but spend no sparse traversal inside the
+// preconditioner. Only time to the unchanged convergence quality can judge it.
 __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial(
     const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
 {
-    using namespace StressHierarchy;
-    constexpr double lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
-    constexpr double coupling=lowWeight*highWeight;
-    constexpr double diagonal=lowWeight+highWeight-coupling;
-    const auto input=a.hierarchy.cycle.levels[0].input;
-    auto* local=a.hierarchy.result;
-    auto* result=a.hierarchy.cycle.intermediate;
-    // The small-component solve owns these fine-level rows; the cooperative
-    // hierarchy only uses rows belonging to large components. Reuse its fine
-    // residual workspace for scaled local values, without a new allocation.
-    auto* physical=a.hierarchy.cycle.levels[0].residual;
+    auto* result=a.hierarchy.result;
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);
-        physical[node]=scaledValue(local[node],input.inertia[node]);}
-    __syncthreads();
-    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-        const auto off=nativeOffDiagonal(input,node,physical);
-        result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverse(a.hierarchy,node,off),coupling));}
-    // One disjoint destination per node. Readers consume this completed view;
-    // there is no product buffer, copy back or second launch inside iteration.
+        result[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
     __syncthreads();return result;
 }

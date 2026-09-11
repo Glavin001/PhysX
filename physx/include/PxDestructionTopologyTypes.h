@@ -80,9 +80,12 @@ struct PxDestructionCorrectionPreparationStatus {
     std::uint32_t count, loadedSources, valid, error;
     // error: 1 missing/invalid checkpoint source, 2 native mapping,
     // 4 invalid/unrepresentable motion, 8 nonfinite input load, 16 CUDA failure,
-    // 32 rejected collision prerequisite (originating collision error is retained).
+    // 32 rejected collision prerequisite (originating collision error is retained),
+    // 64 invalid original command-history receipt.
     // loadedSources counts affected source bodies with unapportioned external
-    // accelerations. Those commands cannot be cloned onto every fragment.
+    // accelerations or ordinary additive velocity commands. Count each source
+    // once even when both representations are present. Those commands cannot
+    // be cloned onto every fragment.
 };
 // A handle is valid in its asset/scene view only when slotRoots[slot] is live
 // and slotGenerations[slot] matches. Authored chunk IDs remain independent.

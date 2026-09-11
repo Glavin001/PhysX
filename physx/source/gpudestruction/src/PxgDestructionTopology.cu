@@ -274,7 +274,7 @@ class Topology final : public PxgDestructionTopology {
     }
 public:
     bool init(const PxgDestructionChunk* chunks, unsigned n,
-        const PxgDestructionBond* bonds, unsigned m, const Topology* shared = nullptr) {
+        const PxgDestructionBond* bonds, unsigned m, const Topology* shared = nullptr, const unsigned* initialActiveBonds = nullptr) {
         mN = n; mM = m;
         if(shared){mChunks=shared->mChunks;mBonds=shared->mBonds;mOwnAssets=false;}
         if (cudaStreamCreateWithFlags(&mStream, cudaStreamNonBlocking) != cudaSuccess
@@ -300,6 +300,8 @@ public:
             || cudaMemsetAsync(mSlotRoots,0xff,n*sizeof(unsigned),mStream)!=cudaSuccess
             || cudaMemsetAsync(mSlotGenerations,0,n*sizeof(std::uint64_t),mStream)!=cudaSuccess)return false;
         initialize<<<(std::max(n,m)+BLOCK-1)/BLOCK,BLOCK,0,mStream>>>(mActiveChunks,n,mActiveBonds,m,mStatus);
+        if(initialActiveBonds && m && cudaMemcpyAsync(mActiveBonds,initialActiveBonds,
+            sizeof(unsigned)*m,cudaMemcpyHostToDevice,mStream)!=cudaSuccess)return false;
         return rebuild() && cudaStreamSynchronize(mStream) == cudaSuccess;
     }
     bool apply(const PxgDestructionEdit* edits, unsigned count, void* ready, void* done) override {
@@ -343,7 +345,7 @@ public:
 } // namespace
 
 PxgDestructionTopology* PxgDestructionTopology::create(const PxgDestructionChunk* chunks,
-    std::uint32_t n, const PxgDestructionBond* bonds, std::uint32_t m) {
+    std::uint32_t n, const PxgDestructionBond* bonds, std::uint32_t m, const std::uint32_t* initialActiveBonds) {
     if (!chunks || !n || n > unsigned(std::numeric_limits<int>::max())
         || m > unsigned(std::numeric_limits<int>::max()) || (m && !bonds)) return nullptr;
     for (unsigned i=0;i<n;++i) {
@@ -354,14 +356,15 @@ PxgDestructionTopology* PxgDestructionTopology::create(const PxgDestructionChunk
     }
     for (unsigned i=0;i<m;++i)
         if (bonds[i].chunk0 >= n || bonds[i].chunk1 >= n) return nullptr;
+    if(initialActiveBonds)for(unsigned i=0;i<m;++i)if(initialActiveBonds[i]>1)return nullptr;
     auto* out = new (std::nothrow) Topology;
-    if (out && out->init(chunks,n,bonds,m)) return out;
+    if (out && out->init(chunks,n,bonds,m,nullptr,initialActiveBonds)) return out;
     delete out;
     return nullptr;
 }
 PxgDestructionTopologyTransaction* PxgDestructionTopologyTransaction::create(
-    const PxgDestructionChunk* chunks, std::uint32_t n, const PxgDestructionBond* bonds, std::uint32_t m) {
-    auto* accepted=static_cast<Topology*>(PxgDestructionTopology::create(chunks,n,bonds,m));
+    const PxgDestructionChunk* chunks, std::uint32_t n, const PxgDestructionBond* bonds, std::uint32_t m, const std::uint32_t* initialActiveBonds) {
+    auto* accepted=static_cast<Topology*>(PxgDestructionTopology::create(chunks,n,bonds,m,initialActiveBonds));
     if(!accepted)return nullptr;
     auto* transaction=new(std::nothrow) Transaction(accepted);
     if(transaction && transaction->init(chunks,n,bonds,m))return transaction;

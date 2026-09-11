@@ -10,12 +10,25 @@
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
+struct PxgBodySimVelocityUpdate;
 class PxNodeIndex;
 struct PxgShapeSim;
 struct PxgContactManagerInput;
 struct PxsContactManagerOutput;
 struct PxgBodySimVelocities;
 struct PxgRigidBodyAcceleration;
+enum class PxgDestructionCheckpointPurpose : PxU32 { BeforeSolve, CorrectedMotion };
+// Authored chunk -> original native body and motion handle. Inactive entries
+// have active=0 and invalid body/root/slot. A reused current slot is not this
+// original handle; resolve descendants through the authored chunk index.
+struct PxgDestructionInputOwner {
+    PxU64 slotGeneration;
+    PxU32 body, root, slot, active;
+};
+struct PxgDestructionInputOwnership {
+    PxU64 inputGeneration, topologyGeneration;
+    PxU32 chunkCount, bodyCount, valid, error;
+};
 // Internal rigid-state portion of the correction checkpoint, captured after
 // command upload and before solving. This is not a complete scene checkpoint:
 // island/contact/constraint and articulation state require separate accounting.
@@ -26,6 +39,27 @@ struct PxgDestructionRigidCheckpointView {
     PxU32 count = 0;
     PxU64 generation = 0;
     CUevent ready = NULL;
+    PxgDestructionCheckpointPurpose purpose = PxgDestructionCheckpointPurpose::BeforeSolve;
+    // Only the inputRigidCheckpoint view supplies this original ownership.
+    // Wait for ready, then require device ownership.valid and matching input
+    // generation before reading owners. No CPU observation is required.
+    const PxgDestructionInputOwner* owners = NULL;
+    const PxgDestructionInputOwnership* ownership = NULL;
+};
+// Sparse ordinary command history, captured before native GPU delta addition.
+// kind: 0 no velocity-delta command, 1 valid command, 2 invalid source. This is
+// body-level input history, not a spatial per-chunk load distribution.
+struct PxgDestructionCommandInput {
+    float linearBefore[3], angularBefore[3], linearDelta[3], angularDelta[3];
+    PxU32 body, flags, kind, reserved;
+};
+struct PxgDestructionCommandInputStatus { PxU64 generation; PxU32 count,error; };
+struct PxgDestructionCommandInputView {
+    const PxgDestructionCommandInput* records=nullptr;
+    const PxgDestructionCommandInputStatus* status=nullptr;
+    PxU32 count=0;
+    PxU64 generation=0;
+    CUevent ready=nullptr;
 };
 // Borrowed producer storage; immutable geometry identities remain independent
 // from motion. Ordered by the same producer stream supplied to advance.
@@ -42,6 +76,14 @@ public:
     // foundation singleton from the CUDA runtime shared library.
     virtual void setProfiler(PxProfilerCallback* callback, PxU64 context) = 0;
     virtual bool configured() const = 0;
+    // Current native owner IDs from the GPU command producer, observed only for
+    // ordinary CPU scheduler compatibility. Between accepted steps only; no
+    // command values or numerical state cross this bridge. Not an apply API.
+    virtual bool wakeCommandOwners(const PxU32* indices,PxU32 count) = 0;
+    virtual bool captureCommandInputs(const PxgBodySim*,PxU32 bodyCount,const PxgBodySimVelocityUpdate*,PxU32 count,CUstream) = 0;
+    // Shares original checkpoint readiness/generation; correction refresh retains
+    // records. Only correction-enabled ordinary/host-delta uploads are captured.
+    virtual PxgDestructionCommandInputView commandInputHistory() const = 0;
     virtual bool prepareRigidIterationLimits(const PxgBodySim*,PxU32,const PxNodeIndex*,PxU32,PxU32,CUstream) = 0;
     virtual bool readRigidIterationLimits(PxU32& position,PxU32& velocity) = 0;
     virtual bool correctionEnabled() const = 0;
@@ -59,8 +101,14 @@ public:
     virtual const PxU32* correctionBodyIndices() const = 0;
     virtual bool acceptCorrection(const PxgBodySim* bodies, CUstream stream) = 0;
     virtual bool captureRigidState(const PxgBodySim* bodies, const PxgBodySimVelocities* previous,
-        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream) = 0;
+        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream,
+        PxgDestructionCheckpointPurpose purpose = PxgDestructionCheckpointPurpose::BeforeSolve) = 0;
     virtual PxgDestructionRigidCheckpointView rigidCheckpoint() const = 0;
+    // Original post-command/pre-solve arrays survive the corrected-motion
+    // refresh. Read-only until the next BeforeSolve capture or clear; join
+    // consumers before that boundary. This is raw input history, not a complete
+    // chunk-targeted load ledger or permission to restore an older checkpoint.
+    virtual PxgDestructionRigidCheckpointView inputRigidCheckpoint() const = 0;
     // Copies only the captured rigid arrays, never CPU/island/contact state.
     // Candidate bodies must be applied after this restore, including new slots
     // that reused pre-existing holes. The future correction task owns that order.
@@ -140,11 +188,11 @@ public:
 #else
 #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
 #endif
-// Private producer ABI v4 supplies borrowed collision storage for device-controlled preparation.
+// Private producer ABI v16 adds destruction snapshot export/import.
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
 // violating lifecycle ordering. Public scene ABI is intact.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV10(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV20(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

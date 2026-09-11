@@ -476,6 +476,10 @@ public:
 
 
     virtual void resetWarmStart() = 0;
+    // Configuration-boundary snapshot of normalized resident forces. The same
+    // immutable graph/scaling and accepted active mask must be restored first.
+    // Certificates and derived caches are invalidated and independently checked
+    // by the next solve; these vectors are only an initial guess.
 
     virtual std::uint32_t nodeCount() const = 0;
     virtual std::uint32_t bondCount() const = 0;

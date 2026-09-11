@@ -17,11 +17,28 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
     return sum;
 }
 
+#include "StressNativeResponseHistory.cuh"
+
 // Each CTA owns all iterations of one component at a time. Stable sorted node
 // ranges make every vector/scalar write exclusive to that component; static
 // boundary rows are read-only. No grid rendezvous or global loop counter is
 // involved. The operator, recurrence, norm and convergence functions are the
 // same ones used by the cooperative large-component implementation.
+// Build from this solve's validated live CSR before iteration. Components
+// own disjoint dynamic rows; prescribed neighbors are represented explicitly.
+// Rebuilding here avoids any new host count or cross-generation cache receipt.
+__device__ __forceinline__ void cacheNativeOperatorNeighbors(const PersistentStressArgs& a,const unsigned* nodes,unsigned count){
+    for(unsigned n=threadIdx.x;n<count;n+=blockDim.x){const unsigned node=nodes[n];
+        for(unsigned i=a.m_nodeBondBegin[node];i<a.m_nodeBondBegin[node+1];++i){
+            const unsigned ref=a.m_nodeBondRef[i];
+            if(ref==kDeadBondRef || a.m_health[ref&0x7fffffffu]<=0){a.hierarchy.operatorOther[i]=kNoIsland;continue;}
+            const unsigned edge=ref&0x7fffffffu,other=(ref>>31)?a.m_node0[edge]:a.m_node1[edge];
+            const auto d=a.m_inertia[other];
+            a.hierarchy.operatorOther[i]=(d.angular==0 && d.linear==0)?kNoIsland:other;
+        }
+    }
+    __syncthreads();
+}
 __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
 {
     __shared__ unsigned counts[2], iteration, activeCount, slot;
@@ -59,23 +76,42 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             if(!threadIdx.x){status={0u,0u,1u};COMPONENT_WORK_END(id,status) c.results[id]=status;}
             __syncthreads();continue;
         }
+        cacheNativeOperatorNeighbors(a,c.nodes+begin,count);
         // Cache validity belongs to each built operator, independently of a
         // solve's success. Each node has one writer in this owning component.
         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeRigidInverse(a.hierarchy,c.nodes[begin+i]);
         __syncthreads();
         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
+        bool firstMonitor=true;
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
         do {
-            if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id);
+            const bool scheduledMonitor=firstMonitor || (iteration%4u)==0u || iteration+1u>=a.maxIterations;
+            if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id,scheduledMonitor);
+            firstMonitor=false;
             COMPONENT_PROBE_END(0)
-            COMPONENT_WORK_SWEEP(a,id,residualSweeps)
             float squared=0;
+            // The sparse bond-gradient norm is an acceptance monitor, separate
+            // from PCG's gamma and direction-energy reductions. Preserve the
+            // initial/final-cap checks and react immediately to exact residual
+            // extinction between periodic checks. The vote never accepts a
+            // solution: the original norm and true-residual checks still do.
+            bool monitor=scheduledMonitor;
+            if(!monitor){
+                bool nonzero=false;
+                for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const auto v=a.m_residual[c.nodes[begin+i]];
+                    nonzero|=v.angular.x!=0 || v.angular.y!=0 || v.angular.z!=0
+                        || v.linear.x!=0 || v.linear.y!=0 || v.linear.z!=0;}
+                monitor=!__syncthreads_or(nonzero);
+            }
+            if(monitor){
+            if(!scheduledMonitor){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const auto node=c.nodes[begin+i];cacheNativeOperatorInput(a,node,a.m_residual[node]);}__syncthreads();}
+            COMPONENT_WORK_SWEEP(a,id,residualSweeps)
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
-                nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,
+                nodeSpaceMatvecBody<true>(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,
                     a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
                     nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,
-                    counts,&iteration,0u,block,&contribution);
+                    counts,&iteration,0u,block,&contribution,a.m_nsW,a.hierarchy.operatorOther);
                 squared+=contribution;
             }
             const float numerator=componentSquaredNorm(squared);
@@ -88,8 +124,8 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 COMPONENT_WORK_SWEEP(a,id,verificationSweeps)
                 float verified=0;
                 for(unsigned block=0;block<nodeBlocks;++block){float contribution=0;
-                    nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
-                        nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution);
+                    nodeSpaceMatvecBody<true>(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
+                        nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution,a.m_nsW,a.hierarchy.operatorOther);
                     verified+=contribution;
                 }
                 const float norm=componentSquaredNorm(verified);if(!threadIdx.x)reduceValue=norm;__syncthreads();
@@ -99,8 +135,9 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
             __syncthreads();
             COMPONENT_PROBE_END(2)
-            // The complete convergence verdict is already known for this
-            // component. Retire directly instead of executing inactive gamma,
+            }
+            // Only a completed monitor can publish convergence for this
+            // component; skipped monitors retain its preceding active verdict. Retire directly instead of executing inactive gamma,
             // direction, matrix-product and update stages plus their barriers.
             // Preserve the final scratch/status writes of finalizeAndRetireBody.
             if(!a.m_islandActive[id]){
@@ -110,6 +147,13 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 }
                 __syncthreads();break;
             }
+            // Preserve zero-update certification: try history only after the
+            // initial original-residual check has established remaining work.
+            // Leave room for its mandatory next monitor within the same cap.
+            if(iteration==0 && a.maxIterations>1 && improveNativeInitialGuess(a,c.nodes+begin,count,id,counts,&iteration)){
+                if(!threadIdx.x)iteration=1;
+                __syncthreads();firstMonitor=true;continue;
+            }
             COMPONENT_WORK_PRECONDITION(a,id,iteration)
             float localGamma=0;
             if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT);
@@ -117,16 +161,16 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
             __syncthreads();
             COMPONENT_PROBE_END(3)
-            for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeDirection(a,c.nodes[begin+i],id,iteration);
+            for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const auto node=c.nodes[begin+i];updateNativeDirection(a,node,id,iteration);cacheNativeOperatorInput(a,node,a.m_nsPi[node]);}
             __syncthreads();
             COMPONENT_PROBE_END(4)
             COMPONENT_WORK_SWEEP(a,id,directionSweeps)
             squared=0;
             for(unsigned block=0;block<nodeBlocks;++block) {
                 float contribution=0;
-                nodeSpaceMatvecBody(a.m_nsQ,a.m_nsPi,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,
+                nodeSpaceMatvecBody<true>(a.m_nsQ,a.m_nsPi,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,
                     a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,
-                    nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution);
+                    nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution,a.m_nsW,a.hierarchy.operatorOther);
                 squared+=contribution;
             }
             const float denominator=componentSquaredNorm(squared);
@@ -158,6 +202,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             a.m_islandActive[id]=0;
         }
         __syncthreads();
+        saveNativeResponseHistory(a,c.nodes+begin,count,id,status);
     }
     COMPONENT_PROBE_PUBLISH
 }
