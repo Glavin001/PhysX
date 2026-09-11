@@ -1,5 +1,11 @@
 # All destruction snapshot scenarios
 
+**Latest candidate:** all 52 scenarios pass twenty independent one-tick restores
+(1,040 ticks). See [the fixed-contact report](snapshot-fixes-20260911/README.md)
+and [all current per-scenario timings](snapshot-fixes-20260911/timings.md).
+The baseline results and full scenario navigation below remain historical evidence.
+
+
 **52 scenarios, 20 independent restores per scenario, exactly one complete tick per restore: 1,040 measured ticks.** All 28 structural/rigid-body cases pass repeatability; 15 of 24 city cases pass, with nine bond-health-only comparison failures. These are two sequential campaigns using the same frozen executable and runtime modules. No tolerance changed.
 
 Every full tick includes input commands, integrated physics/stress/fracture, at most one correction and second stress evaluation, accepted publication, and required completion synchronization/status transfers. **Restore and output validation are excluded.** Source cold/warm labels describe pre-export history; solver/contact caches are rebuilt.

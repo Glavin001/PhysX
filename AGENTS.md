@@ -1,5 +1,21 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest snapshot repeatability fix: isolated candidate `a68fd705cec9e6f64a65d0ca116a910331b6a1d3`
+uses fixed-order parallel per-chunk contact accumulation. **52/52 scenarios pass,
+20 independent one-tick restores each (1,040 ticks)** with original inputs,
+frozen checker and unchanged tolerances. Previous nine health failures are the
+baseline below. Full suite: 1,036.48 s harness, 59.08 s ticks, 579.74 s restore
+excluded. Largest idle 62.324/82.158 ms mean/max, initial impact 242.483/278.238,
+late debris 403.159/502.157; shared-GPU restored measurements, no speedup claim.
+[All scales/stages and remaining diagnostic limitations](qualification/optimization-next20-20260910/snapshot-fixes-20260911/README.md).
+The contact-order source fix is applied and the local runtime rebuilt; a further
+20-repeat post-impact check passes. Exact full-suite artifacts remain isolated. All 28 continuation cases and 29 correction cases pass;
+600-step wall physical invariants match baseline, historical golden still fails.
+Default topology memcheck still fails; a CUDA-only conditional-graph control reproduces
+the diagnostic exposure, but its exact cause is unresolved. No suppression or
+extra production CPU wait was added. Earlier statuses below are historical.
+
+
 Scenario navigation: [all 52 entries](qualification/optimization-next20-20260910/snapshot-scenarios.md)
 includes the original 28 bridge/cantilever/chain/flying-body/ladder/panel/tower
 and other cases plus 24 cities. All 52 now have **20-restores × 1-complete-tick**

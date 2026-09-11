@@ -1,0 +1,76 @@
+{
+  "commands": [
+    {
+      "name": "roundtrip",
+      "command": [
+        "python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-roundtrip",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+        "--require-complete-shapes",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-contact-control",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374",
+        "--watchdog-seconds",
+        "600"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "correction",
+      "command": [
+        "python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-correction",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_gpu_correction_body_test",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-contact-control",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374",
+        "--watchdog-seconds",
+        "600"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "wall",
+      "command": [
+        "python3",
+        "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-wall",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_demo",
+        "--standard-scene",
+        "--sleeping",
+        "1",
+        "--expected-runtime",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-contact-control/libPhysXDestructionGpuRuntime_64.so"
+      ],
+      "exit_code": 1
+    },
+    {
+      "name": "wall-invariants",
+      "command": [
+        "/root/workspace/physx-2/.toolchains/build-env/bin/python",
+        "tools/scripts/verify-native-penetration.py",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-wall",
+        "--output",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-wall/invariants.json"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "roundtrip_cases": 28,
+  "continuation_ticks": 560,
+  "native_correction_cases": 29,
+  "wall_invariants_match_baseline": true,
+  "wall_historical_golden_passed": false,
+  "default_graph_memcheck_passed": false,
+  "performance_acceptance": "No matched A/B claim; retained as a snapshot reproducibility fix",
+  "source_applied": true
+}
