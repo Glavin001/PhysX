@@ -1,0 +1,12 @@
+{
+  "status": "failed",
+  "reason": "motion-test plain watchdog expired after 180 seconds; owned process killed by subprocess timeout; memcheck not started",
+  "source_sha256": {
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-all/libPhysXDestructionGpuRuntime_64.so": "df71140b8d681f085c22c394c78345dc2c76aa275a3a44872a55d03eb14deca2",
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-all/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-all/PxgDestructionRuntime.cu": "e188bd4635622c1dd51c0f0970fbc5a9fcf0ae90bbb836858b466060ad4b5e1b",
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-all/PxgDestructionCommittedChanges.cuh": "a161046c980282dc72a153632fe9de12146e60b677e2d928bd3f785b381392a1",
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-all/PxgDestructionDeviceGraph.cuh": "e94cbf1f927560be30349943d9494abae88f4fd8003394ed10afdb606117ad46",
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-all/PxgDestructionMotionSlots.cuh": "39f76875d9ad865d34bc35fa41ea5b4cf0a6e7ea3889f037e68b744331577a43"
+  }
+}

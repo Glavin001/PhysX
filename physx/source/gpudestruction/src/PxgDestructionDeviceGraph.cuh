@@ -1,3 +1,4 @@
+#pragma once
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 __global__ void transactionFill(unsigned char* destination,size_t width,size_t height,size_t pitch,unsigned value,unsigned elementSize) {
     const size_t rowBytes=width*elementSize;

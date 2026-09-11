@@ -65,7 +65,7 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
                     require(std::isfinite(after[j]) && after[j]>=0 && after[j]<=previous[j],"file replay healed damage");}
             auto observedObjects=observeObjects(*world.objects);
             auto observedDestruction=destructive?observeDestruction(*world.scene):DestructionObservation{};
-            if(destructive)dumpReplayObservations(*world.scene,directory,i);
+            dumpReplayObservations(*world.scene,*world.objects,directory,i,destructive);
             MotionError error;bool repeatPassed=true,motionMeasured=!i;
             if(i)try{error=compareObservedObjects(baselineObjects,observedObjects);motionMeasured=true;
                 if(destructive){compareObservedDestruction(baselineDestruction,observedDestruction);

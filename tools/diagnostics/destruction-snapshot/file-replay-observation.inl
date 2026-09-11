@@ -61,14 +61,12 @@ void compareObservedDestruction(const DestructionObservation& a,const Destructio
 
 // Optional diagnostic observations after the complete tick and outside its timer.
 // These are never restored and do not change the serialized physical-state contract.
-void dumpReplayObservations(PxScene& scene,const char* directory,unsigned repeat){
+void dumpReplayObservations(PxScene& scene,const PxCollection& objects,const char* directory,unsigned repeat,bool destructive){
     const char* enabled=std::getenv("PHYSX_SNAPSHOT_DUMP_OBSERVATIONS");
-    if(!enabled || std::strcmp(enabled,"1"))return;
-    const auto view=scene.getDestructionScene()->getDeviceView();
-    require(cuCtxPushCurrent(scene.getCudaContextManager()->getContext())==CUDA_SUCCESS,"dump context");
-    require(cuEventSynchronize(view.readyEvent)==CUDA_SUCCESS,"dump ready");
+    if(!enabled || (std::strcmp(enabled,"1") && std::strcmp(enabled,"first")))return;
+    if(!std::strcmp(enabled,"first") && repeat)return;
     const std::string prefix=std::string(directory)+"/observation-"+std::to_string(repeat);
-    std::ofstream manifest(prefix+".json");manifest<<"{\"repeat\":"<<repeat<<",\"arrays\":[";
+    std::ofstream manifest(prefix+".json");manifest<<"{\"repeat\":"<<repeat<<",\"destructive\":"<<(destructive?"true":"false")<<",\"arrays\":[";
     bool first=true;
     auto dump=[&](const char* name,const auto* pointer,size_t count){
         const size_t stride=sizeof(*pointer);std::vector<char> data(count*stride);
@@ -78,14 +76,34 @@ void dumpReplayObservations(PxScene& scene,const char* directory,unsigned repeat
         if(!first)manifest<<',';first=false;
         manifest<<"{\"name\":\""<<name<<"\",\"count\":"<<count<<",\"stride\":"<<stride<<'}';
     };
-    dump("node-accelerations",view.nodeAccelerations,view.chunkCount);
-    dump("surface-loads",view.surfaceLoads,view.chunkCount);
-    dump("bond-forces",view.bondForces,view.bondCount);
-    dump("health",view.bondHealth,view.bondCount);
-    dump("active-bonds",view.acceptedTopology.activeBonds,view.bondCount);
     PxDestructionStressTopologyStatus status{};
-    require(cuMemcpyDtoH(&status,CUdeviceptr(view.stressTopology),sizeof(status))==CUDA_SUCCESS,"dump generation");
+    if(destructive){
+        const auto view=scene.getDestructionScene()->getDeviceView();
+        require(cuCtxPushCurrent(scene.getCudaContextManager()->getContext())==CUDA_SUCCESS,"dump context");
+        require(cuEventSynchronize(view.readyEvent)==CUDA_SUCCESS,"dump ready");
+        dump("node-accelerations",view.nodeAccelerations,view.chunkCount);
+        dump("surface-loads",view.surfaceLoads,view.chunkCount);
+        dump("bond-forces",view.bondForces,view.bondCount);
+        dump("health",view.bondHealth,view.bondCount);
+        dump("active-bonds",view.acceptedTopology.activeBonds,view.bondCount);
+        dump("chunk-clusters",view.acceptedTopology.chunkCluster,view.chunkCount);
+        dump("crush",view.chunkCrush,view.chunkCount);
+        require(cuMemcpyDtoH(&status,CUdeviceptr(view.stressTopology),sizeof(status))==CUDA_SUCCESS,"dump generation");
+        CUcontext previous;require(cuCtxPopCurrent(&previous)==CUDA_SUCCESS,"dump context pop");
+    }
     manifest<<"],\"topology_generation\":"<<status.generation<<",\"solved_generation\":"<<status.solvedGeneration<<"}\n";
     require(bool(manifest),"dump manifest");
-    CUcontext previous;require(cuCtxPopCurrent(&previous)==CUDA_SUCCESS,"dump context pop");
+    const auto observation=observeObjects(objects);
+    std::ofstream bodies(prefix+"-objects.json");
+    bodies<<std::setprecision(17)<<"{\"schema\":1,\"fields\":[\"id\",\"type\",\"moving\",\"shape_dynamic\",\"flags\",\"mass\",\"pose_xyz\",\"pose_xyzw\",\"com_xyz\",\"com_xyzw\",\"inertia_xyz\",\"linear_xyz\",\"angular_xyz\"],\"objects\":[";
+    bool firstObject=true;
+    auto vector=[&](const PxVec3& v){bodies<<'['<<v.x<<','<<v.y<<','<<v.z<<']';};
+    auto quaternion=[&](const PxQuat& q){bodies<<'['<<q.x<<','<<q.y<<','<<q.z<<','<<q.w<<']';};
+    for(const auto& x:observation){
+        if(!firstObject)bodies<<',';firstObject=false;
+        bodies<<'['<<x.id<<','<<x.type<<','<<x.moving<<','<<x.shapeDynamic<<','<<x.flags<<','<<x.mass<<',';
+        vector(x.pose.p);bodies<<',';quaternion(x.pose.q);bodies<<',';vector(x.com.p);bodies<<',';quaternion(x.com.q);
+        bodies<<',';vector(x.inertia);bodies<<',';vector(x.linear);bodies<<',';vector(x.angular);bodies<<']';
+    }
+    bodies<<"]}\n";require(bool(bodies),"dump object observations");
 }

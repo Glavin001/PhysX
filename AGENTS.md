@@ -1,5 +1,19 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Current snapshot qualification: frozen candidate `d5d0ca49ba37f7273e8532ce77d1beec3bd4df82`
+replaces topology/publication conditional graphs with GPU-enabled flat graphs.
+**52/52 normal asynchronous memcheck cases pass, 104 restored ticks (623.12 s)**;
+no blocking launch, suppression or extra CPU tick wait. Three matched physical
+A/B screens pass (flying body, 11,100-chunk impact, 113,664-chunk late debris),
+including exact destruction arrays and identical measured body positions/velocities.
+The separate 29-case correction test passes plain but fails memcheck in the
+remaining motion-allocation conditional graph. The next isolated candidate is
+under test in `out/snapshot-finish-20260911/device-enabled-all/`; it is not retained.
+Main runtime and installed SDK are unchanged by these graph candidates. Full
+matched timing and correction qualification are still required. Older diagnostic
+statuses below are historical; do not restart the rejected atomic/index workarounds.
+
+
 Latest asynchronous follow-up: explicit index guards do not fix memcheck; the first
 error moves to a fixed field in a live status allocation. A high synchronization
 limit preserves concurrency in an independent rendezvous but still fails native

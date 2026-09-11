@@ -1,0 +1,375 @@
+{
+  "candidate_commit": "d5d0ca49ba37f7273e8532ce77d1beec3bd4df82",
+  "status": "passed",
+  "scope": "Default asynchronous memcheck; no blocking launches, synchronization limit or suppression; two single-tick restores per scenario",
+  "passed": 52,
+  "total": 52,
+  "ticks": 104,
+  "harness_seconds": 623.1210358950484,
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-bridge64-cold",
+      "receipt_sha256": "eecc4f03bf918429b8e380b9bd8fd0e897d7334f881e1f13e1928ad321d4c7b7"
+    },
+    {
+      "scenario": "bridge64-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-bridge64-warm",
+      "receipt_sha256": "5b09570f1aee3822273c8351fc072836af7f3c48153985957fde69a4aacbbeaf"
+    },
+    {
+      "scenario": "building-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-building-cold",
+      "receipt_sha256": "107afd4d622c1faf73a6da160aba776d4bf55ef39d5be8b5538e4b7ce51943f8"
+    },
+    {
+      "scenario": "building-fragmented",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-building-fragmented",
+      "receipt_sha256": "f7e7519dedc1cdacf5fbf3297375f5e0d847e194d1d5ab416010a54cf1088420"
+    },
+    {
+      "scenario": "building-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-building-warm",
+      "receipt_sha256": "e578262128fbaba9d2025441995aa2bc68434e24e28586dd2a3514abdcd3a12d"
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-cantilever64-cold",
+      "receipt_sha256": "14d95f9aaddaa2fd682aab4337fac4fad9113837656851f839e3c7645cd1a65c"
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-cantilever64-warm",
+      "receipt_sha256": "582f1da94871c06bda0a24e2589666e47d9e694dd51ac8201a1569c3a2e0cc56"
+    },
+    {
+      "scenario": "chain256-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-chain256-cold",
+      "receipt_sha256": "09f2869efb5d58029fe9d54b18177a909971de169788deccb53ae6f835c9ea55"
+    },
+    {
+      "scenario": "chain256-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-chain256-warm",
+      "receipt_sha256": "2b746a9e8738023d2bc58929c45ad6caac2b168c7c8c950b26ebb102a06631fe"
+    },
+    {
+      "scenario": "chain32-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-chain32-cold",
+      "receipt_sha256": "e373076551897fbdffa144e5db62d966eafa49b44559cbda2e4873e3488ee115"
+    },
+    {
+      "scenario": "chain32-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-chain32-warm",
+      "receipt_sha256": "9e641accc5f44c3867f4e924b96dd465de6ff383951bc02f0446ef93164a409e"
+    },
+    {
+      "scenario": "dense12-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-dense12-cold",
+      "receipt_sha256": "3e4c0855693278af8d631733a719f58540cbb7db25e63cd2df04f4cb7f1cc44b"
+    },
+    {
+      "scenario": "dense12-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-dense12-warm",
+      "receipt_sha256": "cd0ae536c93db0057d5adbc44cd6e18aaf538dc5a3b4259ca5f922a622a2ae37"
+    },
+    {
+      "scenario": "destruction-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-destruction-cold",
+      "receipt_sha256": "7cf57d597d1ca1320a25dca7b9262bbc0bae43f22a0de78fe6ff10e340d29b6f"
+    },
+    {
+      "scenario": "destruction-damaged",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-destruction-damaged",
+      "receipt_sha256": "8f780e52b5555006e2afc0969f81f85fc86a45b339c3343eafe990bf914c6ac4"
+    },
+    {
+      "scenario": "destruction-fractured",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-destruction-fractured",
+      "receipt_sha256": "7c049b6dd77cdb9da64be30a4ad1c9fbb57517215192bdcee9f8e4c0ad9ad8be"
+    },
+    {
+      "scenario": "destruction-intact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-destruction-intact",
+      "receipt_sha256": "339f701f118af75e60bbc70b618bca2f0813e6d186ed4430d856a3d57757f556"
+    },
+    {
+      "scenario": "destruction-onset",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-destruction-onset",
+      "receipt_sha256": "8c1568ac363967ce3bf223be12e07c9a01483ab34c6ac8f62e861b6fbafa0d53"
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-destruction-stimulus",
+      "receipt_sha256": "0dc9ec62b8f1ca95756daa72263b38cc9624f06a59802e5d286707153b75b2f6"
+    },
+    {
+      "scenario": "flying",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-flying",
+      "receipt_sha256": "2c23013ca5bca451b3834da474eacce500fb73b56ebe9f67b8ff141a6afe5ac2"
+    },
+    {
+      "scenario": "ladder128-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-ladder128-cold",
+      "receipt_sha256": "d8a901c1848f113493baef360c8f88c62ac10d2aa5138b477bda091faf455611"
+    },
+    {
+      "scenario": "ladder128-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-ladder128-warm",
+      "receipt_sha256": "aecf523e1fee1b0108e6d46059951c831dd6ff0849089dde8424c0ecaddb9391"
+    },
+    {
+      "scenario": "panel32-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-panel32-cold",
+      "receipt_sha256": "b832341fdea0f27281304eac388eaa3e157309023a7f5bd45f9977c92f4a5a94"
+    },
+    {
+      "scenario": "panel32-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-panel32-warm",
+      "receipt_sha256": "e3d52fc4e33fd7430c98b5c8ad87ac3c2f2417ad5a950894ab53b43fcc2f81e3"
+    },
+    {
+      "scenario": "resting",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-resting",
+      "receipt_sha256": "6de2bfdc1c8f501e4712a6fdfbab4d06e7ea9f8e78a367048fab817103683c8a"
+    },
+    {
+      "scenario": "sliding",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-sliding",
+      "receipt_sha256": "525b74bae7307141f4a96a87a3f289403a6550fc6d7d6efb1ed351301d95cadc"
+    },
+    {
+      "scenario": "tower64-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-tower64-cold",
+      "receipt_sha256": "387688c473d2482d7ba8d52098e2c0241d7f49f1e23f75705e5b363e01a5ba67"
+    },
+    {
+      "scenario": "tower64-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-tower64-warm",
+      "receipt_sha256": "1f72c1a21d0502ff5bbefb1b593dc00deecc32bbb6d076e789e411dd9a11c673"
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city25-intact-idle",
+      "receipt_sha256": "7b2db21c78a1e7443150404e8b204e9c1b236b10e4ea4769b128c1a7b03e01fb"
+    },
+    {
+      "scenario": "city25-airborne",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city25-airborne",
+      "receipt_sha256": "9de3ee88ee67e815e08a1ab82b01dadf5080332b9fe59cb8c656fd4460177364"
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city25-initial-impact",
+      "receipt_sha256": "245abfe65661ce6499e3c463734e8e85f9e6fab18d1ffd84a6e8b697a1e938aa"
+    },
+    {
+      "scenario": "city25-post-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city25-post-impact",
+      "receipt_sha256": "9d9ef5b1e0f6f4ae974ee3d2d7a8d0b05016d4beb9aefde85b74bd17aa88b515"
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city25-cascading-fracture",
+      "receipt_sha256": "cd3fb5a8ed02620a832ba9736421a78012dee0943a0d30b500d9756fa7f09308"
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city25-fragmented-loaded",
+      "receipt_sha256": "e7350ec6c03efada543498c00a5e2d23f24614a34c23acf1843857e673756433"
+    },
+    {
+      "scenario": "city25-late-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city25-late-debris",
+      "receipt_sha256": "028799dbf007ecfa6880cf072f0b4580daadb242bfdec86734d2535ff7209629"
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city25-ten-second-debris",
+      "receipt_sha256": "ae8b164b6e727c9d5a4f64624ff8d24b118620e6af3c77aee3abce7e80e25916"
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city64-intact-idle",
+      "receipt_sha256": "3287402597a6b38bf8f6ffa390ac925357a7021753aaca258854a681244c944c"
+    },
+    {
+      "scenario": "city64-airborne",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city64-airborne",
+      "receipt_sha256": "c1506e861d6f2be98234c589c27f87991bd7fd9c306b63d9d30f4bdd1d5382cb"
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city64-initial-impact",
+      "receipt_sha256": "f7a717a5fde9d9acbdee175f38f6bc46cde180ae6924f81a047806bdd420226e"
+    },
+    {
+      "scenario": "city64-post-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city64-post-impact",
+      "receipt_sha256": "5200f69db6a45b211447b52a3482c1aab85e66fbc3c2cfe885ce321702e77315"
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city64-cascading-fracture",
+      "receipt_sha256": "68cfc7924b47e389fd320bf397fdc5b38caebe8dcb0eb09e16d40b177d779b97"
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city64-fragmented-loaded",
+      "receipt_sha256": "35a67c6d553077b55c39be691709793c8448b599cb52056c478e1e32f34e9b6e"
+    },
+    {
+      "scenario": "city64-late-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city64-late-debris",
+      "receipt_sha256": "db26440c6855a3e8b415ea93483ab069d2916c47e70f88935d472e53fdd79dde"
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city64-ten-second-debris",
+      "receipt_sha256": "2c2af4194a0e85bca001d63c52cb0aae1cc316da646427200bd899b2beb941d6"
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city256-intact-idle",
+      "receipt_sha256": "3a11bbfadbe5e136b447f78b8ab1cd3545638d02b5c91290e8cc409ab8463840"
+    },
+    {
+      "scenario": "city256-airborne",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city256-airborne",
+      "receipt_sha256": "486db14a18880fb1106d31ba9b2821748e17500992cf875ff5772fcc16045a9a"
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city256-initial-impact",
+      "receipt_sha256": "66c7b692b2f61bdb5862dffcd74b76df1f2e7ba233b95a50ebe41cb988c73cb0"
+    },
+    {
+      "scenario": "city256-post-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city256-post-impact",
+      "receipt_sha256": "9d3eb9e62519920c1acc1d9ee803714bb25255f112d0e677022c2328de9982be"
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city256-cascading-fracture",
+      "receipt_sha256": "b4bafc256bc41a939b420f805481a8191a477f0c8a1e03a16f61324bd6b0b873"
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city256-fragmented-loaded",
+      "receipt_sha256": "95b3d6a5d113b2a374ca32f9a239770f01962cecf52f5e017cddc63f3c74e10a"
+    },
+    {
+      "scenario": "city256-late-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city256-late-debris",
+      "receipt_sha256": "ca8206f902deb9dda88b2b87b5e3f11a1eea48bdcd4f864df0b20b3396b6919a"
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-publication-mem-suite/complete-city256-ten-second-debris",
+      "receipt_sha256": "b3c5d54dee53663592165a352ea9b5e65c0fd3b9d29bd531be7b54669208baac"
+    }
+  ]
+}
