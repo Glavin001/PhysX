@@ -1,0 +1,65 @@
+{
+  "source_sha256": "3463f290929bd81ded580f1df3e21f091679722bdd65eef14a3376ec864c74ad",
+  "binary_sha256": "4248bf8232de64e7dba65e8cedc8397570a02b35b162a41022e1b06eed23be80",
+  "results": [
+    {
+      "name": "plain-nested",
+      "command": [
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/fixed-read/repro",
+        "2",
+        "1",
+        "0"
+      ],
+      "exit_code": 0,
+      "log": "out/snapshot-finish-20260911/fixed-read/plain-nested.log"
+    },
+    {
+      "name": "mem-nested",
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/fixed-read/repro",
+        "2",
+        "1",
+        "0"
+      ],
+      "exit_code": 0,
+      "log": "out/snapshot-finish-20260911/fixed-read/mem-nested.log"
+    },
+    {
+      "name": "mem-nested-hostwait",
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/fixed-read/repro",
+        "2",
+        "1",
+        "1"
+      ],
+      "exit_code": 0,
+      "log": "out/snapshot-finish-20260911/fixed-read/mem-nested-hostwait.log"
+    },
+    {
+      "name": "mem-flat",
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/fixed-read/repro",
+        "0",
+        "1",
+        "0"
+      ],
+      "exit_code": 0,
+      "log": "out/snapshot-finish-20260911/fixed-read/mem-flat.log"
+    }
+  ]
+}

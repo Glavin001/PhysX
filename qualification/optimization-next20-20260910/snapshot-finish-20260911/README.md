@@ -83,3 +83,7 @@ ms by scale are:
 These shared-GPU restored timings include all CPU/GPU work and correction. They
 are not warm continuous-play timings or an A/B speedup claim. No sanitizer or
 wall-observer times enter this table.
+
+Further asynchronous investigation, rejected hypotheses, repeated CUDA-only controls,
+and a prepared but unsent vendor reproducer are in
+[the follow-up](asynchronous-followup/README.md). No async qualification is claimed.

@@ -1,5 +1,12 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest asynchronous follow-up: explicit index guards do not fix memcheck; the first
+error moves to a fixed field in a live status allocation. A high synchronization
+limit preserves concurrency in an independent rendezvous but still fails native
+impact. CUDA-only graph failures are intermittent; neither that option nor the
+guarded topology module is an accepted fix. A standalone vendor reproduction is
+prepared locally, not submitted. [Evidence](qualification/optimization-next20-20260910/snapshot-finish-20260911/asynchronous-followup/README.md).
+
 Latest qualification continuation (2026-09-11): the user confirms **ordinary APIs,
 Direct GPU disabled, sleeping enabled**. The full wall wrapper now defaults to
 this mode and compares the hash-pinned pre-snapshot ordinary reference. A new

@@ -22,6 +22,8 @@ parser.add_argument('--require-complete-shapes',action='store_true')
 parser.add_argument('--sanitizer',choices=['memcheck','initcheck','synccheck'])
 parser.add_argument('--sanitizer-blocking-launches',action='store_true',
                     help='Use the sanitizer blocking-launch diagnostic mode; never a performance capture')
+parser.add_argument('--sanitizer-sync-limit',type=int,
+                    help='Explicit sanitizer launch-count synchronization limit; records diagnostic API-tracking mode')
 parser.add_argument('--watchdog-seconds',type=float,default=120)
 parser.add_argument('--replay-prefix',type=Path)
 parser.add_argument('--repetitions',type=int,default=10)
@@ -30,6 +32,9 @@ parser.add_argument('--native-args-json',type=Path,help='Capture with native dem
 args=parser.parse_args()
 if args.sanitizer_blocking_launches and not args.sanitizer:
     parser.error('--sanitizer-blocking-launches requires --sanitizer')
+if args.sanitizer_sync_limit is not None:
+    if not args.sanitizer or args.sanitizer_blocking_launches or args.sanitizer_sync_limit < 1:
+        parser.error('--sanitizer-sync-limit requires --sanitizer, a positive limit, and no blocking-launch option')
 out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
 arm=args.artifacts.resolve();binary=args.binary.resolve()
 record={'command':[str(binary),str(out)],'binary_sha256':c.sha(binary),'samples':[],'status':'running',
@@ -47,8 +52,11 @@ if args.sanitizer:
     sanitizer=Path('/usr/local/cuda-13.4/bin/compute-sanitizer')
     record['sanitizer']={'tool':args.sanitizer,'binary_sha256':c.sha(sanitizer),
         'version':subprocess.check_output([str(sanitizer),'--version'],text=True).strip(),
-        'blocking_launches':args.sanitizer_blocking_launches,'performance_qualification':False}
+        'blocking_launches':args.sanitizer_blocking_launches,
+        'force_synchronization_limit':args.sanitizer_sync_limit,'performance_qualification':False}
     options=['--force-blocking-launches'] if args.sanitizer_blocking_launches else []
+    if args.sanitizer_sync_limit is not None:
+        options += ['--force-synchronization-limit',str(args.sanitizer_sync_limit)]
     record['command']=[str(sanitizer),'--tool',args.sanitizer,'--error-exitcode','97',*options,*record['command']]
 def owned(pid,parent):
     seen=set()
