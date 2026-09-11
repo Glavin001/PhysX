@@ -49,12 +49,15 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
                 require(world.scene->getDestructionScene()->exportState(again,*world.objects),"file restore re-export failed");
                 require(again.getSize()==destruction.getSize() && !std::memcmp(again.getData(),destruction.getData(),again.getSize()),"file physical state changed during import");}
             // Input submission belongs to the full application tick measurement.
+            SnapshotProfileTick profileTick(*world.scene,i==0);
             const auto start=std::chrono::steady_clock::now();
             if(impulse){auto* object=world.objects->find(102);auto* target=object?object->is<PxRigidDynamic>():nullptr;
                 require(target,"replay projectile missing");target->setAngularVelocity(PxVec3(0,.25f,0));target->addForce(PxVec3(.1f,0,0),PxForceMode::eIMPULSE);}
+            profileTick.stage("snapshot/simulate_fetch");
             const auto simulationStart=std::chrono::steady_clock::now();
             step(*world.scene);
             const auto simulationEnd=std::chrono::steady_clock::now();
+            profileTick.stage("snapshot/completion");
             auto status=world.scene->getDestructionScene()->getLastStatus();
             PxDestructionTopologyStatus topology{};PxDestructionStressTopologyStatus stressTopology{};
             if(destructive){const auto view=world.scene->getDestructionScene()->getDeviceView();
@@ -68,6 +71,7 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
             if(destructive)require(!status.error && status.converged && status.frame==frame+1
                     && status.correctionPasses<=1 && status.stressPasses==1+status.correctionPasses,"file replay quality/correction failed");
             const auto completeEnd=std::chrono::steady_clock::now();
+            profileTick.finish();
             const double commandMs=std::chrono::duration<double,std::milli>(simulationStart-start).count();
             const double simulationMs=std::chrono::duration<double,std::milli>(simulationEnd-simulationStart).count();
             const double completionMs=std::chrono::duration<double,std::milli>(completeEnd-simulationEnd).count();

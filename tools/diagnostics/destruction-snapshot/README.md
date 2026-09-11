@@ -188,3 +188,19 @@ still exclude restore. The largest idle/debris scenes remain113,664 chunks; all
 inputs and tolerances are unchanged. See [the light suite](../../../qualification/optimization-next20-20260910/snapshot-light-20260911/README.md).
 Full52-case qualification remains required for finalists. The light screen omits
 large cross-build observation dumps and is not proof of small speedups.
+
+## Hardware counters and timelines
+
+Use `build-probe.py --profile`, then `profile-suite.py --preset light` followed
+by `--preset full --reuse LIGHT_OUTPUT`. The default `--counter-mode pm` pairs
+the existing non-replaying CUPTI sampler with Nsight Systems. Trace through
+normal process exit; extract only the first full tick, excluding restore and
+validation. A second independent restore checks repeatability. Counter coverage,
+clock alignment, transfer directions, kernel metadata and physical receipts are
+retained. `report-profile-suite.py` joins diagnostics to a separate unprofiled
+baseline. Instrumented receipts cannot enter timing acceptance reports.
+
+See [exact commands and limitations](../../../OPTIMIZATION.md#per-scenario-hardware-counter-atlas)
+and the [52-case counter atlas](../../../qualification/optimization-next20-20260910/snapshot-counters-20260911/README.md).
+Detailed NCU supplements are available for four cases; native fracture NCU
+failures remain unqualified. Device-wide PM includes recorded foreign contexts.

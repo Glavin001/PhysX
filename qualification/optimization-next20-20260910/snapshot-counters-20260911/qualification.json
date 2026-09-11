@@ -1,0 +1,802 @@
+{
+  "status": "passed",
+  "cases": 52,
+  "physical_ticks": 104,
+  "profiled_first_ticks": 52,
+  "valid_tick_hardware_samples": 43788,
+  "minimum_tick_interior_coverage": 0.9689555342991046,
+  "max_clock_anchor_discrepancy_ns": 7565,
+  "elapsed_seconds": 388.11252250001417,
+  "reused_cases": 1,
+  "ncu_cases": 4,
+  "ncu_launches": 7,
+  "identity": {
+    "binary_sha256": "24615e8fc7b9da5f3651b72aaae4bb43f42818f104a100eeebc24521a90159dd",
+    "modules": {
+      "libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786",
+      "libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5"
+    }
+  },
+  "checks": [
+    {
+      "scenario": "bridge64-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/process-window-bridge"
+    },
+    {
+      "scenario": "bridge64-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/bridge64-warm-timeline"
+    },
+    {
+      "scenario": "building-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/building-cold-timeline"
+    },
+    {
+      "scenario": "building-fragmented",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/building-fragmented-timeline"
+    },
+    {
+      "scenario": "building-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/building-warm-timeline"
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/cantilever64-cold-timeline"
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/cantilever64-warm-timeline"
+    },
+    {
+      "scenario": "chain256-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/chain256-cold-timeline"
+    },
+    {
+      "scenario": "chain256-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/chain256-warm-timeline"
+    },
+    {
+      "scenario": "chain32-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/chain32-cold-timeline"
+    },
+    {
+      "scenario": "chain32-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/chain32-warm-timeline"
+    },
+    {
+      "scenario": "dense12-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/dense12-cold-timeline"
+    },
+    {
+      "scenario": "dense12-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/dense12-warm-timeline"
+    },
+    {
+      "scenario": "destruction-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/destruction-cold-timeline"
+    },
+    {
+      "scenario": "destruction-damaged",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/destruction-damaged-timeline"
+    },
+    {
+      "scenario": "destruction-fractured",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/destruction-fractured-timeline"
+    },
+    {
+      "scenario": "destruction-intact",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/destruction-intact-timeline"
+    },
+    {
+      "scenario": "destruction-onset",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/destruction-onset-timeline"
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/destruction-stimulus-timeline"
+    },
+    {
+      "scenario": "flying",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/flying-timeline"
+    },
+    {
+      "scenario": "ladder128-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/ladder128-cold-timeline"
+    },
+    {
+      "scenario": "ladder128-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/ladder128-warm-timeline"
+    },
+    {
+      "scenario": "panel32-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/panel32-cold-timeline"
+    },
+    {
+      "scenario": "panel32-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/panel32-warm-timeline"
+    },
+    {
+      "scenario": "resting",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/resting-timeline"
+    },
+    {
+      "scenario": "sliding",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/sliding-timeline"
+    },
+    {
+      "scenario": "tower64-cold",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/tower64-cold-timeline"
+    },
+    {
+      "scenario": "tower64-warm",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/tower64-warm-timeline"
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city25-intact-idle-timeline"
+    },
+    {
+      "scenario": "city25-airborne",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city25-airborne-timeline"
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city25-initial-impact-timeline"
+    },
+    {
+      "scenario": "city25-post-impact",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city25-post-impact-timeline"
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city25-cascading-fracture-timeline"
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city25-fragmented-loaded-timeline"
+    },
+    {
+      "scenario": "city25-late-debris",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city25-late-debris-timeline"
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city25-ten-second-debris-timeline"
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city64-intact-idle-timeline"
+    },
+    {
+      "scenario": "city64-airborne",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city64-airborne-timeline"
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city64-initial-impact-timeline"
+    },
+    {
+      "scenario": "city64-post-impact",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city64-post-impact-timeline"
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city64-cascading-fracture-timeline"
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city64-fragmented-loaded-timeline"
+    },
+    {
+      "scenario": "city64-late-debris",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city64-late-debris-timeline"
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city64-ten-second-debris-timeline"
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city256-intact-idle-timeline"
+    },
+    {
+      "scenario": "city256-airborne",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city256-airborne-timeline"
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city256-initial-impact-timeline"
+    },
+    {
+      "scenario": "city256-post-impact",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city256-post-impact-timeline"
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city256-cascading-fracture-timeline"
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city256-fragmented-loaded-timeline"
+    },
+    {
+      "scenario": "city256-late-debris",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city256-late-debris-timeline"
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "physical_ticks": 2,
+      "passed": true,
+      "cuda_event_warnings": 0,
+      "declared_ranges_complete": true,
+      "diagnostics": [
+        {
+          "severity": 2,
+          "text": "Not all NVTX events might have been collected."
+        }
+      ],
+      "matches_range_capture_counts_bytes": true,
+      "raw": "/root/workspace/physx-2/out/snapshot-counters-20260911/full-drained/city256-ten-second-debris-timeline"
+    }
+  ]
+}

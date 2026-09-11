@@ -25,6 +25,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+#include "profile-markers.h"
 using namespace physx;
 namespace {
 bool requireCompleteShapes=true;

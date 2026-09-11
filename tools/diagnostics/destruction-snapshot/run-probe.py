@@ -20,6 +20,12 @@ parser.add_argument('--allow-existing-graphics',action='store_true')
 parser.add_argument('--allow-compute-pid',type=int,action='append',default=[])
 parser.add_argument('--require-complete-shapes',action='store_true')
 parser.add_argument('--sanitizer',choices=['memcheck','initcheck','synccheck'])
+parser.add_argument('--profiler',choices=['nsys','ncu','pm'],help='Diagnostic first-tick capture; requires a --profile-built probe')
+parser.add_argument('--ncu-kernel',default='regex:componentStressSolve',help='Target kernel function filter')
+parser.add_argument('--ncu-count',type=int,default=2)
+parser.add_argument('--ncu-mode',choices=['full','hardware'],default='full')
+parser.add_argument('--ncu-replay',choices=['kernel','application'],default='kernel')
+parser.add_argument('--nsys-range',choices=['process','first-tick'],default='process',help='Capture full process to drain timeline events; analysis still selects only the first full tick')
 parser.add_argument('--sanitizer-blocking-launches',action='store_true',
                     help='Use the sanitizer blocking-launch diagnostic mode; never a performance capture')
 parser.add_argument('--sanitizer-sync-limit',type=int,
@@ -30,6 +36,15 @@ parser.add_argument('--repetitions',type=int,default=10)
 parser.add_argument('--projectile-impulse',action='store_true')
 parser.add_argument('--native-args-json',type=Path,help='Capture with native demo arguments from a JSON array; output added by wrapper')
 args=parser.parse_args()
+if args.profiler and (args.sanitizer or not args.replay_prefix):
+    parser.error('Profiling requires file replay and excludes sanitizer collection')
+if args.ncu_count < 1:parser.error('Positive NCU launch count required')
+build_receipt=args.binary.resolve().parent/'build.json'
+if build_receipt.exists():
+    build=json.loads(build_receipt.read_text())
+    if build.get('profiling_only') and build.get('binary_sha256')==c.sha(args.binary) and not args.profiler:
+        parser.error('Profiling-only probe requires --profiler; rebuild without --profile for performance timings')
+
 if args.sanitizer_blocking_launches and not args.sanitizer:
     parser.error('--sanitizer-blocking-launches requires --sanitizer')
 if args.sanitizer_sync_limit is not None:
@@ -48,6 +63,34 @@ if args.replay_prefix:
     record['snapshot_inputs']={str(prefix)+suffix:c.sha(Path(str(prefix)+suffix)) for suffix in ('.pxbin','.destruction','.scene','.metadata.json') if Path(str(prefix)+suffix).exists()}
     record['command'] += ['--replay',str(prefix),'--repetitions',str(args.repetitions)]
     if args.projectile_impulse:record['command'].append('--projectile-impulse')
+if args.profiler:
+    tool=Path('/opt/nvidia/nsight-systems/2026.3.2/bin/nsys') if args.profiler in ('nsys','pm') else Path('/opt/nvidia/nsight-compute/2026.3.0/ncu')
+    record['profiler']={'tool':args.profiler,'version':subprocess.check_output([str(tool),'--version'],text=True).strip(),
+        'performance_qualification':False,'range':'first restored complete tick; setup excluded'}
+    if args.profiler in ('nsys','pm'):
+        options=['profile','--trace=cuda,nvtx','--sample=none','--cpuctxsw=none','--cuda-graph-trace=node',
+                 '-o',str(out/'trace')]
+        if args.nsys_range=='first-tick':options+=['--capture-range=cudaProfilerApi','--capture-range-end=stop']
+        record['profiler']['raw_timeline_scope']=args.nsys_range
+    else:
+        metrics=['--set','full'] if args.ncu_mode=='full' else ['--metrics',','.join([
+            'gpu__time_duration.sum','sm__warps_active.avg.pct_of_peak_sustained_active',
+            'smsp__warps_eligible.avg.per_cycle_active','smsp__issue_active.avg.pct_of_peak_sustained_active',
+            'sm__pipe_fp64_cycles_active.avg.pct_of_peak_sustained_elapsed','dram__bytes.sum.per_second',
+            'launch__registers_per_thread','launch__occupancy_limit_registers',
+            'l1tex__t_sector_hit_rate.pct','lts__t_sector_hit_rate.pct',
+            'l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum','l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum'])]
+        record['profiler']['metric_mode']=args.ncu_mode
+        record['profiler']['replay_mode']=args.ncu_replay
+        options=['--profile-from-start','off','--replay-mode',args.ncu_replay,*metrics,'--kernel-name-base','function',
+                 '--kernel-name',args.ncu_kernel,'--launch-count',str(args.ncu_count),
+                 '--clock-control','none','--cache-control','all','--export',str(out/'counters')]
+    record['command']=[str(tool),*options,*record['command']]
+    if args.profiler=='pm':
+        collector=root/'out/destruction-pm-sampling-20260910/final-build/collect'
+        metrics='gpu__time_duration.sum,sm__warps_active_realtime.avg.pct_of_peak_sustained_elapsed,sm__inst_executed_realtime.avg.per_cycle_elapsed,dram__bytes.sum'
+        record['profiler'].update(collector_sha256=c.sha(collector),counter_scope='device-wide PM sampling; includes other GPU contexts')
+        record['command']=[str(collector),str(out/'pm'),metrics,'--',*record['command']]
 if args.sanitizer:
     sanitizer=Path('/usr/local/cuda-13.4/bin/compute-sanitizer')
     record['sanitizer']={'tool':args.sanitizer,'binary_sha256':c.sha(sanitizer),
@@ -84,12 +127,20 @@ with (root/'out/destruction-ab.lock').open('a') as lock:
                 while process.poll() is None:
                     sample=c.gpu();record['samples'].append(sample)
                     extra=[p for g in sample['devices'] for p in g['processes'] if p not in allowed]
-                    if len(extra)>1:raise RuntimeError('Unlisted GPU process')
+                    if len(extra)>1 and args.profiler!='pm':raise RuntimeError('Unlisted GPU process')
+                    for target in extra:
+                        if not owned(target['pid'],process.pid):raise RuntimeError('GPU process is not an owned target')
+                    target_pid=extra[0]['pid'] if extra else process.pid
+                    if args.profiler=='pm':
+                        for target in extra:
+                            candidate=Path(f'/proc/{target["pid"]}/maps')
+                            if candidate.exists() and 'libPhysXDestructionGpuRuntime_64.so' in candidate.read_text():target_pid=target['pid'];break
                     if extra:
-                        if not owned(extra[0]['pid'],process.pid):raise RuntimeError('GPU process is not an owned target')
-                        if record.get('gpu_pid',extra[0]['pid'])!=extra[0]['pid']:raise RuntimeError('GPU identity changed')
-                        record['gpu_pid']=extra[0]['pid']
-                    maps=Path(f'/proc/{extra[0]["pid"] if extra else process.pid}/maps')
+                        if record.get('gpu_pid',target_pid)!=target_pid and not (args.profiler=='pm' or (args.profiler=='ncu' and args.ncu_replay=='application')):raise RuntimeError('GPU identity changed')
+                        record['gpu_pid']=target_pid
+                        for target in extra:
+                            if target['pid'] not in record.setdefault('owned_gpu_pids',[]):record['owned_gpu_pids'].append(target['pid'])
+                    maps=Path(f'/proc/{target_pid}/maps')
                     if maps.exists():
                         raw=maps.read_text()
                         if all(n in raw for n in ['libPhysXGpuActivity_64.so','libPhysXDestructionGpuRuntime_64.so']):

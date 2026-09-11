@@ -1,0 +1,23 @@
+[
+  {
+    "mode": "light-complete",
+    "status": "failed",
+    "exit_code": 6,
+    "path": "out/snapshot-counters-20260911/light-complete/city25-initial-impact-counters-0",
+    "reason": "free(): invalid next size (fast); cause unresolved; unqualified"
+  },
+  {
+    "mode": "light-hardware",
+    "status": "failed",
+    "exit_code": 6,
+    "path": "out/snapshot-counters-20260911/light-hardware/city25-initial-impact-counters-0",
+    "reason": "free(): invalid next size (fast); cause unresolved; unqualified"
+  },
+  {
+    "mode": "light-application",
+    "status": "failed",
+    "exit_code": 6,
+    "path": "out/snapshot-counters-20260911/light-application/city25-initial-impact-counters-0",
+    "reason": "free(): invalid next size (fast); cause unresolved; unqualified"
+  }
+]

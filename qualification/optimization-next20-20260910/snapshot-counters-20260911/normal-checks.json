@@ -1,0 +1,56 @@
+[
+  {
+    "scenario": "bridge64-cold",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-counters-20260911/normal-bridge64-cold",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-counters-20260911/normal-probe-check/serialization-probe",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+      "--repetitions",
+      "2",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374"
+    ],
+    "comparison": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-bridge64-cold",
+      "/root/workspace/physx-2/out/snapshot-counters-20260911/normal-bridge64-cold",
+      "/root/workspace/physx-2/out/snapshot-counters-20260911/normal-bridge64-cold/physical.json"
+    ],
+    "passed": true
+  },
+  {
+    "scenario": "city25-initial-impact",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-counters-20260911/normal-city25-initial-impact",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-counters-20260911/normal-probe-check/serialization-probe",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374"
+    ],
+    "comparison": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city25-initial-impact",
+      "/root/workspace/physx-2/out/snapshot-counters-20260911/normal-city25-initial-impact",
+      "/root/workspace/physx-2/out/snapshot-counters-20260911/normal-city25-initial-impact/physical.json"
+    ],
+    "passed": true
+  }
+]

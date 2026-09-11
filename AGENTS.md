@@ -1,5 +1,19 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest hardware-counter atlas (2026-09-11): light-first collection followed by
+**52/52 full-process-drained Systems + non-replaying CUPTI PM captures** passes
+104 restored physical ticks. Final refresh388.11 s;43,788 first-tick samples,
+minimum96.90% interior coverage, no overflow or CUDA-event completeness warnings.
+Generic NVTX warning is preserved; all four analyzed tick ranges are present and
+closed. Detailed NCU supplements cover four scenarios/seven launches only;
+first-fracture NCU aborts in three tested replay modes and remains unqualified.
+No runtime change, speedup or N-series experiment is credited. Prior unprofiled
+20-sample full-step baseline stays separate; all52 scenario metrics and next
+ranked CPU/GPU/solver hypotheses: [counter atlas](qualification/optimization-next20-20260910/snapshot-counters-20260911/README.md).
+Use `profile-suite.py` and the exact commands in OPTIMIZATION.md. Installed SDK
+and retained N13 are unchanged; no owned profiling job remains live.
+
+
 Optimization screening now supports `run-suite.py --preset light`: seven fixed
 semantic cases / 40 full ticks, measured 27.99/28.44 seconds including restore,
 checks and report generation.

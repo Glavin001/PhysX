@@ -833,3 +833,68 @@ plus the full asynchronous memory and continuous ordinary/sleeping physical and
 matched idle/heavy gates. Keep all52 cases, tolerances and full-step scope unchanged.
 The full preset remains the default; the light preset disallows case/repetition
 overrides so candidates cannot quietly change its workload.
+
+## Per-scenario hardware-counter atlas
+
+Use the isolated profiling probe and the existing saved scenario manifest. The
+normal benchmark probe contains no enabled profiling markers. Only the first of
+two independent restored ticks is analyzed; the second checks repeatability.
+Nsight Systems captures through normal process exit to drain CUDA activity;
+analysis selects only the first tick. Missing CUDA-event warnings reject the
+capture. The four declared NVTX ranges must all be closed and bounded. Generic
+NVTX collection warnings are retained explicitly in the report.
+Full-step NVTX ranges exclude restore and validation. Profiled wall times never
+enter the unprofiled performance reports.
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/build-probe.py out/NEW-profile-probe --profile
+python3 tools/diagnostics/destruction-snapshot/profile-suite.py out/NEW-light-counters \
+  --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
+  --preset light --counter-mode pm \
+  --binary out/NEW-profile-probe/serialization-probe \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --allow-existing-graphics --allow-compute-pid 435374
+python3 tools/diagnostics/destruction-snapshot/profile-suite.py out/NEW-full-counters \
+  --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
+  --preset full --counter-mode pm --reuse out/NEW-light-counters \
+  --binary out/NEW-profile-probe/serialization-probe \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --allow-existing-graphics --allow-compute-pid 435374
+python3 tools/diagnostics/destruction-snapshot/report-profile-suite.py \
+  out/NEW-full-counters out/NEW-counter-atlas \
+  --baseline qualification/optimization-next20-20260910/snapshot-reset-20260911/report.json
+```
+
+The PM mode reuses the existing external CUPTI collector at
+`out/destruction-pm-sampling-20260910/final-build/collect`. Rebuild it if absent with
+`python3 tools/diagnostics/destruction-pm-sampling/build.py` followed by that output
+path. The wrapper records its binary hash. It runs Nsight Systems CUDA/NVTX tracing
+alongside device-wide hardware sampling at100 microseconds. It checks target exit,
+physical repeatability, overflow, complete draining, clock alignment and sample
+coverage. GPU process ownership includes the collector and its simulation child;
+foreign workloads remain explicitly recorded, never stopped.
+
+Each case retains `.nsys-rep`, SQLite, PM raw CSV, clock anchors, decoded JSON,
+commands, tool versions, input hashes and loaded-module hashes. Hardware sampling
+includes other GPU contexts. Per-kernel interior records exclude flagged/boundary
+samples; very short kernels can have no usable samples. PM elapsed resident-warps
+percentage is not NCU achieved active occupancy. FP64 pipeline utilization,
+eligible-warps and detailed warp stalls are unavailable from this four-counter
+single-pass PM configuration.
+
+For supported cases, `--counter-mode full` adds targeted Nsight Compute full
+metrics for the dominant family and stress if different. `--counter-mode hardware`
+requests a smaller hardware set. This source successfully captures detailed
+non-fracturing cases, but the native first-fracture case aborts under NCU full
+kernel replay, hardware-only kernel replay, and hardware-only application replay
+with `free(): invalid next size (fast)`. Preserve those reports as **unqualified**;
+use PM for complete-world fracture coverage. Do not repeat those unchanged failed
+captures or modify production simulation to accommodate the profiler. A standalone
+profiler report without successful physical continuation is not acceptance.
+
+Use the atlas to rank hypotheses, not to promise gains from fixed occupancy or
+bandwidth thresholds. CUDA API durations may include GPU waits; overlapping kernel
+and API durations are not additive. Time without traced GPU activity includes CPU
+work, submission gaps and tracing overhead. Cold restored first-tick uploads can
+differ substantially from warm continuous gameplay; verify a proposed saving on
+both workloads before accepting an application optimization.

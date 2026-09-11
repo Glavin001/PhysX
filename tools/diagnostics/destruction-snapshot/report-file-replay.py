@@ -14,8 +14,8 @@ p.add_argument('--include-failed',action='store_true',help='Report complete samp
 a=p.parse_args();rows=[]
 for run in a.runs:
     receipt=json.loads((run/'receipt.json').read_text());d=json.loads((run/'replay.json').read_text())
-    if receipt.get('sanitizer') or 'compute-sanitizer' in receipt['command'][0]:
-        raise SystemExit(f'Sanitizer timings cannot enter the unprofiled performance report: {run}')
+    if receipt.get('sanitizer') or receipt.get('profiler') or 'compute-sanitizer' in receipt['command'][0]:
+        raise SystemExit(f'Instrumented timings cannot enter the unprofiled performance report: {run}')
     if d['steps_per_restore']!=1 or (not a.include_failed and (receipt['status']!='complete' or not d['passed'])):
         raise SystemExit(f'Unqualified replay: {run}')
     s=d['samples'];t=[x['complete_step_ms'] for x in s];r=[x['restore_ms'] for x in s]

@@ -16,7 +16,7 @@ names=[x['scenario'] for x in campaign]
 assert len(set(names))==len(names) and set(names)=={x['scenario'] for x in manifest['scenarios']}, 'Missing or duplicated scenario'
 binary_hashes=set();module_hashes=set();rows=[];totals=dict(harness_s=0,ticks_s=0,restore_s=0,validation_s=0,teardown_s=0,context_setup_s=0)
 for run in campaign:
- name=run['scenario'];p=suite/('complete-'+name);d=json.loads((p/'replay.json').read_text());receipt=json.loads((p/'receipt.json').read_text());assert d['passed'] and receipt['status']=='complete' and 'sanitizer' not in receipt
+ name=run['scenario'];p=suite/('complete-'+name);d=json.loads((p/'replay.json').read_text());receipt=json.loads((p/'receipt.json').read_text());assert d['passed'] and receipt['status']=='complete' and 'sanitizer' not in receipt and 'profiler' not in receipt
  assert d['steps_per_restore']==1 and d['repetitions']==expected and d['import_validation_every_sample']
  binary_hashes.add(receipt['binary_sha256']);module_hashes.add(tuple(sorted((Path(k).name,v) for k,v in receipt['modules'].items())))
  assert len(binary_hashes)==len(module_hashes)==1, 'Mixed artifacts in suite'
