@@ -1,0 +1,485 @@
+{
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-bridge64-cold",
+      "wall_seconds": 5.06578347600589,
+      "tick_seconds": 0.183137348,
+      "restore_seconds": 2.7857159940000003
+    },
+    {
+      "scenario": "bridge64-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-bridge64-warm",
+      "wall_seconds": 4.795899546996225,
+      "tick_seconds": 0.172182124,
+      "restore_seconds": 2.5912080359999994
+    },
+    {
+      "scenario": "building-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-building-cold",
+      "wall_seconds": 4.833537315993453,
+      "tick_seconds": 0.103480423,
+      "restore_seconds": 2.5969036770000002
+    },
+    {
+      "scenario": "building-fragmented",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-building-fragmented",
+      "wall_seconds": 5.4150560069974745,
+      "tick_seconds": 0.180667296,
+      "restore_seconds": 2.8137012639999996
+    },
+    {
+      "scenario": "building-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-building-warm",
+      "wall_seconds": 4.858489196005394,
+      "tick_seconds": 0.08698934700000004,
+      "restore_seconds": 2.644958033
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-cantilever64-cold",
+      "wall_seconds": 4.454605214996263,
+      "tick_seconds": 0.163060562,
+      "restore_seconds": 2.4608426999999993
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-cantilever64-warm",
+      "wall_seconds": 4.709325684001669,
+      "tick_seconds": 0.154698083,
+      "restore_seconds": 2.5582434820000004
+    },
+    {
+      "scenario": "chain256-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-chain256-cold",
+      "wall_seconds": 4.369655180998961,
+      "tick_seconds": 0.141771505,
+      "restore_seconds": 2.470809608
+    },
+    {
+      "scenario": "chain256-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-chain256-warm",
+      "wall_seconds": 5.0942846149991965,
+      "tick_seconds": 0.15272461599999998,
+      "restore_seconds": 2.7853299149999997
+    },
+    {
+      "scenario": "chain32-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-chain32-cold",
+      "wall_seconds": 4.465795147989411,
+      "tick_seconds": 0.059496135,
+      "restore_seconds": 2.5084826
+    },
+    {
+      "scenario": "chain32-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-chain32-warm",
+      "wall_seconds": 4.680118293996202,
+      "tick_seconds": 0.05976526099999999,
+      "restore_seconds": 2.606028981
+    },
+    {
+      "scenario": "dense12-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-dense12-cold",
+      "wall_seconds": 5.525758499003132,
+      "tick_seconds": 0.6622817159999999,
+      "restore_seconds": 2.7054209640000004
+    },
+    {
+      "scenario": "dense12-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-dense12-warm",
+      "wall_seconds": 5.490661304007517,
+      "tick_seconds": 0.6607865139999999,
+      "restore_seconds": 2.7302870670000003
+    },
+    {
+      "scenario": "destruction-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-destruction-cold",
+      "wall_seconds": 4.48471280800004,
+      "tick_seconds": 0.076657425,
+      "restore_seconds": 2.468372922
+    },
+    {
+      "scenario": "destruction-damaged",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-destruction-damaged",
+      "wall_seconds": 4.417855618012254,
+      "tick_seconds": 0.07228034700000001,
+      "restore_seconds": 2.504102791
+    },
+    {
+      "scenario": "destruction-fractured",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-destruction-fractured",
+      "wall_seconds": 4.460710371000459,
+      "tick_seconds": 0.105454185,
+      "restore_seconds": 2.4595925789999997
+    },
+    {
+      "scenario": "destruction-intact",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-destruction-intact",
+      "wall_seconds": 4.478454669006169,
+      "tick_seconds": 0.0720258,
+      "restore_seconds": 2.471673072
+    },
+    {
+      "scenario": "destruction-onset",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-destruction-onset",
+      "wall_seconds": 4.41320919599093,
+      "tick_seconds": 0.08597614799999997,
+      "restore_seconds": 2.4805416739999995
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-destruction-stimulus",
+      "wall_seconds": 4.443617302007624,
+      "tick_seconds": 0.09637654899999998,
+      "restore_seconds": 2.530790821
+    },
+    {
+      "scenario": "flying",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-flying",
+      "wall_seconds": 4.238573705995805,
+      "tick_seconds": 0.037519544,
+      "restore_seconds": 2.3053205979999998
+    },
+    {
+      "scenario": "ladder128-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-ladder128-cold",
+      "wall_seconds": 4.8130228869995335,
+      "tick_seconds": 0.121640733,
+      "restore_seconds": 2.610335059
+    },
+    {
+      "scenario": "ladder128-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-ladder128-warm",
+      "wall_seconds": 4.891363368995371,
+      "tick_seconds": 0.11064241200000004,
+      "restore_seconds": 2.5866344120000004
+    },
+    {
+      "scenario": "panel32-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-panel32-cold",
+      "wall_seconds": 5.0259641769953305,
+      "tick_seconds": 0.43765927399999993,
+      "restore_seconds": 2.6296671469999993
+    },
+    {
+      "scenario": "panel32-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-panel32-warm",
+      "wall_seconds": 5.640705262005213,
+      "tick_seconds": 0.445543535,
+      "restore_seconds": 2.790289836
+    },
+    {
+      "scenario": "resting",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-resting",
+      "wall_seconds": 4.19781844499812,
+      "tick_seconds": 0.036297303999999996,
+      "restore_seconds": 2.278781037
+    },
+    {
+      "scenario": "sliding",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-sliding",
+      "wall_seconds": 4.459759614997893,
+      "tick_seconds": 0.057519334,
+      "restore_seconds": 2.361219861
+    },
+    {
+      "scenario": "tower64-cold",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-tower64-cold",
+      "wall_seconds": 7.293947458005277,
+      "tick_seconds": 2.338230598,
+      "restore_seconds": 2.7501388240000004
+    },
+    {
+      "scenario": "tower64-warm",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/structural-complete/complete-tower64-warm",
+      "wall_seconds": 7.992091997002717,
+      "tick_seconds": 2.345861239,
+      "restore_seconds": 2.952214646
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city25-intact-idle",
+      "wall_seconds": 10.791384000011021,
+      "tick_seconds": 0.22226807800000004,
+      "restore_seconds": 6.179010270999998
+    },
+    {
+      "scenario": "city25-airborne",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city25-airborne",
+      "wall_seconds": 10.659906374989077,
+      "tick_seconds": 0.24214828,
+      "restore_seconds": 6.271739202000001
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city25-initial-impact",
+      "wall_seconds": 11.767319584992947,
+      "tick_seconds": 0.895928479,
+      "restore_seconds": 6.580484427999999
+    },
+    {
+      "scenario": "city25-post-impact",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city25-post-impact",
+      "wall_seconds": 12.925203173988848,
+      "tick_seconds": 0.48480487,
+      "restore_seconds": 7.013003682999999
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city25-cascading-fracture",
+      "wall_seconds": 12.74027229299827,
+      "tick_seconds": 0.8112299860000002,
+      "restore_seconds": 6.717038925999998
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city25-fragmented-loaded",
+      "wall_seconds": 13.334386005008128,
+      "tick_seconds": 1.1058308479999996,
+      "restore_seconds": 6.766911969999999
+    },
+    {
+      "scenario": "city25-late-debris",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city25-late-debris",
+      "wall_seconds": 14.935244806998526,
+      "tick_seconds": 1.4496140149999999,
+      "restore_seconds": 6.934042014
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city25-ten-second-debris",
+      "wall_seconds": 14.895373645005748,
+      "tick_seconds": 1.4861174080000001,
+      "restore_seconds": 7.043501333
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city64-intact-idle",
+      "wall_seconds": 35.226961780004785,
+      "tick_seconds": 0.37972764,
+      "restore_seconds": 21.593193334000002
+    },
+    {
+      "scenario": "city64-airborne",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city64-airborne",
+      "wall_seconds": 35.236354865002795,
+      "tick_seconds": 0.39802244300000006,
+      "restore_seconds": 21.794380412000006
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city64-initial-impact",
+      "wall_seconds": 35.80412443699606,
+      "tick_seconds": 1.365197195,
+      "restore_seconds": 21.227962265000002
+    },
+    {
+      "scenario": "city64-post-impact",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city64-post-impact",
+      "wall_seconds": 37.82749688900367,
+      "tick_seconds": 0.809241989,
+      "restore_seconds": 22.5370319
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city64-cascading-fracture",
+      "wall_seconds": 38.361924995988375,
+      "tick_seconds": 1.246416552,
+      "restore_seconds": 21.993166835000004
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city64-fragmented-loaded",
+      "wall_seconds": 41.622661650006194,
+      "tick_seconds": 1.9547638769999995,
+      "restore_seconds": 22.948918947
+    },
+    {
+      "scenario": "city64-late-debris",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city64-late-debris",
+      "wall_seconds": 43.455172736998065,
+      "tick_seconds": 2.9743380490000004,
+      "restore_seconds": 23.009638911000003
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city64-ten-second-debris",
+      "wall_seconds": 44.848610897999606,
+      "tick_seconds": 2.1228007200000003,
+      "restore_seconds": 24.168491803
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city256-intact-idle",
+      "wall_seconds": 62.41960862799897,
+      "tick_seconds": 1.38354839,
+      "restore_seconds": 37.252096992
+    },
+    {
+      "scenario": "city256-airborne",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city256-airborne",
+      "wall_seconds": 61.36734310298925,
+      "tick_seconds": 1.5006164910000002,
+      "restore_seconds": 36.939925156
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city256-initial-impact",
+      "wall_seconds": 67.75379381100356,
+      "tick_seconds": 5.209054182000001,
+      "restore_seconds": 37.123002355999986
+    },
+    {
+      "scenario": "city256-post-impact",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city256-post-impact",
+      "wall_seconds": 72.35959531400295,
+      "tick_seconds": 2.990036126,
+      "restore_seconds": 39.065954511000015
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "samples": 20,
+      "passed": true,
+      "raw": "out/snapshot-large-20260911/complete-city256-cascading-fracture",
+      "wall_seconds": 74.60728629499499,
+      "tick_seconds": 4.200381391,
+      "restore_seconds": 39.96531946800001
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city256-fragmented-loaded",
+      "wall_seconds": 85.46746926200285,
+      "tick_seconds": 6.474025614999999,
+      "restore_seconds": 41.441352468
+    },
+    {
+      "scenario": "city256-late-debris",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city256-late-debris",
+      "wall_seconds": 90.68529150100949,
+      "tick_seconds": 9.261513038,
+      "restore_seconds": 41.94654597099999
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "samples": 20,
+      "passed": false,
+      "raw": "out/snapshot-large-20260911/complete-city256-ten-second-debris",
+      "wall_seconds": 91.54651113800355,
+      "tick_seconds": 5.490564215,
+      "restore_seconds": 44.5532569
+    }
+  ],
+  "total": 52,
+  "passed": 43,
+  "ticks": 1040,
+  "modules": {
+    "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+    "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/libPhysXDestructionGpuRuntime_64.so": "6bda98b4c263664a3b12df86c0298bf24930047fd78214f04be19089585a8c56"
+  },
+  "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+  "structural_wall_seconds": 139.01077636200353,
+  "total_wall_seconds": 1159.6500735500013,
+  "total_tick_seconds": 63.67891523400001,
+  "total_restore_seconds": 623.5035776560001,
+  "scope": "Same frozen executable and modules, two sequential campaigns on shared GPU; not matched A/B or memory/physical-equivalence qualification."
+}

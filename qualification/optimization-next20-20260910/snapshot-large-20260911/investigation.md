@@ -220,3 +220,22 @@ through discarded caches is not reinstated as a requirement. Preserve both
 fresh-restored and continuous warm tests to demonstrate real application gains.
 Improving import/teardown speed later can shorten the harness; it cannot be
 credited as a faster simulation tick.
+
+## Compile-time instrumentation control
+
+An isolated runtime compiled the entire topology CUDA translation unit with
+CUDA 13.4 `-fdevice-sanitize=memcheck`, using the same generated optimization
+flags, other object files and GPU activity module. This follows the installed
+tool documentation's translation-unit hybrid instrumentation support, without
+mixing instrumented and uninstrumented functions within that compilation unit.
+Production runtime binaries were not replaced. Build commands and hashes are
+in `out/snapshot-large-20260911/compile-memcheck/`.
+
+The same two-repeat initial-impact input still fails before producing a timed
+sample (`mem-compile-city25-impact/`, 6,817 findings). Its first reported access
+is now `captureClusterMotion` reading the accepted topology status at offset 8
+inside a 24-byte allocation, again described as out of bounds. Changing the
+instrumentation changes the first observed site but does not fix or qualify the
+run. This is evidence against treating a simple atomic rewrite as an established
+solution. Native integration/lifetime and instrumentation remain competing
+explanations; no suppression or tolerance change is accepted.

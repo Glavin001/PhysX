@@ -106,6 +106,13 @@ snapshot: [scenario report](qualification/optimization-20260910/status-scenarios
 
 ## Semantic scenarios and snapshot replay
 
+The unified saved-input entrypoint is `tools/diagnostics/destruction-snapshot/run-suite.py`;
+see its [exact 52-case command](tools/diagnostics/destruction-snapshot/README.md).
+It runs 20 independent restores with exactly one complete tick each, with
+restore/validation excluded. `--group structural` retains all original 28 cases;
+`--group city` selects all 24 native city captures. Historical continuation
+results below use a different protocol and are not interchangeable.
+
 The executable **24-case suite (16 native trajectory cases + 8 synthetic
 structures)** and its repeatability protocol are documented in
 [the semantic suite report](qualification/optimization-next20-20260910/semantic-suite-20260911.md).

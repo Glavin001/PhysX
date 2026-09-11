@@ -3,8 +3,27 @@
 Start with the [complete 52-scenario catalog](../../../qualification/optimization-next20-20260910/snapshot-scenarios.md):
 28 original structural/rigid-body cases plus 24 added city cases. The original
 bridge, cantilever, chains, flying-body, ladder, panel and tower fixtures remain.
-The catalog explicitly distinguishes continuation diagnostics from independent
-single-tick measurements; the large-city runner covers only the added 24 cases.
+`run-suite.py` selects all 52 cases, or either group, with the same independent
+single-tick protocol. Historical continuation measurements remain separately
+labeled; the older large-city runner covers only the added 24 cases.
+
+Run the complete saved-input catalog (use a new output directory):
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-snapshot-suite \
+  --structural-inputs out/snapshot-large-20260911/roundtrip-regressions \
+  --city-inputs out/snapshot-large-20260911 \
+  --binary out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test \
+  --artifacts out/snapshot-large-20260911/final-artifacts \
+  --repetitions 20 --allow-existing-graphics --allow-compute-pid 435374
+```
+
+`--group structural` selects the original 28; `--group city` selects the 24
+cities. Repeat `--case NAME` to select specific cases. `--manifest-only` validates
+and hashes every selected saved input without using the GPU. The runner records
+the stimulus explicitly, runs one GPU process at a time, retains failed cases,
+and returns failure if any case fails. Restore and output validation remain
+outside the full-tick timer. No source trajectory is re-simulated during replay.
 
 The [public API contract](../../../docs/destruction/SNAPSHOT.md) documents export,
 restore, ownership and command boundaries. The source here is also built as

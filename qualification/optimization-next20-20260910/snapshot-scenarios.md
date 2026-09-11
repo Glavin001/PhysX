@@ -1,51 +1,55 @@
 # All destruction snapshot scenarios
 
-**52 catalog entries: 28 original structural/rigid-body cases plus 24 large native city cases.** The city expansion adds coverage; it does not replace the bridge, cantilever, chain, flying-body, ladder, panel, tower or other original cases. Flying-body and ladder are separate fixtures.
+**52 scenarios, 20 independent restores per scenario, exactly one complete tick per restore: 1,040 measured ticks.** All 28 structural/rigid-body cases pass repeatability; 15 of 24 city cases pass, with nine bond-health-only comparison failures. These are two sequential campaigns using the same frozen executable and runtime modules. No tolerance changed.
 
-The two groups currently have different measurement protocols and artifact cohorts. Do not compare their means as matched performance results. Restore and output validation are outside the reported tick intervals. The older structural timer stops at simulate/fetch; the newer city complete-step timer also includes mandatory completion status transfers.
+Every full tick includes input commands, integrated physics/stress/fracture, at most one correction and second stress evaluation, accepted publication, and required completion synchronization/status transfers. **Restore and output validation are excluded.** Source cold/warm labels describe pre-export history; solver/contact caches are rebuilt.
 
-## Original structural and rigid-body cases — 28
+The structural campaign took **139.01 seconds** including restoration and validation. Summed harness time for both campaigns is **1,159.65 seconds (19.33 minutes)**; measured ticks total 63.68 seconds, restoration 623.50 seconds, and other setup/validation/teardown 472.47 seconds. These are observed shared-GPU costs, not a guarantee of future suite duration.
 
-[Original measurements and provenance](snapshot-v20-results.md). These are **two independent restores, ten consecutive ticks per restore**, giving 20 continuation samples per case. They are not 20 independently restored single ticks. Cold/warm suffixes describe the source history before export, not preservation of solver/contact caches. All 28 passed the recorded correctness checks; this does not qualify every native integration or historical physical-equivalence gate.
+Use the [unified runner and exact commands](../../tools/diagnostics/destruction-snapshot/README.md). The [record audit](snapshot-unified-verification.json) verifies sample counts, fixed input hashes, matching executable/modules, and complete-step stage sums.
 
-| Scenario | Destruction chunks | Historical simulate/fetch mean / max ms | Recorded check |
-|---|---:|---:|---|
-| bridge64-cold | 768 | 2.138 / 9.130 | PASS |
-| bridge64-warm | 768 | 1.977 / 8.842 | PASS |
-| building-cold | 444 | 1.759 / 6.206 | PASS |
-| building-fragmented | 444 | 4.751 / 9.811 | PASS |
-| building-warm | 444 | 1.453 / 4.836 | PASS |
-| cantilever64-cold | 64 | 2.104 / 8.187 | PASS |
-| cantilever64-warm | 64 | 1.932 / 7.448 | PASS |
-| chain256-cold | 256 | 2.018 / 8.274 | PASS |
-| chain256-warm | 256 | 1.921 / 6.958 | PASS |
-| chain32-cold | 32 | 1.587 / 5.231 | PASS |
-| chain32-warm | 32 | 1.295 / 2.645 | PASS |
-| dense12-cold | 1,728 | 4.607 / 34.295 | PASS |
-| dense12-warm | 1,728 | 4.501 / 33.100 | PASS |
-| destruction-cold | 2 | 1.627 / 4.910 | PASS |
-| destruction-damaged | 2 | 1.438 / 3.010 | PASS |
-| destruction-fractured | 2 | 2.796 / 5.267 | PASS |
-| destruction-intact | 2 | 1.581 / 3.439 | PASS |
-| destruction-onset | 2 | 3.211 / 10.229 | PASS |
-| destruction-stimulus | 2 | 2.981 / 9.998 | PASS |
-| flying | 0 | 1.199 / 1.849 | PASS |
-| ladder128-cold | 288 | 1.807 / 6.308 | PASS |
-| ladder128-warm | 288 | 1.676 / 5.483 | PASS |
-| panel32-cold | 1,024 | 3.775 / 23.215 | PASS |
-| panel32-warm | 1,024 | 3.565 / 22.963 | PASS |
-| resting | 0 | 0.617 / 1.915 | PASS |
-| sliding | 0 | 1.272 / 3.029 | PASS |
-| tower64-cold | 2,368 | 13.078 / 118.570 | PASS |
-| tower64-warm | 2,368 | 13.147 / 117.927 | PASS |
+## Structural and rigid-body scenarios — 28
 
-Zero destruction chunks identifies a rigid-body-only control, not an empty physics scene.
+[Full timings, spread, stages, restore costs and budget misses](snapshot-structural-one-tick-20260911.md). All 560 independently restored ticks completed and passed exact material/topology and bounded motion comparison; observed pose/velocity differences were zero. The original [two-restores/ten-continuation-ticks regression](snapshot-v20-results.md) remains separate correctness coverage.
 
-## Large native city cases — 24
+| Scenario | Chunks | Purpose | Full tick mean / max ms | Repeatability |
+|---|---:|---|---:|---|
+| bridge64-cold | 768 | Two supports and a spanning load path; bending and load redistribution. | 9.157 / 13.206 | PASS |
+| bridge64-warm | 768 | Two supports and a spanning load path; bending and load redistribution. | 8.609 / 10.617 | PASS |
+| building-cold | 444 | Multi-storey wall/slab connectivity and shared supports. | 5.174 / 7.812 | PASS |
+| building-fragmented | 444 | Multi-storey wall/slab connectivity and shared supports. | 9.033 / 15.601 | PASS |
+| building-warm | 444 | Multi-storey wall/slab connectivity and shared supports. | 4.349 / 6.120 | PASS |
+| cantilever64-cold | 64 | One-sided support and a long bending lever arm. | 8.153 / 13.410 | PASS |
+| cantilever64-warm | 64 | One-sided support and a long bending lever arm. | 7.735 / 11.659 | PASS |
+| chain256-cold | 256 | Long sparse chain with slow stress propagation. | 7.089 / 10.465 | PASS |
+| chain256-warm | 256 | Long sparse chain with slow stress propagation. | 7.636 / 11.444 | PASS |
+| chain32-cold | 32 | Short sparse-chain control. | 2.975 / 7.308 | PASS |
+| chain32-warm | 32 | Short sparse-chain control. | 2.988 / 5.294 | PASS |
+| dense12-cold | 1,728 | Dense 3D connectivity and redundant load paths. | 33.114 / 36.063 | PASS |
+| dense12-warm | 1,728 | Dense 3D connectivity and redundant load paths. | 33.039 / 35.770 | PASS |
+| destruction-cold | 2 | Fresh intact two-chunk structure. | 3.833 / 7.149 | PASS |
+| destruction-damaged | 2 | Partially damaged bond with persistent material history. | 3.614 / 6.930 | PASS |
+| destruction-fractured | 2 | Already fractured chunks and physical ownership. | 5.273 / 10.139 | PASS |
+| destruction-intact | 2 | Intact bond after prior physical evolution. | 3.601 / 7.868 | PASS |
+| destruction-onset | 2 | Projectile approaching the two-chunk fracture fixture. | 4.299 / 8.875 | PASS |
+| destruction-stimulus | 2 | New impulse and angular velocity submitted inside the measured tick. | 4.819 / 8.952 | PASS |
+| flying | 0 | Free-flight gravity reference without destruction. | 1.876 / 2.384 | PASS |
+| ladder128-cold | 288 | Repeated loops joined by long parallel rails. | 6.082 / 9.589 | PASS |
+| ladder128-warm | 288 | Repeated loops joined by long parallel rails. | 5.532 / 6.350 | PASS |
+| panel32-cold | 1,024 | Broad thin surface with many in-plane paths. | 21.883 / 24.456 | PASS |
+| panel32-warm | 1,024 | Broad thin surface with many in-plane paths. | 22.277 / 24.364 | PASS |
+| resting | 0 | Resting rigid-body contact/sleep control. | 1.815 / 2.770 | PASS |
+| sliding | 0 | Frictional rigid-body contact control. | 2.876 / 4.072 | PASS |
+| tower64-cold | 2,368 | Tall slender structure under gravity and bending. | 116.912 / 121.191 | PASS |
+| tower64-warm | 2,368 | Tall slender structure under gravity and bending. | 117.293 / 119.586 | PASS |
 
-[Large-scene measurements, stages and provenance](snapshot-large-20260911/README.md). These use **20 independent restores, exactly one full tick each**. Each tick includes current physics, destruction/stress, at most one correction and second stress pass, accepted publication and mandatory completion synchronization/transfers. Fifteen cases pass strict repeatability in this cohort; nine retain bond-health differences. [Memory and physical-quality limitations remain open](snapshot-large-20260911/investigation.md).
+Zero destruction chunks identifies a rigid-body-only control, not an empty scene. `destruction-stimulus` submits its impulse and angular setter inside the measured tick.
 
-| Scenario | Chunks / bonds | Full-step mean / max ms | Repeatability in this cohort |
+## Large native city scenarios — 24
+
+[Full city measurements and stages](snapshot-large-20260911/README.md). Each state comes from a real native demo trajectory at fixed settings. The ten-second debris state is not asserted settled or asleep.
+
+| Scenario | Chunks / bonds | Full tick mean / max ms | Repeatability |
 |---|---:|---:|---|
 | city25-intact-idle | 11,100 / 22,400 | 11.113 / 21.975 | PASS |
 | city25-airborne | 11,100 / 22,400 | 12.107 / 18.479 | PASS |
@@ -72,6 +76,10 @@ Zero destruction chunks identifies a rigid-body-only control, not an empty physi
 | city256-late-debris | 113,664 / 229,376 | 463.076 / 502.288 | FAIL: bond-health equality |
 | city256-ten-second-debris | 113,664 / 229,376 | 274.528 / 357.086 | FAIL: bond-health equality |
 
-## Remaining protocol coverage
+## Remaining qualification
 
-The original 28 cases remain in `native_destruction_snapshot_test`. The 24-city selector in `tools/profiles/destruction-snapshot-large.json` covers only the added city group. Six smaller saved fixtures also have earlier single-tick replay evidence ([results](snapshot-v20-file-replay.md)); that does not cover all original structural cases or use the final city completion boundary. Converting every original structural case to the final 20-restores/one-tick protocol remains pending. Do not describe the 52-entry catalog as a uniformly measured single-tick acceptance suite.
+The nine city failures are output comparisons, not missing timings. Maximum observed bond-health difference is 0.000006079673767; motion and topology matched. Their physical significance and accumulation remain unqualified. One additional city case passed this cohort but failed an earlier cohort, so a pass is not a determinism guarantee.
+
+Native memory checking also fails without any export/restore. The alternate compile-time instrumentation control still fails. [Investigation and controls](snapshot-large-20260911/investigation.md) distinguish this unresolved integration/tool question from repeatability. Restored versus uninterrupted fracture verdicts differ materially and still need physical-quality assessment; exact cached execution continuation is not required.
+
+The suite now has uniform single-tick coverage, but it is **not a fully qualified optimization acceptance gate**. Fresh-restored timings also do not replace continuous warm gameplay measurements. No optimization speedup is claimed.

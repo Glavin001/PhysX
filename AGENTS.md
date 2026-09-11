@@ -2,9 +2,16 @@
 
 Scenario navigation: [all 52 entries](qualification/optimization-next20-20260910/snapshot-scenarios.md)
 includes the original 28 bridge/cantilever/chain/flying-body/ladder/panel/tower
-and other cases plus 24 cities. The former have 2-restores × 10-tick diagnostics;
-the latter have 20-restores × 1-tick measurements. Uniform single-tick coverage
-of every structural case remains pending; do not imply the cities replaced them.
+and other cases plus 24 cities. All 52 now have **20-restores × 1-complete-tick**
+coverage on matching frozen artifacts: 1,040 ticks, 43 repeatability passes and
+9 city bond-health failures. All 28 structural cases pass (560 ticks; 139.01 s
+harness wall). Both campaigns total 1,159.65 s, with 63.68 s measured ticks and
+623.50 s restore excluded. Use `tools/diagnostics/destruction-snapshot/run-suite.py`.
+Historical two-restores × ten-continuation-tick tests remain separate coverage.
+Uniform timing coverage does not resolve the native memory or physical-quality
+gaps below. Compile-time topology memcheck also fails (6,817 findings); its first
+reported status read is described as out of bounds while inside the allocation.
+Do not treat that contradiction as a proven tool exemption.
 
 
 Latest large-snapshot continuation (2026-09-11): added **24 native city cases**

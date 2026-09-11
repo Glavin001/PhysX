@@ -1,6 +1,6 @@
 # Large native scene snapshot campaign
 
-This is the **24-case city expansion**. The original structural cases remain in the [complete 52-scenario catalog](../snapshot-scenarios.md), with their different measurement protocol clearly labeled.
+This is the **24-case city expansion**. The original structural cases remain in the [complete 52-scenario catalog](../snapshot-scenarios.md), now measured with the same independent one-tick protocol in a separate campaign.
 
 Each sample restores the same physical file and runs one complete tick, including current physics, stress, at most one correction, second stress and accepted publication. Source histories use the original native benchmark and unchanged ordinary A/B settings. Restore/setup and output validation are separate from tick time. No solver/contact caches are serialized. Shared GPU; these are descriptive fresh-restored timings, not gameplay speedups or matched candidate comparisons.
 
