@@ -1,4 +1,33 @@
-# Remaining snapshot qualification investigation
+# Snapshot qualification fixes
+
+The flat-graph fix passes **52/52 normal asynchronous memory checks (104 ticks)**,
+the 29-case native correction regression plain/memcheck, allocation memory and
+synchronization checks, and the 600-tick ordinary/sleeping wall. The native demo
+now defaults to ordinary APIs with sleeping enabled. The complete matched suite
+passes **52/52 scenarios, 2,080 full ticks**, including 113,664-chunk city states.
+Restore and validation are excluded from all reported tick measurements.
+
+- [Implementation and exact gate evidence](device-enabled-split/README.md)
+- [All 52 scenarios, means, maxima, budgets and stages](device-enabled-split/matched/report.md)
+- [Continuous 600-tick idle/heavy controls](device-enabled-split/warm/README.md)
+- [Derived-force checker correction and unchanged A/A differences](device-enabled-split/force-comparison-correction/README.md)
+- [Ordinary/sleeping demo default verification](device-enabled-split/ordinary-demo-default/README.md)
+
+Implementation commit: `8589185e659c8316b1828b7847b8780eb0f11006`.
+Continuous heavy means are 54.596–54.990 ms versus controls 54.765–55.136 ms;
+peaks 178.072–184.494 versus 177.557–207.905 ms. Every heavy run misses 60 Hz
+on 519/600 ticks. Idle means are 1.694–1.830 versus 1.544–1.769 ms; zero
+60 Hz misses. No speedup or peak improvement is established. The possible small
+idle cost is documented, not hidden as a proven wash. Retention is for fixing
+asynchronous diagnostics and enabling further structural optimization.
+
+The source fix is applied; the normal local runtime rebuilt successfully and
+passes the 29-case asynchronous correction memcheck and four restored physical
+comparisons. See [local build verification](device-enabled-split/local-build/README.md). Installed SDK and best N13 artifacts remain
+unchanged; unrelated N14 WIP remains unaccepted. Historical cross-GPU physical
+equivalence and the broader 20-experiment batch are separate unfinished work.
+
+## Historical investigation
 
 The retained contact-order fix still has 52/52 passing unprofiled scenarios,
 20 independent single-tick restores each. This continuation addresses the

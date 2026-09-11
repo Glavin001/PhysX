@@ -1,0 +1,101 @@
+Building CUDA object sdk_gpu_source_bin/destruction-runtime/CMakeFiles/PhysXDestructionGpuRuntime.dir/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu.o
+Building CUDA object sdk_gpu_source_bin/destruction-runtime/CMakeFiles/PhysXDestructionGpuRuntime.dir/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTopology.cu.o
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(194): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(194): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(194): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(194): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh: In instantiation of ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::snapshot::Bytes::array(std::vector<T>&, physx::PxU32) [with T = physx::PxDestructionStressChunk; physx::PxU32 = unsigned int]’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh:78:12:   required from here
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh:67:38: warning: ‘void* memcpy(void*, const void*, size_t)’ writing to an object of type ‘struct physx::PxDestructionStressChunk’ with no trivial copy-assignment; use copy-assignment or copy-initialization instead [-Wclass-memaccess]
+   67 |             x.resize(n);if(bytes)std::memcpy(x.data(),data.data()+cursor,bytes);cursor+=bytes;}
+      |                           ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/include/PxDestructionScene.h:41:8: note: ‘struct physx::PxDestructionStressChunk’ declared here
+   41 | struct PxDestructionStressChunk {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh: In instantiation of ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::snapshot::Bytes::array(std::vector<T>&, physx::PxU32) [with T = physx::PxDestructionStressBond; physx::PxU32 = unsigned int]’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh:78:40:   required from here
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh:67:38: warning: ‘void* memcpy(void*, const void*, size_t)’ writing to an object of type ‘struct physx::PxDestructionStressBond’ with no trivial copy-assignment; use copy-assignment or copy-initialization instead [-Wclass-memaccess]
+   67 |             x.resize(n);if(bytes)std::memcpy(x.data(),data.data()+cursor,bytes);cursor+=bytes;}
+      |                           ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/include/PxDestructionScene.h:50:8: note: ‘struct physx::PxDestructionStressBond’ declared here
+   50 | struct PxDestructionStressBond {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh: In instantiation of ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::snapshot::Bytes::array(std::vector<T>&, physx::PxU32) [with T = physx::PxDestructionStressCluster; physx::PxU32 = unsigned int]’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh:78:67:   required from here
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh:67:38: warning: ‘void* memcpy(void*, const void*, size_t)’ writing to an object of type ‘struct physx::PxDestructionStressCluster’ with no trivial copy-assignment; use copy-assignment or copy-initialization instead [-Wclass-memaccess]
+   67 |             x.resize(n);if(bytes)std::memcpy(x.data(),data.data()+cursor,bytes);cursor+=bytes;}
+      |                           ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/include/PxDestructionScene.h:56:8: note: ‘struct physx::PxDestructionStressCluster’ declared here
+   56 | struct PxDestructionStressCluster {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh: In instantiation of ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::snapshot::Bytes::array(std::vector<T>&, physx::PxU32) [with T = physx::PxvDestructionSnapshotBody; physx::PxU32 = unsigned int]’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh:82:82:   required from here
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh:67:38: warning: ‘void* memcpy(void*, const void*, size_t)’ writing to an object of type ‘struct physx::PxvDestructionSnapshotBody’ with no trivial copy-assignment; use copy-assignment or copy-initialization instead [-Wclass-memaccess]
+   67 |             x.resize(n);if(bytes)std::memcpy(x.data(),data.data()+cursor,bytes);cursor+=bytes;}
+      |                           ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h:10:8: note: ‘struct physx::PxvDestructionSnapshotBody’ declared here
+   10 | struct PxvDestructionSnapshotBody {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~~~~
+In destructor ‘physx::PxProfileScoped::~PxProfileScoped()’,
+    inlined from ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’ at /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1619:1:
+/root/workspace/physx-2/physx/include/foundation/PxProfiler.h:129:42: warning: ‘growth.physx::PxProfileScoped::mContextId’ may be used uninitialized [-Wmaybe-uninitialized]
+  129 |                         mCallback->zoneEnd(mProfilerData, mEventName, mDetached, mContextId);
+      |                         ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu: In member function ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1587:17: note: ‘growth.physx::PxProfileScoped::mContextId’ was declared here
+ 1587 |             PxProfileScoped growth(mProfiler,"GpuDestruction.finishDetail.growMotionSlots",false,mProfileContext);
+      |                 ^~~~~~
+In destructor ‘physx::PxProfileScoped::~PxProfileScoped()’,
+    inlined from ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’ at /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1623:1:
+/root/workspace/physx-2/physx/include/foundation/PxProfiler.h:129:42: warning: ‘profile.physx::PxProfileScoped::mContextId’ may be used uninitialized [-Wmaybe-uninitialized]
+  129 |                         mCallback->zoneEnd(mProfilerData, mEventName, mDetached, mContextId);
+      |                         ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu: In member function ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1575:17: note: ‘profile.physx::PxProfileScoped::mContextId’ was declared here
+ 1575 |         PxProfileScoped profile(mProfiler,"GpuDestruction.finishDetail.reserveBodies",false,mProfileContext);
+      |                 ^~~~~~~
+In destructor ‘physx::PxProfileScoped::~PxProfileScoped()’,
+    inlined from ‘virtual bool physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::finish()’ at /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:2047:38:
+/root/workspace/physx-2/physx/include/foundation/PxProfiler.h:129:42: warning: ‘waitProfile.physx::PxProfileScoped::mContextId’ may be used uninitialized [-Wmaybe-uninitialized]
+  129 |                         mCallback->zoneEnd(mProfilerData, mEventName, mDetached, mContextId);
+      |                         ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu: In member function ‘virtual bool physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::finish()’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:2046:19: note: ‘waitProfile.physx::PxProfileScoped::mContextId’ was declared here
+ 2046 |                 {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
+      |                   ^~~~~~~~~~~
+In destructor ‘physx::PxProfileScoped::~PxProfileScoped()’,
+    inlined from ‘bool physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::prepareBodyCompatibility()’ at /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1659:1:
+/root/workspace/physx-2/physx/include/foundation/PxProfiler.h:129:42: warning: ‘publish.physx::PxProfileScoped::mContextId’ may be used uninitialized [-Wmaybe-uninitialized]
+  129 |                         mCallback->zoneEnd(mProfilerData, mEventName, mDetached, mContextId);
+      |                         ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu: In member function ‘bool physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::prepareBodyCompatibility()’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1651:17: note: ‘publish.physx::PxProfileScoped::mContextId’ was declared here
+ 1651 |         PxProfileScoped publish(mProfiler,"GpuDestruction.compatibility.publishReservation",false,mProfileContext);
+      |                 ^~~~~~~
+In destructor ‘physx::PxProfileScoped::~PxProfileScoped()’,
+    inlined from ‘bool physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::prepareBodyCompatibility()’ at /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1643:1:
+/root/workspace/physx-2/physx/include/foundation/PxProfiler.h:129:42: warning: ‘requestProfile.physx::PxProfileScoped::mContextId’ may be used uninitialized [-Wmaybe-uninitialized]
+  129 |                         mCallback->zoneEnd(mProfilerData, mEventName, mDetached, mContextId);
+      |                         ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu: In member function ‘bool physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::prepareBodyCompatibility()’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1635:17: note: ‘requestProfile.physx::PxProfileScoped::mContextId’ was declared here
+ 1635 |             PxProfileScoped requestProfile(mProfiler,"GpuDestruction.compatibility.requestReadback",false,mProfileContext);
+      |                 ^~~~~~~~~~~~~~
+Linking CUDA shared library /root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so
+Built target PhysXDestructionGpuRuntime

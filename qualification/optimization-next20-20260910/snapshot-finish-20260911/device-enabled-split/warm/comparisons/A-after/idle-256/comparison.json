@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "fixture": {
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "projectiles": 0,
+    "correction_limit": 1,
+    "sleeping": true
+  },
+  "rows": [
+    {
+      "arm": "baseline",
+      "run": "idle-256-plain-0",
+      "mean_ms": 1.5442131633333334,
+      "peak_ms": 13.756259,
+      "peak_step": 0,
+      "misses_8ms": 1,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "steps": 600,
+      "peak_work": {
+        "bodies": "256",
+        "awake_bodies": "0",
+        "logical_clusters": "256",
+        "contacts_frame": "0",
+        "stress_active_nodes": "97280",
+        "stress_active_bonds": "200704",
+        "stress_islands": "256",
+        "bonds_broken": "0",
+        "resim_passes": "0",
+        "stress_converged": "1",
+        "stress_iterations": "88"
+      },
+      "misses_8ms_percent": 0.16666666666666666,
+      "misses_120hz_percent": 0.16666666666666666,
+      "misses_60hz_percent": 0.0
+    },
+    {
+      "arm": "baseline",
+      "run": "idle-256-plain-1",
+      "mean_ms": 1.7690087416666667,
+      "peak_ms": 14.574783,
+      "peak_step": 0,
+      "misses_8ms": 1,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "steps": 600,
+      "peak_work": {
+        "bodies": "256",
+        "awake_bodies": "0",
+        "logical_clusters": "256",
+        "contacts_frame": "0",
+        "stress_active_nodes": "97280",
+        "stress_active_bonds": "200704",
+        "stress_islands": "256",
+        "bonds_broken": "0",
+        "resim_passes": "0",
+        "stress_converged": "1",
+        "stress_iterations": "88"
+      },
+      "misses_8ms_percent": 0.16666666666666666,
+      "misses_120hz_percent": 0.16666666666666666,
+      "misses_60hz_percent": 0.0
+    },
+    {
+      "arm": "candidate",
+      "run": "idle-256-plain-0",
+      "mean_ms": 1.69449797,
+      "peak_ms": 14.923337,
+      "peak_step": 0,
+      "misses_8ms": 1,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "steps": 600,
+      "peak_work": {
+        "bodies": "256",
+        "awake_bodies": "0",
+        "logical_clusters": "256",
+        "contacts_frame": "0",
+        "stress_active_nodes": "97280",
+        "stress_active_bonds": "200704",
+        "stress_islands": "256",
+        "bonds_broken": "0",
+        "resim_passes": "0",
+        "stress_converged": "1",
+        "stress_iterations": "88"
+      },
+      "misses_8ms_percent": 0.16666666666666666,
+      "misses_120hz_percent": 0.16666666666666666,
+      "misses_60hz_percent": 0.0
+    },
+    {
+      "arm": "candidate",
+      "run": "idle-256-plain-1",
+      "mean_ms": 1.83005178,
+      "peak_ms": 14.812924,
+      "peak_step": 0,
+      "misses_8ms": 1,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "steps": 600,
+      "peak_work": {
+        "bodies": "256",
+        "awake_bodies": "0",
+        "logical_clusters": "256",
+        "contacts_frame": "0",
+        "stress_active_nodes": "97280",
+        "stress_active_bonds": "200704",
+        "stress_islands": "256",
+        "bonds_broken": "0",
+        "resim_passes": "0",
+        "stress_converged": "1",
+        "stress_iterations": "88"
+      },
+      "misses_8ms_percent": 0.16666666666666666,
+      "misses_120hz_percent": 0.16666666666666666,
+      "misses_60hz_percent": 0.0
+    }
+  ],
+  "aggregates": {
+    "baseline": {
+      "runs": 2,
+      "mean_ms": 1.6566109525,
+      "median_peak_ms": 14.165521,
+      "worst_ms": 14.574783
+    },
+    "candidate": {
+      "runs": 2,
+      "mean_ms": 1.7622748750000001,
+      "median_peak_ms": 14.8681305,
+      "worst_ms": 14.923337
+    }
+  },
+  "same_steps": {
+    "0": {
+      "baseline": {
+        "min": 13.756259,
+        "median": 14.165521,
+        "max": 14.574783
+      },
+      "candidate": {
+        "min": 14.812924,
+        "median": 14.8681305,
+        "max": 14.923337
+      }
+    }
+  },
+  "physical_counter_differences": [],
+  "iteration_differences": [],
+  "source_reports": {
+    "baseline": {
+      "path": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-warm-confirmation/A-after/idle-256/report/report.json.gz",
+      "sha256": "34207501c1043581bbe28be787cf769f089d13ccd498a71d667d7d02b608577b"
+    },
+    "candidate": {
+      "path": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-warm-confirmation/B/idle-256/report/report.json.gz",
+      "sha256": "9933eaea90b3abd8d792f511501d5acc2429e74b8145a0476aac47f029e63f0c"
+    }
+  }
+}

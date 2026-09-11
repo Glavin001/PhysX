@@ -9,20 +9,27 @@ four ordered GPU phases; no CPU per-tick wait or suppression. Full 52-case norma
 requalification passes, 104 ticks / 622.90 s, in
 `out/snapshot-finish-20260911/device-enabled-split-mem-suite/`.
 Allocation initcheck/synccheck and the three physical A/B/A smoke cases also pass.
-The first full matched campaign stopped after 12 completed cohorts because the
-new bitwise force comparator also rejected unchanged A/A data. The checker now
-uses the existing `2e-4` scaled analytic-force bound; material/topology/load state
-remains exact and solver/motion tolerances are unchanged. All 12 cohorts pass
-reanalysis without rerunning their timings. See the force-comparison-correction
-report below. The remaining 40 cases resume at
-`out/snapshot-finish-20260911/split-matched-remaining/`, using
-`device-enabled-split/remaining-manifest.json` (10/20/10 samples per case).
+The full matched snapshot comparison now passes **52/52**, 2,080 full ticks,
+20 candidate / 20 total control samples each. Raw first-segment force-byte failure
+is preserved; the existing scaled `2e-4` force gate passes all A/B and A/A checks,
+with exact material/topology/load state and unchanged solver/motion tolerances.
+The one chain timing signal is neutral in a fresh balanced 20/20/20 repeat.
+Candidate suite harness 1,051.10 s; measured ticks 58.6884 s; restore 579.4125 s
+excluded. See `device-enabled-split/matched/` in the report below. No overall or
+peak speedup is claimed. Continuous 600-tick ordinary/sleeping idle/heavy A/B/A
+is complete with no physical-counter or iteration-history differences. Heavy means
+54.596–54.990 ms versus 54.765–55.136 controls; peaks 178.072–184.494 versus
+177.557–207.905 ms; all heavy runs miss 60 Hz on 519/600 ticks. Idle means
+1.694–1.830 versus 1.544–1.769 ms; zero 60 Hz misses. The possible 0.068–0.106 ms
+pooled idle cost is recorded explicitly; no proven wash or speedup. The fix is
+retained for asynchronous correctness and clearer GPU phase ordering, enabling
+N20 requalification. Source is applied and local runtime rebuilt; the local 29-case asynchronous
+correction memcheck and four physical restored comparisons pass. Best N13 artifacts and unaccepted N14 source are untouched.
 The native demo source now defaults to ordinary/sleeping; historical Direct GPU
 control tests explicitly select their legacy mode. The default itself completed
 600 wall ticks in ordinary/sleeping mode; effective-option verifier reanalysis
 passes with zero position difference. All 16 verifier tests pass. No candidate runtime change accompanied the checker/default fix.
-The candidate is not retained until full physical/matched timing checks finish.
-Main runtime and installed SDK remain unchanged. Rejected cooperative variant
+The full physical/matched campaign is complete. Installed SDK remains unchanged. Rejected cooperative variant
 `2f1286b437fb2c668d3161c33b256627b32eef6f` stalled the allocation oracle and was
 killed by its watchdog; do not reuse it. Current scripts/artifacts/evidence:
 [split follow-up](qualification/optimization-next20-20260910/snapshot-finish-20260911/device-enabled-split/README.md).

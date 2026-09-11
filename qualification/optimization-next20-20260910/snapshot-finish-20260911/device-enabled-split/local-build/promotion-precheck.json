@@ -1,0 +1,26 @@
+[
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionTopology.cu",
+    "original_commit": "71b533b1366cf04e7af6c77ff97d15d7edaf2904",
+    "unchanged_since_pre_candidate": true,
+    "sha256": "dfee0a2c7bc38bbde9af444973e645c062103b434a823347342fda6e833b9283"
+  },
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+    "original_commit": "71b533b1366cf04e7af6c77ff97d15d7edaf2904",
+    "unchanged_since_pre_candidate": true,
+    "sha256": "105e97fe50f890a89084011d9124b2b11124b4cbf8edf7ce8c3d846b156bef5a"
+  },
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionCommittedChanges.cuh",
+    "original_commit": "71b533b1366cf04e7af6c77ff97d15d7edaf2904",
+    "unchanged_since_pre_candidate": true,
+    "sha256": "c424e8a472fe3f67dac8269d8f62ab0bdba2d370634941e4c9e400f263a6946b"
+  },
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionMotionSlots.cuh",
+    "original_commit": "71b533b1366cf04e7af6c77ff97d15d7edaf2904",
+    "unchanged_since_pre_candidate": true,
+    "sha256": "41f6747029e25820ae60714eee24d9e00aa2d2e770c5d49bb4a01d077ec817c2"
+  }
+]

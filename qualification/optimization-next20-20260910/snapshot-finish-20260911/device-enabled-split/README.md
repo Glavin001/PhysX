@@ -1,4 +1,22 @@
-# Flat allocation/preparation follow-up — unaccepted candidate
+# Flat allocation/preparation fix
+
+Current qualification: all 52 matched restored scenarios pass (20 candidate and
+20 total control ticks per case), all 52 default asynchronous memory checks pass,
+and the 29-case correction, allocation memcheck/initcheck/synccheck and ordinary
+600-tick wall checks pass. The continuous 600-tick idle/heavy A/B/A also completes
+with no checked physical or iteration-history differences. See [all 52 scenarios](matched/report.md)
+and [continuous results](warm/README.md). No speedup is established. The idle
+mean is 0.068–0.106 ms higher than pooled controls, amid substantial control
+variation; this possible cost is explicitly retained in the report.
+
+The fix is accepted for its demonstrated asynchronous correctness and clearer
+GPU phase ordering, which opens the previously blocked N20 CPU allocation
+experiment. It does not qualify N14 or solve the heavy frame-budget problem.
+Main source has the five exact frozen implementation files; the local rebuilt
+runtime passes the 29-case asynchronous correction memcheck and four physical
+restored comparisons. See [local verification](local-build/README.md). Installed SDK remains unchanged.
+
+The following chronology preserves failed attempts and intermediate statuses.
 
 Topology plus publication candidate d5d0ca49 passes 52/52 normal asynchronous
 memory scenarios, but its native correction memcheck fails in the remaining
@@ -70,3 +88,29 @@ scenario records exact physical comparison, independent controls, maxima, budget
 misses and excluded restore cost. Do not accept from combined means alone when
 the two controls disagree. Stable baseline remains preserved and deployed SDK
 unchanged. Retention is pending this result, not established by sanitizer success.
+
+
+## Allocation ordering review
+
+The replacement preserves the transaction boundaries, not just its final counts:
+
+1. `beginNativeMotionAllocation` resets work/continuation flags, validates stage,
+   producer counts, available capacity and the registered address grant. Rejected
+   batches cannot enter allocation or correction preparation.
+2. Count validates every request while computing per-block counts. The following
+   graph edge is a whole-kernel completion boundary before the serial prefix.
+3. Prefix checks the advertised request total and publishes an immutable error
+   guard. Compaction reads that guard, preserves authored order and validates all
+   selected IDs, source/target ownership, candidate identity and node lifetime.
+4. A complete-kernel dependency precedes assignment. Any validation error prevents
+   all canonical body/owner writes; only disposable selection scratch can differ.
+   Successful assignment publishes continuation, and its outgoing dependency
+   waits for every block before correction preparation observes the result.
+5. Accepted slot commit still consumes pending allocation exactly once. Capacity
+   growth remains an exceptional host resource grant; it never moves stress to
+   another tick or changes current-tick correction/evaluation limits.
+
+No cooperative residency or per-tick host count decision is required. Device
+handles and flags are execution resources rebuilt at configuration/import, never
+serialized physical state. Ordinary sleeping and the original body-command guard
+remain independent preserved engine behavior.

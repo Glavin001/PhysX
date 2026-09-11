@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "fixture": {
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "projectiles": 256,
+    "correction_limit": 1,
+    "sleeping": true
+  },
+  "rows": [
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-0",
+      "mean_ms": 54.76491535666667,
+      "peak_ms": 202.023235,
+      "peak_step": 82,
+      "misses_8ms": 519,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "steps": 600,
+      "peak_work": {
+        "bodies": "5460",
+        "awake_bodies": "5376",
+        "logical_clusters": "5204",
+        "contacts_frame": "39499",
+        "stress_active_nodes": "92596",
+        "stress_active_bonds": "172108",
+        "stress_islands": "520",
+        "bonds_broken": "28596",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "288"
+      },
+      "misses_8ms_percent": 86.5,
+      "misses_120hz_percent": 86.5,
+      "misses_60hz_percent": 86.5
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "mean_ms": 55.135943155,
+      "peak_ms": 207.904952,
+      "peak_step": 82,
+      "misses_8ms": 519,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "steps": 600,
+      "peak_work": {
+        "bodies": "5460",
+        "awake_bodies": "5376",
+        "logical_clusters": "5204",
+        "contacts_frame": "39499",
+        "stress_active_nodes": "92596",
+        "stress_active_bonds": "172108",
+        "stress_islands": "520",
+        "bonds_broken": "28596",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "288"
+      },
+      "misses_8ms_percent": 86.5,
+      "misses_120hz_percent": 86.5,
+      "misses_60hz_percent": 86.5
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "mean_ms": 54.990334223333335,
+      "peak_ms": 178.071599,
+      "peak_step": 102,
+      "misses_8ms": 519,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "steps": 600,
+      "peak_work": {
+        "bodies": "9941",
+        "awake_bodies": "9798",
+        "logical_clusters": "9685",
+        "contacts_frame": "156591",
+        "stress_active_nodes": "89176",
+        "stress_active_bonds": "152716",
+        "stress_islands": "1581",
+        "bonds_broken": "6117",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "588"
+      },
+      "misses_8ms_percent": 86.5,
+      "misses_120hz_percent": 86.5,
+      "misses_60hz_percent": 86.5
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "mean_ms": 54.59610944,
+      "peak_ms": 184.494383,
+      "peak_step": 82,
+      "misses_8ms": 519,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "steps": 600,
+      "peak_work": {
+        "bodies": "5460",
+        "awake_bodies": "5376",
+        "logical_clusters": "5204",
+        "contacts_frame": "39499",
+        "stress_active_nodes": "92596",
+        "stress_active_bonds": "172108",
+        "stress_islands": "520",
+        "bonds_broken": "28596",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "288"
+      },
+      "misses_8ms_percent": 86.5,
+      "misses_120hz_percent": 86.5,
+      "misses_60hz_percent": 86.5
+    }
+  ],
+  "aggregates": {
+    "baseline": {
+      "runs": 2,
+      "mean_ms": 54.950429255833335,
+      "median_peak_ms": 204.9640935,
+      "worst_ms": 207.904952
+    },
+    "candidate": {
+      "runs": 2,
+      "mean_ms": 54.79322183166667,
+      "median_peak_ms": 181.28299099999998,
+      "worst_ms": 184.494383
+    }
+  },
+  "same_steps": {
+    "82": {
+      "baseline": {
+        "min": 202.023235,
+        "median": 204.9640935,
+        "max": 207.904952
+      },
+      "candidate": {
+        "min": 169.510794,
+        "median": 177.0025885,
+        "max": 184.494383
+      }
+    },
+    "102": {
+      "baseline": {
+        "min": 152.519428,
+        "median": 156.62862,
+        "max": 160.737812
+      },
+      "candidate": {
+        "min": 157.983684,
+        "median": 168.02764150000002,
+        "max": 178.071599
+      }
+    }
+  },
+  "physical_counter_differences": [],
+  "iteration_differences": [],
+  "source_reports": {
+    "baseline": {
+      "path": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-warm-confirmation/A-after/impacts-256/report/report.json.gz",
+      "sha256": "2b9593640d6a785e80a4d5040aaf051ee1e9862bdd41e8b46980e3d21a5f1b47"
+    },
+    "candidate": {
+      "path": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-warm-confirmation/B/impacts-256/report/report.json.gz",
+      "sha256": "117643fced37ab562313d703acbcc3e58e6f3b7c33a1fa09798f6b2143438340"
+    }
+  }
+}

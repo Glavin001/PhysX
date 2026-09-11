@@ -1,0 +1,589 @@
+{
+  "schema": 1,
+  "requested_experiments": 20,
+  "completed_experiments": 11,
+  "best_verified": "N13",
+  "baseline_commit": "c1e6faca7af6cba0e65c215d7a8710c5bf3ebf59",
+  "baseline_artifacts": "out/optimization-next20-20260910/N13-mixed-block/B",
+  "baseline_verification": "out/optimization-next20-20260910/baseline-E12/measurements.json",
+  "prior_history": "qualification/optimization-20260910/queue.json",
+  "experiments": [
+    {
+      "id": "N12",
+      "rank": 1,
+      "status": "accepted_relative_application_improvement",
+      "title": "Guarded decimation of the physical convergence monitor",
+      "evidence": "The norm-only pass traverses canonical bond rows every iteration, independently of PCG gamma/direction energy. N01 failed when an exact zero residual occurred between scheduled checks; cheap exact-zero detection can trigger the unchanged monitor before that breakdown.",
+      "proposed_mechanism": "Check the full bond-gradient norm every four iterations plus initial/final-cap checks. On intervening iterations, detect an all-zero stored residual with a block integer vote and immediately run the original norm and true-residual verification. Never accept from the cheap vote itself; any other breakdown still rejects.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "2\u20136 ms heavy mean if removing three of four sparse monitor traversals offsets the cheap vote and up to three additional iterations; hypothesis only",
+      "confidence": "medium correctness until scaled/cap/zero-load tests pass; medium application benefit",
+      "experiment_cost": "One monitored-loop change reusing N01 patch with a concrete early-zero repair; unchanged analytic/3D/mode/cap oracles, memory/sync checks, wall and matched timing",
+      "supporting_measurements": "Previously failing exact-zero case and full numerical suite pass; fewer norm-only traversals, unchanged final gates, lower complete-step means without idle/peak regression",
+      "refuting_measurements": "Any unhandled early breakdown/cap failure, increased iterations erase savings, or no matched application gain",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases"
+      ],
+      "baseline": "retained E12 until a new candidate qualifies",
+      "family": "convergence_monitor_scheduling",
+      "prior_evidence": "N01.md; initial fixed-interval scheme failed exact convergence; do not retry it unchanged",
+      "commit": "f9cb01e8d0b53ba4428b836b346e82b04ef7f6a9",
+      "result": "N12.md",
+      "conclusion": "Retain: heavy complete-step mean6.92\u20137.59% lower, idle no meaningful regression, heavy peaks lower in matched cohort; deadline misses unchanged; existing migration/native-memory gaps not waived."
+    },
+    {
+      "id": "N10",
+      "rank": 2,
+      "status": "accepted_relative_application_improvement",
+      "title": "Cache operator neighbor metadata and mass-scaled vectors",
+      "evidence": "Reused E12 late SASS counters show two large long-scoreboard sites at endpoint-index\u2192inertia/vector address chains (68394/65560 samples). The node operator repeatedly reloads fixed neighbor metadata and recomputes D*v at every adjacent row. These are stall samples, not additive application time.",
+      "proposed_mechanism": "Build a current GPU CSR neighbor cache per active component, with explicit static endpoints. Fuse the identical FP32 D*v into existing residual/direction producers and reuse component-owned nsW scratch; remove dependent neighbor-inertia loads and repeated scaling. Preserve canonical norm ownership, operator accumulation order, original equations and cooperative path.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "2\u20136 ms heavy mean if shorter gather dependencies offset cache preparation and extra vector stores; N12 may reduce the remaining norm opportunity",
+      "confidence": "high algebraic equivalence; medium performance confidence",
+      "experiment_cost": "Four private CUDA fragments and one2*bonds index allocation; existing interleaved/topology/cap/numerical tests, memory/init/sync gates, wall and full matched timing",
+      "supporting_measurements": "Unchanged independent force/equilibrium results and physical histories; fewer dependent global loads and lower complete-step time including setup",
+      "refuting_measurements": "Cache lifecycle/static endpoint errors, new stores/setup/register pressure erase savings, or no full-suite gain",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles/counters-B-late",
+        "out/optimization-next20-20260910/E12-late-source.csv",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N12",
+      "family": "operator_input_representation",
+      "design": "out/optimization-next20-20260910/prepare-N10.py (prepared, not applied)",
+      "commit": "3bd34652413c48611b252878ba7af3b54180eb6b",
+      "result": "N10.md",
+      "conclusion": "Retain small0.62\u20130.82% full-step heavy mean improvement, idle no meaningful regression; startup-plus-heavy total lower, no peak/deadline/startup-only gain. Matching recorded poses and physical histories; old migration/memory gaps remain.",
+      "architectural_benefit": "The private pre-scaled operator interface and explicit fixed-neighbor representation enable N16 component-local storage without duplicating the physical operator. This is additional to its measured small gain."
+    },
+    {
+      "id": "N20",
+      "rank": 3,
+      "status": "unqualified_native_memory_gate",
+      "title": "Amortize destruction lifetime bookkeeping allocation",
+      "evidence": "N12 normal four-worker CPU perf at step82:9/116 CPU samples (7.76%) in PxArray<uint64_t>::recreate under IslandSim::addNode -> bindNativeNodeHandle -> fragment reserve. PxArray resize reserves exact requested capacity; mPreSolveLifetimes currently grows one slot per newly registered node. Step103 also samples this allocation path. Samples are CPU activity, not independent wall milliseconds.",
+      "proposed_mechanism": "Reserve the custom GPU pre-solve lifetime array to the existing node storage capacity before increasing its active size. Preserve initialization, generation increments, lifetime values, CPU/GPU order and actual fragment creation. Capacity-only change; no new physics objects or delayed data.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "Potential5\u201315 ms first-fracture peak and0.1\u20130.8 ms heavy mean;0\u20130.1 ms idle/setup; requires matched timing including initialization",
+      "confidence": "high semantic equivalence; medium application benefit given direct call-stack evidence",
+      "experiment_cost": "One custom CPU bookkeeping growth change, rebuild native consumers, lifetime/correction/checkpoint/sleep/query tests and native memory gate, full A/B suite",
+      "supporting_measurements": "Fewer lifetime array reallocations/copies, identical generation and physical histories, lower registration/full-step peaks after charging setup",
+      "refuting_measurements": "Growth is not material on repeated controls, changed lifetime semantics, native memory qualification failure, or full-suite regression",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N10",
+      "family": "lifetime_capacity_growth",
+      "design": "out/optimization-next20-20260910/N20-design-notes.md",
+      "commit": "1c98b9efa4dbfc32b548bd8edf0a8bafa08390b9",
+      "conclusion": "Not qualified; preserve capacity-growth design for later requalification. Sixteen native behavior tests pass, candidate correction memcheck reports1566 findings; fresh N10 control reports1561 with different first reported failure. No timing, no attribution or tool exemption. Reverted only experiment CPU source.",
+      "result": "N20.md",
+      "snapshot_qualification_follow_up": {
+        "status": "candidate_still_unqualified; requalify after flat-graph baseline retention",
+        "evidence": "qualification/optimization-next20-20260910/snapshot-finish-20260911/device-enabled-split/README.md",
+        "baseline_candidate_commit": "8589185e659c8316b1828b7847b8780eb0f11006",
+        "finding": "The new ordinary/snapshot runtime passes the 29-case correction regression under normal asynchronous memcheck after conditional graph removal. The earlier capacity candidate remains reverted and unqualified; this does not retroactively qualify its old result. Reapply the capacity-only hypothesis to the retained compatible baseline and rerun its native/correction gates before timing.",
+        "concrete_enabling_benefit": "Reopens a measured CPU bookkeeping allocation hypothesis previously stopped by candidate/control correction memory failures; source-loop work and physical order remain unchanged by the graph fix."
+      }
+    },
+    {
+      "id": "N13",
+      "rank": 4,
+      "status": "accepted_relative_application_improvement",
+      "title": "Guarded mixed-precision block-Jacobi application",
+      "evidence": "N12 late selected stress spends41.84% elapsed cycles on FP64; historical work census is overwhelmingly anchored, while the current one-block preconditioner still applies the ten-coefficient rigid inverse in FP64. N07 exact-zero specialization and N08 reciprocal caching did not help. Prior rejected FP32 work also approximated polynomial off-diagonal passes; this candidate approximates only the current single block application.",
+      "proposed_mechanism": "Keep exact inverse construction/reference path. At setup, cache eligible FP32 rigid coefficients with a conservative represented-SPD/range certificate. Apply eligible fixed coefficients in FP32 for bounded RHS values; outside that arithmetic range apply the SAME rounded coefficients in FP64. Ineligible matrices retain original fixed FP64 coefficients. Keep projection, accumulated solution, recovery and authoritative residual unchanged. Add a separate independent2e-5 intermediate response/symmetry envelope test; preserve all existing exact and final physical tests.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "2\u201310 ms heavy mean if FP64 block application is exposed and guards/cache/extra iterations do not erase savings; hypothesis only",
+      "confidence": "medium numerical feasibility with conservative fixed-matrix guards; low-to-medium performance until full-step tests",
+      "experiment_cost": "Private coefficient cache/application plus independent dense long-double basis/mixed-load oracle over scaling/eligibility cases; six source/test fragments; full numerical/sanitizer/wall/timing/profile qualification",
+      "supporting_measurements": "New explicit intermediate envelope and unchanged final physical gates pass; less FP64 work and lower full-step mean/peak including setup",
+      "refuting_measurements": "Intermediate error/SPD/scaling or final quality failure; guard/register/setup overhead or extra iterations erase full-step gains",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N10",
+      "family": "mixed_precision_preconditioner",
+      "design": "out/optimization-next20-20260910/prepare-N13.py (prepared, not applied)",
+      "references": [
+        "https://arxiv.org/html/2510.11379v1"
+      ],
+      "commit": "c1e6faca7af6cba0e65c215d7a8710c5bf3ebf59",
+      "screen": "out/optimization-next20-20260910/N13-mixed-block/screen/measurements.json",
+      "result": "N13.md",
+      "conclusion": "Retain:1.71\u20132.10% lower heavy full-step mean and lower setup-plus-heavy total; idle short-screen regression does not repeat. Peak distributions overlap with slightly higher candidate worst values; no peak/deadline/startup-only claim. Numerical/sanitizer/wall/trajectory gates pass relative to retained baseline; historical migration/native-memory gaps remain."
+    },
+    {
+      "id": "N14",
+      "rank": 5,
+      "status": "screen_complete_semantic_tradeoff_unaccepted",
+      "title": "Current-input subspace warm start",
+      "evidence": "Existing stored bond warm start does not exploit a small history of solved load-response directions.",
+      "proposed_mechanism": "Retain one converged node correction per matching operator generation. Recompute its response and best scalar against the CURRENT projected residual, charge a used initial-guess step against the iteration cap, reconstruct the original residual, then restart ordinary PCG. Never certify stored-output reuse from the new guess. Invalidate on topology/cold/failure; save only converged responses.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "2\u201312 ms sustained steps if load subspaces recur",
+      "confidence": "low to medium",
+      "experiment_cost": "Five private source/test fragments including independent correlated/sign-reversed/zero current-load chain oracle; existing cold/split/cap/reuse tests and memory/init/sync checks; full idle/heavy A/B, iteration census and profiles.",
+      "supporting_measurements": "Fewer true iterations after charging history setup, no stale accepted solution",
+      "refuting_measurements": "History cost or changing impacts makes projection ineffective",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "current_load_subspace",
+      "design": "out/optimization-next20-20260910/prepare-N14.py (prepared, not applied)",
+      "commit": "1d347a133bf3d1b835837be0100df7069e961078",
+      "attempts": [
+        {
+          "commit": "fe8a365857e6ec75976defdba8d7d5708bd0b8b0",
+          "conclusion": "Initial ordering prevents exact settled reuse; fixed by trying history only after failed initial authoritative monitor."
+        }
+      ],
+      "screen": "out/optimization-next20-20260910/N14-response-history/screen/measurements.json",
+      "semantic_report": "semantic-frame-report.json",
+      "interim": "Six repaired quality gates and relative wall pass. Heavy mean60.797837 vs60.269120/60.346124 ms; observed maximum186.544241 vs211.572736/212.677886 ms. Idle1.728149 vs1.885403/1.680865 ms. First-impact tick improves in this small sample while later fracture burst worsens; no full600 or final profile qualification and no promotion."
+    },
+    {
+      "id": "N15",
+      "rank": 6,
+      "status": "queued",
+      "title": "Separate anchored and free component execution",
+      "evidence": "Source audit: isolated no-live-bond chunks are already omitted by labelDeviceStressBonds/rootFlags and labelDeviceStressNodes, so the original empty-system hypothesis has no reachable target. Current common component kernel retains free-projection code/resources even for the overwhelmingly anchored iterative work. N10 uses108 registers,32.09% occupancy in the later selected capture.",
+      "proposed_mechanism": "Use separate GPU-owned anchored/free work queues and template the component recurrence/preparation/preconditioning so the anchored specialization omits certified zero-dimensional nullspace work and its compiler resource footprint. Current validated mode dimension selects ownership; free components retain all projection. Preserve current equations and per-component numerical order; no CPU count readback.",
+      "affected_scenarios": [
+        "idle including setup",
+        "first fracture trial/correction",
+        "later heavy destruction"
+      ],
+      "estimated_application_ms_saved": "Potential1\u20135 ms heavy mean if reduced anchored register/shared footprint improves residency; charge queue preparation and extra launch. No established saving.",
+      "confidence": "high semantic equivalence under current mode certificate; medium compiler/resource benefit",
+      "experiment_cost": "Private GPU component queues and templated recurrence/preconditioner, kernel launch updates; original free/anchored/interleaved/cap/topology tests, sanitizers, full A/B and counters",
+      "supporting_measurements": "Both queue ownership and original physical gates pass, anchored resources fall, complete-step heavy mean/peaks improve without idle regression; independent queues enable later size decomposition",
+      "refuting_measurements": "Queue divergence or invalid certificate, resource footprint unchanged, extra launch/cache costs erase benefit, full-suite regression",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "anchored_free_execution_decomposition",
+      "reassessment": "Original no-live-interface singleton target removed before experiment: native topology already omits those rows. This audit does not count as a completed experiment."
+    },
+    {
+      "id": "N16",
+      "rank": 7,
+      "status": "queued",
+      "title": "Keep the recurrence local to component execution",
+      "evidence": "Current component solver reloads its owned vectors between stages; previous partial shared caches did not represent a fully local recurrence.",
+      "proposed_mechanism": "Use N10 pre-scaled operator interface to keep current FP32 physical residual/direction in one16KiB shared buffer for components<=512. Pack current per-row neighbor indices to local ranks, validate membership, and fuse shared writes into existing producers/barriers. Larger components retain global storage. Add512/516-node interleaved analytic boundary cases; measure resource cost and whole-step benefit.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "Potential0.5\u20133 ms heavy mean from shorter repeated vector gathers; confidence reduced by earlier shared-cache regressions. No expected idle benefit; charge setup and occupancy.",
+      "confidence": "high algebraic equivalence with mapping tests; low-to-medium performance",
+      "experiment_cost": "coherent component workspace redesign; sanitizer and stress tests",
+      "supporting_measurements": "Less redundant traffic/barriers without register/shared-memory occupancy losses",
+      "refuting_measurements": "Spills/residency losses exceed saved work",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "local_recurrence",
+      "design": "out/optimization-next20-20260910/prepare-N16.py (prepared, not applied)"
+    },
+    {
+      "id": "N06",
+      "rank": 8,
+      "status": "queued",
+      "title": "Size-specialized warp/block component execution",
+      "evidence": "Thousands of small fragments occupy whole CTAs and block-wide reductions; earlier four-lane row gathering regressed.",
+      "proposed_mechanism": "Use a dedicated small-component warp/block implementation, preserving row order and convergence; retain larger block path for larger components.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "2\u201312 ms later loaded steps",
+      "confidence": "medium",
+      "experiment_cost": "coherent solver/reduction specialization and size dispatch, sanitizer tests",
+      "supporting_measurements": "Better useful-lane occupancy and lower complete steps without sort/peak regressions",
+      "refuting_measurements": "More loops/registers or dispatch overhead offsets small-component savings",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "heterogeneous_component_execution"
+    },
+    {
+      "id": "N03",
+      "rank": 9,
+      "status": "queued",
+      "title": "Direct equilibrium on free trees",
+      "evidence": "Historical native capture census: no free trees before first fracture; correction has256 nontrivial trees/768 nodes; later has1276 trees/3853 nodes, maximum10 nodes. All other free trees are singletons already handled. Direct equilibrium can remove iteration only for this small subset.",
+      "proposed_mechanism": "Extend to current nonzero loads using projected subtree force/moment balances, eliminating iteration on certified tree components; verify recovered bond solution with original residual.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "Likely below1 ms heavy mean; no first-trial benefit. Need current per-component time census before assigning a larger benefit.",
+      "confidence": "medium algebra, low coverage",
+      "experiment_cost": "GPU tree solve and current-load mapping; independent force/moment and recovery oracle",
+      "supporting_measurements": "Certified tree components finish without iterative sweeps and full steps improve",
+      "refuting_measurements": "Trees carry little work or exact current-load compatibility/recovery fails",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "direct_tree_equilibrium"
+    },
+    {
+      "id": "N04",
+      "rank": 10,
+      "status": "queued",
+      "title": "Cached direct solves for tiny components",
+      "evidence": "Post-fracture components repeatedly solve the same small operator under new current loads.",
+      "proposed_mechanism": "Factor small supported or explicitly projected free systems once per topology generation and apply direct solves instead of recurring PCG.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "3\u201315 ms later heavy steps; setup charged in full",
+      "confidence": "medium",
+      "experiment_cost": "GPU dense setup/cache lifetime plus independent operator/solution tests",
+      "supporting_measurements": "Fewer repeated iterations outweigh topology setup across fixed full suite",
+      "refuting_measurements": "Setup/memory cost dominates or ill conditioning violates current quality",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "cached_dense_equilibrium"
+    },
+    {
+      "id": "N09",
+      "rank": 11,
+      "status": "queued",
+      "title": "Publish equilibrium reuse immediately after verified recovery",
+      "evidence": "Existing exact-input cache requires a zero-update warm solve to certify stored rounded bond outputs.",
+      "proposed_mechanism": "Verify recovered stored output once and publish its unchanged-input certificate immediately, retaining material/damage evaluation every tick.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "0\u20134 ms in unchanged-load phases; current-load equality required",
+      "confidence": "medium",
+      "experiment_cost": "post-recovery verifier/cache lifetime change",
+      "supporting_measurements": "Eliminates next repeated solve for identical current inputs; no skipped material update",
+      "refuting_measurements": "Inputs almost always differ or added verification exceeds reuse benefit",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "exact_current_input_reuse"
+    },
+    {
+      "id": "N11",
+      "rank": 12,
+      "status": "queued",
+      "title": "Cache projection-factor diagonal reciprocals",
+      "evidence": "projectMotionComponent serially divides by the same six Cholesky diagonals twice per projection, across two projections per iteration. Factors change only with validated topology setup. This serial dependency remains after node reciprocal caching. Historical component census and N08 no-gain screen substantially lower this target priority; census is not current timing.",
+      "proposed_mechanism": "After unchanged FP64 Cholesky construction, store reciprocal diagonals in the existing packed factor diagonal slots and multiply during forward/back substitution. Keep off-diagonal factors, projection basis and final physical tolerances. No new device allocation or per-iteration validation loop.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "0.05\u20130.3 ms heavy mean after historical work census and N08 failure lower the free-projection opportunity; unverified",
+      "confidence": "high algebraic equivalence, low application benefit",
+      "experiment_cost": "One private construction/application representation change; independent projection tests, numerical/sanitizer/wall gates and matched scenario suite",
+      "supporting_measurements": "Independent projector/equilibrium checks pass, serial divide instructions disappear, full-step means improve without peak/idle regression",
+      "refuting_measurements": "Projection rounding changes fail gates or arithmetic dependency is not a meaningful application cost",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "projection_geometry_cache",
+      "research": "precision-research.md (precision reduction deferred; first remove invariant work)"
+    },
+    {
+      "id": "N17",
+      "rank": 13,
+      "status": "queued",
+      "title": "Delete empty cooperative large-component work",
+      "evidence": "Small-component city work still schedules the cooperative large-component path and its final merge.",
+      "proposed_mechanism": "Use a device-owned empty-work condition to omit the cooperative execution when the actual current large list is empty, preserving defined outputs.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "0\u20131 ms complete step, limited by measured empty-launch cost",
+      "confidence": "medium",
+      "experiment_cost": "conditional graph and empty/large coexistence tests",
+      "supporting_measurements": "Fewer empty rendezvous and lower full steps",
+      "refuting_measurements": "Conditional scheduling cost replaces the removed work",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "baseline": "retained N13",
+      "family": "empty_work_dispatch"
+    },
+    {
+      "id": "N07",
+      "rank": 14,
+      "status": "rejected_application_regression",
+      "title": "Skip exactly zero rigid-block coupling arithmetic",
+      "evidence": "Current E12 applies the full coupled rigid inverse for every node. Axis-aligned symmetric neighborhoods can have exactly zero skew coupling and off-diagonal rotational inverse. Historical native component census places>99.9% of node iteration work in retained anchored structures; N08 projection caching did not reduce application mean.",
+      "proposed_mechanism": "Recognize only exact numerical zeros in all three skew and all three off-diagonal coefficients, then apply the exact six diagonal products. Keep the existing coupled FP64 path for every nonzero coefficient. No precision reduction, tolerance or load change.",
+      "affected_scenarios": [
+        "initial loaded intact structures",
+        "retained anchored structures during later destruction",
+        "idle setup and regression control"
+      ],
+      "estimated_application_ms_saved": "1\u20135 ms heavy mean if enough active rows are exactly diagonal; zero-row prevalence and branch overhead must be measured",
+      "confidence": "high algebraic equivalence; low-to-medium net benefit given prior peak rejection",
+      "experiment_cost": "One private inverse-application specialization; unchanged dense long-double inverse oracle plus numerical, sanitizer, wall and matched full-step tests",
+      "supporting_measurements": "Existing inverse/projection/equilibrium oracles pass; lower anchored solve and full-step times with unchanged histories and idle/peak behavior",
+      "refuting_measurements": "Few rows qualify, branch divergence or register growth erases saved FP64 work, or any physical gate fails",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases"
+      ],
+      "baseline": "retained E12 until a new candidate qualifies",
+      "family": "exact_preconditioner_structure",
+      "prior_evidence": "qualification/diagonal-fine-rejected-20260909/README.md",
+      "retest_rationale": "This exact specialization was rejected on the old GPU/toolchain and two-stage polynomial because mean improved but the loaded peak did not. Current SM120/CUDA13.4 code uses one block-Jacobi inverse, a different register footprint, and the fixed one-wave256-shot suite. This is an explicitly labeled re-test, not a novel algorithm or prior accepted win; current matched application measurements alone can qualify it.",
+      "commit": "4087fb6275b0ff0f0a60bc056bf3df59805f65b2",
+      "result": "N07.md"
+    },
+    {
+      "id": "N08",
+      "rank": 15,
+      "status": "rejected_no_verified_application_gain",
+      "title": "Cache exact inverse inertia used by every nullspace projection",
+      "evidence": "projectMotionComponent computes1.0/d.x and1.0/d.y in both projection passes, for every node and iteration; inertia is fixed for a validated setup generation.",
+      "proposed_mechanism": "Store the same FP64 reciprocals during motion-mode construction and reuse them for weighted projection. Retain FP64 arithmetic and all final physical limits.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "1\u20135 ms heavy mean if repeated divide/dependency cost is exposed; needs direct timing",
+      "confidence": "high numerical equivalence; medium performance",
+      "experiment_cost": "new device cache with topology lifetime tests",
+      "supporting_measurements": "Existing independent mode/projector and final equilibrium tests pass; full-step timing improves and projection divide instructions disappear",
+      "refuting_measurements": "Extra loads/setup/register cost erases savings or any numerical gate fails",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases"
+      ],
+      "baseline": "retained E12 until a new candidate qualifies",
+      "family": "projection_geometry_cache",
+      "commit": "315c7dab82fc064379948e91aa957fb40e67e8e5",
+      "result": "N08.md"
+    },
+    {
+      "id": "N01",
+      "rank": 16,
+      "status": "rejected_correctness",
+      "title": "Remove most convergence-monitor traversals",
+      "evidence": "The resident kernel traverses live adjacency for the original gradient norm every iteration, although PCG coefficients use separate r/preconditioner and direction-energy reductions.",
+      "proposed_mechanism": "Check the original convergence norm every four updates plus initial/final-cap checks; retain true-residual rebuild before every acceptance.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "2\u20138 ms heavy mean if monitoring is a substantial fraction; at most three extra updates near convergence",
+      "confidence": "medium",
+      "experiment_cost": "one CUDA control-flow change; numerical/cap tests, wall, matched suite",
+      "supporting_measurements": "Lower full-step solve time with all accepted true norms unchanged",
+      "refuting_measurements": "Extra updates erase savings or quality/physical histories change",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases"
+      ],
+      "baseline": "retained E12 until a new candidate qualifies",
+      "family": "convergence_monitor",
+      "conclusion": "Small native component reached zero residual between monitoring checks; recurrence reported breakdown (gamma=0, direction_energy=0) before the next scheduled acceptance check. No performance timing.",
+      "source_snapshot_commit": "ea6c52118fdb570866e470749a26dcbae0a67a2a",
+      "correctness": "out/optimization-next20-20260910/N01-monitor-decimation/checks.json"
+    },
+    {
+      "id": "N18",
+      "rank": 17,
+      "status": "rejected_no_verified_application_gain",
+      "title": "Combine fracture metadata observation",
+      "evidence": "E12 uses separate allocation metadata and correction-binding observations with host waits; step82 compatibility readback is 1.114 ms and applyBindings remainder 0.805 ms.",
+      "proposed_mechanism": "Gather and read allocation plus correction-owner/binding metadata at one ordered boundary; reuse that immutable batch after CPU body construction. Preserve install completion and CPU registration before corrected physics.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "0.05\u20130.5 ms per split; likely smaller heavy-suite mean, no idle work expected",
+      "confidence": "medium; pageable staging may erase savings",
+      "experiment_cost": "one runtime translation unit; native correction/lifetime gates, wall and matched full-step suite",
+      "supporting_measurements": "Fewer host waits/launch gaps with identical metadata, native outcomes and lower full steps",
+      "refuting_measurements": "Lifecycle failure, metadata mismatch, idle regression or no repeatable whole-step saving",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases"
+      ],
+      "baseline": "retained E12 until a new candidate qualifies",
+      "family": "metadata_observation",
+      "conclusion": "Heavy mean69.085632\u219269.030087\u219268.671063 ms across A-before/B/A-after: candidate does not beat both controls. Deadline misses unchanged. No longer campaign justified by this screen.",
+      "source_snapshot_commit": "de68f2d2f177bd1a695df213c111396e1c8e1d08",
+      "measurements": "out/optimization-next20-20260910/N18-metadata-observation/screen/measurements.json",
+      "architectural_reassessment": "Revisit under the user\u2019s neutral-change policy if the combined immutable metadata receipt concretely simplifies or enables a subsequent native transaction. Prior timings were neutral, but current memory qualification remains open; do not promote solely from a hypothetical follow-up."
+    },
+    {
+      "id": "N19",
+      "rank": 18,
+      "status": "rejected_memory_qualification",
+      "title": "Publish active shape mirrors without full-array DMA",
+      "evidence": "gpuMemDmaBack copies entire ordinary-mode bounds/transform arrays per advance; matching fixed-size pairs total6.79 MB/~0.95 ms.",
+      "proposed_mechanism": "At the existing DMA-back boundary, a GPU kernel writes current active rigid and articulation shape bounds/transforms into existing mapped pinned host arrays. Static/inactive mirrors remain authored/prior accepted values. Preserve the existing completion/sleep/CPU consumer sequence.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "0.3\u20130.9 ms idle, 0.5\u20131.8 ms heavy, before packing/scatter cost",
+      "confidence": "medium correctness based on matching the producer selection, low heavy performance because PCIe scatter may exceed DMA cost",
+      "experiment_cost": "Three GPU module files, native memory/query/sleep tests and full idle/heavy suite",
+      "supporting_measurements": "Lower transferred bytes and full-step time, current accepted queries and identical correction contacts",
+      "refuting_measurements": "CPU consumers require missing trial state or packing/scatter exceeds copy saving",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases"
+      ],
+      "baseline": "retained E12 until a new candidate qualifies",
+      "family": "host_mirror",
+      "references": [
+        "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/",
+        "https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/understanding-memory.html"
+      ],
+      "source_snapshot_commit": "630886ee52ad4f08fe19e75621a3ed1fe3644004",
+      "conclusion": "Sixteen native behavior tests pass. Both fresh E12 control and candidate memcheck fail with1564 findings, first inspectCorrectionSourceLoads at the command-generation read, same address/site. No waiver or timing. Cause unresolved; preserve candidate for later requalification.",
+      "timings": null
+    },
+    {
+      "id": "N02",
+      "rank": 19,
+      "status": "rejected_correctness",
+      "title": "Remove repeated residual nullspace projection",
+      "evidence": "Both residual and preconditioned direction are projected each iteration; exact range-space residual recurrence should preserve the quotient.",
+      "proposed_mechanism": "Keep initial and true-residual projections; test removal of intermediate residual projections while retaining projected preconditioner and unchanged final checks.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "4\u201315 ms heavy mean if repeated six-mode reductions dominate",
+      "confidence": "medium algebra, low finite-precision risk",
+      "experiment_cost": "one recurrence-boundary change plus adversarial free-mode numerical cases",
+      "supporting_measurements": "Fewer FP64 projection/reduction stages and lower time to unchanged equilibrium",
+      "refuting_measurements": "Null drift contaminates preconditioning or stalls current-equation acceptance",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases"
+      ],
+      "baseline": "retained E12 until a new candidate qualifies",
+      "family": "residual_projection",
+      "source_snapshot_commit": "f0effacced0dc8fc04e2cc7c149a4db97d254473",
+      "conclusion": "Analytic subnormal reduction fixture fails:1024-node component residual squared2.34956 at128 iterations vs required6.8e-9. Intermediate finite-precision projection is not redundant.",
+      "timings": null
+    },
+    {
+      "id": "N05",
+      "rank": 20,
+      "status": "rejected_no_verified_application_gain",
+      "title": "Bound motion-mode pointer jumping by component size",
+      "evidence": "constructMotionModes runs pointer jumping until2*all-city bonds (~19 rounds), although the largest initial component has380 unknown nodes and its tree tour needs only2*(380-1) entries (~10 rounds). Later disjoint fragments do not make an individual tour longer.",
+      "proposed_mechanism": "Reduce the exact maximum component node count on GPU, and bound Euler-tour pointer jumping by twice(max_nodes-1). Preserve all connectivity, geometric exactness, closure and factor checks.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "0.3\u20130.9 ms heavy mean if redundant rounds dominate the1.69 ms mean kernel contribution; small idle setup effect",
+      "confidence": "high equivalence, medium net saving",
+      "experiment_cost": "One CUDA construction loop and reduction; existing numerical/mode tests, sanitizers, wall and matched suite",
+      "supporting_measurements": "Byte-identical modes and physical histories; fewer jump rounds and lower full-step time",
+      "refuting_measurements": "Connectivity/geometry oracle failure or no repeated application gain",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases"
+      ],
+      "baseline": "retained E12 until a new candidate qualifies",
+      "family": "incremental_setup",
+      "result": "N05.md",
+      "commit": "7588a85e81b3202ff0ea23dbfa5da02f4bae7d07"
+    }
+  ],
+  "policy": "Adaptive ranking; source audits/preparation do not count as completed experiments; one GPU candidate at a time. Reassess after three unsuccessful coherent-family experiments.",
+  "dataflow_audit": "qualification/optimization-next20-20260910/dataflow-audit.md",
+  "next_diagnosis": "Use N12 profiles for N10 gather work. CPU perf capture available for lifecycle diagnosis; native sequence-dependent memory findings remain unresolved.",
+  "acceptance_policy": "Retain verified application speedups, and correctness-qualified performance-neutral enabling changes with a concrete architectural benefit/follow-up and no material scenario regression. Label the two separately; user clarification2026-09-11. Quality failures are not neutral results.",
+  "final_validation_plan": "After20 completed hypotheses, compare the final retained composition against frozen starting E12 in a fresh matched3x600 idle/heavy A-before/B/A-after campaign. Report batch gain from that cohort; do not add successive percentages. Include initialization, maxima, exact budgets and fixed windows, and retain existing physical qualification gaps.",
+  "next_work": "Prioritize first-class accepted-world export/restore, reuse PhysX collection serialization where valid, extend destruction state, qualify untouched/restored next-tick and continuation parity. Then single-tick A/A and A/B over the24-case semantic suite; larger structure/island catalog follows. Prefix baseline10 is complete and is not snapshot qualification."
+}

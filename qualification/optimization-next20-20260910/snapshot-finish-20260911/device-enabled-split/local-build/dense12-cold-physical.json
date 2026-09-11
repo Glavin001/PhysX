@@ -1,0 +1,6 @@
+{
+  "status": "failed",
+  "error": "[Errno 20] Not a directory: '/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/dense12-cold-B/observation-0.json/receipt.json'",
+  "reference": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/dense12-cold-B/observation-0.json",
+  "candidate": "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold/observation-0.json"
+}

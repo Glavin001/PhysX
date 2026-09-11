@@ -617,8 +617,13 @@ See the [failure investigation](qualification/optimization-next20-20260910/snaps
 Candidate `8589185e659c8316b1828b7847b8780eb0f11006` is frozen under
 `out/snapshot-finish-20260911/device-enabled-split/`. It replaces destruction
 conditional graphs with GPU-enabled flat graphs and allocation grid barriers
-with four ordered GPU phases. **Unaccepted pending the complete matched gates**;
-main runtime and installed SDK are unchanged. The prior publication-only candidate
+with four ordered GPU phases. Full 52-case matched physical/timing qualification,
+52-case normal asynchronous memcheck and the 600-tick ordinary idle/heavy A/B/A
+are complete. The fix is retained for correctness/architecture, with no verified
+speedup; possible small idle cost remains disclosed in the [warm report](qualification/optimization-next20-20260910/snapshot-finish-20260911/device-enabled-split/warm/README.md).
+Main source is applied and runtime rebuilt; focused post-build correction memory
+and four restored physical comparisons pass.
+Installed SDK remains unchanged. The prior publication-only candidate
 passes 52/52 asynchronous memory checks but fails the separate correction check.
 This split candidate passes that correction check and the ordinary sleeping wall.
 Do not use instrumented milliseconds as performance evidence.
@@ -694,3 +699,27 @@ flock -n out/destruction-ab.lock env \
   --binary out/snapshot-finish-20260911/ordinary-default-demo/native_destruction_demo \
   --expected-runtime out/snapshot-finish-20260911/device-enabled-split/libPhysXDestructionGpuRuntime_64.so
 ```
+
+
+### Final flat-graph local build and verification
+
+The 52-case result is in
+`qualification/optimization-next20-20260910/snapshot-finish-20260911/device-enabled-split/matched/`.
+The corresponding 20-candidate-sample suite takes 1,051.10 seconds of harness
+wall time, including 579.41 seconds of restoration excluded from the measured
+58.69 seconds of full ticks. Scenario weighting makes this total unsuitable as
+an application speedup claim. Continue to run both restored semantic cases and
+continuous ordinary/sleeping idle/heavy trajectories.
+
+```bash
+.toolchains/build-env/bin/cmake --build out/sdk-release --target PhysXDestructionGpuRuntime -j6
+python3 out/snapshot-finish-20260911/verify-local-promotion.py
+```
+
+The local verification freezes the rebuilt runtime with the qualified unchanged
+GPU activity module, runs normal asynchronous native correction memcheck, then
+checks two restored ticks each for dense interconnections, a cold ladder,
+11,100-chunk impact and 113,664-chunk late debris against the qualified candidate
+physical outputs. The script uses the existing GPU admission/provenance wrapper;
+it never times restoration. It reuses completed capture receipts and creates separate observation captures
+when needed; failed checker attempts remain preserved. See the final report for hashes and commands. No SDK install is implied.

@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "objects": 11753,
+  "maximum_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 3.5833465561463385e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  },
+  "exact_array_sha256": {
+    "node-accelerations": "a9cad6143933354155e84db6fae62842f462f0863e08baa020bcc2bc22e17357",
+    "surface-loads": "99a66cf2803fb56764f6bd3ab64b6189080ae958d1695d6c5d8f84dec4f232f8",
+    "health": "55c32e3ad9d344734ddc9310f225638d38924b5aa6b311ddb58950e0c89cfc57",
+    "active-bonds": "67a033c1879c37ea94dc321ba2cbc01994b291a20d9efdae8ef056ee7b27dbeb",
+    "chunk-clusters": "e0f4dfe14edc32c1856adc0074ec8fba9c41f6405bbc107cd6ea0e5e0316f288",
+    "crush": "b5e9eafda1dc1cb670c56c6eb9c5b7d0fdbf9f586ae2985973a6bbad2268501b"
+  },
+  "numerical_arrays": {
+    "bond-forces": {
+      "changed_scalars": 0,
+      "maximum_absolute": 0.0,
+      "maximum_scaled": 0.0,
+      "scaled_bound": 0.0002,
+      "relative_l2": 0.0,
+      "reference_sha256": "502b123c8a546dfd8b0507897b2416b3a410f91cee6d43a020805cdb034303b6",
+      "candidate_sha256": "502b123c8a546dfd8b0507897b2416b3a410f91cee6d43a020805cdb034303b6"
+    }
+  },
+  "reference": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-remaining/city25-cascading-fracture-A0",
+  "candidate": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-remaining/city25-cascading-fracture-A1",
+  "scope": "Post-tick physical observations; exact persistent state/loads, existing force and motion bounds; no timing claim"
+}

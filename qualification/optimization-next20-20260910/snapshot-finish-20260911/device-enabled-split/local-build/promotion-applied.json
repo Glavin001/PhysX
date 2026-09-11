@@ -1,0 +1,27 @@
+[
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionTopology.cu",
+    "sha256": "0521969d1bdf47c8b1d7a4fdb0dfb3367c6ab96b2eab31e00858f7fb80311022",
+    "source_commit": "8589185e659c8316b1828b7847b8780eb0f11006"
+  },
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh",
+    "sha256": "c62ba0e9fc7bca8914f7e27985f852dd7fa51f19037c54513db01994fb988d02",
+    "source_commit": "8589185e659c8316b1828b7847b8780eb0f11006"
+  },
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionCommittedChanges.cuh",
+    "sha256": "a161046c980282dc72a153632fe9de12146e60b677e2d928bd3f785b381392a1",
+    "source_commit": "8589185e659c8316b1828b7847b8780eb0f11006"
+  },
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionMotionSlots.cuh",
+    "sha256": "0076aaf2deb16dae3d2a546320ec6c8d25479b6ec682a8cd1b0bec1070bef9aa",
+    "source_commit": "8589185e659c8316b1828b7847b8780eb0f11006"
+  },
+  {
+    "path": "physx/source/gpudestruction/src/PxgDestructionDeviceGraph.cuh",
+    "sha256": "e94cbf1f927560be30349943d9494abae88f4fd8003394ed10afdb606117ad46",
+    "source_commit": "8589185e659c8316b1828b7847b8780eb0f11006"
+  }
+]

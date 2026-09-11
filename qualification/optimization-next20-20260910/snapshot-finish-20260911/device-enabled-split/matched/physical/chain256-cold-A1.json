@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "objects": 260,
+  "maximum_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 1.3435885648505064e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  },
+  "exact_array_sha256": {
+    "node-accelerations": "7424240ca996de29f9423e3bc256b8809593cc8e2633b2ff31b742027a5dd4c0",
+    "surface-loads": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+    "health": "95bf9a477d1c3e8c4808f651ce440911cfe4389983c416b060f2badc45416d19",
+    "active-bonds": "a68ae99f409db75c07aa4f59965a87a8645fad1a7d486b230762ec0745199f07",
+    "chunk-clusters": "5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+    "crush": "a11937f356a9b0ba592c82f5290bac8016cb33a3f9bc68d3490147c158ebb10d"
+  },
+  "numerical_arrays": {
+    "bond-forces": {
+      "changed_scalars": 0,
+      "maximum_absolute": 0.0,
+      "maximum_scaled": 0.0,
+      "scaled_bound": 0.0002,
+      "relative_l2": 0.0,
+      "reference_sha256": "f7c2f0668e33f341f2d29f257fbcec606192faf0f5a11bb169694ae5af5efe81",
+      "candidate_sha256": "f7c2f0668e33f341f2d29f257fbcec606192faf0f5a11bb169694ae5af5efe81"
+    }
+  },
+  "reference": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/chain256-cold-A0",
+  "candidate": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/chain256-cold-A1",
+  "scope": "Post-tick physical observations; exact persistent state/loads, existing force and motion bounds; no timing claim"
+}
