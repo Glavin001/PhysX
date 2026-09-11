@@ -115,7 +115,13 @@ bool read(PxInputData& input,Data& data) {
     }
     if(checksum(b.data)!=h.hash)return false;
     b.fields(data);if(b.cursor!=b.data.size())return false;
-    if(b.data.size()<=CacheLimit){previous.value=data;previous.bytes=std::move(b.data);previous.hash=h.hash;}
+    if(b.data.size()<=CacheLimit){
+        PreparedInput next;next.value=data;next.bytes=std::move(b.data);next.hash=h.hash;
+        // Publish only after allocation/copy succeeds. Discard all capacities of
+        // the prior input so the bound also holds across differently sized assets.
+        static_assert(noexcept(previous=std::move(next)),"snapshot input publication must not throw");
+        previous=std::move(next);
+    }
     else previous={};
     return true;
 }

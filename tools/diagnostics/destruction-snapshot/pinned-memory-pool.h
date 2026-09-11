@@ -39,4 +39,8 @@ public:
     }
     ~SnapshotPinnedPool(){if(!cached.empty() || !live.empty())std::terminate();}
 };
-struct FinishSnapshotPool {SnapshotPinnedPool& pool;~FinishSnapshotPool(){pool.finish();}};
+struct FinishSnapshotPool {
+    SnapshotPinnedPool& pool;physx::PxCudaContextManager& context;bool finished=false;
+    void finish(){if(!finished){physx::PxScopedCudaLock lock(context);pool.finish();finished=true;}}
+    ~FinishSnapshotPool(){finish();}
+};

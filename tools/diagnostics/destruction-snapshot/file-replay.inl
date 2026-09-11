@@ -12,7 +12,7 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
 
     SnapshotPinnedPool pinnedPool;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&environmentEvents,false,false,false,false,PxSolverType::eTGS,false,contactReports,&pinnedPool);
-    FinishSnapshotPool finishPool{pinnedPool};
+    FinishSnapshotPool finishPool{pinnedPool,*context.cudaContextManager()};
     PxDefaultMemoryOutputStream bytes,destruction;
     auto read=[](const std::string& path,PxDefaultMemoryOutputStream& stream){
         std::ifstream file(path,std::ios::binary|std::ios::ate);require(bool(file),"snapshot file missing");
@@ -103,6 +103,7 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
                 <<",\"position_error_m\":"<<error.position<<",\"linear_error_m_s\":"<<error.linear<<",\"angular_error_rad_s\":"<<error.angular<<'}';report.flush();
         }
     }
+    finishPool.finish();
     const bool gpuHealthy=context.healthy() && pinnedPool.healthy;
     report<<"],\"simulation_completed\":true,\"gpu_healthy\":"<<(gpuHealthy?"true":"false")<<",\"repeatability_passed\":"<<(allRepeated?"true":"false")<<",\"passed\":"<<((allRepeated&&gpuHealthy)?"true":"false")<<"}\n";report.close();registry->release();
     require(gpuHealthy,"PhysX error during file replay");require(allRepeated,"one-tick repeatability gate failed; all samples retained");
