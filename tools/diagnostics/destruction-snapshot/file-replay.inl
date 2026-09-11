@@ -26,6 +26,8 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
     auto* registry=PxSerialization::createSerializationRegistry(context.physics());require(registry,"replay registry");
     std::ofstream report(std::string(directory)+"/replay.json");report<<std::setprecision(17);
     report<<"{\"contract\":\"physical-file-replay-v20-complete-step\",\"steps_per_restore\":1,\"repetitions\":"<<repetitions
+        <<",\"context_setup_ms\":"<<std::chrono::duration<double,std::milli>(setupEnd-harnessStart).count()
+        <<",\"pinned_storage_reused\":true,\"fresh_scene_per_restore\":true,\"import_validation_every_sample\":true"
         <<",\"projectile_impulse\":"<<(impulse?"true":"false")<<",\"samples\":[";
     bool allRepeated=true;
     {
@@ -80,8 +82,11 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
             catch(const std::exception& e){if(!motionMeasured)error.position=error.linear=error.angular=-1;repeatPassed=false;allRepeated=false;std::cerr<<"repeat "<<i<<" comparison failed: "<<e.what()<<std::endl;}
             if(!i){baselineStatus=status;baselineObjects=std::move(observedObjects);baselineDestruction=std::move(observedDestruction);}
             const auto validationEnd=std::chrono::steady_clock::now();
+            world.release();const auto teardownEnd=std::chrono::steady_clock::now();
             if(i)report<<',';
             report<<"{\"repeat\":"<<i<<",\"restore_ms\":"<<restoreMs<<",\"complete_step_ms\":"<<tickMs
+                <<",\"teardown_ms\":"<<std::chrono::duration<double,std::milli>(teardownEnd-validationEnd).count()
+                <<",\"pinned_allocations\":"<<pinnedPool.allocations<<",\"pinned_reuses\":"<<pinnedPool.reuses<<",\"pinned_retained_peak_bytes\":"<<pinnedPool.retainedPeak
                 <<",\"deserialize_ms\":"<<world.deserializeMs<<",\"scene_create_ms\":"<<world.sceneCreateMs<<",\"insert_ms\":"<<world.insertMs<<",\"destruction_import_ms\":"<<importMs
                 <<",\"pre_tick_validation_ms\":"<<std::chrono::duration<double,std::milli>(start-restoreEnd).count()
                 <<",\"post_tick_validation_ms\":"<<std::chrono::duration<double,std::milli>(validationEnd-completeEnd).count()
@@ -96,7 +101,7 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
                 <<",\"position_error_m\":"<<error.position<<",\"linear_error_m_s\":"<<error.linear<<",\"angular_error_rad_s\":"<<error.angular<<'}';report.flush();
         }
     }
-    const bool gpuHealthy=context.healthy();
+    const bool gpuHealthy=context.healthy() && pinnedPool.healthy;
     report<<"],\"simulation_completed\":true,\"gpu_healthy\":"<<(gpuHealthy?"true":"false")<<",\"repeatability_passed\":"<<(allRepeated?"true":"false")<<",\"passed\":"<<((allRepeated&&gpuHealthy)?"true":"false")<<"}\n";report.close();registry->release();
     require(gpuHealthy,"PhysX error during file replay");require(allRepeated,"one-tick repeatability gate failed; all samples retained");
     std::cout<<"completed "<<repetitions<<" independent one-tick file restores"<<std::endl;

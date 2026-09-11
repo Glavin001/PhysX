@@ -84,7 +84,8 @@ bool replayPreIslands=false,replayPreContacts=false,replayPreSupport=false,repla
 struct World {
     void* memory=nullptr;PxCollection* objects=nullptr;PxScene* scene=nullptr;
     double deserializeMs=0,sceneCreateMs=0,insertMs=0;
-    ~World(){if(scene)scene->release();if(objects){PxCollectionExt::releaseObjects(*objects);objects->release();}free(memory);}
+    void release(){if(scene){scene->release();scene=nullptr;}if(objects){PxCollectionExt::releaseObjects(*objects);objects->release();objects=nullptr;}free(memory);memory=nullptr;}
+    ~World(){release();}
     void load(PxPhysics& physics,PxSerializationRegistry& registry,PxScene& source,Events& events,const PxDefaultMemoryOutputStream& bytes){
         const auto a=std::chrono::steady_clock::now();
         require(posix_memalign(&memory,PX_SERIAL_FILE_ALIGN,bytes.getSize())==0,"aligned storage failed");
