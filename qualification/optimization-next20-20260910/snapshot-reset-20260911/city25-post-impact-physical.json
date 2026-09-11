@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "objects": 11679,
+  "maximum_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 2.6520381235517476e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  },
+  "exact_array_sha256": {
+    "node-accelerations": "0a1047f35160f3edbd8aff342e2d91186ef1073e2304facab224ec8bc45eb708",
+    "surface-loads": "80a42b6cfb37cb41f65c926a8ecac8d11806f3f37235427b333254b96057217a",
+    "health": "1240cc9a78de5ec98006ccb74903c6ccdabd4fcc92eaf618c708603132cdafcf",
+    "active-bonds": "e6957f360f6b32cec2a9ec634befc2b19c1b7719568f3d798999900357d76c34",
+    "chunk-clusters": "03ced44c1ee88fec4e57f56528ae4a384637378ec0ccf1cd0e79e376c3fe6093",
+    "crush": "b5e9eafda1dc1cb670c56c6eb9c5b7d0fdbf9f586ae2985973a6bbad2268501b"
+  },
+  "numerical_arrays": {
+    "bond-forces": {
+      "changed_scalars": 0,
+      "maximum_absolute": 0.0,
+      "maximum_scaled": 0.0,
+      "scaled_bound": 0.0002,
+      "relative_l2": 0.0,
+      "reference_sha256": "a49ff3bdc5969970a2ef5982fed075c62a640baa2dcc580bd3d9824a8de37083",
+      "candidate_sha256": "a49ff3bdc5969970a2ef5982fed075c62a640baa2dcc580bd3d9824a8de37083"
+    }
+  },
+  "reference": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-remaining/city25-post-impact-B",
+  "candidate": "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city25-post-impact",
+  "scope": "Post-tick physical observations; exact persistent state/loads, existing force and motion bounds; no timing claim"
+}

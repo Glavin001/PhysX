@@ -211,3 +211,28 @@ File replay retains all independent samples when a comparison fails, then return
 a failing exit code and `passed:false`. This allows measuring variance without
 relaxing the exact bond-health/topology gate or hiding failed comparisons. A
 missing motion comparison is marked explicitly; its numeric sentinel is -1.
+
+## Reusing snapshot backing storage
+
+Repeated benchmark replay loads the saved files once and reuses an aligned PhysX
+object buffer plus bounded pinned allocation capacity through the existing CUDA
+context allocator callback. Each sample still reconstructs fresh scene/object
+bindings and imports the same physical state. This is not an in-place live-scene
+rollback: removing and reinserting existing actors was rejected after physical
+property differences and deferred work increased the measured tick.
+
+Destruction import retains one decoded physical payload per calling thread when
+the payload is at most64 MiB. A hit requires exact input bytes and valid format
+metadata. The decoded representation has no GPU/runtime pointers, contact history,
+solver guesses or certificates. Runtime bindings and configuration checks run
+again on an independent copy. Entry replacement is transactional. The pinned pool
+retains at most8 GiB of unused capacity, matches size/flags, synchronizes before
+recycling a lease, and drains before its context is destroyed. These are memory
+tradeoffs for replay speed; no state is added to the serialized schema.
+
+Active cluster motion is gathered/scattered in bulk through existing GPU scratch,
+so import/export no longer makes one synchronous transfer per cluster. Unused
+capacity is not transferred. API16/privateV20/schema7 and quality tolerances stay
+unchanged. See the [52-case reset qualification](../../qualification/optimization-next20-20260910/snapshot-reset-20260911/README.md)
+and [exact build and replay commands](../../OPTIMIZATION.md). Full-step timing
+continues to exclude restore, validation and teardown, each reported separately.

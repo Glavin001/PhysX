@@ -723,3 +723,69 @@ checks two restored ticks each for dense interconnections, a cold ladder,
 physical outputs. The script uses the existing GPU admission/provenance wrapper;
 it never times restoration. It reuses completed capture receipts and creates separate observation captures
 when needed; failed checker attempts remain preserved. See the final report for hashes and commands. No SDK install is implied.
+
+## Reusable physical snapshot workspace (2026-09-11)
+
+Use the qualified storage-reuse path described in
+[the reset report](qualification/optimization-next20-20260910/snapshot-reset-20260911/README.md).
+All 52 cases ×20 still execute one complete tick per independently reconstructed
+physical input. Reuse allocation capacity and immutable decoded input only;
+invalidate contact history, solver guesses and certificates. Restore, physical
+validation and teardown remain outside `complete_step_ms`, with separate timers.
+The first allocation is reported separately from the following 19 resets.
+Do not claim warm-gameplay performance from these fresh-cache restored ticks.
+
+Build the normal local runtime/demo and a matching probe (output paths must be new):
+
+```bash
+.toolchains/build-env/bin/cmake --build out/sdk-release \
+  --target PhysXDestructionGpuRuntime -j6
+.toolchains/build-env/bin/cmake --build out/destruction-sdk \
+  --target native_destruction_demo -j6
+python3 tools/diagnostics/destruction-snapshot/build-probe.py out/NEW-reset-probe
+```
+
+The helper constructor now optionally accepts PhysX's pinned allocator callback;
+rebuild matching consumers. Its default remains the normal allocator. The replay
+harness supplies a bounded pool. No install step is part of this workflow.
+
+Correctness and asynchronous memory (same 52 inputs; two ticks each):
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-reset-mem \
+  --structural-inputs out/snapshot-large-20260911/roundtrip-regressions \
+  --city-inputs out/snapshot-large-20260911 \
+  --binary out/NEW-reset-probe/serialization-probe \
+  --artifacts physx/bin/linux.x86_64/release \
+  --repetitions 2 --sanitizer memcheck \
+  --allow-existing-graphics --allow-compute-pid 435374
+```
+
+Repeated benchmark, input/output checks and the structured cost report:
+
+```bash
+PHYSX_SNAPSHOT_DUMP_OBSERVATIONS=first \
+python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-reset-full20 \
+  --structural-inputs out/snapshot-large-20260911/roundtrip-regressions \
+  --city-inputs out/snapshot-large-20260911 \
+  --binary out/NEW-reset-probe/serialization-probe \
+  --artifacts physx/bin/linux.x86_64/release \
+  --repetitions 20 --allow-existing-graphics --allow-compute-pid 435374
+python3 tools/diagnostics/destruction-snapshot/report-replay-costs.py out/NEW-reset-report \
+  --suite out/NEW-reset-full20 \
+  --reference qualification/optimization-next20-20260910/snapshot-finish-20260911/device-enabled-split/matched/report.json
+```
+
+The report checks every scenario against the qualified physical reference and
+preserves all samples, stage timings, spread, maxima, deadline misses and retained
+memory. It rejects mixed artifacts, sanitizer timings and missing/failed cases.
+Use the existing continuous ordinary/sleeping wall and matched idle/heavy commands
+above for application qualification. Do not redirect a wall wrapper's stdout into
+its own `OUTPUT.log`; use a different driver-log name.
+
+The full frozen reset result is 388.529 s harness /58.473 s ticks /127.149 s
+restore. The 52-case asynchronous memory campaign passes. Large repeated resets
+remain 371–468 ms (idle/impact/late debris), exceeding some full ticks. Next profile
+immutable destruction-asset preparation and runtime allocation lifecycle; record
+setup gains separately from application gains. No new N-series experiment or
+continuous speedup is credited for this work.

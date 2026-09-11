@@ -1,0 +1,18 @@
+{
+  "command": [
+    "nsys",
+    "profile",
+    "--trace=cuda,nvtx",
+    "--sample=none",
+    "--cpuctxsw=none",
+    "-o",
+    "/root/workspace/physx-2/out/snapshot-reset-20260911/timeline-qualified/large-idle",
+    "/root/workspace/physx-2/out/snapshot-reset-20260911/phase-probe/serialization-probe",
+    "/root/workspace/physx-2/out/snapshot-reset-20260911/timeline-qualified",
+    "--replay",
+    "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+    "--repetitions",
+    "2"
+  ],
+  "exit_code": 0
+}

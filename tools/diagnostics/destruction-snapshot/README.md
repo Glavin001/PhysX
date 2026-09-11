@@ -171,3 +171,12 @@ python3 tools/scripts/run-destruction-penetration-regression.py out/NEW-wall \
 PID 435374 is the specifically recorded pre-existing server for this campaign,
 not a reusable blanket allowance. Inspect current GPU ownership before a new
 run and list only the identities actually accepted for that session.
+
+Reusable snapshot workspace: the replay probe retains pinned allocation capacity
+and an aligned object buffer while rebuilding clean physical bindings every time.
+`report-replay-costs.py OUTPUT --suite SUITE --reference MATCHED_REPORT` validates
+all scenario outputs against the qualified reference and writes per-scenario full
+tick, first restore, repeated restore, validation, teardown and memory statistics.
+It preserves every sample and excludes setup from full-step milliseconds. See
+[OPTIMIZATION.md](../../../OPTIMIZATION.md#reusable-physical-snapshot-workspace-2026-09-11)
+and the [52-case results](../../../qualification/optimization-next20-20260910/snapshot-reset-20260911/README.md).

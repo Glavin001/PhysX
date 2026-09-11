@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "tier": "full",
+  "compared_steps": 600,
+  "chunks": 444,
+  "bonds": 896,
+  "projectiles": 1,
+  "performance_qualification": false,
+  "complete_regression": true,
+  "position_tolerance_m": 0.001,
+  "first_difference": null,
+  "max_position_error_m": 0.0,
+  "compared_identity_sha256": "5f761ca2299d430fdb7bd5917461e6985302b6e508d5a5b10c476ae2009eb70d",
+  "reference": "/root/workspace/physx-2/out/vm-port-20260910/wall-standard",
+  "reference_sha256": {
+    "capture.json": "b883f642926ad5a3d649ac973cb899f6fadc5a9bfd0f7554ed1461ab37f8ba7d",
+    "invariants.json": "2c2f264195f64636f2154a148bbe6f7ff655c2ec78d2636db396d5f5f7922e04",
+    "native.summary.json": "3af134450bd2c72f7dfda61e1678ac7ea897074a1bae496208d87711e501fc40",
+    "native.frames.csv": "a39e9aa9970d2164de005f9574cc0657430de49da39d2a55e9cfa484d449fa5b",
+    "native.twstate": "2c4557a6e871fc041b0a4ccddf2302af353c1920299ea36c6034d7536e1cf830",
+    "native.motion.csv.gz": "d4fdeb399c2ef0726074f544ded665ca7a31c4d6273160fd0f0d00178b4245e7"
+  },
+  "penetration_checks": {
+    "topology_identity_sha256": "4a27957f5c794e3434d3062aae60bf2f9200322fb4c7564fde4c03a5bf80500f",
+    "projectile_clearance_step": 43,
+    "projectile_clearance_seconds": 0.7333333333333333,
+    "projectile_position_at_clearance": [
+      -0.44920358061790466,
+      5.629153728485107,
+      4.812342166900635
+    ],
+    "corrected_steps": [
+      17,
+      32,
+      33,
+      35
+    ],
+    "fracture_steps": [
+      17,
+      30,
+      32,
+      33,
+      35
+    ],
+    "corrections_per_step_max": 1,
+    "largest_connected_cluster": 400,
+    "supported_chunks": 400,
+    "detached_chunks": 44,
+    "final_cluster_count": 39,
+    "displaced_wall_chunks": {
+      "entry": [
+        243,
+        244,
+        271,
+        272
+      ],
+      "exit": [
+        263,
+        264,
+        291,
+        292
+      ]
+    },
+    "broken_bonds": 182,
+    "all_stress_steps_converged": true,
+    "max_render_collision_position_error": 0,
+    "max_cluster_com_error": 2.012484401348047e-06,
+    "physics_ms": {
+      "min": 1.288955,
+      "mean": 4.579023816666669,
+      "p50": 3.328249,
+      "p95": 8.889627,
+      "p99": 9.652024,
+      "max": 22.660518
+    }
+  },
+  "reference_penetration_checks": {
+    "topology_identity_sha256": "4a27957f5c794e3434d3062aae60bf2f9200322fb4c7564fde4c03a5bf80500f",
+    "projectile_clearance_step": 43,
+    "projectile_clearance_seconds": 0.7333333333333333,
+    "projectile_position_at_clearance": [
+      -0.44920358061790466,
+      5.629153728485107,
+      4.812342166900635
+    ],
+    "corrected_steps": [
+      17,
+      32,
+      33,
+      35
+    ],
+    "fracture_steps": [
+      17,
+      30,
+      32,
+      33,
+      35
+    ],
+    "corrections_per_step_max": 1,
+    "largest_connected_cluster": 400,
+    "supported_chunks": 400,
+    "detached_chunks": 44,
+    "final_cluster_count": 39,
+    "displaced_wall_chunks": {
+      "entry": [
+        243,
+        244,
+        271,
+        272
+      ],
+      "exit": [
+        263,
+        264,
+        291,
+        292
+      ]
+    },
+    "broken_bonds": 182,
+    "all_stress_steps_converged": true,
+    "max_render_collision_position_error": 0,
+    "max_cluster_com_error": 2.012484401348047e-06,
+    "physics_ms": {
+      "min": 1.593855,
+      "mean": 5.472425429999997,
+      "p50": 3.815349,
+      "p95": 10.664531,
+      "p99": 11.227965,
+      "max": 26.947418
+    }
+  },
+  "validation_seconds": 21.157057269010693,
+  "capture": "/root/workspace/physx-2/out/snapshot-reset-20260911/hardened-wall",
+  "artifacts": {
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/ordinary-default-demo/native_destruction_demo": "668582614cf352800d2e4a5bacf1880b0419691004865f461b435ad7b6dfa7c7",
+    "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources/libPhysXDestructionGpuRuntime_64.so": "b51569e3bb9f7d3ef44c754ba2556e505ffa889e3e778c0835739bc19401abe4",
+    "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5"
+  }
+}

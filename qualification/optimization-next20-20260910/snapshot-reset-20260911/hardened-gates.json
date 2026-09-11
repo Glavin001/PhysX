@@ -1,0 +1,105 @@
+[
+  {
+    "label": "hardened-roundtrip",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/hardened-roundtrip",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources/serialization-probe",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "300"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "hardened-mem-bridge64-cold",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/hardened-mem-bridge64-cold",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources/serialization-probe",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "300",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+      "--repetitions",
+      "2",
+      "--sanitizer",
+      "memcheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "hardened-mem-city256-intact-idle",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/hardened-mem-city256-intact-idle",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources/serialization-probe",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "300",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+      "--repetitions",
+      "2",
+      "--sanitizer",
+      "memcheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "hardened-mem-city256-late-debris",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/hardened-mem-city256-late-debris",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources/serialization-probe",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "300",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+      "--repetitions",
+      "2",
+      "--sanitizer",
+      "memcheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "hardened-wall",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/hardened-wall",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/ordinary-default-demo/native_destruction_demo",
+      "--expected-runtime",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/adopt-sources/libPhysXDestructionGpuRuntime_64.so"
+    ],
+    "exit_code": 0
+  }
+]

@@ -24,7 +24,8 @@ link[link.index('CMakeFiles/native_destruction_demo.dir/native_destruction_main.
 link[link.index('-o')+1]=str(out/'serialization-probe')
 receipt={'source':str(source),'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'commands':[compile,link]}
 receipt['probe_source_sha256']={str(p):hashlib.sha256(p.read_bytes()).hexdigest()
-    for p in [source,*sorted(source.parent.glob('*.inl'))]}
+    for p in [source,*sorted(source.parent.glob('*.inl')),*sorted(source.parent.glob('*.h')),
+              root/'demos/blast-stress-demo/physx_scene.h',root/'demos/blast-stress-demo/physx_scene.cpp']}
 (out/'build.json').write_text(json.dumps(receipt,indent=2)+'\n')
 for command in (compile,link):subprocess.run(command,cwd=build,check=True)
 for name,digest in receipt['probe_source_sha256'].items():

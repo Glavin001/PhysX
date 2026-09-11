@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "objects": 5,
+  "maximum_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 1.3435885648505064e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  },
+  "exact_array_sha256": {},
+  "numerical_arrays": {},
+  "reference": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-remaining/flying-B",
+  "candidate": "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-flying",
+  "scope": "Post-tick physical observations; exact persistent state/loads, existing force and motion bounds; no timing claim"
+}

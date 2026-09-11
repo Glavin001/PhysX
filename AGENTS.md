@@ -1,5 +1,34 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest reusable snapshot workspace (2026-09-11): retained R2 pinned-storage pool,
+R3 bulk cluster-motion transfers and R4 decoded-input/object-arena reuse, with
+transactional input publication and CUDA-context-aware cleanup. Code is on isolated
+`codex/snapshot-reset-20260911`, hardened commit
+`38112ec7123fc63da56d651660b9bdd5f25b16d4`; main source/local runtime rebuilt, installed
+SDK unchanged. Four local-build cases (bridge, city256 idle/impact/debris) also
+pass 20 full ticks each and physical comparisons. An idle timing increase in
+the first local screen did not persist in a balanced 20/20/20 repeat: control/local/
+control means 67.835/61.275/61.061 ms; no speedup claimed. Frozen R4 passes **52/52 ×20 full restored ticks** and prior physical
+A/B checks, plus **52/52 ×2 normal asynchronous memcheck ticks** (zero errors).
+Final hardening passes all 28 structural/continuation/negative-input round trips,
+three targeted asynchronous memory cases, and the 600-tick ordinary/sleeping wall
+with exact physical counters and zero position difference. Full suite harness is
+**388.529 s (6m29s)** versus 1051.101 s; ticks 58.473 versus 58.688 s; restore 127.149
+versus 579.412 s, excluded from ticks. This is a setup improvement, not an application
+speedup or N-series experiment; batch remains 11/20, best N13 unchanged. All 52
+scenario timings and stage accounting are in
+[the reset report](qualification/optimization-next20-20260910/snapshot-reset-20260911/README.md).
+Large idle/impact/late-debris tick mean/max ms are 59.200/73.979,
+236.880/254.511 and 394.491/458.203; repeated restores 370.612/372.699/468.164 ms.
+Restore is not yet cheaper than the tick throughout the suite. Next attribute
+immutable destruction-asset preparation and runtime allocation/reset costs.
+R1 live-scene remove/reinsert is rejected (body-property mismatch and inflated
+idle tick); never reuse that path. Retained storage never carries contact history,
+solver guesses or certificates; every import is re-exported/checked. Pool retains
+up to 8 GiB unused pinned capacity (2.771 GB observed large idle); decoded cache is
+one <=64 MiB payload plus its representation per thread. Follow OPTIMIZATION.md
+for exact build, separate restore/full-tick timing and qualification commands.
+
 Current snapshot qualification: frozen split candidate
 `8589185e659c8316b1828b7847b8780eb0f11006` now passes the native 29-case correction
 regression plain and **normal asynchronous memcheck**, plus the 600-tick ordinary
