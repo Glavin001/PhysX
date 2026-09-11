@@ -53,6 +53,15 @@ template<class T> void download(std::vector<T>& out,const T* src,size_t n) {
 template<class T> void upload(const T* dst,const std::vector<T>& data) {
     if(!data.empty())check(cudaMemcpy(const_cast<T*>(dst),data.data(),data.size()*sizeof(T),cudaMemcpyHostToDevice));
 }
+// Pack only active motion slots; never read uninitialized capacity entries.
+__global__ void gatherMotions(PxDestructionClusterMotion* packed,const PxDestructionClusterMotion* slots,
+    const PxU32* roots,const PxU32* rootSlots,PxU32 count){
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<count)packed[i]=slots[rootSlots[roots[i]]];
+}
+__global__ void scatterMotions(PxDestructionClusterMotion* slots,const PxDestructionClusterMotion* packed,
+    const PxU32* roots,const PxU32* rootSlots,PxU32 count){
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<count)slots[rootSlots[roots[i]]]=packed[i];
+}
 struct Bytes {
     std::vector<PxU8> data;size_t cursor=0;bool reading=false;
     template<class T> void pod(T& x) {

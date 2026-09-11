@@ -20,7 +20,10 @@
             // turn a removed chunk back into a live one during import.
             for(auto a:alive)if(a!=1)return false;
             d.motions.resize(mC);
-            for(PxU32 i=0;i<mC;++i)check(cudaMemcpy(&d.motions[i],t.motions+d.slots[d.roots[i]],sizeof(d.motions[i]),cudaMemcpyDeviceToHost));
+            snapshot::gatherMotions<<<(mC+127)/128,128,0,mStream>>>(mProvisionalMotion,t.motions,t.activeClusters,t.clusterSlots,mC);
+            check(cudaGetLastError());
+            check(cudaMemcpyAsync(d.motions.data(),mProvisionalMotion,sizeof(d.motions[0])*mC,cudaMemcpyDeviceToHost,mStream));
+            check(cudaStreamSynchronize(mStream));
             if(mMaterials){snapshot::download(d.health,mHealth,mM);snapshot::download(d.crush,mCrush,mN);}
             d.shapeIds.resize(mN);d.bodyIds.resize(mC);
             std::map<PxU32,const PxShape*> shapes;std::map<PxU32,const PxRigidDynamic*> bodies;
@@ -102,8 +105,9 @@
             if(!configureStressImpl(desc,&d)){clearStress();return false;}
             started=true;Context current(mContext);const auto t=mTopology->accepted();
             snapshot::upload(t.clusterSlots,d.slots);snapshot::upload(t.slotRoots,d.slotRoots);snapshot::upload(t.slotGenerations,d.generations);
-            for(PxU32 i=0;i<s.c;++i)check(cudaMemcpy(const_cast<PxDestructionClusterMotion*>(t.motions)+d.slots[d.roots[i]],
-                &d.motions[i],sizeof(d.motions[i]),cudaMemcpyHostToDevice));
+            check(cudaMemcpyAsync(mProvisionalMotion,d.motions.data(),sizeof(d.motions[0])*s.c,cudaMemcpyHostToDevice,mStream));
+            snapshot::scatterMotions<<<(s.c+127)/128,128,0,mStream>>>(const_cast<PxDestructionClusterMotion*>(t.motions),mProvisionalMotion,t.activeClusters,t.clusterSlots,s.c);
+            check(cudaGetLastError());check(cudaStreamSynchronize(mStream));
             check(cudaMemcpy(const_cast<PxDestructionTopologyStatus*>(t.status),&d.topology,sizeof(d.topology),cudaMemcpyHostToDevice));
             if(mMaterials){snapshot::upload(mHealth,d.health);snapshot::upload(mCrush,d.crush);}
             if(mSolver){
