@@ -1,0 +1,373 @@
+{
+  "bounded-graph": {
+    "binary_sha256": "acb4cfb01130e3d11d3161d5aed5254b816b93a9d8b7f5697c11fe8477d14c7a",
+    "runs": [
+      {
+        "name": "plain",
+        "command": [
+          "/root/workspace/physx-2/out/snapshot-large-20260911/bounded-cuda-repro/repro",
+          "2",
+          "1",
+          "1"
+        ],
+        "exit_code": 0,
+        "seconds": 7.314676095003961
+      },
+      {
+        "name": "mem-nested",
+        "command": [
+          "/usr/local/cuda-13.4/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "97",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/bounded-cuda-repro/repro",
+          "2",
+          "1",
+          "1"
+        ],
+        "exit_code": 0,
+        "seconds": 8.286323239008198
+      },
+      {
+        "name": "mem-flat",
+        "command": [
+          "/usr/local/cuda-13.4/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "97",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/bounded-cuda-repro/repro",
+          "0",
+          "1",
+          "1"
+        ],
+        "exit_code": 0,
+        "seconds": 8.288766070007114
+      }
+    ]
+  },
+  "tool-version-control": [
+    {
+      "name": "old-invalid",
+      "command": [
+        "/usr/local/cuda-12.8/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/tool-version-control/invalid"
+      ],
+      "exit_code": 97,
+      "seconds": 0.9666918949951651
+    },
+    {
+      "name": "old-graph",
+      "command": [
+        "/usr/local/cuda-12.8/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/delayed-cuda-repro/repro",
+        "2",
+        "1",
+        "1"
+      ],
+      "exit_code": 97,
+      "seconds": 1.9707074549951358
+    },
+    {
+      "name": "current-invalid",
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/tool-version-control/invalid"
+      ],
+      "exit_code": 97,
+      "seconds": 0.9669769809988793
+    }
+  ],
+  "blocking-mem-impact": {
+    "command": [
+      "/usr/local/cuda-13.4/bin/compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "97",
+      "--force-blocking-launches",
+      "yes",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/blocking-mem-impact",
+      "--replay",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2"
+    ],
+    "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+    "status": "failed",
+    "diagnostic_environment": {},
+    "snapshot_inputs": {
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+    },
+    "before": {
+      "unix_seconds": 1789128932.5833306,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "38 C",
+          "clock": "2632 MHz",
+          "utilization": "3 %",
+          "memory_used": "1309 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    "allowed": [
+      {
+        "pid": 1434,
+        "name": "/usr/lib/xorg/Xorg",
+        "type": "G"
+      },
+      {
+        "pid": 1946,
+        "name": "/usr/bin/kwin_x11",
+        "type": "G"
+      },
+      {
+        "pid": 2016,
+        "name": "/usr/bin/plasmashell",
+        "type": "G"
+      },
+      {
+        "pid": 5246,
+        "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+        "type": "G"
+      },
+      {
+        "pid": 435374,
+        "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+        "type": "C"
+      }
+    ],
+    "exit_code": 255,
+    "error": "Probe failed or missing maps",
+    "after": {
+      "unix_seconds": 1789128933.1289241,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "38 C",
+          "clock": "2632 MHz",
+          "utilization": "3 %",
+          "memory_used": "1309 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    "elapsed_monotonic_seconds": 0.5438906220078934
+  },
+  "blocking-mem-impact-valid": {
+    "command": [
+      "/usr/local/cuda-13.4/bin/compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "97",
+      "--force-blocking-launches",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/blocking-mem-impact-valid",
+      "--replay",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2"
+    ],
+    "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+    "status": "complete",
+    "diagnostic_environment": {},
+    "snapshot_inputs": {
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+    },
+    "before": {
+      "unix_seconds": 1789128978.057058,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "38 C",
+          "clock": "2632 MHz",
+          "utilization": "3 %",
+          "memory_used": "1309 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    "allowed": [
+      {
+        "pid": 1434,
+        "name": "/usr/lib/xorg/Xorg",
+        "type": "G"
+      },
+      {
+        "pid": 1946,
+        "name": "/usr/bin/kwin_x11",
+        "type": "G"
+      },
+      {
+        "pid": 2016,
+        "name": "/usr/bin/plasmashell",
+        "type": "G"
+      },
+      {
+        "pid": 5246,
+        "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+        "type": "G"
+      },
+      {
+        "pid": 435374,
+        "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+        "type": "C"
+      }
+    ],
+    "gpu_pid": 1208126,
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts/libPhysXDestructionGpuRuntime_64.so": "06c8e588800787592194ecb5f4c349043bbabd9aa2c5eba4eca34ee00d3ff875"
+    },
+    "exit_code": 0,
+    "after": {
+      "unix_seconds": 1789128988.2285879,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2842 MHz",
+          "utilization": "4 %",
+          "memory_used": "1309 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    "elapsed_monotonic_seconds": 10.166991815989604
+  }
+}

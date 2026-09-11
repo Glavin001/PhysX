@@ -1,5 +1,17 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest qualification continuation (2026-09-11): the user confirms **ordinary APIs,
+Direct GPU disabled, sleeping enabled**. The full wall wrapper now defaults to
+this mode and compares the hash-pinned pre-snapshot ordinary reference. A new
+600-tick run passes exact fracture/topology/correction history and all existing
+physical checks, with zero measured position difference. Historical Direct GPU
+golden is unchanged and only selected explicitly. All 13 verifier tests pass.
+The 52-case memcheck campaign also passes 104 restored ticks **with serialized
+launches**; this does **not** clear the default asynchronous memcheck failure,
+which remains open. Neither attempted topology workaround is retained. No
+production wait/suppression or speedup is claimed.
+[Current evidence and all-scale timing summary](qualification/optimization-next20-20260910/snapshot-finish-20260911/README.md).
+
 Latest snapshot repeatability fix: isolated candidate `a68fd705cec9e6f64a65d0ca116a910331b6a1d3`
 uses fixed-order parallel per-chunk contact accumulation. **52/52 scenarios pass,
 20 independent one-tick restores each (1,040 ticks)** with original inputs,

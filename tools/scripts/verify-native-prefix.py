@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare accepted wall prefixes; never a complete penetration/performance gate."""
+"""Compare mode-matched accepted wall trajectories, including full ordinary runs."""
 import csv
 import gzip
 import hashlib
@@ -72,9 +72,14 @@ def options(command):
 
 
 def verify(capture, reference, count):
-    require(count in (32, 128), 'Only approved 32/128-step wall prefixes are supported')
+    require(count in (32, 128, 600), 'Only 32/128-step prefixes or a full 600-step wall are supported')
     actual = json.loads((capture / 'native.summary.json').read_text())
     expected = json.loads((reference / 'native.summary.json').read_text())
+    if count == 600:
+        require(not actual['direct_gpu_mode'] and not expected['direct_gpu_mode']
+                and actual['sleeping'] and expected['sleeping'],
+                'Full matched wall requires ordinary APIs and sleeping enabled')
+        require(actual['frames'] == expected['frames'] == count, 'Full wall requires exactly 600 frames')
     require(actual['status'] == expected['status'] == 'completed', 'Incomplete simulation')
     require(actual['frames'] >= count and expected['frames'] >= count, 'Wrong prefix duration')
     require(actual['chunks'] == 444 and actual['bonds'] == 896, 'Wrong wall asset')
@@ -93,7 +98,8 @@ def verify(capture, reference, count):
     require(cap.get('artifacts') and ref.get('artifacts'), 'Missing artifact attestation')
     # A reference must already have a physical audit; do not bless an arbitrary
     # trajectory merely because comparing it with itself would pass.
-    quality = json.loads((reference / 'quality.json').read_text())
+    quality_name = 'quality.json' if (reference / 'quality.json').exists() else 'invariants.json'
+    quality = json.loads((reference / quality_name).read_text())
     require(quality.get('all_stress_steps_converged') is True, 'Reference lacks physical quality audit')
     require(quality['max_cluster_com_error'] <= POSITION_TOLERANCE, 'Reference COM audit failed')
     if expected['direct_gpu_mode']:
@@ -107,9 +113,9 @@ def verify(capture, reference, count):
     require(len(a_ball) == actual['frames'] and len(b_ball) == expected['frames'], 'Incomplete projectile observation')
     max_position_error = 0.0
     identity = hashlib.sha256()
-    result = dict(schema=1, status='passed', tier='early' if count == 32 else 'screen',
+    result = dict(schema=1, status='passed', tier={32:'early',128:'screen',600:'full'}[count],
                   compared_steps=count, chunks=444, bonds=896, projectiles=actual['projectiles'],
-                  performance_qualification=False, complete_regression=False,
+                  performance_qualification=False, complete_regression=count == 600,
                   position_tolerance_m=POSITION_TOLERANCE, first_difference=None)
     for step, (a_rows, b_rows) in enumerate(zip(motion(capture, count), motion(reference, count))):
         difference = None
@@ -142,14 +148,16 @@ def verify(capture, reference, count):
     result['compared_identity_sha256'] = identity.hexdigest()
     result['reference'] = str(reference.resolve())
     result['reference_sha256'] = {name: digest(reference / name) for name in
-        ('capture.json', 'quality.json', 'native.summary.json', 'native.frames.csv', 'native.twstate')}
+        ('capture.json', quality_name, 'native.summary.json', 'native.frames.csv', 'native.twstate')}
     motion_name='native.motion.csv' if (reference/'native.motion.csv').exists() else 'native.motion.csv.gz'
     result['reference_sha256'][motion_name]=digest(reference/motion_name)
     # Tier 3 additionally retains the established rear-clearance/two-second-hole
     # checks; it never applies the 600-step final topology golden to a prefix.
-    if result['status'] == 'passed' and count == 128:
+    if result['status'] == 'passed' and count in (128, 600):
         spec = importlib.util.spec_from_file_location('native_penetration', Path(__file__).with_name('verify-native-penetration.py'))
         full = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(full)
         result['penetration_checks'] = full.verify(capture, None)
+        if count == 600:
+            result['reference_penetration_checks'] = full.verify(reference, None)
     return result

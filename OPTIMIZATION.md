@@ -231,6 +231,34 @@ module is **`libPhysXGpuActivity_64.so`**, not `libPhysXGpu_64.so`.
 
 ## Correctness commands
 
+The active full wall gate defaults to ordinary APIs and sleeping enabled. It
+compares all 600 ticks against the pre-snapshot reference pinned by
+`tools/profiles/wall-penetration-ordinary-reference.json`, including exact
+fracture/topology history and the existing physical and trajectory limits.
+The original Direct GPU golden is unchanged; `--historical-direct-gpu` selects
+that separate historical audit explicitly. The current same-mode wall run passes;
+older cross-GPU differences remain historical unqualified evidence.
+
+Current snapshot memory diagnostic (52 scenarios, two restores each):
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-blocking-mem-suite \
+  --structural-inputs out/snapshot-large-20260911/roundtrip-regressions \
+  --city-inputs out/snapshot-large-20260911 \
+  --binary out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test \
+  --artifacts out/snapshot-large-20260911/stable-rebuilt-artifacts \
+  --repetitions 2 --sanitizer memcheck --sanitizer-blocking-launches \
+  --allow-existing-graphics --allow-compute-pid 435374
+.toolchains/build-env/bin/python tools/scripts/test-native-prefix.py
+```
+
+Blocking launch mode serializes diagnostic execution and may hide ordering
+defects. Its 52-case pass does not clear the asynchronous failure; omit
+`--sanitizer-blocking-launches` to investigate that failure. Sanitizer captures
+are rejected by the unprofiled timing reporter. Do not use them as performance
+measurements or add production synchronization based on this diagnostic alone.
+
+
 Inspect registered names and run focused GPU tests sequentially:
 
 ```bash

@@ -15,6 +15,8 @@ p.add_argument('--city-inputs', type=Path, required=True)
 p.add_argument('--binary', type=Path, required=True)
 p.add_argument('--artifacts', type=Path, required=True)
 p.add_argument('--repetitions', type=int, default=20)
+p.add_argument('--sanitizer', choices=['memcheck', 'initcheck', 'synccheck'])
+p.add_argument('--sanitizer-blocking-launches', action='store_true')
 p.add_argument('--group', choices=['all', 'structural', 'city'], default='all')
 p.add_argument('--case', action='append', default=[])
 p.add_argument('--allow-existing-graphics', action='store_true')
@@ -23,6 +25,8 @@ p.add_argument('--manifest-only', action='store_true')
 a = p.parse_args()
 if a.repetitions < 2:
     p.error('At least two independent restores are required for comparison')
+if a.sanitizer_blocking_launches and not a.sanitizer:
+    p.error('--sanitizer-blocking-launches requires --sanitizer')
 
 profile = json.loads((root / 'tools/profiles/destruction-snapshot-suite.json').read_text())
 city = json.loads((root / 'tools/profiles/destruction-snapshot-large.json').read_text())
@@ -48,13 +52,19 @@ for case in cases:
 out = a.output.resolve()
 out.mkdir(parents=True, exist_ok=False)
 (out / 'manifest.json').write_text(json.dumps(dict(protocol='one-complete-tick-per-independent-restore',
-    repetitions=a.repetitions, restore_timed=False, validation_timed=False, scenarios=cases), indent=2) + '\n')
+    repetitions=a.repetitions, restore_timed=False, validation_timed=False,
+    sanitizer=a.sanitizer, sanitizer_blocking_launches=a.sanitizer_blocking_launches,
+    performance_qualification=False, scenarios=cases), indent=2) + '\n')
 if a.manifest_only:
     print(f'{len(cases)} cases validated: {out / "manifest.json"}')
     raise SystemExit(0)
 
 common = ['--binary', str(a.binary.resolve()), '--artifacts', str(a.artifacts.resolve()),
           '--watchdog-seconds', '600', '--repetitions', str(a.repetitions)]
+if a.sanitizer:
+    common += ['--sanitizer', a.sanitizer]
+if a.sanitizer_blocking_launches:
+    common += ['--sanitizer-blocking-launches']
 if a.allow_existing_graphics:
     common += ['--allow-existing-graphics']
 for pid in a.allow_compute_pid:

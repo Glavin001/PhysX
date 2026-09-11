@@ -1,0 +1,30 @@
+--- production/PxgDestructionTopology.cu
++++ candidate/PxgDestructionTopology.cu
+@@ -1,6 +1,7 @@
+ // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
+ #include "PxgDestructionTopology.h"
+ #include <cuda_runtime.h>
++#include <cuda/atomic>
+ #include <cub/device/device_radix_sort.cuh>
+ #include <cub/device/device_select.cuh>
+ #include <cub/device/device_scan.cuh>
+@@ -61,8 +62,8 @@
+ }
+ 
+ __device__ unsigned root(unsigned* labels, unsigned i) {
+-    unsigned p = atomicAdd(labels + i, 0u);
+-    while (p != i) { i = p; p = atomicAdd(labels + i, 0u); }
++    unsigned p = cuda::atomic_ref<unsigned,cuda::thread_scope_device>(labels[i]).load(cuda::memory_order_relaxed);
++    while (p != i) { i = p; p = cuda::atomic_ref<unsigned,cuda::thread_scope_device>(labels[i]).load(cuda::memory_order_relaxed); }
+     return i;
+ }
+ 
+@@ -85,7 +86,7 @@
+ 
+ __global__ void flatten(unsigned* labels, unsigned n) {
+     const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
+-    if (i < n && atomicAdd(labels + i, 0u) != INVALID) {
++    if (i < n && cuda::atomic_ref<unsigned,cuda::thread_scope_device>(labels[i]).load(cuda::memory_order_relaxed) != INVALID) {
+         const unsigned r = root(labels, i);
+         atomicExch(labels + i, r);
+     }

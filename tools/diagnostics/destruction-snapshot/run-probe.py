@@ -20,12 +20,16 @@ parser.add_argument('--allow-existing-graphics',action='store_true')
 parser.add_argument('--allow-compute-pid',type=int,action='append',default=[])
 parser.add_argument('--require-complete-shapes',action='store_true')
 parser.add_argument('--sanitizer',choices=['memcheck','initcheck','synccheck'])
+parser.add_argument('--sanitizer-blocking-launches',action='store_true',
+                    help='Use the sanitizer blocking-launch diagnostic mode; never a performance capture')
 parser.add_argument('--watchdog-seconds',type=float,default=120)
 parser.add_argument('--replay-prefix',type=Path)
 parser.add_argument('--repetitions',type=int,default=10)
 parser.add_argument('--projectile-impulse',action='store_true')
 parser.add_argument('--native-args-json',type=Path,help='Capture with native demo arguments from a JSON array; output added by wrapper')
 args=parser.parse_args()
+if args.sanitizer_blocking_launches and not args.sanitizer:
+    parser.error('--sanitizer-blocking-launches requires --sanitizer')
 out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
 arm=args.artifacts.resolve();binary=args.binary.resolve()
 record={'command':[str(binary),str(out)],'binary_sha256':c.sha(binary),'samples':[],'status':'running',
@@ -39,7 +43,13 @@ if args.replay_prefix:
     record['snapshot_inputs']={str(prefix)+suffix:c.sha(Path(str(prefix)+suffix)) for suffix in ('.pxbin','.destruction','.scene','.metadata.json') if Path(str(prefix)+suffix).exists()}
     record['command'] += ['--replay',str(prefix),'--repetitions',str(args.repetitions)]
     if args.projectile_impulse:record['command'].append('--projectile-impulse')
-if args.sanitizer:record['command']=['/usr/local/cuda-13.4/bin/compute-sanitizer','--tool',args.sanitizer,'--error-exitcode','97',*record['command']]
+if args.sanitizer:
+    sanitizer=Path('/usr/local/cuda-13.4/bin/compute-sanitizer')
+    record['sanitizer']={'tool':args.sanitizer,'binary_sha256':c.sha(sanitizer),
+        'version':subprocess.check_output([str(sanitizer),'--version'],text=True).strip(),
+        'blocking_launches':args.sanitizer_blocking_launches,'performance_qualification':False}
+    options=['--force-blocking-launches'] if args.sanitizer_blocking_launches else []
+    record['command']=[str(sanitizer),'--tool',args.sanitizer,'--error-exitcode','97',*options,*record['command']]
 def owned(pid,parent):
     seen=set()
     while pid and pid not in seen:
