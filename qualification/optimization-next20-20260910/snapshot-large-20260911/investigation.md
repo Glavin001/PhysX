@@ -182,6 +182,14 @@ between them. Raw: `mem-uninterrupted-city25-impact/`, including the exact
 83-step command, module hashes and the failed process receipt. Its buffered
 frame file is incomplete and must not be treated as an exact failure-step label.
 
+A final diagnostic uses the documented
+[`NV_COMPUTE_SANITIZER_SHARED_ADDRESSING_SUPPORT=none`](https://docs.nvidia.com/compute-sanitizer/ComputeSanitizer/index.html#environment-variables)
+setting. It still fails, now with CUDA illegal-address error 700 at completion
+and without the precise atomic attribution (`mem-addressing-city25-impact/`).
+This is neither a fix nor a qualification; retain the default instrumentation.
+The setting is isolated to that failed diagnostic process and is not added to
+the benchmark or correctness commands.
+
 ## Final measured campaign and readiness
 
 The `complete-*` campaign produces all 480 requested ticks: 24 native snapshots,
