@@ -1,0 +1,66 @@
+--- production/PxgDestructionCommittedChanges.cuh
++++ candidate/PxgDestructionCommittedChanges.cuh
+@@ -1,3 +1,4 @@
++#include "PxgDestructionDeviceGraph.cuh"
+ // GPU-owned publication of committed topology changes. Included in runtime's
+ // private namespace; no independent simulation or CPU topology reconstruction.
+ namespace committedChanges {
+@@ -21,10 +22,10 @@
+ }
+ __global__ void begin(PxDestructionCommittedChangesStatus* out,
+     const PxDestructionStageStatus* stage,PxDestructionTopologyDeviceView topology,
+-    const ExtStressGpuDeviceTopologyStatus* stress,cudaGraphConditionalHandle work) {
++    const ExtStressGpuDeviceTopologyStatus* stress,DeviceGraphBodyView work) {
+     *out={stage->frame,topology.status->generation,0,0,topology.status->clusterCount,
+         stress?stress->islandCount:0,stage->error,PxU32(stage->frame==1)};
+-    cudaGraphSetConditional(work,!stage->error && (stage->frame==1 || stage->brokenBonds || stage->crushedChunks));
++    setDeviceGraphBodyEnabled(work,!stage->error && (stage->frame==1 || stage->brokenBonds || stage->crushedChunks));
+ }
+ __global__ void pack(const PxU32* indices,PxDestructionChangedChunk* rows,
+     PxDestructionCommittedChangesStatus* out,PxDestructionTopologyDeviceView topology) {
+@@ -45,13 +46,14 @@
+     PxDestructionCommittedChangesStatus* mStatus=nullptr;
+     void* mScratch=nullptr;size_t mBytes=0;
+     cudaGraph_t mGraph=nullptr;cudaGraphExec_t mExec=nullptr;
++    DeviceGraphBody mBody;
+     PxU32 mN=0,mM=0;
+ public:
+     void clear() {
+         if(mExec)cudaGraphExecDestroy(mExec);if(mGraph)cudaGraphDestroy(mGraph);
+         cudaFree(mChunks);cudaFree(mBonds);cudaFree(mIndices);cudaFree(mRows);cudaFree(mBroken);cudaFree(mStatus);cudaFree(mScratch);
+         mChunks=mBonds=nullptr;mIndices=mBroken=nullptr;mRows=nullptr;mStatus=nullptr;mScratch=nullptr;
+-        mGraph=nullptr;mExec=nullptr;mN=mM=0;mBytes=0;
++        mBody.clear();mGraph=nullptr;mExec=nullptr;mN=mM=0;mBytes=0;
+     }
+     void initialize(PxDestructionTopologyDeviceView topology,
+         const PxDestructionStageStatus* stage,const ExtStressGpuDeviceTopologyStatus* stress,cudaStream_t stream) {
+@@ -63,21 +65,19 @@
+         check(cub::DeviceSelect::Flagged(nullptr,chunkBytes,ids,mChunks,mIndices,&mStatus->chunkCount,mN,stream));
+         if(mM)check(cub::DeviceSelect::Flagged(nullptr,bondBytes,ids,mBonds,mBroken,&mStatus->bondCount,mM,stream));
+         mBytes=std::max(chunkBytes,bondBytes);check(cudaMalloc(&mScratch,std::max(size_t(1),mBytes)));
+-        check(cudaGraphCreate(&mGraph,0));cudaGraphConditionalHandle work=0;
+-        check(cudaGraphConditionalHandleCreate(&work,mGraph,0,cudaGraphCondAssignDefault));
+-        void* values[]={&mStatus,&stage,&topology,&stress,&work};cudaKernelNodeParams kernel{};
+-        kernel.func=(void*)begin;kernel.gridDim=dim3(1);kernel.blockDim=dim3(1);kernel.kernelParams=values;
+-        cudaGraphNode_t start=nullptr;check(cudaGraphAddKernelNode(&start,mGraph,nullptr,0,&kernel));
+-        cudaGraphNodeParams conditional{};conditional.type=cudaGraphNodeTypeConditional;
+-        conditional.conditional.handle=work;conditional.conditional.type=cudaGraphCondTypeIf;conditional.conditional.size=1;
+-        cudaGraphNode_t node=nullptr;check(cudaGraphAddNode(&node,mGraph,&start,nullptr,1,&conditional));
+-        const auto body=conditional.conditional.phGraph_out[0];
++        check(cudaGraphCreate(&mGraph,0));const auto body=mGraph;
+         check(cudaStreamBeginCaptureToGraph(stream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal));
+         check(cub::DeviceSelect::Flagged(mScratch,mBytes,ids,mChunks,mIndices,&mStatus->chunkCount,mN,stream));
+         if(mM)check(cub::DeviceSelect::Flagged(mScratch,mBytes,ids,mBonds,mBroken,&mStatus->bondCount,mM,stream));
+         pack<<<(mN+127)/128,128,0,stream>>>(mIndices,mRows,mStatus,topology);
+         cudaGraph_t captured=nullptr;check(cudaStreamEndCapture(stream,&captured));
+-        check(cudaGraphInstantiate(&mExec,mGraph,0));
++        std::vector<cudaGraphNode_t> roots;
++        if(!mBody.initialize(mGraph,roots))throw std::runtime_error("publication device graph setup failed");
++        auto work=mBody.view();void* values[]={&mStatus,&stage,&topology,&stress,&work};cudaKernelNodeParams kernel{};
++        kernel.func=(void*)begin;kernel.gridDim=dim3(1);kernel.blockDim=dim3(1);kernel.kernelParams=values;
++        cudaGraphNode_t start=nullptr;check(cudaGraphAddKernelNode(&start,mGraph,nullptr,0,&kernel));
++        if(!mBody.connectBody(mGraph,start,roots))throw std::runtime_error("publication device graph dependencies failed");
++        check(cudaGraphInstantiate(&mExec,mGraph,0));check(cudaGraphUpload(mExec,stream));
+     }
+     void start(PxDestructionTopologyDeviceView topology,const PxDestructionStageStatus* stage,cudaStream_t stream) {
+         reset<<<(std::max(mN,mM)+127)/128,128,0,stream>>>(mChunks,mBonds,mN,mM,topology,stage);

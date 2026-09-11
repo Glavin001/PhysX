@@ -34,7 +34,12 @@ edges ensure every selector finishes before the selected body can execute.
   plain and under **default asynchronous memcheck**, zero memory errors. Each
   tick reports 3,412 new broken bonds, 537 output clusters, 304 maximum stress
   iterations, one correction, two stress evaluations, and strict repeatability.
-- Full 52-scenario normal memcheck is running at
+- The completed full normal memcheck campaign passes **51/52 scenarios**; cold
+  ladder128, in the separate committed-change publication conditional graph
+  (CUB byte-flag selection), not topology union. A publication conversion is
+  building separately in `out/snapshot-finish-20260911/device-enabled-publication`.
+  Topology-only candidate source is frozen at `f8d983013bb2519b73fb72e5fff3499bc90a97bc`.
+- Full 52-scenario normal memcheck is complete (one failure) at
   `out/snapshot-finish-20260911/device-enabled-mem-suite`.
 
 This candidate is not retained in the main worktree or installed. Its runtime is
