@@ -610,3 +610,63 @@ memory qualification remains open: the initial-impact memcheck fails in topology
 atomics on both the updated and saved pre-fix runtimes. Repeatability passes do
 not waive this or the restored-versus-uninterrupted physical-verdict differences.
 See the [failure investigation](qualification/optimization-next20-20260910/snapshot-large-20260911/investigation.md).
+
+
+## Current flat-graph qualification (2026-09-11)
+
+Candidate `8589185e659c8316b1828b7847b8780eb0f11006` is frozen under
+`out/snapshot-finish-20260911/device-enabled-split/`. It replaces destruction
+conditional graphs with GPU-enabled flat graphs and allocation grid barriers
+with four ordered GPU phases. **Unaccepted pending the complete matched gates**;
+main runtime and installed SDK are unchanged. The prior publication-only candidate
+passes 52/52 asynchronous memory checks but fails the separate correction check.
+This split candidate passes that correction check and the ordinary sleeping wall.
+Do not use instrumented milliseconds as performance evidence.
+
+Exact isolated build and focused correctness commands:
+
+```bash
+python3 out/snapshot-finish-20260911/device-enabled-split/build.py
+python3 out/snapshot-finish-20260911/device-enabled-split/build-motion-test.py
+python3 out/snapshot-finish-20260911/run-split-motion-screen.py
+python3 out/snapshot-finish-20260911/run-split-native-gates.py
+```
+
+Those recorded scripts have fixed evidence destinations and have already run;
+use new destinations for any changed implementation. The asynchronous full suite
+uses no blocking-launch or synchronization-limit flags:
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-flat-mem-suite \
+  --structural-inputs out/snapshot-large-20260911/roundtrip-regressions \
+  --city-inputs out/snapshot-large-20260911 \
+  --binary out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test \
+  --artifacts out/snapshot-finish-20260911/device-enabled-split \
+  --repetitions 2 --sanitizer memcheck \
+  --allow-existing-graphics --allow-compute-pid 435374
+```
+
+Matched A-before / B / A-after per scenario uses 10 / 20 / 10 independent restores,
+one full tick each. Every arm uses the same observation binary; all observation
+readbacks, physical comparisons and restore work are outside the tick timer.
+Post-tick destruction arrays must match exactly, and rigid physical state uses
+the existing position/velocity/orientation bounds. This is stricter than comparing
+fracture counts alone. The report preserves separate controls, descriptive intervals,
+means/maxima, 120/60 Hz misses, command/simulate-fetch/completion stages and excluded
+restore time. Shared-GPU variation remains a qualification limit.
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-matched.py out/NEW-flat-matched \
+  --manifest out/snapshot-finish-20260911/device-enabled-split-mem-suite/manifest.json \
+  --binary out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe \
+  --baseline-artifacts out/snapshot-large-20260911/stable-rebuilt-artifacts \
+  --candidate-artifacts out/snapshot-finish-20260911/device-enabled-split \
+  --candidate-commit 8589185e659c8316b1828b7847b8780eb0f11006 \
+  --allow-existing-graphics --allow-compute-pid 435374
+```
+
+Run one GPU candidate at a time. Do not rebuild or modify frozen arms during a
+campaign. A performance-neutral correctness-qualified result may be retained as
+an enabling improvement only with explicit evidence of no material scenario
+regression; it is not a speedup. Continuous trajectory qualification remains
+separate from fresh-cache restored ticks.

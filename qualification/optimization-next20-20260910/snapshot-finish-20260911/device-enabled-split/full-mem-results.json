@@ -1,0 +1,375 @@
+{
+  "candidate_commit": "8589185e659c8316b1828b7847b8780eb0f11006",
+  "status": "passed",
+  "scope": "Default asynchronous memcheck; no blocking launch, synchronization limit or suppression; two single-tick restores per scenario",
+  "passed": 52,
+  "total": 52,
+  "ticks": 104,
+  "harness_seconds": 622.9025027600146,
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-bridge64-cold",
+      "receipt_sha256": "896bf68d62a040ac0f9bb22a5a491ef79a0775af522768540bb80c90ac838dd8"
+    },
+    {
+      "scenario": "bridge64-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-bridge64-warm",
+      "receipt_sha256": "3f573fd50f68ae309e0332225ab85b1f9663de8aeecb033cc3596107100bf668"
+    },
+    {
+      "scenario": "building-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-building-cold",
+      "receipt_sha256": "e526b88ecefec975360a6ed76398aeddb8ad1e6f09d0aefc8096b648f10c003a"
+    },
+    {
+      "scenario": "building-fragmented",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-building-fragmented",
+      "receipt_sha256": "2e242acdd1d5d03d46f49289300543882b9cdabf8be1fa311e7ad9030eb78cb4"
+    },
+    {
+      "scenario": "building-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-building-warm",
+      "receipt_sha256": "0d93aea3ecdcec86491c4b5235f2ae8697bbf9664c0d8972f84c0c1f030f8fcc"
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-cantilever64-cold",
+      "receipt_sha256": "320238ab580420432251b5c3aba070d650b14ef836285a6567a5d0cfc48338dd"
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-cantilever64-warm",
+      "receipt_sha256": "21443e3be1c40780f3f695e7d7ccd175ede12890a1b707104033dc8a1c1430eb"
+    },
+    {
+      "scenario": "chain256-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-chain256-cold",
+      "receipt_sha256": "c87f42cb33c8a9be31e875f409af14143253ffc122aeeafa52372d41b6135eaa"
+    },
+    {
+      "scenario": "chain256-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-chain256-warm",
+      "receipt_sha256": "156a0641af2275daef99cfafcccb4cac06e375b91f1b32c0f73eeed2abd97bc8"
+    },
+    {
+      "scenario": "chain32-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-chain32-cold",
+      "receipt_sha256": "03250250f304930637cf1d89e63cc575f15d0ac25ba93008b93c6eff20c9c4a0"
+    },
+    {
+      "scenario": "chain32-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-chain32-warm",
+      "receipt_sha256": "98c6053bdb0519a8ca8f55d5482fb337f6bfc14b0f2b0c81babe18bbefb23bdc"
+    },
+    {
+      "scenario": "dense12-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-dense12-cold",
+      "receipt_sha256": "853b9217ff8ec50c1007f0231ece650f5e8811c7f035c026b40e7784229a3336"
+    },
+    {
+      "scenario": "dense12-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-dense12-warm",
+      "receipt_sha256": "dfa1ec1cae4598949ecfe95efd1811bce13482a19c818aa826b1ced29512af32"
+    },
+    {
+      "scenario": "destruction-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-destruction-cold",
+      "receipt_sha256": "d1a90507ebaa958d30dffe68277ea120e6f0f2986c1b10fb83345648300997fa"
+    },
+    {
+      "scenario": "destruction-damaged",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-destruction-damaged",
+      "receipt_sha256": "9c47a006c48e86745aed753ded1f6542deb11fb152295d29fa10e1e0a82ad00d"
+    },
+    {
+      "scenario": "destruction-fractured",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-destruction-fractured",
+      "receipt_sha256": "67492c683b34d25da68648dcf60812cf9d405a41fa3d89112fed302045d793be"
+    },
+    {
+      "scenario": "destruction-intact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-destruction-intact",
+      "receipt_sha256": "5a4d54089daadf8dc8330e86e00b0b069e901e3025bc0116345cd530b96e1375"
+    },
+    {
+      "scenario": "destruction-onset",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-destruction-onset",
+      "receipt_sha256": "849bf95dd03512963ff2a60a51736a6f7ae56c1ccb2677a4544cbb31360baadb"
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-destruction-stimulus",
+      "receipt_sha256": "70e999330e190c6fa3e425f44597939f01b59d6d68f11fab7716f31d726ef559"
+    },
+    {
+      "scenario": "flying",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-flying",
+      "receipt_sha256": "2234a36c8f3baf86c8c380b07b1e7ae647c0d4541b72c7b0979177929fc64faa"
+    },
+    {
+      "scenario": "ladder128-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-ladder128-cold",
+      "receipt_sha256": "457461a493a43db1430a560564ec5dd860571ff3e2961d0b8c82e6e5edac4d23"
+    },
+    {
+      "scenario": "ladder128-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-ladder128-warm",
+      "receipt_sha256": "464906127ceac5019347cfd1ec607859c9fbad4cb9be11553e47c6f68de456f3"
+    },
+    {
+      "scenario": "panel32-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-panel32-cold",
+      "receipt_sha256": "3643a7a58fc3ddc5d5ce005192ae144c5beefb545dd95c1646322d7e72a8dd05"
+    },
+    {
+      "scenario": "panel32-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-panel32-warm",
+      "receipt_sha256": "1ed1705cad28f40984d2b9afad2eb85c42b4f0e4ab0cc75a862ca6f84d31b9cb"
+    },
+    {
+      "scenario": "resting",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-resting",
+      "receipt_sha256": "96039eb2cc37585ed6d5eac9c51fa49f1e6bcc18b7d0389fd8399d6028145839"
+    },
+    {
+      "scenario": "sliding",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-sliding",
+      "receipt_sha256": "69fdb5808322831e939459e5b552dd3a73769e6485a1e520e66f24143a39ec24"
+    },
+    {
+      "scenario": "tower64-cold",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-tower64-cold",
+      "receipt_sha256": "e6d36673a6a54f3300fb89204885de5192ab387eae2d516fdf24526a79c74855"
+    },
+    {
+      "scenario": "tower64-warm",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-tower64-warm",
+      "receipt_sha256": "d00191328765ed8aa8408710d97db65f8f63ab65aaa249597f561e386c975a91"
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city25-intact-idle",
+      "receipt_sha256": "931ac46c0c291af013796614518dd68a07d9ec697794547e140bb4046aadcdb3"
+    },
+    {
+      "scenario": "city25-airborne",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city25-airborne",
+      "receipt_sha256": "e05b3c915a815bfcfe3b4e90ee1fb29cd21f7a9ca9ca4511b354ff9edb7723da"
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city25-initial-impact",
+      "receipt_sha256": "f31fc06a7af07ac8266631d62f16098a3cb3761cb5b8d04db19b9bce5a8a80e2"
+    },
+    {
+      "scenario": "city25-post-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city25-post-impact",
+      "receipt_sha256": "6fc96af3ef4832882cf35b9154e67ea778f41866dc1215716916eb4f98e034a5"
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city25-cascading-fracture",
+      "receipt_sha256": "85242be993a5aee1dcf3048c18f0d071e826dca6cafbfa6d9e83958e53131b30"
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city25-fragmented-loaded",
+      "receipt_sha256": "34930e9e70bc86f012e8c61ee18b796fd367886baf0895909b6f1fff6c6228cc"
+    },
+    {
+      "scenario": "city25-late-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city25-late-debris",
+      "receipt_sha256": "0445e958f18b1a70ae6e28a8909be6f4942f278ecd1e4eac7820641f8a2c1f7d"
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city25-ten-second-debris",
+      "receipt_sha256": "f84bd480bec36559d36db6e802014f9f0c39405ce9b2b5ec613642027a3a403d"
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city64-intact-idle",
+      "receipt_sha256": "cb2e1b9533282dbdaabe337564e93070cc6dcf96fa742fb6c3f08aa3dd26c68b"
+    },
+    {
+      "scenario": "city64-airborne",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city64-airborne",
+      "receipt_sha256": "8cbfcd81569463e0cd00f2e11b7b5ef5fb66682fc88e888213cc7a6b4e298522"
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city64-initial-impact",
+      "receipt_sha256": "b911fd1fcf96d157a55ec1c5559ad5bdfb90ba3b3dea2eabcec2ba6503395db4"
+    },
+    {
+      "scenario": "city64-post-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city64-post-impact",
+      "receipt_sha256": "c6249e07cc52dee8f3b1d2171145097c665b57badb2d2534d45e2a98e5d6b013"
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city64-cascading-fracture",
+      "receipt_sha256": "b6d0e12607e5c5bfee7443eaaede3dd3c5d03edb94ee5fd41689f612bdae3b0e"
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city64-fragmented-loaded",
+      "receipt_sha256": "74d9dbe3e5fc34082b919bb16d68c00cc590111a3ded9890e6f6f688122a50ad"
+    },
+    {
+      "scenario": "city64-late-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city64-late-debris",
+      "receipt_sha256": "abd1ec023e4d3551f30067183522e87ea6489461e2f784c074ddf587a6e7abe2"
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city64-ten-second-debris",
+      "receipt_sha256": "3d586fd3a03fa8f4a358eb89591288b890d05a8bf0ac8406e452491528c0d8dc"
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city256-intact-idle",
+      "receipt_sha256": "95bef9c5ec53a55875b4b41855112808a7bb79d1655c04d0cca5aa171922d663"
+    },
+    {
+      "scenario": "city256-airborne",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city256-airborne",
+      "receipt_sha256": "63fd05ed844b83f1eaa5c7063bf8f5cbfd57a3905db30e827e62e77190617965"
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city256-initial-impact",
+      "receipt_sha256": "786ce7604644b348f3b0aeeb9e50f26033f37298ce7f125396bdeb4c8078c402"
+    },
+    {
+      "scenario": "city256-post-impact",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city256-post-impact",
+      "receipt_sha256": "705e1e90965365388e62582e526055b1434381a83a0a24f6462b84e015b3b805"
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city256-cascading-fracture",
+      "receipt_sha256": "2c578db7a08ebd917efce98069531b81b4d618f4cb5f88e61d6e4acbe103b99d"
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city256-fragmented-loaded",
+      "receipt_sha256": "57dff4ec55fd744a714f4d43c5b67e54c7a452ceb633dc0ebd69d5b16feddd81"
+    },
+    {
+      "scenario": "city256-late-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city256-late-debris",
+      "receipt_sha256": "4769627d2bcffdf26d083efbe34debbf6805479d1d0eba2ac160150a48ad3c51"
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "passed": true,
+      "samples": 2,
+      "raw": "out/snapshot-finish-20260911/device-enabled-split-mem-suite/complete-city256-ten-second-debris",
+      "receipt_sha256": "28c5c3d22156607ff78449965ac27a04c899544c1d22eb1d94eb0dd149b3d52c"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:919)
+ordinary correction: loaded=1 mode=0 solver=1 accelerations=0 accepted=0 error=1 stage=8
+ordinary correction: loaded=1 mode=1 solver=1 accelerations=0 accepted=0 error=1 stage=8
+ordinary correction: loaded=1 mode=2 solver=1 accelerations=0 accepted=0 error=1 stage=8
+ordinary correction: loaded=0 mode=0 solver=1 accelerations=0 accepted=1 error=0 stage=0
+ordinary correction: loaded=1 mode=0 solver=1 accelerations=1 accepted=0 error=1 stage=8
+ordinary correction: loaded=1 mode=1 solver=1 accelerations=1 accepted=0 error=1 stage=8
+ordinary correction: loaded=1 mode=2 solver=1 accelerations=1 accepted=0 error=1 stage=8
+ordinary correction: loaded=0 mode=0 solver=1 accelerations=1 accepted=1 error=0 stage=0
+ordinary correction: loaded=1 mode=0 solver=0 accelerations=0 accepted=0 error=1 stage=8
+ordinary correction: loaded=1 mode=1 solver=0 accelerations=0 accepted=0 error=1 stage=8
+ordinary correction: loaded=1 mode=2 solver=0 accelerations=0 accepted=0 error=1 stage=8
+ordinary correction: loaded=0 mode=0 solver=0 accelerations=0 accepted=1 error=0 stage=0
+ordinary correction: loaded=1 mode=0 solver=0 accelerations=1 accepted=0 error=1 stage=8
+ordinary correction: loaded=1 mode=1 solver=0 accelerations=1 accepted=0 error=1 stage=8
+ordinary correction: loaded=1 mode=2 solver=0 accelerations=1 accepted=0 error=1 stage=8
+ordinary correction: loaded=0 mode=0 solver=0 accelerations=1 accepted=1 error=0 stage=0
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=0 acceleration=0 solver=1 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=0 acceleration=0 solver=0 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=0 acceleration=1 solver=1 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=0 acceleration=1 solver=0 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=1 acceleration=0 solver=1 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=1 acceleration=0 solver=0 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=1 acceleration=1 solver=1 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=1 acceleration=1 solver=0 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=1 acceleration=1 solver=1 loaded=1 invalid=0 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=0 acceleration=0 solver=1 loaded=0 invalid=1 invalidCollision=0 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=0 acceleration=0 solver=1 loaded=0 invalid=0 invalidCollision=1 invalidInitialization=0 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=0 acceleration=1 solver=1 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=1 passed
+native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=0 acceleration=1 solver=0 loaded=0 invalid=0 invalidCollision=0 invalidInitialization=1 passed

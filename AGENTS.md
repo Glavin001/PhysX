@@ -1,18 +1,30 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
-Current snapshot qualification: frozen candidate `d5d0ca49ba37f7273e8532ce77d1beec3bd4df82`
-replaces topology/publication conditional graphs with GPU-enabled flat graphs.
-**52/52 normal asynchronous memcheck cases pass, 104 restored ticks (623.12 s)**;
-no blocking launch, suppression or extra CPU tick wait. Three matched physical
-A/B screens pass (flying body, 11,100-chunk impact, 113,664-chunk late debris),
-including exact destruction arrays and identical measured body positions/velocities.
-The separate 29-case correction test passes plain but fails memcheck in the
-remaining motion-allocation conditional graph. The next isolated candidate is
-under test in `out/snapshot-finish-20260911/device-enabled-all/`; it is not retained.
-Main runtime and installed SDK are unchanged by these graph candidates. Full
-matched timing and correction qualification are still required. Older diagnostic
-statuses below are historical; do not restart the rejected atomic/index workarounds.
+Current snapshot qualification: frozen split candidate
+`8589185e659c8316b1828b7847b8780eb0f11006` now passes the native 29-case correction
+regression plain and **normal asynchronous memcheck**, plus the 600-tick ordinary
+sleeping wall against the pinned pre-snapshot reference (exact physical counters
+and zero position difference). It replaces remaining conditional allocation with
+four ordered GPU phases; no CPU per-tick wait or suppression. Full 52-case normal asynchronous memory
+requalification passes, 104 ticks / 622.90 s, in
+`out/snapshot-finish-20260911/device-enabled-split-mem-suite/`.
+Allocation initcheck/synccheck and the three physical A/B/A smoke cases also pass.
+Matched full-suite qualification is next at
+`out/snapshot-finish-20260911/split-matched-full/` (10/20/10 samples per case).
+Short smoke timings are noisy, not an acceptance.
+The candidate is not retained until full physical/matched timing checks finish.
+Main runtime and installed SDK remain unchanged. Rejected cooperative variant
+`2f1286b437fb2c668d3161c33b256627b32eef6f` stalled the allocation oracle and was
+killed by its watchdog; do not reuse it. Current scripts/artifacts/evidence:
+[split follow-up](qualification/optimization-next20-20260910/snapshot-finish-20260911/device-enabled-split/README.md).
 
+Previous publication-only candidate `d5d0ca49ba37f7273e8532ce77d1beec3bd4df82`
+passes 52/52 default asynchronous memcheck scenarios (104 ticks; 623.12 s), but
+fails the separate correction memory regression and is not retained. Three
+physical A/B screens pass (flying body, 11,100-chunk impact, 113,664-chunk late
+debris), including exact destruction arrays and identical measured body
+positions/velocities. Older diagnostic statuses below are historical; do not
+restart rejected atomic/index workarounds.
 
 Latest asynchronous follow-up: explicit index guards do not fix memcheck; the first
 error moves to a fixed field in a live status allocation. A high synchronization
