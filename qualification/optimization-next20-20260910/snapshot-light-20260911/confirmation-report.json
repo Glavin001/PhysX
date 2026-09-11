@@ -1,0 +1,600 @@
+{
+  "quality_contract": {
+    "position_m": 0.0001,
+    "linear_velocity_m_s": 0.0001,
+    "angular_velocity_rad_s": 0.0001,
+    "orientation_dot_error": 1e-05,
+    "bond_health": "exact",
+    "accepted_topology": "exact",
+    "crush_damage": "exact",
+    "stress_converged": true,
+    "maximum_corrections": 1
+  },
+  "scope": "One full tick per fresh restore, fixed file inputs, ordinary GPU/TGS, dt=1/60, at most one correction. Independent physical reconstructions; shared-GPU descriptive timings, not matched A/B performance qualification. Restore includes scene creation and stress configuration; context initialization and validation are outside both reported intervals. No capture-prefix simulation.",
+  "scenarios": [
+    {
+      "qualified": true,
+      "repeatability_passed": true,
+      "receipt_status": "complete",
+      "replay_contract": "physical-file-replay-v20-complete-step",
+      "metadata": {},
+      "sd_ms": 0.8858569759533802,
+      "cv_percent": 10.335170111840194,
+      "comparison_failure_reasons": [],
+      "failed_comparisons": 0,
+      "maximum_observed_bond_health_difference": 0,
+      "descriptive_bootstrap_mean_95_ms": [
+        8.12639375,
+        9.2230855
+      ],
+      "first_half_mean_ms": 8.830886,
+      "last_half_mean_ms": 8.311685749999999,
+      "harness_wall_seconds": 1.4264496400137432,
+      "harness_clock": "monotonic",
+      "mean_stages_ms": {
+        "command_ms": 0.000112375,
+        "simulate_fetch_ms": 8.369205000000001,
+        "completion_ms": 0.2019685
+      },
+      "active_work": {
+        "output_clusters": [
+          1
+        ],
+        "stress_islands": [
+          1
+        ],
+        "stress_active_nodes": [
+          744
+        ],
+        "stress_active_bonds": [
+          1500
+        ],
+        "normal_contacts": [
+          0
+        ],
+        "friction_anchors": [
+          0
+        ]
+      },
+      "scenario": "bridge64-cold",
+      "samples": 8,
+      "mean_ms": 8.571285875,
+      "median_ms": 8.3343865,
+      "min_ms": 7.918249,
+      "max_ms": 10.619342,
+      "restore_mean_ms": 37.485467,
+      "restore_max_ms": 218.949202,
+      "over_8_ms": 6,
+      "over_120hz": 4,
+      "over_60hz": 0,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        184
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "motion_comparisons_unavailable": 0,
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold.pxbin": "0f6cc6b80f3a283350c788cef1da4e506726fdcb8958679a33821a0fa27870f5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold.destruction": "4e90a286c24c793165569b793d8e729eada9ed71b193399cf78b675841586fd9"
+      },
+      "raw": "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/complete-bridge64-cold/replay.json"
+    },
+    {
+      "qualified": true,
+      "repeatability_passed": true,
+      "receipt_status": "complete",
+      "replay_contract": "physical-file-replay-v20-complete-step",
+      "metadata": {},
+      "sd_ms": 1.232489826509707,
+      "cv_percent": 17.016350867069026,
+      "comparison_failure_reasons": [],
+      "failed_comparisons": 0,
+      "maximum_observed_bond_health_difference": 0,
+      "descriptive_bootstrap_mean_95_ms": [
+        6.61961725,
+        8.14833425
+      ],
+      "first_half_mean_ms": 7.4386025,
+      "last_half_mean_ms": 7.047345,
+      "harness_wall_seconds": 1.4135167289932724,
+      "harness_clock": "monotonic",
+      "mean_stages_ms": {
+        "command_ms": 0.000133625,
+        "simulate_fetch_ms": 7.034339125,
+        "completion_ms": 0.208501
+      },
+      "active_work": {
+        "output_clusters": [
+          1
+        ],
+        "stress_islands": [
+          1
+        ],
+        "stress_active_nodes": [
+          255
+        ],
+        "stress_active_bonds": [
+          255
+        ],
+        "normal_contacts": [
+          0
+        ],
+        "friction_anchors": [
+          0
+        ]
+      },
+      "scenario": "chain256-cold",
+      "samples": 8,
+      "mean_ms": 7.24297375,
+      "median_ms": 6.845988999999999,
+      "min_ms": 6.368101,
+      "max_ms": 10.106573,
+      "restore_mean_ms": 33.184080625,
+      "restore_max_ms": 212.188887,
+      "over_8_ms": 1,
+      "over_120hz": 1,
+      "over_60hz": 0,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        492
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "motion_comparisons_unavailable": 0,
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold.pxbin": "f5f67c9b8e10603997cc26cae27e99b0e2a6801f52161a710eaf834c9360bb63",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold.destruction": "83f60c174b0dc368aa9bf6a318f4426db6168b32f3b11cf62338f5805a18502c"
+      },
+      "raw": "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/complete-chain256-cold/replay.json"
+    },
+    {
+      "qualified": true,
+      "repeatability_passed": true,
+      "receipt_status": "complete",
+      "replay_contract": "physical-file-replay-v20-complete-step",
+      "metadata": {},
+      "sd_ms": 1.754530218311148,
+      "cv_percent": 5.241821188075624,
+      "comparison_failure_reasons": [],
+      "failed_comparisons": 0,
+      "maximum_observed_bond_health_difference": 0,
+      "descriptive_bootstrap_mean_95_ms": [
+        32.459852,
+        34.89903233333333
+      ],
+      "first_half_mean_ms": 34.483683666666664,
+      "last_half_mean_ms": 32.459852,
+      "harness_wall_seconds": 1.8024600759963505,
+      "harness_clock": "monotonic",
+      "mean_stages_ms": {
+        "command_ms": 0.0001435,
+        "simulate_fetch_ms": 33.24215066666667,
+        "completion_ms": 0.22947366666666666
+      },
+      "active_work": {
+        "output_clusters": [
+          1
+        ],
+        "stress_islands": [
+          1
+        ],
+        "stress_active_nodes": [
+          1584
+        ],
+        "stress_active_bonds": [
+          4488
+        ],
+        "normal_contacts": [
+          0
+        ],
+        "friction_anchors": [
+          0
+        ]
+      },
+      "scenario": "dense12-cold",
+      "samples": 6,
+      "mean_ms": 33.47176783333333,
+      "median_ms": 32.8968065,
+      "min_ms": 32.16935,
+      "max_ms": 36.884541,
+      "restore_mean_ms": 58.4822415,
+      "restore_max_ms": 231.656453,
+      "over_8_ms": 6,
+      "over_120hz": 6,
+      "over_60hz": 6,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        34
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "motion_comparisons_unavailable": 0,
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold.pxbin": "e9919b2d9aa7754f305bf1638f1eb36dab3c8fe9641b3c5d771e1c3d65cb23e9",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold.destruction": "18902de5ff44999e5cbee1cb041a396840899d402684c7977746356ca8b6bf9b"
+      },
+      "raw": "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/complete-dense12-cold/replay.json"
+    },
+    {
+      "qualified": true,
+      "repeatability_passed": true,
+      "receipt_status": "complete",
+      "replay_contract": "physical-file-replay-v20-complete-step",
+      "metadata": {},
+      "sd_ms": 0.7030317717027826,
+      "cv_percent": 20.368605754161752,
+      "comparison_failure_reasons": [],
+      "failed_comparisons": 0,
+      "maximum_observed_bond_health_difference": 0,
+      "descriptive_bootstrap_mean_95_ms": [
+        3.03824325,
+        3.947727125
+      ],
+      "first_half_mean_ms": 3.4453035,
+      "last_half_mean_ms": 3.45778825,
+      "harness_wall_seconds": 1.4060738789848983,
+      "harness_clock": "monotonic",
+      "mean_stages_ms": {
+        "command_ms": 0.0019905,
+        "simulate_fetch_ms": 3.286241875,
+        "completion_ms": 0.1633135
+      },
+      "active_work": {
+        "output_clusters": [
+          1
+        ],
+        "stress_islands": [
+          1
+        ],
+        "stress_active_nodes": [
+          1
+        ],
+        "stress_active_bonds": [
+          1
+        ],
+        "normal_contacts": [
+          0
+        ],
+        "friction_anchors": [
+          0
+        ]
+      },
+      "scenario": "destruction-stimulus",
+      "samples": 8,
+      "mean_ms": 3.451545875,
+      "median_ms": 3.3725935,
+      "min_ms": 2.567826,
+      "max_ms": 4.922885,
+      "restore_mean_ms": 32.225756,
+      "restore_max_ms": 212.440621,
+      "over_8_ms": 0,
+      "over_120hz": 0,
+      "over_60hz": 0,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        1
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "motion_comparisons_unavailable": 0,
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus.pxbin": "32ebd013092065b0a9f0a2a9b891b7d2e279db41e94190b150c701cd68da83bd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus.destruction": "0df8429b87ff907110030fc4ad30a15154275a38c4b15aa00d59385e1cb700db"
+      },
+      "raw": "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/complete-destruction-stimulus/replay.json"
+    },
+    {
+      "qualified": true,
+      "repeatability_passed": true,
+      "receipt_status": "complete",
+      "replay_contract": "physical-file-replay-v20-complete-step",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 82,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 25,
+        "input_clusters": 25,
+        "physical_bytes": 3042068,
+        "destruction_bytes": 3176196,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "sd_ms": 3.659069698699248,
+      "cv_percent": 8.880209550264414,
+      "comparison_failure_reasons": [],
+      "failed_comparisons": 0,
+      "maximum_observed_bond_health_difference": 0,
+      "descriptive_bootstrap_mean_95_ms": [
+        38.355253000000005,
+        44.764744
+      ],
+      "first_half_mean_ms": 41.9152295,
+      "last_half_mean_ms": 40.494305499999996,
+      "harness_wall_seconds": 2.010813872999279,
+      "harness_clock": "monotonic",
+      "mean_stages_ms": {
+        "command_ms": 0.00011475,
+        "simulate_fetch_ms": 41.01384975,
+        "completion_ms": 0.190803
+      },
+      "active_work": {
+        "output_clusters": [
+          537
+        ],
+        "stress_islands": [
+          77
+        ],
+        "stress_active_nodes": [
+          9040
+        ],
+        "stress_active_bonds": [
+          16188
+        ],
+        "normal_contacts": [
+          3931
+        ],
+        "friction_anchors": [
+          625
+        ]
+      },
+      "scenario": "city25-initial-impact",
+      "samples": 4,
+      "mean_ms": 41.2047675,
+      "median_ms": 40.494305499999996,
+      "min_ms": 37.555624,
+      "max_ms": 46.274835,
+      "restore_mean_ms": 124.992797,
+      "restore_max_ms": 371.783642,
+      "over_8_ms": 4,
+      "over_120hz": 4,
+      "over_60hz": 4,
+      "corrections": [
+        1
+      ],
+      "stress_evaluations": [
+        2
+      ],
+      "stress_iterations": [
+        304
+      ],
+      "broken_bonds": [
+        3412
+      ],
+      "motion_comparisons_unavailable": 0,
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "raw": "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/complete-city25-initial-impact/replay.json"
+    },
+    {
+      "qualified": true,
+      "repeatability_passed": true,
+      "receipt_status": "complete",
+      "replay_contract": "physical-file-replay-v20-complete-step",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 40,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 0,
+        "input_clusters": 256,
+        "physical_bytes": 30997140,
+        "destruction_bytes": 32475432,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "sd_ms": 6.594428369009404,
+      "cv_percent": 10.54615333416218,
+      "comparison_failure_reasons": [],
+      "failed_comparisons": 0,
+      "maximum_observed_bond_health_difference": 0,
+      "descriptive_bootstrap_mean_95_ms": [
+        57.464339,
+        69.985763
+      ],
+      "first_half_mean_ms": 69.985763,
+      "last_half_mean_ms": 58.800962,
+      "harness_wall_seconds": 6.878239766985644,
+      "harness_clock": "monotonic",
+      "mean_stages_ms": {
+        "command_ms": 0.00018633333333333335,
+        "simulate_fetch_ms": 62.287069333333335,
+        "completion_ms": 0.24197333333333335
+      },
+      "active_work": {
+        "output_clusters": [
+          256
+        ],
+        "stress_islands": [
+          256
+        ],
+        "stress_active_nodes": [
+          97280
+        ],
+        "stress_active_bonds": [
+          200704
+        ],
+        "normal_contacts": [
+          0
+        ],
+        "friction_anchors": [
+          0
+        ]
+      },
+      "scenario": "city256-intact-idle",
+      "samples": 3,
+      "mean_ms": 62.529229,
+      "median_ms": 60.137585,
+      "min_ms": 57.464339,
+      "max_ms": 69.985763,
+      "restore_mean_ms": 850.0948626666666,
+      "restore_max_ms": 1831.379757,
+      "over_8_ms": 3,
+      "over_120hz": 3,
+      "over_60hz": 3,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        88
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "motion_comparisons_unavailable": 0,
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.pxbin": "f930468625d37115e130cb8b66d11873440ca0838387f25d83444027a93a5824",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.destruction": "e386aa8e52f7e32f75698f8921abd90055425124b5a8a5f4f3a2a135055e61d4",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.metadata.json": "5d3677ec118d6f15925bdbb973357c1d7f4d5f3aa81f95859e1145e2ae0e0b24"
+      },
+      "raw": "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/complete-city256-intact-idle/replay.json"
+    },
+    {
+      "qualified": true,
+      "repeatability_passed": true,
+      "receipt_status": "complete",
+      "replay_contract": "physical-file-replay-v20-complete-step",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 179,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 256,
+        "input_clusters": 12214,
+        "physical_bytes": 34787460,
+        "destruction_bytes": 36252408,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "sd_ms": 16.176059880465672,
+      "cv_percent": 3.715583218340564,
+      "comparison_failure_reasons": [],
+      "failed_comparisons": 0,
+      "maximum_observed_bond_health_difference": 0,
+      "descriptive_bootstrap_mean_95_ms": [
+        418.982441,
+        451.326953
+      ],
+      "first_half_mean_ms": 451.326953,
+      "last_half_mean_ms": 427.3723565,
+      "harness_wall_seconds": 8.685541994986124,
+      "harness_clock": "monotonic",
+      "mean_stages_ms": {
+        "command_ms": 0.00018066666666666665,
+        "simulate_fetch_ms": 434.966811,
+        "completion_ms": 0.39023033333333335
+      },
+      "active_work": {
+        "output_clusters": [
+          16135
+        ],
+        "stress_islands": [
+          2762
+        ],
+        "stress_active_nodes": [
+          83885
+        ],
+        "stress_active_bonds": [
+          133656
+        ],
+        "normal_contacts": [
+          267054
+        ],
+        "friction_anchors": [
+          61120
+        ]
+      },
+      "scenario": "city256-late-debris",
+      "samples": 3,
+      "mean_ms": 435.357222,
+      "median_ms": 435.762272,
+      "min_ms": 418.982441,
+      "max_ms": 451.326953,
+      "restore_mean_ms": 942.259373,
+      "restore_max_ms": 1919.313781,
+      "over_8_ms": 3,
+      "over_120hz": 3,
+      "over_60hz": 3,
+      "corrections": [
+        1
+      ],
+      "stress_evaluations": [
+        2
+      ],
+      "stress_iterations": [
+        1084
+      ],
+      "broken_bonds": [
+        11051
+      ],
+      "motion_comparisons_unavailable": 0,
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+      },
+      "raw": "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/complete-city256-late-debris/replay.json"
+    }
+  ]
+}

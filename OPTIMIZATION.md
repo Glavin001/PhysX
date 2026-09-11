@@ -789,3 +789,47 @@ remain 371–468 ms (idle/impact/late debris), exceeding some full ticks. Next p
 immutable destruction-asset preparation and runtime allocation lifecycle; record
 setup gains separately from application gains. No new N-series experiment or
 continuous speedup is credited for this work.
+
+## Thirty-second candidate screen
+
+Start routine optimization experiments with the frozen seven-case light preset:
+bridge, long chain, dense 3D connectivity, an explicit command, 11,100-chunk first
+impact, 113,664-chunk intact idle, and 113,664-chunk late debris. It runs 40 complete
+ticks using fixed per-case repetition counts. It targets **30 seconds for one arm**,
+including input hashing, startup, restore, checks, teardown and report generation.
+Use the [profile](tools/profiles/destruction-snapshot-light.json) and
+[calibration/coverage report](qualification/optimization-next20-20260910/snapshot-light-20260911/README.md).
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-light \
+  --preset light \
+  --structural-inputs out/snapshot-large-20260911/roundtrip-regressions \
+  --city-inputs out/snapshot-large-20260911 \
+  --binary out/snapshot-reset-20260911/local-probe/serialization-probe \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --allow-existing-graphics --allow-compute-pid 435374
+```
+
+Select matching candidate probe/runtime artifacts after relevant builds. Run one
+arm at a time; compare a frozen baseline and candidate with this same preset.
+An A/B pair takes about one minute, or A/B/A about90 seconds. Shared-GPU clocks
+and load can make the budget drift; every run records actual wall time and
+`within_target` without silently dropping cases or samples.
+
+The preset retains physical import re-export equality, same-input repeatability,
+convergence/damage/motion checks, and expected fracture/correction/cluster counts.
+It disables only large diagnostic observation dumps. `report.md` / `report.json`
+include per-scenario full-step mean, peak, median, spread, phase timings, deadline
+misses, active work and raw-sample paths. `suite-summary.json` records total wall
+time. A failed physical/counter gate exits unsuccessfully. Being within the wall
+budget is independent of correctness.
+
+This is a **screening gate**, not acceptance. Three samples in the largest cases
+cannot establish a small speedup or tail-latency improvement. Reject clear quality
+failures; prioritize promising changes and expand uncertain signals. Before
+retaining a candidate, run the full52-case ×20 benchmark and cross-build physical
+comparison from the reusable-workspace section above (with observation dumps),
+plus the full asynchronous memory and continuous ordinary/sleeping physical and
+matched idle/heavy gates. Keep all52 cases, tolerances and full-step scope unchanged.
+The full preset remains the default; the light preset disallows case/repetition
+overrides so candidates cannot quietly change its workload.

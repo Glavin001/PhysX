@@ -1,5 +1,17 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Optimization screening now supports `run-suite.py --preset light`: seven fixed
+semantic cases / 40 full ticks, measured 27.99/28.44 seconds including restore,
+checks and report generation.
+Use the frozen profile in `tools/profiles/destruction-snapshot-light.json` and
+[light-suite evidence](qualification/optimization-next20-20260910/snapshot-light-20260911/README.md).
+It includes 113,664-chunk idle/debris and actual fracture/correction; original
+inputs/tolerances and full-tick timing are unchanged. Light passes only prioritize
+candidates. Finalists still require all 52 ×20, cross-build physical observations,
+normal asynchronous memory checks, and continuous ordinary/sleeping qualification.
+See OPTIMIZATION.md for exact commands. No runtime implementation changed for this
+shortlist; no N-series experiment or speedup is credited.
+
 Latest reusable snapshot workspace (2026-09-11): retained R2 pinned-storage pool,
 R3 bulk cluster-motion transfers and R4 decoded-input/object-arena reuse, with
 transactional input publication and CUDA-context-aware cleanup. Code is on isolated

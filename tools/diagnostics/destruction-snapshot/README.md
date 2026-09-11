@@ -180,3 +180,11 @@ tick, first restore, repeated restore, validation, teardown and memory statistic
 It preserves every sample and excludes setup from full-step milliseconds. See
 [OPTIMIZATION.md](../../../OPTIMIZATION.md#reusable-physical-snapshot-workspace-2026-09-11)
 and the [52-case results](../../../qualification/optimization-next20-20260910/snapshot-reset-20260911/README.md).
+
+For a quick optimization screen, `run-suite.py --preset light` selects the frozen
+seven-case, 40-tick profile and automatically produces the existing file-replay
+report. It targets30 seconds including startup/restore/checks, while tick metrics
+still exclude restore. The largest idle/debris scenes remain113,664 chunks; all
+inputs and tolerances are unchanged. See [the light suite](../../../qualification/optimization-next20-20260910/snapshot-light-20260911/README.md).
+Full52-case qualification remains required for finalists. The light screen omits
+large cross-build observation dumps and is not proof of small speedups.

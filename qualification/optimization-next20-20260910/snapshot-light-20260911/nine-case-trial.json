@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "preset": "light",
+  "scenarios": 9,
+  "ticks": 64,
+  "wall_seconds": 32.945051324990345,
+  "target_wall_seconds": 30,
+  "within_target": false,
+  "performance_qualification": false
+}
