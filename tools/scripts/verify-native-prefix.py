@@ -65,10 +65,19 @@ def motion(path, count):
             yield rows
 
 
-def options(command):
+def options(command, summary):
     require(len(command) % 2 == 1, 'Malformed captured command')
     ignored = {'--seconds', '--steps', '--output', '--motion-path', '--gpu-video', '--gpu-camera', '--color-by-cluster', '--trace-stress'}
-    return {k: v for k, v in zip(command[1::2], command[2::2]) if k not in ignored}
+    result = {k: v for k, v in zip(command[1::2], command[2::2]) if k not in ignored}
+    # Compare effective API/sleep settings, including runs exercising defaults.
+    # Explicit options must agree with the actual scene reported by the binary.
+    mode = '0' if summary['direct_gpu_mode'] else '1'
+    sleeping = '1' if summary['sleeping'] else '0'
+    require(result.get('--standard-scene', mode) == mode, 'Captured API option disagrees with scene')
+    if mode == '1':
+        require(result.get('--sleeping', sleeping) == sleeping, 'Captured sleep option disagrees with scene')
+    result.update({'--standard-scene': mode, '--sleeping': sleeping})
+    return result
 
 
 def verify(capture, reference, count):
@@ -93,7 +102,7 @@ def verify(capture, reference, count):
     cap = json.loads((capture / 'capture.json').read_text())
     ref = json.loads((reference / 'capture.json').read_text())
     require(cap['config_sha256'] == ref['config_sha256'], 'Reference config digest differs')
-    require(options(cap['command']) == options(ref['command']), 'Reference command settings differ')
+    require(options(cap['command'], actual) == options(ref['command'], expected), 'Reference command settings differ')
     require(cap['exit_code'] == ref['exit_code'] == 0, 'Invalid capture exit status')
     require(cap.get('artifacts') and ref.get('artifacts'), 'Missing artifact attestation')
     # A reference must already have a physical audit; do not bless an arbitrary

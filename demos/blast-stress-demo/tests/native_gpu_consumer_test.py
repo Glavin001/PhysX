@@ -13,7 +13,8 @@ results = []
 try:
     for observe in (False, True):
         capture = work / ("observed" if observe else "resident")
-        command = [sys.argv[1], "--grid", "1", "--waves", "4", "--seconds", "8",
+        # Keep this historical consumer audit's API mode fixed across demo defaults.
+        command = [sys.argv[1], "--standard-scene", "0", "--grid", "1", "--waves", "4", "--seconds", "8",
                    "--stress-iterations", "8192", "--preserve-contact-pairs", "1",
                    "--gpu-island-repair", "1", "--gpu-pre-solve-islands", "1",
                    "--gpu-pre-solve-contacts", "1", "--gpu-pre-solve-support", "1",

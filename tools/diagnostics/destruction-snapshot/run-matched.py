@@ -77,6 +77,8 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     report = dict(status='running', candidate_commit=args.candidate_commit, scenarios=[], runs=[],
+                  checker_sha256=hashlib.sha256((HERE / 'compare-observations.py').read_bytes()).hexdigest(),
+                  force_scaled_bound=observations.FORCE_SCALED_BOUND,
                   scope='One full tick per independent physical restore. A-before / B / A-after per scenario. '
                         'All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. '
                         'Shared-GPU unprofiled comparison; no profiler timings or automatic acceptance.')

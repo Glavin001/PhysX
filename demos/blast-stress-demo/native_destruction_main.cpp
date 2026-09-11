@@ -54,7 +54,7 @@ int run(int argc,char** argv){
     }
     std::string geometryName="building";
     const auto initializationBegin=Clock::now();
-    bool standardScene=false,standardSleeping=true,traceStress=false;
+    bool standardScene=true,standardSleeping=true,traceStress=false;
     unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}

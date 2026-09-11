@@ -9,9 +9,18 @@ four ordered GPU phases; no CPU per-tick wait or suppression. Full 52-case norma
 requalification passes, 104 ticks / 622.90 s, in
 `out/snapshot-finish-20260911/device-enabled-split-mem-suite/`.
 Allocation initcheck/synccheck and the three physical A/B/A smoke cases also pass.
-Matched full-suite qualification is next at
-`out/snapshot-finish-20260911/split-matched-full/` (10/20/10 samples per case).
-Short smoke timings are noisy, not an acceptance.
+The first full matched campaign stopped after 12 completed cohorts because the
+new bitwise force comparator also rejected unchanged A/A data. The checker now
+uses the existing `2e-4` scaled analytic-force bound; material/topology/load state
+remains exact and solver/motion tolerances are unchanged. All 12 cohorts pass
+reanalysis without rerunning their timings. See the force-comparison-correction
+report below. The remaining 40 cases resume at
+`out/snapshot-finish-20260911/split-matched-remaining/`, using
+`device-enabled-split/remaining-manifest.json` (10/20/10 samples per case).
+The native demo source now defaults to ordinary/sleeping; historical Direct GPU
+control tests explicitly select their legacy mode. The default itself completed
+600 wall ticks in ordinary/sleeping mode; effective-option verifier reanalysis
+passes with zero position difference. All 16 verifier tests pass. No candidate runtime change accompanied the checker/default fix.
 The candidate is not retained until full physical/matched timing checks finish.
 Main runtime and installed SDK remain unchanged. Rejected cooperative variant
 `2f1286b437fb2c668d3161c33b256627b32eef6f` stalled the allocation oracle and was

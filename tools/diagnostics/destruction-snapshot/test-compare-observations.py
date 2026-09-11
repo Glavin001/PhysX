@@ -3,6 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import struct
 import tempfile
 import unittest
 
@@ -46,6 +47,22 @@ class ObservationComparison(unittest.TestCase):
     def test_changed_health_rejected(self):
         (self.b / 'observation-0-health.bin').write_bytes(b'\1\0\0\0')
         with self.assertRaisesRegex(ValueError, 'health'):
+            module.compare(self.a, self.b)
+
+    def test_derived_force_roundoff_reported(self):
+        (self.b / 'observation-0-bond-forces.bin').write_bytes(struct.pack('<f', 1e-5))
+        result = module.compare(self.a, self.b)
+        self.assertEqual(result['numerical_arrays']['bond-forces']['changed_scalars'], 1)
+        self.assertGreater(result['numerical_arrays']['bond-forces']['maximum_scaled'], 0)
+
+    def test_force_outside_existing_bound_rejected(self):
+        (self.b / 'observation-0-bond-forces.bin').write_bytes(struct.pack('<f', 1e-3))
+        with self.assertRaisesRegex(ValueError, 'numerical bound'):
+            module.compare(self.a, self.b)
+
+    def test_nonfinite_force_rejected(self):
+        (self.b / 'observation-0-bond-forces.bin').write_bytes(struct.pack('<f', float('nan')))
+        with self.assertRaisesRegex(ValueError, 'Nonfinite bond force'):
             module.compare(self.a, self.b)
 
     def test_changed_position_rejected(self):

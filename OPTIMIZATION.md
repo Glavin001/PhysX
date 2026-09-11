@@ -649,7 +649,9 @@ python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-flat-mem-sui
 Matched A-before / B / A-after per scenario uses 10 / 20 / 10 independent restores,
 one full tick each. Every arm uses the same observation binary; all observation
 readbacks, physical comparisons and restore work are outside the tick timer.
-Post-tick destruction arrays must match exactly, and rigid physical state uses
+Persistent post-tick destruction state and load arrays must match exactly.
+Derived bond forces use the existing `2e-4` scaled component numerical bound
+from the resident analytic force regression; rigid physical state uses
 the existing position/velocity/orientation bounds. This is stricter than comparing
 fracture counts alone. The report preserves separate controls, descriptive intervals,
 means/maxima, 120/60 Hz misses, command/simulate-fetch/completion stages and excluded
@@ -670,3 +672,25 @@ campaign. A performance-neutral correctness-qualified result may be retained as
 an enabling improvement only with explicit evidence of no material scenario
 regression; it is not a speedup. Continuous trajectory qualification remains
 separate from fresh-cache restored ticks.
+
+
+The first flat-graph matched campaign's new force-byte checker also rejected an
+unchanged A/A control. See the [measured checker correction](qualification/optimization-next20-20260910/snapshot-finish-20260911/device-enabled-split/force-comparison-correction/README.md).
+Use the current comparator with finite-value and existing scaled-force checks;
+do not change the exact material/topology checks or solver tolerances. The first
+12 cases are preserved/rechecked; the remaining 40 use
+`out/snapshot-finish-20260911/device-enabled-split/remaining-manifest.json` and
+output `out/snapshot-finish-20260911/split-matched-remaining/`.
+
+The native demo now defaults to ordinary APIs with sleeping enabled. Historical
+Direct GPU control tests explicitly pass `--standard-scene 0` to preserve their
+frozen workload. Verify the current default itself without mode/sleep overrides:
+
+```bash
+flock -n out/destruction-ab.lock env \
+  LD_LIBRARY_PATH="$PWD/out/snapshot-finish-20260911/device-enabled-split" \
+  python3 tools/scripts/run-destruction-penetration-regression.py out/NEW-default-wall \
+  --exercise-demo-defaults \
+  --binary out/snapshot-finish-20260911/ordinary-default-demo/native_destruction_demo \
+  --expected-runtime out/snapshot-finish-20260911/device-enabled-split/libPhysXDestructionGpuRuntime_64.so
+```

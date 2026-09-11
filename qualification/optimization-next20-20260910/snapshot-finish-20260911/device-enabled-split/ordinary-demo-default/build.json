@@ -1,0 +1,12 @@
+{
+  "command": [
+    ".toolchains/build-env/bin/cmake",
+    "--build",
+    "out/destruction-sdk",
+    "--target",
+    "native_destruction_demo",
+    "-j6"
+  ],
+  "binary_sha256": "668582614cf352800d2e4a5bacf1880b0419691004865f461b435ad7b6dfa7c7",
+  "source_sha256": "67a5e81d7d8c5d613ed2c0419600f78d3f9f2eb56aea8a0f8edbf116c5909333"
+}

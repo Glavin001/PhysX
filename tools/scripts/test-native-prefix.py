@@ -57,6 +57,25 @@ class PrefixTests(unittest.TestCase):
     def tearDown(self):self.temp.cleanup()
     def verify(self):return prefix.verify(self.actual,self.reference,32)
     def test_unchanged(self):self.assertEqual(self.verify()['status'],'passed')
+    def test_explicit_and_default_effective_modes_match(self):
+        for path in (self.actual, self.reference):
+            summary=json.loads((path/'native.summary.json').read_text())
+            summary.update(direct_gpu_mode=False,sleeping=True)
+            write_json(path/'native.summary.json',summary)
+        path=self.reference/'capture.json';data=json.loads(path.read_text())
+        data['command']+=['--standard-scene','1','--sleeping','1'];write_json(path,data)
+        self.assertEqual(self.verify()['status'],'passed')
+    def test_explicit_mode_must_match_actual_scene(self):
+        path=self.actual/'capture.json';data=json.loads(path.read_text())
+        data['command']+=['--standard-scene','1'];write_json(path,data)
+        with self.assertRaisesRegex(ValueError,'API option disagrees'):self.verify()
+    def test_explicit_sleep_must_match_actual_scene(self):
+        for path in (self.actual,self.reference):
+            summary=json.loads((path/'native.summary.json').read_text())
+            summary.update(direct_gpu_mode=False,sleeping=True);write_json(path/'native.summary.json',summary)
+        path=self.actual/'capture.json';data=json.loads(path.read_text())
+        data['command']+=['--sleeping','0'];write_json(path,data)
+        with self.assertRaisesRegex(ValueError,'sleep option disagrees'):self.verify()
     def test_exact_identity(self):
         mutate_row(self.actual/'native.motion.csv',29*444+12,'root',12)
         self.assertEqual(self.verify()['first_difference'],dict(step=29,chunk=12,kind='topology_identity'))

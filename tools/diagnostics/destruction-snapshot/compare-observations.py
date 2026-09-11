@@ -5,9 +5,14 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import struct
 
 REQUIRED = {'node-accelerations', 'surface-loads', 'bond-forces', 'health',
             'active-bonds', 'chunk-clusters', 'crush'}
+# Existing analytic force gate in gpu_resident_stress_test.cu::unevenComponents.
+# Derived floating-point responses are not serialized physical state. Even the
+# unchanged baseline varies in reduction order; material state remains exact.
+FORCE_SCALED_BOUND = 2e-4
 
 
 def require(condition, message):
@@ -28,13 +33,32 @@ def compare(reference, candidate):
     if not manifests[0]['destructive']:
         require(any(name.endswith('.destruction') and digest == hashlib.sha256(b'').hexdigest()
                     for name, digest in receipts[0]['snapshot_inputs'].items()), 'Missing destruction observations for a destructive input')
-    hashes = {}
+    hashes, numerical = {}, {}
     for array in arrays:
         name = array['name']
         data = [(p / f'observation-0-{name}.bin').read_bytes() for p in (reference, candidate)]
         require(all(len(b) == array['count'] * array['stride'] for b in data), f'{name}: size mismatch')
-        require(data[0] == data[1], f'{name}: output bytes differ')
-        hashes[name] = hashlib.sha256(data[0]).hexdigest()
+        if name == 'bond-forces':
+            require(len(data[0]) % 4 == 0, 'Malformed float force data')
+            maximum_absolute = maximum_scaled = difference_squared = reference_squared = 0.0
+            changed = 0
+            for (x,), (y,) in zip(struct.iter_unpack('<f', data[0]), struct.iter_unpack('<f', data[1])):
+                require(math.isfinite(x) and math.isfinite(y), 'Nonfinite bond force')
+                difference = abs(x - y)
+                changed += x != y
+                maximum_absolute = max(maximum_absolute, difference)
+                maximum_scaled = max(maximum_scaled, difference / max(1.0, abs(x), abs(y)))
+                difference_squared += difference * difference
+                reference_squared += x * x
+            require(maximum_scaled < FORCE_SCALED_BOUND, 'bond-forces: existing numerical bound exceeded')
+            numerical[name] = dict(changed_scalars=changed, maximum_absolute=maximum_absolute,
+                maximum_scaled=maximum_scaled, scaled_bound=FORCE_SCALED_BOUND,
+                relative_l2=math.sqrt(difference_squared / max(reference_squared, 1e-300)),
+                reference_sha256=hashlib.sha256(data[0]).hexdigest(),
+                candidate_sha256=hashlib.sha256(data[1]).hexdigest())
+        else:
+            require(data[0] == data[1], f'{name}: output bytes differ')
+            hashes[name] = hashlib.sha256(data[0]).hexdigest()
     objects = [json.loads((p / 'observation-0-objects.json').read_text()) for p in (reference, candidate)]
     require(all(o['schema'] == 1 for o in objects), 'Unsupported object schema')
     fields = ['id', 'type', 'moving', 'shape_dynamic', 'flags', 'mass', 'pose_xyz',
@@ -63,8 +87,9 @@ def compare(reference, candidate):
                 'normal_contacts', 'friction_anchors']:
         require(replays[0]['samples'][0][key] == replays[1]['samples'][0][key], f'{key} differs')
     return dict(status='passed', objects=len(a), maximum_errors=maxima, exact_array_sha256=hashes,
+                numerical_arrays=numerical,
                 reference=str(reference), candidate=str(candidate),
-                scope='Post-tick physical observations; exact array equality and existing motion bounds; no timing claim')
+                scope='Post-tick physical observations; exact persistent state/loads, existing force and motion bounds; no timing claim')
 
 
 if __name__ == '__main__':

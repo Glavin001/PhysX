@@ -37,6 +37,7 @@ def main():
     mode.add_argument('--historical-direct-gpu',dest='standard_scene',action='store_false',
                       help='Explicit legacy Direct GPU audit against the historical golden')
     parser.add_argument('--sleeping',type=int,choices=[0,1],default=1,help='Sleeping setting for the ordinary-API control')
+    parser.add_argument('--exercise-demo-defaults',action='store_true',help='Verify ordinary/sleeping defaults without passing API-mode or sleep options to the demo')
     parser.add_argument('--expected-runtime',type=Path,help='Require this actual mapped destruction runtime (isolated candidate audit)')
     parser.add_argument('--tier',choices=['early','screen','full'],default='full')
     parser.add_argument('--reference',type=Path,help='Previously audited, mode-matched capture; defaults to the pinned ordinary reference for full runs')
@@ -46,6 +47,8 @@ def main():
     if args.tier!='full' and not args.reference:parser.error('--reference is required for prefix comparisons')
     matched_full=args.tier=='full' and args.standard_scene
     if matched_full and args.sleeping!=1:parser.error('Full ordinary qualification requires sleeping enabled')
+    if args.exercise_demo_defaults and (not args.standard_scene or args.sleeping!=1):
+        parser.error('--exercise-demo-defaults requires ordinary mode with sleeping enabled')
     reference_manifest=None
     if matched_full and not args.reference:
         reference_manifest=ROOT/'tools/profiles/wall-penetration-ordinary-reference.json'
@@ -63,8 +66,11 @@ def main():
     cmd=[str(binary),*config['common'],*case['args'],'--seconds','10','--output',str(out)]
     if args.tier!='full':cmd+=['--steps',str(steps)]
     if args.standard_scene:
-        cmd += ['--standard-scene','1','--sleeping',str(args.sleeping)]
+        if not args.exercise_demo_defaults:
+            cmd += ['--standard-scene','1','--sleeping',str(args.sleeping)]
         cmd[cmd.index('--gpu-connectivity-owner')+1]='0'
+    else:
+        cmd += ['--standard-scene','0']
     if args.trace_stress:cmd += ['--trace-stress','1']
     if args.video:
         cmd += ['--gpu-video',str(out/'native.mp4'),'--gpu-camera','penetration','--color-by-cluster','1']
@@ -74,6 +80,7 @@ def main():
     required_libraries={'libPhysXDestructionGpuRuntime_64.so','libPhysXGpuActivity_64.so'}
     record={'schema':1,'config_sha256':sha(config_path),'golden_sha256':None if matched_full else sha(golden),
             'artifacts':{str(p):sha(p) for p in artifacts},'performance_qualification':False,'standard_scene':args.standard_scene,
+            'exercise_demo_defaults':args.exercise_demo_defaults,
             'tier':args.tier,'requested_steps':steps,'validator_sha256':sha(ROOT/'tools/scripts/verify-native-prefix.py') if args.tier!='full' or matched_full else sha(ROOT/'tools/scripts/verify-native-penetration.py')}
     if args.reference:record['reference']=str(args.reference.resolve())
     if reference_manifest:record['reference_manifest_sha256']=sha(reference_manifest)
