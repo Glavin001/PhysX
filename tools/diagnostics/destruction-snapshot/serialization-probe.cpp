@@ -81,9 +81,32 @@ void compareDestruction(PxScene& a,PxScene& b){
 }
 bool replayPreIslands=false,replayPreContacts=false,replayPreSupport=false,replayConnectivity=false;
 struct World {
+    struct SavedBody {PxRigidDynamic* body;PxTransform pose,com;PxVec3 linear,angular,inertia;float mass,wake;PxRigidBodyFlags flags;};
+    struct SavedShape {PxShape* shape;PxRigidActor* owner;PxTransform pose;};
+    std::vector<SavedBody> savedBodies;std::vector<SavedShape> savedShapes;std::vector<PxActor*> savedActors;
+    void prepareReuse(){
+        for(PxU32 i=0;i<objects->getNbObjects();++i){auto& o=objects->getObject(i);
+            if(auto* actor=o.is<PxActor>())savedActors.push_back(actor);
+            if(auto* body=o.is<PxRigidDynamic>())savedBodies.push_back({body,body->getGlobalPose(),body->getCMassLocalPose(),body->getLinearVelocity(),body->getAngularVelocity(),body->getMassSpaceInertiaTensor(),body->getMass(),body->getWakeCounter(),body->getRigidBodyFlags()});
+            if(auto* shape=o.is<PxShape>()){shape->acquireReference();savedShapes.push_back({shape,shape->getActor(),shape->getLocalPose()});}
+        }
+    }
+    void resetObjects(){
+        require(scene->getDestructionScene()->clearStress(),"reset destruction state");
+        scene->removeActors(savedActors.data(),PxU32(savedActors.size()),false);
+        scene->flushSimulation(false);
+        for(auto& x:savedShapes){auto* owner=x.shape->getActor();
+            if(owner!=x.owner){if(owner)owner->detachShape(*x.shape);require(x.owner->attachShape(*x.shape),"reset shape owner");}
+            x.shape->setLocalPose(x.pose);
+        }
+        for(auto& x:savedBodies){auto& v=*x.body;v.setRigidBodyFlags(x.flags);v.setGlobalPose(x.pose,false);v.setCMassLocalPose(x.com);v.setMass(x.mass);v.setMassSpaceInertiaTensor(x.inertia);
+            if(!(x.flags&PxRigidBodyFlag::eKINEMATIC)){v.setLinearVelocity(x.linear,false);v.setAngularVelocity(x.angular,false);v.setWakeCounter(x.wake);}}
+        scene->addActors(savedActors.data(),PxU32(savedActors.size()));
+    }
+
     void* memory=nullptr;PxCollection* objects=nullptr;PxScene* scene=nullptr;
     double deserializeMs=0,sceneCreateMs=0,insertMs=0;
-    ~World(){if(scene)scene->release();if(objects){PxCollectionExt::releaseObjects(*objects);objects->release();}free(memory);}
+    ~World(){if(scene)scene->release();for(auto& x:savedShapes)x.shape->release();if(objects){PxCollectionExt::releaseObjects(*objects);objects->release();}free(memory);}
     void load(PxPhysics& physics,PxSerializationRegistry& registry,PxScene& source,Events& events,const PxDefaultMemoryOutputStream& bytes){
         const auto a=std::chrono::steady_clock::now();
         require(posix_memalign(&memory,PX_SERIAL_FILE_ALIGN,bytes.getSize())==0,"aligned storage failed");

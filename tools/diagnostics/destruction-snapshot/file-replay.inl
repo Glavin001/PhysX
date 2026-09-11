@@ -28,9 +28,10 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
     bool allRepeated=true;
     {
         std::vector<ObjectObservation> baselineObjects;DestructionObservation baselineDestruction;PxDestructionStageStatus baselineStatus{};
+        World world;Events events;
         for(unsigned i=0;i<repetitions;++i){
-            World world;Events events;
-            const auto begin=std::chrono::steady_clock::now();world.load(context.physics(),*registry,context.scene(),events,bytes);
+            const auto begin=std::chrono::steady_clock::now();if(!i){world.load(context.physics(),*registry,context.scene(),events,bytes);world.prepareReuse();}
+            else {world.resetObjects();world.deserializeMs=world.sceneCreateMs=world.insertMs=0;}
             const auto importStart=std::chrono::steady_clock::now();
             if(destructive){PxDefaultMemoryInputData input(destruction.getData(),destruction.getSize());
                 require(world.scene->getDestructionScene()->importState(input,*world.objects),"file destruction import failed");}
