@@ -24,15 +24,19 @@ parser.add_argument('--watchdog-seconds',type=float,default=120)
 parser.add_argument('--replay-prefix',type=Path)
 parser.add_argument('--repetitions',type=int,default=10)
 parser.add_argument('--projectile-impulse',action='store_true')
+parser.add_argument('--native-args-json',type=Path,help='Capture with native demo arguments from a JSON array; output added by wrapper')
 args=parser.parse_args()
 out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
 arm=args.artifacts.resolve();binary=args.binary.resolve()
 record={'command':[str(binary),str(out)],'binary_sha256':c.sha(binary),'samples':[],'status':'running',
         'diagnostic_environment':{k:v for k,v in os.environ.items() if k.startswith('PHYSX_SNAPSHOT_')}}
+if args.native_args_json:
+    if args.replay_prefix:raise ValueError('Native capture and file replay are exclusive')
+    record['command']=[str(binary),*json.loads(args.native_args_json.read_text()),'--output',str(out/'native')]
 if args.require_complete_shapes:record['command'].append('--require-complete-shapes')
 if args.replay_prefix:
     prefix=args.replay_prefix.resolve()
-    record['snapshot_inputs']={str(prefix)+suffix:c.sha(Path(str(prefix)+suffix)) for suffix in ('.pxbin','.destruction')}
+    record['snapshot_inputs']={str(prefix)+suffix:c.sha(Path(str(prefix)+suffix)) for suffix in ('.pxbin','.destruction','.scene','.metadata.json') if Path(str(prefix)+suffix).exists()}
     record['command'] += ['--replay',str(prefix),'--repetitions',str(args.repetitions)]
     if args.projectile_impulse:record['command'].append('--projectile-impulse')
 if args.sanitizer:record['command']=['/usr/local/cuda-13.4/bin/compute-sanitizer','--tool',args.sanitizer,'--error-exitcode','97',*record['command']]
@@ -86,5 +90,5 @@ with (root/'out/destruction-ab.lock').open('a') as lock:
     except BaseException as error:
         record.update(status='failed',error=str(error));raise
     finally:
-        record['after']=c.gpu();save()
+        record['after']=c.gpu();record['elapsed_monotonic_seconds']=time.monotonic()-start;save()
 print(record['status'],out)

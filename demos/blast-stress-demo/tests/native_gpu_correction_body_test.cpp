@@ -15,6 +15,7 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#include <type_traits>
 using namespace physx;
 namespace {
 void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
@@ -80,6 +81,24 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
             const auto history=runtime->commandInputHistory();require(history.status && history.generation==checkpoint.generation,"ordinary command history missing");
             bool found=false;for(const auto& command:read(history.records,history.count))if(command.body==parentId && command.kind==1)found=true;
             require(found,"parent command was not captured");
+            // Recreate the post-fracture address-space growth that a fresh
+            // restored scene exposes. Existing original commands must survive
+            // history growth; newly addressable (unused) slots have no command.
+            const PxU32 grownCount=PxMax(4096u,checkpoint.count*2);
+            auto padded=[&](auto* original)->CUdeviceptr {
+                if(!original)return 0;
+                using T=typename std::remove_const<typename std::remove_pointer<decltype(original)>::type>::type;
+                CUdeviceptr result=0;check(cuMemAlloc(&result,size_t(grownCount)*sizeof(T)));
+                check(cuMemsetD8(result,0,size_t(grownCount)*sizeof(T)));
+                check(cuMemcpyDtoD(result,CUdeviceptr(original),size_t(checkpoint.count)*sizeof(T)));return result;
+            };
+            const auto grownBodies=padded(checkpoint.bodies),grownPrevious=padded(checkpoint.previous),grownAccelerations=padded(checkpoint.accelerations);
+            require(runtime->captureRigidState(reinterpret_cast<const PxgBodySim*>(grownBodies),
+                reinterpret_cast<const PxgBodySimVelocities*>(grownPrevious),reinterpret_cast<const PxgRigidBodyAcceleration*>(grownAccelerations),
+                grownCount,core.getStream(),PxgDestructionCheckpointPurpose::CorrectedMotion),"grown corrected checkpoint failed");
+            check(cuEventSynchronize(runtime->rigidCheckpoint().ready));
+            check(cuMemFree(grownBodies));if(grownPrevious)check(cuMemFree(grownPrevious));if(grownAccelerations)check(cuMemFree(grownAccelerations));
+
             require(runtime->prepareCorrectionBodies(core.getBodySimStorageCapacity(),core.getStream()),"explicit command correction preparation failed");
             require(runtime->observeCorrectionPreparation(),"explicit command correction observation failed");
             view=runtime->getDeviceView();check(cuEventSynchronize(view.readyEvent));status=read(view.correctionPreparation,1)[0];

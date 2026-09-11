@@ -2,6 +2,10 @@
 // frozen input. Source execution caches are deliberately not part of the input.
 #include "physx_scene.h"
 #include "native_scenario_geometry.h"
+#include "native_graph_diagnostics.h"
+#include "PxgDestructionRuntime.h"
+#include "PxgSimulationCore.h"
+#include "PxgSimulationController.h"
 #include <extensions/PxCollectionExt.h>
 #include <extensions/PxSerialization.h>
 #include <extensions/PxDefaultStreams.h>
@@ -9,6 +13,7 @@
 #include <cuda.h>
 #include <cudamanager/PxCudaContextManager.h>
 #include <chrono>
+#include <algorithm>
 #include <map>
 #include <tuple>
 #include <cmath>
@@ -27,7 +32,17 @@ bool selectedCase(const std::string& name){const char* filter=std::getenv("PHYSX
     return !filter || (std::string(",")+filter+",").find(","+name+",")!=std::string::npos;
 }
 void require(bool condition,const char* message){if(!condition)throw std::runtime_error(message);}
-void step(PxScene& scene){scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"GPU step failed");}
+void step(PxScene& scene){auto* stage=scene.getDestructionScene();scene.simulate(1.0f/60);
+    if(std::getenv("PHYSX_SNAPSHOT_FETCH_DIAGNOSTIC")){scene.checkResults(true);const auto s=stage->getLastStatus();std::cerr<<"pre-fetch stage error="<<s.error<<" converged="<<s.converged<<" iterations="<<s.iterations<<" breaks="<<s.brokenBonds<<" corrections="<<s.correctionPasses<<std::endl;
+        if(s.error){const auto v=stage->getDeviceView();PxDestructionCorrectionPreparationStatus c{};
+            cuCtxPushCurrent(scene.getCudaContextManager()->getContext());cuEventSynchronize(v.readyEvent);
+            cuMemcpyDtoH(&c,CUdeviceptr(v.correctionPreparation),sizeof(c));const auto h=static_cast<PxgDestructionRuntime*>(stage)->commandInputHistory();PxgDestructionCommandInputStatus hs{};
+            if(h.status)cuMemcpyDtoH(&hs,CUdeviceptr(h.status),sizeof(hs));
+            std::cerr<<"command history generation="<<h.generation<<" device="<<hs.generation<<" error="<<hs.error<<" count="<<hs.count<<std::endl;
+            if(h.count){std::vector<PxgDestructionCommandInput> records(h.count);cuMemcpyDtoH(records.data(),CUdeviceptr(h.records),records.size()*sizeof(records[0]));unsigned bad=0;for(auto& r:records)if(r.kind==2){if(bad++<8)std::cerr<<"invalid command body="<<r.body<<" flags="<<r.flags<<std::endl;}std::cerr<<"bad command records="<<bad<<std::endl;}
+            CUcontext previous;cuCtxPopCurrent(&previous);
+            std::cerr<<"correction preparation error="<<c.error<<" loaded="<<c.loadedSources<<" count="<<c.count<<std::endl;}}
+    PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"GPU step failed");}
 struct Events:PxSimulationEventCallback {
     unsigned points=0;
     void onConstraintBreak(PxConstraintInfo*,PxU32)override{}
@@ -49,7 +64,10 @@ std::vector<float> health(PxScene& scene){
 void compareDestruction(PxScene& a,PxScene& b){
     const auto x=a.getDestructionScene()->getDeviceView(),y=b.getDestructionScene()->getDeviceView();
     require(x.chunkCount==y.chunkCount && x.bondCount==y.bondCount,"destruction size mismatch");
-    require(health(a)==health(b),"bond health changed between equivalent states");
+    const auto ha=health(a),hb=health(b);
+    if(ha!=hb){unsigned count=0,index=0;float delta=0;for(unsigned i=0;i<ha.size();++i)if(ha[i]!=hb[i]){++count;if(PxAbs(ha[i]-hb[i])>delta){delta=PxAbs(ha[i]-hb[i]);index=i;}}
+        std::cerr<<std::setprecision(10)<<"health differences="<<count<<" max="<<delta<<" bond="<<index<<" values="<<ha[index]<<'/'<<hb[index]<<std::endl;}
+    require(ha==hb,"bond health changed between equivalent states");
     require(cuCtxPushCurrent(a.getCudaContextManager()->getContext())==CUDA_SUCCESS,"CUDA context");
     auto read=[](void* dst,const void* src,size_t bytes){if(bytes)require(cuMemcpyDtoH(dst,reinterpret_cast<CUdeviceptr>(src),bytes)==CUDA_SUCCESS,"state readback");};
     std::vector<PxU32> bx(x.bondCount),by(y.bondCount),cx(x.chunkCount),cy(y.chunkCount);
@@ -61,6 +79,7 @@ void compareDestruction(PxScene& a,PxScene& b){
     for(unsigned i=0;i<dx.size();++i)require(dx[i].damage==dy[i].damage && dx[i].crushed==dy[i].crushed,"material damage changed");
     CUcontext prior;require(cuCtxPopCurrent(&prior)==CUDA_SUCCESS,"CUDA context pop");
 }
+bool replayPreIslands=false,replayPreContacts=false,replayPreSupport=false,replayConnectivity=false;
 struct World {
     void* memory=nullptr;PxCollection* objects=nullptr;PxScene* scene=nullptr;
     ~World(){if(scene)scene->release();if(objects){PxCollectionExt::releaseObjects(*objects);objects->release();}free(memory);}
@@ -73,6 +92,9 @@ struct World {
         d.broadPhaseType=PxBroadPhaseType::eGPU;d.simulationEventCallback=&events;d.solverType=source.getSolverType();
         d.gpuMaxNumPartitions=8;d.gpuDynamicsConfig=source.getGpuDynamicsConfig();scene=physics.createScene(d);
         require(scene && scene->addCollection(*objects),"fresh GPU collection insertion failed");
+        auto* gpu=static_cast<PxgGpuContext*>(static_cast<NpScene&>(*scene).getScScene().getDynamicsContext());
+        gpu->enableCudaPreSolveIslands(replayPreIslands);gpu->enableCudaPreSolveContacts(replayPreContacts);
+        gpu->enableCudaPreSolveSupport(replayPreSupport);gpu->enableDeviceConnectivityOwnership(replayConnectivity);
     }
 };
 struct MotionError {float position=0,linear=0,angular=0,orientation=0;};
@@ -216,6 +238,7 @@ void roundTrip(const char* name,unsigned prefix,const char* directory,blast_demo
     body->release();if(shot)shot->release();require(context.healthy(),"PhysX error during round-trip");
     ++completedCases;std::cout<<"completed "<<name<<std::endl;
 }
+#include "file-replay-observation.inl"
 #include "file-replay.inl"
 void run(const char* name,unsigned prefix,const char* directory) {
     if(!selectedCase(name))return;

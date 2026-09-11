@@ -190,3 +190,24 @@ For independent single-tick file replay (no capture history), use the
 the paired saved files in a new process and reconstructs once per sample. The
 helper's scene configuration matches its fixtures; applications retain ownership
 of their own scene settings and command manifests.
+
+## Large native city replay
+
+The saved-state catalog now includes the original native bombardment geometry
+at 11,100, 28,416 and 113,664 chunks, sampled through eight phases at each scale.
+See the [large scenario report](../../qualification/optimization-next20-20260910/snapshot-large-20260911/README.md)
+for current qualification; small-case success alone does not qualify this scale.
+The benchmark saves application scene policy in a hashed `.scene` sidecar alongside
+the PhysX and destruction streams. It uses ordinary GPU/TGS, sleeping enabled,
+fixed 1/60 timestep and the original material/convergence/correction settings.
+
+Fresh scenes exposed a command-history capacity bug: a corrected checkpoint can
+contain new fragment body IDs beyond the original epoch's stamp storage. Runtime
+preparation now extends the storage, preserving old command stamps and zeroing
+only the new suffix. This is reconstructed bookkeeping, not additional saved
+execution history. Loaded-source and invalid-history rejection still apply.
+
+File replay retains all independent samples when a comparison fails, then returns
+a failing exit code and `passed:false`. This allows measuring variance without
+relaxing the exact bond-health/topology gate or hiding failed comparisons. A
+missing motion comparison is marked explicitly; its numeric sentinel is -1.

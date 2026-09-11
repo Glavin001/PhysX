@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "grids": [
+    5,
+    8,
+    16
+  ],
+  "description": "24 native large-scene physical snapshots. Frozen source steps selected from historical city events; actual restored counters determine active work. All scale variants retain original material and solver settings.",
+  "states": [
+    {
+      "id": "intact-idle",
+      "regime": "idle",
+      "step": 40,
+      "purpose": "Pristine supported buildings, no shots: global setup and gravity equilibrium."
+    },
+    {
+      "id": "airborne",
+      "regime": "bombardment",
+      "step": 40,
+      "purpose": "One shot per building approaching the intact city; no authored fractures."
+    },
+    {
+      "id": "initial-impact",
+      "regime": "bombardment",
+      "step": 82,
+      "purpose": "Historical first impact/peak input; measure actual restored fracture and correction."
+    },
+    {
+      "id": "post-impact",
+      "regime": "bombardment",
+      "step": 83,
+      "purpose": "Immediately after historical first impact: many newly separated owners."
+    },
+    {
+      "id": "cascading-fracture",
+      "regime": "bombardment",
+      "step": 87,
+      "purpose": "Continuing projectile penetration and cascading fractures."
+    },
+    {
+      "id": "fragmented-loaded",
+      "regime": "bombardment",
+      "step": 108,
+      "purpose": "Historical later stress peak with many independent motion clusters."
+    },
+    {
+      "id": "late-debris",
+      "regime": "bombardment",
+      "step": 179,
+      "purpose": "Debris collisions and remaining load paths at three seconds."
+    },
+    {
+      "id": "ten-second-debris",
+      "regime": "bombardment",
+      "step": 599,
+      "purpose": "Late post-destruction state near ten seconds; not assumed asleep or fully settled."
+    }
+  ]
+}

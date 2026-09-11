@@ -14,11 +14,16 @@
 #include "PxgSimulationController.h"
 #include <iomanip>
 #include <PxDestructionScene.h>
+#include <extensions/PxCollectionExt.h>
+#include <extensions/PxSerialization.h>
+#include <extensions/PxDefaultStreams.h>
+#include <sstream>
 #include <cuda.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -41,7 +46,12 @@ struct Chunk {PxVec3 position;PxShape* shape;unsigned building;};
 struct Shot {PxRigidDynamic* actor;unsigned visual;};
 using Clock=std::chrono::steady_clock;
 double ms(Clock::time_point start){return std::chrono::duration<double,std::milli>(Clock::now()-start).count();}
+#include "../../tools/diagnostics/destruction-snapshot/native-capture.inl"
 int run(int argc,char** argv){
+    std::set<unsigned> snapshotSteps;
+    if(const char* requested=std::getenv("PHYSX_SNAPSHOT_STEPS")){
+        std::stringstream stream(requested);std::string item;while(std::getline(stream,item,','))snapshotSteps.insert(unsigned(std::stoul(item)));
+    }
     std::string geometryName="building";
     const auto initializationBegin=Clock::now();
     bool standardScene=false,standardSleeping=true,traceStress=false;
@@ -86,6 +96,7 @@ int run(int argc,char** argv){
     }
     require(grid && grid<=32 && waves && waves<=16 && stressIterations && stressIterations<=32768 && seconds>2 && seconds<=600 && !output.empty(),"use --output NEW_DIRECTORY [--grid 3 --waves 4 --seconds 30]");
     require(layout=="grid" || layout=="impact-corridor","unknown scene layout");
+    require(snapshotSteps.empty() || (standardScene && standardSleeping),"snapshot capture requires ordinary sleeping scene");
     const NativeScenarioGeometry geometry(geometryName);
     require(geometryName=="building" || (grid==1 && workload=="idle"),"synthetic geometry currently requires one gravity-only structure");
     require(shotPath=="aerial" || (shotPath=="through-wall" && (grid==1 || layout=="impact-corridor") && workload=="single-impact"),"through-wall launch requires a single impact and an unobstructed corridor");
@@ -234,6 +245,10 @@ int run(int argc,char** argv){
     shots.reserve(plannedShots);
     const double initializationMs=ms(initializationBegin);
     for(unsigned frame=0;frame<frames;++frame){
+        if(snapshotSteps.count(frame)){
+            require(frame>0 || workload=="idle","capture a post-launch accepted tick; frame zero bombardment has pending gameplay spawns");
+            captureNativeSnapshot(scene,chunks,capacity,output+"/snapshot-"+std::to_string(frame),frame,buildings,unsigned(shots.size()),preSolveIslands,preSolveContacts,preSolveSupport,deviceConnectivity);
+        }
 #ifdef NATIVE_FORCE_FRESHNESS_DIAGNOSTIC
         poisonNormalForceWriteback(scene,cuda,frame);
 #endif

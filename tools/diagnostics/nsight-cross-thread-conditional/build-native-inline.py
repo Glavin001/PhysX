@@ -15,7 +15,8 @@ def sha(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--target', choices=['native_gpu_correction_body_test', 'native_destruction_demo'],
+    parser.add_argument('--target', choices=['native_gpu_correction_body_test', 'native_destruction_demo',
+                                             'native_destruction_snapshot_test'],
                         default='native_gpu_correction_body_test')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[3]

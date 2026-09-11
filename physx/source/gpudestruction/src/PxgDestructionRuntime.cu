@@ -1461,6 +1461,22 @@ public:
             throw std::runtime_error("missing original correction command history");
         return {mCommandLoadedGenerations,mCommandInputStatus,mCommandInputGeneration,mCommandLoadedCapacity};
     }
+    void extendCorrectionCommandHistory(cudaStream_t stream) {
+        // Corrected physics can introduce native body IDs beyond the original
+        // command epoch's allocation. Those new slots had no original commands.
+        // Preserve every old stamp; zero only the newly addressable suffix.
+        if(!mCheckpointValid || mCheckpointCount<=mCommandLoadedCapacity)return;
+        const PxU32 capacity=PxU32(std::max<PxU64>(mCheckpointCount,
+            std::min<PxU64>(PX_INVALID_U32,std::max<PxU64>(256,PxU64(mCommandLoadedCapacity)*3/2))));
+        PxU64* next=nullptr;allocate(next,capacity);
+        try {
+            if(mCommandLoadedCapacity)check(cudaMemcpyAsync(next,mCommandLoadedGenerations,
+                size_t(mCommandLoadedCapacity)*sizeof(PxU64),cudaMemcpyDeviceToDevice,stream));
+            check(cudaMemsetAsync(next+mCommandLoadedCapacity,0,
+                size_t(capacity-mCommandLoadedCapacity)*sizeof(PxU64),stream));
+        }catch(...){cudaFree(next);throw;}
+        check(cudaFree(mCommandLoadedGenerations));mCommandLoadedGenerations=next;mCommandLoadedCapacity=capacity;
+    }
     void prepareDeviceInputs() {
         // Pointer/capacity refresh is ordinary submission metadata. No fracture
         // count or verdict crosses to the host to decide which stages execute.
@@ -1473,6 +1489,7 @@ public:
             check(cudaFree(mShapeOwnerGenerations));mShapeOwnerGenerations=next;mShapeOwnerCapacity=capacity;
         }
         check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
+        extendCorrectionCommandHistory(mStream);
         NativePreparationInputs inputs{};inputs.collision=mCollisionStorage;inputs.commands=correctionCommandInputs();
         inputs.checkpoint=mCheckpointValid?mCheckpointBodies:nullptr;inputs.previous=mCheckpointPrevious;
         inputs.checkpointCount=mCheckpointValid?mCheckpointCount:0;inputs.checkpointGeneration=mCheckpointGeneration;
@@ -1808,6 +1825,7 @@ public:
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             if(!mCheckpointValid || !stream)throw std::runtime_error("missing correction input checkpoint");
             check(cudaStreamWaitEvent(stream,mReady,0));check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+            extendCorrectionCommandHistory(stream);
             check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),stream));
             prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,stream>>>(mTrialBodies,mTrialBodyIndices,mN,mTopology->trial(),mChunks,
                 mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation);

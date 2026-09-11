@@ -1,5 +1,41 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+
+Latest large-snapshot continuation (2026-09-11): added **24 native city cases**
+(25/64/256 buildings; 11,100/28,416/113,664 chunks; up to 229,376 bonds), eight
+phases per scale, alongside the existing 28 cases. Final `complete-*` campaign:
+**480/480 ticks completed; 15/24 strict repeatability passes, 9 bond-health-only
+failures**, maximum health difference 0.000006079673767; observed motion
+position/velocity differences zero. One final-pass case failed the prior cohort;
+14 cases pass both. No tolerance relaxed. **Restore and validation are excluded
+from complete_step_ms**; the timer includes commands, integrated simulate/fetch,
+ready synchronization and two compact completion transfers. 54.46 s measured
+compute; 1,020.64 s summed harness time including restore/validation/teardown.
+Full-step idle mean/max ms: 25 buildings 11.113/21.975; 64 18.986/25.729;
+256 69.177/85.129. First-impact mean/max: 44.796/53.138, 68.260/91.882,
+260.453/288.678. Largest late-debris 463.076/502.288 ms, health gate failed.
+These are shared-GPU fresh-restored ticks, not warm gameplay or speedup evidence.
+See [all scenarios/stages/spread/budget misses](qualification/optimization-next20-20260910/snapshot-large-20260911/README.md)
+and [failures and controls](qualification/optimization-next20-20260910/snapshot-large-20260911/investigation.md).
+
+A correction stamp-capacity fix preserves original command guards while extending
+storage for new fragment IDs. All 29 native correction cases and the original
+28 snapshot cases pass (560 checked continuation ticks). CPU reference outputs
+replace a second live GPU world, fixing large-harness GPU exhaustion. Public16 /
+privateV20 / schema7 unchanged. **The complete optimization acceptance gate is
+not green:** large native memcheck fails in topology atomics on updated and saved
+pre-fix runtimes, and also with inline CPU dispatch. The original native demo
+fails at the same sites without any save/restore. The standalone topology test
+(100k chunks / 200k bonds) and four direct/graph micro-controls pass memcheck.
+Do not waive the integrated finding as a proven tool issue. The frozen wall
+invariants pass at 400 supported / 44 detached / 182 broken / 39 clusters; its
+historical identity gate still fails. Restored and uninterrupted fracture
+verdicts also differ; exact cached execution continuation is not required, but
+physical-quality implications remain unqualified. Raw: `out/snapshot-large-20260911/`;
+final artifacts frozen there. Source remains unaccepted N14 plus snapshot work;
+retained N13 and installed original A unchanged. No optimization experiment or
+speedup credited for this expansion. All owned jobs have ended.
+
 Current snapshot implementation (2026-09-11): **V20/schema7 physical save/load
 passes all 28 scenarios**, including the 444-chunk/378-owner fragmented building.
 Two independent restores per case, ten full ticks each: 560 checked ticks with

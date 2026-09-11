@@ -548,3 +548,25 @@ and [exact replay command](tools/diagnostics/destruction-snapshot/README.md).
 The first-fracture input exercises one correction and two stress evaluations.
 Five targeted memchecks and nine surrounding native CTests pass. The full
 28-case memcheck hit its harness limit and remains explicitly incomplete.
+
+### Large restored city suite (2026-09-11)
+
+Use `tools/profiles/destruction-snapshot-large.json` for 24 native saved states:
+25/64/256 buildings (11,100/28,416/113,664 chunks), eight phases each. Capture
+with the existing native demo and frozen ordinary A/B settings, then run
+`tools/diagnostics/destruction-snapshot/run-large-suite.py replay` with twenty
+independent restores and exactly one tick per sample. See the
+[commands](tools/diagnostics/destruction-snapshot/README.md#native-city-snapshots-large-scene-expansion)
+and [complete catalog](qualification/optimization-next20-20260910/snapshot-large-20260911/README.md).
+The `.scene` and metadata sidecars are hashed along with both physical streams.
+Report failed repeatability explicitly, even when all timed ticks converge and
+satisfy the correction cap. Twenty samples do not remove systematic interference.
+Cold restoration rebuilds solver/contact caches: compare these ticks with other
+restored ticks, retaining continuous warm city tests for gameplay qualification.
+Use the `complete-*` campaign for the aligned full-step timer (command submission,
+simulate/fetch, ready-event synchronization and two compact completion transfers).
+Earlier `file-*` and `single-*` captures are engine-step diagnostics. Large-case
+memory qualification remains open: the initial-impact memcheck fails in topology
+atomics on both the updated and saved pre-fix runtimes. Repeatability passes do
+not waive this or the restored-versus-uninterrupted physical-verdict differences.
+See the [failure investigation](qualification/optimization-next20-20260910/snapshot-large-20260911/investigation.md).
