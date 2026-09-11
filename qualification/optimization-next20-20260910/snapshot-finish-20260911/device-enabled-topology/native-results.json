@@ -1,0 +1,64 @@
+[
+  {
+    "name": "device-enabled-native-plain",
+    "command": [
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native-plain",
+      "--replay",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2"
+    ],
+    "status": "failed",
+    "exit_code": 1,
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/libPhysXDestructionGpuRuntime_64.so": "815608753aabb24542fe61193b13931164157b5e9dbf656ff0957e2236851c34"
+    },
+    "raw": "out/snapshot-finish-20260911/device-enabled-native-plain",
+    "log_excerpt": "Unsupported transaction graph node 2\nfile destruction import failed\n"
+  },
+  {
+    "name": "device-enabled-native-plain-v2",
+    "command": [
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native-plain-v2",
+      "--replay",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2"
+    ],
+    "status": "complete",
+    "exit_code": 0,
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/libPhysXDestructionGpuRuntime_64.so": "c22bd54340da110048549cb4f216b54c886a7decac6b4e7c4d527d5bcc15b787"
+    },
+    "raw": "out/snapshot-finish-20260911/device-enabled-native-plain-v2",
+    "log_excerpt": "completed 2 independent one-tick file restores\n"
+  },
+  {
+    "name": "device-enabled-native-mem",
+    "command": [
+      "/usr/local/cuda-13.4/bin/compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "97",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native-mem",
+      "--replay",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2"
+    ],
+    "status": "complete",
+    "exit_code": 0,
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/libPhysXDestructionGpuRuntime_64.so": "c22bd54340da110048549cb4f216b54c886a7decac6b4e7c4d527d5bcc15b787"
+    },
+    "raw": "out/snapshot-finish-20260911/device-enabled-native-mem",
+    "log_excerpt": "========= COMPUTE-SANITIZER\ncompleted 2 independent one-tick file restores\n========= ERROR SUMMARY: 0 errors\n"
+  }
+]

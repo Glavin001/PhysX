@@ -1,0 +1,203 @@
+--- production/PxgDestructionTransaction.cuh
++++ candidate/PxgDestructionTransaction.cuh
+@@ -11,16 +11,16 @@
+ __global__ void setTransactionBatch(TransactionBatch* out, TransactionBatch batch) {*out=batch;}
+ __global__ void setTransactionAccept(TransactionBatch* out, const unsigned* accept) {out->accept=accept;}
+ __global__ void beginTransaction(const TransactionBatch* batch,
+-    PxDestructionTopologyTransactionStatus* status, cudaGraphConditionalHandle handle) {
++    PxDestructionTopologyTransactionStatus* status) {
+     status->prepared=0;status->error=0;status->changed=0;
+     status->editCount=*batch->count;
+     if(status->editCount>batch->capacity)status->error|=2u;
+     if(batch->abort && (*batch->abort & batch->abortMask))status->error|=4u;
+-    cudaGraphSetConditional(handle,!status->error && status->editCount?1:0);
+ }
+ __global__ void validateTransaction(const TransactionBatch* batch,
+     const unsigned* activeChunks, const unsigned* activeBonds, unsigned n, unsigned m,
+     PxDestructionTopologyTransactionStatus* status) {
++    if(status->editCount>batch->capacity || (batch->abort && (*batch->abort & batch->abortMask)))return;
+     for(unsigned i=blockIdx.x*blockDim.x+threadIdx.x;i<status->editCount;i+=blockDim.x*gridDim.x) {
+         const auto e=batch->edits[i];
+         if(e.kind==PxgDestructionEditKind::BreakBond && e.index<m) {
+@@ -31,8 +31,19 @@
+     }
+ }
+ __global__ void chooseRebuild(const PxDestructionTopologyTransactionStatus* status,
+-    cudaGraphConditionalHandle handle) {
+-    cudaGraphSetConditional(handle,!status->error && status->changed?1:0);
++    const cudaGraphDeviceNode_t* nodes,unsigned count) {
++    const bool enabled=!status->error && status->changed;
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)
++        if(cudaGraphKernelNodeSetEnabled(nodes[i],enabled)!=cudaSuccess)asm("trap;");
++}
++__global__ void transactionFill(unsigned char* destination,size_t width,size_t height,size_t pitch,unsigned value,unsigned elementSize) {
++    const size_t rowBytes=width*elementSize;
++    for(size_t i=size_t(blockIdx.x)*blockDim.x+threadIdx.x;i<rowBytes*height;i+=size_t(blockDim.x)*gridDim.x)
++        destination[(i/rowBytes)*pitch+i%rowBytes]=static_cast<unsigned char>(value>>(8*(i%elementSize)));
++}
++__global__ void transactionCopy(unsigned char* destination,const unsigned char* source,size_t bytes) {
++    for(size_t i=size_t(blockIdx.x)*blockDim.x+threadIdx.x;i<bytes;i+=size_t(blockDim.x)*gridDim.x)
++        destination[i]=source[i];
+ }
+ __global__ void editTransaction(const TransactionBatch* batch,
+     const PxDestructionTopologyTransactionStatus* status, unsigned* chunks,unsigned* bonds) {
+@@ -49,8 +60,10 @@
+     status->prepared=!status->error;++status->rebuilds;
+ }
+ __global__ void chooseCommit(const TransactionBatch* batch,
+-    const PxDestructionTopologyTransactionStatus* status,cudaGraphConditionalHandle handle) {
+-    cudaGraphSetConditional(handle,status->prepared && !status->error && *batch->accept?1:0);
++    const PxDestructionTopologyTransactionStatus* status,const cudaGraphDeviceNode_t* nodes,unsigned count) {
++    const bool enabled=status->prepared && !status->error && *batch->accept;
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)
++        if(cudaGraphKernelNodeSetEnabled(nodes[i],enabled)!=cudaSuccess)asm("trap;");
+ }
+ __global__ void finishCommit(PxDestructionTopologyTransactionStatus* status,
+     unsigned* acceptedRoots, const unsigned* trialRoots,
+@@ -80,6 +93,8 @@
+     cudaEvent_t mReady=nullptr;
+     cudaGraph_t mPrepareGraph=nullptr,mCommitGraph=nullptr;
+     cudaGraphExec_t mPrepareExec=nullptr,mCommitExec=nullptr;
++    cudaGraphDeviceNode_t *mPrepareNodes=nullptr,*mCommitNodes=nullptr;
++    unsigned mPrepareNodeCount=0,mCommitNodeCount=0;
+ 
+     template<class... Args> bool kernel(cudaGraph_t graph,cudaGraphNode_t& previous,
+         void* function,unsigned grid,unsigned block,Args... args) {
+@@ -90,13 +105,50 @@
+         if(cudaGraphAddKernelNode(&next,graph,previous?&previous:nullptr,previous?1:0,&parameters)!=cudaSuccess)return false;
+         previous=next;return true;
+     }
+-    bool conditional(cudaGraph_t graph,cudaGraphNode_t& previous,
+-        cudaGraphConditionalHandle handle,cudaGraph_t& body) {
+-        cudaGraphNodeParams parameters{};parameters.type=cudaGraphNodeTypeConditional;
+-        parameters.conditional.handle=handle;parameters.conditional.type=cudaGraphCondTypeIf;parameters.conditional.size=1;
+-        cudaGraphNode_t next=nullptr;
+-        if(cudaGraphAddNode(&next,graph,previous?&previous:nullptr,nullptr,previous?1:0,&parameters)!=cudaSuccess)return false;
+-        previous=next;body=parameters.conditional.phGraph_out[0];return true;
++    bool enableBody(cudaGraph_t graph,cudaGraphDeviceNode_t*& deviceNodes,unsigned& count,
++        std::vector<cudaGraphNode_t>& roots) {
++        size_t n=0;if(cudaGraphGetNodes(graph,nullptr,&n)!=cudaSuccess)return false;
++        std::vector<cudaGraphNode_t> nodes(n);
++        if(cudaGraphGetNodes(graph,nodes.data(),&n)!=cudaSuccess)return false;
++        std::vector<cudaGraphDeviceNode_t> handles;handles.reserve(n);
++        for(auto node:nodes) {
++            cudaGraphNodeType type;if(cudaGraphNodeGetType(node,&type)!=cudaSuccess)return false;
++            if(type==cudaGraphNodeTypeMemset) {
++                cudaMemsetParams fill{};
++                if(cudaGraphMemsetNodeGetParams(node,&fill)!=cudaSuccess)return false;
++                if(fill.elementSize!=1 && fill.elementSize!=2 && fill.elementSize!=4)return false;
++                size_t dependenciesCount=0,dependentsCount=0;
++                if(cudaGraphNodeGetDependencies(node,nullptr,nullptr,&dependenciesCount)!=cudaSuccess
++                    || cudaGraphNodeGetDependentNodes(node,nullptr,nullptr,&dependentsCount)!=cudaSuccess)return false;
++                std::vector<cudaGraphNode_t> dependencies(dependenciesCount),dependents(dependentsCount);
++                if(cudaGraphNodeGetDependencies(node,dependencies.data(),nullptr,&dependenciesCount)!=cudaSuccess
++                    || cudaGraphNodeGetDependentNodes(node,dependents.data(),nullptr,&dependentsCount)!=cudaSuccess)return false;
++                cudaKernelNodeParams params{};params.func=(void*)transactionFill;params.blockDim=dim3(BLOCK);
++                params.gridDim=dim3(unsigned(std::min<size_t>(2560,(fill.width*fill.height*fill.elementSize+BLOCK-1)/BLOCK)));
++                size_t pitch=fill.height==1?fill.width*fill.elementSize:fill.pitch;
++                void* args[]={&fill.dst,&fill.width,&fill.height,&pitch,&fill.value,&fill.elementSize};params.kernelParams=args;
++                cudaGraphNode_t replacement=nullptr;
++                if(cudaGraphAddKernelNode(&replacement,graph,dependencies.data(),dependencies.size(),&params)!=cudaSuccess)return false;
++                for(auto dependent:dependents)
++                    if(cudaGraphAddDependencies(graph,&replacement,&dependent,nullptr,1)!=cudaSuccess)return false;
++                if(cudaGraphDestroyNode(node)!=cudaSuccess)return false;
++                node=replacement;type=cudaGraphNodeTypeKernel;
++            }
++            if(type!=cudaGraphNodeTypeKernel){fprintf(stderr,"Unsupported transaction graph node %d\n",int(type));return false;}
++            cudaKernelNodeAttrValue attr{};attr.deviceUpdatableKernelNode.deviceUpdatable=1;
++            if(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeDeviceUpdatableKernelNode,&attr)!=cudaSuccess
++                || cudaGraphKernelNodeGetAttribute(node,cudaKernelNodeAttributeDeviceUpdatableKernelNode,&attr)!=cudaSuccess)return false;
++            handles.push_back(attr.deviceUpdatableKernelNode.devNode);
++        }
++        count=unsigned(n);
++        if(cudaMalloc(&deviceNodes,n*sizeof(cudaGraphDeviceNode_t))!=cudaSuccess
++            || cudaMemcpy(deviceNodes,handles.data(),n*sizeof(cudaGraphDeviceNode_t),cudaMemcpyHostToDevice)!=cudaSuccess)return false;
++        size_t r=0;if(cudaGraphGetRootNodes(graph,nullptr,&r)!=cudaSuccess)return false;
++        roots.resize(r);return cudaGraphGetRootNodes(graph,roots.data(),&r)==cudaSuccess;
++    }
++    bool connectBody(cudaGraph_t graph,cudaGraphNode_t selector,const std::vector<cudaGraphNode_t>& roots) {
++        for(auto root:roots)if(cudaGraphAddDependencies(graph,&selector,&root,nullptr,1)!=cudaSuccess)return false;
++        return true;
+     }
+     template<class Function> bool capture(cudaGraph_t graph,Function function) {
+         if(cudaStreamBeginCaptureToGraph(mTrial->mStream,graph,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal)!=cudaSuccess)return false;
+@@ -105,22 +157,14 @@
+         return ok && ended==cudaSuccess;
+     }
+     template<class T> bool copy(T* destination,const T* source,size_t count) {
+-        return !count || cudaMemcpyAsync(destination,source,count*sizeof(T),cudaMemcpyDeviceToDevice,mTrial->mStream)==cudaSuccess;
++        if(count)transactionCopy<<<unsigned(std::min<size_t>(2560,(count*sizeof(T)+BLOCK-1)/BLOCK)),BLOCK,0,mTrial->mStream>>>(
++            reinterpret_cast<unsigned char*>(destination),reinterpret_cast<const unsigned char*>(source),count*sizeof(T));
++        return cudaGetLastError()==cudaSuccess;
+     }
+     bool buildPrepare() {
+-        cudaGraphConditionalHandle work=0,rebuild=0;
+-        if(cudaGraphCreate(&mPrepareGraph,0)!=cudaSuccess
+-            || cudaGraphConditionalHandleCreate(&work,mPrepareGraph,0,cudaGraphCondAssignDefault)!=cudaSuccess
+-            || cudaGraphConditionalHandleCreate(&rebuild,mPrepareGraph,0,cudaGraphCondAssignDefault)!=cudaSuccess)return false;
+-        cudaGraphNode_t previous=nullptr;cudaGraph_t validation=nullptr,body=nullptr;
+-        if(!kernel(mPrepareGraph,previous,(void*)beginTransaction,1,1,mBatch,mStatus,work)
+-            || !conditional(mPrepareGraph,previous,work,validation))return false;
+-        previous=nullptr;
++        if(cudaGraphCreate(&mPrepareGraph,0)!=cudaSuccess)return false;
++        cudaGraph_t body=mPrepareGraph;
+         const unsigned blocks=std::min(2560u,(std::max(mAccepted->mN,mAccepted->mM)+BLOCK-1)/BLOCK);
+-        if(!kernel(validation,previous,(void*)validateTransaction,blocks,BLOCK,mBatch,
+-            mAccepted->mActiveChunks,mAccepted->mActiveBonds,mAccepted->mN,mAccepted->mM,mStatus)
+-            || !kernel(validation,previous,(void*)chooseRebuild,1,1,mStatus,rebuild)
+-            || !conditional(validation,previous,rebuild,body))return false;
+         if(!capture(body,[&] {
+             const unsigned n=mTrial->mN,m=mTrial->mM;
+             if(!copy(mTrial->mActiveChunks,mAccepted->mActiveChunks,n)
+@@ -137,15 +181,20 @@
+             finishCandidate<<<1,1,0,mTrial->mStream>>>(mStatus,mTrial->mStatus);
+             return cudaGetLastError()==cudaSuccess;
+         }))return false;
+-        return cudaGraphInstantiate(&mPrepareExec,mPrepareGraph,0)==cudaSuccess;
++        std::vector<cudaGraphNode_t> roots;
++        if(!enableBody(mPrepareGraph,mPrepareNodes,mPrepareNodeCount,roots))return false;
++        cudaGraphNode_t previous=nullptr;
++        if(!kernel(mPrepareGraph,previous,(void*)beginTransaction,1,1,mBatch,mStatus)
++            || !kernel(mPrepareGraph,previous,(void*)validateTransaction,blocks,BLOCK,mBatch,
++                mAccepted->mActiveChunks,mAccepted->mActiveBonds,mAccepted->mN,mAccepted->mM,mStatus)
++            || !kernel(mPrepareGraph,previous,(void*)chooseRebuild,1,32,mStatus,mPrepareNodes,mPrepareNodeCount)
++            || !connectBody(mPrepareGraph,previous,roots))return false;
++        return cudaGraphInstantiate(&mPrepareExec,mPrepareGraph,0)==cudaSuccess
++            && cudaGraphUpload(mPrepareExec,mStream)==cudaSuccess;
+     }
+     bool buildCommit() {
+-        cudaGraphConditionalHandle accept=0;
+-        if(cudaGraphCreate(&mCommitGraph,0)!=cudaSuccess
+-            || cudaGraphConditionalHandleCreate(&accept,mCommitGraph,0,cudaGraphCondAssignDefault)!=cudaSuccess)return false;
+-        cudaGraphNode_t previous=nullptr;cudaGraph_t body=nullptr;
+-        if(!kernel(mCommitGraph,previous,(void*)chooseCommit,1,1,mBatch,mStatus,accept)
+-            || !conditional(mCommitGraph,previous,accept,body))return false;
++        if(cudaGraphCreate(&mCommitGraph,0)!=cudaSuccess)return false;
++        cudaGraph_t body=mCommitGraph;
+         if(!capture(body,[&] {
+             const unsigned n=mAccepted->mN,m=mAccepted->mM;
+             if(!copy(mAccepted->mActiveChunks,mTrial->mActiveChunks,n)
+@@ -162,7 +211,13 @@
+                 mTrial->mClusterSlots,mTrial->mStatus);
+             return cudaGetLastError()==cudaSuccess;
+         }))return false;
+-        return cudaGraphInstantiate(&mCommitExec,mCommitGraph,0)==cudaSuccess;
++        std::vector<cudaGraphNode_t> roots;
++        if(!enableBody(mCommitGraph,mCommitNodes,mCommitNodeCount,roots))return false;
++        cudaGraphNode_t previous=nullptr;
++        if(!kernel(mCommitGraph,previous,(void*)chooseCommit,1,32,mBatch,mStatus,mCommitNodes,mCommitNodeCount)
++            || !connectBody(mCommitGraph,previous,roots))return false;
++        return cudaGraphInstantiate(&mCommitExec,mCommitGraph,0)==cudaSuccess
++            && cudaGraphUpload(mCommitExec,mStream)==cudaSuccess;
+     }
+     bool order(void* ready,void* done) {
+         return (!ready || cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(ready),0)==cudaSuccess)
+@@ -206,7 +261,7 @@
+         if(mPrepareExec)cudaGraphExecDestroy(mPrepareExec);if(mCommitExec)cudaGraphExecDestroy(mCommitExec);
+         if(mPrepareGraph)cudaGraphDestroy(mPrepareGraph);if(mCommitGraph)cudaGraphDestroy(mCommitGraph);
+         if(mTrial)mTrial->release();if(mAccepted)mAccepted->release();
+-        cudaFree(mBatch);cudaFree(mStatus);
++        cudaFree(mBatch);cudaFree(mStatus);cudaFree(mPrepareNodes);cudaFree(mCommitNodes);
+         if(mReady)cudaEventDestroy(mReady);if(mStream)cudaStreamDestroy(mStream);
+     }
+ };

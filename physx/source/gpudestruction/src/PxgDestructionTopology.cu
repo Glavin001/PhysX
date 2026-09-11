@@ -1,6 +1,8 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxgDestructionTopology.h"
 #include <cuda_runtime.h>
+#include <vector>
+#include <cstdio>
 #include <cub/device/device_radix_sort.cuh>
 #include <cub/device/device_select.cuh>
 #include <cub/device/device_scan.cuh>
