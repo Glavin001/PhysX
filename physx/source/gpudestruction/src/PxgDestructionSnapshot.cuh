@@ -101,8 +101,22 @@ bool read(PxInputData& input,Data& data) {
     Envelope h;if(input.read(&h,sizeof(h))!=sizeof(h) || h.magic!=Magic || h.version!=Version
         || h.api!=PX_DESTRUCTION_SCENE_VERSION || h.endian!=0x01020304 || h.reserved
         || h.bytes>MaxBytes || input.tell()>input.getLength() || h.bytes!=input.getLength()-input.tell())return false;
+    // Retain one bounded, immutable decoded physical input on the calling thread.
+    // A hit requires equal bytes, not merely a matching checksum or input address.
+    // Binding IDs and all live-scene checks still run on an independent copy.
+    // No runtime, GPU pointer, execution history or numerical guess is retained.
+    struct PreparedInput {std::vector<PxU8> bytes;Data value;PxU64 hash=0;};
+    static thread_local PreparedInput previous;
+    constexpr size_t CacheLimit=64u*1024u*1024u;
     Bytes b;b.reading=true;b.data.resize(h.bytes);
-    if(input.read(b.data.data(),h.bytes)!=h.bytes || checksum(b.data)!=h.hash)return false;
-    b.fields(data);return b.cursor==b.data.size();
+    if(input.read(b.data.data(),h.bytes)!=h.bytes)return false;
+    if(!previous.bytes.empty() && previous.hash==h.hash && previous.bytes==b.data){
+        data=previous.value;return true;
+    }
+    if(checksum(b.data)!=h.hash)return false;
+    b.fields(data);if(b.cursor!=b.data.size())return false;
+    if(b.data.size()<=CacheLimit){previous.value=data;previous.bytes=std::move(b.data);previous.hash=h.hash;}
+    else previous={};
+    return true;
 }
 } // namespace snapshot

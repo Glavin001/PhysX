@@ -82,13 +82,14 @@ void compareDestruction(PxScene& a,PxScene& b){
 }
 bool replayPreIslands=false,replayPreContacts=false,replayPreSupport=false,replayConnectivity=false;
 struct World {
-    void* memory=nullptr;PxCollection* objects=nullptr;PxScene* scene=nullptr;
+    void* memory=nullptr;bool ownsMemory=true;PxCollection* objects=nullptr;PxScene* scene=nullptr;
     double deserializeMs=0,sceneCreateMs=0,insertMs=0;
-    void release(){if(scene){scene->release();scene=nullptr;}if(objects){PxCollectionExt::releaseObjects(*objects);objects->release();objects=nullptr;}free(memory);memory=nullptr;}
+    void release(){if(scene){scene->release();scene=nullptr;}if(objects){PxCollectionExt::releaseObjects(*objects);objects->release();objects=nullptr;}if(ownsMemory)free(memory);memory=nullptr;}
     ~World(){release();}
-    void load(PxPhysics& physics,PxSerializationRegistry& registry,PxScene& source,Events& events,const PxDefaultMemoryOutputStream& bytes){
+    void load(PxPhysics& physics,PxSerializationRegistry& registry,PxScene& source,Events& events,const PxDefaultMemoryOutputStream& bytes,void* reusableMemory=nullptr){
         const auto a=std::chrono::steady_clock::now();
-        require(posix_memalign(&memory,PX_SERIAL_FILE_ALIGN,bytes.getSize())==0,"aligned storage failed");
+        if(reusableMemory){memory=reusableMemory;ownsMemory=false;}
+        else require(posix_memalign(&memory,PX_SERIAL_FILE_ALIGN,bytes.getSize())==0,"aligned storage failed");
         std::memcpy(memory,bytes.getData(),bytes.getSize());objects=PxSerialization::createCollectionFromBinary(memory,registry);
         require(objects,"binary import failed");
         const auto b=std::chrono::steady_clock::now();deserializeMs=std::chrono::duration<double,std::milli>(b-a).count();

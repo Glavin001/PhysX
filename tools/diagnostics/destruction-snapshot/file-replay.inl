@@ -21,20 +21,22 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
         if(size){file.read(data.data(),size);require(bool(file),"snapshot file read failed");stream.write(data.data(),PxU32(size));}
     };
     read(prefix+".pxbin",bytes);read(prefix+".destruction",destruction);
+    struct ObjectStorage {void* memory=nullptr;~ObjectStorage(){free(memory);}} objectStorage;
+    require(posix_memalign(&objectStorage.memory,PX_SERIAL_FILE_ALIGN,bytes.getSize())==0,"reusable object storage failed");
     const auto setupEnd=std::chrono::steady_clock::now();
     const bool destructive=destruction.getSize()!=0;require(bytes.getSize(),"empty PhysX snapshot");
     auto* registry=PxSerialization::createSerializationRegistry(context.physics());require(registry,"replay registry");
     std::ofstream report(std::string(directory)+"/replay.json");report<<std::setprecision(17);
     report<<"{\"contract\":\"physical-file-replay-v20-complete-step\",\"steps_per_restore\":1,\"repetitions\":"<<repetitions
         <<",\"context_setup_ms\":"<<std::chrono::duration<double,std::milli>(setupEnd-harnessStart).count()
-        <<",\"pinned_storage_reused\":true,\"fresh_scene_per_restore\":true,\"import_validation_every_sample\":true"
+        <<",\"object_storage_reused\":true,\"pinned_storage_reused\":true,\"fresh_scene_per_restore\":true,\"import_validation_every_sample\":true"
         <<",\"projectile_impulse\":"<<(impulse?"true":"false")<<",\"samples\":[";
     bool allRepeated=true;
     {
         std::vector<ObjectObservation> baselineObjects;DestructionObservation baselineDestruction;PxDestructionStageStatus baselineStatus{};
         for(unsigned i=0;i<repetitions;++i){
             World world;Events events;
-            const auto begin=std::chrono::steady_clock::now();world.load(context.physics(),*registry,context.scene(),events,bytes);
+            const auto begin=std::chrono::steady_clock::now();world.load(context.physics(),*registry,context.scene(),events,bytes,objectStorage.memory);
             const auto importStart=std::chrono::steady_clock::now();
             if(destructive){PxDefaultMemoryInputData input(destruction.getData(),destruction.getSize());
                 require(world.scene->getDestructionScene()->importState(input,*world.objects),"file destruction import failed");}
