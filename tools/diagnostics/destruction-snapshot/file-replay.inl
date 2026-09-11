@@ -10,7 +10,9 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
         >>contactReports>>replayPreIslands>>replayPreContacts>>replayPreSupport>>replayConnectivity;
         require(bool(settings) && version==1 && capacity.maxBodies && capacity.maxShapes && capacity.maxContactPairs,"invalid fixture scene settings");}
 
-    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&environmentEvents,false,false,false,false,PxSolverType::eTGS,false,contactReports);
+    SnapshotPinnedPool pinnedPool;
+    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&environmentEvents,false,false,false,false,PxSolverType::eTGS,false,contactReports,&pinnedPool);
+    FinishSnapshotPool finishPool{pinnedPool};
     PxDefaultMemoryOutputStream bytes,destruction;
     auto read=[](const std::string& path,PxDefaultMemoryOutputStream& stream){
         std::ifstream file(path,std::ios::binary|std::ios::ate);require(bool(file),"snapshot file missing");
@@ -28,10 +30,9 @@ void replayFiles(const std::string& prefix,const char* directory,unsigned repeti
     bool allRepeated=true;
     {
         std::vector<ObjectObservation> baselineObjects;DestructionObservation baselineDestruction;PxDestructionStageStatus baselineStatus{};
-        World world;Events events;
         for(unsigned i=0;i<repetitions;++i){
-            const auto begin=std::chrono::steady_clock::now();if(!i){world.load(context.physics(),*registry,context.scene(),events,bytes);world.prepareReuse();}
-            else {world.resetObjects();world.deserializeMs=world.sceneCreateMs=world.insertMs=0;}
+            World world;Events events;
+            const auto begin=std::chrono::steady_clock::now();world.load(context.physics(),*registry,context.scene(),events,bytes);
             const auto importStart=std::chrono::steady_clock::now();
             if(destructive){PxDefaultMemoryInputData input(destruction.getData(),destruction.getSize());
                 require(world.scene->getDestructionScene()->importState(input,*world.objects),"file destruction import failed");}
