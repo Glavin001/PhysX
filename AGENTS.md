@@ -2,9 +2,13 @@
 
 Latest recovery continuation (2026-09-12): the user explicitly authorized reversible
 service/GPU recovery, then rebooted the host (boot07:05:39 UTC). This supersedes the
-older no-recovery-authorization notes below. Desktop and persistence restarted;
-the other project server restart configuration is saved privately, never commit
-its environment. **52/52 CPU-attribution cases now pass**, 104 checked ticks,
+older no-recovery-authorization notes below. Desktop initially restarted, then
+was temporarily stopped for clean counters; GPU is healthy with no other clients.
+The other project server restart configuration is saved privately, never commit
+its environment. `out/end-to-end-attribution-20260912/recovery/restore-after-counters.py`
+is waiting to restore both desktop and server after the owned counter jobs end.
+Server restart pins the hash-verified original `out/install/lib` SDK: its old
+binary must not pick up later experimental libraries in the mutable build path. **52/52 CPU-attribution cases now pass**, 104 checked ticks,
 21,401 CPU samples, 91,538 engine scopes and18,376 launches, with zero observed
 position/velocity differences. Reduced-tracing retry passes the formerly faulted
 city64 impact; all remaining city256 stages pass. Old Xid120 capture stays
@@ -14,11 +18,21 @@ versions; stable2025 graph-level full counters now pass52/52 (461 graph launches
 98 checked ticks) with optional host analysis rules disabled. Rules-enabled
 control crashes the collector; graph aggregates are NOT individual conditional-
 node/source counters. Significant ordinary-kernel configuration expansion is
-in progress with99% relative coverage plus a0.1ms family threshold. Warm180-tick
+in progress with99% relative coverage plus a0.1ms family threshold. City25 impact
+passes93 configurations /215 full-counter records via40 application replay passes
+(1125.44s including audit). Full expansion uses kernel replay, explicitly reusing
+that pilot; all28 structural cases and city25 idle/airborne/impact now pass. Latest campaign: `configs-full/`.
+Invalid L2 hit ratios remain excluded: headless and narrow-metric controls do not
+fix them, and newer collector whole-graph mode also aborts. Do not call every
+metric or conditional-node capture qualified. Warm180-tick
 idle/heavy traces pass exact work/convergence counters; lower-rate sampling
 eliminates the earlier OS throttle warnings. Forced synchronization does not
 fix the newer NCU injection failure.
-All runtime/physics artifacts unchanged; no new speedup or optimization experiment.
+Current benchmark runtime/physics artifacts unchanged; no new speedup or completed
+optimization experiment. N20 capacity follow-up is built in isolated
+`out/n20-requalification-20260912/build/{A,B}`; rebuilt control demo/probe are
+byte-identical to the current baseline. Candidate GPU correctness/timing remains
+pending; best N13 and main source/index remain unchanged.
 [Current attribution evidence](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/README.md).
 
 

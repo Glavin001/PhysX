@@ -73,6 +73,7 @@ def main():
     p.add_argument('--binary',type=Path,required=True);p.add_argument('--artifacts',type=Path,required=True)
     p.add_argument('--threshold-ms',type=float,default=.1);p.add_argument('--coverage',type=float,default=.99);p.add_argument('--scenarios',nargs='+');p.add_argument('--resume',action='store_true')
     p.add_argument('--ncu-replay',choices=['kernel','application'],default='kernel')
+    p.add_argument('--reuse-other-replay-mode',action='store_true',help='Explicitly reuse qualified diagnostic captures from another replay mode; their per-case mode remains recorded')
     p.add_argument('--allow-existing-graphics',action='store_true');a=p.parse_args();assert a.threshold_ms>=0 and 0<a.coverage<=1
     ncu='/opt/nvidia/nsight-compute/2025.3.1/ncu';out=a.output.resolve();out.mkdir(parents=True,exist_ok=a.resume);sha=lambda f:hashlib.sha256(Path(f).read_bytes()).hexdigest()
     prior=json.loads((a.timeline_campaign/'campaign.json').read_text());cases=json.loads(a.manifest.read_text())['scenarios']
@@ -81,7 +82,7 @@ def main():
     previous=json.loads((out/'campaign.json').read_text()) if a.resume and (out/'campaign.json').exists() else None
     if previous:
         assert previous['identity']==identity and previous['threshold_ms']==a.threshold_ms and previous['coverage']==a.coverage
-        if any(r['status']=='complete' for r in previous['scenarios']):assert previous.get('replay_mode','kernel')==a.ncu_replay
+        if any(r['status']=='complete' for r in previous['scenarios']):assert previous.get('replay_mode','kernel')==a.ncu_replay or a.reuse_other_replay_mode
     if previous:(out/('campaign-before-resume-'+str(time.time_ns())+'.json')).write_bytes((out/'campaign.json').read_bytes())
     start=time.monotonic();record=dict(status='running',identity=identity,threshold_ms=a.threshold_ms,coverage=a.coverage,replay_mode=a.ncu_replay,scenarios=[],scope=__doc__)
     def save():record['elapsed_this_invocation_seconds']=time.monotonic()-start;(out/'campaign.json').write_text(json.dumps(record,indent=2)+'\n')
@@ -89,10 +90,11 @@ def main():
         with log.open('a') as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,env=dict(os.environ,PHYSX_SNAPSHOT_DUMP_OBSERVATIONS='1'),check=True)
     for c in cases:
         name=c['scenario'];old=next((r for r in previous['scenarios'] if r['scenario']==name and r['status']=='complete'),None) if previous else None
-        if old:assert old['input_sha256']==c['input_sha256'];record['scenarios'].append(old);save();continue
+        if old:
+            assert old['input_sha256']==c['input_sha256'];old.setdefault('replay_mode',previous.get('replay_mode','kernel'));record['scenarios'].append(old);save();continue
         for f,h in c['input_sha256'].items():assert sha(f)==h
         timeline=next(r for r in prior['scenarios'] if r['scenario']==name);assert timeline['input_sha256']==c['input_sha256'];plan=select(Path(timeline['timeline']),a.threshold_ms,a.coverage)
-        row=dict(scenario=name,status='running',input_sha256=c['input_sha256'],selection=plan);record['scenarios'].append(row);save()
+        row=dict(scenario=name,status='running',input_sha256=c['input_sha256'],selection=plan,replay_mode=a.ncu_replay);record['scenarios'].append(row);save()
         try:
             if not plan['targets']:row.update(status='complete',captured_configs=0,note='No significant ordinary kernel family; graph and timeline tiers apply.');save();continue
             capture=out/name;attempt=0

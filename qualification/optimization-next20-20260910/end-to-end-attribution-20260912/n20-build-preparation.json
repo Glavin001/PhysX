@@ -1,0 +1,57 @@
+{
+  "status": "built_not_gpu_qualified",
+  "commit": "b7918affda83942dba04e8626db696cca7fd283a",
+  "build_receipt": "out/n20-requalification-20260912/build/build.json",
+  "build_script": "out/n20-requalification-20260912/build-isolated.py",
+  "control_demo_byte_identical": true,
+  "control_probe_byte_identical": true,
+  "commands": 16,
+  "frozen_link_inputs": 28,
+  "outputs": {
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo": "858f785590596416d091121bfde825d2b3fa3d7652e2730e16c2ca08a314ce5f",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_gpu_checkpoint_test": "f350e9e77e6c1dc1cac42c1c7c80840e924f9f0fb53618e6c4fa8dd33d109b2a",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_gpu_collision_test": "68bacb3acabd3e19a913d44d19352a6be13cc8fa79fdfaa821befabe256b3833",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_gpu_correction_body_test": "0ed22a5d56921127caf7f0f531d9365aee5fc0fb7590173a66aaa49e097c52c3",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_standard_scene_test": "4b09a731679ff3a72d51e1aea5d7d0fcc95331f51bfec60061d51235099d9999",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/libPhysX_static_64.a": "a2700f28be5f1fa3b3e37173146acef0facf1848e1a32628033aa4e16e862fb7",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/native_destruction_demo": "fb0c867cce2577f7ad12280ad848a1c8b78ecb4f51f3376a8e3a15e7719502dc",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/native_gpu_checkpoint_test": "f7836d176bc8bd30617effa27b4c4017ac5161d2555c754be3b9a7f1ffbcb424",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/native_gpu_collision_test": "ab630c16c2c3b8b714c5bf35123ba57abc4796cdaf6e5c3e213bc3f3e7757aad",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/native_gpu_correction_body_test": "5dd20ce52c0f83db1d64395d33d776ce92a484f442921b7502ec8dd0d6e6963c",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/native_standard_scene_test": "f8ec9e77acc1dd2587402d2add44285526ff2a3b0e2311c38ee4b9e60a2ef81d",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/libPhysX_static_64.a": "4cbe802190ce23e90a2333e0ab86adf1647780c498a77ecf0585cb498178bbd5"
+  },
+  "control_consumer_identity": {
+    "native_gpu_collision_test": {
+      "matches_existing": false,
+      "new_sha256": "68bacb3acabd3e19a913d44d19352a6be13cc8fa79fdfaa821befabe256b3833",
+      "existing_sha256": "0b5df8ecf4d3eb8d271471f3ffce36e91e7127f3b374cae196bcc6d585d0e826"
+    },
+    "native_gpu_correction_body_test": {
+      "matches_existing": true,
+      "new_sha256": "0ed22a5d56921127caf7f0f531d9365aee5fc0fb7590173a66aaa49e097c52c3",
+      "existing_sha256": "0ed22a5d56921127caf7f0f531d9365aee5fc0fb7590173a66aaa49e097c52c3"
+    },
+    "native_destruction_demo": {
+      "matches_existing": true,
+      "new_sha256": "858f785590596416d091121bfde825d2b3fa3d7652e2730e16c2ca08a314ce5f",
+      "existing_sha256": "858f785590596416d091121bfde825d2b3fa3d7652e2730e16c2ca08a314ce5f"
+    },
+    "native_standard_scene_test": {
+      "matches_existing": false,
+      "new_sha256": "4b09a731679ff3a72d51e1aea5d7d0fcc95331f51bfec60061d51235099d9999",
+      "existing_sha256": "842770db0870fe603aedf5687e53b0b7c78a564f1dad15a3276afbd6edf34db3"
+    },
+    "native_gpu_checkpoint_test": {
+      "matches_existing": false,
+      "new_sha256": "f350e9e77e6c1dc1cac42c1c7c80840e924f9f0fb53618e6c4fa8dd33d109b2a",
+      "existing_sha256": "c86e45475297db559280e6c4cd568ba979ba38c54510ab3056057155fe2f1f5e"
+    },
+    "serialization-probe": {
+      "matches_existing": true
+    }
+  },
+  "qualification_note": "Demo, plain probe and correction test controls are byte-identical. Relinked collision, checkpoint and standard-scene controls differ from prior binaries; both newly linked A/B sets require fresh native qualification. No native candidate pass is claimed."
+}

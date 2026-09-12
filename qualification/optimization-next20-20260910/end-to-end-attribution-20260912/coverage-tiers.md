@@ -1,63 +1,63 @@
 # Attribution tiers and remaining limits
 
-CPU **52/52**; graph tier **52/52** (461 graph invocations); significant ordinary-kernel configuration tier **0/52** (0 representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.
+CPU **52/52**; graph tier **52/52** (461 graph invocations); significant ordinary-kernel configuration tier **30/52** (1734 representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.
 
 All CPU and GPU timings in profiler artifacts are diagnostic. [All52 unprofiled full-step baselines and CPU/stage data](report.md) remain separate.
 
-| Scenario | CPU | Graph invocations: captured / expected | Ordinary configurations | Ordinary counter invocations |
-|---|---|---:|---:|---:|
-| bridge64-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| bridge64-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| building-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| building-fragmented | complete | 6 / 6 (complete) | — (not_captured) | — |
-| building-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| cantilever64-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| cantilever64-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| chain256-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| chain256-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| chain32-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| chain32-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| dense12-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| dense12-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| destruction-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| destruction-damaged | complete | 6 / 6 (complete) | — (not_captured) | — |
-| destruction-fractured | complete | 6 / 6 (complete) | — (not_captured) | — |
-| destruction-intact | complete | 6 / 6 (complete) | — (not_captured) | — |
-| destruction-onset | complete | 6 / 6 (complete) | — (not_captured) | — |
-| destruction-stimulus | complete | 6 / 6 (complete) | — (not_captured) | — |
-| flying | complete | 0 / 0 (complete) | — (not_captured) | — |
-| ladder128-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| ladder128-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| panel32-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| panel32-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| resting | complete | 0 / 0 (complete) | — (not_captured) | — |
-| sliding | complete | 0 / 0 (complete) | — (not_captured) | — |
-| tower64-cold | complete | 6 / 6 (complete) | — (not_captured) | — |
-| tower64-warm | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city25-intact-idle | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city25-airborne | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city25-initial-impact | complete | 18 / 18 (complete) | — (running) | — |
-| city25-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city25-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — |
-| city25-fragmented-loaded | complete | 17 / 17 (complete) | — (not_captured) | — |
-| city25-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — |
-| city25-ten-second-debris | complete | 17 / 17 (complete) | — (not_captured) | — |
-| city64-intact-idle | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city64-airborne | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city64-initial-impact | complete | 18 / 18 (complete) | — (not_captured) | — |
-| city64-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city64-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — |
-| city64-fragmented-loaded | complete | 17 / 17 (complete) | — (not_captured) | — |
-| city64-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — |
-| city64-ten-second-debris | complete | 17 / 17 (complete) | — (not_captured) | — |
-| city256-intact-idle | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city256-airborne | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city256-initial-impact | complete | 18 / 18 (complete) | — (not_captured) | — |
-| city256-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — |
-| city256-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — |
-| city256-fragmented-loaded | complete | 18 / 18 (complete) | — (not_captured) | — |
-| city256-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — |
-| city256-ten-second-debris | complete | 18 / 18 (complete) | — (not_captured) | — |
+| Scenario | CPU | Graph invocations: captured / expected | Ordinary configurations | Ordinary counter invocations | Represented families: timeline kernel time |
+|---|---|---:|---:|---:|---:|
+| bridge64-cold | complete | 6 / 6 (complete) | 18 (complete) | 30 | 99.009% |
+| bridge64-warm | complete | 6 / 6 (complete) | 18 (complete) | 30 | 99.014% |
+| building-cold | complete | 6 / 6 (complete) | 47 (complete) | 55 | 99.005% |
+| building-fragmented | complete | 6 / 6 (complete) | 103 (complete) | 140 | 99.030% |
+| building-warm | complete | 6 / 6 (complete) | 47 (complete) | 60 | 99.020% |
+| cantilever64-cold | complete | 6 / 6 (complete) | 22 (complete) | 35 | 99.014% |
+| cantilever64-warm | complete | 6 / 6 (complete) | 22 (complete) | 35 | 99.009% |
+| chain256-cold | complete | 6 / 6 (complete) | 25 (complete) | 43 | 99.007% |
+| chain256-warm | complete | 6 / 6 (complete) | 23 (complete) | 35 | 99.027% |
+| chain32-cold | complete | 6 / 6 (complete) | 66 (complete) | 79 | 99.092% |
+| chain32-warm | complete | 6 / 6 (complete) | 66 (complete) | 79 | 99.106% |
+| dense12-cold | complete | 6 / 6 (complete) | 2 (complete) | 4 | 99.184% |
+| dense12-warm | complete | 6 / 6 (complete) | 2 (complete) | 6 | 99.202% |
+| destruction-cold | complete | 6 / 6 (complete) | 68 (complete) | 86 | 99.023% |
+| destruction-damaged | complete | 6 / 6 (complete) | 68 (complete) | 76 | 99.027% |
+| destruction-fractured | complete | 6 / 6 (complete) | 103 (complete) | 116 | 99.082% |
+| destruction-intact | complete | 6 / 6 (complete) | 68 (complete) | 81 | 99.032% |
+| destruction-onset | complete | 6 / 6 (complete) | 84 (complete) | 105 | 99.007% |
+| destruction-stimulus | complete | 6 / 6 (complete) | 86 (complete) | 98 | 99.005% |
+| flying | complete | 0 / 0 (complete) | 41 (complete) | 49 | 99.204% |
+| ladder128-cold | complete | 6 / 6 (complete) | 38 (complete) | 53 | 99.032% |
+| ladder128-warm | complete | 6 / 6 (complete) | 39 (complete) | 47 | 99.039% |
+| panel32-cold | complete | 6 / 6 (complete) | 4 (complete) | 12 | 99.290% |
+| panel32-warm | complete | 6 / 6 (complete) | 4 (complete) | 12 | 99.311% |
+| resting | complete | 0 / 0 (complete) | 26 (complete) | 30 | 99.544% |
+| sliding | complete | 0 / 0 (complete) | 53 (complete) | 63 | 99.175% |
+| tower64-cold | complete | 6 / 6 (complete) | 2 (complete) | 4 | 99.775% |
+| tower64-warm | complete | 6 / 6 (complete) | 2 (complete) | 4 | 99.770% |
+| city25-intact-idle | complete | 6 / 6 (complete) | 39 (complete) | 52 | 99.010% |
+| city25-airborne | complete | 6 / 6 (complete) | — (running) | — | — |
+| city25-initial-impact | complete | 18 / 18 (complete) | 93 (complete) | 215 | 99.023% |
+| city25-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — | — |
+| city25-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — | — |
+| city25-fragmented-loaded | complete | 17 / 17 (complete) | — (not_captured) | — | — |
+| city25-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — | — |
+| city25-ten-second-debris | complete | 17 / 17 (complete) | — (not_captured) | — | — |
+| city64-intact-idle | complete | 6 / 6 (complete) | — (not_captured) | — | — |
+| city64-airborne | complete | 6 / 6 (complete) | — (not_captured) | — | — |
+| city64-initial-impact | complete | 18 / 18 (complete) | — (not_captured) | — | — |
+| city64-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — | — |
+| city64-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — | — |
+| city64-fragmented-loaded | complete | 17 / 17 (complete) | — (not_captured) | — | — |
+| city64-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — | — |
+| city64-ten-second-debris | complete | 17 / 17 (complete) | — (not_captured) | — | — |
+| city256-intact-idle | complete | 6 / 6 (complete) | — (not_captured) | — | — |
+| city256-airborne | complete | 6 / 6 (complete) | — (not_captured) | — | — |
+| city256-initial-impact | complete | 18 / 18 (complete) | — (not_captured) | — | — |
+| city256-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — | — |
+| city256-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — | — |
+| city256-fragmented-loaded | complete | 18 / 18 (complete) | — (not_captured) | — | — |
+| city256-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — | — |
+| city256-ten-second-debris | complete | 18 / 18 (complete) | — (not_captured) | — | — |
 
 ## Continuous ordinary/sleeping controls
 
@@ -78,4 +78,4 @@ The lower-rate warm traces contain no sampling-throttle warning. The original hi
 - Cold restored ticks rebuild disposable caches; warm continuous gameplay is a separate workload. Neither includes restore/validation in the full-step timer.
 - No runtime optimization or speedup is claimed.
 
-Out-of-range counter ratios preserved and flagged: 49. See the structured report before using any such ratio quantitatively.
+Out-of-range counter ratios preserved and flagged: 84. See the structured report before using any such ratio quantitatively.

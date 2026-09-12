@@ -196,5 +196,42 @@
     },
     "log": "out/end-to-end-attribution-20260912/ncu-2026-blocking-conditional-pilot/stdout.log",
     "physical_comparison": null
+  },
+  {
+    "name": "ncu-2026-graph-mode-pilot",
+    "status": "failed",
+    "exit_code": 6,
+    "elapsed_seconds": 11.063910327000485,
+    "profiler": {
+      "tool": "ncu",
+      "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2026 NVIDIA Corporation\nVersion 2026.3.0.0 (build 38525999) (public-release)",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/opt/nvidia/nsight-compute/2026.3.0/ncu",
+        "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a"
+      },
+      "injection": {
+        "path": "/opt/nvidia/nsight-compute/2026.3.0/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+        "sha256": "9f5c52e849ba1e90b87e8460fc348ceb9f962b315ef52524b0343517db57388b"
+      },
+      "metric_mode": "full",
+      "explicit_metrics": null,
+      "graph_profiling": "graph",
+      "replay_mode": "kernel",
+      "kernel_selection": {
+        "name_base": "function",
+        "identifiers": null,
+        "filter": "regex:^graph$",
+        "count": 10000,
+        "filter_mode": "global"
+      },
+      "apply_rules": "no"
+    },
+    "diagnostic_environment": {
+      "PHYSX_SNAPSHOT_DUMP_OBSERVATIONS": "1"
+    },
+    "log": "out/end-to-end-attribution-20260912/ncu-2026-graph-mode-pilot/stdout.log",
+    "physical_comparison": null
   }
 ]

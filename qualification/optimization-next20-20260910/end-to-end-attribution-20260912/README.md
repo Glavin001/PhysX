@@ -14,6 +14,9 @@ The user authorized reversible service/GPU recovery, then rebooted the host at
 07:05:39 UTC on2026-09-12. Desktop and persistence services restarted. The GPU
 recovered without a driver/toolkit update. The server from the other project
 was temporarily stopped; its private restart configuration is retained locally.
+Automatic restoration pins the hash-verified original installed SDK because the
+old server binary must not load experimental libraries added later to the mutable
+build path. No server source, installed SDK or permanent service setting changes.
 The original Xid120 capture remains quarantined. A reduced-tracing retry passes
 city64 initial impact, and the remaining13 captures pass. This does not prove
 which option caused the original firmware fault.
@@ -64,8 +67,11 @@ investigations. Missing inventories never silently pass. The strengthened offlin
 at least99.0002% of kernel duration in every case:2,701 configurations and5,449
 representative launches. This is planned coverage until captures and audits pass.
 
-The ordinary-kernel pilot is testing strict application replay to avoid per-
-kernel memory backup overhead. Original kernel-replay attempts are preserved.
+The ordinary-kernel pilot passes strict application replay:93 configurations,
+215 full-counter records, exact inventory and physical comparison;40 replay
+processes took1099.56seconds plus export/audit (1125.44seconds total). It did not
+establish a collection-time advantage over kernel replay. The expansion uses
+kernel replay and explicitly reuses that qualified application-replay pilot. Original kernel-replay attempts are preserved.
 Application replay repeats the process for counter passes; each process runs
 the native two-restore repeatability check. The final two outputs also receive
 the explicit unprofiled-reference physical comparison. Intermediate process
@@ -78,6 +84,17 @@ Sources: [NVIDIA graph profiling and metric limitations](https://docs.nvidia.com
 [NVIDIA invocation/configuration filtering](https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#profile),
 [official archived collectors](https://developer.download.nvidia.com/compute/cuda/redist/nsight_compute/linux-x86_64/).
 These documents describe capabilities, not proof of the precise bugs observed here.
+The graph audit flags49 L2 hit-rate results above100%; those ratios are not valid
+quantitative evidence. NVIDIA documents both asynchronous display/device traffic
+and multipass variability as possible causes. The reports retain the raw values;
+neither cause is established here. A headless full-counter control still gives104.60%; a narrow L2-only
+control still requires two passes and produces further impossible ratios. Both
+pass physical checks. Neither display removal nor reduced metric selection fixes
+this case; those ratios remain unusable. New2026.3 whole-graph mode also
+aborts at first impact, so it supplies no remedy. The full ordinary expansion
+is now running headless with the stable2025 collector. See [the controls](l2-controls.json).
+Offline `--import --apply-rules yes` is rejected by the2025 CLI, so rule reruns
+cannot be assumed to work without recapturing.
 
 ## Continuous application controls
 
@@ -114,15 +131,24 @@ Copy/kernel overlap is explicit; these durations are not removable full-step
 cost. Ordinary trial mirrors remain necessary for sleep/activity processing.
 
 The [ranked hypotheses](next-ranked-experiments.json) prioritize fragment lifecycle,
-verified unchanged-input equilibrium reuse, direct solves for eligible components,
-and compact CPU mirror updates. Each includes evidence, mechanism, scenarios,
+anchored/free and size-based solver decomposition, eligible small
+component direct solves, compact CPU mirrors and exact-input certificates. Each includes evidence, mechanism, scenarios,
 estimated application savings, confidence, cost and support/refutation criteria.
 Estimates are hypotheses, not subtraction of profiler time from baseline time.
 The original N-series remains11/20 and best N13 stays retained.
 
 Use exact commands in [OPTIMIZATION.md](../../../OPTIMIZATION.md). New tools are
 `profile-graph-suite.py`, `profile-config-suite.py`, `profile-warm-suite.py`,
-`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Twelve accounting,
+`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Fourteen accounting,
 classification and representative-selection tests pass. Historical pre-reboot
 status is retained in [history-before-reboot.md](history-before-reboot.md).
 Private process environments and crash cores are not published or committed.
+
+The isolated N20 CPU-capacity candidate now builds with matched consumers. Rebuilt
+control demo and nonprofiling snapshot probe are byte-identical to the current
+baseline. This is preparation only: candidate GPU correctness and timing are
+pending, and the20-experiment batch remains11 completed. [Build evidence](n20-build-preparation.json).
+
+Queue audit: N10 operator caches already exist; N02 intermediate-projection
+removal remains rejected by its numerical fixture. Neither is a new queued
+optimization. Current follow-ups preserve those conclusions.

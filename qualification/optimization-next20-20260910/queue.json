@@ -101,7 +101,16 @@
         "evidence": "qualification/optimization-next20-20260910/snapshot-finish-20260911/device-enabled-split/README.md",
         "baseline_candidate_commit": "8589185e659c8316b1828b7847b8780eb0f11006",
         "finding": "The new ordinary/snapshot runtime passes the 29-case correction regression under normal asynchronous memcheck after conditional graph removal. The earlier capacity candidate remains reverted and unqualified; this does not retroactively qualify its old result. Reapply the capacity-only hypothesis to the retained compatible baseline and rerun its native/correction gates before timing.",
-        "concrete_enabling_benefit": "Reopens a measured CPU bookkeeping allocation hypothesis previously stopped by candidate/control correction memory failures; source-loop work and physical order remain unchanged by the graph fix."
+        "concrete_enabling_benefit": "Reopens a measured CPU bookkeeping allocation hypothesis previously stopped by candidate/control correction memory failures; source-loop work and physical order remain unchanged by the graph fix.",
+        "prepared_requalification": {
+          "commit": "b7918affda83942dba04e8626db696cca7fd283a",
+          "parent": "77a7baa37802808681093a7695ca7a9a686d8b06",
+          "status": "built_not_gpu_qualified",
+          "plan": "out/n20-requalification-20260912/build-and-qualification-plan.json",
+          "source_and_index_preserved": true,
+          "build_receipt": "out/n20-requalification-20260912/build/build.json",
+          "control_demo_and_probe_byte_identical": true
+        }
       }
     },
     {

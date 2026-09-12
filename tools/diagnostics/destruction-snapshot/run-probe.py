@@ -46,7 +46,15 @@ parser.add_argument('--replay-prefix',type=Path)
 parser.add_argument('--repetitions',type=int,default=10)
 parser.add_argument('--projectile-impulse',action='store_true')
 parser.add_argument('--native-args-json',type=Path,help='Capture with native demo arguments from a JSON array; output added by wrapper')
+parser.add_argument('--test-args-json',type=Path,help='Run an existing native correctness command with exact JSON arguments; no output argument appended')
 args=parser.parse_args()
+if args.test_args_json and (args.native_args_json or args.replay_prefix or args.profiler or args.require_complete_shapes or args.projectile_impulse):
+    parser.error('--test-args-json is exclusive with demo, snapshot and profiler options')
+test_arguments=None
+if args.test_args_json:
+    test_arguments=json.loads(args.test_args_json.read_text())
+    if not isinstance(test_arguments,list) or not all(isinstance(v,str) for v in test_arguments):
+        parser.error('--test-args-json must contain a JSON array of strings')
 if args.profiler and (args.sanitizer or not (args.replay_prefix or (args.native_args_json and args.profiler=='nsys'))):
     parser.error('Profiling requires file replay (or native arguments for Systems) and excludes sanitizer collection')
 if args.ncu_count < 1:parser.error('Positive NCU launch count required')
@@ -65,6 +73,9 @@ out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
 arm=args.artifacts.resolve();binary=args.binary.resolve()
 record={'command':[str(binary),str(out)],'binary_sha256':c.sha(binary),'samples':[],'status':'running',
         'diagnostic_environment':{k:v for k,v in os.environ.items() if k.startswith('PHYSX_SNAPSHOT_') or k in ('CUDA_LAUNCH_BLOCKING','CUDA_MODULE_LOADING','CUDA_DEVICE_MAX_CONNECTIONS')}}
+if test_arguments is not None:
+    record['command']=[str(binary),*test_arguments]
+    record['test_arguments']=test_arguments
 if args.native_args_json:
     if args.replay_prefix:raise ValueError('Native capture and file replay are exclusive')
     record['command']=[str(binary),*json.loads(args.native_args_json.read_text()),'--output',str(out/'native')]

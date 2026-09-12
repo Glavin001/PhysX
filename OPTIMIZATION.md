@@ -1010,7 +1010,7 @@ python3 tools/diagnostics/destruction-snapshot/profile-config-suite.py \
   --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
   --binary out/snapshot-counters-20260911/probe/serialization-probe \
   --artifacts out/snapshot-reset-20260911/local-artifacts \
-  --threshold-ms 0.1 --coverage 0.99 --allow-existing-graphics
+  --threshold-ms 0.1 --coverage 0.99 --ncu-replay kernel --reuse-other-replay-mode
 ```
 
 The ordinary-kernel supplement selects every family costing at least0.1ms,
@@ -1056,3 +1056,32 @@ python3 tools/diagnostics/destruction-snapshot/report-dataflow-suite.py \
   out/end-to-end-attribution-20260912 \
   qualification/optimization-next20-20260910/end-to-end-attribution-20260912
 ```
+
+### Current counter interpretation and isolated CPU follow-up
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/summarize-counter-configs.py \
+  out/end-to-end-attribution-20260912 \
+  qualification/optimization-next20-20260910/end-to-end-attribution-20260912
+```
+
+The report ranks ordinary families by matched Systems duration and preserves
+metric units, missing values and invalid ratios. Representative ranges are not
+weighted averages or complete-step savings. Graph counters remain a separate tier.
+
+N20 requalification uses isolated statically linked A/B consumers in
+`out/n20-requalification-20260912/build/`. The demo and plain probe control hashes
+match the existing baseline; both sets of native consumers require fresh gates.
+After all profiler jobs have ended, run serially on the admitted GPU:
+
+```bash
+python3 out/n20-requalification-20260912/run-native-gates.py --arm A
+python3 out/n20-requalification-20260912/run-native-gates.py --arm B
+```
+
+These reuse16 discovered native commands and three normal asynchronous memory
+gates per arm, preserving arguments, working directory and timeout.
+`run-probe.py --test-args-json FILE` supplies exact test arguments without adding
+a snapshot output argument. Candidate correctness and timings are still pending;
+these commands are not recorded as passes. N10 operator caches already exist;
+N02 residual-projection removal remains rejected and must not be requeued.

@@ -1,13 +1,30 @@
 #!/usr/bin/env python3
 """Accounting and kernel-inventory regression checks, independent of the GPU."""
-import importlib.util,unittest
+import importlib.util,unittest,json,tempfile
 from pathlib import Path
 def load(name,file):
     s=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file));m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
 kernel=load('kernel','profile-kernel-suite.py');accounting=kernel.profile.accounting
 config=load('config','profile-config-suite.py')
 dataflow=load('dataflow','report-dataflow-suite.py')
+tiers=load('tiers','report-attribution-tiers.py')
+counter_summary=load('counter_summary','summarize-counter-configs.py')
 class AttributionTests(unittest.TestCase):
+    def test_counter_ranges_preserve_units_and_reject_impossible_ratios(self):
+        rows=[dict(metrics={'gpu__time_duration.sum':dict(value=250,unit='us'),'lts__t_sector_hit_rate.pct':dict(value=105,unit='%')}),
+              dict(metrics={'gpu__time_duration.sum':dict(value=1,unit='ms'),'lts__t_sector_hit_rate.pct':dict(value=25,unit='%')}),dict(metrics={})]
+        result=counter_summary.ranges(rows)
+        self.assertEqual(result['gpu__time_duration.sum']['by_unit'],{'us':dict(min=250,max=250,count=1),'ms':dict(min=1,max=1,count=1)})
+        self.assertEqual(result['lts__t_sector_hit_rate.pct']['by_unit'],{'%':dict(min=25,max=25,count=1)})
+        self.assertEqual(len(result['lts__t_sector_hit_rate.pct']['invalid']),1)
+        self.assertEqual(result['lts__t_sector_hit_rate.pct']['missing'],1)
+    def test_resume_keeps_later_qualified_pilot_visible(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder);common=dict(identity='same',coverage=.99,threshold_ms=.1)
+            (path/'campaign-before-resume-1.json').write_text(json.dumps(dict(common,status='complete',scenarios=[dict(scenario='later-pilot',status='complete')])))
+            (path/'campaign.json').write_text(json.dumps(dict(common,status='running',scenarios=[dict(scenario='first',status='running')])))
+            result=tiers.campaign_view(path/'campaign.json')
+            self.assertEqual([(r['scenario'],r['status']) for r in result['scenarios']],[('first','running'),('later-pilot','complete')])
     def test_transfer_overlap_is_not_removable_time(self):
         copies=[dict(start_ns=0,end_ns=1000000,ms=1,bytes=10,kind=1),dict(start_ns=500000,end_ns=1500000,ms=1,bytes=20,kind=2)]
         result=dataflow.census(copies,[dict(start_ns=250000,end_ns=1250000)])

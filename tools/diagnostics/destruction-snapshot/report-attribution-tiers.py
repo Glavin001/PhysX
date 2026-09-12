@@ -3,11 +3,24 @@
 import argparse,hashlib,json
 from pathlib import Path
 
+def campaign_view(path):
+    if not path.exists():return dict(status='not_run',scenarios=[])
+    current=json.loads(path.read_text());rows={r['scenario']:r for r in current['scenarios']}
+    # A resumed sequential campaign may not have reached its reusable pilot yet.
+    # Keep qualified matching history visible instead of making it disappear.
+    for history in sorted(path.parent.glob('campaign-before-resume-*.json'),key=lambda p:p.stat().st_mtime_ns,reverse=True):
+        old=json.loads(history.read_text())
+        if any(old.get(k)!=current.get(k) for k in ['identity','coverage','threshold_ms']):continue
+        for r in old['scenarios']:
+            if r['status']=='complete' and r['scenario'] not in rows:
+                rows[r['scenario']]=dict(r,reused_from_manifest=str(history))
+    return dict(current,scenarios=list(rows.values()))
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path);p.add_argument('output',type=Path);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
     sha=lambda f:hashlib.sha256(f.read_bytes()).hexdigest()
-    cpu=json.loads((a.output/'report.json').read_text());graphs=json.loads((a.root/'graphs-full/campaign.json').read_text()) if (a.root/'graphs-full/campaign.json').exists() else dict(status='not_run',scenarios=[])
-    configs=json.loads((a.root/'configs-full/campaign.json').read_text()) if (a.root/'configs-full/campaign.json').exists() else dict(status='not_run',scenarios=[])
+    cpu=json.loads((a.output/'report.json').read_text());graphs=campaign_view(a.root/'graphs-full/campaign.json')
+    configs=campaign_view(a.root/'configs-full/campaign.json')
     warm=json.loads((a.root/'warm-reduced-sampling/campaign.json').read_text());rows=[];graph_files=config_files=graph_launches=config_launches=0
     physical=[];minimum_metrics={};counter_diagnostics=[]
     for c in cpu['scenarios_data']:

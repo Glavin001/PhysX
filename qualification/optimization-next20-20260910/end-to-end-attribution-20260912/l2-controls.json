@@ -1,0 +1,34 @@
+{
+  "scenario": "cantilever64-warm",
+  "original_source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/cantilever64-warm",
+  "headless": "out/end-to-end-attribution-20260912/headless-graph-control",
+  "original_l2": [
+    101.408194,
+    33.51324,
+    298.529721,
+    58.624439,
+    88.568306,
+    75.160688
+  ],
+  "headless_l2": [
+    104.597949,
+    73.359267,
+    83.753442,
+    23.156135,
+    69.909186,
+    74.506782
+  ],
+  "physical_comparison": "passed",
+  "conclusion": "Headless full counters still give104.60%; narrowing to the L2 ratio still requires2passes and produces100.41\u2013337.61% in four of six graphs. Neither control fixes the invalid ratios. Do not clamp/recompute them into plausible values. Newer collector whole-graph mode is a distinct pending feature-path check.",
+  "narrow_l2": [
+    100.412787,
+    162.545869,
+    56.70705,
+    266.807818,
+    67.898383,
+    337.610063
+  ],
+  "narrow_passes_per_graph": 2,
+  "narrow_physical_comparison": "passed",
+  "new_collector_graph_mode": "2026.3.0 graph mode also aborts in city25 impact after first graph; no L2 remedy established."
+}
