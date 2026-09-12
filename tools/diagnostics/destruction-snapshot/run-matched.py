@@ -78,20 +78,22 @@ def main():
     parser.add_argument('--baseline-artifacts', type=Path, required=True)
     parser.add_argument('--candidate-artifacts', type=Path, required=True)
     parser.add_argument('--candidate-commit', required=True)
-    parser.add_argument('--control-repetitions', type=int, default=10)
+    parser.add_argument('--control-repetitions', type=int, default=20)
     parser.add_argument('--candidate-repetitions', type=int, default=20)
-    parser.add_argument('--use-case-repetitions', action='store_true', help='Use each manifest case repetition count for B and half that count for each control cohort')
+    parser.add_argument('--use-case-repetitions', action='store_true', help='Use each manifest case repetition count for every A-before/B/A-after process')
     parser.add_argument('--allow-existing-graphics', action='store_true')
     parser.add_argument('--allow-compute-pid', type=int, action='append', default=[])
     args = parser.parse_args()
     if min(args.control_repetitions, args.candidate_repetitions) < 2:
         parser.error('Each cohort requires at least two restores')
     cases = json.loads(args.manifest.read_text())['scenarios']
+    if args.control_repetitions != args.candidate_repetitions:
+        parser.error('Use equal per-process repetition counts so first-use ticks have equal weight in both arms')
     if args.use_case_repetitions:
-        if args.control_repetitions!=10 or args.candidate_repetitions!=20:
+        if args.control_repetitions!=20 or args.candidate_repetitions!=20:
             parser.error('--use-case-repetitions cannot override explicitly changed cohort counts')
-        if any(not isinstance(c.get('repetitions'),int) or c['repetitions']<4 or c['repetitions']%2 for c in cases):
-            parser.error('Manifest repetition counts must be even and at least four')
+        if any(type(c.get('repetitions')) is not int or c['repetitions']<2 for c in cases):
+            parser.error('Manifest repetition counts must be at least two')
     binaries={arm:binary.resolve() for arm,binary in [('A',args.binary),('B',args.candidate_binary or args.binary)]}
     binary_hashes={arm:hashlib.sha256(binary.read_bytes()).hexdigest() for arm,binary in binaries.items()}
     module_hashes={arm:{str((directory/name).resolve()):hashlib.sha256((directory/name).read_bytes()).hexdigest()
@@ -104,6 +106,8 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     report = dict(status='running', candidate_commit=args.candidate_commit, scenarios=[], runs=[],
+                  runner_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                  repetition_policy='Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.',
                   binaries={arm:dict(path=str(binary),sha256=binary_hashes[arm]) for arm,binary in binaries.items()},
                   modules=module_hashes,
                   checker_sha256=hashlib.sha256((HERE / 'compare-observations.py').read_bytes()).hexdigest(),
@@ -118,7 +122,7 @@ def main():
         for case in cases:
             runs, samples, setup = {}, {}, {}
             candidate_count=case['repetitions'] if args.use_case_repetitions else args.candidate_repetitions
-            control_count=candidate_count//2 if args.use_case_repetitions else args.control_repetitions
+            control_count=candidate_count if args.use_case_repetitions else args.control_repetitions
             for arm, artifacts, count in [('A0', args.baseline_artifacts, control_count),
                                           ('B', args.candidate_artifacts, candidate_count),
                                           ('A1', args.baseline_artifacts, control_count)]:
@@ -164,6 +168,9 @@ def main():
                                  for _ in range(2000))
             row = dict(scenario=case['scenario'], A=stats(samples['A0'] + samples['A1']),
                        context_setup_ms=setup,
+                       first_tick_ms={arm:data[0]['complete_step_ms'] for arm,data in samples.items()},
+                       later_tick_mean_ms={arm:statistics.mean(s['complete_step_ms'] for s in data[1:])
+                                           for arm,data in samples.items()},
                        saved_ms=statistics.mean(a) - statistics.mean(b), descriptive_saved_ms_95=[differences[50], differences[1949]],
                        physical_status='passed', raw={arm: str(run) for arm, run in runs.items()})
             row.update({arm: stats(data) for arm, data in samples.items()})

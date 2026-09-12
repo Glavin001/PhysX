@@ -32,16 +32,33 @@ def main():
                 add(directory/name)
             if row.get('report_sha256'):add(directory/'counters.ncu-rep',row['report_sha256'],'completed campaign counter audit')
     workspace=root.parents[1]
-    for experiment in ['n20-requalification-20260912','n06-granularity-20260912']:
+    for experiment in ['n20-requalification-20260912','n06-granularity-20260912','n15-anchored-20260912']:
         directory=workspace/'out'/experiment
         for name in ['preparation.json','candidate.patch','build-isolated.py','build-fresh-native-tests.py','build/build.json',
                      'fresh-native/build.json','existing-compile-command.json','existing-link-commands.json','existing-native-test-commands.json',
                      'run-native-gates.py','run-after-counters.py','run-in-counter-gap.py','matched-light-manifest.json',
-                     'audit-device-code.py','device-code-audit.json']:
+                     'audit-device-code.py','device-code-audit.json','build-oracles.py','build-cpu-probes.py',
+                     'run-structural-screen.py','run-cpu-attribution.py','run-cpu-attribution-v1.py','run-warm-screen.py',
+                     'run-full-after-counter.py','confirmation-manifest.json','impact-repeat-manifest.json']:
             add(directory/name)
-        for name in ['qualification-campaign.json','native-A/campaign.json','native-B/campaign.json','matched-light/report.json']:
+        for name in ['qualification-campaign.json','native-A/campaign.json','native-B/campaign.json','matched-light/report.json',
+                     'matched-light-balanced/report.json','confirmation20/report.json','impact-reverse20/report.json',
+                     'screen/campaign.json','screen/matched/report.json','warm600/campaign.json',
+                     'cpu-probes/build.json','cpu-attribution-v2/campaign.json','oracles/build.json','full52/report.json']:
             path=directory/name
             if path.exists() and json.loads(path.read_text()).get('status') not in ['running','building']:add(path)
+        cpu=directory/'cpu-attribution-v2'
+        if cpu.exists():
+            for stage in ['A-before','B','A-after']:
+                campaign=cpu/stage/'campaign.json'
+                if not campaign.exists():continue
+                data=json.loads(campaign.read_text())
+                if data.get('status')!='complete':continue
+                add(campaign)
+                for row in data['scenarios']:
+                    if row['status']!='complete':continue
+                    path=Path(row['path'])
+                    for name in ['receipt.json','replay.json','attribution.json','physical-comparison.json']:add(path/name)
     destination.write_text(json.dumps(sorted(items.values(),key=lambda r:r['path']),indent=2)+'\n')
     print(len(items),'public evidence artifacts indexed')
 if __name__=='__main__':main()

@@ -1,6 +1,6 @@
 # Attribution tiers and remaining limits
 
-CPU **52/52**; graph tier **52/52** (461 graph invocations); significant ordinary-kernel configuration tier **38/52** (2907 representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.
+CPU **52/52**; graph tier **52/52** (461 graph invocations); significant ordinary-kernel configuration tier **39/52** (3147 representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.
 
 All CPU and GPU timings in profiler artifacts are diagnostic. [All52 unprofiled full-step baselines and CPU/stage data](report.md) remain separate.
 
@@ -44,8 +44,8 @@ All CPU and GPU timings in profiler artifacts are diagnostic. [All52 unprofiled 
 | city25-ten-second-debris | complete | 17 / 17 (complete) | 63 (complete) | 186 | 99.013% |
 | city64-intact-idle | complete | 6 / 6 (complete) | 36 (complete) | 48 | 99.021% |
 | city64-airborne | complete | 6 / 6 (complete) | 52 (complete) | 77 | 99.012% |
-| city64-initial-impact | complete | 18 / 18 (complete) | — (running) | — | — |
-| city64-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — | — |
+| city64-initial-impact | complete | 18 / 18 (complete) | 89 (complete) | 240 | 99.019% |
+| city64-post-impact | complete | 6 / 6 (complete) | — (running) | — | — |
 | city64-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — | — |
 | city64-fragmented-loaded | complete | 17 / 17 (complete) | — (not_captured) | — | — |
 | city64-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — | — |

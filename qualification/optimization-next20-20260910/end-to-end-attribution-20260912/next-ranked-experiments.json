@@ -43,7 +43,7 @@
     },
     {
       "rank": 2,
-      "status": "isolated_pilot_built_not_gpu_qualified",
+      "status": "reassess_after_rejected_one_block_pilot",
       "title": "Size-specialized warp/block component execution",
       "evidence": "Thousands of small fragments occupy whole CTAs and block-wide reductions; earlier four-lane row gathering regressed. Current same-runtime selected stress captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at the largest scale. Later-debris local-memory sectors increase sharply. These counters motivate investigating decomposition/resource lifetime; they do not prove spills or predict saved application time.",
       "proposed_mechanism": "Use a dedicated small-component warp/block implementation, preserving row order and convergence; retain larger block path for larger components.",
@@ -97,7 +97,8 @@
         "evidence": "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n06-build-preparation.json",
         "runtime": "out/n06-granularity-20260912/build/{A,B}",
         "scope": "Host cooperative launch policy only; device instructions match after path-name normalization. GPU correctness and timing pending."
-      }
+      },
+      "pilot_result": "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n06a-result.json"
     },
     {
       "title": "Separate anchored and free component execution",
@@ -266,6 +267,7 @@
     "already_retained": [
       "N10 neighbor and mass-scaled vector caches are already present in the current component solver. Do not schedule them as a new optimization."
     ],
-    "new_experiment_count": 0
+    "new_experiment_count": 0,
+    "completed_batch_experiments": 12
   }
 }

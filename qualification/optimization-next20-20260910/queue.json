@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "requested_experiments": 20,
-  "completed_experiments": 11,
+  "completed_experiments": 12,
   "best_verified": "N13",
   "baseline_commit": "c1e6faca7af6cba0e65c215d7a8710c5bf3ebf59",
   "baseline_artifacts": "out/optimization-next20-20260910/N13-mixed-block/B",
@@ -105,7 +105,7 @@
         "prepared_requalification": {
           "commit": "b7918affda83942dba04e8626db696cca7fd283a",
           "parent": "77a7baa37802808681093a7695ca7a9a686d8b06",
-          "status": "built_not_gpu_qualified",
+          "status": "native_gates_passed_timing_tradeoff_pending_full52",
           "plan": "out/n20-requalification-20260912/build-and-qualification-plan.json",
           "source_and_index_preserved": true,
           "build_receipt": "out/n20-requalification-20260912/build/build.json",
@@ -113,11 +113,27 @@
         }
       },
       "screen_queue_20260912": {
-        "status": "queued_in_serial_counter_gap",
-        "coordinator": "out/n20-requalification-20260912/run-in-counter-gap.py",
-        "receipt": "out/n20-requalification-20260912/qualification-campaign.json",
+        "status": "full52_queued_after_counter_boundary",
+        "coordinator": "/root/workspace/physx-2/out/n20-requalification-20260912/run-full-after-counter.py",
+        "receipt": "/root/workspace/physx-2/out/n20-requalification-20260912/full52-driver.json",
         "candidate_commit": "b7918affda83942dba04e8626db696cca7fd283a",
         "original_failure_preserved": true
+      },
+      "screen_20260912": {
+        "status": "native_and_balanced_screens_passed_pending_full52",
+        "native": "16 native and3 normal asynchronous memory checks per arm passed",
+        "biased_screen": "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/first-use-bias.json",
+        "balanced_screen": "out/n20-requalification-20260912/matched-light-balanced/report.json",
+        "confirmation": "/root/workspace/physx-2/out/n20-requalification-20260912/confirmation20/report.json",
+        "retained": false,
+        "reversed_impact": {
+          "path": "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/report.json",
+          "labels": "A0/A1 are N20 candidate; B is original control. Saved_ms in that file has reversed sign relative to ordinary N20 reports."
+        },
+        "warm": "/root/workspace/physx-2/out/n20-requalification-20260912/warm600/campaign.json",
+        "cpu_attribution": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/campaign.json",
+        "conclusion": "Large restored debris improves38.525ms in20/20/20, consistent with reduced allocation samples. Initial impact regression does not consistently reproduce in reversed order. Warm600 heavy means differ by only~0.079ms; no substantial gameplay or peak/deadline win. Full52 qualification pending; no retention or completed-experiment credit yet.",
+        "report": "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-followup.md"
       }
     },
     {
@@ -216,7 +232,46 @@
       ],
       "baseline": "retained N13",
       "family": "anchored_free_execution_decomposition",
-      "reassessment": "Original no-live-interface singleton target removed before experiment: native topology already omits those rows. This audit does not count as a completed experiment."
+      "reassessment": "Original no-live-interface singleton target removed before experiment: native topology already omits those rows. This audit does not count as a completed experiment.",
+      "prepared_20260912": {
+        "id": "N15",
+        "rank": 6,
+        "status": "prepared_not_built_or_gpu_qualified",
+        "title": "Separate anchored and free component execution",
+        "evidence": "Source audit: isolated no-live-bond chunks are already omitted by labelDeviceStressBonds/rootFlags and labelDeviceStressNodes, so the original empty-system hypothesis has no reachable target. Current common component kernel retains free-projection code/resources even for the overwhelmingly anchored iterative work. N10 uses108 registers,32.09% occupancy in the later selected capture.",
+        "proposed_mechanism": "Use separate GPU-owned anchored/free work queues and template the component recurrence/preparation/preconditioning so the anchored specialization omits certified zero-dimensional nullspace work and its compiler resource footprint. Current validated mode dimension selects ownership; free components retain all projection. Preserve current equations and per-component numerical order; no CPU count readback.",
+        "affected_scenarios": [
+          "idle including setup",
+          "first fracture trial/correction",
+          "later heavy destruction"
+        ],
+        "estimated_application_ms_saved": "Potential1\u20135 ms heavy mean if reduced anchored register/shared footprint improves residency; charge queue preparation and extra launch. No established saving.",
+        "confidence": "high semantic equivalence under current mode certificate; medium compiler/resource benefit",
+        "experiment_cost": "Private GPU component queues and templated recurrence/preconditioner, kernel launch updates; original free/anchored/interleaved/cap/topology tests, sanitizers, full A/B and counters",
+        "supporting_measurements": "Both queue ownership and original physical gates pass, anchored resources fall, complete-step heavy mean/peaks improve without idle regression; independent queues enable later size decomposition",
+        "refuting_measurements": "Queue divergence or invalid certificate, resource footprint unchanged, extra launch/cache costs erase benefit, full-suite regression",
+        "profile_locations": [
+          "out/optimization-20260910/E12-composition/profiles",
+          "out/optimization-20260910/E12-composition/production-phases",
+          "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+          "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+        ],
+        "baseline": "retained N13",
+        "family": "anchored_free_execution_decomposition",
+        "reassessment": "Original no-live-interface singleton target removed before experiment: native topology already omits those rows. This audit does not count as a completed experiment.",
+        "parent": "4cb343a2ae0c3c9e4dc3cd55dfd23fea14ae1735",
+        "commit": "dccbe23f0022b2d3b68c66bb97a877ff5e3532a4",
+        "changed_sources": [
+          "blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh",
+          "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
+          "blast/source/sdk/extensions/stressgpu/detail/StressNativeResponseHistory.cuh",
+          "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl"
+        ],
+        "main_index_unchanged": true,
+        "main_source_unchanged": true,
+        "baseline_scope": "Current snapshot-compatible runtime includes unaccepted N14 numerical work. This experiment does not promote N14 or replace frozen N13.",
+        "source_review": "Mode readiness checked before class selection; both passes initialize verification to zero; successful small components keep their own results/history. No per-component floating atomics or changed reduction order. Extra list scan, cursor reset and launch are charged. Free kernel retains all projection. Large cooperative stage is unchanged."
+      }
     },
     {
       "id": "N16",
@@ -358,6 +413,12 @@
           "rebuilt_control_device_instructions_identical": false
         },
         "gpu_checks": "pending; never run concurrently with N20 or counters"
+      },
+      "pilot_result": {
+        "id": "N06a",
+        "status": "rejected_application_regression",
+        "report": "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n06a-result.json",
+        "scope": "The original smaller-component specialization is untested; this was a separately counted large-problem granularity pilot."
       }
     },
     {
@@ -683,6 +744,27 @@
       "family": "incremental_setup",
       "result": "N05.md",
       "commit": "7588a85e81b3202ff0ea23dbfa5da02f4bae7d07"
+    },
+    {
+      "id": "N06a",
+      "source_queue_id": "N06",
+      "status": "rejected_application_regression",
+      "title": "Single cooperative block for complete structural problems through4096 nodes",
+      "commit": "c76c60678f42e8e62cdfab02d8b317df69b3fbdb",
+      "family": "heterogeneous_component_execution",
+      "hypothesis": "Reduce cross-SM rendezvous for tower/dense complete problems, without changing equations, multilevel preconditioner or small-component eligibility.",
+      "evidence": "Tower baseline instruction samples show substantial barriers and short-scoreboard stalls; those samples were explicitly not treated as saved milliseconds.",
+      "estimated_application_ms_saved": "Predeclared0\u201330ms in tower/dense, low confidence; loss of FP64 parallelism is the refutation risk.",
+      "correctness": "Four A/B\u00d7scenario normal asynchronous memcheck runs pass with zero errors; all compare against the existing unprofiled physical reference. Matched A/B/A physical checks pass, iteration counts remain34 dense and137 tower.",
+      "profiles": [
+        "out/ncu-fix-20260912/full/tower64-cold-counters-0/counters.ncu-rep",
+        "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/tower-source-review.json",
+        "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/structural-stress-counter-review.json"
+      ],
+      "candidate_profile": "Not collected after decisive unprofiled regression; identical device instructions and baseline counter evidence retained.",
+      "conclusion": "Reject. Dense full-step mean32.106\u2192513.374ms and tower109.121\u21922284.911ms. Reduced parallelism overwhelms any synchronization benefit. This rejects the one-block pilot, not every size-specialized or component-local multilevel design.",
+      "remaining_scenarios": "No idle/heavy timing win claimed; other50 scenarios were not run after this decisive structural regression.",
+      "next": "Prioritize unnecessary CPU work and stronger/reusable solver algorithms. Do not infer that barrier samples are removable time or launch more one-block threshold variants."
     }
   ],
   "policy": "Adaptive ranking; source audits/preparation do not count as completed experiments; one GPU candidate at a time. Reassess after three unsuccessful coherent-family experiments.",
@@ -690,5 +772,5 @@
   "next_diagnosis": "Use N12 profiles for N10 gather work. CPU perf capture available for lifecycle diagnosis; native sequence-dependent memory findings remain unresolved.",
   "acceptance_policy": "Retain verified application speedups, and correctness-qualified performance-neutral enabling changes with a concrete architectural benefit/follow-up and no material scenario regression. Label the two separately; user clarification2026-09-11. Quality failures are not neutral results.",
   "final_validation_plan": "After20 completed hypotheses, compare the final retained composition against frozen starting E12 in a fresh matched3x600 idle/heavy A-before/B/A-after campaign. Report batch gain from that cohort; do not add successive percentages. Include initialization, maxima, exact budgets and fixed windows, and retain existing physical qualification gaps.",
-  "next_work": "Prioritize first-class accepted-world export/restore, reuse PhysX collection serialization where valid, extend destruction state, qualify untouched/restored next-tick and continuation parity. Then single-tick A/A and A/B over the24-case semantic suite; larger structure/island catalog follows. Prefix baseline10 is complete and is not snapshot qualification."
+  "next_work": "Finish N20 full52 equal-length20/20/20 comparison and review restored/warm tradeoffs. N15 anchored/free specialization builds separately, no GPU overlap. Counter expansion39/52 complete, remaining application-replay captures use clean pause boundaries. N06a rejected; no N14 promotion or frozen N13 replacement."
 }

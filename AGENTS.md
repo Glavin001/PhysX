@@ -1,5 +1,38 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Current continuation (2026-09-12, supersedes the parked-process instructions below):
+CPU attribution and graph counters qualify52/52; significant ordinary counters
+qualify39/52, including recovered city64 initial-impact (240 records, physical
+comparison passed). Current parent uses `profile-config-suite.py --resume
+--ncu-replay application --reuse-other-replay-mode --watchdog-seconds 3600
+--pause-file out/end-to-end-attribution-20260912/counter-pause`. A pause file stops
+only the NEXT capture after current GPU work/audits finish. Never benchmark until
+campaign status is `paused`. Old parents146583/347295 were terminated; do not
+resume them. The restoration watcher remains active and waits for this parent.
+See `recovery/counter-orchestration-migration.json` for process ownership.
+
+N20 passes16 native commands +3 normal asynchronous memory checks per arm. Equal
+20/20/20 restored means: city25 impact40.042/42.286/40.679ms, city256 idle
+62.792/63.452/62.793ms, late debris395.160/357.108/396.107ms (A/B/A). Reversed
+impact N20/control/N20 means40.043/40.020/37.228ms do not reproduce a consistent
+regression. Warm600 heavy54.378–54.444ms candidate versus54.466–54.517 controls,
+519/600 misses throughout; no substantial warm or peak gain. CPU samples confirm
+less lifetime-array recreation on large restored debris. Full52×20/20/20 is
+queued by `out/n20-requalification-20260912/run-full-after-counter.py`; it holds
+the next counter boundary, benchmarks serially, then resumes counters on success.
+No N20 retention yet. Original unequal-length light timing is unqualified; all
+new cohorts use equal per-process repetitions and retain every first-use tick.
+
+N06a is rejected: one-block dense/tower means513.374/2284.911ms versus32.106/
+109.121 controls. Physical/memory checks pass; lost parallelism dominates.
+Batch now12/20. N15 anchored/free specialization is separately prepared at
+`dccbe23f0022b2d3b68c66bb97a877ff5e3532a4`; build/oracle work under
+`out/n15-anchored-20260912`, GPU checks pending. Main source/index, best frozen
+N13 and installed original SDK remain unchanged. Current compatible profiling
+runtime still includes unaccepted N14; these results do not promote it.
+[Current N20 scenario/stage report](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-followup.md).
+
+
 Latest recovery continuation (2026-09-12): the user explicitly authorized reversible
 service/GPU recovery, then rebooted the host (boot07:05:39 UTC). This supersedes the
 older no-recovery-authorization notes below. Desktop initially restarted, then
@@ -11,6 +44,11 @@ restores both desktop and server after owned counter jobs and queued screening e
 counter campaign parent while its current child capture finishes, then runs the
 serial native/light screen and always resumes that parent. Inspect its
 `counter-gap.json`; do not mistake the deliberately parked parent for a hang.
+The gap coordinator itself is now held for result review (PID347295), while its
+N20 child continues. `out/n20-requalification-20260912/manual-gap-extension.json`
+records this hold. After N20 review and the separate prepared N06 structural
+screen, send SIGCONT to that owned coordinator; its finally block resumes the
+counter parent PID146583. Never resume while a separate GPU screen is active.
 Server restart pins the hash-verified original `out/install/lib` SDK: its old
 binary must not pick up later experimental libraries in the mutable build path. **52/52 CPU-attribution cases now pass**, 104 checked ticks,
 21,401 CPU samples, 91,538 engine scopes and18,376 launches, with zero observed

@@ -624,6 +624,36 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-initial-impact/analysis.json",
+    "bytes": 50566380,
+    "sha256": "5f70fac79d32553cfc036047f4a30ef4012d93bdbda30e36f084d3e1a7fccfa1",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-initial-impact/counters.ncu-rep",
+    "bytes": 326355128,
+    "sha256": "f5b51dd8f92b80ea1eaabbbd7de41a2e92aff05038f6f819f91c0c9d08a0bed1",
+    "sha256_origin": "completed campaign counter audit"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-initial-impact/physical-comparison.json",
+    "bytes": 1493,
+    "sha256": "91a0af65ce12df2ade094e3c6ba74b9e1573a8e1aa7be75df8bf0d6cfdbbf2a8",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-initial-impact/receipt.json",
+    "bytes": 2338607,
+    "sha256": "d52ba2efc0ca2fb5e9e893c53492b5e983be3f9dae79ded5f38efb7588427679",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-initial-impact/replay.json",
+    "bytes": 2159,
+    "sha256": "16000c2a4cd0b6a482301b3545f42d9888bd5f76aa8916d58d1204a4f6641161",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-intact-idle/analysis.json",
     "bytes": 10119288,
     "sha256": "0df0878cf251bfd91d6d6898df3a0c0c4ccbef8a822e9c0281b1ba05967cf623",
@@ -3666,6 +3696,60 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n06-granularity-20260912/run-structural-screen.py",
+    "bytes": 3250,
+    "sha256": "3c8cd63cf44f71cecf727ce9bdd0439f8ed819c0896ea68e7e68447716fa8e49",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n06-granularity-20260912/screen/campaign.json",
+    "bytes": 6879,
+    "sha256": "da643f060e2fac94a4cc5f0a6f4ba11f158828b3fc62666a68701a7079c71c4b",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/report.json",
+    "bytes": 13826,
+    "sha256": "013a2479cfec01407df16bfceac58343e54f466f8ba14247e1f506f3589fa802",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/build-isolated.py",
+    "bytes": 4070,
+    "sha256": "2b11a7759d1d901b45256aa0fe1b625178b34c1cb2befbf8c27c9846fd78739b",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/build-oracles.py",
+    "bytes": 4240,
+    "sha256": "ba88f334fa22aa45a70d6ff684ad6a864967eafa2439375b0846a36204091739",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/build/build.json",
+    "bytes": 406698,
+    "sha256": "2ce524c15a63f0529da21d5cff904146c937d758a8fbe552e20fb358f4f1c444",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/candidate.patch",
+    "bytes": 7973,
+    "sha256": "9a3a6ced739757052c904b25afdac969f8d7b8ea7b461d0831ce1641e021607c",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/preparation.json",
+    "bytes": 3643,
+    "sha256": "639b2af9fda0211777481b9b7c0176806e54a3566f1cb5ac7e47b03dcaf7e2b8",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build-cpu-probes.py",
+    "bytes": 2167,
+    "sha256": "628db5a51295fdac97a29b1de3796f03f03ab0d499e4a7ae106d171daa05b3c7",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build-fresh-native-tests.py",
     "bytes": 3375,
     "sha256": "e95ab4c9cce70a282e4a2c073a5e808cd70f34e927087f7b37a368aa15ff7f06",
@@ -3687,6 +3771,192 @@
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/candidate.patch",
     "bytes": 1215,
     "sha256": "48ad911fad25abbbedc67e0f75f212f1357bc3dbc209bde3a13c62f44a5b19ae",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/confirmation-manifest.json",
+    "bytes": 4255,
+    "sha256": "22f45b4fd9b18d4be20485950c2c4ec216e6ea03c55bcb795639589b6464fada",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/confirmation20/report.json",
+    "bytes": 20179,
+    "sha256": "c8c8dbf850838bfca2fde346d84ff582f9f9c440b27b5bccc15e01bf5da47c58",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/campaign.json",
+    "bytes": 3193,
+    "sha256": "89974820ffd622f34784a6e0e8ef9c818fdf0209d1625854da757567aa6f8eaa",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/city25-initial-impact/attribution.json",
+    "bytes": 7627816,
+    "sha256": "4d6eaa700ad52e09ef613209ef40514b9f0382830d11648b9771182ef8cd5029",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/city25-initial-impact/physical-comparison.json",
+    "bytes": 1505,
+    "sha256": "64951214d08b2bbdfe15c3cd3463d2b22fb5cfa85f1818c12cf7470ac540f0dc",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/city25-initial-impact/receipt.json",
+    "bytes": 13733,
+    "sha256": "efd0565cd1aba64d9bcfe71aec843f84cae0fe605801ab94f0a706f41cb135be",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/city25-initial-impact/replay.json",
+    "bytes": 2116,
+    "sha256": "cfb63ca9c45cb1f801cae0a9bdb69042d5ce2eb171f9feb0138c80bf6a68ea09",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/city256-late-debris/attribution.json",
+    "bytes": 16841236,
+    "sha256": "5289460074200cd60fb15149c6a573fe15f6cc1e61f4af175b31e78854500ec5",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/city256-late-debris/physical-comparison.json",
+    "bytes": 1502,
+    "sha256": "79841fa84d4f44e244265264b0e5b31796650e63c655825f6e3c30ca28e996a3",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/city256-late-debris/receipt.json",
+    "bytes": 36762,
+    "sha256": "f3372cfc859d7e917fead33adb7f3e94eadc751f7922f5937417a296f9d53018",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-after/city256-late-debris/replay.json",
+    "bytes": 2196,
+    "sha256": "8c45a17dcc95e5dc0afcb5d8eb98ac9a9fd128752beb8c00e2c278ea8df2e9a1",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/campaign.json",
+    "bytes": 3196,
+    "sha256": "9a4df2eb226508147f7052abccbc891071041f96304bf49972fca187f620678a",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/city25-initial-impact/attribution.json",
+    "bytes": 7383367,
+    "sha256": "1709601951d1ef2e589f7579c544e4d27d90418d1355dc66c016faac14c74594",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/city25-initial-impact/physical-comparison.json",
+    "bytes": 1506,
+    "sha256": "fcc973510ff3c0938952de277f419aff95b2e2f5763ec5e23ec6157be4135a76",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/city25-initial-impact/receipt.json",
+    "bytes": 13732,
+    "sha256": "aad4027dcafec297b03759daa1dd8154ff0b589b60fd2033005d6976a7c0ec62",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/city25-initial-impact/replay.json",
+    "bytes": 2100,
+    "sha256": "d96d1a309071a1059824fbfb31f812517c02b7f6fe090ee21a5779ad1b863baa",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/city256-late-debris/attribution.json",
+    "bytes": 11845843,
+    "sha256": "035edf72876cefd9a000fe5e188d4e0eab9c5280b0a78ec6c0c421100f3f78c5",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/city256-late-debris/physical-comparison.json",
+    "bytes": 1503,
+    "sha256": "a9e41a487e206a7dc9c0c96390f31ebfcf0d54a89ac5c1ef31829fb54f127162",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/city256-late-debris/receipt.json",
+    "bytes": 36970,
+    "sha256": "10a7e2807a4c0c6aa56c0b13e8234cfade23e6cda58b4bd9ecbaf849c3b557a1",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/A-before/city256-late-debris/replay.json",
+    "bytes": 2152,
+    "sha256": "f02cd24fbcd2499914e4e0b7a0258b0ef354902aa3db6b297152cbe2999d0ee6",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/campaign.json",
+    "bytes": 3170,
+    "sha256": "4b273cbf453670ed787b64dfb13ee748c258231c5df65f7ea71cf4a4152171d2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city25-initial-impact/attribution.json",
+    "bytes": 7837420,
+    "sha256": "ea3cd80d32bf9f4bd2437527bd4b60d14f5262eff5a6740171ad3ea0cfa8ad04",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city25-initial-impact/physical-comparison.json",
+    "bytes": 1499,
+    "sha256": "62390fbe9b3af191dadc870681c07fd16a9d590d71b0044c021c20321bcce40b",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city25-initial-impact/receipt.json",
+    "bytes": 13716,
+    "sha256": "da31112af1d23e287d3c679b59d69d3d086f6ac5b891672d704a958d693879f8",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city25-initial-impact/replay.json",
+    "bytes": 2102,
+    "sha256": "c12e61b60b056f16c51e75aead21fb0116fa4479f3bcf4c42ce64951396e843e",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city256-late-debris/attribution.json",
+    "bytes": 13507755,
+    "sha256": "4c3bf82ada9ba1bf902b4f1255977622fd9747426bc73679f54ad810e2be6cd6",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city256-late-debris/physical-comparison.json",
+    "bytes": 1496,
+    "sha256": "ff2063892d71c810bc660be013bf8bcb9ff7bb45d4bda0794fbbb7b09f769ac1",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city256-late-debris/receipt.json",
+    "bytes": 35740,
+    "sha256": "10d6c632eed7713b3679a87f43d63748d98354c07eb0f017059935627e31e90f",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city256-late-debris/replay.json",
+    "bytes": 2157,
+    "sha256": "d993a8c9d59e0f0ebe048af12f8ae9bdce853d75e7613a972048f33e115ad544",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/campaign.json",
+    "bytes": 2253,
+    "sha256": "ef4a2f72a191137d7284d15c79a8e91981771589b5e1e5e383020c51fb780362",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-probes/build.json",
+    "bytes": 11184,
+    "sha256": "581ca22024d3dace6511e35d349abc1c8b4eb98a7656aa76e368e16e767601d0",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3714,9 +3984,45 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/impact-repeat-manifest.json",
+    "bytes": 1821,
+    "sha256": "48830f0b43a963b6c5a6b65e5a31529c52d5fea4232a2c2bd902ad7782a0be34",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/report.json",
+    "bytes": 8126,
+    "sha256": "1103ac4ae172a47f4ae68f04ba2fecdeeca58628b0c4766232e2f01b70d207d2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/matched-light-balanced/report.json",
+    "bytes": 44679,
+    "sha256": "58c9fbf48523aff804157d7011f921a6f6427e8a91d443dc19467c082cdfe0e6",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/matched-light-manifest.json",
     "bytes": 8231,
     "sha256": "df51e6c71a4466854de82871df20056e1d042f6529a44110383df8076e6f2a96",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/matched-light/report.json",
+    "bytes": 42194,
+    "sha256": "f576005a0f217f3f74d49590a9e1dd83450cb6f6781253f2d966e86b7a18c146",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/native-A/campaign.json",
+    "bytes": 29867,
+    "sha256": "bc203055df973903ced6f764b881a97149f00fcac485ee96946cb132b61e462a",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/native-B/campaign.json",
+    "bytes": 29873,
+    "sha256": "80a3c70842d69908942788a51a49798b762be07d991d389f7292803a9437be3e",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3726,9 +4032,33 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/qualification-campaign.json",
+    "bytes": 2033,
+    "sha256": "585c0a84ec6c7c80dc70508462b80e5af7095e42ad64561b9ab3e08f7384ea9a",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-after-counters.py",
     "bytes": 3164,
     "sha256": "23f247b81700cd5d54bc50c07f13aac7eca665e4b90fd83c2375ba1d10381474",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-cpu-attribution-v1.py",
+    "bytes": 2134,
+    "sha256": "76b69165d5d92c9c9f6c20161c3e25140e422cd0261ba821aacb06caeaba0094",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-cpu-attribution.py",
+    "bytes": 1500,
+    "sha256": "4b6b5bddcd0f0e8c23ecb1f5d2105c94ae7fa3e6e3495bc0511bfbcc250e919d",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-full-after-counter.py",
+    "bytes": 2034,
+    "sha256": "1dcc336741d1f786590ef18f55436b29bc523d3863f180a1d41e0d73b43c03ea",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3741,6 +4071,18 @@
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-native-gates.py",
     "bytes": 2797,
     "sha256": "21fa6e64edcbce2ebfaca7ef8e3efa4e35a32a0deb0c4f6e3f051e3fa113bafb",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-warm-screen.py",
+    "bytes": 4254,
+    "sha256": "0fca3ec33d319a4a007e20144f34fc70df02b077b0c0728e7f4ef369ea1e4de2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/warm600/campaign.json",
+    "bytes": 50174,
+    "sha256": "86138bd159420666aa610d1a0e55b3ff9a096bc0e7aa5eeb0a8a26257f8711a2",
     "sha256_origin": "rehashed by index builder"
   }
 ]

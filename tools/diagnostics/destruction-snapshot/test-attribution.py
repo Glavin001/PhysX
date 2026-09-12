@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Accounting and kernel-inventory regression checks, independent of the GPU."""
-import importlib.util,unittest,json,tempfile
+import importlib.util,unittest,json,tempfile,copy
 from pathlib import Path
 def load(name,file):
     s=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file));m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
@@ -11,6 +11,31 @@ tiers=load('tiers','report-attribution-tiers.py')
 counter_summary=load('counter_summary','summarize-counter-configs.py')
 source_counter=load('source_counter','analyze-source-counters.py')
 class AttributionTests(unittest.TestCase):
+    def test_completed_capture_recovery_checks_workload_and_collection_contract(self):
+        identity=dict(binary_sha256='binary',modules={'runtime.so':'module'})
+        case=dict(prefix='/input',input_sha256={'/input.state':'input'},projectile_impulse=True)
+        receipt=dict(status='complete',exit_code=0,binary_sha256='binary',modules={'/lib/runtime.so':'module'},
+            snapshot_inputs=case['input_sha256'],kernel_fault_audit=dict(available=True,output=''),
+            diagnostic_environment=dict(PHYSX_SNAPSHOT_DUMP_OBSERVATIONS='1'),
+            profiler=dict(tool='ncu',version='Version 2025.3.1.0',metric_mode='full',explicit_metrics=None,
+                graph_profiling='node',apply_rules='no',replay_mode='kernel',kernel_selection=dict(
+                    identifiers='expression',name_base='mangled',filter_mode='per-launch-config',count=100000)),
+            command=['ncu','--profile-from-start','off','--set','full','--clock-control','none','--cache-control','all',
+                '/binary','/capture','--replay','/input','--repetitions','2','--projectile-impulse'])
+        def check(r,mode='application',reuse=True):
+            return config.validate_completed_capture(r,identity,case,'expression',Path('/binary'),Path('/capture'),mode,reuse)
+        self.assertEqual(check(receipt),'kernel')
+        with self.assertRaises(AssertionError):check(receipt,reuse=False)
+        mutations=[('status','running'),('binary_sha256','changed'),('snapshot_inputs',{}),
+            ('kernel_fault_audit',dict(available=True,output='NVRM: Xid 120')),
+            ('diagnostic_environment',dict(PHYSX_SNAPSHOT_DUMP_OBSERVATIONS='1',CUDA_LAUNCH_BLOCKING='1'))]
+        for key,value in mutations:
+            bad=copy.deepcopy(receipt);bad[key]=value
+            with self.subTest(key=key),self.assertRaises(AssertionError):check(bad)
+        bad=copy.deepcopy(receipt);bad['command'][-2]='20'
+        with self.assertRaises(AssertionError):check(bad)
+        bad=copy.deepcopy(receipt);bad['profiler']['kernel_selection']['count']=1
+        with self.assertRaises(AssertionError):check(bad)
     def test_source_correlations_do_not_duplicate_instruction_counts(self):
         row={k:'10' for k in source_counter.KEYS};sass={'0x1':row,'0x2':row}
         result=source_counter.summarize(sass,[('0x1',('a.cuh','1'),row),('0x1',('a.cuh','2'),row)])

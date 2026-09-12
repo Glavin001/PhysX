@@ -1,0 +1,231 @@
+{
+  "status": "complete",
+  "candidate_commit": "77a7baa37802808681093a7695ca7a9a686d8b06",
+  "scenarios": [
+    {
+      "scenario": "city25-initial-impact",
+      "A": {
+        "n": 40,
+        "mean_ms": 38.635755025,
+        "median_ms": 38.8966805,
+        "max_ms": 50.337821,
+        "sd_ms": 3.20174312504373,
+        "peak_sample_index": 0,
+        "over_8ms": 40,
+        "over_120hz": 40,
+        "over_60hz": 40,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 68.51918165,
+        "stages_ms": {
+          "command_ms": 0.0001693,
+          "simulate_fetch_ms": 38.37594175,
+          "completion_ms": 0.259643975
+        }
+      },
+      "context_setup_ms": {
+        "A0": 782.577768,
+        "B": 655.323601,
+        "A1": 672.683117
+      },
+      "first_tick_ms": {
+        "A0": 50.337821,
+        "B": 48.496522,
+        "A1": 47.345025
+      },
+      "later_tick_mean_ms": {
+        "A0": 39.50134078947369,
+        "B": 39.57392436842105,
+        "A1": 36.69588842105263
+      },
+      "saved_ms": -1.3842992249999995,
+      "descriptive_saved_ms_95": [
+        -2.912674349999996,
+        0.13487242499999752
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/city25-initial-impact-A0",
+        "B": "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/city25-initial-impact-B",
+        "A1": "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/city25-initial-impact-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 40.0431648,
+        "median_ms": 39.4907325,
+        "max_ms": 50.337821,
+        "sd_ms": 2.625555601159467,
+        "peak_sample_index": 0,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 66.827154,
+        "stages_ms": {
+          "command_ms": 0.00019470000000000002,
+          "simulate_fetch_ms": 39.75680345,
+          "completion_ms": 0.28616665
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 40.02005425,
+        "median_ms": 40.086743,
+        "max_ms": 48.496522,
+        "sd_ms": 2.6591700054663643,
+        "peak_sample_index": 0,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 71.28611395,
+        "stages_ms": {
+          "command_ms": 0.00014785000000000002,
+          "simulate_fetch_ms": 39.78095745,
+          "completion_ms": 0.23894895
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 37.228345250000004,
+        "median_ms": 36.7265825,
+        "max_ms": 47.345025,
+        "sd_ms": 3.1588289755639685,
+        "peak_sample_index": 0,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 70.2112093,
+        "stages_ms": {
+          "command_ms": 0.0001439,
+          "simulate_fetch_ms": 36.99508005,
+          "completion_ms": 0.2331213
+        }
+      }
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/city25-initial-impact-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/city25-initial-impact-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/city25-initial-impact-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "runner_sha256": "cd2a50501e6df5bde0da0540607671144a5ceb0c95a3218e223da75ab3cb15e7",
+  "repetition_policy": "Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.",
+  "binaries": {
+    "A": {
+      "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+      "sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61"
+    },
+    "B": {
+      "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+      "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+    }
+  },
+  "modules": {
+    "A": {
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+    },
+    "B": {
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+    }
+  },
+  "checker_sha256": "790e6c488889bacbd18e498bcb206c7fbcec23f91af98068aa32582bf55b76c2",
+  "force_scaled_bound": 0.0002,
+  "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Unprofiled comparison with recorded GPU admission; no profiler timings or automatic acceptance.",
+  "harness_seconds": 18.83245390400043
+}

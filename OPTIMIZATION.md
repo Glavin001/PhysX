@@ -653,7 +653,7 @@ python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-flat-mem-sui
   --allow-existing-graphics --allow-compute-pid 435374
 ```
 
-Matched A-before / B / A-after per scenario uses 10 / 20 / 10 independent restores,
+Current matched A-before / B / A-after per scenario uses20 /20 /20 independent restores,
 one full tick each. Every arm uses the same observation binary; all observation
 readbacks, physical comparisons and restore work are outside the tick timer.
 Persistent post-tick destruction state and load arrays must match exactly.
@@ -1074,7 +1074,7 @@ weighted averages or complete-step savings. Graph counters remain a separate tie
 N20 requalification uses isolated statically linked A/B consumers in
 `out/n20-requalification-20260912/build/`, with freshly compiled native
 correctness consumers in `fresh-native/{A,B}`. The demo and plain probe control hashes
-match the existing baseline; both sets of native consumers require fresh gates.
+match the existing baseline; both sets now pass their fresh gates.
 After all profiler jobs have ended, run serially on the admitted GPU:
 
 ```bash
@@ -1085,8 +1085,10 @@ python3 out/n20-requalification-20260912/run-native-gates.py --arm B
 These reuse16 discovered native commands and three normal asynchronous memory
 gates per arm, preserving arguments, working directory and timeout.
 `run-probe.py --test-args-json FILE` supplies exact test arguments without adding
-a snapshot output argument. Candidate correctness and timings are still pending;
-these commands are not recorded as passes. N10 operator caches already exist;
+a snapshot output argument. Both arms pass16 native commands and three normal
+asynchronous memory checks. The corrected light/targeted/warm screens are recorded
+in the current N20 follow-up report; all52 final comparison remains pending.
+N10 operator caches already exist;
 N02 residual-projection removal remains rejected and must not be requeued.
 
 ### Physical trait and instruction-level reviews
@@ -1130,15 +1132,22 @@ GPU libraries alone cannot test them. Both binary/module identities are frozen
 for the campaign and checked against each run receipt. Context setup, restore and
 validation stay outside the complete-tick timer. Reports include convergence work,
 phase means, full-step means/maxima, peak sample indices and exact budget misses.
+`--control-repetitions` and `--candidate-repetitions` must match. Historical
+10/20/10 results retain physical evidence but have unequal first-use weighting;
+do not infer a small speedup from those timing means. Equal-length600-tick
+continuous comparisons remain a separate valid protocol.
 
-The seven frozen light inputs use42 candidate ticks and42 total control ticks in
-the matched screen: only the two original three-sample cases are rounded up to
-four, so each control cohort has at least two samples. No physical input or
-quality bound changes. The normal40-tick light preset remains unchanged.
+The seven frozen light inputs use40 ticks in EACH A-before/B/A-after cohort:
+120 ticks total,80 control and40 candidate. Equal per-process lengths give
+first-use ticks equal weight. Preserve all samples; do not warm up or discard
+startup ticks. No physical input, case count or quality bound changes. The normal
+40-tick single-arm light preset remains unchanged. The earlier84-tick matched
+screen is timing-unqualified because its shorter controls over-weighted first use;
+see `first-use-bias.json`.
 
 ```bash
 python3 tools/diagnostics/destruction-snapshot/run-matched.py out/NEW-cpu-light \
-  --manifest out/n20-requalification-20260912/matched-light-manifest.json \
+  --manifest out/snapshot-light-20260911/confirmation/manifest.json \
   --use-case-repetitions \
   --binary out/n20-requalification-20260912/build/A/serialization-probe \
   --candidate-binary out/n20-requalification-20260912/build/B/serialization-probe \
@@ -1147,17 +1156,105 @@ python3 tools/diagnostics/destruction-snapshot/run-matched.py out/NEW-cpu-light 
   --candidate-commit b7918affda83942dba04e8626db696cca7fd283a
 ```
 
-The live `run-in-counter-gap.py` coordinator temporarily parks only the owned CPU
-campaign parent while its current capture finishes. It waits for that GPU child
-to terminate before running native A/B gates and the matched light screen, and
-always resumes the counter parent afterward. `counter-gap.json` and
-`qualification-campaign.json` record transitions. Do not launch a second GPU job.
+The old `run-in-counter-gap.py` signal-based coordinator has ended. The current
+counter parent supports `--pause-file`: create the file, let the current capture
+and audits finish, and require campaign status `paused` before starting a separate
+GPU job. Deleting the file resumes collection. `run-full-after-counter.py` now
+uses that boundary for the N20 full52 screen and resumes collection on success.
 The restoration watcher remains responsible for returning desktop/server after
 collection; it reuses an already completed screen instead of rerunning it.
 
 N06's isolated build in `out/n06-granularity-20260912/build/{A,B}` changes only the
 host launch policy: one cooperative block for complete problems through4096 nodes,
 with the existing multilevel preconditioner and small-component threshold intact.
-This is a separate unqualified experiment, not combined with N20. Its build recipe
-is `build-isolated.py`; `preparation.json` records its isolated commit. Candidate
-GPU checks and measurements are pending.
+This separate N06a pilot is rejected, not combined with N20. Its build recipe is
+`build-isolated.py`; `preparation.json` records commit
+`c76c60678f42e8e62cdfab02d8b317df69b3fbdb`. Normal asynchronous memory and physical
+checks pass; dense/tower full-step means worsen32.106→513.374ms and
+109.121→2284.911ms. The original broader N06 decomposition remains untested.
+
+
+Refresh the public artifact index after campaigns finish. It hashes public
+receipts/build recipes, reuses the audited counter-report digests, and excludes
+private recovery environments/crash data and actively changing campaign files:
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/index-attribution-artifacts.py \
+  out/end-to-end-attribution-20260912 \
+  qualification/optimization-next20-20260910/end-to-end-attribution-20260912
+```
+
+
+The pinned2025 collector's recorded commands explicitly use cache control `all`
+and clock control `none`; actual clocks remain driver-managed. Its local CLI
+clock default is `base`, but the wrapper overrides it. The command audit in
+`collector-policies.json` records the effective policy; inspect telemetry for
+actual frequency. Counter times/cache behavior do not
+replace normal unprofiled application measurements. For a concrete cross-kernel
+cache hypothesis, use a separately declared application-replay/cache-control-none
+pilot and original quality gates; do not change the whole atlas opportunistically.
+
+### Resumable counter collection and current final-screen commands
+
+The current39 qualified ordinary-counter cases include city64 initial-impact's
+completed240-record capture recovered after its parent was paused. Recovery
+requires matching binary, modules, inputs, full metric policy, selected
+configurations, collector hashes and fault audit, then reruns counter inventory
+and physical comparisons. Partial GPU captures remain failed attempts. No good
+capture is overwritten or silently treated as qualified.
+
+Remaining larger cases now pilot application replay because kernel replay's
+memory-backup cost grew sharply with world size. The city25 pilot did not prove
+application replay faster; keep per-case replay mode and collection duration.
+The3600-second watchdog is a capture limit, not an application performance budget.
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/profile-config-suite.py \
+  out/end-to-end-attribution-20260912/configs-full --resume \
+  --timeline-campaign out/ncu-fix-20260912/full \
+  --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
+  --binary out/snapshot-counters-20260911/probe/serialization-probe \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --coverage .99 --ncu-replay application --reuse-other-replay-mode \
+  --watchdog-seconds 3600 \
+  --pause-file out/end-to-end-attribution-20260912/counter-pause
+```
+
+Do not start a second parent when this command is already live. Create the pause
+file to request a GPU gap; inspect `configs-full/campaign.json` until `paused`.
+Deleting it resumes the next capture. Never use profiler timings for acceptance.
+
+Exact N20 final comparison (the existing queue driver runs this once at a paused
+boundary; use a fresh output when repeating):
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-matched.py out/NEW-n20-full52 \
+  --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
+  --binary out/n20-requalification-20260912/build/A/serialization-probe \
+  --candidate-binary out/n20-requalification-20260912/build/B/serialization-probe \
+  --baseline-artifacts out/snapshot-reset-20260911/local-artifacts \
+  --candidate-artifacts out/snapshot-reset-20260911/local-artifacts \
+  --candidate-commit b7918affda83942dba04e8626db696cca7fd283a
+python3 tools/diagnostics/destruction-snapshot/test-matched.py
+python3 tools/diagnostics/destruction-snapshot/test-attribution.py
+```
+
+Default equal20/20/20 counts mean3,120 full ticks across52 cases. Current corrected
+light, targeted confirmation, reversed impact repeat, two trials of600 warm ticks
+per stage/scenario and CPU attribution are in
+[the N20 follow-up](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-followup.md).
+The large restored-debris gain is not a warm gameplay gain; no N20 retention yet.
+
+N15's separate isolated build applies anchored/free templates only to its copied
+stress sources. Existing numerical oracle consumers are freshly built against
+each arm's exact runtime stress object; the motion-mode oracle compiles its
+included implementation from that arm's source copy. No main runtime mutation:
+
+```bash
+python3 out/n15-anchored-20260912/build-isolated.py
+python3 out/n15-anchored-20260912/build-oracles.py
+```
+
+These recipes refuse to overwrite their output directories. Build status and
+commands are recorded under `build/build.json` and `oracles/build.json`; GPU
+qualification remains separate. Finish builds and heavy analysis before timings.

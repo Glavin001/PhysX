@@ -3,10 +3,12 @@
 **CPU and full graph counters pass all52 scenarios.** The graph expansion
 contains461 nonempty graph invocations /49 reports /98 checked ticks; three
 zero-graph scenarios have explicit inventory rows. The representative ordinary-
-kernel expansion is in progress. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
+kernel expansion qualifies39/52 scenarios and is continuing. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
 [structured coverage](coverage-tiers.json), [full-step baselines and CPU stages](report.md),
 and [ordinary-kernel counter ranges](ordinary-counter-summary.md).
-No runtime optimization or speedup is claimed. Physical inputs, ordinary APIs,
+The profiling expansion itself makes no runtime or speedup claim. Isolated N20
+shows a restored-debris benefit but remains unretained pending full-suite review;
+N06a is rejected. [All candidate scenario/stage evidence](n20-followup.md). Physical inputs, ordinary APIs,
 sleep, correction limits, runtime modules and tolerances are unchanged.
 
 ## Recovery and CPU qualification
@@ -71,8 +73,12 @@ representative launches. This is planned coverage until captures and audits pass
 The ordinary-kernel pilot passes strict application replay:93 configurations,
 215 full-counter records, exact inventory and physical comparison;40 replay
 processes took1099.56seconds plus export/audit (1125.44seconds total). It did not
-establish a collection-time advantage over kernel replay. The expansion uses
-kernel replay and explicitly reuses that qualified application-replay pilot. Original kernel-replay attempts are preserved.
+establish a collection-time advantage over kernel replay. The first39 cases use kernel replay except the reused city25 application pilot.
+The city64-impact240-record capture finished while its parent was paused; its
+recovered export/inventory/physical audit passes. Remaining cases now pilot
+application replay with a3600-second watchdog because kernel-replay cost grew
+sharply with world memory. This is a collection-cost hypothesis, not an established
+advantage. Original attempts and replay mode remain explicit.
 Application replay repeats the process for counter passes; each process runs
 the native two-restore repeatability check. The final two outputs also receive
 the explicit unprofiled-reference physical comparison. Intermediate process
@@ -96,6 +102,13 @@ aborts at first impact, so it supplies no remedy. The full ordinary expansion
 is now running headless with the stable2025 collector. See [the controls](l2-controls.json).
 Offline `--import --apply-rules yes` is rejected by the2025 CLI, so rule reruns
 cannot be assumed to work without recapturing.
+
+The recorded collector commands explicitly select cache control `all` and clock
+control `none`. The installed CLI default clock policy is `base`, but the wrapper
+overrides it; actual clocks remain driver-managed. Counters characterize diagnostic
+replay with collector cache handling, not normal cross-kernel cache reuse. Use Systems and unprofiled ticks for application attribution. A
+specific cache-reuse experiment may need a targeted application-replay capture
+with cache control disabled. [Recorded collector policies](collector-policies.json).
 
 ## Continuous application controls
 
@@ -136,19 +149,23 @@ anchored/free and size-based solver decomposition, eligible small
 component direct solves, compact CPU mirrors and exact-input certificates. Each includes evidence, mechanism, scenarios,
 estimated application savings, confidence, cost and support/refutation criteria.
 Estimates are hypotheses, not subtraction of profiler time from baseline time.
-The original N-series remains11/20 and best N13 stays retained.
+The N-series now records12/20 completed experiments after N06a rejection; best N13 stays retained.
 
 Use exact commands in [OPTIMIZATION.md](../../../OPTIMIZATION.md). New tools are
 `profile-graph-suite.py`, `profile-config-suite.py`, `profile-warm-suite.py`,
-`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Fifteen accounting,
+`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Sixteen accounting,
 classification and representative-selection tests pass. Historical pre-reboot
 status is retained in [history-before-reboot.md](history-before-reboot.md).
 Private process environments and crash cores are not published or committed.
 
-The isolated N20 CPU-capacity candidate now builds with matched consumers. Rebuilt
-control demo and nonprofiling snapshot probe are byte-identical to the current
-baseline. This is preparation only: candidate GPU correctness and timing are
-pending, and the20-experiment batch remains11 completed. [Build evidence](n20-build-preparation.json).
+The isolated N20 CPU-capacity candidate passes16 native behavior commands and
+three normal asynchronous memory gates per arm. Matched control demo/probe are
+byte-identical to the current baseline. Corrected light and20/20/20 targeted
+comparisons pass physical gates. Large restored debris improves38.525ms; the
+smaller impact's first regression does not consistently repeat with reversed
+order. Warm600 gameplay gains are small/inconclusive, with unchanged deadline
+misses. Full52×20/20/20 is queued before any retention decision.
+[Complete results, stage costs, peaks and raw pointers](n20-followup.md).
 
 Queue audit: N10 operator caches already exist; N02 intermediate-projection
 removal remains rejected by its numerical fixture. Neither is a new queued
@@ -157,7 +174,7 @@ optimization. Current follow-ups preserve those conclusions.
 Native N20 correctness consumers are now rebuilt from fresh scene/test sources
 in `fresh-native/{A,B}`. Earlier linked test artifacts are preserved and were
 never executed as qualification. The benchmark demo and plain probe controls
-remain byte-identical; fresh native tests still require GPU execution.
+remain byte-identical; fresh native and asynchronous memory gates now pass.
 
 The [physical-trait census](physical-traits.md) covers all52 existing outputs.
 Tower64 contains2368 connected chunks (2304 stress unknowns), dense12 has1728
@@ -170,17 +187,31 @@ instructions unaccounted for. Barrier and short-scoreboard samples motivate a
 separate execution-granularity experiment; they are not speedup percentages.
 
 
-The next CPU candidate is queued in a serial gap after the current city64-impact
-capture. The GPU capture finishes normally; only its CPU campaign parent is
-parked. Native A/B behavior and asynchronous memory gates precede a matched light
-screen (same seven inputs,42 candidate/42 control ticks). The coordinator always
-resumes collection. See `out/n20-requalification-20260912/counter-gap.json` for live
-state; no timing or correctness result is credited before those gates run.
+Counter collection now uses a pause file at capture boundaries, replacing the
+old signal-held parents. Completed GPU receipts can be recovered only after
+identity, policy, collector, fault, inventory and physical checks. The N20 full
+comparison waits for status `paused`, runs alone, then resumes collection on
+success. `full52-driver.json` records transitions. The restoration watcher stays
+responsible for returning the desktop/server against the original installed SDK.
 
-The separate [N06 structural pilot](n06-build-preparation.json) is also built.
-It retains all existing solver equations, multilevel preconditioning and component
-eligibility, changing only the cooperative launch policy for complete problems
-through4096 nodes. All233 disassembled device functions match the rebuilt control
-and existing baseline after normalizing only nvcc's source-path namespace hashes.
-This is build evidence, not a GPU correctness or performance result. Neither
-candidate changes the main runtime, installed SDK, retained N13 or experiment count.
+The [N06a structural pilot](n06a-result.md) is rejected. All233 device functions
+match, and native physical/memory checks pass, but dense/tower means rise from
+32.106/109.121ms to513.374/2284.911ms. Reduced parallelism overwhelms any barrier
+savings. Original size-specialized N06 remains untested; do not repeat this
+one-block threshold approach. N15 instead builds distinct anchored/free component
+kernels while retaining parallel component scheduling. Its isolated commit is
+`dccbe23f0022b2d3b68c66bb97a877ff5e3532a4`; GPU qualification remains pending.
+Neither changes the main runtime, installed SDK or retained N13.
+
+
+A timing-protocol audit found that shorter A-before/A-after processes double the
+weight of slower first-use ticks in pooled controls compared with B. The initial
+N20 light screen passes all physical gates but is **not qualified timing evidence**.
+[All seven first-use measurements and the correction](first-use-bias.json) are
+preserved. The replacement screen uses the original40-tick light preset in each
+of A-before/B/A-after (120 ticks total), includes every tick, and changes no inputs
+or tolerances. A GPU-free orchestration regression verifies equal first-use
+weight and selection of the distinct CPU candidate executable. Final full comparisons
+use20/20/20; historical10/20/10 physical checks remain valid, while small timing
+claims from that protocol must be revisited. Continuous600-tick controls already
+use equal process lengths and are unaffected.

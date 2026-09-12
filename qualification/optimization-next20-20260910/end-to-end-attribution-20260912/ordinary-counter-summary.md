@@ -42,8 +42,8 @@ Ranked by matched Systems kernel duration, not replay duration. Each case includ
 | city25-ten-second-debris | 70.265 / 88.090 | solveBlockUnified: 0.443; solveStaticBlockTGS: 0.436; radixSortMultiCalculateRanksLaunchWithCount: 0.248 |
 | city64-intact-idle | 16.898 / 25.849 | MemCopyBalanced: 0.595; generateFoundPairsForNewBoundsRegion: 0.351; radixSortMultiCalculateRanksLaunchWithCount: 0.130 |
 | city64-airborne | 18.495 / 22.528 | MemCopyBalanced: 0.607; generateFoundPairsForNewBoundsRegion: 0.276; radixSortMultiCalculateRanksLaunchWithCount: 0.131 |
-| city64-initial-impact | 64.630 / 83.817 | running |
-| city64-post-impact | 35.363 / 41.564 | not_captured |
+| city64-initial-impact | 64.630 / 83.817 | performIncrementalSAP: 0.927; MemCopyBalanced: 0.596; generateFoundPairsForNewBoundsRegion: 0.378 |
+| city64-post-impact | 35.363 / 41.564 | running |
 | city64-cascading-fracture | 56.874 / 68.731 | not_captured |
 | city64-fragmented-loaded | 90.634 / 117.658 | not_captured |
 | city64-late-debris | 132.341 / 166.994 | not_captured |
