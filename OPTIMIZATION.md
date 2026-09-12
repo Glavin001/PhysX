@@ -5,15 +5,17 @@ Run commands from `/root/workspace/physx-2`. This workflow implements the user's
 [the preserved handoff](docs/destruction/HANDOFF-20260910-integrated-ab.md) and
 [current experiment ledger](qualification/optimization-20260910/README.md).
 The handoff's stopped status is historical; its artifact and correctness warnings
-still apply. No deployment, foreign process termination, reboot or driver change.
+still apply. The user subsequently authorized reversible service/GPU recovery and
+rebooted the box on2026-09-12. Desktop and the other project server may be stopped
+for exclusive measurements, then restored using their preserved configuration and
+original installed SDK. No deployment, permanent service change or driver update.
+See the latest AGENTS entry for live jobs and restoration state.
 
-The user's subsequent instruction, **"You have GPU available, use it"**, authorizes
-continuing on this shared GPU. For the observed existing server, append
-`--allow-compute-pid 435374` to timing/A-B wrapper commands. This explicit opt-in
-records the selected process identity and all GPU samples; other unlisted GPU
-processes still reject. Runs are shared-GPU diagnostics, not isolated hardware
-qualification. Do not terminate the server. Require repeated matched A/B controls
-and inspect interference before attributing an application improvement.
+Historical commands below contain the former server PID435374. Never copy that
+allowlist onto a new run without checking the current process identity. The active
+headless campaign admits no other GPU clients. Shared-GPU runs, when explicitly
+selected, remain labeled diagnostics. Use repeated matched A/B controls and inspect
+interference before attributing an application improvement.
 
 ## Current twenty-experiment continuation
 
@@ -1118,3 +1120,44 @@ metric against the complete SASS export, and counts each instruction address onc
 Ambiguous source locations and unmapped instructions remain explicit. Source stall
 counts are not wall-time fractions. Physical cluster counts are post-tick traits,
 not weighted solver work or exact operator-equivalence certificates.
+
+
+### CPU-candidate light comparisons and the current capture gap
+
+`run-matched.py --candidate-binary` selects the relinked CPU candidate while
+`--binary` selects the control. This is required for static PhysX changes; swapping
+GPU libraries alone cannot test them. Both binary/module identities are frozen
+for the campaign and checked against each run receipt. Context setup, restore and
+validation stay outside the complete-tick timer. Reports include convergence work,
+phase means, full-step means/maxima, peak sample indices and exact budget misses.
+
+The seven frozen light inputs use42 candidate ticks and42 total control ticks in
+the matched screen: only the two original three-sample cases are rounded up to
+four, so each control cohort has at least two samples. No physical input or
+quality bound changes. The normal40-tick light preset remains unchanged.
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-matched.py out/NEW-cpu-light \
+  --manifest out/n20-requalification-20260912/matched-light-manifest.json \
+  --use-case-repetitions \
+  --binary out/n20-requalification-20260912/build/A/serialization-probe \
+  --candidate-binary out/n20-requalification-20260912/build/B/serialization-probe \
+  --baseline-artifacts out/snapshot-reset-20260911/local-artifacts \
+  --candidate-artifacts out/snapshot-reset-20260911/local-artifacts \
+  --candidate-commit b7918affda83942dba04e8626db696cca7fd283a
+```
+
+The live `run-in-counter-gap.py` coordinator temporarily parks only the owned CPU
+campaign parent while its current capture finishes. It waits for that GPU child
+to terminate before running native A/B gates and the matched light screen, and
+always resumes the counter parent afterward. `counter-gap.json` and
+`qualification-campaign.json` record transitions. Do not launch a second GPU job.
+The restoration watcher remains responsible for returning desktop/server after
+collection; it reuses an already completed screen instead of rerunning it.
+
+N06's isolated build in `out/n06-granularity-20260912/build/{A,B}` changes only the
+host launch policy: one cooperative block for complete problems through4096 nodes,
+with the existing multilevel preconditioner and small-component threshold intact.
+This is a separate unqualified experiment, not combined with N20. Its build recipe
+is `build-isolated.py`; `preparation.json` records its isolated commit. Candidate
+GPU checks and measurements are pending.

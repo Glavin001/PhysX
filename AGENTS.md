@@ -5,8 +5,12 @@ service/GPU recovery, then rebooted the host (boot07:05:39 UTC). This supersedes
 older no-recovery-authorization notes below. Desktop initially restarted, then
 was temporarily stopped for clean counters; GPU is healthy with no other clients.
 The other project server restart configuration is saved privately, never commit
-its environment. `out/end-to-end-attribution-20260912/recovery/restore-after-counters.py`
-is waiting to restore both desktop and server after the owned counter jobs end.
+its environment. `out/end-to-end-attribution-20260912/recovery/restore-after-counters-and-screen.py`
+restores both desktop and server after owned counter jobs and queued screening end.
+`out/n20-requalification-20260912/run-in-counter-gap.py` now parks only the
+counter campaign parent while its current child capture finishes, then runs the
+serial native/light screen and always resumes that parent. Inspect its
+`counter-gap.json`; do not mistake the deliberately parked parent for a hang.
 Server restart pins the hash-verified original `out/install/lib` SDK: its old
 binary must not pick up later experimental libraries in the mutable build path. **52/52 CPU-attribution cases now pass**, 104 checked ticks,
 21,401 CPU samples, 91,538 engine scopes and18,376 launches, with zero observed
@@ -21,7 +25,7 @@ node/source counters. Significant ordinary-kernel configuration expansion is
 in progress with99% relative coverage plus a0.1ms family threshold. City25 impact
 passes93 configurations /215 full-counter records via40 application replay passes
 (1125.44s including audit). Full expansion uses kernel replay, explicitly reusing
-that pilot; all28 structural cases and city25 idle/airborne/impact now pass. Latest campaign: `configs-full/`.
+that pilot;38 cases (all28 structural, all8 city25, city64 idle/airborne) pass. Latest campaign: `configs-full/`.
 Invalid L2 hit ratios remain excluded: headless and narrow-metric controls do not
 fix them, and newer collector whole-graph mode also aborts. Do not call every
 metric or conditional-node capture qualified. Warm180-tick
@@ -32,7 +36,10 @@ Current benchmark runtime/physics artifacts unchanged; no new speedup or complet
 optimization experiment. N20 capacity follow-up is built in isolated
 `out/n20-requalification-20260912/build/{A,B}`; rebuilt control demo/probe are
 byte-identical to the current baseline. Candidate GPU correctness/timing remains
-pending; best N13 and main source/index remain unchanged.
+pending; best N13 and main source/index remain unchanged. N06 one-block
+cooperative launch through4096 total nodes is also built in isolated
+`out/n06-granularity-20260912/build/{A,B}`; same multilevel preconditioner, no
+small-component eligibility change. No N06 GPU checks or timings yet.
 [Current attribution evidence](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/README.md).
 
 

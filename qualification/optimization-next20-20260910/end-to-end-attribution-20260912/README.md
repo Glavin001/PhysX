@@ -168,3 +168,19 @@ complementing the many-component cities. The tower
 instructions, removes4,498 duplicate source correlations, and leaves no SASS
 instructions unaccounted for. Barrier and short-scoreboard samples motivate a
 separate execution-granularity experiment; they are not speedup percentages.
+
+
+The next CPU candidate is queued in a serial gap after the current city64-impact
+capture. The GPU capture finishes normally; only its CPU campaign parent is
+parked. Native A/B behavior and asynchronous memory gates precede a matched light
+screen (same seven inputs,42 candidate/42 control ticks). The coordinator always
+resumes collection. See `out/n20-requalification-20260912/counter-gap.json` for live
+state; no timing or correctness result is credited before those gates run.
+
+The separate [N06 structural pilot](n06-build-preparation.json) is also built.
+It retains all existing solver equations, multilevel preconditioning and component
+eligibility, changing only the cooperative launch policy for complete problems
+through4096 nodes. All233 disassembled device functions match the rebuilt control
+and existing baseline after normalizing only nvcc's source-path namespace hashes.
+This is build evidence, not a GPU correctness or performance result. Neither
+candidate changes the main runtime, installed SDK, retained N13 or experiment count.

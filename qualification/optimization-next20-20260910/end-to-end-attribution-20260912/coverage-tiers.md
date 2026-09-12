@@ -1,6 +1,6 @@
 # Attribution tiers and remaining limits
 
-CPU **52/52**; graph tier **52/52** (461 graph invocations); significant ordinary-kernel configuration tier **30/52** (1734 representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.
+CPU **52/52**; graph tier **52/52** (461 graph invocations); significant ordinary-kernel configuration tier **38/52** (2907 representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.
 
 All CPU and GPU timings in profiler artifacts are diagnostic. [All52 unprofiled full-step baselines and CPU/stage data](report.md) remain separate.
 
@@ -35,16 +35,16 @@ All CPU and GPU timings in profiler artifacts are diagnostic. [All52 unprofiled 
 | tower64-cold | complete | 6 / 6 (complete) | 2 (complete) | 4 | 99.775% |
 | tower64-warm | complete | 6 / 6 (complete) | 2 (complete) | 4 | 99.770% |
 | city25-intact-idle | complete | 6 / 6 (complete) | 39 (complete) | 52 | 99.010% |
-| city25-airborne | complete | 6 / 6 (complete) | — (running) | — | — |
+| city25-airborne | complete | 6 / 6 (complete) | 56 (complete) | 74 | 99.021% |
 | city25-initial-impact | complete | 18 / 18 (complete) | 93 (complete) | 215 | 99.023% |
-| city25-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — | — |
-| city25-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — | — |
-| city25-fragmented-loaded | complete | 17 / 17 (complete) | — (not_captured) | — | — |
-| city25-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — | — |
-| city25-ten-second-debris | complete | 17 / 17 (complete) | — (not_captured) | — | — |
-| city64-intact-idle | complete | 6 / 6 (complete) | — (not_captured) | — | — |
-| city64-airborne | complete | 6 / 6 (complete) | — (not_captured) | — | — |
-| city64-initial-impact | complete | 18 / 18 (complete) | — (not_captured) | — | — |
+| city25-post-impact | complete | 6 / 6 (complete) | 55 (complete) | 85 | 99.000% |
+| city25-cascading-fracture | complete | 15 / 15 (complete) | 85 (complete) | 238 | 99.022% |
+| city25-fragmented-loaded | complete | 17 / 17 (complete) | 76 (complete) | 216 | 99.000% |
+| city25-late-debris | complete | 18 / 18 (complete) | 97 (complete) | 249 | 99.006% |
+| city25-ten-second-debris | complete | 17 / 17 (complete) | 63 (complete) | 186 | 99.013% |
+| city64-intact-idle | complete | 6 / 6 (complete) | 36 (complete) | 48 | 99.021% |
+| city64-airborne | complete | 6 / 6 (complete) | 52 (complete) | 77 | 99.012% |
+| city64-initial-impact | complete | 18 / 18 (complete) | — (running) | — | — |
 | city64-post-impact | complete | 6 / 6 (complete) | — (not_captured) | — | — |
 | city64-cascading-fracture | complete | 15 / 15 (complete) | — (not_captured) | — | — |
 | city64-fragmented-loaded | complete | 17 / 17 (complete) | — (not_captured) | — | — |
@@ -78,4 +78,4 @@ The lower-rate warm traces contain no sampling-throttle warning. The original hi
 - Cold restored ticks rebuild disposable caches; warm continuous gameplay is a separate workload. Neither includes restore/validation in the full-step timer.
 - No runtime optimization or speedup is claimed.
 
-Out-of-range counter ratios preserved and flagged: 84. See the structured report before using any such ratio quantitatively.
+Out-of-range counter ratios preserved and flagged: 87. See the structured report before using any such ratio quantitatively.

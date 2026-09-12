@@ -36,13 +36,13 @@ Ranked by matched Systems kernel duration, not replay duration. Each case includ
 | city25-airborne | 10.871 / 14.362 | MemCopyBalanced: 0.242; radixSortMultiCalculateRanksLaunchWithCount: 0.123; radixSortMultiBlockLaunchWithCount: 0.086 |
 | city25-initial-impact | 40.812 / 52.200 | radixSortMultiCalculateRanksLaunchWithCount: 0.246; MemCopyBalanced: 0.241; solveStaticBlockTGS: 0.178 |
 | city25-post-impact | 24.484 / 30.557 | MemCopyBalanced: 0.242; solveStaticBlockTGS: 0.187; solveWholeIslandTGS: 0.142 |
-| city25-cascading-fracture | 39.495 / 48.003 | running |
-| city25-fragmented-loaded | 52.834 / 65.842 | not_captured |
-| city25-late-debris | 69.946 / 86.042 | not_captured |
-| city25-ten-second-debris | 70.265 / 88.090 | not_captured |
-| city64-intact-idle | 16.898 / 25.849 | not_captured |
-| city64-airborne | 18.495 / 22.528 | not_captured |
-| city64-initial-impact | 64.630 / 83.817 | not_captured |
+| city25-cascading-fracture | 39.495 / 48.003 | solveBlockUnified: 0.399; solveStaticBlockTGS: 0.360; radixSortMultiCalculateRanksLaunchWithCount: 0.247 |
+| city25-fragmented-loaded | 52.834 / 65.842 | solveBlockUnified: 0.452; solveStaticBlockTGS: 0.394; MemCopyBalanced: 0.253 |
+| city25-late-debris | 69.946 / 86.042 | solveBlockUnified: 0.460; solveStaticBlockTGS: 0.439; radixSortMultiCalculateRanksLaunchWithCount: 0.248 |
+| city25-ten-second-debris | 70.265 / 88.090 | solveBlockUnified: 0.443; solveStaticBlockTGS: 0.436; radixSortMultiCalculateRanksLaunchWithCount: 0.248 |
+| city64-intact-idle | 16.898 / 25.849 | MemCopyBalanced: 0.595; generateFoundPairsForNewBoundsRegion: 0.351; radixSortMultiCalculateRanksLaunchWithCount: 0.130 |
+| city64-airborne | 18.495 / 22.528 | MemCopyBalanced: 0.607; generateFoundPairsForNewBoundsRegion: 0.276; radixSortMultiCalculateRanksLaunchWithCount: 0.131 |
+| city64-initial-impact | 64.630 / 83.817 | running |
 | city64-post-impact | 35.363 / 41.564 | not_captured |
 | city64-cascading-fracture | 56.874 / 68.731 | not_captured |
 | city64-fragmented-loaded | 90.634 / 117.658 | not_captured |

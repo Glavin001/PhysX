@@ -111,6 +111,13 @@
           "build_receipt": "out/n20-requalification-20260912/build/build.json",
           "control_demo_and_probe_byte_identical": true
         }
+      },
+      "screen_queue_20260912": {
+        "status": "queued_in_serial_counter_gap",
+        "coordinator": "out/n20-requalification-20260912/run-in-counter-gap.py",
+        "receipt": "out/n20-requalification-20260912/qualification-campaign.json",
+        "candidate_commit": "b7918affda83942dba04e8626db696cca7fd283a",
+        "original_failure_preserved": true
       }
     },
     {
@@ -287,6 +294,70 @@
           "structural-stress-counter-review.json",
           "tower-source-review.json"
         ]
+      },
+      "prepared_20260912": {
+        "status": "built_not_gpu_qualified",
+        "parent": "a4d0554fc556f4c6d3d4b4c16aaa4e57c03c51a5",
+        "commit": "c76c60678f42e8e62cdfab02d8b317df69b3fbdb",
+        "changed_source": "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl",
+        "main_index_unchanged": true,
+        "hypothesis": "For tower/dense complete problems, reduce cross-SM cooperative synchronization while preserving all equations, multilevel preconditioner, component eligibility and convergence gates. Whole problems above4096 nodes remain unchanged.",
+        "estimated_application_saved_ms": "0 to30ms in tower/dense; low confidence. Fewer parallel FP64 lanes may regress.",
+        "controls": "52 fixed semantic inputs, light includes dense12; targeted tower64; normal asynchronous memory; continuous600 ordinary/sleeping A/B/A for any finalist.",
+        "retention": "Only after review of correctness and complete-step measurements. Do not add this on top of unqualified N20.",
+        "build_receipt": "/root/workspace/physx-2/out/n06-granularity-20260912/build/build.json",
+        "outputs": {
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/A/libPhysXDestructionGpuRuntime_64.so": "612a214637970a6b52e79698604806d4ce6cc10210c9ecb6073662a77832ba44",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/A/stress.o": "b9fbfca5f9f45708a1b1560ac1c1591bb34b8d260dfb24a7e4a2398573e21df1",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/B/libPhysXDestructionGpuRuntime_64.so": "b8bce791af9e1edda11e4618d5da076b04b61fb68a9512cc91e63fb2a69047b2",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/B/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/B/stress.o": "9d15396feab500ae0f2ab6604171dd1d1c9e5af20739339cffd19cd1ab0c64f9"
+        },
+        "device_instruction_audit": {
+          "scope": "Disassembled device instructions and register resources. Host launch policy is deliberately changed; debug paths and ELF metadata are not instruction changes. This is not GPU correctness or application timing qualification.",
+          "inputs": {
+            "existing": {
+              "path": "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so",
+              "sha256": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786",
+              "command": [
+                "/usr/local/cuda-13.4/bin/cuobjdump",
+                "--dump-sass",
+                "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so"
+              ],
+              "sass_export_sha256": "a0bfd2ea169660dedc66cd51745d9da42ee9f0efeb21211231e08c3585ea0766",
+              "functions": 233
+            },
+            "A": {
+              "path": "/root/workspace/physx-2/out/n06-granularity-20260912/build/A/libPhysXDestructionGpuRuntime_64.so",
+              "sha256": "612a214637970a6b52e79698604806d4ce6cc10210c9ecb6073662a77832ba44",
+              "command": [
+                "/usr/local/cuda-13.4/bin/cuobjdump",
+                "--dump-sass",
+                "/root/workspace/physx-2/out/n06-granularity-20260912/build/A/libPhysXDestructionGpuRuntime_64.so"
+              ],
+              "sass_export_sha256": "a1f8a2ab0dbf831811007b2acd2e736e57d80a313b5bfe5f8f271cb1f8caca21",
+              "functions": 233
+            },
+            "B": {
+              "path": "/root/workspace/physx-2/out/n06-granularity-20260912/build/B/libPhysXDestructionGpuRuntime_64.so",
+              "sha256": "b8bce791af9e1edda11e4618d5da076b04b61fb68a9512cc91e63fb2a69047b2",
+              "command": [
+                "/usr/local/cuda-13.4/bin/cuobjdump",
+                "--dump-sass",
+                "/root/workspace/physx-2/out/n06-granularity-20260912/build/B/libPhysXDestructionGpuRuntime_64.so"
+              ],
+              "sass_export_sha256": "f5bfd65c3c524b378d24f5de26914eda00eaa6d51c8639ad45617c364899e30b",
+              "functions": 233
+            }
+          },
+          "canonicalization": "Only nvcc anonymous-namespace source-path hash for NvBlastExtStressGpu.cu; device instruction text/encodings unchanged and canonical-name collisions rejected.",
+          "candidate_device_instructions_identical_after_path_names": true,
+          "rebuilt_control_device_instructions_identical_after_path_names": true,
+          "candidate_device_instructions_identical": false,
+          "rebuilt_control_device_instructions_identical": false
+        },
+        "gpu_checks": "pending; never run concurrently with N20 or counters"
       }
     },
     {
