@@ -1,0 +1,35 @@
+{
+  "id": "N17",
+  "rank": 13,
+  "status": "prepared_not_built_or_gpu_qualified",
+  "title": "Delete provably empty large-component launch for bounded problems",
+  "evidence": "The existing cooperative kernel immediately publishes empty status and returns when largeCount is zero. Complete node count<=1024 proves no large component can exist. The existing final merge can own this publication and readiness check.",
+  "proposed_mechanism": "When the complete authored node count is at most the unchanged1024-node small-component limit, omit the empty cooperative launch and its occupancy query. Existing final merge publishes the same ready/error/empty status before merging small components. Larger worlds retain the original path. No device count readback, conditional graph or extra kernel.",
+  "affected_scenarios": [
+    "small structural cold/warm and flying/isolated cases",
+    "444-chunk wall trajectory",
+    "city and large-connected cases as unchanged-routing controls"
+  ],
+  "estimated_application_ms_saved": "0 to0.03ms small-structure tick, near zero city. This is a bounded deletion pilot, not the old0\u20131ms whole-city prediction.",
+  "confidence": "High cardinality proof and exact status semantics; low measurable runtime benefit.",
+  "experiment_cost": "Two private fragments, existing error/cap/mixed-size/free/anchored numerical and asynchronous physical gates, light before full retention.",
+  "supporting_measurements": "Exact physical/error/cap semantics, one fewer empty launch, lower full steps or qualified neutral simplification. The defined empty merge supports a later separately proven immutable connectivity bound for larger all-small assets.",
+  "refuting_measurements": "Any readiness or convergence-cap masking, changed physical results, or material overhead/regression.",
+  "profile_locations": [
+    "out/optimization-20260910/E12-composition/profiles",
+    "out/optimization-20260910/E12-composition/production-phases",
+    "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+    "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+  ],
+  "baseline": "retained N13",
+  "family": "empty_work_dispatch",
+  "parent": "1c1b15a82a5871800148d176c38fc05501362f19",
+  "commit": "d20a2b2b4af386f9224140950dc0435c7ea98fff",
+  "changed_sources": [
+    "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
+    "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl"
+  ],
+  "main_source_unchanged": true,
+  "main_index_unchanged": true,
+  "scope": "Independent compatible baseline. No earlier candidate composition or completed-experiment credit. Reuse identical control artifacts; run fresh matched timings."
+}

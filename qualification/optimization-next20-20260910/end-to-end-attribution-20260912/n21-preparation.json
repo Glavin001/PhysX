@@ -1,0 +1,31 @@
+{
+  "id": "N21",
+  "rank": 3,
+  "status": "prepared_not_built_or_gpu_qualified",
+  "parent": "1c1b15a82a5871800148d176c38fc05501362f19",
+  "commit": "daa6d6508a91fb2f4af5d7b1335fd0623aa6548f",
+  "title": "Cache invariant multilevel triangular pivots",
+  "family": "large_component_factor_reuse",
+  "changed_sources": [
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyDiagonal.cuh",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchySmoother.cuh",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh"
+  ],
+  "main_index_unchanged": true,
+  "main_source_unchanged": true,
+  "evidence": "Tower2304 active nodes/137 iterations and dense1584/34 spend most of their109/32ms cold step in the cooperative solver. Each multilevel smoother repeatedly performs12 FP64 divisions per node by six unchanged Cholesky pivots. N06a showed that sacrificing parallelism is harmful; this preserves its decomposition.",
+  "proposed_mechanism": "Produce six guarded reciprocal pivots alongside existing factor construction, retaining the21 original factors. Thread-local V-cycle triangular solves multiply cached normal reciprocals; exceptional reciprocal ranges retain division. Native inverse recovery keeps a null cache and original arithmetic. No extra kernel, CPU count readback or convergence relaxation.",
+  "affected_scenarios": [
+    "tower64 and dense12 cold/warm",
+    "large connected panels and bridges",
+    "all city stages as small-component/setup controls"
+  ],
+  "estimated_application_ms_saved": "0 to20ms tower,0 to5ms dense, near zero city; low-confidence upper bounds, not predictions. Extra48bytes/node and factor setup can regress.",
+  "confidence": "Medium reuse/lifetime correctness, low-to-medium performance; changed rounding must pass original equilibrium/force gates.",
+  "experiment_cost": "Five private headers, matched isolated runtime/oracle builds; existing hierarchy/large-cycle/current-load tests and normal memory checks, targeted20/20/20 plus light before full acceptance.",
+  "supporting_measurements": "Lower whole-step tower/dense time with unchanged physical quality/convergence caps; reduced repeated divide work without spills/setup or city regressions.",
+  "refuting_measurements": "Memory/lifetime failure, altered physical verdict, no application improvement, register pressure or extra cache traffic exceeds divide savings.",
+  "scope": "Independent compatible baseline, no N14 closure/N15/N16/N19/N20 composition. Different from lower-priority N11 free-nullspace projection reciprocals. No completed-experiment credit until measured."
+}

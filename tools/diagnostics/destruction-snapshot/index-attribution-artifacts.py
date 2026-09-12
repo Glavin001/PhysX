@@ -38,7 +38,10 @@ def main():
             if row.get('report_sha256'):add(directory/'counters.ncu-rep',row['report_sha256'],'completed campaign counter audit')
     workspace=root.parents[1]
     for experiment in ['n20-requalification-20260912','n06-granularity-20260912','n15-anchored-20260912',
-                       'n14-closure-20260912','n16-local-20260912','n19-requalification-20260912']:
+                       'n14-closure-20260912','n16-local-20260912','n19-requalification-20260912',
+                       'n06b-warp-components-20260912','n21-factor-reciprocal-20260912',
+                       'n22-mixed-smoother-refined-20260912','n11-projection-reciprocal-20260912',
+                       'n17-empty-launch-20260912']:
         directory=workspace/'out'/experiment
         for name in ['preparation.json','candidate.patch','build-isolated.py','build-fresh-native-tests.py','build/build.json',
                      'fresh-native/build.json','existing-compile-command.json','existing-link-commands.json','existing-native-test-commands.json',
@@ -46,7 +49,7 @@ def main():
                      'audit-device-code.py','device-code-audit.json','build-oracles.py','build-cpu-probes.py',
                      'run-structural-screen.py','run-cpu-attribution.py','run-cpu-attribution-v1.py','run-warm-screen.py',
                      'run-full-after-counter.py','confirmation-manifest.json','impact-repeat-manifest.json',
-                     'run-screen.py','resources.json','run-final-memory.py','repeat-material-regressions.py',
+                     'run-screen.py','run-confirmation.py','confirmation-command.json','resources.json','control-reuse.json','run-final-memory.py','repeat-material-regressions.py',
                      'run-full-after-counter-launched.py','launched-full-driver.json',
                      'build-isolated-launched.py','launched-builder.json','run-warm-screen-600-original.py']:
             add(directory/name)
@@ -72,7 +75,8 @@ def main():
                     path=Path(row['path'])
                     for name in ['receipt.json','replay.json','attribution.json','physical-comparison.json']:add(path/name)
     for name in ['prepare-n14-closure.py','prepare-n16-isolated.py','report-n20-final.py','report-n15-screen.py',
-                 'build-queued-solvers.py','run-next-isolated-screens.py']:
+                 'build-queued-solvers.py','run-next-isolated-screens.py','report-n16-screen.py','report-warm-screen.py','report-n14-closure.py','report-n19-requalification.py',
+                 'run-consolidated-screens.py','remaining-screen-plan.json','consolidated-migration.json']:
         add(root/name)
     destination.write_text(json.dumps(sorted(items.values(),key=lambda r:r['path']),indent=2)+'\n')
     print(len(items),'public evidence artifacts indexed')

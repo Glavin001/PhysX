@@ -1,5 +1,5 @@
 {
-  "status": "full_application_checks_passed_full_memory_pending",
+  "status": "accepted_isolated_cpu_improvement",
   "candidate_commit": "b7918affda83942dba04e8626db696cca7fd283a",
   "hypothesis": {
     "status": "prepared_not_built_or_tested",
@@ -1595,7 +1595,7 @@
       }
     }
   },
-  "conclusion": "All52 physical comparisons pass,3120 full ticks. Large restored late-debris benefit repeats:382.883ms versus422.663/426.525ms controls,9.83% versus pooled control in this cohort. Earlier independent20/20/20 result was357.108 versus395.160/396.107ms; do not combine cohorts. First-impact, cold-panel and city64 cascade losses do not consistently repeat in reversed order. Warm600 heavy mean advantage remains~0.079ms, with519/600 60Hz misses unchanged. Warm180 fracture-burst repeat is161.241 versus166.641/163.340ms; modest event benefit, not a whole-game speedup. Full memory gate pending; no promotion of N14 or installed SDK.",
+  "conclusion": "All52 physical comparisons pass,3120 full ticks. Large restored late-debris benefit repeats:382.883ms versus422.663/426.525ms controls,9.82% versus pooled control in this cohort. Earlier independent20/20/20 result was357.108 versus395.160/396.107ms; do not combine cohorts. First-impact, cold-panel and city64 cascade losses do not consistently repeat in reversed order. Warm600 heavy mean advantage remains~0.079ms, with519/600 60Hz misses unchanged. Warm180 fracture-burst repeat is161.241 versus166.641/163.340ms; modest event benefit, not a whole-game speedup. All52 normal asynchronous memory cases pass,104 ticks,567.53s diagnostic wall. Retain the isolated capacity change; no promotion of N14 or installed SDK.",
   "timing_correction": "Original half-length control screen remains unqualified for timing: different first-use weight. Corrected cohorts have equal process lengths, including all first ticks. No tolerance or workload changed.",
   "full52": {
     "status": "complete",
@@ -15522,5 +15522,19 @@
       }
     }
   },
-  "full_memory": null
+  "full_memory": {
+    "passed": true,
+    "preset": "full",
+    "scenarios": 52,
+    "ticks": 104,
+    "wall_seconds": 567.527612799,
+    "target_wall_seconds": null,
+    "within_target": null,
+    "performance_qualification": false
+  },
+  "retention": {
+    "commit": "b7918affda83942dba04e8626db696cca7fd283a",
+    "artifacts": "/root/workspace/physx-2/out/n20-requalification-20260912/build/B",
+    "scope": "Qualified CPU delta relative to the current compatible runtime. Final composition with the selected numerical policy still needs matched verification. Frozen N13 is preserved; this decision does not promote N14 or replace main runtime/SDK."
+  }
 }

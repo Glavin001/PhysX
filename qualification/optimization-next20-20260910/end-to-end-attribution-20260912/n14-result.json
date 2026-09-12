@@ -1,0 +1,848 @@
+{
+  "status": "rejected_no_verified_application_gain",
+  "commit": "8e4d46f6919efde1b668e80fa6040cb57d74724a",
+  "hypothesis": {
+    "status": "prepared_not_built_or_gpu_qualified",
+    "parent": "171be1b289680fa0a22fc1d3580a2fb7dbbdc39b",
+    "commit": "8e4d46f6919efde1b668e80fa6040cb57d74724a",
+    "changed_sources": [
+      "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
+      "blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh"
+    ],
+    "main_source_unchanged": true,
+    "main_index_unchanged": true,
+    "candidate_policy_from": "c1e6faca7af6cba0e65c215d7a8710c5bf3ebf59",
+    "control": "Current physically-qualified snapshot runtime with unaccepted N14 response-history cache",
+    "hypothesis": "Reassess N14 on the current compatible runtime: its extra response-history work/allocations may cost more than the reduced iterations, and it changes the resource footprint of later solver experiments.",
+    "mechanism": "Restore exactly the retained N13 component recurrence and hierarchy-storage definitions while preserving every later snapshot/contact-order/correction/storage fix elsewhere. Remove the N14 trial direction, its save and three allocations; ordinary bond warm start remains.",
+    "affected_scenarios": [
+      "all52 restored ticks including correction",
+      "continuous600 idle/heavy current-load trajectories",
+      "fixed fracture stages82/83/103/108"
+    ],
+    "estimated_application_ms_saved": "Old short N14 cohort suggested history removal could save~0.5ms heavy mean, with an opposing peak tradeoff; no transferable estimate for the current runtime. Cold solves may save allocation/history-write cost.",
+    "confidence": "High definition of the retained policy, low-to-medium application benefit until matched current measurements.",
+    "experiment_cost": "Two private files restored from the exact retained commit; isolated CUDA rebuild, existing independent current-load/settled/subnormal oracles and memory checks, matched restored and continuous qualification.",
+    "supporting_measurements": "Lower full-step cost without losing current-load equilibrium/convergence or worsening accepted scenario peaks; clearer selected implementation without implicitly promoting N14.",
+    "refuting_measurements": "History is a net application benefit or its removal worsens meaningful fracture peaks/quality.",
+    "scope": "Closure of the existing unfinished N14 experiment, not an automatic new speedup. A is history-on; B is retained-policy history-off. Do not combine either with N15/N19 before independent qualification."
+  },
+  "measurement_report": "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n14-warm-screen.json",
+  "semantic_report": "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n14-warm-semantic.json",
+  "correctness": {
+    "status": "targeted_checks_passed",
+    "screen": {
+      "status": "screen_complete_pending_review",
+      "commit": "8e4d46f6919efde1b668e80fa6040cb57d74724a",
+      "stages": [
+        {
+          "name": "A-gpu_resident_stress_test",
+          "command": [
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/A/gpu_resident_stress_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226668.7711024,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "37 C",
+                "clock": "180 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226669.8863027,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "40 C",
+                "clock": "2842 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 1.3045113619991753,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "A-gpu_resident_stress_3d_test",
+          "command": [
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/A/gpu_resident_stress_3d_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226670.0394351,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "40 C",
+                "clock": "2842 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226676.2684574,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "40 C",
+                "clock": "2842 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 6.368406511002831,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "A-gpu_resident_motion_modes_test",
+          "command": [
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/A/gpu_resident_motion_modes_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226676.43265,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "40 C",
+                "clock": "2842 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226677.8468945,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "40 C",
+                "clock": "2842 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 1.5624466150002263,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "A-memcheck",
+          "command": [
+            "/usr/local/cuda-13.4/bin/compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "97",
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/A/gpu_resident_stress_3d_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226678.0342114,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "40 C",
+                "clock": "2782 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226703.133549,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "43 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 25.267983042002015,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "A-initcheck",
+          "command": [
+            "/usr/local/cuda-13.4/bin/compute-sanitizer",
+            "--tool",
+            "initcheck",
+            "--error-exitcode",
+            "97",
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/A/gpu_resident_stress_3d_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226703.311658,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "43 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226724.049166,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "44 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 20.902562117000343,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "A-synccheck",
+          "command": [
+            "/usr/local/cuda-13.4/bin/compute-sanitizer",
+            "--tool",
+            "synccheck",
+            "--error-exitcode",
+            "97",
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/A/gpu_resident_stress_3d_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226724.2217655,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "44 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226732.8560061,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "44 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 8.792935991001286,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "B-gpu_resident_stress_test",
+          "command": [
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/B/gpu_resident_stress_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226733.0495512,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "44 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226734.1639423,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "44 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 1.2872875190005288,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "B-gpu_resident_stress_3d_test",
+          "command": [
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/B/gpu_resident_stress_3d_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226734.3420846,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "44 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226740.3672605,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "44 C",
+                "clock": "2827 MHz",
+                "utilization": "25 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 6.1844162740017055,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "B-gpu_resident_motion_modes_test",
+          "command": [
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/B/gpu_resident_motion_modes_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226740.5256603,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "43 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226741.9240806,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "43 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 1.5425112999982957,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "B-memcheck",
+          "command": [
+            "/usr/local/cuda-13.4/bin/compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "97",
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/B/gpu_resident_stress_3d_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226742.076194,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "43 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226767.575519,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "45 C",
+                "clock": "2835 MHz",
+                "utilization": "1 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 25.63732596399859,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "B-initcheck",
+          "command": [
+            "/usr/local/cuda-13.4/bin/compute-sanitizer",
+            "--tool",
+            "initcheck",
+            "--error-exitcode",
+            "97",
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/B/gpu_resident_stress_3d_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226767.7606514,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "45 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226787.7437634,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "46 C",
+                "clock": "2835 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 20.152946231002716,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "B-synccheck",
+          "command": [
+            "/usr/local/cuda-13.4/bin/compute-sanitizer",
+            "--tool",
+            "synccheck",
+            "--error-exitcode",
+            "97",
+            "/root/workspace/physx-2/out/n14-closure-20260912/oracles/B/gpu_resident_stress_3d_test"
+          ],
+          "status": "passed",
+          "gpu_before": {
+            "unix_seconds": 1789226787.931042,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "45 C",
+                "clock": "2835 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "gpu_after": {
+            "unix_seconds": 1789226797.129121,
+            "driver": "615.71.09",
+            "devices": [
+              {
+                "name": "NVIDIA GeForce RTX 5060 Ti",
+                "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+                "temperature": "45 C",
+                "clock": "2827 MHz",
+                "utilization": "0 %",
+                "memory_used": "2 MiB",
+                "processes": []
+              }
+            ]
+          },
+          "exit_code": 0,
+          "seconds": 9.361269092001749,
+          "fault_audit": {
+            "exit_code": 1,
+            "stdout": "-- No entries --\n",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "A-flying-memcheck",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-flying-memcheck",
+            "--binary",
+            "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+            "--artifacts",
+            "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+            "--replay-prefix",
+            "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying",
+            "--repetitions",
+            "2",
+            "--sanitizer",
+            "memcheck",
+            "--watchdog-seconds",
+            "900"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 3.2726806450009462
+        },
+        {
+          "name": "A-flying-physical",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+            "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-flying",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-flying-memcheck",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-flying-physical.json"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 0.11493345599956228
+        },
+        {
+          "name": "A-city25-initial-impact-memcheck",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-city25-initial-impact-memcheck",
+            "--binary",
+            "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+            "--artifacts",
+            "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+            "--replay-prefix",
+            "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+            "--repetitions",
+            "2",
+            "--sanitizer",
+            "memcheck",
+            "--watchdog-seconds",
+            "900"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 9.637969727999007
+        },
+        {
+          "name": "A-city25-initial-impact-physical",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+            "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city25-initial-impact",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-city25-initial-impact-memcheck",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-city25-initial-impact-physical.json"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 0.6160033389969612
+        },
+        {
+          "name": "A-city256-late-debris-memcheck",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-city256-late-debris-memcheck",
+            "--binary",
+            "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+            "--artifacts",
+            "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+            "--replay-prefix",
+            "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+            "--repetitions",
+            "2",
+            "--sanitizer",
+            "memcheck",
+            "--watchdog-seconds",
+            "900"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 30.293764443998953
+        },
+        {
+          "name": "A-city256-late-debris-physical",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+            "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city256-late-debris",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-city256-late-debris-memcheck",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/A-city256-late-debris-physical.json"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 5.879740591000882
+        },
+        {
+          "name": "B-flying-memcheck",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-flying-memcheck",
+            "--binary",
+            "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+            "--artifacts",
+            "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+            "--replay-prefix",
+            "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying",
+            "--repetitions",
+            "2",
+            "--sanitizer",
+            "memcheck",
+            "--watchdog-seconds",
+            "900"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 3.323571263001213
+        },
+        {
+          "name": "B-flying-physical",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+            "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-flying",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-flying-memcheck",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-flying-physical.json"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 0.11458503600078984
+        },
+        {
+          "name": "B-city25-initial-impact-memcheck",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-city25-initial-impact-memcheck",
+            "--binary",
+            "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+            "--artifacts",
+            "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+            "--replay-prefix",
+            "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+            "--repetitions",
+            "2",
+            "--sanitizer",
+            "memcheck",
+            "--watchdog-seconds",
+            "900"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 9.138327756001672
+        },
+        {
+          "name": "B-city25-initial-impact-physical",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+            "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city25-initial-impact",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-city25-initial-impact-memcheck",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-city25-initial-impact-physical.json"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 0.6161779249996471
+        },
+        {
+          "name": "B-city256-late-debris-memcheck",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-city256-late-debris-memcheck",
+            "--binary",
+            "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+            "--artifacts",
+            "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+            "--replay-prefix",
+            "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+            "--repetitions",
+            "2",
+            "--sanitizer",
+            "memcheck",
+            "--watchdog-seconds",
+            "900"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 30.14087121600096
+        },
+        {
+          "name": "B-city256-late-debris-physical",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+            "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city256-late-debris",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-city256-late-debris-memcheck",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/B-city256-late-debris-physical.json"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 6.1301601939994725
+        },
+        {
+          "name": "matched-light",
+          "command": [
+            "/usr/bin/python3",
+            "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-matched.py",
+            "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light",
+            "--manifest",
+            "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/manifest.json",
+            "--use-case-repetitions",
+            "--binary",
+            "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+            "--baseline-artifacts",
+            "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+            "--candidate-artifacts",
+            "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+            "--candidate-commit",
+            "8e4d46f6919efde1b668e80fa6040cb57d74724a"
+          ],
+          "status": "passed",
+          "exit_code": 0,
+          "seconds": 133.61080229900108
+        }
+      ],
+      "scope": "Qualification and light prioritization only; no all-suite or speedup acceptance. Existing tests/gates unchanged; current snapshot-compatible control includes unaccepted N14.",
+      "runner_sha256": "161fab468a36fde67c348089164066c56ec1b5fadaab8080edc49950f5e41ce2"
+    },
+    "continuous": "7200 complete ordinary/sleeping ticks, exact physical/work counters;684 iteration-history differences are separately recorded and all frames converge. This is not a full body/force or full52 composition gate."
+  },
+  "conclusion": "Do not promote N14 response-history caching: no convincing application-level advantage over selected N13 policy. In this reverse-policy comparison A has history and B removes it. Heavy B51.904ms is between A51.743/52.295; idle B1.549ms versusA1.553/1.483. Heavy peaks B194.167/197.227ms lie within controls180.781\u2013204.631ms. All heavy runs miss60Hz on519/600 ticks. First-fracture group means B195.697 versusA187.721/192.706ms are an adverse removal signal, but variable controls and other stage tradeoffs do not establish a robust overall/peak history benefit. Keep every sample; no speedup claimed.",
+  "selection": "N13 remains the selected numerical policy. Isolated current-compatible history-off artifacts preserve all later snapshot/correction fixes. Final N20/selected-policy composition still requires full52 matched physical/timing, asynchronous memory and ordinary/sleeping wall qualification; main current WIP source is untouched.",
+  "profile_locations": [
+    "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n14-warm-semantic.json",
+    "out/n14-closure-20260912/screen",
+    "out/n14-closure-20260912/warm600"
+  ],
+  "next": "Proceed to the remaining four distinct hypotheses. During final composition, recheck the first-fracture and late-debris removal signals against repeated controls; neither complexity preference nor this rejection waives a material regression."
+}

@@ -1,0 +1,724 @@
+{
+  "status": "rejected_no_verified_application_gain",
+  "commit": "9c6891f2b30089df3548a32451862374842e9e19",
+  "hypothesis": {
+    "status": "prepared_not_built_or_gpu_qualified",
+    "commit": "9c6891f2b30089df3548a32451862374842e9e19",
+    "parent": "171be1b289680fa0a22fc1d3580a2fb7dbbdc39b",
+    "changed_sources": [
+      "physx/source/gpucommon/include/PxgKernelNames.h",
+      "physx/source/gpusimulationcontroller/src/CUDA/updateTransformAndBoundArray.cu",
+      "physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp"
+    ],
+    "main_index_unchanged": true,
+    "main_source_unchanged": true,
+    "hypothesis": "Preserve ordinary CPU sleep/query mirrors at the same publication boundary, replacing capacity-sized DMA with mapped-host writes only for the GPU-updated active shape population.",
+    "evidence": "Prior16 native tests passed; N19/control both failed the now-repaired asynchronous correction gate before timing. Current warm traces show24.516MB D2H at first fracture and35.386MB late; copy unions4.321/6.674ms overlap other work and are not savings.",
+    "mechanism": "The original active-shape producer predicate selects mapped pinned writes; per-writer system fences precede the existing completion signal. Static/inactive records keep their authored or previous accepted values. No stale inputs, deferred stress or omitted trial CPU consumers.",
+    "affected_scenarios": [
+      "ordinary sleeping idle",
+      "fracture and correction",
+      "late debris at25/64/256 buildings",
+      "sleep/wake, query and active/inactive mixed structures"
+    ],
+    "estimated_application_ms_saved": "0 to3ms heavy step; idle near zero. Upper bound limited by affected transfer time, not all D2H bytes. Mapped small transactions may regress.",
+    "confidence": "Medium-low performance; previous behavior tests support feasibility, full52 and memory gates still required on this baseline.",
+    "experiment_cost": "Rebuild changed CUDA update producer, GPU core CPU object and kernel-name registry with matched frozen links; existing native/memory/physical tests, light before full and continuous qualification.",
+    "supporting_measurements": "Same accepted CPU body/query/bounds state and physical histories, lower complete steps and transfer pressure including both correction passes.",
+    "refuting_measurements": "Any stale/incorrect mirror or memory finding; PCIe small-write or fence cost exceeds removed DMA; no application benefit.",
+    "prior_result": "qualification/optimization-next20-20260910/N19.md",
+    "scope": "Requalification of an already counted experiment; not new completed-experiment credit. Current compatible runtime includes unaccepted N14; frozen N13 is not replaced."
+  },
+  "correctness": {
+    "status": "screen_complete_pending_review",
+    "commit": "9c6891f2b30089df3548a32451862374842e9e19",
+    "stages": [
+      {
+        "name": "native-A",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/run-native-gates.py",
+          "--arm",
+          "A"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 175.82339080599922
+      },
+      {
+        "name": "native-B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/run-native-gates.py",
+          "--arm",
+          "B"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 179.17775857300148
+      },
+      {
+        "name": "matched-light",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-matched.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/screen/matched-light",
+          "--manifest",
+          "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/manifest.json",
+          "--use-case-repetitions",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--baseline-artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/A",
+          "--candidate-artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/B",
+          "--candidate-commit",
+          "9c6891f2b30089df3548a32451862374842e9e19"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 134.4245082180023
+      }
+    ],
+    "scope": "N19 requalification, already counted. Existing CPU control with isolated GPU activity modules. No implicit acceptance of N14 or N20.",
+    "runner_sha256": "5e2ea98ba3565affb9b65c1fddbe0ba6bde7542027b1c98bc2216b63cb5ddd54"
+  },
+  "confirmation": {
+    "status": "complete",
+    "candidate_commit": "9c6891f2b30089df3548a32451862374842e9e19",
+    "scenarios": [
+      {
+        "scenario": "city25-initial-impact",
+        "A": {
+          "n": 40,
+          "mean_ms": 38.25642365,
+          "median_ms": 38.47877,
+          "max_ms": 50.253522,
+          "sd_ms": 2.851901372492039,
+          "peak_sample_index": 20,
+          "over_8ms": 40,
+          "over_120hz": 40,
+          "over_60hz": 40,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 61.535491275,
+          "stages_ms": {
+            "command_ms": 0.000132175,
+            "simulate_fetch_ms": 38.064969825,
+            "completion_ms": 0.19132165
+          }
+        },
+        "context_setup_ms": {
+          "A0": 715.005991,
+          "B": 673.382599,
+          "A1": 660.580347
+        },
+        "first_tick_ms": {
+          "A0": 38.009488,
+          "B": 50.441243,
+          "A1": 50.253522
+        },
+        "later_tick_mean_ms": {
+          "A0": 39.15501815789474,
+          "B": 38.88515452631579,
+          "A1": 36.739399526315786
+        },
+        "saved_ms": -1.2065352999999988,
+        "descriptive_saved_ms_95": [
+          -2.866130599999998,
+          0.2759340250000051
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city25-initial-impact-A0",
+          "B": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city25-initial-impact-B",
+          "A1": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city25-initial-impact-A1"
+        },
+        "A0": {
+          "n": 20,
+          "mean_ms": 39.09774165,
+          "median_ms": 39.0275795,
+          "max_ms": 43.115134,
+          "sd_ms": 1.260702025651592,
+          "peak_sample_index": 4,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 62.0142279,
+          "stages_ms": {
+            "command_ms": 0.00017635,
+            "simulate_fetch_ms": 38.8883871,
+            "completion_ms": 0.2091782
+          }
+        },
+        "B": {
+          "n": 20,
+          "mean_ms": 39.46295895,
+          "median_ms": 38.776874,
+          "max_ms": 50.441243,
+          "sd_ms": 3.0144675406241794,
+          "peak_sample_index": 0,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 61.69893865,
+          "stages_ms": {
+            "command_ms": 0.0001004,
+            "simulate_fetch_ms": 39.27316335,
+            "completion_ms": 0.1896952
+          }
+        },
+        "A1": {
+          "n": 20,
+          "mean_ms": 37.41510565,
+          "median_ms": 37.019283,
+          "max_ms": 50.253522,
+          "sd_ms": 3.689884142107406,
+          "peak_sample_index": 0,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 61.05675465,
+          "stages_ms": {
+            "command_ms": 8.8e-05,
+            "simulate_fetch_ms": 37.24155255,
+            "completion_ms": 0.1734651
+          }
+        }
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "A": {
+          "n": 40,
+          "mean_ms": 60.45239805,
+          "median_ms": 59.172153,
+          "max_ms": 90.561637,
+          "sd_ms": 6.793646592296308,
+          "peak_sample_index": 0,
+          "over_8ms": 40,
+          "over_120hz": 40,
+          "over_60hz": 40,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 439.8466904,
+          "stages_ms": {
+            "command_ms": 0.00017675000000000001,
+            "simulate_fetch_ms": 60.21223175,
+            "completion_ms": 0.23998955
+          }
+        },
+        "context_setup_ms": {
+          "A0": 1836.514959,
+          "B": 1824.520609,
+          "A1": 1862.438884
+        },
+        "first_tick_ms": {
+          "A0": 90.561637,
+          "B": 77.690074,
+          "A1": 76.123135
+        },
+        "later_tick_mean_ms": {
+          "A0": 59.33612552631579,
+          "B": 61.81286721052631,
+          "A1": 59.159198157894735
+        },
+        "saved_ms": -2.154329500000003,
+        "descriptive_saved_ms_95": [
+          -5.987898599999994,
+          1.0721246000000022
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-intact-idle-A0",
+          "B": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-intact-idle-B",
+          "A1": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-intact-idle-A1"
+        },
+        "A0": {
+          "n": 20,
+          "mean_ms": 60.8974011,
+          "median_ms": 58.861109,
+          "max_ms": 90.561637,
+          "sd_ms": 8.640877978082411,
+          "peak_sample_index": 0,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 440.308127,
+          "stages_ms": {
+            "command_ms": 0.0001545,
+            "simulate_fetch_ms": 60.668722,
+            "completion_ms": 0.2285246
+          }
+        },
+        "B": {
+          "n": 20,
+          "mean_ms": 62.60672755,
+          "median_ms": 59.854865000000004,
+          "max_ms": 82.141771,
+          "sd_ms": 6.438596418082541,
+          "peak_sample_index": 4,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 443.33851515,
+          "stages_ms": {
+            "command_ms": 0.0001991,
+            "simulate_fetch_ms": 62.37294635,
+            "completion_ms": 0.2335821
+          }
+        },
+        "A1": {
+          "n": 20,
+          "mean_ms": 60.007395,
+          "median_ms": 59.27296,
+          "max_ms": 76.123135,
+          "sd_ms": 4.433365988841389,
+          "peak_sample_index": 0,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 439.3852538,
+          "stages_ms": {
+            "command_ms": 0.000199,
+            "simulate_fetch_ms": 59.7557415,
+            "completion_ms": 0.2514545
+          }
+        }
+      },
+      {
+        "scenario": "city256-late-debris",
+        "A": {
+          "n": 40,
+          "mean_ms": 391.150513975,
+          "median_ms": 387.67684099999997,
+          "max_ms": 461.329167,
+          "sd_ms": 26.426515876604032,
+          "peak_sample_index": 0,
+          "over_8ms": 40,
+          "over_120hz": 40,
+          "over_60hz": 40,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 574.042308525,
+          "stages_ms": {
+            "command_ms": 0.000203425,
+            "simulate_fetch_ms": 390.90171455,
+            "completion_ms": 0.248596
+          }
+        },
+        "context_setup_ms": {
+          "A0": 1867.653592,
+          "B": 1888.618155,
+          "A1": 1801.913467
+        },
+        "first_tick_ms": {
+          "A0": 461.329167,
+          "B": 471.604122,
+          "A1": 445.722346
+        },
+        "later_tick_mean_ms": {
+          "A0": 393.2641822105263,
+          "B": 383.26683568421055,
+          "A1": 382.47103073684207
+        },
+        "saved_ms": 3.4668139750000364,
+        "descriptive_saved_ms_95": [
+          -11.491265800000008,
+          17.538267500000018
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-late-debris-A0",
+          "B": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-late-debris-B",
+          "A1": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-late-debris-A1"
+        },
+        "A0": {
+          "n": 20,
+          "mean_ms": 396.66743145,
+          "median_ms": 392.3179435,
+          "max_ms": 461.329167,
+          "sd_ms": 28.310955180638416,
+          "peak_sample_index": 0,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 592.3583634,
+          "stages_ms": {
+            "command_ms": 0.00021545,
+            "simulate_fetch_ms": 396.41760320000003,
+            "completion_ms": 0.2496128
+          }
+        },
+        "B": {
+          "n": 20,
+          "mean_ms": 387.6837,
+          "median_ms": 381.015645,
+          "max_ms": 471.604122,
+          "sd_ms": 28.340995978537713,
+          "peak_sample_index": 0,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 543.43747165,
+          "stages_ms": {
+            "command_ms": 0.00017915,
+            "simulate_fetch_ms": 387.39594885,
+            "completion_ms": 0.287572
+          }
+        },
+        "A1": {
+          "n": 20,
+          "mean_ms": 385.6335965,
+          "median_ms": 378.9930485,
+          "max_ms": 445.722346,
+          "sd_ms": 23.830454083929475,
+          "peak_sample_index": 0,
+          "over_8ms": 20,
+          "over_120hz": 20,
+          "over_60hz": 20,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 555.72625365,
+          "stages_ms": {
+            "command_ms": 0.0001914,
+            "simulate_fetch_ms": 385.3858259,
+            "completion_ms": 0.2475792
+          }
+        }
+      }
+    ],
+    "runs": [
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city25-initial-impact-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city25-initial-impact-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city25-initial-impact-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-intact-idle-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-intact-idle-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-intact-idle-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-late-debris-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-late-debris-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/city256-late-debris-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n19-requalification-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "20",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "runner_sha256": "cd2a50501e6df5bde0da0540607671144a5ceb0c95a3218e223da75ab3cb15e7",
+    "repetition_policy": "Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.",
+    "binaries": {
+      "A": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+      },
+      "B": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+      }
+    },
+    "modules": {
+      "A": {
+        "/root/workspace/physx-2/out/n19-requalification-20260912/build/A/libPhysXGpuActivity_64.so": "20f66984022782ae721762b2acbfcab8a4816611b54b5f94b82c87683e25d4aa",
+        "/root/workspace/physx-2/out/n19-requalification-20260912/build/A/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+      },
+      "B": {
+        "/root/workspace/physx-2/out/n19-requalification-20260912/build/B/libPhysXGpuActivity_64.so": "20f66984022782ae721762b2acbfcab8a4816611b54b5f94b82c87683e25d4aa",
+        "/root/workspace/physx-2/out/n19-requalification-20260912/build/B/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+      }
+    },
+    "checker_sha256": "790e6c488889bacbd18e498bcb206c7fbcec23f91af98068aa32582bf55b76c2",
+    "force_scaled_bound": 0.0002,
+    "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Unprofiled comparison with recorded GPU admission; no profiler timings or automatic acceptance.",
+    "harness_seconds": 221.94038851000005
+  },
+  "warm_report": "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n19-warm-screen.json",
+  "semantic_report": "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n19-warm-semantic.json",
+  "conclusion": "Reject N19 active-record mapped-host publication. The three-sample light debris improvement does not hold against the trailing20-sample control: B387.684ms versusA396.667/385.634. City256 idle is slower at62.607 versus60.897/60.007; city25 impact39.463 versus39.098/37.415. Warm heavy B51.747ms lies between51.653/51.804 controls; idle B1.692 versus1.632/1.511. Heavy60Hz misses remain519/600 and idle zero. No robust complete-step or peak benefit. Reduced transfer scope is plausible but insufficient to justify added publication logic without a demonstrated useful next consumer or neutral timings.",
+  "qualification": "Both arms pass16 native behavior commands and three normal asynchronous native memory cases; all seven light and three20/20/20 physical comparisons pass. Warm7200 ticks have exact work/convergence/iteration history. No full52 final gate after lack of a useful timing signal.",
+  "profile_locations": [
+    "out/n19-requalification-20260912/candidate.patch",
+    "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/dataflow.json",
+    "out/n19-requalification-20260912/screen"
+  ],
+  "profile_scope": "Baseline end-to-end attribution and exact source transfer audit. No candidate counter campaign after unprofiled confirmation failed to establish benefit.",
+  "next": "Keep existing ordinary-API publication and sleeping. Prioritize elimination of CPU lifecycle work and component decomposition, with host publication traffic revisited only under a concrete design that changes the application critical path.",
+  "counting": "N19 was already counted in the batch; this requalification does not add an experiment.",
+  "retained": "N13 numerical policy and isolated N20 CPU delta unchanged; no main source/SDK modification."
+}

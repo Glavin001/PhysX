@@ -3,13 +3,19 @@
 **CPU and full graph counters pass all52 scenarios.** The graph expansion
 contains461 nonempty graph invocations /49 reports /98 checked ticks; three
 zero-graph scenarios have explicit inventory rows. The representative ordinary-
-kernel expansion qualifies40/52 scenarios (3,243 counter launches) and is continuing. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
+kernel expansion qualifies41/52 scenarios (3,483 counter launches); it is paused at a completed
+capture boundary during exclusive optimization tests. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
 [structured coverage](coverage-tiers.json), [full-step baselines and CPU stages](report.md),
 and [ordinary-kernel counter ranges](ordinary-counter-summary.md).
 The profiling expansion itself makes no runtime or speedup claim. Isolated N20
 passes all52×20/20/20 physical comparisons and repeated warm/physical gates;
-its final52-case asynchronous memory gate is running. N06a and N15 are rejected;
-batch13/20. [All52 N20 scenario/stage results](n20-final.md),
+its final52-case asynchronous memory gate passes104 ticks with zero errors.
+The isolated CPU change is retained; final numerical-policy composition remains
+unqualified. N06a, N15, N16 and N14 history caching are rejected; batch16/20.
+N19 publication requalification is rejected without another experiment count.
+[N16 workspace](n16-result.md), [N14 policy closure](n14-result.md),
+[N19 transfer confirmation](n19-result.md). Remaining N06b/N21/N22/N11 screens
+are sequential; no new GPU candidate is retained. [All52 N20 scenario/stage results](n20-final.md),
 [warm600 and CPU mechanism](n20-followup.md), [N15 seven-case screen](n15-result.md).
 Physical inputs, ordinary APIs,
 sleep, correction limits, runtime modules and tolerances are unchanged.

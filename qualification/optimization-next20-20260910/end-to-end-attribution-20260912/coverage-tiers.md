@@ -1,6 +1,6 @@
 # Attribution tiers and remaining limits
 
-CPU **52/52**; graph tier **52/52** (461 graph invocations); significant ordinary-kernel configuration tier **40/52** (3243 representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.
+CPU **52/52**; graph tier **52/52** (461 graph invocations); significant ordinary-kernel configuration tier **41/52** (3483 representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.
 
 All CPU and GPU timings in profiler artifacts are diagnostic. [All52 unprofiled full-step baselines and CPU/stage data](report.md) remain separate.
 
@@ -46,8 +46,8 @@ All CPU and GPU timings in profiler artifacts are diagnostic. [All52 unprofiled 
 | city64-airborne | complete | 6 / 6 (complete) | 52 (complete) | 77 | 99.012% |
 | city64-initial-impact | complete | 18 / 18 (complete) | 89 (complete) | 240 | 99.019% |
 | city64-post-impact | complete | 6 / 6 (complete) | 56 (complete) | 96 | 99.013% |
-| city64-cascading-fracture | complete | 15 / 15 (complete) | — (running) | — | — |
-| city64-fragmented-loaded | complete | 17 / 17 (complete) | — (not_captured) | — | — |
+| city64-cascading-fracture | complete | 15 / 15 (complete) | 79 (complete) | 240 | 99.005% |
+| city64-fragmented-loaded | complete | 17 / 17 (complete) | — (running) | — | — |
 | city64-late-debris | complete | 18 / 18 (complete) | — (not_captured) | — | — |
 | city64-ten-second-debris | complete | 17 / 17 (complete) | — (not_captured) | — | — |
 | city256-intact-idle | complete | 6 / 6 (complete) | — (not_captured) | — | — |
@@ -78,4 +78,4 @@ The lower-rate warm traces contain no sampling-throttle warning. The original hi
 - Cold restored ticks rebuild disposable caches; warm continuous gameplay is a separate workload. Neither includes restore/validation in the full-step timer.
 - No runtime optimization or speedup is claimed.
 
-Out-of-range counter ratios preserved and flagged: 88. See the structured report before using any such ratio quantitatively.
+Out-of-range counter ratios preserved and flagged: 89. See the structured report before using any such ratio quantitatively.

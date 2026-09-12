@@ -1,11 +1,35 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest orchestration update (2026-09-12): CPU/graph attribution52/52;
+ordinary counters41/52,3483 representative launches,180 checked counter ticks.
+Counter parent390717 is SIGSTOP at a completed boundary. Coordinator490321 now
+builds N06b/N22 refined/N11 then runs N06b/N21/N22 refined/N11 sequential screens.
+Do not overlap any benchmark with CPU builds or another GPU job. It holds counters
+for final review after screens; failures require explicit review receipts.
+Batch16/20: N14 and N16 rejected without promotion. N19 requalification is also
+rejected (already counted): warm heavy51.747ms vs51.653/51.804, idle1.692 vs
+1.632/1.511;20/20/20 large debris387.684 vs396.667/385.634, idle62.607 vs
+60.897/60.007. Earlier short debris improvement did not survive trailing control.
+N14 history-off heavy51.904 vs history-on51.743/52.295; physical/work counters
+match, iteration changes separately logged. No proven mean/peak advantage for
+history caching; selected N13 policy remains. First-fracture removal signal
+requires final composition review. N16 shared workspace regresses bridge/chain/
+large debris. See n14/n16/n19-result.md in the current attribution report folder.
+N20 remains retained only as an isolated CPU delta; selected-policy composition
+still needs full52, asynchronous memory and ordinary/sleeping qualification.
+N17 prepared/unrun outside this batch; N23 pruned before GPU (getTotalSize already
+returns used extent). No extra experiment credit. Main source/index/SDK unchanged.
+Old coordinators479875/485021/465298/452129/477339 are terminal; never resume.
+Restoration watcher338813 remains alive, protected by stopped counter parent.
+Resume390717 only after exclusive experiments/final review. Earlier process and
+pending N20 statements below are historical.
+
 Current continuation (2026-09-12, supersedes older status/process notes):
 CPU attribution and graph counters qualify52/52; significant ordinary counters
 qualify40/52,3243 launches,178 checked counter ticks. Parent390717 uses pinned
 2025.3.1 application replay with3600-second watchdog and the existing pause file.
-It is temporarily SIGSTOP at a completed capture boundary while the final-memory
-coordinator finishes N20; do not resume or kill it independently. The automatic
+The full-memory coordinator has resumed it after N20 qualified. Do not kill
+or independently pause it; use the recorded pause-file capture boundary. The automatic
 service-restoration watcher338813 remains active and sees this parent. Old
 parents146583/347295 are terminal; never SIGCONT them.
 
@@ -17,19 +41,22 @@ regressions do not consistently repeat in reversed order. Warm600 heavy remains
 Four additional warm180 trials per arm measure the large fracture burst161.241ms
 versus166.641/163.340 controls. Both600-tick ordinary/sleeping walls pass exact
 physical history and zero position error. No large overall warm/peak gain claimed.
-Full52 normal asynchronous memory qualification is running under
-`out/n20-requalification-20260912/run-final-memory.py`; no N20 retention until it
-passes. That coordinator resumes counters and leaves other services protected.
+Full52 normal asynchronous memory qualification passes104 ticks with zero errors
+in567.53s diagnostic wall. N20 CPU delta is retained in its isolated B artifacts,
+commit b7918affda83942dba04e8626db696cca7fd283a. Final composition with the selected
+numerical policy still requires matched verification; N14 is not promoted.
 [Every scenario and stage](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-final.md).
 
 N15 anchored/free specialization is rejected after numerical/sanitizer/physical
 passes: seven-case light has no clear gain, large debris483.504ms versus459.421/
-457.057 controls. N06a is also rejected. Batch13/20; do not count prepared work.
-N14 retained-policy closure is building; N19 GPU-to-CPU active-record publication
+457.057 controls. N06a is also rejected. Batch14/20; do not count prepared work.
+N14 retained-policy closure is built; N19 GPU-to-CPU active-record publication
 requalification and N16 local vector workspace are separately prepared. The
 `build-queued-solvers.py` and `run-next-isolated-screens.py` coordinators under
 `out/end-to-end-attribution-20260912/` finish all CPU builds before serial GPU
-screens at the next clean counter boundary. Monitor their receipts; no parallel
+screens at the next clean counter boundary. N21 factor-reciprocal build holds
+that screen coordinator440946 temporarily; its build-before-screens.py resumes
+it on exit. Monitor their receipts; no parallel
 GPU candidates. Current compatible runtime includes unaccepted N14. Main source/
 index, frozen best N13 and installed original SDK are unchanged. Keep every
 first-use tick equally weighted across A/B/A. Follow OPTIMIZATION.md.

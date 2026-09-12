@@ -630,6 +630,36 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-cascading-fracture/analysis.json",
+    "bytes": 50413822,
+    "sha256": "d5ec520e92ca363b91fb33ab190db9f9f714eb62690b805e523c20e8d53b8ebc",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-cascading-fracture/counters.ncu-rep",
+    "bytes": 1082522359,
+    "sha256": "a4f961559838f147f2a01ea81487a0946fde9fc293b4b056df679cdf8857c785",
+    "sha256_origin": "completed campaign counter audit"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-cascading-fracture/physical-comparison.json",
+    "bytes": 1502,
+    "sha256": "2ec81fa30f5f25a5b7eeab027e4ddc873a7f04535900b1f86e2397170cd0ef7f",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-cascading-fracture/receipt.json",
+    "bytes": 2356217,
+    "sha256": "842706bb0fa8ea2ec4b6aa730853956c28a27ab2adb610d7455f2c788047790a",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-cascading-fracture/replay.json",
+    "bytes": 2141,
+    "sha256": "5dd99a9a5daa7b1fcc610aceb76cb6825f3344772a7e42e767ff0a6ba53a23f1",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-initial-impact/analysis.json",
     "bytes": 50566380,
     "sha256": "5f70fac79d32553cfc036047f4a30ef4012d93bdbda30e36f084d3e1a7fccfa1",
@@ -1227,6 +1257,12 @@
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/tower64-warm/replay.json",
     "bytes": 2090,
     "sha256": "685a83a39068e2f6448ce9a6f84be3638a2335a6165c882844f08aca05c87203",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/consolidated-migration.json",
+    "bytes": 1321,
+    "sha256": "f5b7a03150afa8625c4ed4458748077d4bcc6a574d38a605ad2b18f9f81adae7",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3690,15 +3726,51 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/remaining-screen-plan.json",
+    "bytes": 635,
+    "sha256": "98acd2b4a2899b460627a2f4a90cfbe6333ea4dacf43c09f988e2458e598a7c6",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/report-n14-closure.py",
+    "bytes": 3301,
+    "sha256": "69c247f196e4d45c0191c0510001deddfc5660f8028a7087cb5481d4188cb536",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/report-n15-screen.py",
     "bytes": 4043,
     "sha256": "e9f09f75303260f08cbe82642decedd184f2e3d8d9cc542e891ba5ac7cdb4587",
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/report-n16-screen.py",
+    "bytes": 4114,
+    "sha256": "244ea2bb2e4f7fb6794cf9e2bdbe68a85a896c2b1a044a18c63e97e9f0747d64",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/report-n19-requalification.py",
+    "bytes": 3816,
+    "sha256": "cdd5be5d6d252c6914d561541d50a85abaab4473f0e814e89f75a9c6c98e68b5",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/report-n20-final.py",
-    "bytes": 6580,
-    "sha256": "15d7e0f03968668c58d14c5832487a6906e81241cbfbb7c094c1e21c1f4b8778",
+    "bytes": 8812,
+    "sha256": "2b2cf0c557d4ef42c03009e3fe3b676aed36ec2b324dc07a982eee8196276281",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/report-warm-screen.py",
+    "bytes": 2550,
+    "sha256": "10728ef603c48bcd9528f095732d26be776eebf1f23893531bf02e4fa08356e3",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/run-consolidated-screens.py",
+    "bytes": 3866,
+    "sha256": "e2dc54f1aa30f22de708a8db3eab0b5fc2b404ec6e4283fe367ed938c82c1391",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3780,6 +3852,90 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n06b-warp-components-20260912/build-isolated.py",
+    "bytes": 4801,
+    "sha256": "4c3c09b8641aa83de48486917493312c4901b2e5ae954856b2c54fb8d551b153",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n06b-warp-components-20260912/build-oracles.py",
+    "bytes": 4976,
+    "sha256": "0f14fb65b8874e41aa2637f42238abeff67ef02e8024da5b2aeee60c78384d13",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n06b-warp-components-20260912/build/build.json",
+    "bytes": 215912,
+    "sha256": "6669e4459ecf6246d6b42d3b3b1546745eb876d9c5aff0d1f3176d21c4f1c6a1",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n06b-warp-components-20260912/candidate.patch",
+    "bytes": 7769,
+    "sha256": "70eabdff999f9c64c15a131cff371f5ec05c588960a4a7662372edabd3c0f4a9",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n06b-warp-components-20260912/preparation.json",
+    "bytes": 2856,
+    "sha256": "2d3c17579edaeae0baa481c4794aa366c9d5d86b46c2b39ab6ce9bbff4f70037",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n06b-warp-components-20260912/run-screen.py",
+    "bytes": 4867,
+    "sha256": "161fab468a36fde67c348089164066c56ec1b5fadaab8080edc49950f5e41ce2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n06b-warp-components-20260912/run-warm-screen.py",
+    "bytes": 5960,
+    "sha256": "5d5330f9af11c74cc49c69dcf202d8c41e64ad7533617278996e86e383579dbb",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n11-projection-reciprocal-20260912/build-isolated.py",
+    "bytes": 4801,
+    "sha256": "4c3c09b8641aa83de48486917493312c4901b2e5ae954856b2c54fb8d551b153",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n11-projection-reciprocal-20260912/build-oracles.py",
+    "bytes": 4967,
+    "sha256": "3b189a6f5634163e21240755b13e6a5a532dd957058c45f8c798c8c1da634c83",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n11-projection-reciprocal-20260912/build/build.json",
+    "bytes": 216489,
+    "sha256": "d565ca282b0af4915ee7c8cefe8ff785b74dbabd55053dddcc43b2c033f78b17",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n11-projection-reciprocal-20260912/candidate.patch",
+    "bytes": 1983,
+    "sha256": "f54e7108642edcce405233ade58cfacd7cf8bdf487d1cdc6c2eee7b9dfed4a91",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n11-projection-reciprocal-20260912/preparation.json",
+    "bytes": 2989,
+    "sha256": "6324d6f6af2fd247d8f3d5f53ef9de0fd7e567a99a59e96aa87bf6078fcfb779",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n11-projection-reciprocal-20260912/run-screen.py",
+    "bytes": 4867,
+    "sha256": "161fab468a36fde67c348089164066c56ec1b5fadaab8080edc49950f5e41ce2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n11-projection-reciprocal-20260912/run-warm-screen.py",
+    "bytes": 5960,
+    "sha256": "5d5330f9af11c74cc49c69dcf202d8c41e64ad7533617278996e86e383579dbb",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n14-closure-20260912/build-isolated.py",
     "bytes": 4070,
     "sha256": "2b11a7759d1d901b45256aa0fe1b625178b34c1cb2befbf8c27c9846fd78739b",
@@ -3804,6 +3960,12 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/oracles/build.json",
+    "bytes": 567931,
+    "sha256": "5870748df8b7456a3dcb06fb36196445364c9842cfed6e10b4bc8bd0cc0f73c4",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n14-closure-20260912/preparation.json",
     "bytes": 2442,
     "sha256": "013bb815fd72be11d0bd77bd9e32cebe3ff829dbf966d54f787a39e230c457ae",
@@ -3813,6 +3975,30 @@
     "path": "/root/workspace/physx-2/out/n14-closure-20260912/run-screen.py",
     "bytes": 4867,
     "sha256": "161fab468a36fde67c348089164066c56ec1b5fadaab8080edc49950f5e41ce2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/run-warm-screen.py",
+    "bytes": 5960,
+    "sha256": "5d5330f9af11c74cc49c69dcf202d8c41e64ad7533617278996e86e383579dbb",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/screen/campaign.json",
+    "bytes": 25766,
+    "sha256": "850b26396e00d7c38e915699a71e00580975f1ab447b9b0213b923decc17fbf2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/report.json",
+    "bytes": 43902,
+    "sha256": "1c7233b14e2894168490f925f831373005a2326b9c2f2ec6b2829b1506e5dd75",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/warm600/campaign.json",
+    "bytes": 118850,
+    "sha256": "4ba9bf2ebe0fb4a17c7d4f30dbe47424d07c34cad87a3aeab764047166962063",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3888,9 +4074,21 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/build/build.json",
+    "bytes": 405388,
+    "sha256": "14f2448aa676041407ab80c910188a299dfabea75dca9e8f852737082d79a68b",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n16-local-20260912/candidate.patch",
     "bytes": 22149,
     "sha256": "9597d6af8a5dd69fff0de23b0efbc07d95a08f58166e305b859b000e541b2f75",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/oracles/build.json",
+    "bytes": 567732,
+    "sha256": "1b713474d3031ad2441bee9e02b51d7852280c50ad6896b761964c92ee533ab0",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3900,7 +4098,61 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/resources.json",
+    "bytes": 2403,
+    "sha256": "d9133b954f60e35937111622f1866f29111cf4325d2cdb18e327911ec235268a",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n16-local-20260912/run-screen.py",
+    "bytes": 4867,
+    "sha256": "161fab468a36fde67c348089164066c56ec1b5fadaab8080edc49950f5e41ce2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/run-warm-screen.py",
+    "bytes": 5960,
+    "sha256": "5d5330f9af11c74cc49c69dcf202d8c41e64ad7533617278996e86e383579dbb",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/screen/campaign.json",
+    "bytes": 25688,
+    "sha256": "10e2054062904d7486060d282b20054dfc75ee8e3bf79aedf741a5c2328e1a9d",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/screen/matched-light/report.json",
+    "bytes": 43774,
+    "sha256": "6f59e4dd0ace6a8e24d60d76ce317ab312e6fbadbca3533e181bbc726d5b1543",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n17-empty-launch-20260912/build-isolated.py",
+    "bytes": 4801,
+    "sha256": "4c3c09b8641aa83de48486917493312c4901b2e5ae954856b2c54fb8d551b153",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n17-empty-launch-20260912/build-oracles.py",
+    "bytes": 4967,
+    "sha256": "3b189a6f5634163e21240755b13e6a5a532dd957058c45f8c798c8c1da634c83",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n17-empty-launch-20260912/candidate.patch",
+    "bytes": 3224,
+    "sha256": "0295220dab7d24b088b329f4a39b21feb167ea4b4b9d40e1a46427295a90c292",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n17-empty-launch-20260912/preparation.json",
+    "bytes": 2720,
+    "sha256": "10eb4227f1c00fd197a5c8e12694b2a8331e1f937a59e9800102911c2ef37737",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n17-empty-launch-20260912/run-screen.py",
     "bytes": 4867,
     "sha256": "161fab468a36fde67c348089164066c56ec1b5fadaab8080edc49950f5e41ce2",
     "sha256_origin": "rehashed by index builder"
@@ -3918,9 +4170,33 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/build/build.json",
+    "bytes": 378772,
+    "sha256": "dc30c4b74295836efbe7d3cac117451830422a864257e62c063d085898a48fb5",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n19-requalification-20260912/candidate.patch",
     "bytes": 4547,
     "sha256": "755e03d26cbcf16092280e9ff2cdda27f222f47b8d74eb500bab3712b2fbc6a7",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation-command.json",
+    "bytes": 657,
+    "sha256": "93f393eaafd1381b17de01b31ad9c2edfda1f1a9f1defbea185cbb729d1ab4d8",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation-manifest.json",
+    "bytes": 4255,
+    "sha256": "22f45b4fd9b18d4be20485950c2c4ec216e6ea03c55bcb795639589b6464fada",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/confirmation20/report.json",
+    "bytes": 20147,
+    "sha256": "55eb6ca01cbb6870f9be2de837688e6ced77bbe06689fa308898dffb7b5c6834",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3930,9 +4206,27 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/native-A/campaign.json",
+    "bytes": 29814,
+    "sha256": "9bbd29c6bb950797c61f752b4c11aa949e0204d1f1015b4d5ca2625c456f5ba0",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/native-B/campaign.json",
+    "bytes": 29811,
+    "sha256": "9ff2a053ddd20109540a4bbe7937d4d427edf00af11650cd803435317664e414",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n19-requalification-20260912/preparation.json",
     "bytes": 2550,
     "sha256": "e6295730274aca02acf0161fbce6f3aa5d3b09af31778be8308bb43e949990c7",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/run-confirmation.py",
+    "bytes": 745,
+    "sha256": "e8369b415f3f2915082267bc99af99578bba9487b3050dc19de4a4c5b875d862",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3945,6 +4239,30 @@
     "path": "/root/workspace/physx-2/out/n19-requalification-20260912/run-screen.py",
     "bytes": 2013,
     "sha256": "5e2ea98ba3565affb9b65c1fddbe0ba6bde7542027b1c98bc2216b63cb5ddd54",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/run-warm-screen.py",
+    "bytes": 5960,
+    "sha256": "5d5330f9af11c74cc49c69dcf202d8c41e64ad7533617278996e86e383579dbb",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/screen/campaign.json",
+    "bytes": 1870,
+    "sha256": "c68e959740e6a5ae023a3ce20f16216882486d040e1867e35737ddaf520a37b8",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/screen/matched-light/report.json",
+    "bytes": 44491,
+    "sha256": "543118011dcc9a78b6827cb7b036a6c32702f554aaeefbc69ec3f993cf63b480",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/warm600/campaign.json",
+    "bytes": 50715,
+    "sha256": "2cbe6b34d06ac2cb54d2eb1aef5ce68bf321ffaf7e8e0acbbe2c029f7af913d3",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -4188,6 +4506,12 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/full52-memcheck/suite-summary.json",
+    "bytes": 203,
+    "sha256": "b79bfa762c721267f771337203712b03601d0172a58aaf22e95afce13f204dfc",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/full52/report.json",
     "bytes": 311576,
     "sha256": "4e71505f9beffc55253202f527f6e06b8acaab19bbfc46c5aeeb06da88436fe9",
@@ -4359,6 +4683,108 @@
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/warm600/campaign.json",
     "bytes": 50174,
     "sha256": "86138bd159420666aa610d1a0e55b3ff9a096bc0e7aa5eeb0a8a26257f8711a2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/build-isolated.py",
+    "bytes": 4070,
+    "sha256": "2b11a7759d1d901b45256aa0fe1b625178b34c1cb2befbf8c27c9846fd78739b",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/build-oracles.py",
+    "bytes": 4277,
+    "sha256": "0efb21b21e30de535df7cce6e2044b90c29d9c20e8db719b64cb98fd4aa3f6ba",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/build/build.json",
+    "bytes": 407221,
+    "sha256": "1693e7563394715d414bf47b99f01f9341e7158b7be1a12771862ff30109b4ce",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/candidate.patch",
+    "bytes": 7971,
+    "sha256": "f98b3c8a8c63ddf8c4b8d6b0d24891550fa9c29a92508b9de4fe363414af7b9b",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/oracles/build.json",
+    "bytes": 865058,
+    "sha256": "f15be3cafcee1991e1a5f44e396eb42ad5a6e508e83e558d64aec6d1481c4572",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/preparation.json",
+    "bytes": 2779,
+    "sha256": "65cbd5fe4ebbbf9e687f385734e26563f0551d06c249a1571796a3b275facd06",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/resources.json",
+    "bytes": 2402,
+    "sha256": "3fdadefa1d081fb4cab3631cc6b72ce5c0eb5cd9ff6685666a08a1bf98e73be3",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/run-screen.py",
+    "bytes": 5814,
+    "sha256": "c8ff4de4c54ed39dfa32f4718199a7baf2756d01ebbaf84bc8320832f1f75fe4",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n21-factor-reciprocal-20260912/run-warm-screen.py",
+    "bytes": 5960,
+    "sha256": "5d5330f9af11c74cc49c69dcf202d8c41e64ad7533617278996e86e383579dbb",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n22-mixed-smoother-refined-20260912/build-isolated.py",
+    "bytes": 4801,
+    "sha256": "4c3c09b8641aa83de48486917493312c4901b2e5ae954856b2c54fb8d551b153",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n22-mixed-smoother-refined-20260912/build-oracles.py",
+    "bytes": 5004,
+    "sha256": "8f96f0f81e1f10fdccbdfa0bbabf7ef2d00be0d1bd2b315ce2415b1ced5b1ca2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n22-mixed-smoother-refined-20260912/build/build.json",
+    "bytes": 216668,
+    "sha256": "9a7fc4233735f71088bc5b2314a36de83cb6205d3f002badbe9c172ebe890e03",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n22-mixed-smoother-refined-20260912/candidate.patch",
+    "bytes": 5678,
+    "sha256": "0ce540dd14cf140509d7bf18d06c57038f7206fa02323a0ab01a35803b9a63cf",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n22-mixed-smoother-refined-20260912/control-reuse.json",
+    "bytes": 254,
+    "sha256": "4bcd554d6a2a9b75ad088b987dbbfa6e170022b63a0cfcfa0d2b9ee3d337a1e7",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n22-mixed-smoother-refined-20260912/preparation.json",
+    "bytes": 3083,
+    "sha256": "040f8f3dbfc8884b5b5c2dec2bc9fd37c78717f0b8b4a0ee9385497c4c668d1d",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n22-mixed-smoother-refined-20260912/run-screen.py",
+    "bytes": 5814,
+    "sha256": "c8ff4de4c54ed39dfa32f4718199a7baf2756d01ebbaf84bc8320832f1f75fe4",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n22-mixed-smoother-refined-20260912/run-warm-screen.py",
+    "bytes": 5960,
+    "sha256": "5d5330f9af11c74cc49c69dcf202d8c41e64ad7533617278996e86e383579dbb",
     "sha256_origin": "rehashed by index builder"
   }
 ]
