@@ -6,6 +6,9 @@ from pathlib import Path
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('campaign',type=Path);p.add_argument('output',type=Path)
     p.add_argument('--baseline',type=Path,default=Path('qualification/optimization-next20-20260910/snapshot-reset-20260911/report.json'))
+    p.add_argument('--counter-status',default='Prior 52-scenario selected/stress captures remain available. See the accompanying qualification report for expanded inventory status.')
+    p.add_argument('--warm-status',default='See the separate continuous attribution campaign; snapshot coverage does not establish warm coverage.')
+    p.add_argument('--recovery-note',default='Historical failed captures remain preserved; qualified rows refer only to successful, physically checked captures.')
     a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
     campaign=json.loads((a.campaign/'campaign.json').read_text());base=json.loads(a.baseline.read_text())['scenarios'];runs={r['scenario']:r for r in campaign['scenarios']}
     rows=[];physical=[];total_samples=total_scopes=total_kernels=0
@@ -36,12 +39,12 @@ def main():
         checked_qualified_ticks=2*qualified,cpu_samples=total_samples,engine_scopes=total_scopes,kernel_launches=total_kernels,
         maximum_motion_errors={k:max(x['maximum_errors'][k] for x in physical) for k in physical[0]['maximum_errors']} if physical else {},
         identity=campaign['identity'],scenarios_data=rows,
-        counter_status='Prior 52-scenario selected/stress captures remain available. Expanded significant-kernel collection is unqualified; 2025.3.1 skips conditional graph nodes. 2026.2.1 pilot has not run.',
-        warm_status='Existing warm reports retained; new CPU-enabled continuous idle/heavy captures pending GPU recovery.',
+        counter_status=a.counter_status,
+        warm_status=a.warm_status,
         scope='Diagnostic CPU sampling, scheduling, engine phases, CUDA/OS calls and GPU activity. No application optimization or speedup. Baseline times are separate unprofiled 20-sample restored full ticks, excluding restore and validation.')
     (a.output/'report.json').write_text(json.dumps(result,indent=2)+'\n')
     lines=['# End-to-end attribution coverage','',result['scope'],'',f'CPU attribution: **{qualified}/{len(rows)}** qualified scenarios, **{2*qualified}** checked restored ticks, **{total_samples:,}** CPU samples, **{total_scopes:,}** engine phase scopes and **{total_kernels:,}** GPU launches. Incomplete scenarios remain visible.','',
-        'The 64-building initial-impact trace is quarantined after a correlated Xid120 GSP firmware fault. Its successful application/physical results do not qualify that profiler capture. The next case could not initialize CUDA. No reset or service interruption was performed.','',
+        a.recovery_note,'',
         '| Scenario | Unprofiled mean / peak ms | Command / simulate-fetch / completion means ms | 60 / 120 Hz misses (20 samples) | CPU attribution | CPU samples |',
         '|---|---:|---:|---:|---|---:|']
     for r in rows:
@@ -55,7 +58,7 @@ def main():
     lines+=['','## Reading the raw evidence','','Each qualified scenario directory contains the native Systems report and SQLite database, `attribution.json`, exact command and module/input hashes, physical comparison, and the reused native host/CPU/device-phase CSVs. The JSON links kernels and copies to streams, launch APIs, CPU callers and engine scopes where present. All recorded CPU stack frames and thread scheduling events remain in SQLite; unresolved driver/kernel symbols are explicitly counted.','',
         'The native phase recorder provides thread CPU clocks and nested scope accounting. Detached cross-thread durations are wall intervals; unmeasured leaf CPU time is never invented. Samples are statistical counts. A low-count function needs additional samples before a fine-grained CPU performance claim. CUDA API waits can overlap useful GPU execution. Device phase event durations include dependencies and submission gaps, not just kernel execution.','',
         'The expanded kernel collector selects at least 99% of aggregate GPU kernel duration, every family costing at least 0.1ms and stress, then requests every invocation of those families, preserving trial/correction and launch configurations. Both thresholds are adjustable, including 100% coverage. An inventory audit rejects silently skipped kernels. This collector is implemented but its broad GPU qualification remains pending; conditional-graph support is a known gap in the pinned 2025 collector.','',
-        'GPU allocation/all-API tracing is now a separate opt-in diagnostic. The original 38 qualified captures included those options; the reduced tracing combination must be piloted after recovery. It is a diagnostic hypothesis, not a proven firmware-fault fix. No 2026.2.1 counter result or new warm continuous CPU capture is claimed.','']
+        'GPU allocation/all-API tracing is a separate opt-in diagnostic. Exact capture options remain in each receipt; mixed tracing options are not a matched timing comparison. Reduced tracing is not a proven firmware-fault fix.', '', result['counter_status'], '', result['warm_status'],'']
     (a.output/'report.md').write_text('\n'.join(lines))
     print(json.dumps({k:v for k,v in result.items() if k not in ['scenarios_data','identity']},indent=2))
 if __name__=='__main__':main()

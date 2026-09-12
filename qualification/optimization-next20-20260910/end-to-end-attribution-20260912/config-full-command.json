@@ -1,0 +1,17 @@
+[
+  "python3",
+  "tools/diagnostics/destruction-snapshot/profile-config-suite.py",
+  "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full",
+  "--timeline-campaign",
+  "out/ncu-fix-20260912/full",
+  "--manifest",
+  "out/snapshot-light-20260911/full-manifest/manifest.json",
+  "--binary",
+  "out/snapshot-counters-20260911/probe/serialization-probe",
+  "--artifacts",
+  "out/snapshot-reset-20260911/local-artifacts",
+  "--threshold-ms",
+  "0.1",
+  "--allow-existing-graphics",
+  "--resume"
+]

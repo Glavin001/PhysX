@@ -1,111 +1,105 @@
-# Complete-step attribution expansion — incomplete, GPU recovery required
+# End-to-end attribution after GPU recovery
 
-The user requests complete CPU attribution and every significant GPU kernel,
-accepting a pinned Nsight Compute collector. No application optimization or
-speedup is claimed. Runtime libraries, physical inputs, ordinary APIs, sleep,
-correction limits and tolerances are unchanged. Profiling uses an isolated probe.
+**CPU attribution passes all52 scenarios.** The graph-counter expansion is
+running with a verified workaround; representative ordinary-kernel expansion
+follows it. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
+[structured coverage](coverage-tiers.json), [full-step baselines and CPU stages](report.md).
+No runtime optimization or speedup is claimed. Physical inputs, ordinary APIs,
+sleep, correction limits, runtime modules and tolerances are unchanged.
 
-## Verified and remaining coverage
+## Recovery and CPU qualification
 
-**38/52 CPU-attribution cases qualify: 76 checked ticks, 6,536 CPU samples,
-11,307 engine scopes and 9,280 GPU kernel launches.** Position, linear velocity
-and angular velocity differences from unprofiled references are zero. Existing
-orientation/force tolerances are unchanged. [All 52 baselines, stages, deadlines,
-CPU coverage and raw links](report.md), [structured report](report.json).
+The user authorized reversible service/GPU recovery, then rebooted the host at
+07:05:39 UTC on2026-09-12. Desktop and persistence services restarted. The GPU
+recovered without a driver/toolkit update. The server from the other project
+was temporarily stopped; its private restart configuration is retained locally.
+The original Xid120 capture remains quarantined. A reduced-tracing retry passes
+city64 initial impact, and the remaining13 captures pass. This does not prove
+which option caused the original firmware fault.
 
-| Scenario group | Qualified CPU cases | Outstanding |
-|---|---:|---|
-| Original structural cases | 28/28 | None in this capture tier |
-| 25 buildings / 11,100 chunks | 8/8 | None in this capture tier |
-| 64 buildings / 28,416 chunks | 2/8 | Impact quarantined; remaining five not qualified |
-| 256 buildings / 113,664 chunks | 0/8 | All eight |
+CPU coverage totals104 checked ticks,21,401 CPU samples,91,538 engine scopes and
+18,376 kernel launches. All28 structural cases and all24 city stages qualify.
+Observed position, linear-velocity and angular-velocity differences are zero;
+maximum orientation-dot error5.2338594e-7 passes the unchanged gate. The resumed
+13-case campaign took352.43 seconds, plus the separate impact pilot; earlier good
+captures were reused. Raw scope counts agree with native phase CSVs, and each
+main-thread scheduler partition sums to its same-clock tick interval.
 
-Each qualified case has DWARF CPU samples, OS scheduling, CUDA and OS call stacks,
-all traced GPU launches/copies/memsets, launch/stream correlations, and native
-destruction phase wall/thread CPU/device event data. The existing native phase
-recorder is connected to NVTX in the diagnostic executable. Normal builds have
-no new profiling callback. Both profiling and normal probe builds pass; five
-CPU accounting/selection regression tests pass.
+Every case retains Systems/SQLite, all recorded CPU stacks/scheduling, CUDA/OS
+callers, GPU launches/copies/memsets, stream correlations and native phase clocks.
+Unresolved proprietary driver/kernel frames and sample-throttling warnings are
+explicit. Samples are statistical counts, not CPU milliseconds. Detached scopes
+are not assigned invented thread CPU time. Runtime binaries remain unchanged.
 
-The raw Systems/SQLite files retain complete recorded stacks and scheduling
-events. Proprietary driver/kernel frames can remain unresolved, and short cases
-have statistical sampling limits. These gaps are counted, not silently assigned
-to application CPU work. CUDA waits and GPU activity overlap; no subtraction
-between profiled GPU time and unprofiled application time is used.
+## Counter diagnosis and working collection mode
 
-The **prior 52-scenario NCU qualification remains targeted**, 62 files / 86
-launches. Broad capture is implemented but not qualified. Its default inventory
-selects >=99% of aggregate kernel time, every family >=0.1ms, and stress; it then
-captures **all invocations** of selected families, including changing grids and
-trial/correction. Thresholds are adjustable through 100%. Omitted work stays in
-the complete timeline. Exact inventory comparison rejects missing captures.
+The original2025.3.1 selected/stress campaign still qualifies52 cases /62 files /
+86 launches. It does not capture individual conditional-graph nodes. New locally
+extracted2026.2.1 and2026.1.1 pilots both reproduce the2026.3.0 heap-abort symptom
+on the same city25-impact input. No fourth version retry is planned. The precise
+injection corrupting write remains unproven.
 
-## Conditional graph limitation
+A different collection route records whole graphs with the stable2025.3.1 tool.
+With optional host analysis rules enabled, its **collector process** segfaults;
+the application completes. The local crash dump identifies the collector and
+its stack is preserved in `graph-host-stack.log`. A matching graph-only control
+still crashes with rules enabled. **Disabling those rules succeeds**, collecting
+all18 expected graph invocations with full hardware metrics and passing the
+unchanged physical comparison. Rules off removes optional derived analysis, not
+the requested full hardware metric set. The full graph campaign applies this
+workaround and audits nonempty graph invocations against Systems.
 
-An explicit two-family pilot on city25 initial impact requested component stress
-and `constructMotionModes`. The pinned 2025.3.1 collector recorded stress but
-skipped the conditional-graph kernel, warning that such nodes are unsupported.
-A successful profiler exit therefore does not establish full kernel coverage.
-Repeated `--kernel-id` arguments are not supported; the corrected tool uses one
-anchored mangled-name regex and records every matching invocation.
+Graph counters aggregate their nodes and do not provide individual conditional-
+node/source counters. The ordinary-kernel supplement selects every family costing
+at least0.1ms in the matched timeline, then captures the first and slowest observed
+invocation at each launch configuration. Extra representatives selected by the
+shared invocation filter are counted. This is explicit representative coverage,
+not a claim to capture every invocation's counters. Complete timelines retain
+every launch; thresholds and all-invocation tools remain available for deeper
+investigations. Missing inventories never silently pass.
 
-NVIDIA's newer documentation describes conditional-node profiling support with
-driver >=590. Archived **2026.2.1** was downloaded/extracted locally to test this
-capability without the known 2026.3.0 heap abort. **That GPU test has not run**:
-its queued job aborted when the CPU campaign failed. The installed 2025.3.1 pin
-remains unchanged. No driver/toolkit update was performed.
-
-Sources: [NVIDIA graph profiling](https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#graph-profiling),
-[kernel identifier syntax](https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#profile),
+Sources: [NVIDIA graph profiling and metric limitations](https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#graph-profiling),
+[NVIDIA invocation/configuration filtering](https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#profile),
 [official archived collectors](https://developer.download.nvidia.com/compute/cuda/redist/nsight_compute/linux-x86_64/).
+These documents describe capabilities, not proof of the precise bugs observed here.
 
-## Machine failure, separate from the older NCU heap abort
+## Continuous application controls
 
-At **2026-09-12 05:30:46 UTC**, the kernel logged **Xid120**, a GSP task store-access
-page fault, for PID **1671498**, `CUPTI worker th`. This is the city64 initial-impact
-Systems process. Its first tick ran 05:30:43.890237–05:30:44.101778; the last
-recorded GPU kernel ended at 05:30:45.158204. `cuCtxDestroy_v2` began at
-05:30:46.471075 and took 30,125.121ms. Thus the fault was reported during context
-teardown, after the measured tick. This does not identify the faulty instruction
-or establish which profiling option triggered it.
+Both180-tick ordinary/sleeping idle and heavy runs pass exact per-tick work,
+convergence and correction-counter comparisons against their unprofiled controls.
+At500,000 reference cycles per CPU sample, the OS throttled collection. At10million
+cycles, both repeated traces have no sampling-throttle warning. Those contain
+281 idle and2,193 heavy CPU samples, plus11,242 /88,917 GPU launches. The original
+higher-rate captures remain available for comparison. The generic NVTX warning
+remains; native frame clocks and native phase CSVs define the continuous windows.
+CUDA-event completeness warnings are rejected. No extra production synchronization
+was added. Clock-boundary time outside the trace anchors is explicitly unlocated.
 
-The application and physical comparison returned successfully, and NVML briefly
-retained a normal temperature. **The capture is nevertheless quarantined.** The
-following city64 post-impact process failed CUDA initialization with code100;
-NVML now reports `GPU requires reset` and `GPU Recovery Action: Reset`.
-The wrapper now rejects reset-required state and checks kernel Xids after a run.
+Across the two unprofiled controls, full-step idle means are1.621/1.678ms and peaks
+13.965/12.426ms, with0/180 misses at60Hz. Heavy means are54.926/55.457ms and peaks
+174.362/195.027ms, with99/180 misses at60Hz. Both scenes contain113,664 chunks and
+229,376 bonds; heavy uses256 projectiles. Initialization, stages and exact budget
+counts are in the linked tier report. These are diagnostic controls, not new
+candidate speedup experiments or the required600-tick final acceptance campaign.
 
-NVIDIA identifies Xid120 as a GSP error with GPU reset as the recovery action:
-[Xid catalog](https://docs.nvidia.com/deploy/xid-errors/analyzing-xid-catalog.html).
-The fault log and context-teardown timing are preserved under
-`out/end-to-end-attribution-20260912/gpu-fault/`. No service was stopped, GPU reset
-performed, reboot requested, or external report submitted.
+Cold-restored and continuous gameplay measurements differ materially: the largest
+restored idle baseline is59.200ms mean, whereas warm continuous idle is around
+1.6ms. Rebuilt disposable caches and initial scene work are part of the cold tick.
+Use both workloads; do not mistake cold reconstruction work for recurring gameplay
+cost, and do not move work outside the timer to manufacture an optimization.
 
-GPU device users remain `web-fps-server` PID435374, desktop locker PID5246 and
-`nvidia-persistenced` PID717. Recovery can disrupt the other project and desktop.
-It requires the user's approval under the existing AGENTS instruction not to
-stop other users' services/desktop/GPU jobs. Do not reset or stop them merely
-because this document describes the recovery.
+## Next experiments and reproducibility
 
-## Resume after authorized recovery
+The [ranked hypotheses](next-ranked-experiments.json) prioritize fragment lifecycle,
+verified unchanged-input equilibrium reuse, direct solves for eligible components,
+and compact CPU mirror updates. Each includes evidence, mechanism, scenarios,
+estimated application savings, confidence, cost and support/refutation criteria.
+Estimates are hypotheses, not subtraction of profiler time from baseline time.
+The original N-series remains11/20 and best N13 stays retained.
 
-1. Recheck device users and host GPU health. Preserve the fault logs first.
-   Coordinate stopping/restarting affected clients before a GPU reset; if the
-   hardware requires a VM power cycle, obtain authorization for that separately.
-2. Pilot city64 impact with CPU sampling, scheduling, native phases and CUDA/OS
-   backtraces, **without** optional GPU-allocation/all-API tracing. This reduced
-   combination is an untested diagnostic hypothesis, not a proven fix. If the
-   firmware fault recurs, stop the campaign and investigate collector/driver
-   teardown rather than repeatedly resetting and rerunning the same work.
-3. Resume the CPU campaign. It preserves the 38 qualified cases and creates new
-   attempt directories for the quarantined/failed cases, leaving their raw data.
-4. Test 2026.2.1 on the saved two-family pilot and compare physical observations.
-   If it qualifies, expand the kernel inventory campaign; otherwise investigate
-   graph-level counters/replay without changing production synchronization.
-5. Add CPU-enabled continuous native idle/heavy profiles on the same artifacts;
-   existing warm profiles and the 20-sample cold suite remain different workloads.
-6. Audit every manifest case and kernel selection, report remaining unresolved
-   attribution, then resume optimization using unprofiled light/full acceptance.
-
-Exact tooling and commands are in [OPTIMIZATION.md](../../../OPTIMIZATION.md).
-No owned GPU jobs remain live. The attribution expansion is **not complete**.
+Use exact commands in [OPTIMIZATION.md](../../../OPTIMIZATION.md). New tools are
+`profile-graph-suite.py`, `profile-config-suite.py`, `profile-warm-suite.py`,
+`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Eight accounting,
+classification and representative-selection tests pass. Historical pre-reboot
+status is retained in [history-before-reboot.md](history-before-reboot.md).
+Private process environments and crash cores are not published or committed.

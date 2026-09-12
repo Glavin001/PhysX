@@ -1,0 +1,107 @@
+{
+  "scope": "Updated hypotheses, not speedup claims or completed N-series experiments. Savings are conservative guesses, not profiler-time subtraction. Preserve best N13; isolate source and verify baseline before each candidate.",
+  "experiments": [
+    {
+      "rank": 1,
+      "title": "Batch fragment creation and shape ownership publication",
+      "family": "fragment_lifecycle",
+      "evidence": "Warm heavy peak82 attributes 34.88ms thread CPU to allocateNativeBodies and20.89ms to migrateShapes under Systems; cold city256 impact similarly exposes these scopes. These instrumented costs overestimate removable application time.",
+      "proposed_mechanism": "Batch native body reservations and changed ShapeSim ownership/refilter/contact-retirement operations at the existing fracture-to-correction boundary. Shapes and geometry already persist; preserve that invariant. Remove redundant per-shape traversal and repeated pool/registry work while keeping current correction contacts and final ordinary actor/query publication.",
+      "affected_scenarios": [
+        "initial impact",
+        "cascading fracture",
+        "many newly created islands",
+        "large fragmented cities"
+      ],
+      "estimated_application_ms_saved": "Hypothesis: 5\u201320ms fracture peak; 1\u20135ms heavy mean. Zero expected idle benefit.",
+      "confidence": "Medium diagnosis, low savings estimate until phase-only attribution.",
+      "experiment_cost": "CPU allocator/shape lifecycle and GPU ownership publication changes; memory, query, motion, correction and full-suite gates.",
+      "supporting_measurements": "Fewer lifecycle calls/allocations and lower unprofiled first-fracture full ticks with identical ownership, contacts, mass/COM, correction and accepted physical observations.",
+      "refuting_measurements": "Mandatory PhysX registration dominates unchanged; savings disappear outside the profiler, or any query/contact/sleep/physical mismatch.",
+      "prior_work": "N20 capacity patch is a smaller preserved experiment; rerun its memory qualification on the corrected baseline before reusing it.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json"
+      ],
+      "status": "queued_not_run",
+      "source_audit": "NpDestructionBodyAllocator::applyBindings already uses persistent ShapeSim IDs and defers actor/query observation in ordinary mode. ScShapeSimBase::rebindRigidOwner still refilters each migrated shape, retires contacts via onVolumeRemoved, rebinds narrowphase ownership and updates actor/SQ links. Audit batching of these actual operations; do not propose recreating or removing a full-geometry upload already absent."
+    },
+    {
+      "rank": 2,
+      "title": "Skip equilibrium work only for exactly unchanged current inputs",
+      "family": "verified_equilibrium_reuse",
+      "evidence": "Continuous heavy peak82 has41.04ms aggregate stress-kernel time under Systems. Repeated static/sleeping or unchanged component work needs classification before applying this estimate.",
+      "proposed_mechanism": "Certify accepted equilibrium against current connectivity, material/damage, transforms and current-tick loads; reuse only when that input certificate matches. Immediately solve every changed component in this tick, including the second verdict after correction.",
+      "affected_scenarios": [
+        "intact idle",
+        "unaffected buildings during impact",
+        "fragmented-loaded",
+        "late debris and settled structures"
+      ],
+      "estimated_application_ms_saved": "Hypothesis: 2\u201315ms heavy mean where unchanged components are common; 0\u20131ms warm idle. Zero if inputs change everywhere.",
+      "confidence": "Medium potential; unchanged-input fraction not yet measured.",
+      "experiment_cost": "GPU input/certificate audit then one cache-publication change, independent equilibrium/energy and stale-input negative tests.",
+      "supporting_measurements": "Substantial verified unchanged-input fraction, eliminated launches/iterations, unchanged residual/forces/damage and lower complete steps.",
+      "refuting_measurements": "Most inputs differ; certificate overhead exceeds skipped work; any stale-data acceptance.",
+      "prior_work": "Reassess N09; preserve the rejected projection/monitor experiments and do not equate sleeping or zero fracture with equal stress inputs.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json"
+      ],
+      "status": "queued_not_run"
+    },
+    {
+      "rank": 3,
+      "title": "Direct elimination for tree and tiny stress components",
+      "family": "component_algorithm",
+      "evidence": "The suite includes chains, trees, many small islands and looped controls. These separate topology-dependent algorithm benefit from city size; continuous profiles show stress remains material.",
+      "proposed_mechanism": "Identify eligible component structure on the GPU and solve its existing equilibrium equations by direct tree/block elimination or a tiny dense factorization. Retain the established iterative path for ineligible components and unchanged final physical gates.",
+      "affected_scenarios": [
+        "chain32/256",
+        "cantilever",
+        "tower",
+        "small fracture islands",
+        "mixed-size debris; dense panels/loops are controls"
+      ],
+      "estimated_application_ms_saved": "Hypothesis: 1\u201310ms heavy mean if eligible components account for meaningful stress time; near zero on dense intact buildings.",
+      "confidence": "High algorithmic motivation, low application share estimate.",
+      "experiment_cost": "Bounded GPU component census, one direct-solve backend, independent force/moment/energy and singular/free-mode oracles.",
+      "supporting_measurements": "Lower time to the same equilibrium for eligible components and complete-step benefit across the fixed suite.",
+      "refuting_measurements": "Factorization/setup outweighs iterations; nullspace/conditioning failure; dense or mixed-case regression.",
+      "prior_work": "Use N03/N04 queued evidence; do not spend convergence across ticks.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json"
+      ],
+      "status": "queued_not_run"
+    },
+    {
+      "rank": 4,
+      "title": "Compact accepted CPU mirror updates at the producer",
+      "family": "host_mirror",
+      "evidence": "Full CPU/GPU traces expose copy sizes, launch callers and waits at each trial/correction boundary. Historical N19 measured full-array DMA and failed memory qualification before the later asynchronous fix.",
+      "proposed_mechanism": "Build an explicit dirty set of current accepted bounds/transforms on GPU, transfer one compact contiguous batch, and update the ordinary CPU query mirror at its required boundary. Avoid redundant full-array transfer and repeated receipt waits.",
+      "affected_scenarios": [
+        "large idle",
+        "initial impact with correction",
+        "late debris",
+        "mixed sleeping/awake islands"
+      ],
+      "estimated_application_ms_saved": "Hypothesis: 0.2\u20130.8ms idle, 0.5\u20132ms heavy; requires accounting for packing and overlap.",
+      "confidence": "Medium exposure, low net saving until measured.",
+      "experiment_cost": "Producer dirty-set and compact receipt implementation; normal asynchronous memory, query/sleep and trajectory checks.",
+      "supporting_measurements": "Lower bytes and critical-path transfer/wait time, exact current accepted query/body state and lower full steps.",
+      "refuting_measurements": "Packing/scatter or synchronization costs offset DMA savings; stale mirrors or missing correction participants.",
+      "prior_work": "N18 metadata combination was neutral; N19 direct mapped scatter was not memory-qualified. These are evidence, not accepted implementations.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json"
+      ],
+      "status": "queued_not_run"
+    }
+  ]
+}

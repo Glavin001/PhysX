@@ -5,7 +5,25 @@ from pathlib import Path
 def load(name,file):
     s=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file));m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
 kernel=load('kernel','profile-kernel-suite.py');accounting=kernel.profile.accounting
+config=load('config','profile-config-suite.py')
 class AttributionTests(unittest.TestCase):
+    def test_representatives_keep_late_peak_at_same_grid(self):
+        configs=[dict(invocations=[dict(ms=v) for v in [1,2,1,15]]),dict(invocations=[dict(ms=v) for v in [2,8]])]
+        selected=config.representatives([dict(configs=configs)])
+        self.assertEqual(selected,[1,2,4])
+        self.assertIn(4,configs[0]['selected_ordinals'])
+        self.assertEqual(configs[1]['selected_ordinals'],[1,2])
+    def test_shared_config_excludes_driver_reservation(self):
+        row=dict(name='kernel',launch={'Grid Size':'(10, 1, 1)','Block Size':'(256, 1, 1)'},metrics={
+            'launch__shared_mem_per_block_static':dict(value=.576,unit='Kbyte/block'),
+            'launch__shared_mem_per_block_dynamic':dict(value=128,unit='byte/block'),
+            'launch__shared_mem_per_block_driver':dict(value=1024,unit='byte/block')})
+        self.assertEqual(config.observed_key(row),('kernel',(10,1,1),(256,1,1),704))
+    def test_stress_hierarchy_is_destruction_work(self):
+        kind,_=accounting.classify('_ZN2Nv5Blast15StressHierarchy20constructMotionModesEv',{})
+        self.assertEqual(kind,'stress hierarchy / preconditioner')
+        kind,_=accounting.classify('Nv::Blast::StressHierarchy::construct',{})
+        self.assertEqual(kind,'stress hierarchy / preconditioner')
     def test_overlap_is_not_added(self):
         gpu=[(0,5),(3,7)];cpu=[(2,6),(8,10)]
         both=accounting.length(accounting.intersect(gpu,cpu));g=accounting.length(gpu);c=accounting.length(cpu)

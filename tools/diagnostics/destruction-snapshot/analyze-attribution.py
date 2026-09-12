@@ -4,7 +4,7 @@
 All wall accounting uses the same Systems clock. CPU samples are counts, not
 invented milliseconds. Thread CPU and nested scope totals are never added to wall.
 """
-import argparse,collections,csv,importlib.util,json,sqlite3
+import argparse,collections,csv,functools,importlib.util,json,sqlite3
 from pathlib import Path
 
 def load(name,path):
@@ -21,10 +21,13 @@ def analyze(path):
     strings=dict(db.execute('select id,value from StringIds'))
     tick=db.execute("select start,end,globalTid from NVTX_EVENTS where text='snapshot/full_tick'").fetchone();lo,hi,main=tick
     scopes=[dict(r) for r in db.execute("select start,end,text,globalTid,endGlobalTid,rangeId from NVTX_EVENTS where text like 'GpuDestruction.%' and start>=? and end<=?",(lo,hi))]
+    scopes_by_thread=collections.defaultdict(list)
+    for s in scopes:scopes_by_thread[s['globalTid']].append(s)
     def clip(a,b):return max(lo,a),min(hi,b)
     def scope_at(t,tid):
-        hits=[s for s in scopes if s['globalTid']==tid and s['start']<=t<=s['end']]
+        hits=[s for s in scopes_by_thread[tid] if s['start']<=t<=s['end']]
         return min(hits,key=lambda s:s['end']-s['start'])['text'] if hits else None
+    @functools.lru_cache(maxsize=None)
     def chain(table,key):
         return [dict(symbol=strings.get(r['symbol'],'?'),module=strings.get(r['module'],'?'),unresolved=bool(r['unresolved']),depth=r['stackDepth'])
                 for r in db.execute(f'select * from {table} where id=? order by stackDepth',(key,))]

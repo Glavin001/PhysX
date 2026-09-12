@@ -950,73 +950,100 @@ separate and rejects profiled receipts. [Diagnosis and qualification](qualificat
 
 ## CPU and significant-kernel attribution (2026-09-12)
 
-Current status is **incomplete, GPU recovery required**: 38/52 CPU cases qualify;
-the city64 initial-impact capture is quarantined after Xid120 during CUDA context
-teardown. Do not run more GPU work until the reset-required condition is resolved.
-Interrupting other GPU users or rebooting requires explicit approval. See the
-[recovery plan, evidence and per-scenario report](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/README.md).
+The user authorized reversible service/GPU recovery and rebooted the host.
+All52 CPU scenarios now qualify, including the reduced-tracing city64-impact
+retry and every city256 stage. Preserve the original faulted capture. The
+other project's server was temporarily stopped for recovery/capture and its
+restart configuration is private; never commit its environment. This session
+permission supersedes the older no-service-interruption notes, not unrelated
+permanent driver/toolkit or deployment changes.
 
-The diagnostic probe reuses native destruction phase callbacks and forwards them
-to NVTX, preserving thread CPU clocks, detached scopes and device event phases.
-Systems adds CPU DWARF samples, scheduling and OS/CUDA backtraces. Normal binaries
-remain uninstrumented. Optional GPU allocation/all-API tracing is a separate
-`--nsys-allocation-trace` diagnostic; it was enabled in the faulted campaign and
-is not yet isolated as the cause. The reduced combination needs a recovery pilot.
+Use the [current tier report](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/coverage-tiers.md)
+and [diagnosis](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/README.md).
+The52 CPU profiles preserve CPU samples, scheduling, complete GPU activity,
+CUDA/OS caller stacks, native phase thread clocks and same-trace disjoint wall
+accounting. Exact options and unresolved/throttled samples stay in each receipt.
+GPU allocation/all-API tracing is separate (`--nsys-allocation-trace`); its removal
+is not a proven explanation of the original firmware fault. Normal benchmark
+binaries and all runtime libraries are unchanged.
 
 ```bash
 python3 tools/diagnostics/destruction-snapshot/build-probe.py out/NEW-attribution-probe --profile
 python3 tools/diagnostics/destruction-snapshot/test-attribution.py
-# After approved GPU recovery: a reduced-tracing pilot on the faulted input.
-PHYSX_SNAPSHOT_DUMP_OBSERVATIONS=1 python3 tools/diagnostics/destruction-snapshot/run-probe.py \
-  out/NEW-city64-cpu-pilot \
-  --binary out/end-to-end-attribution-20260912/probe/serialization-probe \
-  --artifacts out/snapshot-reset-20260911/local-artifacts \
-  --replay-prefix out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82 \
-  --repetitions 2 --watchdog-seconds 240 --profiler nsys --nsys-cpu \
-  --allow-existing-graphics --allow-compute-pid 435374
-python3 tools/diagnostics/destruction-snapshot/compare-observations.py \
-  out/snapshot-reset-20260911/prepared-full20/complete-city64-initial-impact \
-  out/NEW-city64-cpu-pilot out/NEW-city64-cpu-pilot/physical-comparison.json
-# Resume only after the pilot, driver-fault audit and timeline checks pass.
 python3 tools/diagnostics/destruction-snapshot/profile-cpu-suite.py \
   out/end-to-end-attribution-20260912/cpu-full --resume \
   --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
   --binary out/end-to-end-attribution-20260912/probe/serialization-probe \
-  --artifacts out/snapshot-reset-20260911/local-artifacts \
-  --allow-existing-graphics --allow-compute-pid 435374
+  --artifacts out/snapshot-reset-20260911/local-artifacts --allow-existing-graphics
 python3 tools/diagnostics/destruction-snapshot/report-attribution-suite.py \
   out/end-to-end-attribution-20260912/cpu-full out/NEW-attribution-report
 ```
 
-For a standalone CPU capture, export its `.nsys-rep` with the existing
-`nsys export --type sqlite --output CAPTURE/trace.sqlite CAPTURE/trace.nsys-rep`,
-then run `analyze-attribution.py CAPTURE`. The report requires the physical
-comparison beside it. It uses same-trace disjoint intervals, preserves all
-unresolved/sample-limited attribution, and never subtracts profiler GPU durations
-from unprofiled application wall time. Every case retains CUDA/OS callers, stream
-and launch correlations, CPU scheduling intervals and existing phase CSVs.
+For a standalone CPU capture, use `run-probe.py --profiler nsys --nsys-cpu`
+with the same binary/artifacts and a frozen replay prefix. Export its report:
+`nsys export --type sqlite --output CAPTURE/trace.sqlite CAPTURE/trace.nsys-rep`.
+Run `compare-observations.py REFERENCE CAPTURE CAPTURE/physical-comparison.json`
+then `analyze-attribution.py CAPTURE`. Existing comparison outputs are immutable;
+use a new output filename for a repeated audit. Do not subtract GPU profiler
+intervals from unprofiled application milliseconds.
 
-The old NCU pin is still qualified for its selected captures. It does **not**
-support individual conditional graph nodes. A local archived 2026.2.1 pilot is
-prepared in `out/end-to-end-attribution-20260912/conditional-pilot-command.json`
-but has not executed. Check its physical result and exact kernel inventory before
-using it for broader collection. The implemented expansion command is:
+Archived2026.2.1 and2026.1.1 reproduce the2026.3.0 injection heap abort on fracture.
+The stable2025.3.1 pin skips individual conditional nodes. Graph-level capture
+works with **optional host analysis rules disabled**: otherwise the collector's
+own process segfaults. The matching city25-impact control crashes with rules on;
+rules off captures all18 expected graph invocations and passes physical checks.
+This retains full hardware metrics but cannot supply individual conditional-node
+or instruction-source metrics. Raw failed reports/core diagnostics remain local.
 
 ```bash
-python3 tools/diagnostics/destruction-snapshot/profile-kernel-suite.py \
-  out/NEW-significant-kernels \
+python3 tools/diagnostics/destruction-snapshot/profile-graph-suite.py \
+  out/end-to-end-attribution-20260912/graphs-full --resume \
   --timeline-campaign out/ncu-fix-20260912/full \
   --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
   --binary out/snapshot-counters-20260911/probe/serialization-probe \
   --artifacts out/snapshot-reset-20260911/local-artifacts \
-  --ncu-binary out/end-to-end-attribution-20260912/collectors/nsight_compute-linux-x86_64-2026.2.1.5-archive/ncu \
-  --coverage 0.99 --absolute-ms 0.1 \
-  --allow-existing-graphics --allow-compute-pid 435374
+  --reuse-pilot out/end-to-end-attribution-20260912/ncu-2025-graph-no-rules-pilot \
+  --allow-existing-graphics
+python3 tools/diagnostics/destruction-snapshot/profile-config-suite.py \
+  out/end-to-end-attribution-20260912/configs-full --resume \
+  --timeline-campaign out/ncu-fix-20260912/full \
+  --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
+  --binary out/snapshot-counters-20260911/probe/serialization-probe \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --threshold-ms 0.1 --allow-existing-graphics
 ```
 
-The thresholds are declared coverage budgets, not automatic bottleneck claims.
-Use `--coverage 1` to select every family. All invocations are requested, covering
-late launches and changing grids; the audit rejects silently missing or extra
-launches. Source-level counter limits of graph profiling must remain explicit.
-Profiler completion alone is insufficient. The expanded collector and new warm
-continuous CPU captures remain unqualified until their campaigns actually pass.
+The ordinary-kernel supplement selects every family costing at least0.1ms in
+its matched full-tick timeline. It captures the first and slowest observed
+invocation at every distinct grid/block/shared-memory configuration. The common
+invocation filter can select extras, which are explicitly audited. All original
+invocation timings remain in Systems. This is representative configuration
+coverage, **not all-invocation counter coverage**. Set `--threshold-ms 0` to
+include every ordinary family, or use `profile-kernel-suite.py` for the existing
+all-invocation selection/audit when the chosen collector supports those nodes.
+Its99%-GPU-duration policy is a configurable coverage budget, not a diagnosis.
+Graph-level and kernel-level counter totals must never be added together.
+
+Continuous warm captures remain separate from restored physical-state ticks.
+The following collects180 ordinary/sleeping ticks each for113,664-chunk idle and
+heavy destruction, with unprofiled controls. CPU sampling at10million reference
+cycles avoids the OS-throttling warnings observed at500,000; both sets are retained.
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/profile-warm-suite.py \
+  out/NEW-warm-attribution --sampling-period 10000000 \
+  --binary out/destruction-sdk/reference/native_destruction_demo \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --args-root out/end-to-end-attribution-20260912 --allow-existing-graphics
+python3 tools/diagnostics/destruction-snapshot/analyze-warm-attribution.py CAPTURE
+python3 tools/diagnostics/destruction-snapshot/report-attribution-tiers.py \
+  out/end-to-end-attribution-20260912 \
+  qualification/optimization-next20-20260910/end-to-end-attribution-20260912
+```
+
+`warm-reduced-sampling/` is the current continuous campaign. Native frame clocks
+anchor the trace; timer-boundary time outside those anchors stays explicitly
+unlocated. Per-tick physical work/convergence/correction counters match controls;
+this is not a new body-pose/force equivalence test or candidate optimization.
+The fixed20-sample full-suite and600-tick final acceptance gates still apply.
+Do not call a tier complete until its campaign and inventory/physical audits pass.

@@ -24,15 +24,18 @@ parser.add_argument('--profiler',choices=['nsys','ncu','pm'],help='Diagnostic fi
 parser.add_argument('--ncu-kernel',default='regex:componentStressSolve',help='Target kernel function filter')
 parser.add_argument('--ncu-count',type=int,default=2)
 parser.add_argument('--ncu-kernel-id',help='Nsight kernel identifier; name and invocation fields support regular expressions')
+parser.add_argument('--ncu-filter-mode',choices=['global','per-launch-config'],default='global')
 parser.add_argument('--ncu-name-base',choices=['function','demangled','mangled'],default='function')
 parser.add_argument('--ncu-mode',choices=['full','hardware'],default='full')
 parser.add_argument('--ncu-replay',choices=['kernel','application'],default='kernel')
 parser.add_argument('--ncu-preload',type=Path,help='Diagnostic target-only preload library; hashed in receipt')
+parser.add_argument('--ncu-apply-rules',choices=['yes','no'],default='yes',help='Run optional host-side analysis rules after metric collection')
 parser.add_argument('--ncu-graph',choices=['node','graph'],default='node')
 parser.add_argument('--ncu-metrics',help='Explicit diagnostic metric list; recorded separately from preset')
 parser.add_argument('--ncu-binary',type=Path,default=Path('/opt/nvidia/nsight-compute/2025.3.1/ncu'),help='Qualified collector; 2026.3.0 aborts on the fracture-path API trace')
 parser.add_argument('--nsys-range',choices=['process','first-tick'],default='process',help='Capture full process to drain timeline events; analysis still selects only the first full tick')
 parser.add_argument('--nsys-cpu',action='store_true',help='CPU DWARF samples, scheduling, OS waits and CUDA call stacks; diagnostic only')
+parser.add_argument('--nsys-sampling-period',type=int,default=500000,help='CPU reference cycles per sample; increase if the kernel throttles sampling')
 parser.add_argument('--nsys-allocation-trace',action='store_true',help='Separate GPU allocation/all-API diagnostic; qualify on a pilot before a campaign')
 parser.add_argument('--sanitizer-blocking-launches',action='store_true',
                     help='Use the sanitizer blocking-launch diagnostic mode; never a performance capture')
@@ -85,12 +88,13 @@ if args.profiler:
                  '-o',str(out/'trace')]
         if args.nsys_cpu:
             options=['profile','--trace=cuda,nvtx,osrt','--sample=process-tree','--cpuctxsw=process-tree',
-                     '--backtrace=dwarf','--samples-per-backtrace=1','--sampling-period=500000',
+                     '--backtrace=dwarf','--samples-per-backtrace=1','--sampling-period='+str(args.nsys_sampling_period),
                      '--cudabacktrace=all:10000','--osrt-threshold=1000','--osrt-backtrace-threshold=10000',
                      '--cuda-graph-trace=node',
                      '--resolve-symbols=true','-o',str(out/'trace')]
         if args.nsys_allocation_trace:options+=['--cuda-trace-all-apis=true','--cuda-memory-usage=true']
         record['profiler']['cpu_attribution']=args.nsys_cpu
+        record['profiler']['cpu_sampling_period']=args.nsys_sampling_period if args.nsys_cpu else None
         record['profiler']['allocation_trace']=args.nsys_allocation_trace
         if args.nsys_range=='first-tick':options+=['--capture-range=cudaProfilerApi','--capture-range-end=stop']
         record['profiler']['raw_timeline_scope']=args.nsys_range
@@ -109,10 +113,11 @@ if args.profiler:
         record['profiler']['replay_mode']=args.ncu_replay
         selection=['--kernel-name',args.ncu_kernel]
         if args.ncu_kernel_id:selection=['--kernel-id',args.ncu_kernel_id]
-        record['profiler']['kernel_selection']={'name_base':args.ncu_name_base,'identifiers':args.ncu_kernel_id,'filter':None if args.ncu_kernel_id else args.ncu_kernel,'count':args.ncu_count}
+        record['profiler']['kernel_selection']={'name_base':args.ncu_name_base,'identifiers':args.ncu_kernel_id,'filter':None if args.ncu_kernel_id else args.ncu_kernel,'count':args.ncu_count,'filter_mode':args.ncu_filter_mode}
+        record['profiler']['apply_rules']=args.ncu_apply_rules
         options=['--profile-from-start','off','--replay-mode',args.ncu_replay,*metrics,'--kernel-name-base',args.ncu_name_base,
-                 *selection,'--launch-count',str(args.ncu_count),
-                 '--graph-profiling',args.ncu_graph,'--clock-control','none','--cache-control','all','--export',str(out/'counters')]
+                 *selection,'--filter-mode',args.ncu_filter_mode,'--launch-count',str(args.ncu_count),
+                 '--graph-profiling',args.ncu_graph,'--apply-rules',args.ncu_apply_rules,'--clock-control','none','--cache-control','all','--export',str(out/'counters')]
         if args.ncu_preload:
             record['profiler']['preload']={'path':str(args.ncu_preload.resolve()),'sha256':c.sha(args.ncu_preload)}
             options+=['--preload-library',str(args.ncu_preload.resolve())]
@@ -196,7 +201,7 @@ with (root/'out/destruction-ab.lock').open('a') as lock:
         # fault. A zero application exit must not silently qualify an Xid run.
         kernel_log=subprocess.run(['journalctl','-k','--since','@'+str(int(initial['unix_seconds'])),
             '--no-pager','-g','NVRM: Xid'],capture_output=True,text=True)
-        record['kernel_fault_audit']={'available':kernel_log.returncode==0,'output':kernel_log.stdout.strip()}
+        record['kernel_fault_audit']={'available':kernel_log.returncode==0 or (kernel_log.returncode==1 and '-- No entries --' in kernel_log.stdout and not kernel_log.stderr.strip()),'output':kernel_log.stdout.strip(),'stderr':kernel_log.stderr.strip()}
         if kernel_log.returncode==0 and 'NVRM: Xid' in kernel_log.stdout:
             raise RuntimeError('GPU Xid during capture; inspect kernel_fault_audit')
         record['status']='complete'

@@ -2,9 +2,9 @@
 
 Diagnostic CPU sampling, scheduling, engine phases, CUDA/OS calls and GPU activity. No application optimization or speedup. Baseline times are separate unprofiled 20-sample restored full ticks, excluding restore and validation.
 
-CPU attribution: **38/52** qualified scenarios, **76** checked restored ticks, **6,536** CPU samples, **11,307** engine phase scopes and **9,280** GPU launches. Incomplete scenarios remain visible.
+CPU attribution: **52/52** qualified scenarios, **104** checked restored ticks, **21,401** CPU samples, **91,538** engine phase scopes and **18,376** GPU launches. Incomplete scenarios remain visible.
 
-The 64-building initial-impact trace is quarantined after a correlated Xid120 GSP firmware fault. Its successful application/physical results do not qualify that profiler capture. The next case could not initialize CUDA. No reset or service interruption was performed.
+The user authorized reversible recovery and rebooted the host. The original faulted capture remains quarantined; a reduced-tracing retry and all remaining CPU scenarios now pass. No recurrent Xid was logged in the resumed campaign. The precise firmware fault trigger is unproven.
 
 | Scenario | Unprofiled mean / peak ms | Command / simulate-fetch / completion means ms | 60 / 120 Hz misses (20 samples) | CPU attribution | CPU samples |
 |---|---:|---:|---:|---|---:|
@@ -46,20 +46,20 @@ The 64-building initial-impact trace is quarantined after a correlated Xid120 GS
 | city25-ten-second-debris | 70.265 / 88.090 | 0.000 / 70.068 / 0.197 | 20 / 20 | complete | 613 |
 | city64-intact-idle | 16.898 / 25.849 | 0.000 / 16.640 / 0.259 | 5 / 20 | complete | 263 |
 | city64-airborne | 18.495 / 22.528 | 0.000 / 18.274 / 0.222 | 20 / 20 | complete | 290 |
-| city64-initial-impact | 64.630 / 83.817 | 0.000 / 64.404 / 0.225 | 20 / 20 | quarantined_hardware_fault | — |
-| city64-post-impact | 35.363 / 41.564 | 0.000 / 35.148 / 0.214 | 20 / 20 | failed | — |
-| city64-cascading-fracture | 56.874 / 68.731 | 0.000 / 56.666 / 0.208 | 20 / 20 | not_captured | — |
-| city64-fragmented-loaded | 90.634 / 117.658 | 0.000 / 90.400 / 0.234 | 20 / 20 | not_captured | — |
-| city64-late-debris | 132.341 / 166.994 | 0.000 / 132.125 / 0.216 | 20 / 20 | not_captured | — |
-| city64-ten-second-debris | 99.766 / 139.785 | 0.000 / 99.559 / 0.207 | 20 / 20 | not_captured | — |
-| city256-intact-idle | 59.200 / 73.979 | 0.000 / 58.977 / 0.223 | 20 / 20 | not_captured | — |
-| city256-airborne | 66.190 / 83.926 | 0.000 / 65.931 / 0.259 | 20 / 20 | not_captured | — |
-| city256-initial-impact | 236.880 / 254.511 | 0.000 / 236.657 / 0.223 | 20 / 20 | not_captured | — |
-| city256-post-impact | 139.608 / 166.765 | 0.000 / 139.356 / 0.251 | 20 / 20 | not_captured | — |
-| city256-cascading-fracture | 190.403 / 218.459 | 0.000 / 190.145 / 0.258 | 20 / 20 | not_captured | — |
-| city256-fragmented-loaded | 283.125 / 311.861 | 0.000 / 282.869 / 0.256 | 20 / 20 | not_captured | — |
-| city256-late-debris | 394.491 / 458.203 | 0.000 / 394.227 / 0.263 | 20 / 20 | not_captured | — |
-| city256-ten-second-debris | 264.837 / 350.839 | 0.000 / 264.592 / 0.245 | 20 / 20 | not_captured | — |
+| city64-initial-impact | 64.630 / 83.817 | 0.000 / 64.404 / 0.225 | 20 / 20 | complete | 694 |
+| city64-post-impact | 35.363 / 41.564 | 0.000 / 35.148 / 0.214 | 20 / 20 | complete | 396 |
+| city64-cascading-fracture | 56.874 / 68.731 | 0.000 / 56.666 / 0.208 | 20 / 20 | complete | 581 |
+| city64-fragmented-loaded | 90.634 / 117.658 | 0.000 / 90.400 / 0.234 | 20 / 20 | complete | 808 |
+| city64-late-debris | 132.341 / 166.994 | 0.000 / 132.125 / 0.216 | 20 / 20 | complete | 1132 |
+| city64-ten-second-debris | 99.766 / 139.785 | 0.000 / 99.559 / 0.207 | 20 / 20 | complete | 836 |
+| city256-intact-idle | 59.200 / 73.979 | 0.000 / 58.977 / 0.223 | 20 / 20 | complete | 521 |
+| city256-airborne | 66.190 / 83.926 | 0.000 / 65.931 / 0.259 | 20 / 20 | complete | 608 |
+| city256-initial-impact | 236.880 / 254.511 | 0.000 / 236.657 / 0.223 | 20 / 20 | complete | 1705 |
+| city256-post-impact | 139.608 / 166.765 | 0.000 / 139.356 / 0.251 | 20 / 20 | complete | 892 |
+| city256-cascading-fracture | 190.403 / 218.459 | 0.000 / 190.145 / 0.258 | 20 / 20 | complete | 1013 |
+| city256-fragmented-loaded | 283.125 / 311.861 | 0.000 / 282.869 / 0.256 | 20 / 20 | complete | 1766 |
+| city256-late-debris | 394.491 / 458.203 | 0.000 / 394.227 / 0.263 | 20 / 20 | complete | 2561 |
+| city256-ten-second-debris | 264.837 / 350.839 | 0.000 / 264.592 / 0.245 | 20 / 20 | complete | 1352 |
 
 ## Same-trace wall accounting
 
@@ -105,6 +105,20 @@ These instrumented durations include profiler overhead and are not benchmark res
 | city25-ten-second-debris | 10.909 | 25.714 | 174.730 | 2.694 | 399 / 613 |
 | city64-intact-idle | 4.705 | 0.000 | 69.675 | 1.210 | 151 / 263 |
 | city64-airborne | 4.615 | 0.364 | 78.495 | 1.326 | 178 / 290 |
+| city64-initial-impact | 14.067 | 5.952 | 176.364 | 4.106 | 387 / 694 |
+| city64-post-impact | 6.557 | 4.615 | 102.658 | 1.681 | 203 / 396 |
+| city64-cascading-fracture | 14.935 | 7.388 | 152.040 | 3.005 | 366 / 581 |
+| city64-fragmented-loaded | 20.031 | 13.986 | 202.202 | 3.777 | 421 / 808 |
+| city64-late-debris | 18.081 | 20.591 | 272.851 | 3.486 | 526 / 1132 |
+| city64-ten-second-debris | 14.822 | 24.256 | 218.096 | 4.148 | 415 / 836 |
+| city256-intact-idle | 11.285 | 7.296 | 117.021 | 4.607 | 211 / 521 |
+| city256-airborne | 12.046 | 7.311 | 146.019 | 4.207 | 192 / 608 |
+| city256-initial-impact | 49.035 | 34.068 | 380.987 | 6.857 | 676 / 1705 |
+| city256-post-impact | 16.781 | 22.796 | 213.512 | 6.935 | 303 / 892 |
+| city256-cascading-fracture | 41.698 | 35.772 | 222.890 | 11.256 | 413 / 1013 |
+| city256-fragmented-loaded | 52.974 | 57.890 | 399.644 | 5.839 | 629 / 1766 |
+| city256-late-debris | 54.876 | 61.361 | 566.320 | 9.677 | 778 / 2561 |
+| city256-ten-second-debris | 41.466 | 43.613 | 298.877 | 3.230 | 504 / 1352 |
 
 ## Reading the raw evidence
 
@@ -114,4 +128,8 @@ The native phase recorder provides thread CPU clocks and nested scope accounting
 
 The expanded kernel collector selects at least 99% of aggregate GPU kernel duration, every family costing at least 0.1ms and stress, then requests every invocation of those families, preserving trial/correction and launch configurations. Both thresholds are adjustable, including 100% coverage. An inventory audit rejects silently skipped kernels. This collector is implemented but its broad GPU qualification remains pending; conditional-graph support is a known gap in the pinned 2025 collector.
 
-GPU allocation/all-API tracing is now a separate opt-in diagnostic. The original 38 qualified captures included those options; the reduced tracing combination must be piloted after recovery. It is a diagnostic hypothesis, not a proven firmware-fault fix. No 2026.2.1 counter result or new warm continuous CPU capture is claimed.
+GPU allocation/all-API tracing is a separate opt-in diagnostic. Exact capture options remain in each receipt; mixed tracing options are not a matched timing comparison. Reduced tracing is not a proven firmware-fault fix.
+
+Prior 52-scenario selected/stress captures remain available. See the accompanying qualification report for expanded inventory status.
+
+See the separate continuous attribution campaign; snapshot coverage does not establish warm coverage.

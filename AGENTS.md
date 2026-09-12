@@ -1,5 +1,22 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest recovery continuation (2026-09-12): the user explicitly authorized reversible
+service/GPU recovery, then rebooted the host (boot07:05:39 UTC). This supersedes the
+older no-recovery-authorization notes below. Desktop and persistence restarted;
+the other project server restart configuration is saved privately, never commit
+its environment. **52/52 CPU-attribution cases now pass**, 104 checked ticks,
+21,401 CPU samples, 91,538 engine scopes and18,376 launches, with zero observed
+position/velocity differences. Reduced-tracing retry passes the formerly faulted
+city64 impact; all remaining city256 stages pass. Old Xid120 capture stays
+quarantined; the precise trigger is unproven. New archived2026.2.1 and2026.1.1
+NCU pilots both abort with the same heap symptom as2026.3.0. Do not keep trying
+versions; stable2025 graph-level diagnostics are in progress and are NOT equivalent
+to individual conditional-node/source counters. Warm180-tick idle/heavy traces
+pass exact work/convergence counters; sampling-throttle warnings remain explicit.
+All runtime/physics artifacts unchanged; no new speedup or optimization experiment.
+[Current attribution evidence](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/README.md).
+
+
 Latest end-to-end attribution expansion (2026-09-12): **38/52 CPU cases qualify**,
 76 checked ticks, 6,536 CPU samples, 11,307 engine scopes and 9,280 GPU launches.
 All 28 structural / eight city25 / first two city64 cases pass unchanged physical
