@@ -5,7 +5,7 @@
       "rank": 1,
       "title": "Batch fragment creation and shape ownership publication",
       "family": "fragment_lifecycle",
-      "evidence": "Warm heavy peak82 attributes 34.88ms thread CPU to allocateNativeBodies and20.89ms to migrateShapes under Systems; cold city256 impact similarly exposes these scopes. These instrumented costs overestimate removable application time.",
+      "evidence": "Warm heavy peak82 exposes allocateNativeBodies and migrateShapes. High-rate profiling reports34.88/20.89ms thread CPU; lower-rate migration is13.888ms and includes per-shape instrumentation. Wall-only migration subscopes expose contact retirement1.660ms, registration1.377ms, actor links0.735ms and refilter0.565ms. These overlapping instrumented observations are not removable application time.",
       "proposed_mechanism": "Batch native body reservations and changed ShapeSim ownership/refilter/contact-retirement operations at the existing fracture-to-correction boundary. Shapes and geometry already persist; preserve that invariant. Remove redundant per-shape traversal and repeated pool/registry work while keeping current correction contacts and final ordinary actor/query publication.",
       "affected_scenarios": [
         "initial impact",
@@ -82,15 +82,15 @@
       "rank": 4,
       "title": "Compact accepted CPU mirror updates at the producer",
       "family": "host_mirror",
-      "evidence": "Full CPU/GPU traces expose copy sizes, launch callers and waits at each trial/correction boundary. Historical N19 measured full-array DMA and failed memory qualification before the later asynchronous fix.",
-      "proposed_mechanism": "Build an explicit dirty set of current accepted bounds/transforms on GPU, transfer one compact contiguous batch, and update the ordinary CPU query mirror at its required boundary. Avoid redundant full-array transfer and repeated receipt waits.",
+      "evidence": "Current lower-rate continuous trace: idle steps81/82/179 have only~2KB H2D/~1KB D2H and0.004\u20130.005ms total copy union. Pre-impact active-projectile step81 reads7.741MB D2H; first fracture reads24.516MB; later step179 reads35.386MB. Copy unions1.106/4.321/6.674ms overlap kernels by0/0.013/0.081ms, but also overlap CPU work. These are diagnostic exposure, not removable full-step cost. Historical N19 failed memory qualification before the later asynchronous fix.",
+      "proposed_mechanism": "Build an explicit dirty set of current accepted bounds/transforms on GPU, transfer one compact contiguous batch, and update the ordinary CPU query mirror at its required boundary. Avoid redundant full-array transfer and repeated receipt waits. Preserve the trial CPU mirrors needed by afterIntegration for activity/sleep and newly sleeping-body rollback. A final-only mirror requires separately redesigning and qualifying that dependency; deferred actor/query observation is already implemented.",
       "affected_scenarios": [
         "large idle",
         "initial impact with correction",
         "late debris",
         "mixed sleeping/awake islands"
       ],
-      "estimated_application_ms_saved": "Hypothesis: 0.2\u20130.8ms idle, 0.5\u20132ms heavy; requires accounting for packing and overlap.",
+      "estimated_application_ms_saved": "Hypothesis: effectively zero on fully idle warm scenes with negligible transfers; 0.3\u20130.9ms on active-projectile pre-impact ticks and0.5\u20132ms heavy mean, after packing/scatter/overlap costs.",
       "confidence": "Medium exposure, low net saving until measured.",
       "experiment_cost": "Producer dirty-set and compact receipt implementation; normal asynchronous memory, query/sleep and trajectory checks.",
       "supporting_measurements": "Lower bytes and critical-path transfer/wait time, exact current accepted query/body state and lower full steps.",
@@ -99,7 +99,8 @@
       "profile_locations": [
         "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
         "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
-        "out/end-to-end-attribution-20260912/warm/campaign.json"
+        "out/end-to-end-attribution-20260912/warm/campaign.json",
+        "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/dataflow.json"
       ],
       "status": "queued_not_run"
     }

@@ -1,0 +1,200 @@
+[
+  {
+    "name": "ncu-2026-2-conditional-pilot",
+    "status": "failed",
+    "exit_code": 6,
+    "elapsed_seconds": 14.882854141999815,
+    "profiler": {
+      "tool": "ncu",
+      "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2026 NVIDIA Corporation\nVersion 2026.2.1.0 (build 38283040) (public-release)",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight_compute-linux-x86_64-2026.2.1.5-archive/ncu",
+        "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a"
+      },
+      "injection": {
+        "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight_compute-linux-x86_64-2026.2.1.5-archive/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+        "sha256": "3659b729cc202b069b8a9971c00a7ff3b5128528baaef159b42dfa5cb1d324f0"
+      },
+      "metric_mode": "full",
+      "explicit_metrics": null,
+      "graph_profiling": "node",
+      "replay_mode": "kernel",
+      "kernel_selection": {
+        "name_base": "mangled",
+        "identifiers": "::regex:^(_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20componentStressSolveENS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE|_ZN2Nv5Blast15StressHierarchy20constructMotionModesENS1_5InputEPKjNS1_13MotionBuffersEPNS1_6StatusEPNS1_4WorkE)$:",
+        "filter": null,
+        "count": 1000
+      }
+    },
+    "log": "out/end-to-end-attribution-20260912/ncu-2026-2-conditional-pilot/stdout.log",
+    "physical_comparison": null
+  },
+  {
+    "name": "ncu-2026-1-conditional-pilot",
+    "status": "failed",
+    "exit_code": 6,
+    "elapsed_seconds": 14.627801249000186,
+    "profiler": {
+      "tool": "ncu",
+      "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2026 NVIDIA Corporation\nVersion 2026.1.1.0 (build 37634170) (public-release)",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight_compute-linux-x86_64-2026.1.1.2-archive/ncu",
+        "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a"
+      },
+      "injection": {
+        "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight_compute-linux-x86_64-2026.1.1.2-archive/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+        "sha256": "cfb5e5c789277c157b9fd93e5d3d0b79f6f7282d291f381e6dd1896ba2b06733"
+      },
+      "metric_mode": "full",
+      "explicit_metrics": null,
+      "graph_profiling": "node",
+      "replay_mode": "kernel",
+      "kernel_selection": {
+        "name_base": "mangled",
+        "identifiers": "::regex:^(_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20componentStressSolveENS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE|_ZN2Nv5Blast15StressHierarchy20constructMotionModesENS1_5InputEPKjNS1_13MotionBuffersEPNS1_6StatusEPNS1_4WorkE)$:",
+        "filter": null,
+        "count": 1000
+      }
+    },
+    "log": "out/end-to-end-attribution-20260912/ncu-2026-1-conditional-pilot/stdout.log",
+    "physical_comparison": null
+  },
+  {
+    "name": "ncu-2025-graph-targeted-pilot",
+    "status": "failed",
+    "exit_code": 139,
+    "elapsed_seconds": 83.02535851100038,
+    "profiler": {
+      "tool": "ncu",
+      "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2025 NVIDIA Corporation\nVersion 2025.3.1.0 (build 36398880) (public-release)",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/opt/nvidia/nsight-compute/2025.3.1/ncu",
+        "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a"
+      },
+      "injection": {
+        "path": "/opt/nvidia/nsight-compute/2025.3.1/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+        "sha256": "e25cba2ebf50f2d68da689136130ad622227ad37305696ea479a88793aec72f4"
+      },
+      "metric_mode": "full",
+      "explicit_metrics": null,
+      "graph_profiling": "graph",
+      "replay_mode": "kernel",
+      "kernel_selection": {
+        "name_base": "mangled",
+        "identifiers": null,
+        "filter": "regex:.*(graph|Graph|constructMotionModes).*",
+        "count": 100000
+      }
+    },
+    "log": "out/end-to-end-attribution-20260912/ncu-2025-graph-targeted-pilot/stdout.log",
+    "physical_comparison": null
+  },
+  {
+    "name": "ncu-2025-graph-no-rules-pilot",
+    "status": "complete",
+    "exit_code": 0,
+    "elapsed_seconds": 46.478063025000665,
+    "profiler": {
+      "tool": "ncu",
+      "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2025 NVIDIA Corporation\nVersion 2025.3.1.0 (build 36398880) (public-release)",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/opt/nvidia/nsight-compute/2025.3.1/ncu",
+        "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a"
+      },
+      "injection": {
+        "path": "/opt/nvidia/nsight-compute/2025.3.1/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+        "sha256": "e25cba2ebf50f2d68da689136130ad622227ad37305696ea479a88793aec72f4"
+      },
+      "metric_mode": "full",
+      "explicit_metrics": null,
+      "graph_profiling": "graph",
+      "replay_mode": "kernel",
+      "kernel_selection": {
+        "name_base": "mangled",
+        "identifiers": null,
+        "filter": "regex:^graph$",
+        "count": 100000
+      }
+    },
+    "log": "out/end-to-end-attribution-20260912/ncu-2025-graph-no-rules-pilot/stdout.log",
+    "physical_comparison": "out/end-to-end-attribution-20260912/ncu-2025-graph-no-rules-pilot/physical-comparison.json"
+  },
+  {
+    "name": "ncu-2025-graph-rules-control",
+    "status": "failed",
+    "exit_code": 139,
+    "elapsed_seconds": 16.83389011500003,
+    "profiler": {
+      "tool": "ncu",
+      "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2025 NVIDIA Corporation\nVersion 2025.3.1.0 (build 36398880) (public-release)",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/opt/nvidia/nsight-compute/2025.3.1/ncu",
+        "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a"
+      },
+      "injection": {
+        "path": "/opt/nvidia/nsight-compute/2025.3.1/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+        "sha256": "e25cba2ebf50f2d68da689136130ad622227ad37305696ea479a88793aec72f4"
+      },
+      "metric_mode": "full",
+      "explicit_metrics": null,
+      "graph_profiling": "graph",
+      "replay_mode": "kernel",
+      "kernel_selection": {
+        "name_base": "mangled",
+        "identifiers": null,
+        "filter": "regex:^graph$",
+        "count": 100000
+      }
+    },
+    "log": "out/end-to-end-attribution-20260912/ncu-2025-graph-rules-control/stdout.log",
+    "physical_comparison": null
+  },
+  {
+    "name": "ncu-2026-blocking-conditional-pilot",
+    "status": "failed",
+    "exit_code": 6,
+    "elapsed_seconds": 12.120596766000745,
+    "profiler": {
+      "tool": "ncu",
+      "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2026 NVIDIA Corporation\nVersion 2026.3.0.0 (build 38525999) (public-release)",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/opt/nvidia/nsight-compute/2026.3.0/ncu",
+        "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a"
+      },
+      "injection": {
+        "path": "/opt/nvidia/nsight-compute/2026.3.0/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+        "sha256": "9f5c52e849ba1e90b87e8460fc348ceb9f962b315ef52524b0343517db57388b"
+      },
+      "metric_mode": "full",
+      "explicit_metrics": null,
+      "graph_profiling": "node",
+      "replay_mode": "kernel",
+      "kernel_selection": {
+        "name_base": "mangled",
+        "identifiers": "::regex:^(_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20componentStressSolveENS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE|_ZN2Nv5Blast15StressHierarchy20constructMotionModesENS1_5InputEPKjNS1_13MotionBuffersEPNS1_6StatusEPNS1_4WorkE)$:",
+        "filter": null,
+        "count": 1000,
+        "filter_mode": "global"
+      },
+      "apply_rules": "no"
+    },
+    "diagnostic_environment": {
+      "PHYSX_SNAPSHOT_DUMP_OBSERVATIONS": "1",
+      "CUDA_LAUNCH_BLOCKING": "1"
+    },
+    "log": "out/end-to-end-attribution-20260912/ncu-2026-blocking-conditional-pilot/stdout.log",
+    "physical_comparison": null
+  }
+]

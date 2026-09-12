@@ -64,7 +64,7 @@ if args.sanitizer_sync_limit is not None:
 out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
 arm=args.artifacts.resolve();binary=args.binary.resolve()
 record={'command':[str(binary),str(out)],'binary_sha256':c.sha(binary),'samples':[],'status':'running',
-        'diagnostic_environment':{k:v for k,v in os.environ.items() if k.startswith('PHYSX_SNAPSHOT_')}}
+        'diagnostic_environment':{k:v for k,v in os.environ.items() if k.startswith('PHYSX_SNAPSHOT_') or k in ('CUDA_LAUNCH_BLOCKING','CUDA_MODULE_LOADING','CUDA_DEVICE_MAX_CONNECTIONS')}}
 if args.native_args_json:
     if args.replay_prefix:raise ValueError('Native capture and file replay are exclusive')
     record['command']=[str(binary),*json.loads(args.native_args_json.read_text()),'--output',str(out/'native')]
@@ -160,12 +160,24 @@ with (root/'out/destruction-ab.lock').open('a') as lock:
              (args.allow_existing_graphics and p['type']=='G') or p['pid'] in args.allow_compute_pid]
     record['allowed']=allowed
     if any(p not in allowed for g in initial['devices'] for p in g['processes']):raise RuntimeError('Unlisted GPU process')
+    names=['libPhysXGpuActivity_64.so','libPhysXDestructionGpuRuntime_64.so']
+    def signature(path):
+        st=path.stat();return st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns
+    # Hash immutable artifacts outside the measured process, not every200ms.
+    # Metadata guards detect replacement or modification during capture; final
+    # hashes verify contents again before a capture can qualify.
+    signatures={p:signature(p) for p in [binary,*[arm/n for n in names]]}
+    module_hashes={str(arm/n):c.sha(arm/n) for n in names}
+    assert c.sha(binary)==record['binary_sha256']
+    assert all(signature(p)==s for p,s in signatures.items())
+    mapped_pids=set()
     start=time.monotonic()
     try:
         with (out/'stdout.log').open('w') as log:
             process=subprocess.Popen(record['command'],env=dict(os.environ,LD_LIBRARY_PATH=str(arm)),stdout=log,stderr=subprocess.STDOUT)
             try:
                 while process.poll() is None:
+                    if any(signature(p)!=s for p,s in signatures.items()):raise RuntimeError('Artifact changed during capture')
                     sample=c.gpu();record['samples'].append(sample)
                     require_gpu_health(sample)
                     extra=[p for g in sample['devices'] for p in g['processes'] if p not in allowed]
@@ -187,16 +199,18 @@ with (root/'out/destruction-ab.lock').open('a') as lock:
                         raw=maps.read_text()
                         if all(n in raw for n in ['libPhysXGpuActivity_64.so','libPhysXDestructionGpuRuntime_64.so']):
                             paths={line.split()[-1] for line in raw.splitlines() if '/' in line}
-                            names=['libPhysXGpuActivity_64.so','libPhysXDestructionGpuRuntime_64.so']
                             if not all(str(arm/n) in paths for n in names):raise RuntimeError('Wrong mapped modules')
-                            (out/'process.maps').write_text(raw)
-                            record['modules']={str(arm/n):c.sha(arm/n) for n in names}
+                            if target_pid not in mapped_pids:
+                                (out/'process.maps').write_text(raw);mapped_pids.add(target_pid)
+                            record['modules']=module_hashes
                     if time.monotonic()-start>args.watchdog_seconds:raise RuntimeError('Probe watchdog')
                     time.sleep(.2)
                 record['exit_code']=process.returncode
             finally:
                 if process.poll() is None:process.terminate();process.wait(timeout=30)
         if record['exit_code'] or 'modules' not in record:raise RuntimeError('Probe failed or missing maps')
+        if any(signature(p)!=s for p,s in signatures.items()) or c.sha(binary)!=record['binary_sha256'] or any(c.sha(Path(p))!=h for p,h in module_hashes.items()):
+            raise RuntimeError('Artifact identity changed during capture')
         # NVML can briefly retain old temperature/clock values after a firmware
         # fault. A zero application exit must not silently qualify an Xid run.
         kernel_log=subprocess.run(['journalctl','-k','--since','@'+str(int(initial['unix_seconds'])),

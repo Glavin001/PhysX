@@ -6,7 +6,27 @@ def load(name,file):
     s=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file));m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
 kernel=load('kernel','profile-kernel-suite.py');accounting=kernel.profile.accounting
 config=load('config','profile-config-suite.py')
+dataflow=load('dataflow','report-dataflow-suite.py')
 class AttributionTests(unittest.TestCase):
+    def test_transfer_overlap_is_not_removable_time(self):
+        copies=[dict(start_ns=0,end_ns=1000000,ms=1,bytes=10,kind=1),dict(start_ns=500000,end_ns=1500000,ms=1,bytes=20,kind=2)]
+        result=dataflow.census(copies,[dict(start_ns=250000,end_ns=1250000)])
+        self.assertEqual(result['bytes'],30)
+        self.assertEqual(result['copy_union_ms'],1.5)
+        self.assertEqual(result['copy_kernel_overlap_ms'],1)
+        self.assertEqual(result['copy_without_kernel_ms'],.5)
+    def test_mixed_family_counts_graph_time_only_once(self):
+        groups={'mixed':[dict(start=0,end=900000,graphId=1),dict(start=0,end=100000,graphId=None)],'tail':[dict(start=0,end=1000,graphId=None)]}
+        names,coverage=config.significant_families(groups,.1,.99)
+        self.assertEqual(names,['mixed']);self.assertAlmostEqual(coverage,1000/1001)
+    def test_small_scene_gets_relative_configuration_coverage(self):
+        groups={n:[dict(start=0,end=ns,graphId=g)] for n,ns,g in [('graph',10000,1),('a',60000,None),('b',29000,None),('tail',100,None)]}
+        names,coverage=config.significant_families(groups,.1,.99)
+        self.assertEqual(names,['a','b']);self.assertGreaterEqual(coverage,.99)
+    def test_graph_coverage_does_not_hide_material_ordinary_family(self):
+        groups={n:[dict(start=0,end=ns,graphId=g)] for n,ns,g in [('graph',1000000000,1),('ordinary',200000,None),('tail',100,None)]}
+        names,_=config.significant_families(groups,.1,.99)
+        self.assertEqual(names,['ordinary'])
     def test_representatives_keep_late_peak_at_same_grid(self):
         configs=[dict(invocations=[dict(ms=v) for v in [1,2,1,15]]),dict(invocations=[dict(ms=v) for v in [2,8]])]
         selected=config.representatives([dict(configs=configs)])

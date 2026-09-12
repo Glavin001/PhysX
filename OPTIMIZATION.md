@@ -1010,11 +1010,12 @@ python3 tools/diagnostics/destruction-snapshot/profile-config-suite.py \
   --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
   --binary out/snapshot-counters-20260911/probe/serialization-probe \
   --artifacts out/snapshot-reset-20260911/local-artifacts \
-  --threshold-ms 0.1 --allow-existing-graphics
+  --threshold-ms 0.1 --coverage 0.99 --allow-existing-graphics
 ```
 
-The ordinary-kernel supplement selects every family costing at least0.1ms in
-its matched full-tick timeline. It captures the first and slowest observed
+The ordinary-kernel supplement selects every family costing at least0.1ms,
+plus enough ordinary families to cover99% of matched kernel duration together
+with the graph tier. It captures the first and slowest observed
 invocation at every distinct grid/block/shared-memory configuration. The common
 invocation filter can select extras, which are explicitly audited. All original
 invocation timings remain in Systems. This is representative configuration
@@ -1047,3 +1048,11 @@ unlocated. Per-tick physical work/convergence/correction counters match controls
 this is not a new body-pose/force equivalence test or candidate optimization.
 The fixed20-sample full-suite and600-tick final acceptance gates still apply.
 Do not call a tier complete until its campaign and inventory/physical audits pass.
+
+Transfer census across all52 snapshots and continuous checkpoints (reuses existing traces):
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/report-dataflow-suite.py \
+  out/end-to-end-attribution-20260912 \
+  qualification/optimization-next20-20260910/end-to-end-attribution-20260912
+```

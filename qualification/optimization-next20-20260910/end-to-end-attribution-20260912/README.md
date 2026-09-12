@@ -1,8 +1,9 @@
 # End-to-end attribution after GPU recovery
 
-**CPU attribution passes all52 scenarios.** The graph-counter expansion is
-running with a verified workaround; representative ordinary-kernel expansion
-follows it. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
+**CPU and full graph counters pass all52 scenarios.** The graph expansion
+contains461 nonempty graph invocations /49 reports /98 checked ticks; three
+zero-graph scenarios have explicit inventory rows. The representative ordinary-
+kernel expansion is in progress. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
 [structured coverage](coverage-tiers.json), [full-step baselines and CPU stages](report.md).
 No runtime optimization or speedup is claimed. Physical inputs, ordinary APIs,
 sleep, correction limits, runtime modules and tolerances are unchanged.
@@ -37,7 +38,9 @@ The original2025.3.1 selected/stress campaign still qualifies52 cases /62 files 
 86 launches. It does not capture individual conditional-graph nodes. New locally
 extracted2026.2.1 and2026.1.1 pilots both reproduce the2026.3.0 heap-abort symptom
 on the same city25-impact input. No fourth version retry is planned. The precise
-injection corrupting write remains unproven.
+injection corrupting write remains unproven. A2026.3.0 pilot with forced
+`CUDA_LAUNCH_BLOCKING=1` and analysis rules disabled still aborts after its first
+stress capture; synchronization is not a fix.
 
 A different collection route records whole graphs with the stable2025.3.1 tool.
 With optional host analysis rules enabled, its **collector process** segfaults;
@@ -51,12 +54,25 @@ workaround and audits nonempty graph invocations against Systems.
 
 Graph counters aggregate their nodes and do not provide individual conditional-
 node/source counters. The ordinary-kernel supplement selects every family costing
-at least0.1ms in the matched timeline, then captures the first and slowest observed
+at least0.1ms, plus enough additional families for99% of matched kernel duration
+including graphs, then captures the first and slowest observed
 invocation at each launch configuration. Extra representatives selected by the
 shared invocation filter are counted. This is explicit representative coverage,
 not a claim to capture every invocation's counters. Complete timelines retain
 every launch; thresholds and all-invocation tools remain available for deeper
-investigations. Missing inventories never silently pass.
+investigations. Missing inventories never silently pass. The strengthened offline plan covers
+at least99.0002% of kernel duration in every case:2,701 configurations and5,449
+representative launches. This is planned coverage until captures and audits pass.
+
+The ordinary-kernel pilot is testing strict application replay to avoid per-
+kernel memory backup overhead. Original kernel-replay attempts are preserved.
+Application replay repeats the process for counter passes; each process runs
+the native two-restore repeatability check. The final two outputs also receive
+the explicit unprofiled-reference physical comparison. Intermediate process
+outputs are overwritten by the native runner; they are not separately claimed
+as reference comparisons. A wrapper update moves repeated artifact hashing
+outside execution, retaining per-poll file-identity guards and final hashes.
+Future application A/B tests must use the same wrapper for both arms.
 
 Sources: [NVIDIA graph profiling and metric limitations](https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#graph-profiling),
 [NVIDIA invocation/configuration filtering](https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#profile),
@@ -90,6 +106,13 @@ cost, and do not move work outside the timer to manufacture an optimization.
 
 ## Next experiments and reproducibility
 
+The [current transfer census](dataflow.md) records all52 snapshots and warm
+checkpoints. Fully idle warm traffic is negligible (~2KB H2D/~1KB D2H), so
+transfer reduction promises no meaningful gain there. Active-projectile pre-
+impact reads7.741MB D2H, first fracture24.516MB and later debris35.386MB.
+Copy/kernel overlap is explicit; these durations are not removable full-step
+cost. Ordinary trial mirrors remain necessary for sleep/activity processing.
+
 The [ranked hypotheses](next-ranked-experiments.json) prioritize fragment lifecycle,
 verified unchanged-input equilibrium reuse, direct solves for eligible components,
 and compact CPU mirror updates. Each includes evidence, mechanism, scenarios,
@@ -99,7 +122,7 @@ The original N-series remains11/20 and best N13 stays retained.
 
 Use exact commands in [OPTIMIZATION.md](../../../OPTIMIZATION.md). New tools are
 `profile-graph-suite.py`, `profile-config-suite.py`, `profile-warm-suite.py`,
-`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Eight accounting,
+`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Twelve accounting,
 classification and representative-selection tests pass. Historical pre-reboot
 status is retained in [history-before-reboot.md](history-before-reboot.md).
 Private process environments and crash cores are not published or committed.

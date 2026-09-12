@@ -10,9 +10,14 @@ position/velocity differences. Reduced-tracing retry passes the formerly faulted
 city64 impact; all remaining city256 stages pass. Old Xid120 capture stays
 quarantined; the precise trigger is unproven. New archived2026.2.1 and2026.1.1
 NCU pilots both abort with the same heap symptom as2026.3.0. Do not keep trying
-versions; stable2025 graph-level diagnostics are in progress and are NOT equivalent
-to individual conditional-node/source counters. Warm180-tick idle/heavy traces
-pass exact work/convergence counters; sampling-throttle warnings remain explicit.
+versions; stable2025 graph-level full counters now pass52/52 (461 graph launches,
+98 checked ticks) with optional host analysis rules disabled. Rules-enabled
+control crashes the collector; graph aggregates are NOT individual conditional-
+node/source counters. Significant ordinary-kernel configuration expansion is
+in progress with99% relative coverage plus a0.1ms family threshold. Warm180-tick
+idle/heavy traces pass exact work/convergence counters; lower-rate sampling
+eliminates the earlier OS throttle warnings. Forced synchronization does not
+fix the newer NCU injection failure.
 All runtime/physics artifacts unchanged; no new speedup or optimization experiment.
 [Current attribution evidence](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/README.md).
 

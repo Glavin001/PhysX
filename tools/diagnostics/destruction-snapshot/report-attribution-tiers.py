@@ -29,20 +29,23 @@ def main():
                 else:config_files+=1;config_launches+=len(data)
         rows.append(row)
     graph_cases=sum(r['graph']['status']=='complete' for r in rows);config_cases=sum(r['ordinary_configs']['status']=='complete' for r in rows)
+    complete_configs=[r['ordinary_configs'] for r in rows if r['ordinary_configs']['status']=='complete']
     result=dict(cpu_cases=cpu['qualified_cpu_scenarios'],cpu_samples=cpu['cpu_samples'],engine_scopes=cpu['engine_scopes'],timeline_kernel_launches=cpu['kernel_launches'],
         graph_cases=graph_cases,graph_files=graph_files,graph_launches=graph_launches,ordinary_config_cases=config_cases,ordinary_config_files=config_files,ordinary_counter_launches=config_launches,
-        checked_counter_ticks=2*(graph_files+config_files),minimum_metric_fields=minimum_metrics,counter_diagnostics=counter_diagnostics,warm=warm,scenarios=rows,
+        checked_counter_ticks=2*(graph_files+config_files),reference_comparison_scope='Two final restored outputs per report; application replay intermediate processes separately run native pair repeatability checks.',
+        minimum_represented_family_duration_fraction=min((r['selection']['coverage_fraction'] for r in complete_configs),default=None),
+        minimum_metric_fields=minimum_metrics,counter_diagnostics=counter_diagnostics,warm=warm,scenarios=rows,
         limits=['Graph counters aggregate nodes. Individual conditional-node and instruction-source counters remain unavailable with the stable collector.',
-            'Ordinary kernel families use the explicit 0.1ms cumulative family threshold; first and slowest observed launches per configuration are included. Other invocations remain in complete timelines. Set threshold to zero or use the all-invocation collector for further investigations.',
+            'Ordinary kernel families cover at least 99% of matched kernel duration together with graphs, plus every family above 0.1ms; first and slowest observed launches per configuration are included. Other invocations remain in complete timelines. Set threshold to zero or use the all-invocation collector for further investigations.',
             'CPU samples are statistical; unresolved driver/kernel frames and any capture warnings are preserved. Native thread-clock phases and OS/CUDA calls supplement sampling.',
             'Cold restored ticks rebuild disposable caches; warm continuous gameplay is a separate workload. Neither includes restore/validation in the full-step timer.',
             'No runtime optimization or speedup is claimed.'])
     (a.output/'coverage-tiers.json').write_text(json.dumps(result,indent=2)+'\n')
     lines=['# Attribution tiers and remaining limits','',f'CPU **{result["cpu_cases"]}/52**; graph tier **{graph_cases}/52** ({graph_launches} graph invocations); significant ordinary-kernel configuration tier **{config_cases}/52** ({config_launches} representative invocations). Zero-work cases are explicit coverage rows, not additional measured ticks.','',
         'All CPU and GPU timings in profiler artifacts are diagnostic. [All52 unprofiled full-step baselines and CPU/stage data](report.md) remain separate.','',
-        '| Scenario | CPU | Graph invocations: captured / expected | Ordinary configurations | Ordinary counter invocations |','|---|---|---:|---:|---:|']
+        '| Scenario | CPU | Graph invocations: captured / expected | Ordinary configurations | Ordinary counter invocations | Represented families: timeline kernel time |','|---|---|---:|---:|---:|---:|']
     for r in rows:
-        g=r['graph'];c=r['ordinary_configs'];lines.append(f'| {r["scenario"]} | {r["cpu_status"]} | {g.get("captured_graph_launches","—")} / {g.get("expected_graph_launches","—")} ({g["status"]}) | {c.get("captured_configs","—")} ({c["status"]}) | {c.get("captured_launches",0) if c["status"]=="complete" else "—"} |')
+        g=r['graph'];c=r['ordinary_configs'];coverage=f'{100*c["selection"]["coverage_fraction"]:.3f}%' if c['status']=='complete' else '—';lines.append(f'| {r["scenario"]} | {r["cpu_status"]} | {g.get("captured_graph_launches","—")} / {g.get("expected_graph_launches","—")} ({g["status"]}) | {c.get("captured_configs","—")} ({c["status"]}) | {c.get("captured_launches",0) if c["status"]=="complete" else "—"} | {coverage} |')
     lines+=['','## Continuous ordinary/sleeping controls','','Each unprofiled row contains180 complete ticks, including startup. A corresponding CPU/Systems trace passes the same per-tick work/convergence/correction counters. These controls are not candidate speedup experiments.','',
         '| Workload | Full-step mean / peak ms | 8ms / 120Hz / 60Hz misses | Initialization ms | Command / integrated physics / completion mean ms |','|---|---:|---:|---:|---:|']
     for r in warm['cases']:

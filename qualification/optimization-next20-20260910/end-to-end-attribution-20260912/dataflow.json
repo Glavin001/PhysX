@@ -1,0 +1,5052 @@
+{
+  "scope": "Transfers within complete-tick trace anchors only. Diagnostic durations overlap CPU/other GPU work and are not removable application time. Native clock-boundary residuals remain unlocated. Baselines exclude restore and validation.",
+  "directions": {
+    "1": "Host-to-Device",
+    "2": "Device-to-Host",
+    "8": "Device-to-Device"
+  },
+  "snapshots": [
+    {
+      "scenario": "bridge64-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/bridge64-cold",
+      "unprofiled_mean_ms": 8.75335085,
+      "unprofiled_peak_ms": 10.257007,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 171692,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.031776,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.031776,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 144528,
+            "aggregate_ms": 0.023775999999999995,
+            "union_ms": 0.023776
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.00192,
+            "union_ms": 0.00192
+          },
+          "8": {
+            "count": 10,
+            "bytes": 25876,
+            "aggregate_ms": 0.006080000000000001,
+            "union_ms": 0.00608
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 170044,
+            "aggregate_ms": 0.029695999999999993
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.0011519999999999998
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "bridge64-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/bridge64-warm",
+      "unprofiled_mean_ms": 8.82221295,
+      "unprofiled_peak_ms": 11.872118,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 171692,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.036512,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.036512,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 144528,
+            "aggregate_ms": 0.028544000000000003,
+            "union_ms": 0.028544
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.00192,
+            "union_ms": 0.00192
+          },
+          "8": {
+            "count": 10,
+            "bytes": 25876,
+            "aggregate_ms": 0.006048000000000001,
+            "union_ms": 0.006048
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 170044,
+            "aggregate_ms": 0.034399999999999986
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001184
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "building-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/building-cold",
+      "unprofiled_mean_ms": 4.8347716,
+      "unprofiled_peak_ms": 8.351598,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 101540,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.0264,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.0264,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 80856,
+            "aggregate_ms": 0.018464,
+            "union_ms": 0.018464
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0017280000000000002,
+            "union_ms": 0.001728
+          },
+          "8": {
+            "count": 10,
+            "bytes": 19396,
+            "aggregate_ms": 0.006208000000000001,
+            "union_ms": 0.006208
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 99892,
+            "aggregate_ms": 0.024447999999999994
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001024
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "building-fragmented",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/building-fragmented",
+      "unprofiled_mean_ms": 8.8866127,
+      "unprofiled_peak_ms": 15.414504,
+      "samples": 20,
+      "transfers": {
+        "count": 118,
+        "bytes": 1135268,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.135712,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.135712,
+        "directions": {
+          "1": {
+            "count": 64,
+            "bytes": 439372,
+            "aggregate_ms": 0.0656,
+            "union_ms": 0.0656
+          },
+          "2": {
+            "count": 32,
+            "bytes": 417712,
+            "aggregate_ms": 0.056704,
+            "union_ms": 0.056704
+          },
+          "8": {
+            "count": 22,
+            "bytes": 278184,
+            "aggregate_ms": 0.013408000000000002,
+            "union_ms": 0.013408
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 74,
+            "bytes": 525016,
+            "aggregate_ms": 0.07846400000000002
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 431216,
+            "aggregate_ms": 0.04339200000000001
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 97024,
+            "aggregate_ms": 0.000672
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 12,
+            "bytes": 77568,
+            "aggregate_ms": 0.010559999999999998
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 3052,
+            "aggregate_ms": 0.0009600000000000001
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001248
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "building-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/building-warm",
+      "unprofiled_mean_ms": 4.8178073,
+      "unprofiled_peak_ms": 7.385805,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 101540,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.02288,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.02288,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 80856,
+            "aggregate_ms": 0.014432,
+            "union_ms": 0.014432
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.00192,
+            "union_ms": 0.00192
+          },
+          "8": {
+            "count": 10,
+            "bytes": 19396,
+            "aggregate_ms": 0.006528000000000001,
+            "union_ms": 0.006528
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 99892,
+            "aggregate_ms": 0.020735999999999994
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001184
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000576
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/cantilever64-cold",
+      "unprofiled_mean_ms": 7.6942753,
+      "unprofiled_peak_ms": 11.223992,
+      "samples": 20,
+      "transfers": {
+        "count": 34,
+        "bytes": 19484,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.010944,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.010944,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 16640,
+            "aggregate_ms": 0.0069120000000000015,
+            "union_ms": 0.006912
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.00176,
+            "union_ms": 0.00176
+          },
+          "8": {
+            "count": 4,
+            "bytes": 1556,
+            "aggregate_ms": 0.002272,
+            "union_ms": 0.002272
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 29,
+            "bytes": 17836,
+            "aggregate_ms": 0.008960000000000001
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001024
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/cantilever64-warm",
+      "unprofiled_mean_ms": 6.9543646,
+      "unprofiled_peak_ms": 8.594163,
+      "samples": 20,
+      "transfers": {
+        "count": 34,
+        "bytes": 19484,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.012896,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.012896,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 16640,
+            "aggregate_ms": 0.008768000000000003,
+            "union_ms": 0.008768
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.00192,
+            "union_ms": 0.00192
+          },
+          "8": {
+            "count": 4,
+            "bytes": 1556,
+            "aggregate_ms": 0.002208,
+            "union_ms": 0.002208
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 29,
+            "bytes": 17836,
+            "aggregate_ms": 0.010784
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.0011519999999999998
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/chain256-cold",
+      "unprofiled_mean_ms": 7.23379285,
+      "unprofiled_peak_ms": 8.594048,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 75180,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.016416,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.016416,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 58256,
+            "aggregate_ms": 0.008224,
+            "union_ms": 0.008224
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0018880000000000001,
+            "union_ms": 0.001888
+          },
+          "8": {
+            "count": 10,
+            "bytes": 15636,
+            "aggregate_ms": 0.0063040000000000014,
+            "union_ms": 0.006304
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 73532,
+            "aggregate_ms": 0.014335999999999996
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001152
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "chain256-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/chain256-warm",
+      "unprofiled_mean_ms": 7.3249623999999995,
+      "unprofiled_peak_ms": 9.971191,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 75180,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.016416,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.016416,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 58256,
+            "aggregate_ms": 0.00816,
+            "union_ms": 0.00816
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.001984,
+            "union_ms": 0.001984
+          },
+          "8": {
+            "count": 10,
+            "bytes": 15636,
+            "aggregate_ms": 0.0062720000000000015,
+            "union_ms": 0.006272
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 73532,
+            "aggregate_ms": 0.014271999999999995
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001248
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000512
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "chain32-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/chain32-cold",
+      "unprofiled_mean_ms": 2.8408868,
+      "unprofiled_peak_ms": 6.643384,
+      "samples": 20,
+      "transfers": {
+        "count": 34,
+        "bytes": 11908,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.02512,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.02512,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 9704,
+            "aggregate_ms": 0.02108799999999999,
+            "union_ms": 0.021088
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0018880000000000001,
+            "union_ms": 0.001888
+          },
+          "8": {
+            "count": 4,
+            "bytes": 916,
+            "aggregate_ms": 0.0021439999999999996,
+            "union_ms": 0.002144
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 29,
+            "bytes": 10260,
+            "aggregate_ms": 0.023007999999999987
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.00112
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000576
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "chain32-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/chain32-warm",
+      "unprofiled_mean_ms": 2.6460791,
+      "unprofiled_peak_ms": 5.139655,
+      "samples": 20,
+      "transfers": {
+        "count": 34,
+        "bytes": 11908,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.01056,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.01056,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 9704,
+            "aggregate_ms": 0.006688,
+            "union_ms": 0.006688
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.001696,
+            "union_ms": 0.001696
+          },
+          "8": {
+            "count": 4,
+            "bytes": 916,
+            "aggregate_ms": 0.002176,
+            "union_ms": 0.002176
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 29,
+            "bytes": 10260,
+            "aggregate_ms": 0.008672000000000001
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.0009599999999999999
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/dense12-cold",
+      "unprofiled_mean_ms": 33.7479776,
+      "unprofiled_peak_ms": 36.678694,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 355740,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.060224,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.060224,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 309376,
+            "aggregate_ms": 0.052,
+            "union_ms": 0.052
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0022719999999999997,
+            "union_ms": 0.002272
+          },
+          "8": {
+            "count": 10,
+            "bytes": 45076,
+            "aggregate_ms": 0.005952000000000001,
+            "union_ms": 0.005952
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 354092,
+            "aggregate_ms": 0.057983999999999994
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000512
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001184
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "dense12-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/dense12-warm",
+      "unprofiled_mean_ms": 33.302493,
+      "unprofiled_peak_ms": 36.077748,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 355740,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.059008,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.059008,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 309376,
+            "aggregate_ms": 0.051008,
+            "union_ms": 0.051008
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.002048,
+            "union_ms": 0.002048
+          },
+          "8": {
+            "count": 10,
+            "bytes": 45076,
+            "aggregate_ms": 0.005952000000000001,
+            "union_ms": 0.005952
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 354092,
+            "aggregate_ms": 0.05680000000000001
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000512
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.00112
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000576
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "destruction-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/destruction-cold",
+      "unprofiled_mean_ms": 2.56690975,
+      "unprofiled_peak_ms": 6.11486,
+      "samples": 20,
+      "transfers": {
+        "count": 34,
+        "bytes": 4812,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.011104,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.011104,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 3208,
+            "aggregate_ms": 0.006464000000000003,
+            "union_ms": 0.006464
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0019199999999999998,
+            "union_ms": 0.00192
+          },
+          "8": {
+            "count": 4,
+            "bytes": 316,
+            "aggregate_ms": 0.00272,
+            "union_ms": 0.00272
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 29,
+            "bytes": 3164,
+            "aggregate_ms": 0.008576
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001184
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.00096
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "destruction-damaged",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/destruction-damaged",
+      "unprofiled_mean_ms": 3.22819205,
+      "unprofiled_peak_ms": 7.647773,
+      "samples": 20,
+      "transfers": {
+        "count": 34,
+        "bytes": 4812,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.01168,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.01168,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 3208,
+            "aggregate_ms": 0.007072000000000002,
+            "union_ms": 0.007072
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.001952,
+            "union_ms": 0.001952
+          },
+          "8": {
+            "count": 4,
+            "bytes": 316,
+            "aggregate_ms": 0.002656,
+            "union_ms": 0.002656
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 29,
+            "bytes": 3164,
+            "aggregate_ms": 0.008608000000000001
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001824
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000832
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "destruction-fractured",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/destruction-fractured",
+      "unprofiled_mean_ms": 4.3288095,
+      "unprofiled_peak_ms": 7.641147,
+      "samples": 20,
+      "transfers": {
+        "count": 93,
+        "bytes": 33380,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.035392,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.035392,
+        "directions": {
+          "1": {
+            "count": 56,
+            "bytes": 29848,
+            "aggregate_ms": 0.014751999999999987,
+            "union_ms": 0.014752
+          },
+          "2": {
+            "count": 27,
+            "bytes": 2584,
+            "aggregate_ms": 0.014048000000000001,
+            "union_ms": 0.014048
+          },
+          "8": {
+            "count": 10,
+            "bytes": 948,
+            "aggregate_ms": 0.006592,
+            "union_ms": 0.006592
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 12,
+            "bytes": 22580,
+            "aggregate_ms": 0.0036160000000000003
+          },
+          {
+            "scope": "unattributed",
+            "count": 60,
+            "bytes": 8336,
+            "aggregate_ms": 0.020095999999999992
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 768,
+            "aggregate_ms": 0.000896
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.0011519999999999998
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 14,
+            "bytes": 268,
+            "aggregate_ms": 0.008512
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 36,
+            "aggregate_ms": 0.000736
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "destruction-intact",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/destruction-intact",
+      "unprofiled_mean_ms": 2.5946015,
+      "unprofiled_peak_ms": 7.535771,
+      "samples": 20,
+      "transfers": {
+        "count": 34,
+        "bytes": 4812,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.011008,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.011008,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 3208,
+            "aggregate_ms": 0.006624000000000002,
+            "union_ms": 0.006624
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.001984,
+            "union_ms": 0.001984
+          },
+          "8": {
+            "count": 4,
+            "bytes": 316,
+            "aggregate_ms": 0.0024,
+            "union_ms": 0.0024
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 29,
+            "bytes": 3164,
+            "aggregate_ms": 0.008576000000000002
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000448
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001152
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000832
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "destruction-onset",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/destruction-onset",
+      "unprofiled_mean_ms": 3.76763125,
+      "unprofiled_peak_ms": 8.893501,
+      "samples": 20,
+      "transfers": {
+        "count": 58,
+        "bytes": 9496,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.019296,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.019296,
+        "directions": {
+          "1": {
+            "count": 37,
+            "bytes": 6624,
+            "aggregate_ms": 0.009312,
+            "union_ms": 0.009312
+          },
+          "2": {
+            "count": 17,
+            "bytes": 2280,
+            "aggregate_ms": 0.007487999999999999,
+            "union_ms": 0.007488
+          },
+          "8": {
+            "count": 4,
+            "bytes": 592,
+            "aggregate_ms": 0.002496,
+            "union_ms": 0.002496
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 48,
+            "bytes": 7544,
+            "aggregate_ms": 0.01552
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 512,
+            "aggregate_ms": 0.000896
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.0009599999999999999
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 28,
+            "aggregate_ms": 0.000736
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 3,
+            "bytes": 20,
+            "aggregate_ms": 0.000768
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/destruction-stimulus",
+      "unprofiled_mean_ms": 4.1054603,
+      "unprofiled_peak_ms": 8.248785,
+      "samples": 20,
+      "transfers": {
+        "count": 59,
+        "bytes": 9560,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.023936,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.023936,
+        "directions": {
+          "1": {
+            "count": 38,
+            "bytes": 6688,
+            "aggregate_ms": 0.013343999999999996,
+            "union_ms": 0.013344
+          },
+          "2": {
+            "count": 17,
+            "bytes": 2280,
+            "aggregate_ms": 0.008512,
+            "union_ms": 0.008512
+          },
+          "8": {
+            "count": 4,
+            "bytes": 592,
+            "aggregate_ms": 0.0020800000000000003,
+            "union_ms": 0.00208
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 49,
+            "bytes": 7608,
+            "aggregate_ms": 0.020543999999999996
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 512,
+            "aggregate_ms": 0.000544
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.000992
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 28,
+            "aggregate_ms": 0.000768
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 3,
+            "bytes": 20,
+            "aggregate_ms": 0.000704
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "flying",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/flying",
+      "unprofiled_mean_ms": 1.70633275,
+      "unprofiled_peak_ms": 2.321276,
+      "samples": 20,
+      "transfers": {
+        "count": 43,
+        "bytes": 7392,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.0144,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.0144,
+        "directions": {
+          "1": {
+            "count": 30,
+            "bytes": 5564,
+            "aggregate_ms": 0.008768000000000001,
+            "union_ms": 0.008768
+          },
+          "2": {
+            "count": 13,
+            "bytes": 1828,
+            "aggregate_ms": 0.005632,
+            "union_ms": 0.005632
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 43,
+            "bytes": 7392,
+            "aggregate_ms": 0.014399999999999996
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "ladder128-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/ladder128-cold",
+      "unprofiled_mean_ms": 5.5761532,
+      "unprofiled_peak_ms": 6.951794,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 79668,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.020256,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.020256,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 62104,
+            "aggregate_ms": 0.012319999999999998,
+            "union_ms": 0.01232
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0018880000000000001,
+            "union_ms": 0.001888
+          },
+          "8": {
+            "count": 10,
+            "bytes": 16276,
+            "aggregate_ms": 0.006048000000000001,
+            "union_ms": 0.006048
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 78020,
+            "aggregate_ms": 0.018207999999999995
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.00112
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "ladder128-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/ladder128-warm",
+      "unprofiled_mean_ms": 5.59210665,
+      "unprofiled_peak_ms": 7.504648,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 79668,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.017888,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.017888,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 62104,
+            "aggregate_ms": 0.010015999999999997,
+            "union_ms": 0.010016
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0017599999999999998,
+            "union_ms": 0.00176
+          },
+          "8": {
+            "count": 10,
+            "bytes": 16276,
+            "aggregate_ms": 0.006112000000000002,
+            "union_ms": 0.006112
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 78020,
+            "aggregate_ms": 0.015967999999999996
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.000992
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "panel32-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/panel32-cold",
+      "unprofiled_mean_ms": 22.2487411,
+      "unprofiled_peak_ms": 25.250382,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 257004,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.048065,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.048065,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 224720,
+            "aggregate_ms": 0.040096999999999994,
+            "union_ms": 0.040097
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.002048,
+            "union_ms": 0.002048
+          },
+          "8": {
+            "count": 10,
+            "bytes": 30996,
+            "aggregate_ms": 0.005920000000000001,
+            "union_ms": 0.00592
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 255356,
+            "aggregate_ms": 0.04582499999999999
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000512
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001184
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "panel32-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/panel32-warm",
+      "unprofiled_mean_ms": 22.33758075,
+      "unprofiled_peak_ms": 24.648055,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 257004,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.051296,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.051296,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 224720,
+            "aggregate_ms": 0.043328000000000005,
+            "union_ms": 0.043328
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.001888,
+            "union_ms": 0.001888
+          },
+          "8": {
+            "count": 10,
+            "bytes": 30996,
+            "aggregate_ms": 0.006080000000000001,
+            "union_ms": 0.00608
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 255356,
+            "aggregate_ms": 0.049184000000000005
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.00112
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000576
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "resting",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/resting",
+      "unprofiled_mean_ms": 1.6335698,
+      "unprofiled_peak_ms": 2.587918,
+      "samples": 20,
+      "transfers": {
+        "count": 20,
+        "bytes": 3756,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.00528,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.00528,
+        "directions": {
+          "1": {
+            "count": 19,
+            "bytes": 2724,
+            "aggregate_ms": 0.004863999999999999,
+            "union_ms": 0.004864
+          },
+          "2": {
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416,
+            "union_ms": 0.000416
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 20,
+            "bytes": 3756,
+            "aggregate_ms": 0.005279999999999999
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "sliding",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/sliding",
+      "unprofiled_mean_ms": 2.6617356,
+      "unprofiled_peak_ms": 3.717175,
+      "samples": 20,
+      "transfers": {
+        "count": 72,
+        "bytes": 30684,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.026593,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.026593,
+        "directions": {
+          "1": {
+            "count": 43,
+            "bytes": 28472,
+            "aggregate_ms": 0.011359999999999995,
+            "union_ms": 0.01136
+          },
+          "2": {
+            "count": 23,
+            "bytes": 2112,
+            "aggregate_ms": 0.011105,
+            "union_ms": 0.011105
+          },
+          "8": {
+            "count": 6,
+            "bytes": 100,
+            "aggregate_ms": 0.004128,
+            "union_ms": 0.004128
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 72,
+            "bytes": 30684,
+            "aggregate_ms": 0.02659299999999999
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "tower64-cold",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/tower64-cold",
+      "unprofiled_mean_ms": 117.76611665,
+      "unprofiled_peak_ms": 120.597533,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 544316,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.083234,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.083234,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 485152,
+            "aggregate_ms": 0.074402,
+            "union_ms": 0.074402
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.002016,
+            "union_ms": 0.002016
+          },
+          "8": {
+            "count": 10,
+            "bytes": 57876,
+            "aggregate_ms": 0.006816000000000001,
+            "union_ms": 0.006816
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 542668,
+            "aggregate_ms": 0.08115400000000006
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000512
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.0009919999999999998
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000576
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "tower64-warm",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/tower64-warm",
+      "unprofiled_mean_ms": 117.62596445,
+      "unprofiled_peak_ms": 119.557588,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 544316,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.083104,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.083104,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 485152,
+            "aggregate_ms": 0.07504000000000002,
+            "union_ms": 0.07504
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.001984,
+            "union_ms": 0.001984
+          },
+          "8": {
+            "count": 10,
+            "bytes": 57876,
+            "aggregate_ms": 0.00608,
+            "union_ms": 0.00608
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 542668,
+            "aggregate_ms": 0.08092800000000004
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.00048
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.0011519999999999998
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 256,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city25-intact-idle",
+      "unprofiled_mean_ms": 9.60080475,
+      "unprofiled_peak_ms": 15.944229,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 2374156,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.333601,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.333601,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 2134208,
+            "aggregate_ms": 0.324353,
+            "union_ms": 0.324353
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.001984,
+            "union_ms": 0.001984
+          },
+          "8": {
+            "count": 10,
+            "bytes": 238660,
+            "aggregate_ms": 0.0072640000000000005,
+            "union_ms": 0.007264
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 2366364,
+            "aggregate_ms": 0.33152100000000007
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 6400,
+            "aggregate_ms": 0.000672
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000512
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.000896
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city25-airborne",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city25-airborne",
+      "unprofiled_mean_ms": 10.87135745,
+      "unprofiled_peak_ms": 14.362149,
+      "samples": 20,
+      "transfers": {
+        "count": 67,
+        "bytes": 3238844,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.454305,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.454305,
+        "directions": {
+          "1": {
+            "count": 39,
+            "bytes": 2148800,
+            "aggregate_ms": 0.326913,
+            "union_ms": 0.326913
+          },
+          "2": {
+            "count": 17,
+            "bytes": 843684,
+            "aggregate_ms": 0.11977600000000001,
+            "union_ms": 0.119776
+          },
+          "8": {
+            "count": 11,
+            "bytes": 246360,
+            "aggregate_ms": 0.007616,
+            "union_ms": 0.007616
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 54,
+            "bytes": 3221852,
+            "aggregate_ms": 0.44979299999999994
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 12800,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 5,
+            "bytes": 2500,
+            "aggregate_ms": 0.001664
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 4,
+            "bytes": 440,
+            "aggregate_ms": 0.001088
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 220,
+            "aggregate_ms": 0.000768
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city25-initial-impact",
+      "unprofiled_mean_ms": 40.8120855,
+      "unprofiled_peak_ms": 52.199547,
+      "samples": 20,
+      "transfers": {
+        "count": 240,
+        "bytes": 6640640,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.838848,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.838848,
+        "directions": {
+          "1": {
+            "count": 109,
+            "bytes": 2753148,
+            "aggregate_ms": 0.43071999999999994,
+            "union_ms": 0.43072
+          },
+          "2": {
+            "count": 79,
+            "bytes": 2600248,
+            "aggregate_ms": 0.37286400000000003,
+            "union_ms": 0.372864
+          },
+          "8": {
+            "count": 52,
+            "bytes": 1287244,
+            "aggregate_ms": 0.035264,
+            "union_ms": 0.035264
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 102,
+            "bytes": 4609940,
+            "aggregate_ms": 0.6245439999999999
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 31,
+            "bytes": 833828,
+            "aggregate_ms": 0.079072
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 16,
+            "bytes": 310672,
+            "aggregate_ms": 0.052576
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 183380,
+            "aggregate_ms": 0.0288
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 16,
+            "bytes": 169240,
+            "aggregate_ms": 0.006208
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 153600,
+            "aggregate_ms": 0.0014399999999999999
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 140856,
+            "aggregate_ms": 0.000992
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 104496,
+            "aggregate_ms": 0.015648
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 7,
+            "bytes": 26176,
+            "aggregate_ms": 0.004736
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 10,
+            "bytes": 25428,
+            "aggregate_ms": 0.003648
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 14,
+            "bytes": 25216,
+            "aggregate_ms": 0.008799999999999999
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 23048,
+            "aggregate_ms": 0.003776
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 12800,
+            "aggregate_ms": 0.00064
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 12288,
+            "aggregate_ms": 0.0025599999999999998
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 4420,
+            "aggregate_ms": 0.000896
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 2768,
+            "aggregate_ms": 0.002528
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000544
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000672
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 420,
+            "aggregate_ms": 0.000768
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city25-post-impact",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city25-post-impact",
+      "unprofiled_mean_ms": 24.48404405,
+      "unprofiled_peak_ms": 30.55697,
+      "samples": 20,
+      "transfers": {
+        "count": 122,
+        "bytes": 4853000,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.646818,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.646818,
+        "directions": {
+          "1": {
+            "count": 67,
+            "bytes": 2756368,
+            "aggregate_ms": 0.42665700000000006,
+            "union_ms": 0.426433
+          },
+          "2": {
+            "count": 32,
+            "bytes": 1423700,
+            "aggregate_ms": 0.20483300000000002,
+            "union_ms": 0.204833
+          },
+          "8": {
+            "count": 23,
+            "bytes": 672932,
+            "aggregate_ms": 0.015552,
+            "union_ms": 0.015552
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 74,
+            "bytes": 3851204,
+            "aggregate_ms": 0.5551380000000001
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 701100,
+            "aggregate_ms": 0.066496
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 149836,
+            "aggregate_ms": 0.020479999999999995
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 141056,
+            "aggregate_ms": 0.000608
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 4220,
+            "aggregate_ms": 0.000896
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 1,
+            "bytes": 4112,
+            "aggregate_ms": 0.001952
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 4,
+            "bytes": 440,
+            "aggregate_ms": 0.001088
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city25-cascading-fracture",
+      "unprofiled_mean_ms": 39.4954156,
+      "unprofiled_peak_ms": 48.002771,
+      "samples": 20,
+      "transfers": {
+        "count": 263,
+        "bytes": 8259216,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.905858,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.905858,
+        "directions": {
+          "1": {
+            "count": 116,
+            "bytes": 3012520,
+            "aggregate_ms": 0.4585289999999997,
+            "union_ms": 0.458529
+          },
+          "2": {
+            "count": 78,
+            "bytes": 2851484,
+            "aggregate_ms": 0.397409,
+            "union_ms": 0.397409
+          },
+          "8": {
+            "count": 69,
+            "bytes": 2395212,
+            "aggregate_ms": 0.04992000000000002,
+            "union_ms": 0.04992
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 86,
+            "bytes": 3943792,
+            "aggregate_ms": 0.5398409999999999
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 34,
+            "bytes": 1351096,
+            "aggregate_ms": 0.164545
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 46,
+            "bytes": 1248012,
+            "aggregate_ms": 0.07731199999999999
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 674712,
+            "aggregate_ms": 0.06096
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 8,
+            "bytes": 171544,
+            "aggregate_ms": 0.002976
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 162616,
+            "aggregate_ms": 0.00128
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 160632,
+            "aggregate_ms": 0.024832
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 160000,
+            "aggregate_ms": 0.00064
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 1,
+            "bytes": 160000,
+            "aggregate_ms": 0.000928
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 130824,
+            "aggregate_ms": 0.014336
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 74408,
+            "aggregate_ms": 0.0060160000000000005
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 5720,
+            "aggregate_ms": 0.00272
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 4916,
+            "aggregate_ms": 0.000896
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 4836,
+            "aggregate_ms": 0.002304
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 2912,
+            "aggregate_ms": 0.001728
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000544
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 3,
+            "bytes": 720,
+            "aggregate_ms": 0.0020480000000000003
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 2,
+            "bytes": 240,
+            "aggregate_ms": 0.001056
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 172,
+            "aggregate_ms": 0.000512
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city25-fragmented-loaded",
+      "unprofiled_mean_ms": 52.83368675,
+      "unprofiled_peak_ms": 65.841749,
+      "samples": 20,
+      "transfers": {
+        "count": 289,
+        "bytes": 13608400,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 1.325478,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 1.325478,
+        "directions": {
+          "1": {
+            "count": 125,
+            "bytes": 4136820,
+            "aggregate_ms": 0.6438100000000003,
+            "union_ms": 0.64381
+          },
+          "2": {
+            "count": 87,
+            "bytes": 4343916,
+            "aggregate_ms": 0.6197480000000004,
+            "union_ms": 0.619748
+          },
+          "8": {
+            "count": 77,
+            "bytes": 5127664,
+            "aggregate_ms": 0.06192000000000003,
+            "union_ms": 0.06192
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 95,
+            "bytes": 4807080,
+            "aggregate_ms": 0.6971870000000003
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 56,
+            "bytes": 2870900,
+            "aggregate_ms": 0.15622499999999997
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 35,
+            "bytes": 1814576,
+            "aggregate_ms": 0.21587299999999995
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 1580552,
+            "aggregate_ms": 0.137697
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 674816,
+            "aggregate_ms": 0.002912
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 8,
+            "bytes": 357048,
+            "aggregate_ms": 0.003712
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 340280,
+            "aggregate_ms": 0.0019199999999999998
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 334592,
+            "aggregate_ms": 0.000928
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 333552,
+            "aggregate_ms": 0.043072000000000006
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 289264,
+            "aggregate_ms": 0.0408
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 158332,
+            "aggregate_ms": 0.00816
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 11176,
+            "aggregate_ms": 0.002752
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 10460,
+            "aggregate_ms": 0.0036479999999999998
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 10284,
+            "aggregate_ms": 0.001056
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 10064,
+            "aggregate_ms": 0.0015999999999999999
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 2248,
+            "aggregate_ms": 0.0035520000000000005
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000512
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000672
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 936,
+            "aggregate_ms": 0.002688
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 176,
+            "aggregate_ms": 0.000512
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city25-late-debris",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city25-late-debris",
+      "unprofiled_mean_ms": 69.9456758,
+      "unprofiled_peak_ms": 86.042459,
+      "samples": 20,
+      "transfers": {
+        "count": 325,
+        "bytes": 16242560,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 1.551652,
+        "copy_kernel_overlap_ms": 0.001024,
+        "copy_without_kernel_ms": 1.5506280000000001,
+        "directions": {
+          "1": {
+            "count": 140,
+            "bytes": 4821988,
+            "aggregate_ms": 0.7441949999999997,
+            "union_ms": 0.743971
+          },
+          "2": {
+            "count": 96,
+            "bytes": 5215536,
+            "aggregate_ms": 0.7374410000000002,
+            "union_ms": 0.737441
+          },
+          "8": {
+            "count": 89,
+            "bytes": 6205036,
+            "aggregate_ms": 0.07024000000000001,
+            "union_ms": 0.07024
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 107,
+            "bytes": 5335912,
+            "aggregate_ms": 0.7570909999999998
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 65,
+            "bytes": 3954232,
+            "aggregate_ms": 0.22016100000000005
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 34,
+            "bytes": 2057888,
+            "aggregate_ms": 0.2752
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 36,
+            "bytes": 1584544,
+            "aggregate_ms": 0.14569599999999996
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 871680,
+            "aggregate_ms": 0.003168
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 484408,
+            "aggregate_ms": 0.0024000000000000002
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 458524,
+            "aggregate_ms": 0.061024
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 13,
+            "bytes": 416312,
+            "aggregate_ms": 0.004928
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 387328,
+            "aggregate_ms": 0.00096
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 299568,
+            "aggregate_ms": 0.041375999999999996
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 178764,
+            "aggregate_ms": 0.008384
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 127200,
+            "aggregate_ms": 0.01824
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 32896,
+            "aggregate_ms": 0.003296
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 13800,
+            "aggregate_ms": 0.0029440000000000004
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 13428,
+            "aggregate_ms": 0.0013440000000000001
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 12824,
+            "aggregate_ms": 0.0029760000000000003
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 10236,
+            "aggregate_ms": 0.001088
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000672
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 952,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city25-ten-second-debris",
+      "unprofiled_mean_ms": 70.2647303,
+      "unprofiled_peak_ms": 88.089953,
+      "samples": 20,
+      "transfers": {
+        "count": 320,
+        "bytes": 9526272,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.903522,
+        "copy_kernel_overlap_ms": 0.000224,
+        "copy_without_kernel_ms": 0.903298,
+        "directions": {
+          "1": {
+            "count": 135,
+            "bytes": 3191224,
+            "aggregate_ms": 0.48019299999999976,
+            "union_ms": 0.480193
+          },
+          "2": {
+            "count": 95,
+            "bytes": 2535440,
+            "aggregate_ms": 0.3558730000000001,
+            "union_ms": 0.355873
+          },
+          "8": {
+            "count": 90,
+            "bytes": 3799608,
+            "aggregate_ms": 0.06745600000000002,
+            "union_ms": 0.067456
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 137,
+            "bytes": 5374460,
+            "aggregate_ms": 0.7081620000000005
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 889088,
+            "aggregate_ms": 0.003648
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 66,
+            "bytes": 815176,
+            "aggregate_ms": 0.07075200000000001
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 8,
+            "bytes": 466120,
+            "aggregate_ms": 0.004319999999999999
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 451896,
+            "aggregate_ms": 0.002336
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 437248,
+            "aggregate_ms": 0.000992
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 36,
+            "bytes": 404404,
+            "aggregate_ms": 0.047072
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 9,
+            "bytes": 301008,
+            "aggregate_ms": 0.024863999999999997
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 176816,
+            "aggregate_ms": 0.012384
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 141716,
+            "aggregate_ms": 0.012928000000000002
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 27424,
+            "aggregate_ms": 0.0024319999999999997
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 14384,
+            "aggregate_ms": 0.00272
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 10032,
+            "aggregate_ms": 0.003648
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 5964,
+            "aggregate_ms": 0.000672
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 4,
+            "bytes": 2272,
+            "aggregate_ms": 0.00112
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 2232,
+            "aggregate_ms": 0.002848
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 2220,
+            "aggregate_ms": 0.000864
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 1748,
+            "aggregate_ms": 0.000864
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000512
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000384
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city64-intact-idle",
+      "unprofiled_mean_ms": 16.8982403,
+      "unprofiled_peak_ms": 25.849419,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 5613228,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.744675,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.744675,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 5016976,
+            "aggregate_ms": 0.7349470000000001,
+            "union_ms": 0.734947
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.002176,
+            "union_ms": 0.002176
+          },
+          "8": {
+            "count": 10,
+            "bytes": 594964,
+            "aggregate_ms": 0.0075520000000000006,
+            "union_ms": 0.007552
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 5595452,
+            "aggregate_ms": 0.7423390000000003
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 16384,
+            "aggregate_ms": 0.000608
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001152
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city64-airborne",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city64-airborne",
+      "unprofiled_mean_ms": 18.49538155,
+      "unprofiled_peak_ms": 22.528291,
+      "samples": 20,
+      "transfers": {
+        "count": 67,
+        "bytes": 7601208,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 1.026948,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 1.026948,
+        "directions": {
+          "1": {
+            "count": 39,
+            "bytes": 5049828,
+            "aggregate_ms": 0.7448990000000001,
+            "union_ms": 0.744899
+          },
+          "2": {
+            "count": 17,
+            "bytes": 1936704,
+            "aggregate_ms": 0.27388899999999994,
+            "union_ms": 0.273889
+          },
+          "8": {
+            "count": 11,
+            "bytes": 614676,
+            "aggregate_ms": 0.008159999999999999,
+            "union_ms": 0.00816
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 54,
+            "bytes": 7560036,
+            "aggregate_ms": 1.0214760000000003
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 32768,
+            "aggregate_ms": 0.000608
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 5,
+            "bytes": 6400,
+            "aggregate_ms": 0.001824
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000832
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 532,
+            "aggregate_ms": 0.000768
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 4,
+            "bytes": 440,
+            "aggregate_ms": 0.0014399999999999999
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/recovered-city64-cpu-pilot",
+      "unprofiled_mean_ms": 64.62987085,
+      "unprofiled_peak_ms": 83.817318,
+      "samples": 20,
+      "transfers": {
+        "count": 240,
+        "bytes": 16082260,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 1.891328,
+        "copy_kernel_overlap_ms": 0.003488,
+        "copy_without_kernel_ms": 1.88784,
+        "directions": {
+          "1": {
+            "count": 109,
+            "bytes": 6542416,
+            "aggregate_ms": 0.9747200000000009,
+            "union_ms": 0.97472
+          },
+          "2": {
+            "count": 79,
+            "bytes": 6252376,
+            "aggregate_ms": 0.8741440000000007,
+            "union_ms": 0.874144
+          },
+          "8": {
+            "count": 52,
+            "bytes": 3287468,
+            "aggregate_ms": 0.04246400000000001,
+            "union_ms": 0.042464
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 81,
+            "bytes": 8411612,
+            "aggregate_ms": 1.1507840000000003
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 37,
+            "bytes": 3291928,
+            "aggregate_ms": 0.38998399999999983
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 31,
+            "bytes": 2192012,
+            "aggregate_ms": 0.19430399999999998
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 448932,
+            "aggregate_ms": 0.069248
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 16,
+            "bytes": 431632,
+            "aggregate_ms": 0.007968000000000001
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 393216,
+            "aggregate_ms": 0.002464
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 360504,
+            "aggregate_ms": 0.002624
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 265280,
+            "aggregate_ms": 0.03488
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 14,
+            "bytes": 64528,
+            "aggregate_ms": 0.009824
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 58272,
+            "aggregate_ms": 0.006848000000000001
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 7,
+            "bytes": 53264,
+            "aggregate_ms": 0.006464
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 32768,
+            "aggregate_ms": 0.000608
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 31200,
+            "aggregate_ms": 0.004704
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 10,
+            "bytes": 29952,
+            "aggregate_ms": 0.0035520000000000005
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 11284,
+            "aggregate_ms": 0.0013440000000000001
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 2768,
+            "aggregate_ms": 0.0031680000000000007
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 1044,
+            "aggregate_ms": 0.0007999999999999999
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000832
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000928
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city64-post-impact",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city64-post-impact-attempt1",
+      "unprofiled_mean_ms": 35.36289,
+      "unprofiled_peak_ms": 41.563904,
+      "samples": 20,
+      "transfers": {
+        "count": 122,
+        "bytes": 11781252,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 1.471712,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 1.471712,
+        "directions": {
+          "1": {
+            "count": 67,
+            "bytes": 6589968,
+            "aggregate_ms": 0.9735680000000003,
+            "union_ms": 0.973568
+          },
+          "2": {
+            "count": 32,
+            "bytes": 3476676,
+            "aggregate_ms": 0.48012799999999994,
+            "union_ms": 0.480128
+          },
+          "8": {
+            "count": 23,
+            "bytes": 1714608,
+            "aggregate_ms": 0.018016,
+            "union_ms": 0.018016
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 74,
+            "bytes": 9192752,
+            "aggregate_ms": 1.2609920000000001
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 1851156,
+            "aggregate_ms": 0.155904
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 364716,
+            "aggregate_ms": 0.0496
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 354304,
+            "aggregate_ms": 0.001344
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 10772,
+            "aggregate_ms": 0.0011840000000000002
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 1,
+            "bytes": 6080,
+            "aggregate_ms": 0.000416
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000896
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 4,
+            "bytes": 440,
+            "aggregate_ms": 0.001376
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city64-cascading-fracture",
+      "unprofiled_mean_ms": 56.873816,
+      "unprofiled_peak_ms": 68.731099,
+      "samples": 20,
+      "transfers": {
+        "count": 263,
+        "bytes": 19718412,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 2.05376,
+        "copy_kernel_overlap_ms": 0.000512,
+        "copy_without_kernel_ms": 2.053248,
+        "directions": {
+          "1": {
+            "count": 116,
+            "bytes": 7123284,
+            "aggregate_ms": 1.0606720000000012,
+            "union_ms": 1.060672
+          },
+          "2": {
+            "count": 78,
+            "bytes": 6669448,
+            "aggregate_ms": 0.9334720000000002,
+            "union_ms": 0.933472
+          },
+          "8": {
+            "count": 69,
+            "bytes": 5925680,
+            "aggregate_ms": 0.059616,
+            "union_ms": 0.059616
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 109,
+            "bytes": 11924332,
+            "aggregate_ms": 1.6325439999999993
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 46,
+            "bytes": 3036432,
+            "aggregate_ms": 0.152
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 1685072,
+            "aggregate_ms": 0.14124799999999998
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 11,
+            "bytes": 575104,
+            "aggregate_ms": 0.005504
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 8,
+            "bytes": 416072,
+            "aggregate_ms": 0.004448
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 393528,
+            "aggregate_ms": 0.002784
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 390144,
+            "aggregate_ms": 0.001376
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 1,
+            "bytes": 390144,
+            "aggregate_ms": 0.001696
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 370196,
+            "aggregate_ms": 0.046592
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 324224,
+            "aggregate_ms": 0.043712
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 169088,
+            "aggregate_ms": 0.009344
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 12912,
+            "aggregate_ms": 0.002752
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 12020,
+            "aggregate_ms": 0.001376
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 11916,
+            "aggregate_ms": 0.001248
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 3712,
+            "aggregate_ms": 0.0017599999999999998
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000896
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000544
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 3,
+            "bytes": 912,
+            "aggregate_ms": 0.00176
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 2,
+            "bytes": 312,
+            "aggregate_ms": 0.001696
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 228,
+            "aggregate_ms": 0.00047999999999999996
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city64-fragmented-loaded",
+      "unprofiled_mean_ms": 90.6341146,
+      "unprofiled_peak_ms": 117.658079,
+      "samples": 20,
+      "transfers": {
+        "count": 291,
+        "bytes": 33597744,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 3.110146,
+        "copy_kernel_overlap_ms": 0.007616,
+        "copy_without_kernel_ms": 3.10253,
+        "directions": {
+          "1": {
+            "count": 125,
+            "bytes": 10310520,
+            "aggregate_ms": 1.5310730000000012,
+            "union_ms": 1.531073
+          },
+          "2": {
+            "count": 89,
+            "bytes": 10631952,
+            "aggregate_ms": 1.493985000000001,
+            "union_ms": 1.493985
+          },
+          "8": {
+            "count": 77,
+            "bytes": 12655272,
+            "aggregate_ms": 0.08508800000000002,
+            "union_ms": 0.085088
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 119,
+            "bytes": 15622644,
+            "aggregate_ms": 2.1463370000000013
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 58,
+            "bytes": 7320948,
+            "aggregate_ms": 0.34719999999999984
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 3996636,
+            "aggregate_ms": 0.34403200000000006
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 1600256,
+            "aggregate_ms": 0.005344
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 8,
+            "bytes": 837672,
+            "aggregate_ms": 0.005888
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 831796,
+            "aggregate_ms": 0.10326400000000004
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 813368,
+            "aggregate_ms": 0.004543999999999999
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 786944,
+            "aggregate_ms": 0.002112
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 724956,
+            "aggregate_ms": 0.10624100000000003
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 11,
+            "bytes": 575104,
+            "aggregate_ms": 0.006016
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 363828,
+            "aggregate_ms": 0.014943999999999999
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 35328,
+            "aggregate_ms": 0.004032
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 25312,
+            "aggregate_ms": 0.004032
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 25196,
+            "aggregate_ms": 0.00576
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 24372,
+            "aggregate_ms": 0.001632
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 7904,
+            "aggregate_ms": 0.0034879999999999998
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 3216,
+            "aggregate_ms": 0.003008
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000864
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000608
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 200,
+            "aggregate_ms": 0.0007999999999999999
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city64-late-debris",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city64-late-debris",
+      "unprofiled_mean_ms": 132.34112475,
+      "unprofiled_peak_ms": 166.993518,
+      "samples": 20,
+      "transfers": {
+        "count": 326,
+        "bytes": 41708404,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 3.799041,
+        "copy_kernel_overlap_ms": 0.012896,
+        "copy_without_kernel_ms": 3.786145,
+        "directions": {
+          "1": {
+            "count": 140,
+            "bytes": 12086400,
+            "aggregate_ms": 1.8163530000000008,
+            "union_ms": 1.816353
+          },
+          "2": {
+            "count": 96,
+            "bytes": 13278436,
+            "aggregate_ms": 1.8637439999999996,
+            "union_ms": 1.863744
+          },
+          "8": {
+            "count": 90,
+            "bytes": 16343568,
+            "aggregate_ms": 0.118944,
+            "union_ms": 0.118944
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 130,
+            "bytes": 17697364,
+            "aggregate_ms": 2.4502409999999983
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 66,
+            "bytes": 10165460,
+            "aggregate_ms": 0.5174080000000001
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 36,
+            "bytes": 4588348,
+            "aggregate_ms": 0.4089920000000001
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 2263040,
+            "aggregate_ms": 0.013791999999999999
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 1233720,
+            "aggregate_ms": 0.01248
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 1157672,
+            "aggregate_ms": 0.14544
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 13,
+            "bytes": 1102652,
+            "aggregate_ms": 0.008544000000000001
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 1029376,
+            "aggregate_ms": 0.002528
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 848852,
+            "aggregate_ms": 0.12566400000000003
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 575708,
+            "aggregate_ms": 0.038432
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 11,
+            "bytes": 575104,
+            "aggregate_ms": 0.005792000000000001
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 272192,
+            "aggregate_ms": 0.035904
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 71944,
+            "aggregate_ms": 0.005984000000000001
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 34164,
+            "aggregate_ms": 0.006976
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 32888,
+            "aggregate_ms": 0.003424
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 28152,
+            "aggregate_ms": 0.004032
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 27372,
+            "aggregate_ms": 0.01136
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 2332,
+            "aggregate_ms": 0.000608
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000864
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city64-ten-second-debris",
+      "unprofiled_mean_ms": 99.7662808,
+      "unprofiled_peak_ms": 139.784872,
+      "samples": 20,
+      "transfers": {
+        "count": 341,
+        "bytes": 23882536,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 2.122113,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 2.122113,
+        "directions": {
+          "1": {
+            "count": 144,
+            "bytes": 7795908,
+            "aggregate_ms": 1.1500490000000012,
+            "union_ms": 1.150049
+          },
+          "2": {
+            "count": 100,
+            "bytes": 6044876,
+            "aggregate_ms": 0.8512320000000003,
+            "union_ms": 0.851232
+          },
+          "8": {
+            "count": 97,
+            "bytes": 10041752,
+            "aggregate_ms": 0.120832,
+            "union_ms": 0.120832
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 111,
+            "bytes": 11835256,
+            "aggregate_ms": 1.6400330000000014
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 2395136,
+            "aggregate_ms": 0.021151999999999997
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 78,
+            "bytes": 2046864,
+            "aggregate_ms": 0.13852799999999996
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 8,
+            "bytes": 1260632,
+            "aggregate_ms": 0.012384
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 1210168,
+            "aggregate_ms": 0.011584
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 1185024,
+            "aggregate_ms": 0.010336
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 39,
+            "bytes": 1088456,
+            "aggregate_ms": 0.02636799999999999
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 36,
+            "bytes": 987176,
+            "aggregate_ms": 0.09475200000000002
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 9,
+            "bytes": 940644,
+            "aggregate_ms": 0.078112
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 449268,
+            "aggregate_ms": 0.036768
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 363912,
+            "aggregate_ms": 0.03401599999999999
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 38736,
+            "aggregate_ms": 0.003968
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 37752,
+            "aggregate_ms": 0.0031999999999999997
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 16176,
+            "aggregate_ms": 0.001024
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 12072,
+            "aggregate_ms": 0.0035199999999999997
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 5796,
+            "aggregate_ms": 0.001216
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 4044,
+            "aggregate_ms": 0.000992
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 3360,
+            "aggregate_ms": 0.0027199999999999998
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000864
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city256-intact-idle",
+      "unprofiled_mean_ms": 59.20048185,
+      "unprofiled_peak_ms": 73.979,
+      "samples": 20,
+      "transfers": {
+        "count": 40,
+        "bytes": 22410732,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 2.936897,
+        "copy_kernel_overlap_ms": 0.00032,
+        "copy_without_kernel_ms": 2.936577,
+        "directions": {
+          "1": {
+            "count": 26,
+            "bytes": 20060368,
+            "aggregate_ms": 2.921248999999999,
+            "union_ms": 2.921249
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.003872,
+            "union_ms": 0.003872
+          },
+          "8": {
+            "count": 10,
+            "bytes": 2349076,
+            "aggregate_ms": 0.011776,
+            "union_ms": 0.011776
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 35,
+            "bytes": 22343804,
+            "aggregate_ms": 2.933792999999999
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 65536,
+            "aggregate_ms": 0.00096
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 3,
+            "bytes": 360,
+            "aggregate_ms": 0.001568
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city256-airborne",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city256-airborne",
+      "unprofiled_mean_ms": 66.18992435,
+      "unprofiled_peak_ms": 83.92583,
+      "samples": 20,
+      "transfers": {
+        "count": 67,
+        "bytes": 30352224,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 4.041092,
+        "copy_kernel_overlap_ms": 0.000384,
+        "copy_without_kernel_ms": 4.0407079999999995,
+        "directions": {
+          "1": {
+            "count": 39,
+            "bytes": 20183124,
+            "aggregate_ms": 2.9349789999999967,
+            "union_ms": 2.934979
+          },
+          "2": {
+            "count": 17,
+            "bytes": 7741176,
+            "aggregate_ms": 1.094849,
+            "union_ms": 1.094849
+          },
+          "8": {
+            "count": 11,
+            "bytes": 2427924,
+            "aggregate_ms": 0.011264,
+            "union_ms": 0.011264
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 54,
+            "bytes": 30192012,
+            "aggregate_ms": 4.034083999999998
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 131072,
+            "aggregate_ms": 0.000992
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 5,
+            "bytes": 25600,
+            "aggregate_ms": 0.0025280000000000003
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 2068,
+            "aggregate_ms": 0.001056
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 4,
+            "bytes": 440,
+            "aggregate_ms": 0.001856
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city256-initial-impact",
+      "unprofiled_mean_ms": 236.879992,
+      "unprofiled_peak_ms": 254.511104,
+      "samples": 20,
+      "transfers": {
+        "count": 240,
+        "bytes": 64210324,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 7.363971,
+        "copy_kernel_overlap_ms": 0.022848,
+        "copy_without_kernel_ms": 7.3411230000000005,
+        "directions": {
+          "1": {
+            "count": 109,
+            "bytes": 26106312,
+            "aggregate_ms": 3.797185999999996,
+            "union_ms": 3.797186
+          },
+          "2": {
+            "count": 79,
+            "bytes": 24950976,
+            "aggregate_ms": 3.499648999999998,
+            "union_ms": 3.499649
+          },
+          "8": {
+            "count": 52,
+            "bytes": 13153036,
+            "aggregate_ms": 0.06713599999999997,
+            "union_ms": 0.067136
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 84,
+            "bytes": 33674788,
+            "aggregate_ms": 4.526402
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 34,
+            "bytes": 13109656,
+            "aggregate_ms": 1.525249
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 31,
+            "bytes": 8773388,
+            "aggregate_ms": 0.761408
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 1774244,
+            "aggregate_ms": 0.251552
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 16,
+            "bytes": 1723408,
+            "aggregate_ms": 0.016031999999999998
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 1572864,
+            "aggregate_ms": 0.005504
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 1441848,
+            "aggregate_ms": 0.0050880000000000005
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 1052928,
+            "aggregate_ms": 0.147648
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 14,
+            "bytes": 258064,
+            "aggregate_ms": 0.022976000000000007
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 230272,
+            "aggregate_ms": 0.03472
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 7,
+            "bytes": 213104,
+            "aggregate_ms": 0.026975999999999997
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 131072,
+            "aggregate_ms": 0.00096
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 123864,
+            "aggregate_ms": 0.01952
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 10,
+            "bytes": 74752,
+            "aggregate_ms": 0.004992
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 45076,
+            "aggregate_ms": 0.008928
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 4816,
+            "aggregate_ms": 0.003648
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 4116,
+            "aggregate_ms": 0.0011840000000000002
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000608
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city256-post-impact",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city256-post-impact",
+      "unprofiled_mean_ms": 139.6076859,
+      "unprofiled_peak_ms": 166.765093,
+      "samples": 20,
+      "transfers": {
+        "count": 122,
+        "bytes": 46899348,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 5.784097,
+        "copy_kernel_overlap_ms": 0.007104,
+        "copy_without_kernel_ms": 5.776993,
+        "directions": {
+          "1": {
+            "count": 67,
+            "bytes": 26246100,
+            "aggregate_ms": 3.810560999999999,
+            "union_ms": 3.810561
+          },
+          "2": {
+            "count": 32,
+            "bytes": 13841568,
+            "aggregate_ms": 1.934592,
+            "union_ms": 1.934592
+          },
+          "8": {
+            "count": 23,
+            "bytes": 6811680,
+            "aggregate_ms": 0.038944,
+            "union_ms": 0.038944
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 74,
+            "bytes": 36695136,
+            "aggregate_ms": 4.951233
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 7361844,
+            "aggregate_ms": 0.6199680000000001
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 1397760,
+            "aggregate_ms": 0.010752
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 1387084,
+            "aggregate_ms": 0.190432
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 43028,
+            "aggregate_ms": 0.008448
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 1,
+            "bytes": 13024,
+            "aggregate_ms": 0.000896
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 4,
+            "bytes": 440,
+            "aggregate_ms": 0.001792
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city256-cascading-fracture",
+      "unprofiled_mean_ms": 190.40281205,
+      "unprofiled_peak_ms": 218.458717,
+      "samples": 20,
+      "transfers": {
+        "count": 263,
+        "bytes": 78009744,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 7.995491,
+        "copy_kernel_overlap_ms": 0.022336,
+        "copy_without_kernel_ms": 7.973155,
+        "directions": {
+          "1": {
+            "count": 116,
+            "bytes": 28324712,
+            "aggregate_ms": 4.145089999999997,
+            "union_ms": 4.14509
+          },
+          "2": {
+            "count": 78,
+            "bytes": 26487756,
+            "aggregate_ms": 3.7168009999999994,
+            "union_ms": 3.716801
+          },
+          "8": {
+            "count": 69,
+            "bytes": 23197276,
+            "aggregate_ms": 0.13360000000000005,
+            "union_ms": 0.1336
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 109,
+            "bytes": 47585516,
+            "aggregate_ms": 6.434754000000004
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 46,
+            "bytes": 11688072,
+            "aggregate_ms": 0.54176
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 6622708,
+            "aggregate_ms": 0.564672
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 11,
+            "bytes": 2294584,
+            "aggregate_ms": 0.01184
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 8,
+            "bytes": 1656120,
+            "aggregate_ms": 0.01072
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 1563704,
+            "aggregate_ms": 0.01008
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 1557248,
+            "aggregate_ms": 0.00704
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 1,
+            "bytes": 1557248,
+            "aggregate_ms": 0.008256
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 1391028,
+            "aggregate_ms": 0.162753
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 1272708,
+            "aggregate_ms": 0.18163199999999996
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 664056,
+            "aggregate_ms": 0.032224
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 49384,
+            "aggregate_ms": 0.003712
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 47860,
+            "aggregate_ms": 0.009375999999999999
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 47660,
+            "aggregate_ms": 0.009536
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 6912,
+            "aggregate_ms": 0.0017919999999999998
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 3,
+            "bytes": 1680,
+            "aggregate_ms": 0.001696
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000608
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 2,
+            "bytes": 600,
+            "aggregate_ms": 0.0019520000000000002
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 592,
+            "aggregate_ms": 0.000512
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city256-fragmented-loaded",
+      "unprofiled_mean_ms": 283.1252531,
+      "unprofiled_peak_ms": 311.861144,
+      "samples": 20,
+      "transfers": {
+        "count": 296,
+        "bytes": 124653744,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 11.519303,
+        "copy_kernel_overlap_ms": 0.03728,
+        "copy_without_kernel_ms": 11.482023,
+        "directions": {
+          "1": {
+            "count": 129,
+            "bytes": 39313776,
+            "aggregate_ms": 5.7544989999999965,
+            "union_ms": 5.754499
+          },
+          "2": {
+            "count": 90,
+            "bytes": 39244940,
+            "aggregate_ms": 5.50058,
+            "union_ms": 5.50058
+          },
+          "8": {
+            "count": 77,
+            "bytes": 46095028,
+            "aggregate_ms": 0.2642239999999999,
+            "union_ms": 0.264224
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 119,
+            "bytes": 60179104,
+            "aggregate_ms": 8.204036000000002
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 58,
+            "bytes": 26067356,
+            "aggregate_ms": 1.159618
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 25,
+            "bytes": 14219040,
+            "aggregate_ms": 1.200609
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 5822208,
+            "aggregate_ms": 0.026015999999999997
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 13,
+            "bytes": 3040960,
+            "aggregate_ms": 0.017119999999999996
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 2965048,
+            "aggregate_ms": 0.074688
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 2865016,
+            "aggregate_ms": 0.336224
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 2857216,
+            "aggregate_ms": 0.012064
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 2544004,
+            "aggregate_ms": 0.3541439999999999
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 11,
+            "bytes": 2294584,
+            "aggregate_ms": 0.011519999999999999
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 1358856,
+            "aggregate_ms": 0.061792
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 127168,
+            "aggregate_ms": 0.018047999999999998
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 91700,
+            "aggregate_ms": 0.015295999999999999
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 90008,
+            "aggregate_ms": 0.004224
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 88332,
+            "aggregate_ms": 0.015456000000000001
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 29064,
+            "aggregate_ms": 0.0035840000000000004
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 11448,
+            "aggregate_ms": 0.003136
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000608
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 568,
+            "aggregate_ms": 0.000544
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city256-late-debris",
+      "unprofiled_mean_ms": 394.4907718,
+      "unprofiled_peak_ms": 458.20318,
+      "samples": 20,
+      "transfers": {
+        "count": 347,
+        "bytes": 136267596,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 12.522309,
+        "copy_kernel_overlap_ms": 0.09472,
+        "copy_without_kernel_ms": 12.427589,
+        "directions": {
+          "1": {
+            "count": 149,
+            "bytes": 42359312,
+            "aggregate_ms": 6.202403000000006,
+            "union_ms": 6.202403
+          },
+          "2": {
+            "count": 101,
+            "bytes": 43207760,
+            "aggregate_ms": 6.0675859999999995,
+            "union_ms": 6.067586
+          },
+          "8": {
+            "count": 97,
+            "bytes": 50700524,
+            "aggregate_ms": 0.25231999999999993,
+            "union_ms": 0.25232
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 114,
+            "bytes": 47665860,
+            "aggregate_ms": 6.432962000000008
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 78,
+            "bytes": 30729136,
+            "aggregate_ms": 1.5389770000000016
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 36,
+            "bytes": 18337476,
+            "aggregate_ms": 2.287712
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 36,
+            "bytes": 13131772,
+            "aggregate_ms": 1.1422090000000007
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 7056128,
+            "aggregate_ms": 0.025376000000000003
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 3863864,
+            "aggregate_ms": 0.021727999999999997
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 3439196,
+            "aggregate_ms": 0.4089610000000001
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 13,
+            "bytes": 3419028,
+            "aggregate_ms": 0.021119999999999993
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 3192320,
+            "aggregate_ms": 0.019968
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 2394320,
+            "aggregate_ms": 0.33104000000000006
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 1572704,
+            "aggregate_ms": 0.090208
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 864496,
+            "aggregate_ms": 0.12166400000000001
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 210528,
+            "aggregate_ms": 0.03088
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 103964,
+            "aggregate_ms": 0.017408
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 100480,
+            "aggregate_ms": 0.004128000000000001
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 94104,
+            "aggregate_ms": 0.011808
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 81460,
+            "aggregate_ms": 0.014208
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 8696,
+            "aggregate_ms": 0.0007999999999999999
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/city256-ten-second-debris",
+      "unprofiled_mean_ms": 264.83687150000003,
+      "unprofiled_peak_ms": 350.839019,
+      "samples": 20,
+      "transfers": {
+        "count": 334,
+        "bytes": 78555972,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 6.945283,
+        "copy_kernel_overlap_ms": 0.010016,
+        "copy_without_kernel_ms": 6.935267,
+        "directions": {
+          "1": {
+            "count": 140,
+            "bytes": 27672052,
+            "aggregate_ms": 4.0334739999999965,
+            "union_ms": 4.033474
+          },
+          "2": {
+            "count": 96,
+            "bytes": 19645940,
+            "aggregate_ms": 2.7487690000000002,
+            "union_ms": 2.748769
+          },
+          "8": {
+            "count": 98,
+            "bytes": 31237980,
+            "aggregate_ms": 0.16304000000000005,
+            "union_ms": 0.16304
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 88,
+            "bytes": 35270060,
+            "aggregate_ms": 4.7624020000000025
+          },
+          {
+            "scope": "GpuDestruction.correctedCollisionSolve",
+            "count": 53,
+            "bytes": 12448064,
+            "aggregate_ms": 1.264993
+          },
+          {
+            "scope": "GpuDestruction.restoreInstall",
+            "count": 2,
+            "bytes": 7768064,
+            "aggregate_ms": 0.025984
+          },
+          {
+            "scope": "GpuDestruction.finishDetail.growMotionSlots",
+            "count": 13,
+            "bytes": 4097424,
+            "aggregate_ms": 0.018208000000000002
+          },
+          {
+            "scope": "GpuDestruction.detail.postNarrowPhase",
+            "count": 74,
+            "bytes": 3992292,
+            "aggregate_ms": 0.22528
+          },
+          {
+            "scope": "GpuDestruction.acceptCorrection",
+            "count": 2,
+            "bytes": 3915064,
+            "aggregate_ms": 0.0128
+          },
+          {
+            "scope": "GpuDestruction.checkpoint",
+            "count": 1,
+            "bytes": 3853056,
+            "aggregate_ms": 0.011488
+          },
+          {
+            "scope": "GpuDestruction.task.prepareIslandRepair",
+            "count": 10,
+            "bytes": 2893072,
+            "aggregate_ms": 0.23779199999999998
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postNarrowPhase",
+            "count": 36,
+            "bytes": 1801028,
+            "aggregate_ms": 0.16854399999999997
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamicsPostPartitioning",
+            "count": 13,
+            "bytes": 1180640,
+            "aggregate_ms": 0.060607999999999995
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamicsPostPartitioning",
+            "count": 14,
+            "bytes": 1006376,
+            "aggregate_ms": 0.12598399999999998
+          },
+          {
+            "scope": "GpuDestruction.submit",
+            "count": 7,
+            "bytes": 121128,
+            "aggregate_ms": 0.004
+          },
+          {
+            "scope": "GpuDestruction.finalPublication",
+            "count": 3,
+            "bytes": 95552,
+            "aggregate_ms": 0.013504
+          },
+          {
+            "scope": "GpuDestruction.task.sleepCommit",
+            "count": 2,
+            "bytes": 54904,
+            "aggregate_ms": 0.00288
+          },
+          {
+            "scope": "GpuDestruction.applyBindings",
+            "count": 6,
+            "bytes": 27088,
+            "aggregate_ms": 0.003104
+          },
+          {
+            "scope": "GpuDestruction.detail.updateDynamics",
+            "count": 2,
+            "bytes": 11652,
+            "aggregate_ms": 0.001248
+          },
+          {
+            "scope": "GpuDestruction.compatibility.requestReadback",
+            "count": 4,
+            "bytes": 9408,
+            "aggregate_ms": 0.0035839999999999995
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.updateDynamics",
+            "count": 2,
+            "bytes": 9036,
+            "aggregate_ms": 0.0016319999999999998
+          },
+          {
+            "scope": "GpuDestruction.trialDetail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000576
+          },
+          {
+            "scope": "GpuDestruction.detail.postBroadPhase",
+            "count": 1,
+            "bytes": 1032,
+            "aggregate_ms": 0.000672
+          }
+        ]
+      }
+    }
+  ],
+  "warm": [
+    {
+      "case": "idle-256",
+      "step": 0,
+      "profiled_peak_step": true,
+      "profiled_complete_ms": 26.893408,
+      "unlocated_timer_boundary_ms": 0.002608000000002164,
+      "transfers": {
+        "count": 18,
+        "bytes": 2342228,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.015104,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.015104,
+        "directions": {
+          "1": {
+            "count": 10,
+            "bytes": 2104,
+            "aggregate_ms": 0.002528,
+            "union_ms": 0.002528
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.002944,
+            "union_ms": 0.002944
+          },
+          "8": {
+            "count": 4,
+            "bytes": 2338836,
+            "aggregate_ms": 0.009632,
+            "union_ms": 0.009632
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 18,
+            "bytes": 2342228,
+            "aggregate_ms": 0.015103999999999998
+          }
+        ]
+      }
+    },
+    {
+      "case": "idle-256",
+      "step": 81,
+      "profiled_peak_step": false,
+      "profiled_complete_ms": 6.888644,
+      "unlocated_timer_boundary_ms": 0.000728000000000506,
+      "transfers": {
+        "count": 11,
+        "bytes": 68744,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.004384,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.004384,
+        "directions": {
+          "1": {
+            "count": 6,
+            "bytes": 1920,
+            "aggregate_ms": 0.0015359999999999998,
+            "union_ms": 0.001536
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0017919999999999998,
+            "union_ms": 0.001792
+          },
+          "8": {
+            "count": 1,
+            "bytes": 65536,
+            "aggregate_ms": 0.001056,
+            "union_ms": 0.001056
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 11,
+            "bytes": 68744,
+            "aggregate_ms": 0.004384
+          }
+        ]
+      }
+    },
+    {
+      "case": "idle-256",
+      "step": 82,
+      "profiled_peak_step": false,
+      "profiled_complete_ms": 7.095198,
+      "unlocated_timer_boundary_ms": 0.0007109999999999062,
+      "transfers": {
+        "count": 11,
+        "bytes": 68744,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.004576,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.004576,
+        "directions": {
+          "1": {
+            "count": 6,
+            "bytes": 1920,
+            "aggregate_ms": 0.001696,
+            "union_ms": 0.001696
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.001792,
+            "union_ms": 0.001792
+          },
+          "8": {
+            "count": 1,
+            "bytes": 65536,
+            "aggregate_ms": 0.001088,
+            "union_ms": 0.001088
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 11,
+            "bytes": 68744,
+            "aggregate_ms": 0.004576
+          }
+        ]
+      }
+    },
+    {
+      "case": "idle-256",
+      "step": 179,
+      "profiled_peak_step": false,
+      "profiled_complete_ms": 8.724693,
+      "unlocated_timer_boundary_ms": 0.0005550000000003052,
+      "transfers": {
+        "count": 11,
+        "bytes": 68744,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 0.004384,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 0.004384,
+        "directions": {
+          "1": {
+            "count": 6,
+            "bytes": 1920,
+            "aggregate_ms": 0.0015999999999999999,
+            "union_ms": 0.0016
+          },
+          "2": {
+            "count": 4,
+            "bytes": 1288,
+            "aggregate_ms": 0.0017920000000000002,
+            "union_ms": 0.001792
+          },
+          "8": {
+            "count": 1,
+            "bytes": 65536,
+            "aggregate_ms": 0.000992,
+            "union_ms": 0.000992
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 11,
+            "bytes": 68744,
+            "aggregate_ms": 0.004384
+          }
+        ]
+      }
+    },
+    {
+      "case": "impacts-256",
+      "step": 0,
+      "profiled_peak_step": false,
+      "profiled_complete_ms": 101.048648,
+      "unlocated_timer_boundary_ms": 0.002387999999996282,
+      "transfers": {
+        "count": 864,
+        "bytes": 53538900,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 3.007087,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 3.007087,
+        "directions": {
+          "1": {
+            "count": 551,
+            "bytes": 10577888,
+            "aggregate_ms": 1.6687750000000101,
+            "union_ms": 1.656615
+          },
+          "2": {
+            "count": 273,
+            "bytes": 7742200,
+            "aggregate_ms": 1.1871089999999802,
+            "union_ms": 1.187109
+          },
+          "8": {
+            "count": 40,
+            "bytes": 35218812,
+            "aggregate_ms": 0.16336300000000004,
+            "union_ms": 0.163363
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 864,
+            "bytes": 53538900,
+            "aggregate_ms": 3.0192469999999934
+          }
+        ]
+      }
+    },
+    {
+      "case": "impacts-256",
+      "step": 81,
+      "profiled_peak_step": false,
+      "profiled_complete_ms": 9.383527,
+      "unlocated_timer_boundary_ms": 0.0006180000000011177,
+      "transfers": {
+        "count": 34,
+        "bytes": 7907588,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 1.105732,
+        "copy_kernel_overlap_ms": 0.0,
+        "copy_without_kernel_ms": 1.105732,
+        "directions": {
+          "1": {
+            "count": 16,
+            "bytes": 27160,
+            "aggregate_ms": 0.004832,
+            "union_ms": 0.004832
+          },
+          "2": {
+            "count": 16,
+            "bytes": 7741164,
+            "aggregate_ms": 1.099012,
+            "union_ms": 1.099012
+          },
+          "8": {
+            "count": 2,
+            "bytes": 139264,
+            "aggregate_ms": 0.001888,
+            "union_ms": 0.001888
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 34,
+            "bytes": 7907588,
+            "aggregate_ms": 1.1057320000000004
+          }
+        ]
+      }
+    },
+    {
+      "case": "impacts-256",
+      "step": 82,
+      "profiled_peak_step": true,
+      "profiled_complete_ms": 223.855526,
+      "unlocated_timer_boundary_ms": 0.000644999999991569,
+      "transfers": {
+        "count": 207,
+        "bytes": 40810724,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 4.320562,
+        "copy_kernel_overlap_ms": 0.012672,
+        "copy_without_kernel_ms": 4.3078899999999996,
+        "directions": {
+          "1": {
+            "count": 86,
+            "bytes": 5713576,
+            "aggregate_ms": 0.8345319999999996,
+            "union_ms": 0.834532
+          },
+          "2": {
+            "count": 78,
+            "bytes": 24515772,
+            "aggregate_ms": 3.4296780000000004,
+            "union_ms": 3.429678
+          },
+          "8": {
+            "count": 43,
+            "bytes": 10581376,
+            "aggregate_ms": 0.056351999999999985,
+            "union_ms": 0.056352
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 207,
+            "bytes": 40810724,
+            "aggregate_ms": 4.320561999999995
+          }
+        ]
+      }
+    },
+    {
+      "case": "impacts-256",
+      "step": 179,
+      "profiled_peak_step": false,
+      "profiled_complete_ms": 149.119873,
+      "unlocated_timer_boundary_ms": 0.0007420000000024629,
+      "transfers": {
+        "count": 322,
+        "bytes": 73323888,
+        "boundary_crossing_copies": 0,
+        "copy_union_ms": 6.673851,
+        "copy_kernel_overlap_ms": 0.081248,
+        "copy_without_kernel_ms": 6.5926029999999995,
+        "directions": {
+          "1": {
+            "count": 128,
+            "bytes": 10296900,
+            "aggregate_ms": 1.547205000000001,
+            "union_ms": 1.547205
+          },
+          "2": {
+            "count": 110,
+            "bytes": 35385892,
+            "aggregate_ms": 4.980278,
+            "union_ms": 4.980278
+          },
+          "8": {
+            "count": 84,
+            "bytes": 27641096,
+            "aggregate_ms": 0.14636800000000008,
+            "union_ms": 0.146368
+          }
+        },
+        "launch_scopes": [
+          {
+            "scope": "unattributed",
+            "count": 322,
+            "bytes": 73323888,
+            "aggregate_ms": 6.673851000000004
+          }
+        ]
+      }
+    }
+  ]
+}
