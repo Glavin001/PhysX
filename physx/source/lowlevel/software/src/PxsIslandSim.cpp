@@ -373,7 +373,15 @@ void IslandSim::addNode(bool isActive, bool isKinematic, Node::NodeType type, Px
 	if(isKinematic)
 		flags |= Node::eKINEMATIC;
 	node.mFlags = flags;
-    if(mGpuData){mPreSolveLifetimes.resize(PxMax(handle+1,mPreSolveLifetimes.size()),0);++mPreSolveLifetimes[handle];}
+    if(mGpuData){
+        // Fragment registration can append thousands of nodes in one tick.
+        // resize reserves exactly its argument; reuse the node storage capacity
+        // so lifetime history is not reallocated/copied for every new fragment.
+        // Active size, zero initialization and generation increments are unchanged.
+        mPreSolveLifetimes.reserve(mNodes.capacity());
+        mPreSolveLifetimes.resize(PxMax(handle+1,mPreSolveLifetimes.size()),0);
+        ++mPreSolveLifetimes[handle];
+    }
     markPreSolveNode(handle);
 	writeIslandId(handle) = IG_INVALID_ISLAND;
 	mFastRoute[handle].setIndices(PX_INVALID_NODE);

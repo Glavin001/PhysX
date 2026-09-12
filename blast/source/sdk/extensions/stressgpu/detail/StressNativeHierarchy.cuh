@@ -7,7 +7,6 @@ struct NativeStressCycleView {
     StressHierarchy::MotionModeView modes{};
     StressHierarchy::Vector *rhs=nullptr,*result=nullptr,*solution=nullptr;
     AngLin *g=nullptr;
-    StressHierarchy::Vector* history=nullptr;unsigned* historyValid=nullptr;std::uint64_t* historyGeneration=nullptr;
     float *gamma=nullptr,*previous=nullptr;
     double* normalizer=nullptr;
     // Fine rigid block: six Schur-inverse coefficients, three coupling entries, reciprocal linear diagonal.
@@ -30,7 +29,7 @@ class NativeStressHierarchy {
     NativeStressCycleView mView;cudaStream_t mStream;
     static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
-    void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.fineInverse);cudaFree(mView.mixedInverse);cudaFree(mView.mixedEligible);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.history);cudaFree(mView.historyValid);cudaFree(mView.historyGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.operatorOther);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
+    void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.fineInverse);cudaFree(mView.mixedInverse);cudaFree(mView.mixedEligible);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.operatorOther);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
 public:
     NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
         :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
@@ -43,8 +42,6 @@ public:
             allocate(mView.inverseValid,input.nodes);allocate(mView.inverseGeneration,input.nodes);
             checkCuda(cudaMemsetAsync(mView.inverseValid,0,sizeof(unsigned)*input.nodes,stream),"invalidate native local inverse cache");
             mHierarchy.setFineDiagonalReuse(mView.inverseValid,mView.inverseGeneration);
-            allocate(mView.history,input.nodes);allocate(mView.historyValid,input.nodes);allocate(mView.historyGeneration,input.nodes);
-            checkCuda(cudaMemsetAsync(mView.historyValid,0,sizeof(unsigned)*input.nodes,stream),"invalidate response history");
             allocate(mView.rhs,input.nodes);allocate(mView.solution,input.nodes);allocate(mView.result,input.nodes);allocate(mView.g,input.nodes);
             allocate(mView.gamma,input.nodes);allocate(mView.previous,input.nodes);allocate(mView.failed,input.nodes);allocate(mView.normalizer,input.nodes);allocate(mView.verification,input.nodes);allocate(mView.verificationCount,1);allocate(mView.warmRangeKnown,1);allocate(mView.warmRangeGeneration,1);
             checkCuda(cudaMemsetAsync(mView.warmRangeKnown,0,sizeof(unsigned),stream),"initialize native warm-range proof");

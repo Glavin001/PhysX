@@ -17,8 +17,6 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
     return sum;
 }
 
-#include "StressNativeResponseHistory.cuh"
-
 // Each CTA owns all iterations of one component at a time. Stable sorted node
 // ranges make every vector/scalar write exclusive to that component; static
 // boundary rows are read-only. No grid rendezvous or global loop counter is
@@ -82,12 +80,10 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeRigidInverse(a.hierarchy,c.nodes[begin+i]);
         __syncthreads();
         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
-        bool firstMonitor=true;
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
         do {
-            const bool scheduledMonitor=firstMonitor || (iteration%4u)==0u || iteration+1u>=a.maxIterations;
+            const bool scheduledMonitor=(iteration%4u)==0u || iteration+1u>=a.maxIterations;
             if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id,scheduledMonitor);
-            firstMonitor=false;
             COMPONENT_PROBE_END(0)
             float squared=0;
             // The sparse bond-gradient norm is an acceptance monitor, separate
@@ -147,13 +143,6 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 }
                 __syncthreads();break;
             }
-            // Preserve zero-update certification: try history only after the
-            // initial original-residual check has established remaining work.
-            // Leave room for its mandatory next monitor within the same cap.
-            if(iteration==0 && a.maxIterations>1 && improveNativeInitialGuess(a,c.nodes+begin,count,id,counts,&iteration)){
-                if(!threadIdx.x)iteration=1;
-                __syncthreads();firstMonitor=true;continue;
-            }
             COMPONENT_WORK_PRECONDITION(a,id,iteration)
             float localGamma=0;
             if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT);
@@ -202,7 +191,6 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             a.m_islandActive[id]=0;
         }
         __syncthreads();
-        saveNativeResponseHistory(a,c.nodes+begin,count,id,status);
     }
     COMPONENT_PROBE_PUBLISH
 }
