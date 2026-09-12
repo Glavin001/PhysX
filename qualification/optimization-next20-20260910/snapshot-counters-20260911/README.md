@@ -1,5 +1,9 @@
 # Per-scenario hardware-counter atlas
 
+**Detailed NCU coverage is now52/52** using the qualified2025.3.1 collector.
+See the [2026-09-12 recording fix and complete atlas](../ncu-fix-20260912/README.md).
+The four-case coverage and2026.3.0 failures below remain historical evidence.
+
 The light suite established a reliable capture path: external CUPTI hardware
 sampling alongside a same-run Nsight Systems timeline. It preserves normal
 simulation execution, captures the first complete restored tick, and runs a second

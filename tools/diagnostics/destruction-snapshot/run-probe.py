@@ -25,6 +25,10 @@ parser.add_argument('--ncu-kernel',default='regex:componentStressSolve',help='Ta
 parser.add_argument('--ncu-count',type=int,default=2)
 parser.add_argument('--ncu-mode',choices=['full','hardware'],default='full')
 parser.add_argument('--ncu-replay',choices=['kernel','application'],default='kernel')
+parser.add_argument('--ncu-preload',type=Path,help='Diagnostic target-only preload library; hashed in receipt')
+parser.add_argument('--ncu-graph',choices=['node','graph'],default='node')
+parser.add_argument('--ncu-metrics',help='Explicit diagnostic metric list; recorded separately from preset')
+parser.add_argument('--ncu-binary',type=Path,default=Path('/opt/nvidia/nsight-compute/2025.3.1/ncu'),help='Qualified collector; 2026.3.0 aborts on the fracture-path API trace')
 parser.add_argument('--nsys-range',choices=['process','first-tick'],default='process',help='Capture full process to drain timeline events; analysis still selects only the first full tick')
 parser.add_argument('--sanitizer-blocking-launches',action='store_true',
                     help='Use the sanitizer blocking-launch diagnostic mode; never a performance capture')
@@ -64,9 +68,13 @@ if args.replay_prefix:
     record['command'] += ['--replay',str(prefix),'--repetitions',str(args.repetitions)]
     if args.projectile_impulse:record['command'].append('--projectile-impulse')
 if args.profiler:
-    tool=Path('/opt/nvidia/nsight-systems/2026.3.2/bin/nsys') if args.profiler in ('nsys','pm') else Path('/opt/nvidia/nsight-compute/2026.3.0/ncu')
+    tool=Path('/opt/nvidia/nsight-systems/2026.3.2/bin/nsys') if args.profiler in ('nsys','pm') else args.ncu_binary.resolve()
     record['profiler']={'tool':args.profiler,'version':subprocess.check_output([str(tool),'--version'],text=True).strip(),
         'performance_qualification':False,'range':'first restored complete tick; setup excluded'}
+    record['profiler']['binary']={'path':str(tool),'sha256':c.sha(tool)}
+    if args.profiler=='ncu':
+        injection=tool.parent/'target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so'
+        if injection.exists():record['profiler']['injection']={'path':str(injection),'sha256':c.sha(injection)}
     if args.profiler in ('nsys','pm'):
         options=['profile','--trace=cuda,nvtx','--sample=none','--cpuctxsw=none','--cuda-graph-trace=node',
                  '-o',str(out/'trace')]
@@ -81,10 +89,16 @@ if args.profiler:
             'l1tex__t_sector_hit_rate.pct','lts__t_sector_hit_rate.pct',
             'l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum','l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum'])]
         record['profiler']['metric_mode']=args.ncu_mode
+        if args.ncu_metrics:metrics=['--metrics',args.ncu_metrics]
+        record['profiler']['explicit_metrics']=args.ncu_metrics
+        record['profiler']['graph_profiling']=args.ncu_graph
         record['profiler']['replay_mode']=args.ncu_replay
         options=['--profile-from-start','off','--replay-mode',args.ncu_replay,*metrics,'--kernel-name-base','function',
                  '--kernel-name',args.ncu_kernel,'--launch-count',str(args.ncu_count),
-                 '--clock-control','none','--cache-control','all','--export',str(out/'counters')]
+                 '--graph-profiling',args.ncu_graph,'--clock-control','none','--cache-control','all','--export',str(out/'counters')]
+        if args.ncu_preload:
+            record['profiler']['preload']={'path':str(args.ncu_preload.resolve()),'sha256':c.sha(args.ncu_preload)}
+            options+=['--preload-library',str(args.ncu_preload.resolve())]
     record['command']=[str(tool),*options,*record['command']]
     if args.profiler=='pm':
         collector=root/'out/destruction-pm-sampling-20260910/final-build/collect'

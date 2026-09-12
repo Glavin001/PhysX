@@ -1,5 +1,20 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest Nsight Compute recording fix (2026-09-12): **52/52 scenarios now pass full
+NCU capture and unprofiled-reference physical comparison**, 62 reports /
+86 selected kernel launches / 124 checked full ticks. Pin the already
+installed **2025.3.1** collector. 2026.3.0 aborts inside its injection worker on
+new-fracture/correction even with no kernel selected; precise corrupting write
+remains unresolved. The old collector passes matching inputs, full counters and
+unchanged fidelity gates. No simulation/runtime change, speedup or N-series
+experiment is credited. Full expansion 1,280.28 s reuses seven light cases;
+normal light timing remains separate. `profile-suite.py` defaults to full metrics;
+`audit-counter-suite.py` verifies coverage, counter groups and physical evidence.
+[All 52 scenario results, diagnosis and commands](qualification/optimization-next20-20260910/ncu-fix-20260912/README.md).
+Main index/unrelated changes and installed SDK are preserved. All owned captures
+are terminal. Older four-case NCU coverage below is historical and superseded.
+
+
 Latest hardware-counter atlas (2026-09-11): light-first collection followed by
 **52/52 full-process-drained Systems + non-replaying CUPTI PM captures** passes
 104 restored physical ticks. Final refresh388.11 s;43,788 first-tick samples,

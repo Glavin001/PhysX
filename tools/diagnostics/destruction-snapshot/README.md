@@ -192,7 +192,7 @@ large cross-build observation dumps and is not proof of small speedups.
 ## Hardware counters and timelines
 
 Use `build-probe.py --profile`, then `profile-suite.py --preset light` followed
-by `--preset full --reuse LIGHT_OUTPUT`. The default `--counter-mode pm` pairs
+by `--preset full --reuse LIGHT_OUTPUT`. The explicit `--counter-mode pm` pairs
 the existing non-replaying CUPTI sampler with Nsight Systems. Trace through
 normal process exit; extract only the first full tick, excluding restore and
 validation. A second independent restore checks repeatability. Counter coverage,
@@ -202,5 +202,8 @@ baseline. Instrumented receipts cannot enter timing acceptance reports.
 
 See [exact commands and limitations](../../../OPTIMIZATION.md#per-scenario-hardware-counter-atlas)
 and the [52-case counter atlas](../../../qualification/optimization-next20-20260910/snapshot-counters-20260911/README.md).
-Detailed NCU supplements are available for four cases; native fracture NCU
-failures remain unqualified. Device-wide PM includes recorded foreign contexts.
+Full NCU capture now defaults to the qualified2025.3.1 collector;2026.3.0
+fracture captures remain unqualified. Run `audit-counter-suite.py` after a full
+campaign to verify every selected capture and its physical comparison. See the
+[collector fix](../../../qualification/optimization-next20-20260910/ncu-fix-20260912/README.md).
+Device-wide PM includes recorded foreign contexts.

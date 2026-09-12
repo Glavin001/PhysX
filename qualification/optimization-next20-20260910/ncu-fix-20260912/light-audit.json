@@ -1,0 +1,148 @@
+{
+  "status": "passed",
+  "scenarios": 7,
+  "captures": 9,
+  "launches": 12,
+  "physical_ticks": 18,
+  "collector": {
+    "path": "/opt/nvidia/nsight-compute/2025.3.1/ncu",
+    "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a",
+    "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2025 NVIDIA Corporation\nVersion 2025.3.1.0 (build 36398880) (public-release)"
+  },
+  "rows": [
+    {
+      "scenario": "bridge64-cold",
+      "captures": [
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0",
+          "launches": 1,
+          "metric_counts": [
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/physical-comparison.json",
+          "report_sha256": "71a644c4f31515e903f039f97de254feb428ff83e2a3b7be25baa6750c96cf2f"
+        }
+      ],
+      "physical_ticks": 2,
+      "launches": 1
+    },
+    {
+      "scenario": "chain256-cold",
+      "captures": [
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0",
+          "launches": 1,
+          "metric_counts": [
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/physical-comparison.json",
+          "report_sha256": "42d9a2a1fbfe73725fea810b31d1a41ea5f2db9772d0d737d666505f626136a4"
+        }
+      ],
+      "physical_ticks": 2,
+      "launches": 1
+    },
+    {
+      "scenario": "dense12-cold",
+      "captures": [
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0",
+          "launches": 1,
+          "metric_counts": [
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/physical-comparison.json",
+          "report_sha256": "11a44bfdc293911a528af9fcf3ede0d7e18ecab01097f4a267f91a4a16960f20"
+        },
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1",
+          "launches": 1,
+          "metric_counts": [
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/physical-comparison.json",
+          "report_sha256": "7d2e11c62316a54e65ff123ba5b69092a714602ee079e2986f06a076d99bb7f9"
+        }
+      ],
+      "physical_ticks": 4,
+      "launches": 2
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "captures": [
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0",
+          "launches": 2,
+          "metric_counts": [
+            2250,
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/physical-comparison.json",
+          "report_sha256": "d9eee793f59b0bc3f07368f45bc10177c3ce73bcaf93c22c9e1dfd8ae09bbb8d"
+        },
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1",
+          "launches": 1,
+          "metric_counts": [
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/physical-comparison.json",
+          "report_sha256": "628d14a935266eb4d73aa205839851ebbe398daa3071e175772a78374549ce7e"
+        }
+      ],
+      "physical_ticks": 4,
+      "launches": 3
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "captures": [
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0",
+          "launches": 2,
+          "metric_counts": [
+            2250,
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/physical-comparison.json",
+          "report_sha256": "aec2d8f51a6804f0d713eab1d3073401484356a1fa32d0ebf9cd8d76252c5e02"
+        }
+      ],
+      "physical_ticks": 2,
+      "launches": 2
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "captures": [
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0",
+          "launches": 1,
+          "metric_counts": [
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/physical-comparison.json",
+          "report_sha256": "c93e24450c7e3b8170e6a2c1daf3b512d2fd4aa5ab04db952cbbbf97a21f09c1"
+        }
+      ],
+      "physical_ticks": 2,
+      "launches": 1
+    },
+    {
+      "scenario": "city256-late-debris",
+      "captures": [
+        {
+          "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0",
+          "launches": 2,
+          "metric_counts": [
+            2250,
+            2250
+          ],
+          "physical_comparison": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/physical-comparison.json",
+          "report_sha256": "215dc7c6e187be8419489e0d066bb675a05a07c45ed3ff13455539668454529e"
+        }
+      ],
+      "physical_ticks": 2,
+      "launches": 2
+    }
+  ],
+  "scope": "Full NCU metric set on selected dominant/stress launches for every manifest scenario, with complete physical continuation and comparison to unprofiled reference. Not every helper launch."
+}

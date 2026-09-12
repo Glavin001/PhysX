@@ -884,11 +884,12 @@ single-pass PM configuration.
 
 For supported cases, `--counter-mode full` adds targeted Nsight Compute full
 metrics for the dominant family and stress if different. `--counter-mode hardware`
-requests a smaller hardware set. This source successfully captures detailed
+requests a smaller hardware set. With the historical2026.3.0 collector, this source captures detailed
 non-fracturing cases, but the native first-fracture case aborts under NCU full
 kernel replay, hardware-only kernel replay, and hardware-only application replay
 with `free(): invalid next size (fast)`. Preserve those reports as **unqualified**;
-use PM for complete-world fracture coverage. Do not repeat those unchanged failed
+use the qualified2025.3.1 collector below for detailed fracture counters. PM
+remains separate sampled coverage. Do not repeat those unchanged failed
 captures or modify production simulation to accommodate the profiler. A standalone
 profiler report without successful physical continuation is not acceptance.
 
@@ -898,3 +899,51 @@ and API durations are not additive. Time without traced GPU activity includes CP
 work, submission gaps and tracing overhead. Cold restored first-tick uploads can
 differ substantially from warm continuous gameplay; verify a proposed saving on
 both workloads before accepting an application optimization.
+
+
+### Qualified Nsight Compute collector and physical counter gate
+
+The detailed counter workflow now pins **Nsight Compute2025.3.1**, already installed
+at `/opt/nvidia/nsight-compute/2025.3.1/ncu`. Version2026.3.0 aborts inside its
+injected worker library on the fracture/correction path even with no matching
+kernel and no hardware collection. Keep its failed reports as diagnostics; do not
+change simulation behavior to make that version run. Exact corruption origin is
+unresolved. The2025.3.1 path uses the same application/runtime/input artifacts.
+
+`profile-suite.py` now defaults to `--counter-mode full`. Pass `--counter-mode pm`
+explicitly for device-wide sampling. All full-counter captures enable physical
+observation dumps outside the tick and compare against the qualified unprofiled
+reference; reuse requires matching collector identity and a passed physical
+comparison. Detailed coverage is the dominant kernel family plus component stress
+if different, first two matching launches per family, for every scenario.
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/profile-suite.py out/NEW-light-ncu \
+  --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
+  --preset light --counter-mode full \
+  --ncu-binary /opt/nvidia/nsight-compute/2025.3.1/ncu \
+  --binary out/snapshot-counters-20260911/probe/serialization-probe \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --physical-reference out/snapshot-reset-20260911/prepared-full20 \
+  --reuse out/snapshot-counters-20260911/full-drained \
+  --allow-existing-graphics --allow-compute-pid 435374
+python3 tools/diagnostics/destruction-snapshot/profile-suite.py out/NEW-full-ncu \
+  --manifest out/snapshot-light-20260911/full-manifest/manifest.json \
+  --preset full --counter-mode full --reuse out/NEW-light-ncu \
+  --binary out/snapshot-counters-20260911/probe/serialization-probe \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --physical-reference out/snapshot-reset-20260911/prepared-full20 \
+  --allow-existing-graphics --allow-compute-pid 435374
+python3 tools/diagnostics/destruction-snapshot/audit-counter-suite.py \
+  out/NEW-full-ncu out/NEW-full-ncu/qualification.json
+python3 tools/diagnostics/destruction-snapshot/report-profile-suite.py \
+  out/NEW-full-ncu out/NEW-full-ncu-report \
+  --baseline qualification/optimization-next20-20260910/snapshot-reset-20260911/report.json
+```
+
+For a newly built candidate, supply matching probe/runtime artifacts, matching
+physical references and newly qualified timelines. Never reuse baseline counters
+for changed code. Use a new output directory for every capture. An audit requires
+all manifest scenarios, full metric fields, completed physical ticks, matched
+modules/inputs and successful physical comparisons. The normal benchmark remains
+separate and rejects profiled receipts. [Diagnosis and qualification](qualification/optimization-next20-20260910/ncu-fix-20260912/README.md).

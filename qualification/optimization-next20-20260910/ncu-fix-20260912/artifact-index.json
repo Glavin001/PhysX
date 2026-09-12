@@ -1,0 +1,2632 @@
+[
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/abort-stack-impact/receipt.json",
+    "bytes": 16846,
+    "sha256": "92ab30ff1e8bae2293fcde1a065bb4a15f0739e0fa44712a22dd973c80aa6862"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/abort-stack-impact/stdout.log",
+    "bytes": 2328,
+    "sha256": "b26d1fba3ee591ddf12f1fe8ce3d295c3e8c2e256cbee066b0583a7693a459cc"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/abort-stack.c",
+    "bytes": 500,
+    "sha256": "103c0622b2395ea903556ba20825089e5ce40d6d2d885b91bf8b7a1e274659b9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/abort-stack.so",
+    "bytes": 19608,
+    "sha256": "c812b3b6ead0b73a1bf9ae625ca2dadb6b694839d62e4d60bae595a65dba261e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/control-building-fragmented/receipt.json",
+    "bytes": 14143,
+    "sha256": "7eaff9cd85f5237c0cfc361a2068fad2d8fedaf23935f948e07373fedcbb9ebe"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/control-building-fragmented/stdout.log",
+    "bytes": 513,
+    "sha256": "940c731a646e599dab2afe2accbe376ba5a0682e232c989c1fee1c8917647da6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/control-city25-intact-idle/receipt.json",
+    "bytes": 17265,
+    "sha256": "a92fbec6cdb2ee3606ba3a0c8214f945f84fbc6bb0ce0bdbbf58cf3bcef1a1b7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/control-city25-intact-idle/stdout.log",
+    "bytes": 512,
+    "sha256": "648c1b48e01c3cb0bd7e5f42db046a35bfc3a13cdd53ba093a3a179fc5430eca"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/control-city256-intact-idle/receipt.json",
+    "bytes": 46981,
+    "sha256": "a9d96141f16acbe67e2096a143cf02e35bbd2c16884656ccfafb3a44e54456c9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/control-city256-intact-idle/stdout.log",
+    "bytes": 513,
+    "sha256": "02cb5429f512632d3d3a4bd899f304b786f647e1db0f12abe643ab288dcee476"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/bridge64-warm-counters-0/analysis.json",
+    "bytes": 279310,
+    "sha256": "ee45d22068ba7793730226ebebbea1e37aace879086224f5b50f801a4ccd6439"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/bridge64-warm-counters-0/counters.csv",
+    "bytes": 165498,
+    "sha256": "e7e54ef59f57bac12d819401290f7cfa4c219363b0e4b550506c9016b3bab008"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/bridge64-warm-counters-0/counters.ncu-rep",
+    "bytes": 21914215,
+    "sha256": "9a7a2c2d90b9296711f49f046c6c678a62f138676d38144ed0fef7015e683402"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/bridge64-warm-counters-0/physical-comparison.json",
+    "bytes": 1463,
+    "sha256": "3a8a8f45cef616b385747d5bfce5e7282090c9435ba830d6edf913145a20e548"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/bridge64-warm-counters-0/process.maps",
+    "bytes": 32520,
+    "sha256": "44495acb4aaa6078e3fa6ce1ca072e7f848b6df16ba32615bc2f87c477db6571"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/bridge64-warm-counters-0/receipt.json",
+    "bytes": 35753,
+    "sha256": "a49cec8a81e0173e769da4fb1c409e90faa6d7d9db9cfb6dd9e5f888ca13bf5a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/bridge64-warm-counters-0/replay.json",
+    "bytes": 2113,
+    "sha256": "a1175846ccdf3c019a672d981e66ab4ea7eb737e9161decc9b24af08296ecbb7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/bridge64-warm-counters-0/stdout.log",
+    "bytes": 515,
+    "sha256": "24a6df2cf14f763b4082abbcea1d23058eb10ee7a34dbe4d99555bf5bf2b5129"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-cold-counters-0/analysis.json",
+    "bytes": 279218,
+    "sha256": "b9c8389e478ec64f4e4f199bd0dcc4b12f4c261f79eca166dfb72366441983ba"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-cold-counters-0/counters.csv",
+    "bytes": 165356,
+    "sha256": "c3d2af0c2fbd93c11a4ca4ff609235ecdae0577beaf2f0cdc37100478542e14f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-cold-counters-0/counters.ncu-rep",
+    "bytes": 17944831,
+    "sha256": "33cc887c62607c93f7946f919037fab30823823f361d8e79dee4b4f268639f8e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-cold-counters-0/physical-comparison.json",
+    "bytes": 1464,
+    "sha256": "f942951fc1ce398b4461a69e77f6190017cc7f49f14d8a18db5d908996657a9a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-cold-counters-0/process.maps",
+    "bytes": 32177,
+    "sha256": "556565dfcda9711687cd5db2fafe75b8d008ad08fa7ef2b6ccf192b392ce1a71"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-cold-counters-0/receipt.json",
+    "bytes": 34251,
+    "sha256": "4c1845f7b6eca7e8b042c8f9938efe0a2e4bd88a2ffeecc32fcecfb0da04e722"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-cold-counters-0/replay.json",
+    "bytes": 2095,
+    "sha256": "69f8efb7aa8b8fcc2b9eaa5f5d9fb611b89a86848b3542954fbd2a88b0dec675"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-cold-counters-0/stdout.log",
+    "bytes": 515,
+    "sha256": "afd27ea74793a21669889ef8df9db5fa1ceafdf890127866a89e150ce4ebdddd"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-fragmented-counters-0/analysis.json",
+    "bytes": 279058,
+    "sha256": "c6f078e10985efebe5fb9191e5e9904052c7f8defb1cb951796c4ab5a9123aef"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-fragmented-counters-0/counters.csv",
+    "bytes": 165245,
+    "sha256": "d82ec8d1aabfd75659a6d9207c353321fe6b5fce13a01eb9eb857ad5b07deda9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-fragmented-counters-0/counters.ncu-rep",
+    "bytes": 16342096,
+    "sha256": "ee140ad2466c57ed3889da7c55e5e91e33efa4f51b227e6b4575284feb482dd2"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-fragmented-counters-0/physical-comparison.json",
+    "bytes": 1476,
+    "sha256": "955e74c5ffdc97a5f46c5cf3de0b85e5fdecdd082a9ca0451b4b8a293574accb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-fragmented-counters-0/process.maps",
+    "bytes": 32471,
+    "sha256": "99df30e0ba54a7869cf616f12af67b187c83359ce1106955b3faf333d63234c6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-fragmented-counters-0/receipt.json",
+    "bytes": 33161,
+    "sha256": "8137b64bbdb9cd228c46bf3080a698642bcfee4dfe68ee78d9c1d99606fc4f7c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-fragmented-counters-0/replay.json",
+    "bytes": 2113,
+    "sha256": "ee438bba82e9e8e1e33fbb3db0dabcff8a654ef6fcdf1853e15a7451043148c6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-fragmented-counters-0/stdout.log",
+    "bytes": 521,
+    "sha256": "720ae5b1bee46171f54d8edfaaab2e506f98f809b5e91d5891d5c07cbfa06787"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-warm-counters-0/analysis.json",
+    "bytes": 279193,
+    "sha256": "0c9cfa1021bd7766e9b6aa44753e3073e780ed7098bb85f8ed68f5d70d3b1fab"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-warm-counters-0/counters.csv",
+    "bytes": 165313,
+    "sha256": "ed07094deef494df9e81cbf214b2a38acf6db69fba64d50808a039aefe798b6e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-warm-counters-0/counters.ncu-rep",
+    "bytes": 17996316,
+    "sha256": "8e15c5cec7b6076626ffb8bf3b507495f1f0e86000291cce38c3377b2d58b316"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-warm-counters-0/physical-comparison.json",
+    "bytes": 1464,
+    "sha256": "f794a3c00f60b4aa8083d44aa54c6caa7a8fc3ad07d6221af574033f31531e23"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-warm-counters-0/process.maps",
+    "bytes": 32324,
+    "sha256": "f7ccd640c445bd2c191251805e1195ba6b4c93f5faf1e630fb508627fec32925"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-warm-counters-0/receipt.json",
+    "bytes": 34444,
+    "sha256": "61f2f6870d724ec45dc3e9533cd35cf51719e53d058ea34dc4becce0cfd67680"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-warm-counters-0/replay.json",
+    "bytes": 2077,
+    "sha256": "8fdb27fdd5ecd85e7550c4663bc5baba41ea7ac504328a5c84e3d9b1c46ec39b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/building-warm-counters-0/stdout.log",
+    "bytes": 515,
+    "sha256": "ce4441b7019d23c8d33d03a521e4968c5a5a506a83abf577365ce1eb2cb780f4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/campaign.json",
+    "bytes": 76376,
+    "sha256": "cd2c8812f1a468e28593e11f1f1fb035de804b5b276bf2cc27ad1405b39639e0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-cold-counters-0/analysis.json",
+    "bytes": 279172,
+    "sha256": "04010e17eb02492e5aea88b7589eed88d82e83044a4c5ba57e794ec729582a3c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-cold-counters-0/counters.csv",
+    "bytes": 165290,
+    "sha256": "d9b24f979a92728b88594e71b14a6770187cd44e8dac03ecb5578f8ed08e4c4f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-cold-counters-0/counters.ncu-rep",
+    "bytes": 20998435,
+    "sha256": "afe6e36a09475a0bcd478767b505ec8c4fef6fa6831549ab81607f2b7fb6d279"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-cold-counters-0/physical-comparison.json",
+    "bytes": 1471,
+    "sha256": "f0ca9f044e17caa9af77b16b0e9da5eb96b6468958ad5dc5a96107f1448ed4c4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-cold-counters-0/process.maps",
+    "bytes": 31492,
+    "sha256": "6150a04c643a227ac656ef96162a3f142d955534387f040bd11241132a3ba269"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-cold-counters-0/receipt.json",
+    "bytes": 35773,
+    "sha256": "c6ea6fe806cbd8f47c6059c205fd758ec23737523721659ff45bb0ff0329e4b8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-cold-counters-0/replay.json",
+    "bytes": 2079,
+    "sha256": "66395ed5075adffff169f6d0780a3a6e8b63dea2d4acd20c9d78c15892211a67"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-cold-counters-0/stdout.log",
+    "bytes": 519,
+    "sha256": "dedc76b4264def3ca757a083617b06f5097b7800b8ea1f09b7367dc4f6221a85"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-warm-counters-0/analysis.json",
+    "bytes": 279146,
+    "sha256": "46407fa7f9903e7b29d2d38f5ca3606dd7da5bbf8d9c7c2cc641235004c34df8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-warm-counters-0/counters.csv",
+    "bytes": 165285,
+    "sha256": "ac3a8a8e9cdd89a1759cf05164fb699e36cfd12e1ec2d1fc4a39c87ca8805958"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-warm-counters-0/counters.ncu-rep",
+    "bytes": 20967250,
+    "sha256": "6b4000b5ced8c00a35221ef5112ac6aeb69d33f60823ee4687a6f4391f23931e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-warm-counters-0/physical-comparison.json",
+    "bytes": 1471,
+    "sha256": "f66369b47f8b339b15341cfdc0d2f4c8111285ddbff54c5ac5f98b461ae10d37"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-warm-counters-0/process.maps",
+    "bytes": 31580,
+    "sha256": "80d3d0ce0cf33a0484338e3686d8683d9f72ab8a0ed4b19b5f2dcae9989d1ebd"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-warm-counters-0/receipt.json",
+    "bytes": 35772,
+    "sha256": "2ceed578c40ae27577fdb7648c8542ce30992a6510e31cbbfc09ee7a8fa4ec5d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-warm-counters-0/replay.json",
+    "bytes": 2077,
+    "sha256": "d3ce7c979f2cc6a7709d78e9fb74e25c79a8ab0aad299baa2da28e44ec51aa42"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/cantilever64-warm-counters-0/stdout.log",
+    "bytes": 519,
+    "sha256": "794fc190e53b23aab2b4f4de431e98b074b44d4d3efa1cc8091642240caf01ff"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain256-warm-counters-0/analysis.json",
+    "bytes": 279264,
+    "sha256": "ed931fe9a9ef481966373a9d679d1792ef81c702a4e4cded10c1b24e373b92cf"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain256-warm-counters-0/counters.csv",
+    "bytes": 165375,
+    "sha256": "e48c03e11978fcfe434fd54e7b9749835237652d8456a93e996fa965e5fc4fde"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain256-warm-counters-0/counters.ncu-rep",
+    "bytes": 20749956,
+    "sha256": "d904be7b4920f9a1f53aa0e5cc439f294f7311acbbd0c93ddcd404b05ca005fa"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain256-warm-counters-0/physical-comparison.json",
+    "bytes": 1464,
+    "sha256": "cad98d985407617cf4d1b68fe1b9bcd993477331ed05b59bb65c0c5d8d7016c3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain256-warm-counters-0/process.maps",
+    "bytes": 32471,
+    "sha256": "bf03a39ec8e506dd61fef08658ce0a6c8de8c3ef45a4d0ab60cefdf56ffc2016"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain256-warm-counters-0/receipt.json",
+    "bytes": 35557,
+    "sha256": "15c9a0aee825f9773fe9a2c8d097d938773355b6e4daeddd196384bc6deb3af2"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain256-warm-counters-0/replay.json",
+    "bytes": 2089,
+    "sha256": "d147a5c016538ec21087926136e1e9f2f97cce0884b68ebd355a7a3f3afdb1a0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain256-warm-counters-0/stdout.log",
+    "bytes": 515,
+    "sha256": "8dfea5690802b1d908c98d3001079d78b4fcf4b06a50296fd532911a4842b900"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-cold-counters-0/analysis.json",
+    "bytes": 278681,
+    "sha256": "3a15d46312c3a7aaae62482e4799ad88ea873f80feb2cd6eadd58a60ae8629ca"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-cold-counters-0/counters.csv",
+    "bytes": 164627,
+    "sha256": "e26a481e598c90b0333892ce020137008068b65f744ea5e82d56ec32df02d460"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-cold-counters-0/counters.ncu-rep",
+    "bytes": 16270626,
+    "sha256": "99feb8370e067a33348c49d31522d8d94af514b4f7e882d72fb63863c496c89a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-cold-counters-0/physical-comparison.json",
+    "bytes": 1461,
+    "sha256": "cd284894b083ae330263d01775bca132c2c926639edf2e71d16ced309a35fa6a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-cold-counters-0/process.maps",
+    "bytes": 28555,
+    "sha256": "bda50480845c335aa20f5e714e0f9306000c850707ba1fb6940fa321deac5d63"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-cold-counters-0/receipt.json",
+    "bytes": 32014,
+    "sha256": "0d21a3c6c1d4ca783db7cfbc157e3c9a4d0985c43c46fb8ea50edf9d5c35bbf3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-cold-counters-0/replay.json",
+    "bytes": 2090,
+    "sha256": "20f7ebf289d006196630796d01b30412d701e592d870e89862a9a2de353d5a79"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-cold-counters-0/stdout.log",
+    "bytes": 514,
+    "sha256": "945684b310f41232a5bb09298fc17167c80310490f8724f44a160ec3dbdbfa60"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-warm-counters-0/analysis.json",
+    "bytes": 278657,
+    "sha256": "d467559f5820ddaaa29305b252460fa8f12ddb4a2f9883a2c5bdd11f361b453f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-warm-counters-0/counters.csv",
+    "bytes": 164533,
+    "sha256": "b066ec2577fdf973ed1ba1cbee92c1439d709de0161f7986e4f4828f245b0814"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-warm-counters-0/counters.ncu-rep",
+    "bytes": 16273200,
+    "sha256": "7ccb453f9e63a7692b2dbddc7584cf9abfe1727351d500f4126cff761715fbba"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-warm-counters-0/physical-comparison.json",
+    "bytes": 1461,
+    "sha256": "c957b8f85227ab6fa0c246e513f02081dde782b1fd8e85cfc488b194b9c979f0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-warm-counters-0/process.maps",
+    "bytes": 32471,
+    "sha256": "bf13a77b952542edcfc2b2405f3ce0649b67729a4ee8ed9f30eecfba0504b805"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-warm-counters-0/receipt.json",
+    "bytes": 33126,
+    "sha256": "0e248865ebbb25bba2cd7366541c0f54d8aae54ccbe6627b485a29e48f07c1ca"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-warm-counters-0/replay.json",
+    "bytes": 2094,
+    "sha256": "34ee821caf920b5b7e8d4060691874721abcd1f7a832fa7cd45c9d6f807da365"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/chain32-warm-counters-0/stdout.log",
+    "bytes": 514,
+    "sha256": "71ac13a09e253447e496b52f899f2c82fa42a46ad4c908e2e6ab62f1eb027d5a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-airborne-counters-0/analysis.json",
+    "bytes": 279474,
+    "sha256": "a10ece8a49f673c72d829a5b8ca52c5674468abaf50130f4bda8974c0a2cd400"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-airborne-counters-0/counters.csv",
+    "bytes": 165614,
+    "sha256": "82b35f88d8955fd775d4a06709374f8637108bc7736ef987ff10a67555e723a3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-airborne-counters-0/counters.ncu-rep",
+    "bytes": 19611171,
+    "sha256": "c1f759c6b737bf41304faba6b1435d133ddf749d455021eb3d9ed4e69b701478"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-airborne-counters-0/physical-comparison.json",
+    "bytes": 1470,
+    "sha256": "e428df18619105e94954abaaf6bbbbf51b974b45872cc79777d74f744f9a1e4e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-airborne-counters-0/process.maps",
+    "bytes": 32757,
+    "sha256": "0b5206b15cbe394c7211cce1c6cd1c2d8cb03bf923414e0be6001082cab7f355"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-airborne-counters-0/receipt.json",
+    "bytes": 38747,
+    "sha256": "6486952d01062db93b907f88057d5b9d009f0080e531c9be1365be34f64b4e4d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-airborne-counters-0/replay.json",
+    "bytes": 2080,
+    "sha256": "9848bc6442a6d8f933286c5256c13d5f2f0570d164b9acfb821d969618ef8906"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-airborne-counters-0/stdout.log",
+    "bytes": 517,
+    "sha256": "bd0b997c33204ab5878c844e3529c1f569749244b35666b6f48be89e30a445d7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-cascading-fracture-counters-0/analysis.json",
+    "bytes": 559222,
+    "sha256": "884299956cfabeb4f9db9b79fb95cb6a5c441e555cdf2a225c92cfeadc48a5b4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-cascading-fracture-counters-0/counters.csv",
+    "bytes": 184566,
+    "sha256": "241f9ebbec9437fd7e0f638f3d3d29faa9f35c95de313ec46c7fbc7ebf0caa26"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-cascading-fracture-counters-0/counters.ncu-rep",
+    "bytes": 30527492,
+    "sha256": "c9dc00be50bad02efa3221908087eecd691cef30d5682e262e782aadd6af6f8c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-cascading-fracture-counters-0/physical-comparison.json",
+    "bytes": 1490,
+    "sha256": "581a97ac21764ddf8cdaf592e701483ae980a748afa87178d20d4e9fad50e6a1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-cascading-fracture-counters-0/process.maps",
+    "bytes": 33051,
+    "sha256": "47634ce24fc73ab2b26e779c9edc84ed471e55798bae790ae088419ea89b2fac"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-cascading-fracture-counters-0/receipt.json",
+    "bytes": 58384,
+    "sha256": "bcd4e1466a77de3a19e60f9bb5a3befa2006c700ac263257ec74d71aa75511ef"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-cascading-fracture-counters-0/replay.json",
+    "bytes": 2117,
+    "sha256": "fd89e675ea6daa9c9ab9f973fa5aa79792a791d1c9e24af3bb8a1c37b4cb8d2a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-cascading-fracture-counters-0/stdout.log",
+    "bytes": 600,
+    "sha256": "de080605a700e51d0d625d870fc9c209c0b9cb73af6ec2168d0b3b0afd0b75a1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-fragmented-loaded-counters-0/analysis.json",
+    "bytes": 559540,
+    "sha256": "ed0a97e10d5e39b6b473a078f8601682c5e1562d2214d56f9f865c08eaf0d1a0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-fragmented-loaded-counters-0/counters.csv",
+    "bytes": 184922,
+    "sha256": "fb7b0ed3de00e66503dfb7bc45c62eb5c6b1d40b805cea0d05144e89048adc81"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-fragmented-loaded-counters-0/counters.ncu-rep",
+    "bytes": 31639513,
+    "sha256": "1237ec06cc2dbad1d1e100863bf84f7e94b77c1c5446d0ef62cbee25fddd1a9a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-fragmented-loaded-counters-0/physical-comparison.json",
+    "bytes": 1488,
+    "sha256": "57ca3edecbce90742b8985e2a5cca63b3918451dbfe6dfa67be131e5af8436f0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-fragmented-loaded-counters-0/process.maps",
+    "bytes": 33198,
+    "sha256": "f6109e60ebf30bc8b41cbad38d07cd6974dbfbbeb019b9c738c79e3bd4d46c31"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-fragmented-loaded-counters-0/receipt.json",
+    "bytes": 60808,
+    "sha256": "5f11fc57642816fc4caab6f31baed7a17f8f71ad615a68a8e64acdf1cbaea7ba"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-fragmented-loaded-counters-0/replay.json",
+    "bytes": 2121,
+    "sha256": "7825d55e83b03ed83f03951eeac3147b837b7c49cba4f8930ca858ef980ca69c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-fragmented-loaded-counters-0/stdout.log",
+    "bytes": 599,
+    "sha256": "6745751bee70adb4f6cf16651990234046f8f459543fad710e76859bf73d356d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-intact-idle-counters-0/analysis.json",
+    "bytes": 279479,
+    "sha256": "c3296c0ad06f020f119ef3980427b7f94ed9af7fdcd45c4f24234970714858b6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-intact-idle-counters-0/counters.csv",
+    "bytes": 165635,
+    "sha256": "331b82fef3c47306b10f71efb8e2b3a2b0804b3b1c664c940053a7da27efdbc7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-intact-idle-counters-0/counters.ncu-rep",
+    "bytes": 19569583,
+    "sha256": "3bacd109c67e184c7b9d94abceaeb8bc52af02aaadf6f3d9490128bbc4693874"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-intact-idle-counters-0/physical-comparison.json",
+    "bytes": 1476,
+    "sha256": "40e6975e625138b1927075a60e1144d07f8b37fbf4f47581e636a3f79316a20c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-intact-idle-counters-0/process.maps",
+    "bytes": 32757,
+    "sha256": "c0acae7e227b96875dd41b0905e92383a1dd811072f409ac06cd548b8ffd2c50"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-intact-idle-counters-0/receipt.json",
+    "bytes": 39828,
+    "sha256": "490da9072944aa5587332d6d584ac868a43787b20687445137ae6561eeb64c00"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-intact-idle-counters-0/replay.json",
+    "bytes": 2132,
+    "sha256": "5ff00b8f9f4bec34f1317e41e120a221ed9d9eba080b241cb2776a36fc4d8249"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-intact-idle-counters-0/stdout.log",
+    "bytes": 520,
+    "sha256": "799f612eb136bfa5558970c283317a55287bc97add51b0edfdeb8ae9ed099190"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-late-debris-counters-0/analysis.json",
+    "bytes": 559562,
+    "sha256": "62a1402a68efa112fea94df90f8e174dde7114e158c08a348c53cafdaaf50afa"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-late-debris-counters-0/counters.csv",
+    "bytes": 184984,
+    "sha256": "ed40669fad4e2c6a645960ac45f4abb28948cf031ef0e7a874442d018185e57f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-late-debris-counters-0/counters.ncu-rep",
+    "bytes": 32531970,
+    "sha256": "f1557a0cf6fc4611fa8b2e12dce3cdb262ac6123f33fe3227ece924236a26f00"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-late-debris-counters-0/physical-comparison.json",
+    "bytes": 1476,
+    "sha256": "f081bc3dcc75f52eea3f29ed434e4c115b6b28af8a9810122b2edc364442d0f5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-late-debris-counters-0/process.maps",
+    "bytes": 33002,
+    "sha256": "ab2b843c915b27f5a0fbf314e15aaa593b5f5d2841ec98cd01afabd2cd8ff95c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-late-debris-counters-0/receipt.json",
+    "bytes": 62111,
+    "sha256": "1ab7aeb70e011ba252fcfcde4edab1afa43eabf002d1c27ce189043a5cdb83a3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-late-debris-counters-0/replay.json",
+    "bytes": 2159,
+    "sha256": "f3a2d7a48c80cccb2f28e323b23c07353316f09e9a40c4c65f873dca1a369232"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-late-debris-counters-0/stdout.log",
+    "bytes": 593,
+    "sha256": "7a7bef8f0f34fd57cdd32d00e1bce564bc42d9062084f5a1e9380ebd36df4270"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-post-impact-counters-0/analysis.json",
+    "bytes": 279723,
+    "sha256": "f91529417e3551c07297d725ec6276a599a32e6e8f92ca29330943545af5072c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-post-impact-counters-0/counters.csv",
+    "bytes": 165987,
+    "sha256": "7c1e3c7b667618241aa0f2ce6e3f5c11270abadb4e1aab48f150f837c4a0078b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-post-impact-counters-0/counters.ncu-rep",
+    "bytes": 24202435,
+    "sha256": "f5339b59e5a67843d6f789553b05888a0addd9807f6444c16cb9ba3056acd88e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-post-impact-counters-0/physical-comparison.json",
+    "bytes": 1476,
+    "sha256": "b718cec9d14a55cef76f94a31ea27f749030d0f58387aae81cdf1565d0d88aa3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-post-impact-counters-0/process.maps",
+    "bytes": 33051,
+    "sha256": "bdfdfd16c515d608a9abc934a1d2a0f97afea66b0d6ba7cb4e662df564e9a2f8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-post-impact-counters-0/receipt.json",
+    "bytes": 41364,
+    "sha256": "a30c704d6f188a113c623f4a1e61a79f87a7433c99400d79dfdbe8ca85944ee1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-post-impact-counters-0/replay.json",
+    "bytes": 2103,
+    "sha256": "d12617b76924de797e5fe9e528dab44c5d4d5162b71560c9c5aa7ef0ce699053"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-post-impact-counters-0/stdout.log",
+    "bytes": 520,
+    "sha256": "11ab15a4f3ce18fabeebe76cebf1fb204ee988e71e1fea5bce2bf05e6f1796a6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-ten-second-debris-counters-0/analysis.json",
+    "bytes": 559441,
+    "sha256": "bc25c8460122823450e4baf3ff8d39a515f2e73207277b41e251af0388c88ddf"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-ten-second-debris-counters-0/counters.csv",
+    "bytes": 184801,
+    "sha256": "56aea01461e3abcdbf3e8b2c9ef8581ec264b7f432d024f1f8a93a5dac20be0e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-ten-second-debris-counters-0/counters.ncu-rep",
+    "bytes": 38405092,
+    "sha256": "19dbcdd3413b5375bf5736865b8438611bd22b21c7304a4de7b9d0df037a13b4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-ten-second-debris-counters-0/physical-comparison.json",
+    "bytes": 1487,
+    "sha256": "eb7cbd566a1eecd709028392ba24a6b7e2d36262632d08e78a1a13b7d95f4c30"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-ten-second-debris-counters-0/process.maps",
+    "bytes": 33051,
+    "sha256": "0a68d5e87f11be19873a6046fc84f0b69c3f61d4907f9429a0562e357e73820a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-ten-second-debris-counters-0/receipt.json",
+    "bytes": 63432,
+    "sha256": "5cdf993eb1292b34ed55de1af0ed1490aacb319ebbc4125b7cb9a3afd806f014"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-ten-second-debris-counters-0/replay.json",
+    "bytes": 2150,
+    "sha256": "4d2754c40b15284531682737c3cb2ae4f7e05e704ee8fa7c01ae79b1861e8c7c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city25-ten-second-debris-counters-0/stdout.log",
+    "bytes": 599,
+    "sha256": "c03aed0e1c375db02ab098ac9f605657ed9f46451e1d330188d0f0830f6acbda"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-airborne-counters-0/analysis.json",
+    "bytes": 279877,
+    "sha256": "ff1aedfa1484bb0da9021e4b22220f47b8fd1bcc10802a123684935d5234b7d9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-airborne-counters-0/counters.csv",
+    "bytes": 166045,
+    "sha256": "7cb70707c0c0a14bf6637342a5d164e6133ab7235949c1283c3bc2b89cdd1b86"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-airborne-counters-0/counters.ncu-rep",
+    "bytes": 21853341,
+    "sha256": "2cff4a4dd42ecfb24095cf485935c8e88530908a6de4b4bbeb63491095c67057"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-airborne-counters-0/physical-comparison.json",
+    "bytes": 1473,
+    "sha256": "7add5d6bd6c86cd340521133ecfe6bebc8d01a710994986b96cb521346b8d524"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-airborne-counters-0/process.maps",
+    "bytes": 31977,
+    "sha256": "9eaf1fbc6f6409b11ba285a04c00a510d82ac85a116a721c5a443723d83e89f0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-airborne-counters-0/receipt.json",
+    "bytes": 76516,
+    "sha256": "3d29846ce011443a0a79daf7f809880661c183ace00f17c5c3bddf16da5fde25"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-airborne-counters-0/replay.json",
+    "bytes": 2122,
+    "sha256": "a4a739219b718a617575642067367c756d3ee8a3a491e5643e7307c2f1bc94cc"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-airborne-counters-0/stdout.log",
+    "bytes": 518,
+    "sha256": "6f9341e5bfb42629ca217a59f3018e76ae1a66e2396aeb12e230e715228eeb82"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-cascading-fracture-counters-0/analysis.json",
+    "bytes": 560149,
+    "sha256": "9e22a91d3bc093db5e728dcbaa0b238efce63fab2048852b87d6789072a91bf6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-cascading-fracture-counters-0/counters.csv",
+    "bytes": 185478,
+    "sha256": "f2c6117f18881c7cbe323b24b7760353bb85d1dc9b87bc77528241fd5cafcf1a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-cascading-fracture-counters-0/counters.ncu-rep",
+    "bytes": 35968951,
+    "sha256": "95d8c73b7791fd69254e1716c57536148455d03d2eb19b79afd4a922d331e086"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-cascading-fracture-counters-0/physical-comparison.json",
+    "bytes": 1492,
+    "sha256": "0ad6ea376bc1cb6e9f1d52aaeadf9ce81e87ca4038a44c2506169278bb88db6b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-cascading-fracture-counters-0/process.maps",
+    "bytes": 31137,
+    "sha256": "4182b3449106e237ec54cae6b1376759ddee251ff47cc5bcf9cbc7f3287de9ee"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-cascading-fracture-counters-0/receipt.json",
+    "bytes": 118614,
+    "sha256": "cd3d85ddbaeff48f02b2876d4c37584d56760f88e08955af6e54b5089879e149"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-cascading-fracture-counters-0/replay.json",
+    "bytes": 2168,
+    "sha256": "b9d0d7a268a5e84d5934db762a24e5756a819642bf539868f32e1ad322c06e28"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-cascading-fracture-counters-0/stdout.log",
+    "bytes": 601,
+    "sha256": "5a117a46c4d5c16162d271470947627af01167b3dd99e0ae57852839b1398842"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-fragmented-loaded-counters-0/analysis.json",
+    "bytes": 560406,
+    "sha256": "cd6cf3fff4fa370f9042ad00a13b6fbdc6747d52433b31458f87ed0f163f85d6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-fragmented-loaded-counters-0/counters.csv",
+    "bytes": 185681,
+    "sha256": "d3d3b4f3caf2e30ed7a951809109dbd001bf067ae0752282bd2653b49ba33b50"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-fragmented-loaded-counters-0/counters.ncu-rep",
+    "bytes": 47297919,
+    "sha256": "7ef703cc8233325a658003d4247b36a02848f9d664357d72a7efc5549b14be01"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-fragmented-loaded-counters-0/physical-comparison.json",
+    "bytes": 1491,
+    "sha256": "57c8f57398f2e0ae7574fd093b5f84a30683cf654c3f44efcabbfed0081c936f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-fragmented-loaded-counters-0/process.maps",
+    "bytes": 31987,
+    "sha256": "559dfb1ed4e6d05d9a44d5f4323e028c514e2aba1be6fa0d36888b505c8bffaa"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-fragmented-loaded-counters-0/receipt.json",
+    "bytes": 149863,
+    "sha256": "eea77cdee17def34be36d1706eb34b2cd2391692b911bb079c1534e06d9500a8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-fragmented-loaded-counters-0/replay.json",
+    "bytes": 2133,
+    "sha256": "f44c098340d127238ba225e93acdad97c1d94dfc63cbc0b68ca6bbf5486a9305"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-fragmented-loaded-counters-0/stdout.log",
+    "bytes": 762,
+    "sha256": "f23a48920e5cba86c6b103fc250869693add75682a46fad360191d389e80a5fb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0/analysis.json",
+    "bytes": 560057,
+    "sha256": "3ea492c93074d6dc185edadade20df803fa9da23ac97011d92ccdf0185847bad"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0/counters.csv",
+    "bytes": 185447,
+    "sha256": "5ab4287d115be197f22f1d40cbaa9c1e33f341d099c251576ae6140ada8d7578"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0/counters.ncu-rep",
+    "bytes": 44307172,
+    "sha256": "bf7a59e446f86344e908d0a7f4257ff972f5586cbb87ebeb8cf9d8252ddde69d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0/physical-comparison.json",
+    "bytes": 1484,
+    "sha256": "f9dcf03aef8a27ebe4f9db688f478d8423f328bd689d40ec227593f90f86bfb4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0/process.maps",
+    "bytes": 31218,
+    "sha256": "9ec4345d2fbcefd2e13c1ac3262777d7619d2c434ce7c34327df806cb9163da8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0/receipt.json",
+    "bytes": 119921,
+    "sha256": "e99bd74f667f588b25a18aa74f055990dc338d1816ea84d8c64992f8c036db01"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0/replay.json",
+    "bytes": 2163,
+    "sha256": "b177ded071211aab3330bf0182aef5861be73093929393b06a8c1ad7c81b9b26"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0/stdout.log",
+    "bytes": 597,
+    "sha256": "c780b6eca67be3ec94332519948dbfbcdb762e4cdb8c070e5eaa3778a6c26f57"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-post-impact-counters-0/analysis.json",
+    "bytes": 280128,
+    "sha256": "c6f7876da7b7c670ca66c3ad0b4e99eec661fd766994b2b4b95f79a92c44010a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-post-impact-counters-0/counters.csv",
+    "bytes": 166449,
+    "sha256": "6e4e8884cf76a81c42f40ce041b1513a8faa169422238451ad50de47f1aa33b6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-post-impact-counters-0/counters.ncu-rep",
+    "bytes": 30795436,
+    "sha256": "cc7d3f56ed72d4d1e84fd6b775cd40d883551947ace072e0d53656fbb635db01"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-post-impact-counters-0/physical-comparison.json",
+    "bytes": 1479,
+    "sha256": "c0189a28663c9469e3c8af7ce113c1e33606a59dc0aefefd6d6d4ab2acdb2210"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-post-impact-counters-0/process.maps",
+    "bytes": 32411,
+    "sha256": "ed93cf36e7cd94537b83f6593181cc476254d8d9c5ae3dea39ca5eaecc29fb91"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-post-impact-counters-0/receipt.json",
+    "bytes": 84374,
+    "sha256": "6017ba242665fa168744f79840840decc1cdac74b47e80d1aa052b5e34210cda"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-post-impact-counters-0/replay.json",
+    "bytes": 2143,
+    "sha256": "e4b17809ffe90e0089b1400d630e5644d860d784dde9e6b96b7cb71f9414d53d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-post-impact-counters-0/stdout.log",
+    "bytes": 521,
+    "sha256": "0979ea37fafbae857762d8b59fca1741e908971c87634627e049082ff81095ef"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-ten-second-debris-counters-0/analysis.json",
+    "bytes": 560080,
+    "sha256": "44d0f0b3c12e10e6f2cfdda87c1d8a5f9b9da04ae5495aac5ed00e379b01e30a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-ten-second-debris-counters-0/counters.csv",
+    "bytes": 185400,
+    "sha256": "82802776808b8ac93df97f00e5886c0bb606862c456c9b2bdbbd92b9f7dfe031"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-ten-second-debris-counters-0/counters.ncu-rep",
+    "bytes": 38744411,
+    "sha256": "95034bcbc51e40a046187357e1f3d49dd5b2b02f4fa619c39a46b622bc26b577"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-ten-second-debris-counters-0/physical-comparison.json",
+    "bytes": 1490,
+    "sha256": "0a07ba38cacce8ac3e90f817c492ba2c6fe0f4077e826131507b3e0ebc252be5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-ten-second-debris-counters-0/process.maps",
+    "bytes": 31615,
+    "sha256": "916a506529050ac525476ce6510616f610ed2295a09a7078a5b698f6d9605167"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-ten-second-debris-counters-0/receipt.json",
+    "bytes": 121242,
+    "sha256": "289088a8a7fde05f09a4440bfe31f07b9db33d5e94fe5aceedbb646a8f02c332"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-ten-second-debris-counters-0/replay.json",
+    "bytes": 2131,
+    "sha256": "f2a56429304abd9b350f310bf0341eb9978f38f70420ae6a28dfecaa21df8593"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-ten-second-debris-counters-0/stdout.log",
+    "bytes": 600,
+    "sha256": "d6546f9a3c50e464ee8935a6d6c3a6556bb3f3016463f64d05993785aadc21a6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-airborne-counters-0/analysis.json",
+    "bytes": 279601,
+    "sha256": "dbf5844f9ac17fac637a56a6b1630f8b87d3875503fb19e9cedbfb2fe4eec283"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-airborne-counters-0/counters.csv",
+    "bytes": 165772,
+    "sha256": "6f5fed2409d53c0589dc126b76c6badf1a5dbaaf968f3eb50236a59e87e3eee2"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-airborne-counters-0/counters.ncu-rep",
+    "bytes": 19849767,
+    "sha256": "8a860100e74b27fad3a7a530801873b68ca6d19eb7db24022d102d4c9c99e333"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-airborne-counters-0/physical-comparison.json",
+    "bytes": 1470,
+    "sha256": "2c49547ae5097eab8b54b082f6efecdbc2a91f2c7daa579e1abfa67d612aa92c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-airborne-counters-0/process.maps",
+    "bytes": 31453,
+    "sha256": "eba03c16caca3811081ec6d542f8e041a5a06ac0986b16173d1131493f4502d3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-airborne-counters-0/receipt.json",
+    "bytes": 54441,
+    "sha256": "45867a2400b0e80a4ede7fa78fbe6fc50425880a69418787871ed1152634681b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-airborne-counters-0/replay.json",
+    "bytes": 2106,
+    "sha256": "6a2c8bdd53a2d1c41d81d8880cce641d4f0c31ec04bbf7c7a12cb8a02156b89a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-airborne-counters-0/stdout.log",
+    "bytes": 517,
+    "sha256": "8bff2ccecc20be491ae75b44f71a4e0ff4c64d2fd3894565f3c4473b2397b2e4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-cascading-fracture-counters-0/analysis.json",
+    "bytes": 559781,
+    "sha256": "4b7efbbfb9bd6bc261f154cd46b9192c55f08cd6cd7a42666eed89260b3d5d22"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-cascading-fracture-counters-0/counters.csv",
+    "bytes": 185099,
+    "sha256": "6b21b20256cf829cb9aec5c3908f01940eb9e813eb3a85848940b205c25c428c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-cascading-fracture-counters-0/counters.ncu-rep",
+    "bytes": 32522530,
+    "sha256": "abd21fb0bc0b646ba9876664a0c6b9875466674673d72a0f6cf69175e5ee4007"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-cascading-fracture-counters-0/physical-comparison.json",
+    "bytes": 1490,
+    "sha256": "a9adc1919da6a5410fe3f66e60dab54d0d59e5de5fbbffd78f54fb9aefb41e55"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-cascading-fracture-counters-0/process.maps",
+    "bytes": 30892,
+    "sha256": "cb123a127ee66ad13b5c6d83ebd5cafa760fc2d9dd96660f2e987c7f46f10eda"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-cascading-fracture-counters-0/receipt.json",
+    "bytes": 84550,
+    "sha256": "0724b338d4d100c55a7fc58e4ea89b0cd2f3461fcd366dcb04c4dd51146d0774"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-cascading-fracture-counters-0/replay.json",
+    "bytes": 2140,
+    "sha256": "e01f86afea45792d58905bfa1a81d0121cb80a4147e3ea8357e163560aeb1eeb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-cascading-fracture-counters-0/stdout.log",
+    "bytes": 600,
+    "sha256": "a94e1c0e8839b2b9818712168286363d91705a719974b087295abb1de136dd1a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-fragmented-loaded-counters-0/analysis.json",
+    "bytes": 559956,
+    "sha256": "c20b2935f0b521bcf3f9eb89011344c7a1dc3b8eed9e134e52cf55561a0c0baf"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-fragmented-loaded-counters-0/counters.csv",
+    "bytes": 185276,
+    "sha256": "df4cba5a3a1a61333becfb36bd406d2ca9c6e13e218f122d05b65ec17051ef87"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-fragmented-loaded-counters-0/counters.ncu-rep",
+    "bytes": 35096277,
+    "sha256": "734075761c4823be218a85eed92477adec6d2521eba9b20d17fd9c2000d79a20"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-fragmented-loaded-counters-0/physical-comparison.json",
+    "bytes": 1487,
+    "sha256": "ce88f4dacce2c9c2b6ebc15010f6ca1d95ca3e0922c35fbfedbcc6c2ec227d39"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-fragmented-loaded-counters-0/process.maps",
+    "bytes": 31823,
+    "sha256": "02c44dc1c846b026499bcd4356642edbaa304aea39a880cb7eae61d8996cc2bd"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-fragmented-loaded-counters-0/receipt.json",
+    "bytes": 86988,
+    "sha256": "15fad4a726b6b958822bfadc3735bcabf995bee4f41ed85cff3c25574cb0fe3a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-fragmented-loaded-counters-0/replay.json",
+    "bytes": 2128,
+    "sha256": "6c0a8a172b95dadccc9d037eb78245d25de8c7d06c1b8952a06f2a9f877021a2"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-fragmented-loaded-counters-0/stdout.log",
+    "bytes": 599,
+    "sha256": "f6cd06336b07d0662eef8f8576cb75be05e4799edc74023b41b531bc6fed275c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0/analysis.json",
+    "bytes": 559614,
+    "sha256": "441006f7a59916443c0d3f5d42308c948ad4668d890358aebca6d85ccd7eeeb0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0/counters.csv",
+    "bytes": 185023,
+    "sha256": "5e51ad64310e927de607258dc026bdc76207ceeca01159d73656680b209b0b5d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0/counters.ncu-rep",
+    "bytes": 30630166,
+    "sha256": "7927f5efc804b18818a8503962e4c0523fca2a70ff801bd62cf324395bb35f07"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0/physical-comparison.json",
+    "bytes": 1481,
+    "sha256": "62fc9c7a08544624caa193379e6dc82ee67594e384e985ff2c509f2e0b742368"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0/process.maps",
+    "bytes": 31823,
+    "sha256": "3a82b8dfe62ef45bf4e98d7d58c38af7b6c7ea5ec62bada2ff89011cf91bdaf3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0/receipt.json",
+    "bytes": 83050,
+    "sha256": "f68b33020da49738855ba0483317b1c49ba7d8d2ff8d933748fc6663e2a0d39f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0/replay.json",
+    "bytes": 2147,
+    "sha256": "0d31e4a74a842a87182b61b959793524adc3f62b2e8c04881fb3dea3bf7e4e2e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0/stdout.log",
+    "bytes": 596,
+    "sha256": "d1c3b80edf8083dfd73f40f51adb060d03ff5997606cb630e75db0e21055d3cd"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-intact-idle-counters-0/analysis.json",
+    "bytes": 279606,
+    "sha256": "80f12702e513d5b7f371f0adbab867dc0b74e6db83d8d7281262e187ad196bfd"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-intact-idle-counters-0/counters.csv",
+    "bytes": 165751,
+    "sha256": "95403472d1d4127f2044d291d1b8729769308adc58a95cdd4938d7ac5318a562"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-intact-idle-counters-0/counters.ncu-rep",
+    "bytes": 19764746,
+    "sha256": "b0e0264859c2cb3502a581c181a17280c681a2871710179c93d2f6b22093471b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-intact-idle-counters-0/physical-comparison.json",
+    "bytes": 1476,
+    "sha256": "77a5f598ebc04a95a1b59e92287d7b0ceddfbefc005d071fb0cb395edd7e4267"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-intact-idle-counters-0/process.maps",
+    "bytes": 31818,
+    "sha256": "d5a99e96f3d01d0e2c218a51929dc2975fee047dcf9bc7a75217e4914a442e14"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-intact-idle-counters-0/receipt.json",
+    "bytes": 54214,
+    "sha256": "ac060bc56aa3aec68741950d6fc6345b63ce8a9e3d99c48c3d611f99ed2fbeb5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-intact-idle-counters-0/replay.json",
+    "bytes": 2087,
+    "sha256": "d72a6a539a4d4dcd4bcafbfab8c955074af5ac90aa6dfee693a5061985027330"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-intact-idle-counters-0/stdout.log",
+    "bytes": 520,
+    "sha256": "095b8a37c7d90441d0aa768f5758e706965570c6877fcc2bd0bf9fdbee8291ef"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-late-debris-counters-0/analysis.json",
+    "bytes": 559990,
+    "sha256": "552bef5750185a8cae18b1520640257e4545de6abf27b40bd16fa59a3036b705"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-late-debris-counters-0/counters.csv",
+    "bytes": 185303,
+    "sha256": "84d90a1b3bc16734f949d2f7e25dbca6b3f1ae8b9e4e448354aca0e66b156c14"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-late-debris-counters-0/counters.ncu-rep",
+    "bytes": 37158567,
+    "sha256": "88bd5cfec27b137626a835ef238ab9258001276b3f336a7c27ca46748ba3f322"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-late-debris-counters-0/physical-comparison.json",
+    "bytes": 1476,
+    "sha256": "1b9f02ed9678f06178117393f4b7be852fe305273dd861d78238188f26a66d1c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-late-debris-counters-0/process.maps",
+    "bytes": 31654,
+    "sha256": "204707c8eb694b3614cba73bc4b862fdaddf3ef0c4522d9bf35de508769c3182"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-late-debris-counters-0/receipt.json",
+    "bytes": 89777,
+    "sha256": "e199bfc1539d6ac857f86c2bd77531a888695c7dd48c8f7f48d852b0ecebe883"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-late-debris-counters-0/replay.json",
+    "bytes": 2129,
+    "sha256": "6f9cd9713585ddab0fac67b15fa1197d4a76e0ff0cb641f09be1167e312abc0d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-late-debris-counters-0/stdout.log",
+    "bytes": 593,
+    "sha256": "ff2042b585d1e20bb16c432611bd4f7481aab1f6350bd1d119d5b1491478d196"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-post-impact-counters-0/analysis.json",
+    "bytes": 280017,
+    "sha256": "b0464ad10a3f3814ab8115a18a00309935cbce0a79c3d9cee1276458bb499406"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-post-impact-counters-0/counters.csv",
+    "bytes": 166286,
+    "sha256": "1ce7b21878230d708599fea30de9eda99e151ef02636c1de1c06de8db6beb4a7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-post-impact-counters-0/counters.ncu-rep",
+    "bytes": 21616043,
+    "sha256": "5ec651af98e68e5bad2daeef0f86b01d4188e4c7dbcaec99da3d1812b8e89b3f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-post-impact-counters-0/physical-comparison.json",
+    "bytes": 1476,
+    "sha256": "ab37cad58cd9b2878289406fbe9c5cd82fae0da74c03843463c58b6c35029d20"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-post-impact-counters-0/process.maps",
+    "bytes": 30892,
+    "sha256": "6ca6fe030211bba4e736321b412b54b412090ac9f4b828dd82852974a9b67a97"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-post-impact-counters-0/receipt.json",
+    "bytes": 57061,
+    "sha256": "b83d1f69154c4851f342437069dc41bffa77afdc197b3a5700711b3bfc4e20de"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-post-impact-counters-0/replay.json",
+    "bytes": 2138,
+    "sha256": "c40337e021cbea161568b6180e64cfae1a89cefbee65255b0092ae2d7d034e1d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-post-impact-counters-0/stdout.log",
+    "bytes": 520,
+    "sha256": "342fb223f38fb58f919dc3e778d4d44cf93ddadf5482a2900077d14f635ed9a1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-ten-second-debris-counters-0/analysis.json",
+    "bytes": 559727,
+    "sha256": "6c0eb7d8d7c25a7b37a0485e254e824eef48b9e6a735e268b4d3576a6bc59856"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-ten-second-debris-counters-0/counters.csv",
+    "bytes": 185092,
+    "sha256": "d9f9e9dc9cf5346bf8faedf3a297de654b6de827fa6cd2f46993cc9a46d81dc9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-ten-second-debris-counters-0/counters.ncu-rep",
+    "bytes": 37862457,
+    "sha256": "71e340bb4a8ec81309296596f50bfb68e96afd34fb8730cf8e91b0542b949e51"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-ten-second-debris-counters-0/physical-comparison.json",
+    "bytes": 1487,
+    "sha256": "9af95bc785f6a3cc85a00284298e3d78d7bf35c7bae93bf9f3da1ca8dbb260aa"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-ten-second-debris-counters-0/process.maps",
+    "bytes": 30892,
+    "sha256": "ce31d141c942772fa522c05d5db9b6723fb6a8e69976160487e5d6dc78efbef8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-ten-second-debris-counters-0/receipt.json",
+    "bytes": 87182,
+    "sha256": "4e23188971bed906a51d2039f73b2c31656361e3be216fb07fc3909b53b28d9f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-ten-second-debris-counters-0/replay.json",
+    "bytes": 2157,
+    "sha256": "da8d5eb61c1b5756aa6f6c69fc7a7a15846ea21dab880d473240ddbbced3548d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-ten-second-debris-counters-0/stdout.log",
+    "bytes": 599,
+    "sha256": "ba88c552507944c7c12f8d2d92364366fec9020797cd68b74b78a3e8759d4f67"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/commands.json",
+    "bytes": 108088,
+    "sha256": "a151ccb52ccc14ad6d5471cb8f69c8df467cdabbe9aabbf93ab954a222ea5e1f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-0/analysis.json",
+    "bytes": 280164,
+    "sha256": "f72045159c8695a3992a1344c9551f571a28c8f94f7713f3ce69563e21fe77fc"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-0/counters.csv",
+    "bytes": 166501,
+    "sha256": "35afc28d3cf4a631c3f485a408ad782577f322d47fc23aeb3397750b7ec00708"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-0/counters.ncu-rep",
+    "bytes": 35991565,
+    "sha256": "189a431bfe1b68edf976f41facad52c37f42ae757585cf1d4d0762b5eedddc98"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-0/physical-comparison.json",
+    "bytes": 1518,
+    "sha256": "d0389c5747a162be7e3b14777cddfc2082747512eed42bde153259efdb42731a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-0/process.maps",
+    "bytes": 32814,
+    "sha256": "14de5c1827b92d01c0c17fb1b7a31c1fec0a5ff920fea5a95da5ad09325f103b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-0/receipt.json",
+    "bytes": 56484,
+    "sha256": "95b05b2fabf090107b1c114a0f8d1e60ae6af9d3ba668fb8be354000029840a2"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-0/replay.json",
+    "bytes": 2089,
+    "sha256": "828ba4cd062a5eb017f8507b195a359a1a1e66e438ed9b37e3242109f57bfb61"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-0/stdout.log",
+    "bytes": 515,
+    "sha256": "382119a150fe8aea266c55cc5c65edf179dedb931ae7b8752eebd785f8ac3566"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-1/analysis.json",
+    "bytes": 278353,
+    "sha256": "6cfa23437ed3385f37ba355204452a82e52c1ed7e01b46d1104bc192d3fae52c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-1/counters.csv",
+    "bytes": 164322,
+    "sha256": "cba76d3cbfe01db1bf90573d95e80de631d66a4951b4704b6767d4903746d828"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-1/counters.ncu-rep",
+    "bytes": 16057433,
+    "sha256": "b7dc855c89ff704feb746bcd0e7cafe893fab5e4885a03068c50111315506e4f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-1/physical-comparison.json",
+    "bytes": 1517,
+    "sha256": "a67dccd4319554fbcd02314f2ccf31486cf1620021d4981c0f8d63e52bb8b56f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-1/process.maps",
+    "bytes": 32324,
+    "sha256": "ee2056d5abac6cd826e1241e91228b168509225f08b3967b2bd842109f750048"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-1/receipt.json",
+    "bytes": 30321,
+    "sha256": "ced648a4969cc4f1a1e8ab512a6967a3ea0dfd78949f6d8d2e18f6eb945d9c6c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-1/replay.json",
+    "bytes": 2095,
+    "sha256": "40142ce7d8feabae11ca4e3789dee63003e6af9118dc5468b7423a50165d4020"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/dense12-warm-counters-1/stdout.log",
+    "bytes": 514,
+    "sha256": "91d79eb772ef12d7bcb7bf6e9b2ebcd62cca46c6b01c9732be71d2d7bcc628e6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-0/analysis.json",
+    "bytes": 556484,
+    "sha256": "daef81fd2f98f0cf44e2d9e5ac36b605bed46ee49ac2578d9a5c2ee7c774e646"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-0/counters.csv",
+    "bytes": 180608,
+    "sha256": "3e076b234a81d3f4aad53ef5e500317dbafc822819c918b47108ca57f617c7c7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-0/counters.ncu-rep",
+    "bytes": 2783970,
+    "sha256": "3a73255b98cc7138b67366b1d53a81f0ad4df82e14141646666b664e5761e7b0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-0/physical-comparison.json",
+    "bytes": 1468,
+    "sha256": "d81ea18a09e379a49564dd823c2e7a2b7f02f978761e3c1c4527e569df043753"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-0/process.maps",
+    "bytes": 32079,
+    "sha256": "cb9909507b22cc516e83e455f52f83abc2c705bc2244fa2630f95e85add0abb1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-0/receipt.json",
+    "bytes": 29251,
+    "sha256": "227ac51097e681feb5d03a818133699f0da558d387627754d08134e9e0fb2765"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-0/replay.json",
+    "bytes": 2074,
+    "sha256": "17f9579999c430daa7f5f34c5e35a7361aaae4c267b19543726fca5694b9f223"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-0/stdout.log",
+    "bytes": 637,
+    "sha256": "624e6ed0587a1bc3260b5eee2e8f3a009e8ee9ee8ca355e5a286ea58af5ba2de"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-1/analysis.json",
+    "bytes": 278429,
+    "sha256": "3e50c9cf75c6a966327aa17d9c77ab581e1978df5541768d097e11b49cfa2a47"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-1/counters.csv",
+    "bytes": 164362,
+    "sha256": "e941b062e4010de100294b484a5b82000afbd5f4a91ffff2b3dc21f478680adb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-1/counters.ncu-rep",
+    "bytes": 15946539,
+    "sha256": "0691357cc16ffdb5372ffbd569387c76294000d7c7e46a292f19e9ea95fe7546"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-1/physical-comparison.json",
+    "bytes": 1468,
+    "sha256": "1e25958ef64f5b38b9d0066c2cc7327256bf26a8f17e53bdeb313e7f45afef9c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-1/process.maps",
+    "bytes": 32226,
+    "sha256": "ccd4502d934c6a5c489f00b549205194d4988a9cb8aaf02a63ef198fc008743f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-1/receipt.json",
+    "bytes": 33143,
+    "sha256": "c35bdc198354a7942f1e297a38c50c647a3ce6c614168b377a7b60853de2ab17"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-1/replay.json",
+    "bytes": 2082,
+    "sha256": "416f915a941bc15191feb1ef432038f07a01ef4db9136490f0153c763a026dc0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-cold-counters-1/stdout.log",
+    "bytes": 518,
+    "sha256": "35d6e898529a42f76082497367909b771d9ec215076ee29563f459081aafac1d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-0/analysis.json",
+    "bytes": 556455,
+    "sha256": "9ab0d64d2bb1372aef9a6dd33bac23ed2a740db63314ed6992596cb886090bb1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-0/counters.csv",
+    "bytes": 180535,
+    "sha256": "0282000f0e3cf13baaae8e2cefc3a0dc229f04fce82be8e5c12493b018be4dc7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-0/counters.ncu-rep",
+    "bytes": 2871982,
+    "sha256": "a8e46047dea0f9f9645a1e0f9aecc64df36fa2bb361f8020a8bc9c5aed0dfaa5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-0/physical-comparison.json",
+    "bytes": 1474,
+    "sha256": "d2e14f282379c06f95d9470676bd2bfbdae03ad78b413707476eb832869b2aa9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-0/process.maps",
+    "bytes": 32128,
+    "sha256": "18ab6a22dc2f199a899c257725dfd97cd78151578a4deb0df0e2f73ecbc94a20"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-0/receipt.json",
+    "bytes": 29260,
+    "sha256": "f1f8102867e13620b01cc5f153afd0414aaa8da64b137d451230134447c6bdaf"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-0/replay.json",
+    "bytes": 2076,
+    "sha256": "0103caaeeb8f45fbcca025f61bb2e556650f90c7f590bac4e2b98b7cb7395b25"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-0/stdout.log",
+    "bytes": 640,
+    "sha256": "c58eb00ecbf2e0e67d74be416c43b7fb1744b382a77a616e8cf98ac39582f5d3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-1/analysis.json",
+    "bytes": 278435,
+    "sha256": "f6102131e39401e09d6b0c02c205adc6bce7b5100172dcb1c6b7a591f1466160"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-1/counters.csv",
+    "bytes": 164355,
+    "sha256": "cc5e4f0a92c9f42c7f03a7647ec20388b16fa8e4dc76b97a136d422c53998555"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-1/counters.ncu-rep",
+    "bytes": 15983593,
+    "sha256": "8a86fcb2d6939094666be3a291169a54fb2b1c1f9bc52bdec4f95876b18c91fa"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-1/physical-comparison.json",
+    "bytes": 1474,
+    "sha256": "7cf2aa8039bcb15ccce6aac3b31f64e7fb149bc4131b8138e1e93c665e32f104"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-1/process.maps",
+    "bytes": 30549,
+    "sha256": "07e0ba943bee90b337d4f6aab62c6e91f81b4daf05cb7f16b99642c0598aad5a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-1/receipt.json",
+    "bytes": 32049,
+    "sha256": "78495202697990370c8aab225fcb3a35f40da05678956f018050bc7f461a2844"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-1/replay.json",
+    "bytes": 2085,
+    "sha256": "d2ee61aef6dde1a5c0a0fd6d479c128a71e78d65db39fbc85dee28bbaf760012"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-damaged-counters-1/stdout.log",
+    "bytes": 521,
+    "sha256": "0b2703c30693e63ae49eab2e64ae23e39aeaf41336f3e0d0f1e856e23522e0f4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-0/analysis.json",
+    "bytes": 556451,
+    "sha256": "e5768b0965313965b69b8344cc9a2d8881199c14c4f3a2f0553c37229eb4362b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-0/counters.csv",
+    "bytes": 180619,
+    "sha256": "5136a7d3d05d947030bf60a8c39f78a73fbf2091e3f6cbc7a7482335f8f54d51"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-0/counters.ncu-rep",
+    "bytes": 2897865,
+    "sha256": "1f9e09b9dbdf8b24806ae7887847f8cd5be134ba4cf085c6d9da920de59c7ea3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-0/physical-comparison.json",
+    "bytes": 1478,
+    "sha256": "aea348f4a2cc6156092fdeec473558cfd4c33dc0d27b280906680e9cbe76d02e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-0/process.maps",
+    "bytes": 32177,
+    "sha256": "bb6786481b63d9961829f25f8d0de2948642fe2e3b7aacf14a4a75cf2f63ab6a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-0/receipt.json",
+    "bytes": 29273,
+    "sha256": "bda747c24c51739ac6389a17ac778f97bbcaa0531f3df0a17d574d6a0d9ea475"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-0/replay.json",
+    "bytes": 2072,
+    "sha256": "72ac6704e463b6cff0e2da7ad6e5118058cc279f404ab5a00cfa19b4ee0b6a2a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-0/stdout.log",
+    "bytes": 642,
+    "sha256": "db9ffc07a3bc16128cb82b4b93d2ac5437484958565ba86f01f71a3e6798ab0c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-1/analysis.json",
+    "bytes": 277799,
+    "sha256": "7334996d83abb01a3b63fada5be98119b7c619de6b3e72dddf332ba41058112d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-1/counters.csv",
+    "bytes": 163442,
+    "sha256": "3aef9d6bd9c9f6e3b4aa3753b8fdbcd6a40fc253eba9a8a40b0b56178598853a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-1/counters.ncu-rep",
+    "bytes": 15785211,
+    "sha256": "ebdd313f6158441e5267d81b47828a09e232ec35ec4dee13ba743fffe5101503"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-1/physical-comparison.json",
+    "bytes": 1478,
+    "sha256": "87185477b4f0f5445248450cf71bc443fe97392f535262531974f86d36028aff"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-1/process.maps",
+    "bytes": 32422,
+    "sha256": "1d940ccaf01df3ad84c7ed2a9052fb32140cecb698de579541d2c105fb9ff553"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-1/receipt.json",
+    "bytes": 29251,
+    "sha256": "f20fff0233290057b593316ab988e81e11d3015a96ec2560b6ae1f375919f7e8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-1/replay.json",
+    "bytes": 2101,
+    "sha256": "f70bc1d5e67f7b788472374a30d0ae754612d9e47b171d81d3f9a477bd775014"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-fractured-counters-1/stdout.log",
+    "bytes": 523,
+    "sha256": "452587abfc6d26195723cd22297ec0accc3d39688ab5937d37dc53125c018918"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-0/analysis.json",
+    "bytes": 556320,
+    "sha256": "f8022ef5e8420803bb89be9e2190ecc07ab4990ce4b63f691a2ab42d82f68c12"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-0/counters.csv",
+    "bytes": 180328,
+    "sha256": "bd0435d447f1d0c3537aa03685ca3607bb160e783c0bf2bb2e046542f0553e60"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-0/counters.ncu-rep",
+    "bytes": 2781741,
+    "sha256": "517e5b8a9961f6aea2d8c387bf980ae295c89d61d1cd13545d0d8199ebc6183b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-0/physical-comparison.json",
+    "bytes": 1472,
+    "sha256": "2016a0ab6afd2dbc6689c5c90de767a323101160fcb5b001d8648fa24a229bf5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-0/process.maps",
+    "bytes": 31981,
+    "sha256": "19133bf241f9b273ec5a2c22eb9f4ba7eec7873d5f1ddba87f4b737dabd99bf0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-0/receipt.json",
+    "bytes": 29259,
+    "sha256": "eaee790d0cb4d7e3fa99612992a3c620b9b9011506877991658338e89aa260d1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-0/replay.json",
+    "bytes": 2123,
+    "sha256": "2120f2cafd730dfe32aa97b7a4b7b7af901c659e9538bc87d4f69992d4c356bb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-0/stdout.log",
+    "bytes": 639,
+    "sha256": "9356afd71bf7d87c7954693dbc6dbc910d4e24af56e7448e3062895b2aabce9e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-1/analysis.json",
+    "bytes": 278414,
+    "sha256": "fcfe7c3553ed25fd614510541158e47d9e146f80e1ba1e142db3e9c0906b85d9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-1/counters.csv",
+    "bytes": 164337,
+    "sha256": "4d2bbe5145f7417c6766d3818acc94237a66e7cc0ca3ccdd7413644ebedd30ee"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-1/counters.ncu-rep",
+    "bytes": 16000095,
+    "sha256": "94e29dcd391d142eec5b27dcfacc7c3482377c42df676510eaa128b9ccec9ada"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-1/physical-comparison.json",
+    "bytes": 1472,
+    "sha256": "66acbc594612f49d44d3a4fd27e354bbdfd6357939f1d62f730b87de4ff06c1d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-1/process.maps",
+    "bytes": 32275,
+    "sha256": "1a274348e08c0e49b4581fca232e48b95b89cc82afbdff877e9b96443c3c3d1b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-1/receipt.json",
+    "bytes": 33161,
+    "sha256": "213d621eb9cc4a2fc603410cdf4598707425834e33bf87dba78226e1cc86e9f4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-1/replay.json",
+    "bytes": 2067,
+    "sha256": "ed992b67a44ba02e712da45305dae1b38ab88e03a617d7e3b8cbf74f7b7757ad"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-intact-counters-1/stdout.log",
+    "bytes": 520,
+    "sha256": "1a4fcbce6c698c56eb81dc6e250f52c56c8492a1937a6f776c1aa59d712a3018"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-0/analysis.json",
+    "bytes": 556483,
+    "sha256": "043d905c9687f3a5567d0708108db9a3fa92beb5833ba15a3856b9b86f20d742"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-0/counters.csv",
+    "bytes": 180685,
+    "sha256": "c1c2918e14f867f756747c2a574abdb640c2111f1ff4d826487e7fccc5651ada"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-0/counters.ncu-rep",
+    "bytes": 3292025,
+    "sha256": "73749f3454d28bcb11b73d80da977d76ca72209815263ed662c72fdae0a5440f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-0/physical-comparison.json",
+    "bytes": 1470,
+    "sha256": "d0c7ccb95824e5f9269db83665f88c15300d87708dc62693eb22916928026404"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-0/process.maps",
+    "bytes": 32030,
+    "sha256": "7d5db343da827cc387b79511d1468beb3e85609c7f3577b1a5158d2c88b1b585"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-0/receipt.json",
+    "bytes": 29252,
+    "sha256": "86548bee5bbc233eeec5ec850beebf9175cac7e0c4775723143ffcdf31c0caa4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-0/replay.json",
+    "bytes": 2081,
+    "sha256": "a376ac3f18c2785a1e6eeeb8da9f4f2700bf67f2a4978e05c1727d862d740827"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-0/stdout.log",
+    "bytes": 638,
+    "sha256": "c3e9aab792f702fd12cec631c7397c096b1724ee0d22e21d25025c77cba632bf"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-1/analysis.json",
+    "bytes": 278423,
+    "sha256": "207e1374400aa00a17475da3a796456068b4aafdc4f39de605215c5ddb7e3159"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-1/counters.csv",
+    "bytes": 164303,
+    "sha256": "2cac9497f12aed803e5982e057b131749d16ad9d2241dd3707c3d62592d72393"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-1/counters.ncu-rep",
+    "bytes": 15900062,
+    "sha256": "b5f572c794890f97bb63eab232ad3a4ee43a58bb8f9719856c36db04ebe92409"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-1/physical-comparison.json",
+    "bytes": 1470,
+    "sha256": "fa542751ec433ea020d379427af293b346a3fec238e30bd3f596323870847fe5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-1/process.maps",
+    "bytes": 28790,
+    "sha256": "cb2bf31170e2531281ab44332796c2795bb31946ef3df489b5fce7df181d41ad"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-1/receipt.json",
+    "bytes": 32036,
+    "sha256": "b2f566660c9829a4c011570a157eb53cbd10a1d00972db83b36c1f06e7bbd5ee"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-1/replay.json",
+    "bytes": 2052,
+    "sha256": "33da6afd9a7bc8a7243194d72a0d26bf5b4be92b9e2c0f7b6615a14fdaf583c5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/destruction-onset-counters-1/stdout.log",
+    "bytes": 519,
+    "sha256": "031349c42e0c0843b1459abbf5149ce363a3a329b19fb8bac373e561f8d9a406"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/flying-counters-0/analysis.json",
+    "bytes": 557249,
+    "sha256": "433b0d653061d7e2b62beb98e9683470f5871abfaa397dc0b710fc6c51881881"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/flying-counters-0/counters.csv",
+    "bytes": 181730,
+    "sha256": "b35643557d47a27230443963fae13cdc6e638f0d4655b87578b3e7508e27ad29"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/flying-counters-0/counters.ncu-rep",
+    "bytes": 2925576,
+    "sha256": "779ef1f243674e146c1ff6624fc0ec2b82924185b468654dffe21071192108bc"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/flying-counters-0/physical-comparison.json",
+    "bytes": 561,
+    "sha256": "f2919620ab08e75ab1dee9d0ca588828d3be524fa3739e0bd9cf8f1193d623f1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/flying-counters-0/process.maps",
+    "bytes": 31981,
+    "sha256": "b3739768d0af0e475c68b242fb7203283c73939083dba99d9641c04ac6a3a299"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/flying-counters-0/receipt.json",
+    "bytes": 27890,
+    "sha256": "9d4581ed150fc6b2f9fe313d63ab7f3a1905df45bba36a6053cb69700bda5f9e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/flying-counters-0/replay.json",
+    "bytes": 2115,
+    "sha256": "f03a19cdde43adf601e48cc2eda97dd2b0859d44d6165dc7fb3a52803916a72b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/flying-counters-0/stdout.log",
+    "bytes": 627,
+    "sha256": "4f2e9dc05efde5373366266513c9e620f3d0e07caa34438f2ac3b92073304540"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-cold-counters-0/analysis.json",
+    "bytes": 279196,
+    "sha256": "59d6a862fd09f259f481339b329a85332770e2488c1e62094b6f8ec0b035208e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-cold-counters-0/counters.csv",
+    "bytes": 165350,
+    "sha256": "d45ff9c6a24e818aff22002178765502785caef737d046782d90412a0785edd4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-cold-counters-0/counters.ncu-rep",
+    "bytes": 18969853,
+    "sha256": "126d5ca5a2b6818acd0d0d09034977af27e9aa5f4c7aaf831c23b7743f02b820"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-cold-counters-0/physical-comparison.json",
+    "bytes": 1466,
+    "sha256": "554d1f4b0c997fd0eecc6b80e8facab14d9a53100c7fd5dae6d546a93ce66891"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-cold-counters-0/process.maps",
+    "bytes": 31673,
+    "sha256": "edf3b999a1aa9accabd4b47bd0bb7d935cf290d1336fa7ac33cac14ec6d6d136"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-cold-counters-0/receipt.json",
+    "bytes": 34450,
+    "sha256": "7b19c576c7d8c995cc809d1a18c96a6ee11b612830551800ac406627cb816f5c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-cold-counters-0/replay.json",
+    "bytes": 2068,
+    "sha256": "8a80ff0070d09c34692a1ee7da31b75ed889944b8ad585173cd649695fe452ce"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-cold-counters-0/stdout.log",
+    "bytes": 516,
+    "sha256": "9186ed7100aeca826db45db437e8554c52817de79bd154da0820ba42a1059165"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-warm-counters-0/analysis.json",
+    "bytes": 279187,
+    "sha256": "9e72162efab760b03fab6169e8edae5ee855eb153d52b9815cc08667dc2e868d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-warm-counters-0/counters.csv",
+    "bytes": 165313,
+    "sha256": "43f175a2cef57251287b2f182437a4f4a8c8768f0226c0420d9c664fd71301b0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-warm-counters-0/counters.ncu-rep",
+    "bytes": 19002578,
+    "sha256": "273b6fce2abe02481ae6305560e969f8d5547ace4fb31a5f1cee7c972d4d048d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-warm-counters-0/physical-comparison.json",
+    "bytes": 1466,
+    "sha256": "4d822f4c4bacb84e275ac4eeaff96eb2eb4d4803e48cfc3bfcb84966c60c6ea4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-warm-counters-0/process.maps",
+    "bytes": 32275,
+    "sha256": "c0eec2dabef5836d54662a207a06c27a314b1504a7fbbca94399c3297474df08"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-warm-counters-0/receipt.json",
+    "bytes": 34446,
+    "sha256": "714a79ed601e335ac1178ddb522cf1d06a4cab87d5d8d5510978f16abf639384"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-warm-counters-0/replay.json",
+    "bytes": 2074,
+    "sha256": "0a46fc5736be5309b44c009d60ea66d702f1379ba5a6136ecdd82da304b66a1a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/ladder128-warm-counters-0/stdout.log",
+    "bytes": 516,
+    "sha256": "b4f8beacb4be6ab28b1a8285490a81edda462bcde1b991c9b8eaa5694c2be15e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/manifest.json",
+    "bytes": 45201,
+    "sha256": "23100ab84a8df2b899a19a14888291fdec1a4d1f7627b74dad1c21c2d0ad45b8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-cold-counters-0/analysis.json",
+    "bytes": 279372,
+    "sha256": "18c0bf44f99cfd801ebd40ca79ea4db0a3270685361120c2bc1458b2883af368"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-cold-counters-0/counters.csv",
+    "bytes": 165576,
+    "sha256": "3a0e5570f54a6b121516ab1f7eb753cca647b46826762e2ad9a20cede4cd0cc3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-cold-counters-0/counters.ncu-rep",
+    "bytes": 25294450,
+    "sha256": "5e3daab4a8f9b88fef5e882c63c44686ccbbf1791b17795b9f9beaeea0e65678"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-cold-counters-0/physical-comparison.json",
+    "bytes": 1463,
+    "sha256": "1c09ce6de719c1b1178a69452e0eb3cca5242bbeba0f35ffd9efce718ce3f4ef"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-cold-counters-0/process.maps",
+    "bytes": 28497,
+    "sha256": "b4bc6e75f4ccbbeb94e607b9e99497badd234864ae386c1d754d6556f2347893"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-cold-counters-0/receipt.json",
+    "bytes": 38552,
+    "sha256": "ebd74ff395bdccae5887fcbd324299d5d88afb23a97dccf694bbcb962fbd498d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-cold-counters-0/replay.json",
+    "bytes": 2052,
+    "sha256": "1be5033b2125ded7e417748160917104162ff4bec9f07917a9d22d0b20c61bac"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-cold-counters-0/stdout.log",
+    "bytes": 514,
+    "sha256": "23b911cbbf7ad5f1110c8add8a65036e7200964bf7ec074e645894d54b582057"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-warm-counters-0/analysis.json",
+    "bytes": 279392,
+    "sha256": "f3860483c60eb046533ee6127a0eea9cfad7b03fd76000e63673fd2cb3e20ecb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-warm-counters-0/counters.csv",
+    "bytes": 165506,
+    "sha256": "3e2463a90049048b8f7cc9b381dfab958f2762b99f0c84cd353c61092bb47414"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-warm-counters-0/counters.ncu-rep",
+    "bytes": 25291827,
+    "sha256": "bcb98e8aafbff864009d244558c522ecd037d4dfb7813909ac9d0224faab21ff"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-warm-counters-0/physical-comparison.json",
+    "bytes": 1463,
+    "sha256": "54fe413809572882f247c37243154db7fbb5b9f42e780b931f22941d2a5c7dad"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-warm-counters-0/process.maps",
+    "bytes": 32520,
+    "sha256": "d4676d7fa8ed4e7e1633bd0d9926330c0e0cacc3b18c4cfe7ad8ee18b481a733"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-warm-counters-0/receipt.json",
+    "bytes": 39673,
+    "sha256": "4327f05b176ef48cdb5a0d8d4296701c4c8d8931485cf6b23609168c2347fbba"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-warm-counters-0/replay.json",
+    "bytes": 2117,
+    "sha256": "9cca75c7d23987b2d51e300583f3d6f78db369bca327cc2cce394385994ed84f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/panel32-warm-counters-0/stdout.log",
+    "bytes": 514,
+    "sha256": "f921a3a9caac59c4c4f0ed2f08003dbaaa676b43f63d52300b7fe8fc9afc011a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/resting-counters-0/analysis.json",
+    "bytes": 557220,
+    "sha256": "f4a77cc4eba3939672782388b5ffc7d86fe37b30fbd3a3395a9068318192cb90"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/resting-counters-0/counters.csv",
+    "bytes": 181710,
+    "sha256": "44c6acb86895fd46299b20255cf746dd08ab0d6585b015808dc98085b99c5037"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/resting-counters-0/counters.ncu-rep",
+    "bytes": 2967868,
+    "sha256": "8a0a7c0b8550a5a6c2475cbc2579fc3a9af67ee8271be7f522e20760cc006df5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/resting-counters-0/physical-comparison.json",
+    "bytes": 563,
+    "sha256": "5cb0c27655607910ac32927d163ee2ac83f1d5ab4e7e088fa3fad22975ebf848"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/resting-counters-0/process.maps",
+    "bytes": 32030,
+    "sha256": "568062a93a5c5507961c625acc719caeeafa0a0ab6ce7836a6130ce18ee4c1ac"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/resting-counters-0/receipt.json",
+    "bytes": 27898,
+    "sha256": "d846476c6e6f4ef0722250d561a996c849ae472032ae21f31dff62a6a1b5d69b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/resting-counters-0/replay.json",
+    "bytes": 2129,
+    "sha256": "e19ae60dfcf4416ba8983cfc640a8b27e3a736e5f0a951f1f34a430ffffad0f9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/resting-counters-0/stdout.log",
+    "bytes": 628,
+    "sha256": "440064404d738cb891eb949d5baf212c19905a5f773aa85dbb13a5363a2088f3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/sliding-counters-0/analysis.json",
+    "bytes": 557100,
+    "sha256": "fc100d579363d1694ec95133f5c207a6eb70cbe43c4b1b889091c2c5215a5a96"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/sliding-counters-0/counters.csv",
+    "bytes": 181368,
+    "sha256": "fdcdf98061f2ebdd785ab7cf60610e247f36f68d0822f26c73f56f716019da48"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/sliding-counters-0/counters.ncu-rep",
+    "bytes": 2961869,
+    "sha256": "3e429f0585346bbff5d9cf3c6a15cccb35ae045b114d7a3770e4e49268f985ce"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/sliding-counters-0/physical-comparison.json",
+    "bytes": 563,
+    "sha256": "102c5397ca1bbf9e369d7f8be6068c5016eb237a48fd5e1c38b7b1769550072f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/sliding-counters-0/process.maps",
+    "bytes": 32079,
+    "sha256": "763eae3ab892785c620416b14ea046ab57c48c7344938256601c6d26f9a8861a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/sliding-counters-0/receipt.json",
+    "bytes": 27897,
+    "sha256": "ecf48d73cb52b51c79f6ad6fe368d658a0d5da3e1ec3560fd9367164cc7cc8a9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/sliding-counters-0/replay.json",
+    "bytes": 2117,
+    "sha256": "095b0bf14117888cf6a674272c8d5d012a2167f6fabff45c1d1b499e642b4371"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/sliding-counters-0/stdout.log",
+    "bytes": 628,
+    "sha256": "50ad5a3efb4568cb2b12a46a5c96cc458c23e7a06c1bb007c231e5e0ac0dea37"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-0/analysis.json",
+    "bytes": 280297,
+    "sha256": "9112310ed2824878f82f73d5e0da9ce64208a03ae34c044a5ee4da50c7f01085"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-0/counters.csv",
+    "bytes": 166682,
+    "sha256": "7c75c415d5c11aba8b2a7b2a312b893bde991de0db2b021f5ae57f2dc0a91a88"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-0/counters.ncu-rep",
+    "bytes": 34881682,
+    "sha256": "d04fad0f85ebf74c5875c0f2950bb2b5aead58dac5fe54eaab0269c74e19cf12"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-0/physical-comparison.json",
+    "bytes": 1515,
+    "sha256": "b05104276c0c6938fa9c26b8585a04ae326fb762080505282231971cfd71e3a5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-0/process.maps",
+    "bytes": 32814,
+    "sha256": "0b24ff3440d8829a314eaa3587ce6aa9f85ecee320a8419454dd9ea455b73608"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-0/receipt.json",
+    "bytes": 72194,
+    "sha256": "81b853d9c6f90fa43aa36b0e548a8e95dd62b47c58fd40a64a6bcca0b86e2b3a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-0/replay.json",
+    "bytes": 2097,
+    "sha256": "2d951167e6cdc1f720ae48e182fc90d8c008676dbe5746d359fed5c57c3750be"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-0/stdout.log",
+    "bytes": 515,
+    "sha256": "b4b5dde0da4557b13b7b61b4941d40f3242a9ee31dcafb81241838e50213c368"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-1/analysis.json",
+    "bytes": 278343,
+    "sha256": "a875aeee26c5ecf5c16735d4a957897af5547c103318581fe0f3e8a643966a4c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-1/counters.csv",
+    "bytes": 164244,
+    "sha256": "7343cfb8ed9bbcd4577a0791e05db1eba9050e7eb6c8daea524d266c29bb5b49"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-1/counters.ncu-rep",
+    "bytes": 15923587,
+    "sha256": "6b2caa874f201a6271fce3c4a687e6e03bbc7697384e4c4463e6c7497b03e128"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-1/physical-comparison.json",
+    "bytes": 1515,
+    "sha256": "0df81cdc8b90a2c089bebe4a794f782d7ed76abe9936e542d6a673dc83b7623b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-1/process.maps",
+    "bytes": 32373,
+    "sha256": "a55d77f28db5c1bca0591db13f92f0d1a90725eb5677ca118693d5f27b041823"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-1/receipt.json",
+    "bytes": 30511,
+    "sha256": "37e059b43e8b0ce02b19ca24c3669d93d893624d0b2085ec30c121d919023940"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-1/replay.json",
+    "bytes": 2079,
+    "sha256": "16fba677188bb265e059a60f5662bc115d4de80d01f6cf467a166a43d35c3041"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-cold-counters-1/stdout.log",
+    "bytes": 514,
+    "sha256": "6a717184cc491d46e099440a6a2a5099960d70829e3276cd0f87871a16e4e1e0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-0/analysis.json",
+    "bytes": 280288,
+    "sha256": "8f20733b8515727747aad0f4c2c9ec608c03bd4ac0fbde08b02ecec1d08c08a2"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-0/counters.csv",
+    "bytes": 166678,
+    "sha256": "765a81697e62a4c5e5c70aaad4127af33a2f8acac0d48effcaef3d02f9b80644"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-0/counters.ncu-rep",
+    "bytes": 34875645,
+    "sha256": "d2f62c4dfb6bc18afc44f889509da52893836cf1092762a41d4d952447bd4b6d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-0/physical-comparison.json",
+    "bytes": 1516,
+    "sha256": "6ea32f235efe0f7aef1aec724e7cb22b36c758893ffa703d4480a79c7e037470"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-0/process.maps",
+    "bytes": 32961,
+    "sha256": "c5b921e7671b9791b8861fc5c23e34bfca160877aa2c99ce64d7cfbc6d2d5209"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-0/receipt.json",
+    "bytes": 72196,
+    "sha256": "439efe0aa83bd7493681937e921e9c11cfc8c56735394a481801996591c8349d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-0/replay.json",
+    "bytes": 2130,
+    "sha256": "39910570ce967f35b1fdc0f5c0c03e438660393a5c9087a65c4ef0175df5facd"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-0/stdout.log",
+    "bytes": 515,
+    "sha256": "929f8e987aee18baa46b0d428d08e372b599f1c3b960080ad3d544fdf853557e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-1/analysis.json",
+    "bytes": 278347,
+    "sha256": "9261ec1ad32a16fb849bb7abfae28880abef1af3f69ebd02972f5425cbe2ce87"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-1/counters.csv",
+    "bytes": 164242,
+    "sha256": "6f92c3d3ba2289d58d71b9afc101e01199bd0d5ea9e136e84c1e5e21b884a3fe"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-1/counters.ncu-rep",
+    "bytes": 15693638,
+    "sha256": "26590b9060e89ca5cfc0ea5b54e31c038174187a457d6df6bbdcf9857848f196"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-1/physical-comparison.json",
+    "bytes": 1515,
+    "sha256": "5f9743c5b712edbcc0b6e9487e8b8285e07be464a404a5158c37b0e6c0fb7113"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-1/process.maps",
+    "bytes": 32275,
+    "sha256": "33dbf47d90556bf767a4d17ba87f8b29bf5a901763ac4708e1892f5c03451fed"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-1/receipt.json",
+    "bytes": 30511,
+    "sha256": "d469b9b80b7d227b62c832b1f1d4fe1beece6741dfd47f63737510939736437c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-1/replay.json",
+    "bytes": 2124,
+    "sha256": "4e35b0b2e36cb7f162323b615d8895fa5becb88458ba9dc6c97160d06e8bcdbf"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/tower64-warm-counters-1/stdout.log",
+    "bytes": 514,
+    "sha256": "ae61205137e61b4acd6ed5eca90939277d4aaa0db45aa65d3debd8d24c4d77bc"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full-audit.json",
+    "bytes": 34981,
+    "sha256": "832cc1ef344f9e8c0580dff4987822dd93aaeb3423943bfb2bb748cd94e153f0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-asan-intercept/receipt.json",
+    "bytes": 226685,
+    "sha256": "a0898f796883b92d1bba9cb2e02adca5c181006f1da9fc5b89e4386f1df2bd6d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-asan-intercept/stdout.log",
+    "bytes": 495786131,
+    "sha256": "0b1f25633808831f1c9136305f2669dc03310ec6cff71e0a809e1259698409bb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-count1/receipt.json",
+    "bytes": 17026,
+    "sha256": "bc39bd22c65c0c4f4b86679cb4b98d76986e9675d82375fdee76f6b944aeac3c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-count1/stdout.log",
+    "bytes": 496,
+    "sha256": "3360b676287323310953f95d81515167d070e8ac6a5f685946c2b6b876813558"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-graph-control/receipt.json",
+    "bytes": 16932,
+    "sha256": "b8e3692047b01666b0f5ee9df9d703fe98de653f0358b942bf6d072afc24b0c8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-graph-control/stdout.log",
+    "bytes": 501,
+    "sha256": "b5ef97baf8bf6cca87ca89f9bd1472f6b246809a0a35914ee502fad99d7889b5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-ncu2025/receipt.json",
+    "bytes": 21932,
+    "sha256": "19869520a23caa81f2c5b23f64a67204eff661cbc861000f4db4f17d059097c7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-ncu2025/stdout.log",
+    "bytes": 499,
+    "sha256": "29e30740f659301daada4007243cd912c7182e6aa85cceeb83092371f2683c1d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-ncu2025-full/receipt.json",
+    "bytes": 57715,
+    "sha256": "dd2496f6d664a99014041601d9d8775bf583cb168213fbabe5a72113cc2fcc1c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-ncu2025-full/stdout.log",
+    "bytes": 578,
+    "sha256": "d23c614f2092c34c424a07708ab5f59837aca7b21e634f4a2d973d4000daab4f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-no-collection/receipt.json",
+    "bytes": 11494,
+    "sha256": "2d654ca3b0af26a31249450a0796bbd955b6cfd2d096392f170b5b54dbf30291"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/impact-no-collection/stdout.log",
+    "bytes": 330,
+    "sha256": "adaed227b176d8f75766ca5a02b97b90e3f69d90718f27c2de3ac598a2f2ddf6"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-audit.json",
+    "bytes": 5633,
+    "sha256": "cf561f34c1711a2b2d512abf74199ad5f935802b4344a37b701f93e0b7fe36ef"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/analysis.json",
+    "bytes": 279285,
+    "sha256": "f3caa7f774886ce09677cd72277a562eadaa131a54e990a0f3e415ad71535538"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/counters.csv",
+    "bytes": 165471,
+    "sha256": "7566ce92c244e14616c046785939eb3c1435c9ab6fd4284fee6dee4303c98893"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/counters.ncu-rep",
+    "bytes": 21851032,
+    "sha256": "71a644c4f31515e903f039f97de254feb428ff83e2a3b7be25baa6750c96cf2f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/physical-comparison.json",
+    "bytes": 1469,
+    "sha256": "26798da709ed6bdff595edf8d577522c7ec0969913ca625b87b17b211cff8a03"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/process.maps",
+    "bytes": 32422,
+    "sha256": "bc4cd831bbe3f7b600c9ad9e86022d8a068df88b168e93fb3db5275fa27a2132"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/receipt.json",
+    "bytes": 36495,
+    "sha256": "b71b99ece508cf64b6e9d8a7802d8244036b608ca846e32f31c4d2283906e66f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/replay.json",
+    "bytes": 2101,
+    "sha256": "2bb9c86edf6427b2b424c79ebb47835df654227b1458f727d86d69adcd878357"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/bridge64-cold-counters-0/stdout.log",
+    "bytes": 521,
+    "sha256": "9eb06fcd18a4c9797b00556ac954c7153c65e04ae9d88e89893067c2f7733b1f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/campaign.json",
+    "bytes": 11461,
+    "sha256": "cd1a6fad82221d0413f1571b16915c66211a6cb30306d0f57d6679a16749fcdb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/analysis.json",
+    "bytes": 279228,
+    "sha256": "f39dfca068dedcf044b5eabe01c5d1b0acee1cbd2e4471c22583caf4bf2276d0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/counters.csv",
+    "bytes": 165355,
+    "sha256": "57fd7570c58717d245987bad0c675befaba9a6ea5cf9969256320ae3a8bc4606"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/counters.ncu-rep",
+    "bytes": 21197544,
+    "sha256": "42d9a2a1fbfe73725fea810b31d1a41ea5f2db9772d0d737d666505f626136a4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/physical-comparison.json",
+    "bytes": 1470,
+    "sha256": "f2c412c02dfc85d654b48b57eb87780d6d48f496cce9043a8990cfc0bd08f4f5"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/process.maps",
+    "bytes": 31536,
+    "sha256": "48e383a0cdbe7fe5e3be85433bc7f8338a49eddb4a0e19087e3e528cefcead7c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/receipt.json",
+    "bytes": 35379,
+    "sha256": "4e12ff050b639880c7c57ec63b460106ed2e801b39ea2a8dcba57e348f0d3635"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/replay.json",
+    "bytes": 2102,
+    "sha256": "f3dcd30248f69887ebdb365fb9901f0f6667ec68e3a65ac2bde23be75bd35ed1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/chain256-cold-counters-0/stdout.log",
+    "bytes": 521,
+    "sha256": "274c11792fe1f56cb0f5561e4859b28a55e92f8076afb57a339d274ad4ee2fcc"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/analysis.json",
+    "bytes": 559282,
+    "sha256": "4a56dfd0920afd9b96716f688c2ee95bfd231ed345f20e597d6e3f37c982f630"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/counters.csv",
+    "bytes": 184745,
+    "sha256": "6d7526317805817364bd2a70865dfc84550a665ea7110a3de6622d2df225db1d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/counters.ncu-rep",
+    "bytes": 33417724,
+    "sha256": "aec2d8f51a6804f0d713eab1d3073401484356a1fa32d0ebf9cd8d76252c5e02"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/physical-comparison.json",
+    "bytes": 1488,
+    "sha256": "e900aad9f26f0ff541d14fc3d3c1957775f86aaad278fdb98b5009f564cbe80e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/process.maps",
+    "bytes": 32630,
+    "sha256": "aabafb8bcce6c550cbb3d6284e87c5e7dbd7406910c794d2904cf4e4c9da1518"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/receipt.json",
+    "bytes": 58004,
+    "sha256": "a68e845d4dc2473f805ceaeafa0d2008b3c0b5ad718b96c2aa6e4bc3492069e1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/replay.json",
+    "bytes": 2114,
+    "sha256": "ee641ba28fae1e673edbf7393df27d417fa6dfd969e36be773c584cc4660892d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0/stdout.log",
+    "bytes": 602,
+    "sha256": "ae175e949d30ce63d8ad711703807807246a55c11d1dbf504f5470d1d1229929"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/analysis.json",
+    "bytes": 279887,
+    "sha256": "38840f501871f19d249447f9bb513286177224fc16027484854d99272b41e915"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/counters.csv",
+    "bytes": 166125,
+    "sha256": "24f87944408a3cd6c0c8ec609485963e1e0ebd850acf2356367099f352642a92"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/counters.ncu-rep",
+    "bytes": 21872498,
+    "sha256": "c93e24450c7e3b8170e6a2c1daf3b512d2fd4aa5ab04db952cbbbf97a21f09c1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/physical-comparison.json",
+    "bytes": 1485,
+    "sha256": "d430e4a39259316131de4044b4341fc5fa7ba1d33ccd5520eb44f0ae217c95f4"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/process.maps",
+    "bytes": 31791,
+    "sha256": "41bdc531b95722663fe12a0dcf92f63d873d66fc8c7f8a52c55edc88f91d221e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/receipt.json",
+    "bytes": 76306,
+    "sha256": "41972a0cbd49128597662acc0f085b5237884ae9631a4a6bff0973db186c50b9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/replay.json",
+    "bytes": 2123,
+    "sha256": "2c33af27f8e6324dc8bd7152ae30e05a0d1507d5aba8eda83fc812f24391f60d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-intact-idle-counters-0/stdout.log",
+    "bytes": 527,
+    "sha256": "b95caf94bebb266f933daab054e046d8202db4864712fc795c090c4a87e401f0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/analysis.json",
+    "bytes": 560366,
+    "sha256": "af3fda1806b1a0eb4a3f040e3c74bbd02d51055d414922a28a791a267ed8737e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/counters.csv",
+    "bytes": 185658,
+    "sha256": "96798fb004b8c851f242caeb315c2d4257609494279ce1f3e3dedf74a9d8fbca"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/counters.ncu-rep",
+    "bytes": 48679790,
+    "sha256": "215dc7c6e187be8419489e0d066bb675a05a07c45ed3ff13455539668454529e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/physical-comparison.json",
+    "bytes": 1485,
+    "sha256": "1ebd0fb41395e28c3f17f2ffcafcf13e2e2846fea373323a2adf1b28e4ddf833"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/process.maps",
+    "bytes": 31114,
+    "sha256": "79be70c2ac27ae746a07c19fbac07915b2b2fd654b5b4271b816a4b0fa9b4605"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/receipt.json",
+    "bytes": 152671,
+    "sha256": "001f0cdf7aa3234bedfd3e06ce404114a66b5e0b7103a98b7fdbbaec79b40ce7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/replay.json",
+    "bytes": 2170,
+    "sha256": "bdbaed0f9aed0157f9bbe3c6d01441e0a6e2e5f39fec7f7d7f1ed725d0bd7698"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0/stdout.log",
+    "bytes": 762,
+    "sha256": "9de312506ece8559e1c7078c7b2fe09c8521a6d59105a738f25d1e0685a2ce2e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/commands.json",
+    "bytes": 18662,
+    "sha256": "f4252cb0ffed35829f9e88c0cf754ac37244f6b6df6615c76d0b5e3e305ac2ca"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/analysis.json",
+    "bytes": 280112,
+    "sha256": "4a7380af22594e9e3de08a0e575b67e3315ded80288ad95e537e0dfdd76d8f2b"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/counters.csv",
+    "bytes": 166508,
+    "sha256": "f9889e5e1f5afdee041f38dfc6acb7d895027ecaab83d759459574df0b8e1229"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/counters.ncu-rep",
+    "bytes": 36053306,
+    "sha256": "11a44bfdc293911a528af9fcf3ede0d7e18ecab01097f4a267f91a4a16960f20"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/physical-comparison.json",
+    "bytes": 1524,
+    "sha256": "8940fd6c818afe20528bcd1e67145b4bb47baacd37fea57af2b7815847177a37"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/process.maps",
+    "bytes": 32716,
+    "sha256": "29fde0ed2af0db0cd4b16099a32ea24600d15225b0e743dbdb195e2815711ffa"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/receipt.json",
+    "bytes": 56113,
+    "sha256": "48893552a6ba98e8f4396202c1f4d3219dedddea89111d454ab59d5dd8b0bc89"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/replay.json",
+    "bytes": 2081,
+    "sha256": "0672a4be554fea6b2210f47fed18433b6665112272e0e70b5ad2dd592306db38"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-0/stdout.log",
+    "bytes": 521,
+    "sha256": "21176313e1cf01092f979ea93b8fb22268f1a7bcfd97a76cbcebe491b42340c9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/analysis.json",
+    "bytes": 278326,
+    "sha256": "5374ad4b2d283ce8243b81db07e0bd73cb7416eef8b617d40a37160e86c7fa40"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/counters.csv",
+    "bytes": 164243,
+    "sha256": "6aa75108c298177f8fd0a750511560d1c7cf3dc9bf2196d0e3755680dff3f923"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/counters.ncu-rep",
+    "bytes": 15789314,
+    "sha256": "7d2e11c62316a54e65ff123ba5b69092a714602ee079e2986f06a076d99bb7f9"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/physical-comparison.json",
+    "bytes": 1524,
+    "sha256": "52e214564df84024b61c5b96c3ac6dd9c8609aa915eee3b5ab99d4efb426277a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/process.maps",
+    "bytes": 32373,
+    "sha256": "c5a49df1b7d3cc510f9292262938fa0e83340c37fde1df20c1c7e188e692661a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/receipt.json",
+    "bytes": 28832,
+    "sha256": "4651755ede920069f1feb76e272755ae01e4c8d5cb64f012436c24203a7004df"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/replay.json",
+    "bytes": 2063,
+    "sha256": "1756161cb0622a7e3248846df5619d838cef4cb950f07ddd30c79af0ed1375a0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/dense12-cold-counters-1/stdout.log",
+    "bytes": 520,
+    "sha256": "de452eb6106c166dc129e3c75c478364d79f40bdeb225670bbd2a52b673de159"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/analysis.json",
+    "bytes": 556484,
+    "sha256": "024e080b6ee697ac45211bdb5291a0156f1d08e0d57e587fb1bd658d8915f982"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/counters.csv",
+    "bytes": 180678,
+    "sha256": "fb4fe0cfe444ad07e4e18b1cc732b6ff81fb5d54a958dc0e1e7b7c2253250874"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/counters.ncu-rep",
+    "bytes": 2916080,
+    "sha256": "d9eee793f59b0bc3f07368f45bc10177c3ce73bcaf93c22c9e1dfd8ae09bbb8d"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/physical-comparison.json",
+    "bytes": 1482,
+    "sha256": "dca8774147dbd5b8bad30c759db9d75806cabfa3df46f7fef50d98f0234f2db0"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/process.maps",
+    "bytes": 32226,
+    "sha256": "6cd394d501187801794f3064ba2d8c771c7c0c9e2ff06741135c6fe15fcbaace"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/receipt.json",
+    "bytes": 28924,
+    "sha256": "3446a35cf88efbaee76fad1d470e3ddd2fbac42dc181e975e0e63849046769e1"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/replay.json",
+    "bytes": 2084,
+    "sha256": "5fadf6b7a7f743a9865cca8b3872f781dee87a73a09ee5a93a36541f113bc0cb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-0/stdout.log",
+    "bytes": 647,
+    "sha256": "4bb47c202b484592b4429b25d59e85de28d2905466c58043bbadfc6e74d5a65c"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/analysis.json",
+    "bytes": 278426,
+    "sha256": "a3dae5454890dbd3c915bc3e2cdf933daaefb15e97f6b69abbeb198d099b4d3a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/counters.csv",
+    "bytes": 164310,
+    "sha256": "0df0f61df961836e58dc643704043c422a90761786ce3cb00c1e36181561bd1f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/counters.ncu-rep",
+    "bytes": 15940074,
+    "sha256": "628d14a935266eb4d73aa205839851ebbe398daa3071e175772a78374549ce7e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/physical-comparison.json",
+    "bytes": 1482,
+    "sha256": "fae44f32d3f2d9014b37089667a1afe186afdc951f843f2270fd5940b6a136f8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/process.maps",
+    "bytes": 32275,
+    "sha256": "d5c565dad80d5e486c793821773479b77145bbaeb723bd7ae6c0a2d48406dbb8"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/receipt.json",
+    "bytes": 31515,
+    "sha256": "c2f9478e942d1f95452205f6fea5e764a42e78047183d08ab35e23d1351934e3"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/replay.json",
+    "bytes": 2094,
+    "sha256": "e4a3cf6ffc5bb5ce2956bef48881023094d0084986e487c38d0f0deecc49f9fe"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/destruction-stimulus-counters-1/stdout.log",
+    "bytes": 528,
+    "sha256": "88ffcb06ed679a3059b44a6d491cbf85c9f4e1d515a49a14288bf36bed2395fc"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/reuse-index/campaign.json",
+    "bytes": 47774,
+    "sha256": "d35f7de46b54342f5eae34ea55a4088345ef1beacb9e0baad091e4a940a7905b"
+  }
+]

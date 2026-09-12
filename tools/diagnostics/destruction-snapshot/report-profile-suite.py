@@ -18,7 +18,7 @@ for run in campaign['scenarios']:
    m=launch['metrics'];selected={k:m[k] for k in keys if k in m}
    stalls={k:v for k,v in m.items() if k.startswith('smsp__average_warps_issue_stalled_') and k.endswith('_per_issue_active.ratio')}
    warnings=[f'{k}={v["value"]}% outside [0,100]; do not use for quantitative diagnosis' for k,v in selected.items() if v['unit']=='%' and isinstance(v['value'],(float,int)) and (not math.isfinite(v['value']) or v['value']<0 or v['value']>100)]
-   launches.append(dict(name=launch['name'],metrics=selected,warp_stall_ratios=stalls,raw_metric_count=len(m),warnings=warnings,raw=capture['path']))
+   launches.append(dict(name=launch['name'],metrics=selected,warp_stall_ratios=stalls,raw_metric_count=len(m),warnings=warnings,raw=capture['path'],physical_comparison=capture.get('physical_comparison')))
  row=dict(scenario=run['scenario'],baseline=dict(mean_ms=ref['tick_mean_ms'],max_ms=ref['tick_max_ms'],samples=ref['n'],misses_60hz=ref['misses_60hz'],misses_120hz=ref['misses_120hz'],spread_ms=ref['tick_spread_ms'],stage_mean_ms={k:ref['stages_ms'][k] for k in ['command_ms','simulate_fetch_ms','completion_ms']},raw=ref['raw']),
    profiled_tick_ms=t['tick_ms'],gpu_activity_union_ms=t['gpu_activity_union_ms'],no_traced_gpu_activity_ms=t['no_traced_gpu_activity_ms'],
    kernel_count=t['kernel_count'],copy_count=t['copy_count'],copy_bytes=t['copy_bytes'],stage_ms=t['stage_ms'],
@@ -34,7 +34,8 @@ for run in campaign['scenarios']:
   row['pm']={k:v for k,v in t['pm'].items() if k!='kernels'}
   row['pm']['longest_kernel_interiors']=sorted(t['pm']['kernels'],key=lambda k:-k['ms'])[:20]
  rows.append(row)
-result=dict(scope='Unprofiled tick baseline is separate from diagnostic instrumented timeline/counter launches. NCU replays kernels with cache flushing, clocks unlocked; shared graphics/server contexts remain. No optimization gain established.',cases=len(rows),status='complete' if campaign.get('status')=='complete' else 'partial',scenarios=rows,identity=campaign['identity'])
+result=dict(scope='Unprofiled tick baseline is separate from diagnostic instrumented timeline/counter launches. NCU replays kernels with cache flushing, clocks unlocked; shared graphics/server contexts remain. No optimization gain established.',cases=len(rows),status='complete' if campaign.get('status')=='complete' else 'partial',scenarios=rows,identity=campaign['identity'],ncu_collector=campaign.get('ncu'))
+result['counter_coverage']=dict(scenarios=sum(bool(r['counter_launches']) for r in rows),launches=sum(len(r['counter_launches']) for r in rows))
 (a.output/'report.json').write_text(json.dumps(result,indent=2)+'\n')
 lines=['# Scenario hardware-counter atlas','',result['scope'],'','All rows include Systems GPU kernels, memory transfers, CUDA API calls and disjoint full-tick host ranges. Non-replaying PM hardware counters cover the complete tick and sufficiently long kernel interiors. Detailed NCU data supplements cases where profiling completed correctly. Failed NCU captures are excluded. Two independent restores verify each capture; only the first tick is analyzed. The process trace drains at normal exit; all four declared tick ranges must be present and closed. CUDA event-completeness warnings reject the capture; generic NVTX warnings are retained in JSON.','','| Scenario | Unprofiled tick mean / peak ms | Traced GPU active ms | Kernel / copy calls | Copy bytes | Dominant kernel |','|---|---:|---:|---:|---:|---|']
 for r in rows:lines.append(f"| {r['scenario']} | {r['baseline']['mean_ms']:.3f} / {r['baseline']['max_ms']:.3f} | {r['gpu_activity_union_ms']:.3f} | {r['kernel_count']} / {r['copy_count']} | {r['copy_bytes']:,} | {r['top_kernels'][0]['name'].split('(')[0]} |")
@@ -45,7 +46,7 @@ lines+=['','## Whole-tick hardware sampling','','These are device-wide samples i
 for r in rows:
  if 'pm' in r:
   v=r['pm']['tick'];lines.append(f"| {r['scenario']} | {v['samples']} | {100*v['interior_coverage']:.1f}% | {v['resident_warps_elapsed_pct']:.3f} | {v['instructions_per_sm_cycle']:.3f} | {v['dram_gb_s']:.3f} |")
-lines+=['','## Selected detailed NCU counters','','Rows correspond to selected kernel launches, not the entire tick. Occupancy is achieved active warps; eligible warps measure readiness to issue. DRAM rates retain the profiler\'s explicit units. Stall ratios and cache/local-memory metrics are in JSON and full raw CSV.','','| Scenario / launch | Registers | Occupancy % | Eligible warps | Issue active % | FP64 active % | DRAM rate |','|---|---:|---:|---:|---:|---:|---:|']
+lines+=['','## Selected detailed NCU counters','',f"Coverage: {result['counter_coverage']['scenarios']}/{len(rows)} scenarios, {result['counter_coverage']['launches']} selected launches.",'','Rows correspond to selected kernel launches, not the entire tick. Occupancy is achieved active warps; eligible warps measure readiness to issue. DRAM rates retain the profiler\'s explicit units. Stall ratios and cache/local-memory metrics are in JSON and full raw CSV.','','| Scenario / launch | Registers | Occupancy % | Eligible warps | Issue active % | FP64 active % | DRAM rate |','|---|---:|---:|---:|---:|---:|---:|']
 for r in rows:
  for i,l in enumerate(r['counter_launches']):
   def f(k,unit=False):

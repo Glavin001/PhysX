@@ -6,8 +6,10 @@ ROOT=Path(__file__).resolve().parents[3]
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('output',type=Path)
 p.add_argument('--manifest',type=Path,required=True);p.add_argument('--binary',type=Path,required=True);p.add_argument('--artifacts',type=Path,required=True)
 p.add_argument('--preset',choices=['light','full'],default='light');p.add_argument('--reuse',type=Path,help='Prior matching campaign; matching passed captures are reused')
-p.add_argument('--counter-mode',choices=['full','hardware','pm'],default='pm')
+p.add_argument('--counter-mode',choices=['full','hardware','pm'],default='full')
 p.add_argument('--ncu-replay',choices=['kernel','application'],default='kernel')
+p.add_argument('--ncu-binary',type=Path,default=Path('/opt/nvidia/nsight-compute/2025.3.1/ncu'),help='Pinned qualified counter collector; 2026.3.0 has a fracture-path injection failure')
+p.add_argument('--physical-reference',type=Path,default=Path('out/snapshot-reset-20260911/prepared-full20'),help='Qualified unprofiled complete-SCENARIO physical observations')
 p.add_argument('--allow-existing-graphics',action='store_true');p.add_argument('--allow-compute-pid',type=int,action='append',default=[])
 a=p.parse_args();out=a.output.resolve();out.mkdir(parents=True,exist_ok=False);started=time.monotonic()
 manifest=json.loads(a.manifest.read_text());cases=manifest['scenarios']
@@ -22,10 +24,11 @@ if previous:assert previous['identity']==identity,'Cannot reuse different profil
 opts=[]
 if a.allow_existing_graphics:opts+=['--allow-existing-graphics']
 for pid in a.allow_compute_pid:opts+=['--allow-compute-pid',str(pid)]
-nsys='/opt/nvidia/nsight-systems/2026.3.2/bin/nsys';ncu='/opt/nvidia/nsight-compute/2026.3.0/ncu'
+nsys='/opt/nvidia/nsight-systems/2026.3.2/bin/nsys';ncu=str(a.ncu_binary.resolve())
+record['ncu']={'path':ncu,'sha256':sha(a.ncu_binary),'version':subprocess.check_output([ncu,'--version'],text=True).strip()}
 commands=[]
 def run(cmd,label):
- with (out/(label+'-driver.log')).open('x') as log:result=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT)
+ with (out/(label+'-driver.log')).open('x') as log:result=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,env=dict(os.environ,PHYSX_SNAPSHOT_DUMP_OBSERVATIONS='1'))
  commands.append(dict(command=cmd,exit_code=result.returncode));(out/'commands.json').write_text(json.dumps(commands,indent=2)+'\n')
  if result.returncode:raise RuntimeError(f'{label} failed; inspect preserved log')
 for case in cases:
@@ -39,6 +42,8 @@ for case in cases:
   if prior:assert prior['input_sha256']==case['input_sha256']
   prior_mode=prior.get('counter_mode','full' if prior.get('counters') else None) if prior else None
   reusable=prior_mode==a.counter_mode or (a.counter_mode=='hardware' and prior_mode=='full')
+  if a.counter_mode!='pm' and prior:
+   reusable=reusable and previous.get('ncu')==record['ncu'] and all(c.get('physical_comparison') for c in prior.get('counters',[]))
   if prior and prior.get('timeline'):
    old_receipt=json.loads((Path(prior['timeline'])/'receipt.json').read_text())
    reusable=reusable and old_receipt['profiler'].get('raw_timeline_scope')=='process'
@@ -70,7 +75,7 @@ for case in cases:
    # symbol avoids argument/type-name ambiguity in the profiler's function mode.
    symbol=target.split('(')[0].split('::')[-1].split('<')[0];capture=out/(name+'-counters-'+str(i))
    print(name,'counters',symbol,flush=True)
-   run([*base,str(capture),*common,'--profiler','ncu','--ncu-kernel','regex:'+re.escape(symbol),'--ncu-count','2','--ncu-mode',a.counter_mode,'--ncu-replay',a.ncu_replay],name+'-counters-'+str(i))
+   run([*base,str(capture),*common,'--profiler','ncu','--ncu-kernel','regex:'+re.escape(symbol),'--ncu-count','2','--ncu-mode',a.counter_mode,'--ncu-replay',a.ncu_replay,'--ncu-binary',ncu],name+'-counters-'+str(i))
    reports=list(capture.glob('counters.ncu-rep*'));assert len(reports)==1,'No unique NCU report'
    with (capture/'counters.csv').open('x') as csv:
     cmd=[ncu,'--import',str(reports[0]),'--page','raw','--csv'];result=subprocess.run(cmd,stdout=csv,stderr=subprocess.PIPE,text=True)
@@ -80,7 +85,10 @@ for case in cases:
    replay=json.loads((capture/'replay.json').read_text());assert replay['passed']
    for k in ['broken_bonds','correction_passes','stress_passes','output_clusters']:
     assert replay['samples'][0][k]==data['physical_sample'][k],f'Profiler changed {k}'
-   row['counters'].append(dict(target=target,path=str(capture),launches=len(metrics),report_sha256=sha(reports[0])))
+   comparison=capture/'physical-comparison.json'
+   reference=a.physical_reference.resolve()/('complete-'+name)
+   run([sys.executable,str(ROOT/'tools/diagnostics/destruction-snapshot/compare-observations.py'),str(reference),str(capture),str(comparison)],name+'-physical-'+str(i))
+   row['counters'].append(dict(target=target,path=str(capture),launches=len(metrics),report_sha256=sha(reports[0]),physical_comparison=str(comparison)))
   row['status']='complete'
  except Exception as error:row.update(status='failed',error=str(error));save();raise
  save()
