@@ -355,6 +355,7 @@ void runGeometry(const char* kind,unsigned prefix,const char* directory,bool imp
 }
 int main(int argc,char** argv){try{
     require(argc>=2,"usage: serialization-probe OUTPUT_DIRECTORY [--replay PREFIX --repetitions N] [--projectile-impulse]");
+    SnapshotProfileSession profileSession(argv[1]);
     std::string replayPrefix;unsigned repetitions=10;bool impulse=false;
     for(int i=2;i<argc;++i){const std::string option=argv[i];
         if(option=="--require-complete-shapes")requireCompleteShapes=true;

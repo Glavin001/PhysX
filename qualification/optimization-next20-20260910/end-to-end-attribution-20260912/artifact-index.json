@@ -1,0 +1,47 @@
+[
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/probe/build.json",
+    "bytes": 7027,
+    "sha256": "198096936f1014a3b541a30fe6ff77ed41c7ad0ac68219881b0ea43ffdadaedb"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/plain-build/build.json",
+    "bytes": 7012,
+    "sha256": "f308bd013c3565e81230242986ba1354ea221e38b550988e4ff840d5cb26d0de"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/gpu-fault/kernel-journal.log",
+    "bytes": 323579,
+    "sha256": "75b0097fdc6d6561ac3ea280271a2709be89c4bf67c951129b336e8b7bd6514e"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/gpu-fault/nvidia-smi.log",
+    "bytes": 14805,
+    "sha256": "822573ccc9ba8bdb69ef39b16bb97e1083a961d72f412a59c7759bd8f51ed1b7"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/gpu-fault/device-users.log",
+    "bytes": 487,
+    "sha256": "f8385cfd51e162636d92ac6b3f133bb559249fe10231f360c997cf01d95e000a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight-compute-2026.2.1.tar.xz",
+    "bytes": 352851120,
+    "sha256": "6d1e789b66b963b2b1d5380cb22efa9d94e2ba9f9c1324280c53fced7cf3e385"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight_compute-linux-x86_64-2026.2.1.5-archive/ncu",
+    "bytes": 310,
+    "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight_compute-linux-x86_64-2026.2.1.5-archive/target/linux-desktop-glibc_2_11_3-x64/ncu",
+    "bytes": 39122384,
+    "sha256": "23acb47dac7a6dc1545f0804e793e246d8811c44a55484518390b85c1eebf34f"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight_compute-linux-x86_64-2026.2.1.5-archive/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+    "bytes": 15961416,
+    "sha256": "3659b729cc202b069b8a9971c00a7ff3b5128528baaef159b42dfa5cb1d324f0"
+  }
+]

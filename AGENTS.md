@@ -1,5 +1,24 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
+Latest end-to-end attribution expansion (2026-09-12): **38/52 CPU cases qualify**,
+76 checked ticks, 6,536 CPU samples, 11,307 engine scopes and 9,280 GPU launches.
+All 28 structural / eight city25 / first two city64 cases pass unchanged physical
+comparisons. City64 initial-impact is quarantined despite application success:
+Xid120 GSP firmware store fault at 05:30:46 UTC in its CUPTI worker PID1671498,
+during context teardown. The next case cannot initialize CUDA; **GPU requires
+reset**. No owned GPU jobs remain. Other project's server/desktop clients still
+hold device handles; no service interruption, reset or reboot is authorized.
+Preserved recovery plan and [all-scenario coverage/report](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/README.md).
+Do not call the 52-case expansion complete. CPU campaign resume preserves good
+cases and failed attempts. Pilot reduced Systems tracing after authorized GPU
+recovery; optional allocation/all-API tracing is now separate, not a proven fix.
+Pinned 2025.3.1 NCU still qualifies the old selected/stress captures but skips
+conditional-graph kernel nodes. Archived 2026.2.1 is extracted locally; its pilot
+has NOT run. Expanded all-invocation significant-kernel inventory/audit is
+implemented but unqualified. New continuous CPU captures remain pending. Both
+probe builds and five accounting tests pass. Runtime/physics and installed SDK
+unchanged; no new optimization or speedup. Follow OPTIMIZATION.md.
+
 Latest Nsight Compute recording fix (2026-09-12): **52/52 scenarios now pass full
 NCU capture and unprofiled-reference physical comparison**, 62 reports /
 86 selected kernel launches / 124 checked full ticks. Pin the already

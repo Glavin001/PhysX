@@ -1,0 +1,19 @@
+{
+  "status": "incomplete",
+  "scenarios": 52,
+  "qualified_cpu_scenarios": 38,
+  "remaining_cpu_scenarios": 14,
+  "checked_qualified_ticks": 76,
+  "cpu_samples": 6536,
+  "engine_scopes": 11307,
+  "kernel_launches": 9280,
+  "maximum_motion_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 4.889018380138666e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  },
+  "counter_status": "Prior 52-scenario selected/stress captures remain available. Expanded significant-kernel collection is unqualified; 2025.3.1 skips conditional graph nodes. 2026.2.1 pilot has not run.",
+  "warm_status": "Existing warm reports retained; new CPU-enabled continuous idle/heavy captures pending GPU recovery.",
+  "scope": "Diagnostic CPU sampling, scheduling, engine phases, CUDA/OS calls and GPU activity. No application optimization or speedup. Baseline times are separate unprofiled 20-sample restored full ticks, excluding restore and validation."
+}

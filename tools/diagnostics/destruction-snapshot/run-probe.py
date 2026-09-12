@@ -23,6 +23,8 @@ parser.add_argument('--sanitizer',choices=['memcheck','initcheck','synccheck'])
 parser.add_argument('--profiler',choices=['nsys','ncu','pm'],help='Diagnostic first-tick capture; requires a --profile-built probe')
 parser.add_argument('--ncu-kernel',default='regex:componentStressSolve',help='Target kernel function filter')
 parser.add_argument('--ncu-count',type=int,default=2)
+parser.add_argument('--ncu-kernel-id',help='Nsight kernel identifier; name and invocation fields support regular expressions')
+parser.add_argument('--ncu-name-base',choices=['function','demangled','mangled'],default='function')
 parser.add_argument('--ncu-mode',choices=['full','hardware'],default='full')
 parser.add_argument('--ncu-replay',choices=['kernel','application'],default='kernel')
 parser.add_argument('--ncu-preload',type=Path,help='Diagnostic target-only preload library; hashed in receipt')
@@ -30,6 +32,8 @@ parser.add_argument('--ncu-graph',choices=['node','graph'],default='node')
 parser.add_argument('--ncu-metrics',help='Explicit diagnostic metric list; recorded separately from preset')
 parser.add_argument('--ncu-binary',type=Path,default=Path('/opt/nvidia/nsight-compute/2025.3.1/ncu'),help='Qualified collector; 2026.3.0 aborts on the fracture-path API trace')
 parser.add_argument('--nsys-range',choices=['process','first-tick'],default='process',help='Capture full process to drain timeline events; analysis still selects only the first full tick')
+parser.add_argument('--nsys-cpu',action='store_true',help='CPU DWARF samples, scheduling, OS waits and CUDA call stacks; diagnostic only')
+parser.add_argument('--nsys-allocation-trace',action='store_true',help='Separate GPU allocation/all-API diagnostic; qualify on a pilot before a campaign')
 parser.add_argument('--sanitizer-blocking-launches',action='store_true',
                     help='Use the sanitizer blocking-launch diagnostic mode; never a performance capture')
 parser.add_argument('--sanitizer-sync-limit',type=int,
@@ -40,8 +44,8 @@ parser.add_argument('--repetitions',type=int,default=10)
 parser.add_argument('--projectile-impulse',action='store_true')
 parser.add_argument('--native-args-json',type=Path,help='Capture with native demo arguments from a JSON array; output added by wrapper')
 args=parser.parse_args()
-if args.profiler and (args.sanitizer or not args.replay_prefix):
-    parser.error('Profiling requires file replay and excludes sanitizer collection')
+if args.profiler and (args.sanitizer or not (args.replay_prefix or (args.native_args_json and args.profiler=='nsys'))):
+    parser.error('Profiling requires file replay (or native arguments for Systems) and excludes sanitizer collection')
 if args.ncu_count < 1:parser.error('Positive NCU launch count required')
 build_receipt=args.binary.resolve().parent/'build.json'
 if build_receipt.exists():
@@ -71,6 +75,7 @@ if args.profiler:
     tool=Path('/opt/nvidia/nsight-systems/2026.3.2/bin/nsys') if args.profiler in ('nsys','pm') else args.ncu_binary.resolve()
     record['profiler']={'tool':args.profiler,'version':subprocess.check_output([str(tool),'--version'],text=True).strip(),
         'performance_qualification':False,'range':'first restored complete tick; setup excluded'}
+    if args.native_args_json:record['profiler']['range']='Continuous native process; full tick bounds recorded in native.frames.csv'
     record['profiler']['binary']={'path':str(tool),'sha256':c.sha(tool)}
     if args.profiler=='ncu':
         injection=tool.parent/'target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so'
@@ -78,6 +83,15 @@ if args.profiler:
     if args.profiler in ('nsys','pm'):
         options=['profile','--trace=cuda,nvtx','--sample=none','--cpuctxsw=none','--cuda-graph-trace=node',
                  '-o',str(out/'trace')]
+        if args.nsys_cpu:
+            options=['profile','--trace=cuda,nvtx,osrt','--sample=process-tree','--cpuctxsw=process-tree',
+                     '--backtrace=dwarf','--samples-per-backtrace=1','--sampling-period=500000',
+                     '--cudabacktrace=all:10000','--osrt-threshold=1000','--osrt-backtrace-threshold=10000',
+                     '--cuda-graph-trace=node',
+                     '--resolve-symbols=true','-o',str(out/'trace')]
+        if args.nsys_allocation_trace:options+=['--cuda-trace-all-apis=true','--cuda-memory-usage=true']
+        record['profiler']['cpu_attribution']=args.nsys_cpu
+        record['profiler']['allocation_trace']=args.nsys_allocation_trace
         if args.nsys_range=='first-tick':options+=['--capture-range=cudaProfilerApi','--capture-range-end=stop']
         record['profiler']['raw_timeline_scope']=args.nsys_range
     else:
@@ -93,8 +107,11 @@ if args.profiler:
         record['profiler']['explicit_metrics']=args.ncu_metrics
         record['profiler']['graph_profiling']=args.ncu_graph
         record['profiler']['replay_mode']=args.ncu_replay
-        options=['--profile-from-start','off','--replay-mode',args.ncu_replay,*metrics,'--kernel-name-base','function',
-                 '--kernel-name',args.ncu_kernel,'--launch-count',str(args.ncu_count),
+        selection=['--kernel-name',args.ncu_kernel]
+        if args.ncu_kernel_id:selection=['--kernel-id',args.ncu_kernel_id]
+        record['profiler']['kernel_selection']={'name_base':args.ncu_name_base,'identifiers':args.ncu_kernel_id,'filter':None if args.ncu_kernel_id else args.ncu_kernel,'count':args.ncu_count}
+        options=['--profile-from-start','off','--replay-mode',args.ncu_replay,*metrics,'--kernel-name-base',args.ncu_name_base,
+                 *selection,'--launch-count',str(args.ncu_count),
                  '--graph-profiling',args.ncu_graph,'--clock-control','none','--cache-control','all','--export',str(out/'counters')]
         if args.ncu_preload:
             record['profiler']['preload']={'path':str(args.ncu_preload.resolve()),'sha256':c.sha(args.ncu_preload)}
@@ -126,9 +143,14 @@ def owned(pid,parent):
         except (OSError,StopIteration):return False
     return False
 def save():(out/'receipt.json').write_text(json.dumps(record,indent=2)+'\n')
+def require_gpu_health(sample):
+    if not sample.get('devices') or 'requires reset' in json.dumps(sample).lower():
+        raise RuntimeError('GPU unavailable or reset required; no capture is qualified')
 with (root/'out/destruction-ab.lock').open('a') as lock:
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     initial=c.gpu();record['before']=initial
+    try:require_gpu_health(initial)
+    except BaseException as error:record.update(status='failed',error=str(error));save();raise
     allowed=[p for g in initial['devices'] for p in g['processes'] if
              (args.allow_existing_graphics and p['type']=='G') or p['pid'] in args.allow_compute_pid]
     record['allowed']=allowed
@@ -140,6 +162,7 @@ with (root/'out/destruction-ab.lock').open('a') as lock:
             try:
                 while process.poll() is None:
                     sample=c.gpu();record['samples'].append(sample)
+                    require_gpu_health(sample)
                     extra=[p for g in sample['devices'] for p in g['processes'] if p not in allowed]
                     if len(extra)>1 and args.profiler!='pm':raise RuntimeError('Unlisted GPU process')
                     for target in extra:
@@ -169,6 +192,13 @@ with (root/'out/destruction-ab.lock').open('a') as lock:
             finally:
                 if process.poll() is None:process.terminate();process.wait(timeout=30)
         if record['exit_code'] or 'modules' not in record:raise RuntimeError('Probe failed or missing maps')
+        # NVML can briefly retain old temperature/clock values after a firmware
+        # fault. A zero application exit must not silently qualify an Xid run.
+        kernel_log=subprocess.run(['journalctl','-k','--since','@'+str(int(initial['unix_seconds'])),
+            '--no-pager','-g','NVRM: Xid'],capture_output=True,text=True)
+        record['kernel_fault_audit']={'available':kernel_log.returncode==0,'output':kernel_log.stdout.strip()}
+        if kernel_log.returncode==0 and 'NVRM: Xid' in kernel_log.stdout:
+            raise RuntimeError('GPU Xid during capture; inspect kernel_fault_audit')
         record['status']='complete'
     except BaseException as error:
         record.update(status='failed',error=str(error));raise

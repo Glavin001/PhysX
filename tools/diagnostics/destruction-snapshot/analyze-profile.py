@@ -70,11 +70,11 @@ def counters(path):
                 try:value=float(value.replace(',',''))
                 except ValueError:pass
                 metrics[name]=dict(value=value,unit=units[name])
-            result.append(dict(name=r['Kernel Name'],metrics=metrics))
+            result.append(dict(name=r['Kernel Name'],launch={k:r[k] for k in metadata if k in r},metrics=metrics))
         return result
     groups={}
     for r in reader:
-        key=r['ID'];g=groups.setdefault(key,dict(name=r['Kernel Name'],metrics={}))
+        key=r['ID'];g=groups.setdefault(key,dict(name=r['Kernel Name'],launch={k:r[k] for k in ('ID','Context','Stream','Block Size','Grid Size') if k in r},metrics={}))
         value=r['Metric Value']
         try:value=float(value.replace(',',''))
         except ValueError:pass
