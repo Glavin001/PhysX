@@ -18,14 +18,14 @@
       "experiment_cost": "CPU allocator/shape lifecycle and GPU ownership publication changes; memory, query, motion, correction and full-suite gates.",
       "supporting_measurements": "Fewer lifecycle calls/allocations and lower unprofiled first-fracture full ticks with identical ownership, contacts, mass/COM, correction and accepted physical observations.",
       "refuting_measurements": "Mandatory PhysX registration dominates unchanged; savings disappear outside the profiler, or any query/contact/sleep/physical mismatch.",
-      "prior_work": "N20 capacity patch is a smaller preserved experiment; rerun its memory qualification on the corrected baseline before reusing it.",
+      "prior_work": "N20 capacity patch is a smaller preserved experiment; rerun its memory qualification on the corrected baseline before reusing it. E1 already tested one factory-pool lock per actor batch (commit7f06ebc63cf983c6cd4154120e541cfe62d625b7). Native behavior and wall comparisons passed, but candidate/control memory findings prevented timing. Preserve that history; requalifying it is not a new invention.",
       "profile_locations": [
         "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
         "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
         "out/end-to-end-attribution-20260912/warm/campaign.json"
       ],
       "status": "queued_not_run",
-      "source_audit": "NpDestructionBodyAllocator::applyBindings already uses persistent ShapeSim IDs and defers actor/query observation in ordinary mode. ScShapeSimBase::rebindRigidOwner still refilters each migrated shape, retires contacts via onVolumeRemoved, rebinds narrowphase ownership and updates actor/SQ links. Audit batching of these actual operations; do not propose recreating or removing a full-geometry upload already absent.",
+      "source_audit": "NpDestructionBodyAllocator::applyBindings already uses persistent ShapeSim IDs and defers actor/query observation in ordinary mode. ScShapeSimBase::rebindRigidOwner still refilters each migrated shape, retires contacts via onVolumeRemoved, rebinds narrowphase ownership and updates actor/SQ links. Audit batching of these actual operations; do not propose recreating or removing a full-geometry upload already absent. applyBindings still re-resolves validated source/target bodies during scheduling and per-shape migration. A scoped validated transaction could remove those repeated pointer/membership lookups, but must prove bodies remain live through flags, refilter and ownership changes; preserve all pre-mutation validation.",
       "prepared_follow_up": {
         "status": "built_not_gpu_qualified",
         "commit": "b7918affda83942dba04e8626db696cca7fd283a",
@@ -41,34 +41,7 @@
       }
     },
     {
-      "title": "Separate anchored and free component execution",
-      "evidence": "Source audit: isolated no-live-bond chunks are already omitted by labelDeviceStressBonds/rootFlags and labelDeviceStressNodes, so the original empty-system hypothesis has no reachable target. Current common component kernel retains free-projection code/resources even for the overwhelmingly anchored iterative work. N10 uses108 registers,32.09% occupancy in the later selected capture. Current matching selected captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at113,664 chunks; register pressure is a hypothesis, not a diagnosed sole cause.",
-      "proposed_mechanism": "Use separate GPU-owned anchored/free work queues and template the component recurrence/preparation/preconditioning so the anchored specialization omits certified zero-dimensional nullspace work and its compiler resource footprint. Current validated mode dimension selects ownership; free components retain all projection. Preserve current equations and per-component numerical order; no CPU count readback.",
-      "affected_scenarios": [
-        "idle including setup",
-        "first fracture trial/correction",
-        "later heavy destruction"
-      ],
-      "estimated_application_ms_saved": "Potential1\u20135 ms heavy mean if reduced anchored register/shared footprint improves residency; charge queue preparation and extra launch. No established saving.",
-      "confidence": "high semantic equivalence under current mode certificate; medium compiler/resource benefit",
-      "experiment_cost": "Private GPU component queues and templated recurrence/preconditioner, kernel launch updates; original free/anchored/interleaved/cap/topology tests, sanitizers, full A/B and counters",
-      "supporting_measurements": "Both queue ownership and original physical gates pass, anchored resources fall, complete-step heavy mean/peaks improve without idle regression; independent queues enable later size decomposition",
-      "refuting_measurements": "Queue divergence or invalid certificate, resource footprint unchanged, extra launch/cache costs erase benefit, full-suite regression",
-      "profile_locations": [
-        "out/optimization-20260910/E12-composition/profiles",
-        "out/optimization-20260910/E12-composition/production-phases",
-        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
-        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
-      ],
-      "family": "anchored_free_execution_decomposition",
       "rank": 2,
-      "prior_work": "N15 in the preserved main queue; source audit/preparation is not a completed experiment.",
-      "status": "queued_not_run",
-      "source_queue_id": "N15",
-      "prior_experiment_id": "N15"
-    },
-    {
-      "rank": 3,
       "status": "queued_not_run",
       "title": "Size-specialized warp/block component execution",
       "evidence": "Thousands of small fragments occupy whole CTAs and block-wide reductions; earlier four-lane row gathering regressed. Current same-runtime selected stress captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at the largest scale. Later-debris local-memory sectors increase sharply. These counters motivate investigating decomposition/resource lifetime; they do not prove spills or predict saved application time.",
@@ -92,7 +65,59 @@
       ],
       "baseline": "retained N13",
       "family": "heterogeneous_component_execution",
-      "prior_experiment_id": "N06"
+      "prior_experiment_id": "N06",
+      "first_semantic_pilot": {
+        "status": "queued_not_run",
+        "title": "Reduce oversized cooperative execution for moderate connected structures",
+        "evidence": "Tower64 has2304 active stress nodes and137 iterations; unprofiled mean/peak117.766/120.598ms. Dense12 has1584 nodes and34 iterations;33.748/36.679ms. Matching selected persistent-kernel captures take104.043/27.141ms at72/56 blocks. Tower unique-instruction sampling reports48.8% of non-issued samples at barriers and32.5% short-scoreboard; these are not removable wall-time fractions.",
+        "proposed_mechanism": "First test a single-block cooperative launch for complete problems up to4096 nodes, retaining the existing multilevel preconditioner, equations, iteration cap and final checks. This isolates execution granularity from preconditioner strength. A later component-local multilevel implementation using existing cyclePass<true> would be a separate experiment; do not silently replace the multilevel method with the small-component block-Jacobi method.",
+        "affected_scenarios": [
+          "tower64 cold/warm",
+          "dense12 cold/warm",
+          "panel32 and bridge controls",
+          "all city cases as unchanged-routing controls"
+        ],
+        "estimated_application_ms_saved": "Low-confidence hypothesis:0\u201330ms on tower/dense, no expected city gain; reduced FP64 parallelism can make it slower.",
+        "confidence": "High attribution to this kernel; low confidence that one block improves application time.",
+        "experiment_cost": "One isolated launch-policy edit, numerical/native/memory gates, matched structural and light screen before full qualification.",
+        "supporting_measurements": "Lower unprofiled tower/dense complete steps with unchanged physical quality and no other-scenario regression. Fewer sampled barriers alone is insufficient.",
+        "refuting_measurements": "Loss of useful FP64 parallelism outweighs coordination savings, physical gates fail, or profiler-only improvement.",
+        "source_locations": [
+          "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl:255",
+          "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh:158"
+        ],
+        "profile_locations": [
+          "structural-stress-counter-review.json",
+          "tower-source-review.json"
+        ]
+      }
+    },
+    {
+      "title": "Separate anchored and free component execution",
+      "evidence": "Source audit: isolated no-live-bond chunks are already omitted by labelDeviceStressBonds/rootFlags and labelDeviceStressNodes, so the original empty-system hypothesis has no reachable target. Current common component kernel retains free-projection code/resources even for the overwhelmingly anchored iterative work. N10 uses108 registers,32.09% occupancy in the later selected capture. Current matching selected captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at113,664 chunks; register pressure is a hypothesis, not a diagnosed sole cause.",
+      "proposed_mechanism": "Use separate GPU-owned anchored/free work queues and template the component recurrence/preparation/preconditioning so the anchored specialization omits certified zero-dimensional nullspace work and its compiler resource footprint. Current validated mode dimension selects ownership; free components retain all projection. Preserve current equations and per-component numerical order; no CPU count readback.",
+      "affected_scenarios": [
+        "idle including setup",
+        "first fracture trial/correction",
+        "later heavy destruction"
+      ],
+      "estimated_application_ms_saved": "Potential1\u20135 ms heavy mean if reduced anchored register/shared footprint improves residency; charge queue preparation and extra launch. No established saving.",
+      "confidence": "high semantic equivalence under current mode certificate; medium compiler/resource benefit",
+      "experiment_cost": "Private GPU component queues and templated recurrence/preconditioner, kernel launch updates; original free/anchored/interleaved/cap/topology tests, sanitizers, full A/B and counters",
+      "supporting_measurements": "Both queue ownership and original physical gates pass, anchored resources fall, complete-step heavy mean/peaks improve without idle regression; independent queues enable later size decomposition",
+      "refuting_measurements": "Queue divergence or invalid certificate, resource footprint unchanged, extra launch/cache costs erase benefit, full-suite regression",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "family": "anchored_free_execution_decomposition",
+      "rank": 3,
+      "prior_work": "N15 in the preserved main queue; source audit/preparation is not a completed experiment.",
+      "status": "queued_not_run",
+      "source_queue_id": "N15",
+      "prior_experiment_id": "N15"
     },
     {
       "rank": 4,
@@ -192,7 +217,10 @@
         "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
         "physx/source/gpudestruction/src/PxgDestructionRuntime.cu:127"
       ],
-      "status": "queued_not_run"
+      "status": "queued_not_run",
+      "research": "reference-factor-research.md",
+      "separate_follow_up": "A shared reference inverse used only as a preconditioner is a separate experiment, contingent on current weighted component census and an independently verified SPD/projected formulation. It is not combined with exact operator sharing.",
+      "physical_census": "physical-traits.json; distinct partial-health patterns are not proof of distinct operators because health membership and compliance weights are separate."
     },
     {
       "rank": 8,

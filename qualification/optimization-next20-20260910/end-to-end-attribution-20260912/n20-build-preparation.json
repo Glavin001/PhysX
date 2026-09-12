@@ -53,5 +53,28 @@
       "matches_existing": true
     }
   },
-  "qualification_note": "Demo, plain probe and correction test controls are byte-identical. Relinked collision, checkpoint and standard-scene controls differ from prior binaries; both newly linked A/B sets require fresh native qualification. No native candidate pass is claimed."
+  "qualification_note": "Use fresh-native/{A,B} for the16 native tests and three memory gates. No candidate GPU test has run. Demo/plain probe timing binaries remain in build/{A,B}, with byte-identical controls.",
+  "fresh_native_tests": {
+    "status": "built_not_gpu_qualified",
+    "receipt": "out/n20-requalification-20260912/fresh-native/build.json",
+    "commands": 16,
+    "sources": {
+      "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_checkpoint_test.cpp": "ed6925aff00618521517e41a79ca15c1f7f9f1f3e9851644050d49eeb455a41b",
+      "/root/workspace/physx-2/demos/blast-stress-demo/physx_scene.cpp": "7c5a655e5b6e9136568e629f7faa71538ddf5d37a55cfe7bea7687cc41db6028",
+      "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "7bbbec04566de0b33bd67d2598d74f54b6005141926f92b4726a1aad8cd46720",
+      "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_standard_scene_test.cpp": "2cdea843ed59f237efd6856e8585cb7d61e0f8930e5761110105d1b9da1c68b7",
+      "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_correction_body_test.cpp": "b1a9468a8482fe091c15a040b357f715573f13c82ee342ca7ebd3d71a742fe97"
+    },
+    "outputs": {
+      "/root/workspace/physx-2/out/n20-requalification-20260912/fresh-native/A/native_gpu_checkpoint_test": "d44cf01558ab739fed912f5637051f5e5d2ad1e856d77aa6ed61c6429c1c0f02",
+      "/root/workspace/physx-2/out/n20-requalification-20260912/fresh-native/B/native_gpu_checkpoint_test": "4309eb60fbedeca05016da74e3629a48d6a95db22ebfe22b2b4a526b2daec6ff",
+      "/root/workspace/physx-2/out/n20-requalification-20260912/fresh-native/A/native_gpu_collision_test": "193eafea34adc3c21881b3cc79c36ca1252b7e37114da744f6baa71249ddf3c4",
+      "/root/workspace/physx-2/out/n20-requalification-20260912/fresh-native/B/native_gpu_collision_test": "91d143bd762cdd2e976281ea6bc7987fb060368b3aabda80ed29331fc645026e",
+      "/root/workspace/physx-2/out/n20-requalification-20260912/fresh-native/A/native_standard_scene_test": "8219aa3221d1875d6aa23e3e9293736087e202f465892749b9fdac7d2315b6d1",
+      "/root/workspace/physx-2/out/n20-requalification-20260912/fresh-native/B/native_standard_scene_test": "a96d54678d8ac42db197c666663bbf39e82448356fd82270508e2ce57a9fc4b0",
+      "/root/workspace/physx-2/out/n20-requalification-20260912/fresh-native/A/native_gpu_correction_body_test": "0ae08fcee46b2313602ef08faf0c62362db5a32e56cc8d57d235108741feb214",
+      "/root/workspace/physx-2/out/n20-requalification-20260912/fresh-native/B/native_gpu_correction_body_test": "ce6841dd4a7271a06b7508fa4fae30568e8f4bb8c7fd2e805ab8f1eb6eb2ac83"
+    },
+    "reason": "Existing native object dependency manifests predate physx_scene.cpp/header changes. Freshly compile both test translation units per target and use identical objects for A/B with their different isolated CPU archive."
+  }
 }

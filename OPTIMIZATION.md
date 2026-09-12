@@ -1070,7 +1070,8 @@ metric units, missing values and invalid ratios. Representative ranges are not
 weighted averages or complete-step savings. Graph counters remain a separate tier.
 
 N20 requalification uses isolated statically linked A/B consumers in
-`out/n20-requalification-20260912/build/`. The demo and plain probe control hashes
+`out/n20-requalification-20260912/build/`, with freshly compiled native
+correctness consumers in `fresh-native/{A,B}`. The demo and plain probe control hashes
 match the existing baseline; both sets of native consumers require fresh gates.
 After all profiler jobs have ended, run serially on the admitted GPU:
 
@@ -1085,3 +1086,35 @@ gates per arm, preserving arguments, working directory and timeout.
 a snapshot output argument. Candidate correctness and timings are still pending;
 these commands are not recorded as passes. N10 operator caches already exist;
 N02 residual-projection removal remains rejected and must not be requeued.
+
+### Physical trait and instruction-level reviews
+
+The following completed offline reviews reuse the qualified observations and
+NCU report. Use fresh raw export filenames when repeating an instruction review.
+They launch no simulation and provide no candidate speedup evidence.
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/summarize-physical-traits.py \
+  out/snapshot-reset-20260911/prepared-full20 \
+  qualification/optimization-next20-20260910/end-to-end-attribution-20260912/report.json \
+  qualification/optimization-next20-20260910/end-to-end-attribution-20260912
+/opt/nvidia/nsight-compute/2025.3.1/ncu \
+  --import out/ncu-fix-20260912/full/tower64-cold-counters-0/counters.ncu-rep \
+  --page source --print-source cuda,sass --csv \
+  > out/end-to-end-attribution-20260912/tower64-source.csv
+/opt/nvidia/nsight-compute/2025.3.1/ncu \
+  --import out/ncu-fix-20260912/full/tower64-cold-counters-0/counters.ncu-rep \
+  --page source --print-source sass --csv \
+  > out/end-to-end-attribution-20260912/tower64-sass.csv
+python3 tools/diagnostics/destruction-snapshot/analyze-source-counters.py \
+  out/ncu-fix-20260912/full/tower64-cold-counters-0 \
+  out/end-to-end-attribution-20260912/tower64-source.csv \
+  out/end-to-end-attribution-20260912/tower64-sass.csv \
+  qualification/optimization-next20-20260910/end-to-end-attribution-20260912/tower-source-review.json
+```
+
+The instruction audit requires one captured kernel, checks every source-correlated
+metric against the complete SASS export, and counts each instruction address once.
+Ambiguous source locations and unmapped instructions remain explicit. Source stall
+counts are not wall-time fractions. Physical cluster counts are post-tick traits,
+not weighted solver work or exact operator-equivalence certificates.

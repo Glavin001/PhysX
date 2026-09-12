@@ -4,7 +4,8 @@
 contains461 nonempty graph invocations /49 reports /98 checked ticks; three
 zero-graph scenarios have explicit inventory rows. The representative ordinary-
 kernel expansion is in progress. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
-[structured coverage](coverage-tiers.json), [full-step baselines and CPU stages](report.md).
+[structured coverage](coverage-tiers.json), [full-step baselines and CPU stages](report.md),
+and [ordinary-kernel counter ranges](ordinary-counter-summary.md).
 No runtime optimization or speedup is claimed. Physical inputs, ordinary APIs,
 sleep, correction limits, runtime modules and tolerances are unchanged.
 
@@ -139,7 +140,7 @@ The original N-series remains11/20 and best N13 stays retained.
 
 Use exact commands in [OPTIMIZATION.md](../../../OPTIMIZATION.md). New tools are
 `profile-graph-suite.py`, `profile-config-suite.py`, `profile-warm-suite.py`,
-`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Fourteen accounting,
+`analyze-warm-attribution.py` and `report-attribution-tiers.py`. Fifteen accounting,
 classification and representative-selection tests pass. Historical pre-reboot
 status is retained in [history-before-reboot.md](history-before-reboot.md).
 Private process environments and crash cores are not published or committed.
@@ -152,3 +153,18 @@ pending, and the20-experiment batch remains11 completed. [Build evidence](n20-bu
 Queue audit: N10 operator caches already exist; N02 intermediate-projection
 removal remains rejected by its numerical fixture. Neither is a new queued
 optimization. Current follow-ups preserve those conclusions.
+
+Native N20 correctness consumers are now rebuilt from fresh scene/test sources
+in `fresh-native/{A,B}`. Earlier linked test artifacts are preserved and were
+never executed as qualification. The benchmark demo and plain probe controls
+remain byte-identical; fresh native tests still require GPU execution.
+
+The [physical-trait census](physical-traits.md) covers all52 existing outputs.
+Tower64 contains2368 connected chunks (2304 stress unknowns), dense12 has1728
+(1584 unknowns), and panel32 has1024 (1020 unknowns). Their cold full-step means
+are117.766,33.748 and22.249ms. These are substantial structural workloads,
+complementing the many-component cities. The tower
+[source-counter audit](tower-source-review.json) covers all26,832 disassembled
+instructions, removes4,498 duplicate source correlations, and leaves no SASS
+instructions unaccounted for. Barrier and short-scoreboard samples motivate a
+separate execution-granularity experiment; they are not speedup percentages.

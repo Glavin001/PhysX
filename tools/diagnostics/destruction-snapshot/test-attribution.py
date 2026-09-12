@@ -9,7 +9,16 @@ config=load('config','profile-config-suite.py')
 dataflow=load('dataflow','report-dataflow-suite.py')
 tiers=load('tiers','report-attribution-tiers.py')
 counter_summary=load('counter_summary','summarize-counter-configs.py')
+source_counter=load('source_counter','analyze-source-counters.py')
 class AttributionTests(unittest.TestCase):
+    def test_source_correlations_do_not_duplicate_instruction_counts(self):
+        row={k:'10' for k in source_counter.KEYS};sass={'0x1':row,'0x2':row}
+        result=source_counter.summarize(sass,[('0x1',('a.cuh','1'),row),('0x1',('a.cuh','2'),row)])
+        self.assertEqual(result['totals'][source_counter.KEYS[0]],20)
+        self.assertEqual(result['duplicate_correlations_removed'],1)
+        self.assertEqual(result['unmapped_instructions'],1)
+        bad=dict(row);bad[source_counter.KEYS[0]]='11'
+        with self.assertRaises(AssertionError):source_counter.summarize(sass,[('0x1',('a.cuh','1'),bad)])
     def test_counter_ranges_preserve_units_and_reject_impossible_ratios(self):
         rows=[dict(metrics={'gpu__time_duration.sum':dict(value=250,unit='us'),'lts__t_sector_hit_rate.pct':dict(value=105,unit='%')}),
               dict(metrics={'gpu__time_duration.sum':dict(value=1,unit='ms'),'lts__t_sector_hit_rate.pct':dict(value=25,unit='%')}),dict(metrics={})]

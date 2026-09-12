@@ -262,7 +262,32 @@
         "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
       ],
       "baseline": "retained N13",
-      "family": "heterogeneous_component_execution"
+      "family": "heterogeneous_component_execution",
+      "first_semantic_pilot": {
+        "status": "queued_not_run",
+        "title": "Reduce oversized cooperative execution for moderate connected structures",
+        "evidence": "Tower64 has2304 active stress nodes and137 iterations; unprofiled mean/peak117.766/120.598ms. Dense12 has1584 nodes and34 iterations;33.748/36.679ms. Matching selected persistent-kernel captures take104.043/27.141ms at72/56 blocks. Tower unique-instruction sampling reports48.8% of non-issued samples at barriers and32.5% short-scoreboard; these are not removable wall-time fractions.",
+        "proposed_mechanism": "First test a single-block cooperative launch for complete problems up to4096 nodes, retaining the existing multilevel preconditioner, equations, iteration cap and final checks. This isolates execution granularity from preconditioner strength. A later component-local multilevel implementation using existing cyclePass<true> would be a separate experiment; do not silently replace the multilevel method with the small-component block-Jacobi method.",
+        "affected_scenarios": [
+          "tower64 cold/warm",
+          "dense12 cold/warm",
+          "panel32 and bridge controls",
+          "all city cases as unchanged-routing controls"
+        ],
+        "estimated_application_ms_saved": "Low-confidence hypothesis:0\u201330ms on tower/dense, no expected city gain; reduced FP64 parallelism can make it slower.",
+        "confidence": "High attribution to this kernel; low confidence that one block improves application time.",
+        "experiment_cost": "One isolated launch-policy edit, numerical/native/memory gates, matched structural and light screen before full qualification.",
+        "supporting_measurements": "Lower unprofiled tower/dense complete steps with unchanged physical quality and no other-scenario regression. Fewer sampled barriers alone is insufficient.",
+        "refuting_measurements": "Loss of useful FP64 parallelism outweighs coordination savings, physical gates fail, or profiler-only improvement.",
+        "source_locations": [
+          "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl:255",
+          "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh:158"
+        ],
+        "profile_locations": [
+          "structural-stress-counter-review.json",
+          "tower-source-review.json"
+        ]
+      }
     },
     {
       "id": "N03",
