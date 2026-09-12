@@ -3,12 +3,15 @@
 **CPU and full graph counters pass all52 scenarios.** The graph expansion
 contains461 nonempty graph invocations /49 reports /98 checked ticks; three
 zero-graph scenarios have explicit inventory rows. The representative ordinary-
-kernel expansion qualifies39/52 scenarios and is continuing. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
+kernel expansion qualifies40/52 scenarios (3,243 counter launches) and is continuing. [Live coverage by all52 scenarios and continuous controls](coverage-tiers.md),
 [structured coverage](coverage-tiers.json), [full-step baselines and CPU stages](report.md),
 and [ordinary-kernel counter ranges](ordinary-counter-summary.md).
 The profiling expansion itself makes no runtime or speedup claim. Isolated N20
-shows a restored-debris benefit but remains unretained pending full-suite review;
-N06a is rejected. [All candidate scenario/stage evidence](n20-followup.md). Physical inputs, ordinary APIs,
+passes all52×20/20/20 physical comparisons and repeated warm/physical gates;
+its final52-case asynchronous memory gate is running. N06a and N15 are rejected;
+batch13/20. [All52 N20 scenario/stage results](n20-final.md),
+[warm600 and CPU mechanism](n20-followup.md), [N15 seven-case screen](n15-result.md).
+Physical inputs, ordinary APIs,
 sleep, correction limits, runtime modules and tolerances are unchanged.
 
 ## Recovery and CPU qualification

@@ -1,5 +1,11 @@
 [
   {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/build-queued-solvers.py",
+    "bytes": 1793,
+    "sha256": "74366e4cdb71f7258726eb837930a04baf046d6e7513dd87b5219978ca5d5364",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collectors/nsight-compute-2026.2.1.tar.xz",
     "bytes": 352851120,
     "sha256": "6d1e789b66b963b2b1d5380cb22efa9d94e2ba9f9c1324280c53fced7cf3e385",
@@ -681,6 +687,36 @@
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-intact-idle/replay.json",
     "bytes": 2127,
     "sha256": "9e494d945aa70e5ccde651aa1ebcd783e8788ee6bdbd5a683e6d12d047cb4f4e",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-post-impact/analysis.json",
+    "bytes": 20167643,
+    "sha256": "36daaa403a20fda1df47ff51edd33bf9e3fe99ae857030199446b5565c4d9b8e",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-post-impact/counters.ncu-rep",
+    "bytes": 432731329,
+    "sha256": "cfc6751ed02152bf30971c0f9265a509cc71060edba854af793c3b6e9c563079",
+    "sha256_origin": "completed campaign counter audit"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-post-impact/physical-comparison.json",
+    "bytes": 1488,
+    "sha256": "2fdc8bc825358539b3224906c1c238622ed8ac09e130ccd60d37bb3566864a79",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-post-impact/receipt.json",
+    "bytes": 1307009,
+    "sha256": "e05a3f2eeee0d5d8490f0f09582fa0fa1ff3aa2e1dd4e0e21cdd0f06d6df5111",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-post-impact/replay.json",
+    "bytes": 2144,
+    "sha256": "a17b91302b569f30b0d192d00ac172935fd6e379e31aa1b8c981402173fce136",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3618,6 +3654,18 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/prepare-n14-closure.py",
+    "bytes": 4452,
+    "sha256": "870166f4d7deca9ea8345895a8350a1a89f5777a64f83d277d4b9135e046902a",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/prepare-n16-isolated.py",
+    "bytes": 9771,
+    "sha256": "00478c4a5d94d6ec415e69e7eae327852f076b9e5d762493a59346b41e48334c",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/probe/build.json",
     "bytes": 7027,
     "sha256": "198096936f1014a3b541a30fe6ff77ed41c7ad0ac68219881b0ea43ffdadaedb",
@@ -3639,6 +3687,24 @@
     "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/recovered-city64-cpu-pilot/replay.json",
     "bytes": 2127,
     "sha256": "e5c551763d153fbc4d7f405aeec2af62100b261a940017c5d600e0ae0b1be155",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/report-n15-screen.py",
+    "bytes": 4043,
+    "sha256": "e9f09f75303260f08cbe82642decedd184f2e3d8d9cc542e891ba5ac7cdb4587",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/report-n20-final.py",
+    "bytes": 6580,
+    "sha256": "15d7e0f03968668c58d14c5832487a6906e81241cbfbb7c094c1e21c1f4b8778",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/run-next-isolated-screens.py",
+    "bytes": 2292,
+    "sha256": "de5f6620b9e0977f478a8d9f60798fb20f61527c26a7297935964b25bbb07463",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3714,6 +3780,42 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/build-isolated.py",
+    "bytes": 4070,
+    "sha256": "2b11a7759d1d901b45256aa0fe1b625178b34c1cb2befbf8c27c9846fd78739b",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/build-oracles.py",
+    "bytes": 4240,
+    "sha256": "ba88f334fa22aa45a70d6ff684ad6a864967eafa2439375b0846a36204091739",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/build/build.json",
+    "bytes": 405130,
+    "sha256": "ea57275289b26d150ac3ae7c511a741e052a17e7db18d325e4547d1683e9e668",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/candidate.patch",
+    "bytes": 6139,
+    "sha256": "d5ed60057689f5d4b3352f72351f2ae2652080f1fcbf31fec5f334d1ce6d68bb",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/preparation.json",
+    "bytes": 2442,
+    "sha256": "013bb815fd72be11d0bd77bd9e32cebe3ff829dbf966d54f787a39e230c457ae",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n14-closure-20260912/run-screen.py",
+    "bytes": 4867,
+    "sha256": "161fab468a36fde67c348089164066c56ec1b5fadaab8080edc49950f5e41ce2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n15-anchored-20260912/build-isolated.py",
     "bytes": 4070,
     "sha256": "2b11a7759d1d901b45256aa0fe1b625178b34c1cb2befbf8c27c9846fd78739b",
@@ -3738,9 +3840,111 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/build.json",
+    "bytes": 568327,
+    "sha256": "85e425bcd4df8501fe1749666f4ad764962999445634de61943a397d04f2edad",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n15-anchored-20260912/preparation.json",
     "bytes": 3643,
     "sha256": "639b2af9fda0211777481b9b7c0176806e54a3566f1cb5ac7e47b03dcaf7e2b8",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/resources.json",
+    "bytes": 1305,
+    "sha256": "96c95ceb0cf74b9627711c32392433b0bedf229f781aa47ef1151dea6fcc09bf",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/run-screen.py",
+    "bytes": 5928,
+    "sha256": "7bf7ad3d158ea31a672f2410c2c17418e8a06d79d3374af4add2c95e5840d812",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/campaign.json",
+    "bytes": 30103,
+    "sha256": "a85ab8fe3fdf7d1d0c53e8cc2f4aa3683eef0a30e175f494244bf951aa617f37",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/report.json",
+    "bytes": 44089,
+    "sha256": "f67e30bc6146dcd5d17f80f40a95c05bf0d6d34d1634d9dcdcbf82a7f378829c",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/build-isolated.py",
+    "bytes": 4070,
+    "sha256": "2b11a7759d1d901b45256aa0fe1b625178b34c1cb2befbf8c27c9846fd78739b",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/build-oracles.py",
+    "bytes": 4391,
+    "sha256": "b890b718c34edde298f247f6e7fb46b9933090b6b52a26580ad7e16b25eb06c7",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/candidate.patch",
+    "bytes": 22149,
+    "sha256": "9597d6af8a5dd69fff0de23b0efbc07d95a08f58166e305b859b000e541b2f75",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/preparation.json",
+    "bytes": 2797,
+    "sha256": "8adfdd74b31d39c81cb91ad99b59d446981f670fa2bdeda4645d28219e387f8f",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n16-local-20260912/run-screen.py",
+    "bytes": 4867,
+    "sha256": "161fab468a36fde67c348089164066c56ec1b5fadaab8080edc49950f5e41ce2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/build-isolated-launched.py",
+    "bytes": 5723,
+    "sha256": "475971d73fa454cf4787be97d842a080d4901da1e4d838a96a6941f7566654f6",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/build-isolated.py",
+    "bytes": 5821,
+    "sha256": "d1e3255da24fb49d3bed640428287f0eed4af3061844fb346eb1bc2e9517bd32",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/candidate.patch",
+    "bytes": 4547,
+    "sha256": "755e03d26cbcf16092280e9ff2cdda27f222f47b8d74eb500bab3712b2fbc6a7",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/launched-builder.json",
+    "bytes": 275,
+    "sha256": "b2948fa3f0772682817777a876055f12984e3fa4574f12fea970ac9c576dc586",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/preparation.json",
+    "bytes": 2550,
+    "sha256": "e6295730274aca02acf0161fbce6f3aa5d3b09af31778be8308bb43e949990c7",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/run-native-gates.py",
+    "bytes": 2810,
+    "sha256": "5a8fcce047c04ca381ed456c6bbae90e76fb877d2e2e02a39276b60dfa25a787",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n19-requalification-20260912/run-screen.py",
+    "bytes": 2013,
+    "sha256": "5e2ea98ba3565affb9b65c1fddbe0ba6bde7542027b1c98bc2216b63cb5ddd54",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -3984,6 +4188,12 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/full52/report.json",
+    "bytes": 311576,
+    "sha256": "4e71505f9beffc55253202f527f6e06b8acaab19bbfc46c5aeeb06da88436fe9",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/impact-repeat-manifest.json",
     "bytes": 1821,
     "sha256": "48830f0b43a963b6c5a6b65e5a31529c52d5fea4232a2c2bd902ad7782a0be34",
@@ -3993,6 +4203,12 @@
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/impact-reverse20/report.json",
     "bytes": 8126,
     "sha256": "1103ac4ae172a47f4ae68f04ba2fecdeeca58628b0c4766232e2f01b70d207d2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/launched-full-driver.json",
+    "bytes": 289,
+    "sha256": "9e24905d744b94ec2fb6418d697d95d111594c8a6be6b917ccc91a46dba600ca",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -4038,6 +4254,24 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/regression-repeat/decision.json",
+    "bytes": 1351,
+    "sha256": "5d01f3ebfe281cfdbc8b3a4c5d31a66b01aff15f20666cf7a5d5c9c1c7abab7f",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/regression-repeat/matched/report.json",
+    "bytes": 14235,
+    "sha256": "3917144c4894d73bbd6089f8eb81f6020d94ad631593182c2f8f46f4d2d16be5",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/repeat-material-regressions.py",
+    "bytes": 2236,
+    "sha256": "c5933920245fe38ef8494f5e60d723f20dc7a04d68b216a954808a3e3d40ae01",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-after-counters.py",
     "bytes": 3164,
     "sha256": "23f247b81700cd5d54bc50c07f13aac7eca665e4b90fd83c2375ba1d10381474",
@@ -4056,9 +4290,21 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-final-memory.py",
+    "bytes": 2671,
+    "sha256": "a055708c015b780e5698ca87f22d14e19f7894e77b7d629c3536f599d1d89150",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-full-after-counter-launched.py",
+    "bytes": 2650,
+    "sha256": "1611e19604874ac297fd590213c06d80f8cd06cbfe8ce8786d7672f949397fa7",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
     "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-full-after-counter.py",
-    "bytes": 2034,
-    "sha256": "1dcc336741d1f786590ef18f55436b29bc523d3863f180a1d41e0d73b43c03ea",
+    "bytes": 2743,
+    "sha256": "2170b054a01203ea407c81edbec7482a2622d13786eadaa7db57750b022cb65c",
     "sha256_origin": "rehashed by index builder"
   },
   {
@@ -4074,9 +4320,39 @@
     "sha256_origin": "rehashed by index builder"
   },
   {
-    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-warm-screen.py",
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-warm-screen-600-original.py",
     "bytes": 4254,
     "sha256": "0fca3ec33d319a4a007e20144f34fc70df02b077b0c0728e7f4ef369ea1e4de2",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/run-warm-screen.py",
+    "bytes": 5211,
+    "sha256": "cc610f3cddc9736a9a2c82ebf356a223495f438b9fb4d3015c2d4f17fc108bf1",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/wall-A/quality.json",
+    "bytes": 4098,
+    "sha256": "5e41cd2682fd9d1cbe699958a041cd080ca8542e87fa493f3d2d69d341427cea",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/wall-B/quality.json",
+    "bytes": 4098,
+    "sha256": "d5f03c9ae009ee6423c272a654a584fd65dbecb2bc28ea5f4084c11c429a5a59",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/warm180-confirm/campaign.json",
+    "bytes": 52004,
+    "sha256": "f7f240384d17504a5de2fb3d1961d9a7d0b7fef2a48950a258e2aa0254477b3a",
+    "sha256_origin": "rehashed by index builder"
+  },
+  {
+    "path": "/root/workspace/physx-2/out/n20-requalification-20260912/warm180-confirm/semantic-manifest.json",
+    "bytes": 1771,
+    "sha256": "756923c545571213db2b555a9ed2590744e0d430e28417cf13444a78dc43a4f7",
     "sha256_origin": "rehashed by index builder"
   },
   {

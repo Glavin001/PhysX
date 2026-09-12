@@ -1,36 +1,38 @@
 # AGENTS.md — PhysX GPU destruction: fresh-session entrypoint
 
-Current continuation (2026-09-12, supersedes the parked-process instructions below):
+Current continuation (2026-09-12, supersedes older status/process notes):
 CPU attribution and graph counters qualify52/52; significant ordinary counters
-qualify39/52, including recovered city64 initial-impact (240 records, physical
-comparison passed). Current parent uses `profile-config-suite.py --resume
---ncu-replay application --reuse-other-replay-mode --watchdog-seconds 3600
---pause-file out/end-to-end-attribution-20260912/counter-pause`. A pause file stops
-only the NEXT capture after current GPU work/audits finish. Never benchmark until
-campaign status is `paused`. Old parents146583/347295 were terminated; do not
-resume them. The restoration watcher remains active and waits for this parent.
-See `recovery/counter-orchestration-migration.json` for process ownership.
+qualify40/52,3243 launches,178 checked counter ticks. Parent390717 uses pinned
+2025.3.1 application replay with3600-second watchdog and the existing pause file.
+It is temporarily SIGSTOP at a completed capture boundary while the final-memory
+coordinator finishes N20; do not resume or kill it independently. The automatic
+service-restoration watcher338813 remains active and sees this parent. Old
+parents146583/347295 are terminal; never SIGCONT them.
 
-N20 passes16 native commands +3 normal asynchronous memory checks per arm. Equal
-20/20/20 restored means: city25 impact40.042/42.286/40.679ms, city256 idle
-62.792/63.452/62.793ms, late debris395.160/357.108/396.107ms (A/B/A). Reversed
-impact N20/control/N20 means40.043/40.020/37.228ms do not reproduce a consistent
-regression. Warm600 heavy54.378–54.444ms candidate versus54.466–54.517 controls,
-519/600 misses throughout; no substantial warm or peak gain. CPU samples confirm
-less lifetime-array recreation on large restored debris. Full52×20/20/20 is
-queued by `out/n20-requalification-20260912/run-full-after-counter.py`; it holds
-the next counter boundary, benchmarks serially, then resumes counters on success.
-No N20 retention yet. Original unequal-length light timing is unqualified; all
-new cohorts use equal per-process repetitions and retain every first-use tick.
+N20 completes52/52 physical comparisons,3120 full ticks,20/20/20 per case. Large
+late-debris mean382.883ms versus422.663/426.525 controls; restore excluded. Earlier
+independent confirmation also improved this case. Initial-impact/panel/cascade
+regressions do not consistently repeat in reversed order. Warm600 heavy remains
+54.378–54.444ms versus54.466–54.517 controls,519/600 60Hz misses throughout.
+Four additional warm180 trials per arm measure the large fracture burst161.241ms
+versus166.641/163.340 controls. Both600-tick ordinary/sleeping walls pass exact
+physical history and zero position error. No large overall warm/peak gain claimed.
+Full52 normal asynchronous memory qualification is running under
+`out/n20-requalification-20260912/run-final-memory.py`; no N20 retention until it
+passes. That coordinator resumes counters and leaves other services protected.
+[Every scenario and stage](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-final.md).
 
-N06a is rejected: one-block dense/tower means513.374/2284.911ms versus32.106/
-109.121 controls. Physical/memory checks pass; lost parallelism dominates.
-Batch now12/20. N15 anchored/free specialization is separately prepared at
-`dccbe23f0022b2d3b68c66bb97a877ff5e3532a4`; build/oracle work under
-`out/n15-anchored-20260912`, GPU checks pending. Main source/index, best frozen
-N13 and installed original SDK remain unchanged. Current compatible profiling
-runtime still includes unaccepted N14; these results do not promote it.
-[Current N20 scenario/stage report](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-followup.md).
+N15 anchored/free specialization is rejected after numerical/sanitizer/physical
+passes: seven-case light has no clear gain, large debris483.504ms versus459.421/
+457.057 controls. N06a is also rejected. Batch13/20; do not count prepared work.
+N14 retained-policy closure is building; N19 GPU-to-CPU active-record publication
+requalification and N16 local vector workspace are separately prepared. The
+`build-queued-solvers.py` and `run-next-isolated-screens.py` coordinators under
+`out/end-to-end-attribution-20260912/` finish all CPU builds before serial GPU
+screens at the next clean counter boundary. Monitor their receipts; no parallel
+GPU candidates. Current compatible runtime includes unaccepted N14. Main source/
+index, frozen best N13 and installed original SDK are unchanged. Keep every
+first-use tick equally weighted across A/B/A. Follow OPTIMIZATION.md.
 
 
 Latest recovery continuation (2026-09-12): the user explicitly authorized reversible

@@ -39,10 +39,44 @@
         "build_evidence": "n20-build-preparation.json",
         "control_demo_and_probe_byte_identical": true
       },
-      "queued_gpu_screen": "out/n20-requalification-20260912/counter-gap.json; native A/B then84 total matched-light ticks after current counter child exits, with counter parent automatically resumed."
+      "queued_gpu_screen": "N20 native/asynchronous and equal-length light/targeted/warm screens pass; full52\u00d720/20/20 now runs at a clean counter pause boundary. See n20-followup.md.",
+      "capacity_followup_result": "Large restored debris saves38.525ms; no substantial warm600 gain. Smaller impact regression does not consistently repeat in reversed order. Do not retain before full suite/trajectory review."
     },
     {
+      "title": "Separate anchored and free component execution",
+      "evidence": "Source audit: isolated no-live-bond chunks are already omitted by labelDeviceStressBonds/rootFlags and labelDeviceStressNodes, so the original empty-system hypothesis has no reachable target. Current common component kernel retains free-projection code/resources even for the overwhelmingly anchored iterative work. N10 uses108 registers,32.09% occupancy in the later selected capture. Current matching selected captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at113,664 chunks; register pressure is a hypothesis, not a diagnosed sole cause.",
+      "proposed_mechanism": "Use separate GPU-owned anchored/free work queues and template the component recurrence/preparation/preconditioning so the anchored specialization omits certified zero-dimensional nullspace work and its compiler resource footprint. Current validated mode dimension selects ownership; free components retain all projection. Preserve current equations and per-component numerical order; no CPU count readback.",
+      "affected_scenarios": [
+        "idle including setup",
+        "first fracture trial/correction",
+        "later heavy destruction"
+      ],
+      "estimated_application_ms_saved": "Potential1\u20135 ms heavy mean if reduced anchored register/shared footprint improves residency; charge queue preparation and extra launch. No established saving.",
+      "confidence": "high semantic equivalence under current mode certificate; medium compiler/resource benefit",
+      "experiment_cost": "Private GPU component queues and templated recurrence/preconditioner, kernel launch updates; original free/anchored/interleaved/cap/topology tests, sanitizers, full A/B and counters",
+      "supporting_measurements": "Both queue ownership and original physical gates pass, anchored resources fall, complete-step heavy mean/peaks improve without idle regression; independent queues enable later size decomposition",
+      "refuting_measurements": "Queue divergence or invalid certificate, resource footprint unchanged, extra launch/cache costs erase benefit, full-suite regression",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "family": "anchored_free_execution_decomposition",
       "rank": 2,
+      "prior_work": "N15 in the preserved main queue; source audit/preparation is not a completed experiment.",
+      "status": "built_gpu_screen_queued",
+      "source_queue_id": "N15",
+      "prior_experiment_id": "N15",
+      "prepared_20260912": {
+        "commit": "dccbe23f0022b2d3b68c66bb97a877ff5e3532a4",
+        "path": "out/n15-anchored-20260912",
+        "resources": "Anchored registers109\u2192108, stack48\u21920bytes, shared1600\u21921168bytes. Compiler resources only; no performance claim.",
+        "qualification": "Fresh existing analytic/3D/motion oracle consumers built for A/B; GPU gates and equal-length light screen queued after N20 full52."
+      }
+    },
+    {
+      "rank": 3,
       "status": "reassess_after_rejected_one_block_pilot",
       "title": "Size-specialized warp/block component execution",
       "evidence": "Thousands of small fragments occupy whole CTAs and block-wide reductions; earlier four-lane row gathering regressed. Current same-runtime selected stress captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at the largest scale. Later-debris local-memory sectors increase sharply. These counters motivate investigating decomposition/resource lifetime; they do not prove spills or predict saved application time.",
@@ -68,7 +102,7 @@
       "family": "heterogeneous_component_execution",
       "prior_experiment_id": "N06",
       "first_semantic_pilot": {
-        "status": "queued_not_run",
+        "status": "rejected_application_regression",
         "title": "Reduce oversized cooperative execution for moderate connected structures",
         "evidence": "Tower64 has2304 active stress nodes and137 iterations; unprofiled mean/peak117.766/120.598ms. Dense12 has1584 nodes and34 iterations;33.748/36.679ms. Matching selected persistent-kernel captures take104.043/27.141ms at72/56 blocks. Tower unique-instruction sampling reports48.8% of non-issued samples at barriers and32.5% short-scoreboard; these are not removable wall-time fractions.",
         "proposed_mechanism": "First test a single-block cooperative launch for complete problems up to4096 nodes, retaining the existing multilevel preconditioner, equations, iteration cap and final checks. This isolates execution granularity from preconditioner strength. A later component-local multilevel implementation using existing cyclePass<true> would be a separate experiment; do not silently replace the multilevel method with the small-component block-Jacobi method.",
@@ -90,42 +124,16 @@
         "profile_locations": [
           "structural-stress-counter-review.json",
           "tower-source-review.json"
-        ]
+        ],
+        "result": "n06a-result.md"
       },
       "prepared_pilot": {
         "commit": "c76c60678f42e8e62cdfab02d8b317df69b3fbdb",
         "evidence": "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n06-build-preparation.json",
         "runtime": "out/n06-granularity-20260912/build/{A,B}",
-        "scope": "Host cooperative launch policy only; device instructions match after path-name normalization. GPU correctness and timing pending."
+        "scope": "Physical/asynchronous memory gates pass. Dense/tower means32.106/109.121\u2192513.374/2284.911ms. One-block pilot rejected; broader component specialization remains untested."
       },
       "pilot_result": "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n06a-result.json"
-    },
-    {
-      "title": "Separate anchored and free component execution",
-      "evidence": "Source audit: isolated no-live-bond chunks are already omitted by labelDeviceStressBonds/rootFlags and labelDeviceStressNodes, so the original empty-system hypothesis has no reachable target. Current common component kernel retains free-projection code/resources even for the overwhelmingly anchored iterative work. N10 uses108 registers,32.09% occupancy in the later selected capture. Current matching selected captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at113,664 chunks; register pressure is a hypothesis, not a diagnosed sole cause.",
-      "proposed_mechanism": "Use separate GPU-owned anchored/free work queues and template the component recurrence/preparation/preconditioning so the anchored specialization omits certified zero-dimensional nullspace work and its compiler resource footprint. Current validated mode dimension selects ownership; free components retain all projection. Preserve current equations and per-component numerical order; no CPU count readback.",
-      "affected_scenarios": [
-        "idle including setup",
-        "first fracture trial/correction",
-        "later heavy destruction"
-      ],
-      "estimated_application_ms_saved": "Potential1\u20135 ms heavy mean if reduced anchored register/shared footprint improves residency; charge queue preparation and extra launch. No established saving.",
-      "confidence": "high semantic equivalence under current mode certificate; medium compiler/resource benefit",
-      "experiment_cost": "Private GPU component queues and templated recurrence/preconditioner, kernel launch updates; original free/anchored/interleaved/cap/topology tests, sanitizers, full A/B and counters",
-      "supporting_measurements": "Both queue ownership and original physical gates pass, anchored resources fall, complete-step heavy mean/peaks improve without idle regression; independent queues enable later size decomposition",
-      "refuting_measurements": "Queue divergence or invalid certificate, resource footprint unchanged, extra launch/cache costs erase benefit, full-suite regression",
-      "profile_locations": [
-        "out/optimization-20260910/E12-composition/profiles",
-        "out/optimization-20260910/E12-composition/production-phases",
-        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
-        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
-      ],
-      "family": "anchored_free_execution_decomposition",
-      "rank": 3,
-      "prior_work": "N15 in the preserved main queue; source audit/preparation is not a completed experiment.",
-      "status": "queued_not_run",
-      "source_queue_id": "N15",
-      "prior_experiment_id": "N15"
     },
     {
       "rank": 4,

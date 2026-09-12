@@ -1224,6 +1224,48 @@ Do not start a second parent when this command is already live. Create the pause
 file to request a GPU gap; inspect `configs-full/campaign.json` until `paused`.
 Deleting it resumes the next capture. Never use profiler timings for acceptance.
 
+### Current isolated final gates and semantic confirmation (2026-09-12)
+
+N20 now completes all52 physical A/B/A comparisons, with20 ticks in each process
+and3,120 checked full ticks. Its final normal asynchronous memory suite uses:
+
+```bash
+python3 tools/diagnostics/destruction-snapshot/run-suite.py out/NEW-n20-full52-memcheck \
+  --structural-inputs out/snapshot-large-20260911/roundtrip-regressions \
+  --city-inputs out/snapshot-large-20260911 \
+  --binary out/n20-requalification-20260912/build/B/serialization-probe \
+  --artifacts out/snapshot-reset-20260911/local-artifacts \
+  --repetitions 2 --sanitizer memcheck
+```
+
+The live instance is already owned by `out/n20-requalification-20260912/run-final-memory.py`;
+do not start a second GPU job. It temporarily stops the paused counter parent,
+then resumes it after this gate. CPU-only builds may accompany diagnostics;
+all builds finish before any plain timing. The next serial screen coordinator
+is `out/end-to-end-attribution-20260912/run-next-isolated-screens.py`.
+
+Fixed semantic frames can be extracted from completed ordinary native runs:
+
+```bash
+python3 tools/scripts/report-destruction-semantic-frames.py \
+  out/n20-requalification-20260912/warm180-confirm \
+  --manifest out/n20-requalification-20260912/warm180-confirm/semantic-manifest.json \
+  --run-manifest out/n20-requalification-20260912/warm180-confirm/campaign.json \
+  --output out/NEW-n20-warm180-semantic.json
+```
+
+The confirmation has four independent processes per A-before/B/A-after stage,
+180 ticks each, heavy only, using the original event predicates. Every work and
+convergence counter is compared to the corresponding600-tick control prefix.
+Corresponding trajectory events are not identical-input restored snapshots.
+Keep the600-tick means/peaks/deadlines alongside them. Stage values are native
+command, integrated physics/destruction, and completion—not kernel-only time.
+
+N15 is rejected after its seven-case light screen and existing physical/memory
+gates: small compiler-resource reductions produce no verified full-step gain.
+Current full scenario evidence: [N20](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-final.md),
+[N15](qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n15-result.md).
+
 Exact N20 final comparison (the existing queue driver runs this once at a paused
 boundary; use a fresh output when repeating):
 

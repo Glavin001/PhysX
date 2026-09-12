@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import csv
 
 ROOT=Path(__file__).resolve().parents[2]
 def load(name):
@@ -14,9 +15,32 @@ def load(name):
     return module
 runner=load('run-destruction-semantic-suite')
 reporter=load('report-destruction-semantic-suite')
+frames_reporter=load('report-destruction-semantic-frames')
 
 
 class SemanticEvidence(unittest.TestCase):
+    def test_raw_trajectory_manifest_preserves_semantic_gates_and_stages(self):
+        fields='contacts_frame bonds_broken post_correction_bonds_broken resim_passes stress_passes stress_iterations stress_active_nodes stress_active_bonds stress_islands bodies awake_bodies projectiles_active stress_converged'.split()
+        row={k:1 for k in fields};row.update(step=82,complete_step_ms=10,command_ms=1,physics_step_ms=8,completion_ms=1)
+        manifest=dict(scenarios=[dict(id='fracture',case='heavy',step=82,predicates={'bonds_broken':{'gt':0}})])
+        runs=dict(status='complete',runs=[])
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            for stage in ['A-before','B','A-after']:
+                directory=root/stage/'native';directory.mkdir(parents=True)
+                with (directory/'native.frames.csv').open('w') as f:
+                    writer=csv.DictWriter(f,fieldnames=list(row));writer.writeheader();writer.writerow(row)
+                runs['runs'].append(dict(name=stage,case='heavy',stage=stage,status='complete'))
+            result=frames_reporter.report(root,manifest,runs)
+            sample=result['scenarios'][0]['arms']['B']['runs'][0]
+            self.assertEqual(sample['complete_step_ms'],10)
+            self.assertEqual(sample['stages_ms'],dict(command_ms=1,physics_step_ms=8,completion_ms=1))
+            self.assertEqual(result['whole_trajectory_measurements'],str(root/'campaign.json'))
+            manifest['scenarios'][0]['predicates']['bonds_broken']['gt']=1
+            with self.assertRaises(ValueError):frames_reporter.report(root,manifest,runs)
+            runs['runs'][0]['status']='failed'
+            with self.assertRaises(ValueError):frames_reporter.report(root,manifest,runs)
+
     def test_missing_event_is_not_relabelled(self):
         scenarios=[dict(id='impact',selection=dict(first=True,where={'breaks':{'gt':0}})),
                    dict(id='later',selection=dict(first=True,after_scenario='impact',where={}))]

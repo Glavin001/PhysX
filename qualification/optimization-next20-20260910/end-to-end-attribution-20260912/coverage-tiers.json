@@ -6,15 +6,15 @@
   "graph_cases": 52,
   "graph_files": 49,
   "graph_launches": 461,
-  "ordinary_config_cases": 39,
-  "ordinary_config_files": 39,
-  "ordinary_counter_launches": 3147,
-  "checked_counter_ticks": 176,
+  "ordinary_config_cases": 40,
+  "ordinary_config_files": 40,
+  "ordinary_counter_launches": 3243,
+  "checked_counter_ticks": 178,
   "reference_comparison_scope": "Two final restored outputs per report; application replay intermediate processes separately run native pair repeatability checks.",
   "minimum_represented_family_duration_fraction": 0.9900018680822582,
   "minimum_metric_fields": {
     "graph": 2125,
-    "ordinary_configs": 2237
+    "ordinary_configs": 2236
   },
   "counter_diagnostics": [
     {
@@ -647,6 +647,14 @@
       "record": 2,
       "metric": "lts__t_sector_hit_rate.pct",
       "value": 247.588807,
+      "note": "Out-of-range ratio; not valid quantitative evidence. Raw metric preserved."
+    },
+    {
+      "scenario": "city64-post-impact",
+      "tier": "ordinary_configs",
+      "record": 35,
+      "metric": "lts__t_sector_hit_rate.pct",
+      "value": 103.233831,
       "note": "Out-of-range ratio; not valid quantitative evidence. Raw metric preserved."
     },
     {
@@ -125130,7 +125138,7 @@
       },
       "ordinary_configs": {
         "scenario": "city64-post-impact",
-        "status": "running",
+        "status": "complete",
         "input_sha256": {
           "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.pxbin": "0ecb1ad8c8aa73c63227e84de2e90447cf8ab7cf03ea3339261eb3e71163f36f",
           "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.destruction": "3dcfe32d317ab6b264ff215c806d734288383e0341800e828c25b1ec04a0dd30",
@@ -127623,7 +127631,13 @@
           "--ncu-replay",
           "application"
         ],
-        "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-post-impact"
+        "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-post-impact",
+        "missing_configs": [],
+        "extra_configs": [],
+        "captured_configs": 56,
+        "captured_launches": 96,
+        "report_sha256": "cfc6751ed02152bf30971c0f9265a509cc71060edba854af793c3b6e9c563079",
+        "physical_comparison": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-post-impact/physical-comparison.json"
       }
     },
     {
@@ -129460,7 +129474,4035 @@
         "physical_comparison": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-cascading-fracture/physical-comparison.json"
       },
       "ordinary_configs": {
-        "status": "not_captured"
+        "scenario": "city64-cascading-fracture",
+        "status": "running",
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.pxbin": "4e21697b1a968db984d9fd524ce802132925d1d559280d266dee9eb5346ce4bd",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.destruction": "0ac6edbb1a59a53d935bba42b954ef18793481bb751ff083ba5a4edb686e5f5a",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.metadata.json": "a6f0b12a4d2e6cf38f1c0980607e5468acf24c5fe29b7bade6b9b36077922c3c"
+        },
+        "selection": {
+          "threshold_family_ms": 0.1,
+          "requested_coverage": 0.99,
+          "coverage_fraction": 0.9900509196573207,
+          "targets": [
+            {
+              "name": "updateShapesLaunch",
+              "aggregate_ms": 0.009856,
+              "launches": 1,
+              "configs": [
+                {
+                  "grid": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.009856
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "MemCopyBalanced",
+              "aggregate_ms": 0.593894,
+              "launches": 1,
+              "configs": [
+                {
+                  "grid": [
+                    8907,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    4,
+                    1
+                  ],
+                  "shared_bytes": 128,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.593894
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "radixSortMultiBlockLaunchWithCount",
+              "aggregate_ms": 0.178657,
+              "launches": 48,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    1024,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 2048,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.002656
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.002528
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.002528
+                    },
+                    {
+                      "invocation": 6,
+                      "ms": 0.002528
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.002528
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 11,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 12,
+                      "ms": 0.002561
+                    },
+                    {
+                      "invocation": 13,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 14,
+                      "ms": 0.002592
+                    },
+                    {
+                      "invocation": 15,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 16,
+                      "ms": 0.002528
+                    },
+                    {
+                      "invocation": 25,
+                      "ms": 0.002656
+                    },
+                    {
+                      "invocation": 26,
+                      "ms": 0.002592
+                    },
+                    {
+                      "invocation": 27,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 28,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 29,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 30,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 31,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 32,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 33,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 34,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 35,
+                      "ms": 0.002592
+                    },
+                    {
+                      "invocation": 36,
+                      "ms": 0.002592
+                    },
+                    {
+                      "invocation": 37,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 38,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 39,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 40,
+                      "ms": 0.00256
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9,
+                    16
+                  ]
+                },
+                {
+                  "grid": [
+                    32,
+                    3,
+                    1
+                  ],
+                  "block": [
+                    1024,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 2048,
+                  "invocations": [
+                    {
+                      "invocation": 17,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 18,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 19,
+                      "ms": 0.006016
+                    },
+                    {
+                      "invocation": 20,
+                      "ms": 0.005984
+                    },
+                    {
+                      "invocation": 21,
+                      "ms": 0.00608
+                    },
+                    {
+                      "invocation": 22,
+                      "ms": 0.005984
+                    },
+                    {
+                      "invocation": 23,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 24,
+                      "ms": 0.006016
+                    },
+                    {
+                      "invocation": 41,
+                      "ms": 0.00608
+                    },
+                    {
+                      "invocation": 42,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 43,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 44,
+                      "ms": 0.006016
+                    },
+                    {
+                      "invocation": 45,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 46,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 47,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 48,
+                      "ms": 0.006016
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9,
+                    16
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "radixSortMultiCalculateRanksLaunchWithCount",
+              "aggregate_ms": 0.262305,
+              "launches": 48,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    1024,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 39104,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.004288
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.004032
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 6,
+                      "ms": 0.003968
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 11,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 12,
+                      "ms": 0.003872
+                    },
+                    {
+                      "invocation": 13,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 14,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 15,
+                      "ms": 0.004032
+                    },
+                    {
+                      "invocation": 16,
+                      "ms": 0.004
+                    },
+                    {
+                      "invocation": 25,
+                      "ms": 0.004224
+                    },
+                    {
+                      "invocation": 26,
+                      "ms": 0.004128
+                    },
+                    {
+                      "invocation": 27,
+                      "ms": 0.004
+                    },
+                    {
+                      "invocation": 28,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 29,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 30,
+                      "ms": 0.003968
+                    },
+                    {
+                      "invocation": 31,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 32,
+                      "ms": 0.003968
+                    },
+                    {
+                      "invocation": 33,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 34,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 35,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 36,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 37,
+                      "ms": 0.003968
+                    },
+                    {
+                      "invocation": 38,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 39,
+                      "ms": 0.003936
+                    },
+                    {
+                      "invocation": 40,
+                      "ms": 0.003936
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9,
+                    16
+                  ]
+                },
+                {
+                  "grid": [
+                    32,
+                    3,
+                    1
+                  ],
+                  "block": [
+                    1024,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 39104,
+                  "invocations": [
+                    {
+                      "invocation": 17,
+                      "ms": 0.00832
+                    },
+                    {
+                      "invocation": 18,
+                      "ms": 0.008544
+                    },
+                    {
+                      "invocation": 19,
+                      "ms": 0.008608
+                    },
+                    {
+                      "invocation": 20,
+                      "ms": 0.008416
+                    },
+                    {
+                      "invocation": 21,
+                      "ms": 0.008544
+                    },
+                    {
+                      "invocation": 22,
+                      "ms": 0.008448
+                    },
+                    {
+                      "invocation": 23,
+                      "ms": 0.008416
+                    },
+                    {
+                      "invocation": 24,
+                      "ms": 0.008352
+                    },
+                    {
+                      "invocation": 41,
+                      "ms": 0.008576
+                    },
+                    {
+                      "invocation": 42,
+                      "ms": 0.008576
+                    },
+                    {
+                      "invocation": 43,
+                      "ms": 0.008512
+                    },
+                    {
+                      "invocation": 44,
+                      "ms": 0.008481
+                    },
+                    {
+                      "invocation": 45,
+                      "ms": 0.008448
+                    },
+                    {
+                      "invocation": 46,
+                      "ms": 0.00848
+                    },
+                    {
+                      "invocation": 47,
+                      "ms": 0.008384
+                    },
+                    {
+                      "invocation": 48,
+                      "ms": 0.00832
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9,
+                    16
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "translateAABBsLaunch",
+              "aggregate_ms": 0.01024,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    1024,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.005408
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.004832
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "markUpdatedPairsLaunch",
+              "aggregate_ms": 0.011712,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.00224
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.009472
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "computeEndPtsHistogram",
+              "aggregate_ms": 0.009824,
+              "launches": 3,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    3,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 44,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.001344
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.00416
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.00432
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "outputEndPtsHistogram",
+              "aggregate_ms": 0.011904,
+              "launches": 3,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    3,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 424,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.001472
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.005216
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.005216
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "computeIncrementalComparisonHistograms_Stage1",
+              "aggregate_ms": 0.018433,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 208,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.001216
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.017217
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "performIncrementalSAP",
+              "aggregate_ms": 0.972235,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    256,
+                    3,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 144,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.002464
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.969771
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "initializeSapBox1DLaunch",
+              "aggregate_ms": 0.009952,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    223,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.006048
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "createRegionsKernel",
+              "aggregate_ms": 0.032034,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.014273
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.017761
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "computeStartRegionsHistogram",
+              "aggregate_ms": 0.007776,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 36,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.004
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.003776
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "computeRegionsHistogram",
+              "aggregate_ms": 0.006848,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 36,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.003424
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.003424
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "writeOutStartAndActiveRegionHistogram",
+              "aggregate_ms": 0.019936,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.010144
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.009792
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "computeStartAndActiveRegionHistogram",
+              "aggregate_ms": 0.187906,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    512,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 72,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.088641
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.099265
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "outputOrderedActiveRegionHistogram",
+              "aggregate_ms": 0.016672,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.008864
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.007808
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "writeOutOverlapChecksForInsertedBoundsRegionsHistogram",
+              "aggregate_ms": 0.027232,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.013184
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.014048
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "computeOverlapChecksForRegionsHistogram",
+              "aggregate_ms": 0.006368,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 72,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.003168
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.0032
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "generateFoundPairsForNewBoundsRegion",
+              "aggregate_ms": 0.341348,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 72,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.334692
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.006656
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "clearNewFlagLaunch",
+              "aggregate_ms": 0.012736,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.005888
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.006848
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "nativePairSortTiles",
+              "aggregate_ms": 0.020384,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    128,
+                    2,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 8448,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.010976
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.009408
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "nativePairMerge",
+              "aggregate_ms": 0.022016,
+              "launches": 24,
+              "configs": [
+                {
+                  "grid": [
+                    128,
+                    2,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.002592
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.002336
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.002464
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.002656
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.000608
+                    },
+                    {
+                      "invocation": 6,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.000608
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.000608
+                    },
+                    {
+                      "invocation": 11,
+                      "ms": 0.000608
+                    },
+                    {
+                      "invocation": 12,
+                      "ms": 0.000608
+                    },
+                    {
+                      "invocation": 13,
+                      "ms": 0.000736
+                    },
+                    {
+                      "invocation": 14,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 15,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 16,
+                      "ms": 0.000608
+                    },
+                    {
+                      "invocation": 17,
+                      "ms": 0.000608
+                    },
+                    {
+                      "invocation": 18,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 19,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 20,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 21,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 22,
+                      "ms": 0.000576
+                    },
+                    {
+                      "invocation": 23,
+                      "ms": 0.000608
+                    },
+                    {
+                      "invocation": 24,
+                      "ms": 0.000608
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9,
+                    16
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "copyReports",
+              "aggregate_ms": 0.015713,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.013601
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.002112
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "initializeManifolds",
+              "aggregate_ms": 0.006752,
+              "launches": 3,
+              "configs": [
+                {
+                  "grid": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    512,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 4104,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.001568
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.003488
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.001696
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "sphereNphase_Kernel",
+              "aggregate_ms": 0.007424,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    6,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.003968
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.003456
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "prepareLostFoundPairs_Stage2",
+              "aggregate_ms": 0.008384,
+              "launches": 5,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    16,
+                    1
+                  ],
+                  "shared_bytes": 128,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.001664
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.001888
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.001376
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.001632
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.001824
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "boxBoxNphase_Kernel",
+              "aggregate_ms": 0.05472,
+              "launches": 3,
+              "configs": [
+                {
+                  "grid": [
+                    409,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 3840,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.024512
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                },
+                {
+                  "grid": [
+                    405,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 3840,
+                  "invocations": [
+                    {
+                      "invocation": 2,
+                      "ms": 0.023616
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                },
+                {
+                  "grid": [
+                    19,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 3840,
+                  "invocations": [
+                    {
+                      "invocation": 3,
+                      "ms": 0.006592
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e318captureInputOwnersENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEjPKNS_10PxgBodySimEPNS_24PxgDestructionInputOwnerEPNS_28PxgDestructionInputOwnershipE",
+              "aggregate_ms": 0.007328,
+              "launches": 1,
+              "configs": [
+                {
+                  "grid": [
+                    222,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.007328
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "preIntegrationLaunchTGS",
+              "aggregate_ms": 0.014144,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    12,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 8960,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.005568
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.008576
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "initStaticKinematics",
+              "aggregate_ms": 0.00624,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    1,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.00256
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.00368
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "rigidSumInternalContactAndJointBatches2",
+              "aggregate_ms": 0.014881,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    32,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    512,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 784,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.006624
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.008257
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "constraintContactBlockPrePrepLaunch",
+              "aggregate_ms": 0.024993,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    228,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 10520,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.012321
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                },
+                {
+                  "grid": [
+                    342,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 10520,
+                  "invocations": [
+                    {
+                      "invocation": 2,
+                      "ms": 0.012672
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "contactConstraintBlockPrepareParallelLaunchTGS",
+              "aggregate_ms": 0.053889,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    456,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 2440,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.028769
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                },
+                {
+                  "grid": [
+                    683,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 2440,
+                  "invocations": [
+                    {
+                      "invocation": 2,
+                      "ms": 0.02512
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "markActiveSlabTGS",
+              "aggregate_ms": 0.039104,
+              "launches": 10,
+              "configs": [
+                {
+                  "grid": [
+                    29,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    2,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.004832
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.003264
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.003296
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.003264
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.003296
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                  ]
+                },
+                {
+                  "grid": [
+                    31,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    2,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 6,
+                      "ms": 0.005408
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.003872
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.003872
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.003904
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.004096
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "solveBlockUnified",
+              "aggregate_ms": 0.410916,
+              "launches": 80,
+              "configs": [
+                {
+                  "grid": [
+                    9,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    2,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.007168
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.005856
+                    },
+                    {
+                      "invocation": 17,
+                      "ms": 0.0056
+                    },
+                    {
+                      "invocation": 25,
+                      "ms": 0.005728
+                    },
+                    {
+                      "invocation": 33,
+                      "ms": 0.005696
+                    },
+                    {
+                      "invocation": 41,
+                      "ms": 0.006848
+                    },
+                    {
+                      "invocation": 49,
+                      "ms": 0.005472
+                    },
+                    {
+                      "invocation": 57,
+                      "ms": 0.005664
+                    },
+                    {
+                      "invocation": 65,
+                      "ms": 0.005888
+                    },
+                    {
+                      "invocation": 73,
+                      "ms": 0.005888
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9
+                  ]
+                },
+                {
+                  "grid": [
+                    7,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    2,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 2,
+                      "ms": 0.00608
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.005792
+                    },
+                    {
+                      "invocation": 18,
+                      "ms": 0.005696
+                    },
+                    {
+                      "invocation": 26,
+                      "ms": 0.005664
+                    },
+                    {
+                      "invocation": 34,
+                      "ms": 0.005728
+                    },
+                    {
+                      "invocation": 42,
+                      "ms": 0.005952
+                    },
+                    {
+                      "invocation": 50,
+                      "ms": 0.005152
+                    },
+                    {
+                      "invocation": 58,
+                      "ms": 0.005312
+                    },
+                    {
+                      "invocation": 66,
+                      "ms": 0.00576
+                    },
+                    {
+                      "invocation": 74,
+                      "ms": 0.005697
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9
+                  ]
+                },
+                {
+                  "grid": [
+                    5,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    2,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 3,
+                      "ms": 0.005888
+                    },
+                    {
+                      "invocation": 11,
+                      "ms": 0.005088
+                    },
+                    {
+                      "invocation": 19,
+                      "ms": 0.005056
+                    },
+                    {
+                      "invocation": 27,
+                      "ms": 0.005088
+                    },
+                    {
+                      "invocation": 35,
+                      "ms": 0.00512
+                    },
+                    {
+                      "invocation": 43,
+                      "ms": 0.006432
+                    },
+                    {
+                      "invocation": 51,
+                      "ms": 0.005216
+                    },
+                    {
+                      "invocation": 59,
+                      "ms": 0.005216
+                    },
+                    {
+                      "invocation": 67,
+                      "ms": 0.005184
+                    },
+                    {
+                      "invocation": 75,
+                      "ms": 0.00544
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9
+                  ]
+                },
+                {
+                  "grid": [
+                    4,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    2,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 4,
+                      "ms": 0.006176
+                    },
+                    {
+                      "invocation": 12,
+                      "ms": 0.005088
+                    },
+                    {
+                      "invocation": 20,
+                      "ms": 0.005056
+                    },
+                    {
+                      "invocation": 28,
+                      "ms": 0.005088
+                    },
+                    {
+                      "invocation": 36,
+                      "ms": 0.005056
+                    },
+                    {
+                      "invocation": 44,
+                      "ms": 0.00624
+                    },
+                    {
+                      "invocation": 52,
+                      "ms": 0.005344
+                    },
+                    {
+                      "invocation": 60,
+                      "ms": 0.005344
+                    },
+                    {
+                      "invocation": 68,
+                      "ms": 0.005184
+                    },
+                    {
+                      "invocation": 76,
+                      "ms": 0.005376
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9
+                  ]
+                },
+                {
+                  "grid": [
+                    2,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    2,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 5,
+                      "ms": 0.006048
+                    },
+                    {
+                      "invocation": 13,
+                      "ms": 0.005121
+                    },
+                    {
+                      "invocation": 21,
+                      "ms": 0.00512
+                    },
+                    {
+                      "invocation": 29,
+                      "ms": 0.005152
+                    },
+                    {
+                      "invocation": 37,
+                      "ms": 0.005152
+                    },
+                    {
+                      "invocation": 45,
+                      "ms": 0.005984
+                    },
+                    {
+                      "invocation": 46,
+                      "ms": 0.005152
+                    },
+                    {
+                      "invocation": 53,
+                      "ms": 0.005824
+                    },
+                    {
+                      "invocation": 54,
+                      "ms": 0.004768
+                    },
+                    {
+                      "invocation": 61,
+                      "ms": 0.005728
+                    },
+                    {
+                      "invocation": 62,
+                      "ms": 0.004928
+                    },
+                    {
+                      "invocation": 69,
+                      "ms": 0.005632
+                    },
+                    {
+                      "invocation": 70,
+                      "ms": 0.004928
+                    },
+                    {
+                      "invocation": 77,
+                      "ms": 0.005792
+                    },
+                    {
+                      "invocation": 78,
+                      "ms": 0.004896
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9
+                  ]
+                },
+                {
+                  "grid": [
+                    1,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    2,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 6,
+                      "ms": 0.005024
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.00496
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.003552
+                    },
+                    {
+                      "invocation": 14,
+                      "ms": 0.004704
+                    },
+                    {
+                      "invocation": 15,
+                      "ms": 0.004064
+                    },
+                    {
+                      "invocation": 16,
+                      "ms": 0.003072
+                    },
+                    {
+                      "invocation": 22,
+                      "ms": 0.004704
+                    },
+                    {
+                      "invocation": 23,
+                      "ms": 0.004064
+                    },
+                    {
+                      "invocation": 24,
+                      "ms": 0.003104
+                    },
+                    {
+                      "invocation": 30,
+                      "ms": 0.004704
+                    },
+                    {
+                      "invocation": 31,
+                      "ms": 0.004032
+                    },
+                    {
+                      "invocation": 32,
+                      "ms": 0.003072
+                    },
+                    {
+                      "invocation": 38,
+                      "ms": 0.004832
+                    },
+                    {
+                      "invocation": 39,
+                      "ms": 0.004384
+                    },
+                    {
+                      "invocation": 40,
+                      "ms": 0.003232
+                    },
+                    {
+                      "invocation": 47,
+                      "ms": 0.005056
+                    },
+                    {
+                      "invocation": 48,
+                      "ms": 0.004576
+                    },
+                    {
+                      "invocation": 55,
+                      "ms": 0.004672
+                    },
+                    {
+                      "invocation": 56,
+                      "ms": 0.004033
+                    },
+                    {
+                      "invocation": 63,
+                      "ms": 0.00496
+                    },
+                    {
+                      "invocation": 64,
+                      "ms": 0.004032
+                    },
+                    {
+                      "invocation": 71,
+                      "ms": 0.004672
+                    },
+                    {
+                      "invocation": 72,
+                      "ms": 0.004033
+                    },
+                    {
+                      "invocation": 79,
+                      "ms": 0.0048
+                    },
+                    {
+                      "invocation": 80,
+                      "ms": 0.004032
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9,
+                    16
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "computeAverageSolverBodyVelocityTGS",
+              "aggregate_ms": 0.02256,
+              "launches": 10,
+              "configs": [
+                {
+                  "grid": [
+                    178,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    8,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.002432
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.002176
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.002208
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.002176
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.00224
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                  ]
+                },
+                {
+                  "grid": [
+                    180,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    8,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 6,
+                      "ms": 0.002528
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.002176
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.00224
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.002208
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.002176
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "solveStaticBlockTGS",
+              "aggregate_ms": 0.372613,
+              "launches": 10,
+              "configs": [
+                {
+                  "grid": [
+                    46,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.057729
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.033217
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.032961
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.033024
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.034593
+                    },
+                    {
+                      "invocation": 6,
+                      "ms": 0.053472
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.031393
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.031744
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.03216
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.03232
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "propagateStaticSolverBodyVelocitiesTGS",
+              "aggregate_ms": 0.013568,
+              "launches": 10,
+              "configs": [
+                {
+                  "grid": [
+                    46,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    64,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.001792
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.001312
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.001312
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.00128
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.00128
+                    },
+                    {
+                      "invocation": 6,
+                      "ms": 0.001696
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.001216
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.001248
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.001216
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.001216
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "propagateAverageSolverBodyVelocityTGS",
+              "aggregate_ms": 0.024256,
+              "launches": 10,
+              "configs": [
+                {
+                  "grid": [
+                    186,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    8,
+                    1
+                  ],
+                  "shared_bytes": 16384,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.002688
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.0024
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.002432
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.0024
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4
+                  ]
+                },
+                {
+                  "grid": [
+                    18,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    8,
+                    1
+                  ],
+                  "shared_bytes": 16384,
+                  "invocations": [
+                    {
+                      "invocation": 5,
+                      "ms": 0.001408
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.001408
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "grid": [
+                    188,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    32,
+                    8,
+                    1
+                  ],
+                  "shared_bytes": 16384,
+                  "invocations": [
+                    {
+                      "invocation": 6,
+                      "ms": 0.00288
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.002848
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.00288
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.002912
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph7connectEPKNS_22PxgContactManagerInputEPKNS_23PxgContactGraphIdentityEPKNS_23PxsContactManagerOutputEjPKNS_11PxgShapeSimEjjPNS_32PxgDestructionContactGraphStatusEPKjPjSH_",
+              "aggregate_ms": 0.025696,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    55,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.013184
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                },
+                {
+                  "grid": [
+                    56,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 2,
+                      "ms": 0.012512
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "writebackBlocksTGS",
+              "aggregate_ms": 0.014688,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    114,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 10304,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.007648
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                },
+                {
+                  "grid": [
+                    171,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 10304,
+                  "invocations": [
+                    {
+                      "invocation": 2,
+                      "ms": 0.00704
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph20connectRetainedSlotsEPKNS_26PxgDestructionRetainedEdgeEPKjjjPjS6_PNS_32PxgDestructionContactGraphStatusE",
+              "aggregate_ms": 0.035362,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    2,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.017825
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.017537
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph8compressEPjS1_j",
+              "aggregate_ms": 0.006112,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    16,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.002976
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.003136
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "integrateCoreParallelLaunchTGS",
+              "aggregate_ms": 0.00656,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    12,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.003232
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.003328
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "updateTransformCacheAndBoundArrayLaunch",
+              "aggregate_ms": 0.02128,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.01056
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.01072
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e312prepareLoadsEPKNS_24PxDestructionStressChunkEjPKNS_26PxDestructionStressClusterEPKNS_12PxTransformTIfEEPKNS_7PxVec3TIfEESC_PNS_23PxDestructionVectorPairEPNS_24PxDestructionSurfaceLoadEPf",
+              "aggregate_ms": 0.025952,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    222,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.013024
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.012928
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e316contactRouteKeysENS_28PxgDestructionSolvedContactsEPKNS0_6LookupEjPm",
+              "aggregate_ms": 0.01824,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    55,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.008832
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                },
+                {
+                  "grid": [
+                    56,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 2,
+                      "ms": 0.009408
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN3cub17_V_300402_SM_12006detail10radix_sort29DeviceRadixSortOnesweepKernelINS2_26policy_selector_from_typesImNS0_8NullTypeEjEELNS0_9SortOrderE0EmS5_jiiNS1_21identity_decomposer_tEEEvPT5_SA_PT3_PKSB_PT1_PKSF_PT2_PKSJ_T4_iiT6_",
+              "aggregate_ms": 0.068161,
+              "launches": 16,
+              "configs": [
+                {
+                  "grid": [
+                    3,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    384,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 47104,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.004544
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.004224
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.004064
+                    },
+                    {
+                      "invocation": 4,
+                      "ms": 0.004065
+                    },
+                    {
+                      "invocation": 5,
+                      "ms": 0.004256
+                    },
+                    {
+                      "invocation": 6,
+                      "ms": 0.00432
+                    },
+                    {
+                      "invocation": 7,
+                      "ms": 0.004096
+                    },
+                    {
+                      "invocation": 8,
+                      "ms": 0.004064
+                    },
+                    {
+                      "invocation": 9,
+                      "ms": 0.004736
+                    },
+                    {
+                      "invocation": 10,
+                      "ms": 0.00464
+                    },
+                    {
+                      "invocation": 11,
+                      "ms": 0.004096
+                    },
+                    {
+                      "invocation": 12,
+                      "ms": 0.004032
+                    },
+                    {
+                      "invocation": 13,
+                      "ms": 0.004288
+                    },
+                    {
+                      "invocation": 14,
+                      "ms": 0.004544
+                    },
+                    {
+                      "invocation": 15,
+                      "ms": 0.004096
+                    },
+                    {
+                      "invocation": 16,
+                      "ms": 0.004096
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    9,
+                    16
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319routeSortedContactsEPKmjNS_28PxgDestructionSolvedContactsEPKNS0_6LookupEjPKNS_24PxDestructionStressChunkEPKNS_12PxTransformTIfEEfPNS_23PxDestructionVectorPairEPNS_24PxDestructionSurfaceLoadEPNS_24PxDestructionStageStatusEPKNS_10PxgBodySimEPKNS_21PxDestructionMaterialEPf",
+              "aggregate_ms": 0.106753,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    109,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.051456
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                },
+                {
+                  "grid": [
+                    112,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 2,
+                      "ms": 0.055297
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321evaluateBondMaterialsEPKNS_24PxDestructionStressChunkEPKNS_23PxDestructionStressBondEPKNS_21PxDestructionMaterialEPKfPKNS_23PxDestructionVectorPairEjfffbPNS_24PxDestructionBondVerdictEPNS_7PxVec3TIfEEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.029985,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    448,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.015713
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.014272
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322evaluateChunkMaterialsEPKNS_24PxDestructionStressChunkEPKNS_23PxDestructionStressBondEPKNS_21PxDestructionMaterialEPKjSB_PKfPKNS_23PxDestructionVectorPairEPKNS_7PxVec3TIfEEPKNS_24PxDestructionSurfaceLoadESD_PKNS_23PxDestructionCrushStateEPSO_jfPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.009697,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    222,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.005856
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.003841
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e323finalizeMaterialVerdictEPKNS_23PxDestructionStressBondEPNS_24PxDestructionBondVerdictEPKNS_23PxDestructionCrushStateEPKfjPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.008256,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    448,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.004096
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.00416
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e325provisionalTopologyMotionENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEPKNS_12PxTransformTIfEEPKNS_10PxgBodySimEPNS_26PxDestructionClusterMotionE",
+              "aggregate_ms": 0.008352,
+              "launches": 3,
+              "configs": [
+                {
+                  "grid": [
+                    12,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.003008
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.002368
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.002976
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322prepareCandidateBodiesENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEPNS_29PxDestructionClusterBodyStateEPNS_34PxDestructionBodyPreparationStatusES1_PNS_25PxvDestructionBodyRequestEPj",
+              "aggregate_ms": 0.036673,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    222,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.035873
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.0008
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e316committedChanges6recordEPhS2_NS_31PxDestructionTopologyDeviceViewES3_PKNS_38PxDestructionTopologyTransactionStatusEPKjPKNS_24PxDestructionStressChunkES8_",
+              "aggregate_ms": 0.00672,
+              "launches": 3,
+              "configs": [
+                {
+                  "grid": [
+                    448,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.0008
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.00512
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.0008
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319commitMaterialStateEPKNS_24PxDestructionBondVerdictEPfjPKNS_23PxDestructionCrushStateEPS5_jPKNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.009056,
+              "launches": 3,
+              "configs": [
+                {
+                  "grid": [
+                    448,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    128,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 0,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.00064
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.006496
+                    },
+                    {
+                      "invocation": 3,
+                      "ms": 0.00192
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "refreshReboundShapeBounds",
+              "aggregate_ms": 0.01552,
+              "launches": 1,
+              "configs": [
+                {
+                  "grid": [
+                    112,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 4,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.01552
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN3cub17_V_300402_SM_12006detail10radix_sort31DeviceRadixSortSingleTileKernelINS2_26policy_selector_from_typesImNS0_8NullTypeEjEELNS0_9SortOrderE0EmS5_jNS1_21identity_decomposer_tEEEvPKT1_PS9_PKT2_PSD_T3_iiT4_",
+              "aggregate_ms": 0.027232,
+              "launches": 2,
+              "configs": [
+                {
+                  "grid": [
+                    1,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    256,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 33856,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.013408
+                    },
+                    {
+                      "invocation": 2,
+                      "ms": 0.013824
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "_ZN3cub17_V_300402_SM_12006detail6select23DeviceSelectSweepKernelINS2_26policy_selector_from_typesIN6thrust17_V_300402_SM_120017counting_iteratorIjNS6_11use_defaultES8_S8_NS6_20__compile_time_valueILi1EEEEEPNS0_8NullTypeEPjlLNS0_10SelectImplE0EEESB_SD_SE_SE_NS0_13ScanTileStateIiLb1EEEN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e320HasPendingShapeOwnerESC_iNS2_19streaming_context_tIlLb1EEELSF_0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iT8_NS1_7vsmem_tE",
+              "aggregate_ms": 0.00896,
+              "launches": 1,
+              "configs": [
+                {
+                  "grid": [
+                    5,
+                    1,
+                    1
+                  ],
+                  "block": [
+                    384,
+                    1,
+                    1
+                  ],
+                  "shared_bytes": 23040,
+                  "invocations": [
+                    {
+                      "invocation": 1,
+                      "ms": 0.00896
+                    }
+                  ],
+                  "selected_ordinals": [
+                    1
+                  ]
+                }
+              ]
+            }
+          ],
+          "invocation_ordinals": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            9,
+            16
+          ],
+          "expected_launches": 240,
+          "expected_configs": 79,
+          "total_gpu_kernel_ms": 21.656273,
+          "graph_gpu_kernel_ms": 17.063805,
+          "selected_ordinary_kernel_ms": 4.377007999999999,
+          "omitted_ordinary": [
+            {
+              "name": "radixSortCopyBits2",
+              "aggregate_ms": 0.003936,
+              "launches": 4
+            },
+            {
+              "name": "radixSortCopy2",
+              "aggregate_ms": 0.002624,
+              "launches": 2
+            },
+            {
+              "name": "mergeChangedAABBMgrHandlesLaunch",
+              "aggregate_ms": 0.002944,
+              "launches": 2
+            },
+            {
+              "name": "computeIncrementalComparisonHistograms_Stage2",
+              "aggregate_ms": 0.004992,
+              "launches": 2
+            },
+            {
+              "name": "markCreatedPairsLaunch",
+              "aggregate_ms": 0.004192,
+              "launches": 1
+            },
+            {
+              "name": "outputStartRegionsHistogram",
+              "aggregate_ms": 0.004224,
+              "launches": 2
+            },
+            {
+              "name": "outputRegionsHistogram",
+              "aggregate_ms": 0.004032,
+              "launches": 2
+            },
+            {
+              "name": "outputOverlapChecksForRegionHistogram",
+              "aggregate_ms": 0.00384,
+              "launches": 2
+            },
+            {
+              "name": "accumulateReportsStage_1",
+              "aggregate_ms": 0.004416,
+              "launches": 2
+            },
+            {
+              "name": "accumulateReportsStage_2",
+              "aggregate_ms": 0.005281,
+              "launches": 2
+            },
+            {
+              "name": "nativePairUniqueCounts",
+              "aggregate_ms": 0.003456,
+              "launches": 2
+            },
+            {
+              "name": "nativePairUniquePrefix",
+              "aggregate_ms": 0.002816,
+              "launches": 2
+            },
+            {
+              "name": "nativePairUniqueScatter",
+              "aggregate_ms": 0.005408,
+              "launches": 2
+            },
+            {
+              "name": "bpSignalComplete",
+              "aggregate_ms": 0.004032,
+              "launches": 6
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e324buildNativeContactInputsEPNS_22PxgContactManagerInputEjPKNS_11PxgShapeSimEj",
+              "aggregate_ms": 0.003616,
+              "launches": 3
+            },
+            {
+              "name": "prepareLostFoundPairs_Stage1",
+              "aggregate_ms": 0.005344,
+              "launches": 5
+            },
+            {
+              "name": "updateFrictionPatches",
+              "aggregate_ms": 0.004352,
+              "launches": 5
+            },
+            {
+              "name": "updateBodiesLaunchDirectAPI",
+              "aggregate_ms": 0.001856,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e318beginCommandInputsEPNS_32PxgDestructionCommandInputStatusEmj",
+              "aggregate_ms": 0.000416,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319beginInputOwnershipEPNS_28PxgDestructionInputOwnershipENS_31PxDestructionTopologyDeviceViewEjjm",
+              "aggregate_ms": 0.0008,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e320finishInputOwnershipEPNS_28PxgDestructionInputOwnershipE",
+              "aggregate_ms": 0.000544,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327reduceNativeIterationLimitsEPKNS_10PxgBodySimEjPKNS_11PxNodeIndexEjjPNS0_21NativeIterationLimitsE",
+              "aggregate_ms": 0.002624,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327finishNativeIterationLimitsEPKNS0_21NativeIterationLimitsEjPS1_",
+              "aggregate_ms": 0.001728,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e323clearNewNativeNodeRangeEPNS_15PxvPreSolveNodeEjjPKNS0_21NativeMotionAddressesEPKNS_29PxDestructionMotionSlotStatusE",
+              "aggregate_ms": 0.002176,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx19destructionPreSolve11updateNodesEPKNS_21PxvPreSolveNodeUpdateEjPNS_15PxvPreSolveNodeEj",
+              "aggregate_ms": 0.001184,
+              "launches": 1
+            },
+            {
+              "name": "clearFrictionPatchCounts",
+              "aggregate_ms": 0.001408,
+              "launches": 2
+            },
+            {
+              "name": "rigidSumInternalContactAndJointBatches1",
+              "aggregate_ms": 0.002848,
+              "launches": 2
+            },
+            {
+              "name": "constraint1DBlockPrePrepLaunch",
+              "aggregate_ms": 0.003168,
+              "launches": 2
+            },
+            {
+              "name": "ZeroBodiesTGS",
+              "aggregate_ms": 0.002016,
+              "launches": 2
+            },
+            {
+              "name": "initializeSolverVelocitiesTGS",
+              "aggregate_ms": 0.0032,
+              "launches": 2
+            },
+            {
+              "name": "concludeBlocksTGS",
+              "aggregate_ms": 0.002624,
+              "launches": 2
+            },
+            {
+              "name": "writeBackBodiesTGS",
+              "aggregate_ms": 0.002368,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph10initializeEPjS1_jPNS_32PxgDestructionContactGraphStatusEjPKNS_23PxgContactGraphSequenceE",
+              "aggregate_ms": 0.001216,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph23validateRetainedUpdatesEPKNS_26PxgDestructionRetainedEdgeEjjPjPNS_32PxgDestructionContactGraphStatusE",
+              "aggregate_ms": 0.001504,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph20applyRetainedUpdatesEPKNS_26PxgDestructionRetainedEdgeEjPS1_jPjS5_PNS_32PxgDestructionContactGraphStatusE",
+              "aggregate_ms": 0.002624,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph21finishRetainedUpdatesEPj",
+              "aggregate_ms": 0.00112,
+              "launches": 2
+            },
+            {
+              "name": "updateChangedAABBMgrHandlesLaunch",
+              "aggregate_ms": 0.002144,
+              "launches": 2
+            },
+            {
+              "name": "computeFrozenAndUnfrozenHistogramLaunch",
+              "aggregate_ms": 0.004353,
+              "launches": 2
+            },
+            {
+              "name": "outputFrozenAndUnfrozenHistogram",
+              "aggregate_ms": 0.004096,
+              "launches": 2
+            },
+            {
+              "name": "createFrozenAndUnfrozenArray",
+              "aggregate_ms": 0.00128,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e310startFrameEPNS_24PxDestructionStageStatusEPKNS_23PxgContactGraphSequenceEb",
+              "aggregate_ms": 0.001888,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e316committedChanges5resetEPhS2_jjNS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.000864,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321observeNativeClustersEPKNS_26PxDestructionStressClusterEjPKNS_10PxgBodySimEPNS_12PxTransformTIfEEPNS_7PxVec3TIfEEPKNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.004064,
+              "launches": 3
+            },
+            {
+              "name": "_ZN3cub17_V_300402_SM_12006detail10radix_sort30DeviceRadixSortHistogramKernelINS2_26policy_selector_from_typesImNS0_8NullTypeEjEELNS0_9SortOrderE0EmjNS1_21identity_decomposer_tEEEvPT2_PKT1_S9_iiT3_",
+              "aggregate_ms": 0.004673,
+              "launches": 2
+            },
+            {
+              "name": "_ZN3cub17_V_300402_SM_12006detail10radix_sort33DeviceRadixSortExclusiveSumKernelINS2_26policy_selector_from_typesImNS0_8NullTypeEjEEjEEvPT0_",
+              "aggregate_ms": 0.001409,
+              "launches": 2
+            },
+            {
+              "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb22exportPhysicalImpulsesEPKNS1_6AngLinEPKfPNS0_19ExtStressGpuImpulseEjff",
+              "aggregate_ms": 0.004672,
+              "launches": 2
+            },
+            {
+              "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb22markDeviceStressSolvedEPNS0_32ExtStressGpuDeviceTopologyStatusE",
+              "aggregate_ms": 0.001184,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e312finishStatusEPKN2Nv5Blast24ExtStressGpuDeviceStatusEPNS_24PxDestructionStageStatusEPKNS_23PxDestructionVectorPairEj",
+              "aggregate_ms": 0.003424,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e324requireNativeConvergenceEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.00144,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e325requireFractureCorrectionEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.00144,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e317emitTopologyEditsEPKNS_24PxDestructionBondVerdictEjPKNS_23PxDestructionCrushStateES6_jPNS_18PxgDestructionEditEPj",
+              "aggregate_ms": 0.003584,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_45f644be19setTransactionBatchEPNS0_16TransactionBatchES1_",
+              "aggregate_ms": 0.000928,
+              "launches": 2
+            },
+            {
+              "name": "_ZN3cub17_V_300402_SM_12006detail4scan23DeviceCompactInitKernelINS0_13ScanTileStateIiLb1EEEPjEEvT_iT0_",
+              "aggregate_ms": 0.000928,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e326inspectTopologyTransactionEPKNS_38PxDestructionTopologyTransactionStatusEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.001088,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e320beginBodyPreparationEPKNS_38PxDestructionTopologyTransactionStatusENS_31PxDestructionTopologyDeviceViewEPNS_34PxDestructionBodyPreparationStatusE",
+              "aggregate_ms": 0.00144,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321finishBodyPreparationEPKNS_38PxDestructionTopologyTransactionStatusEPNS_34PxDestructionBodyPreparationStatusEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.001408,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e326beginUnchangedMotionCommitEPKNS_38PxDestructionTopologyTransactionStatusEPKNS_24PxDestructionStageStatusEPj",
+              "aggregate_ms": 0.001344,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e326checkUnchangedMotionCommitENS_31PxDestructionTopologyDeviceViewES1_PKNS_38PxDestructionTopologyTransactionStatusEPjPKNS_24PxDestructionStressChunkES5_PNS_39PxDestructionCollisionPreparationStatusE",
+              "aggregate_ms": 0.002272,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327acceptUnchangedMotionCommitEPKjPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.00128,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_45f644be20setTransactionAcceptEPNS0_16TransactionBatchEPKj",
+              "aggregate_ms": 0.00128,
+              "launches": 3
+            },
+            {
+              "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb28setDeviceStressTopologyBatchEPNS1_25DeviceStressTopologyBatchES2_",
+              "aggregate_ms": 0.001408,
+              "launches": 3
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321inspectStressTopologyEPKN2Nv5Blast32ExtStressGpuDeviceTopologyStatusEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.0016,
+              "launches": 3
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e328commitObservedTopologyMotionENS_31PxDestructionTopologyDeviceViewEPKNS_26PxDestructionClusterMotionEPKNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.005312,
+              "launches": 3
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e329registerNativeMotionAddressesENS0_21NativeMotionAddressesE",
+              "aggregate_ms": 0.00096,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327installCorrectionBodyInputsEPKNS_27PxDestructionCorrectionBodyEjPKNS_10PxgBodySimEPKNS_20PxgBodySimVelocitiesEPS4_PS7_PNS_24PxgRigidBodyAccelerationE",
+              "aggregate_ms": 0.00096,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e328installNativeCollisionOwnersEPKNS_29PxDestructionCollisionBindingEjPNS_11PxgShapeSimEjPNS_11PxNodeIndexEjPmmS8_PjPKNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.001152,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e329gatherCorrectionOwnerMetadataEPKNS_27PxDestructionCorrectionBodyEjPKjPKNS_25PxvDestructionBodyRequestEPS6_Pj",
+              "aggregate_ms": 0.000832,
+              "launches": 1
+            },
+            {
+              "name": "initializeRadixRanks",
+              "aggregate_ms": 0.00128,
+              "launches": 1
+            },
+            {
+              "name": "updateHandles",
+              "aggregate_ms": 0.005504,
+              "launches": 1
+            },
+            {
+              "name": "removeContactManagers_Stage1",
+              "aggregate_ms": 0.000704,
+              "launches": 1
+            },
+            {
+              "name": "removeContactManagers_Stage2",
+              "aggregate_ms": 0.00096,
+              "launches": 1
+            },
+            {
+              "name": "removeContactManagers_Stage3",
+              "aggregate_ms": 0.00128,
+              "launches": 1
+            },
+            {
+              "name": "removeContactManagers_Stage4",
+              "aggregate_ms": 0.00112,
+              "launches": 1
+            },
+            {
+              "name": "removeContactManagers_Stage5",
+              "aggregate_ms": 0.005536,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx19destructionPreSolve10initializeEPjjS1_j",
+              "aggregate_ms": 0.00048,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx19destructionPreSolve4seedEPKNS_15PxvPreSolveNodeEjS3_jPKjjPjS5_",
+              "aggregate_ms": 0.003712,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx19destructionPreSolve15connectContactsENS_30PxgDestructionPreSolveContactsEPKjPKNS_15PxvPreSolveNodeEjPjPNS_32PxgDestructionContactGraphStatusES7_",
+              "aggregate_ms": 0.00352,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx19destructionPreSolve20requireValidContactsEPKNS_32PxgDestructionContactGraphStatusE",
+              "aggregate_ms": 0.000672,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx19destructionPreSolve6finishEPKNS_15PxvPreSolveNodeEjPjS4_S4_PKj",
+              "aggregate_ms": 0.001344,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph6retireEPKjjjPjPNS_32PxgDestructionContactGraphStatusE",
+              "aggregate_ms": 0.000736,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph13componentKeysEPKjPmj",
+              "aggregate_ms": 0.001184,
+              "launches": 2
+            },
+            {
+              "name": "_ZN5physx23destructionContactGraph16componentMembersEPKmPjj",
+              "aggregate_ms": 0.001632,
+              "launches": 2
+            },
+            {
+              "name": "setRigidDynamicLinearVelocity",
+              "aggregate_ms": 0.001088,
+              "launches": 1
+            },
+            {
+              "name": "setRigidDynamicAngularVelocity",
+              "aggregate_ms": 0.000768,
+              "launches": 1
+            },
+            {
+              "name": "setRigidDynamicForce",
+              "aggregate_ms": 0.0008,
+              "launches": 1
+            },
+            {
+              "name": "setRigidDynamicTorque",
+              "aggregate_ms": 0.000992,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e333prepareNativeCorrectionAcceptanceEPNS_24PxDestructionStageStatusEPKNS_23PxgContactGraphSequenceEPj",
+              "aggregate_ms": 0.000832,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321acceptClusterBindingsENS_31PxDestructionTopologyDeviceViewEPKjPNS_26PxDestructionStressClusterEPKNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.001312,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319acceptChunkBindingsENS_31PxDestructionTopologyDeviceViewEPKjPNS_24PxDestructionStressChunkEPKNS_24PxDestructionStageStatusES3_Pm",
+              "aggregate_ms": 0.001984,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322finishNativeCorrectionEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.000512,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e323commitNativeMotionSlotsEPNS_29PxDestructionMotionSlotStatusEPKNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.000864,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e325mergePostCorrectionStatusEPNS_24PxDestructionStageStatusES1_",
+              "aggregate_ms": 0.000512,
+              "launches": 1
+            },
+            {
+              "name": "_ZN3cub17_V_300402_SM_12006detail6select23DeviceSelectSweepKernelINS2_26policy_selector_from_typesIN6thrust17_V_300402_SM_120017counting_iteratorIjNS6_11use_defaultES8_S8_NS6_20__compile_time_valueILi1EEEEEPNS0_8NullTypeEPjlLNS0_10SelectImplE0EEESB_SD_SE_SE_NS0_13ScanTileStateIiLb1EEEN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e320HasChangedPropertiesESC_iNS2_19streaming_context_tIlLb1EEELSF_0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iT8_NS1_7vsmem_tE",
+              "aggregate_ms": 0.003264,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321gatherFinalPropertiesEPKjS2_jPKNS_29PxDestructionClusterBodyStateEPKNS_26PxDestructionStressClusterEPKNS_10PxgBodySimEPNS_28PxvDestructionBodyPropertiesEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.001888,
+              "launches": 1
+            },
+            {
+              "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322gatherFinalShapeOwnersEPKjS2_jPKNS_24PxDestructionStressChunkES2_PNS_29PxDestructionCollisionBindingEPNS_24PxDestructionStageStatusE",
+              "aggregate_ms": 0.001344,
+              "launches": 1
+            }
+          ]
+        },
+        "replay_mode": "application",
+        "wrapper_command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-cascading-fracture",
+          "--binary",
+          "/root/workspace/physx-2/out/snapshot-counters-20260911/probe/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87",
+          "--repetitions",
+          "2",
+          "--watchdog-seconds",
+          "3600.0",
+          "--profiler",
+          "ncu",
+          "--ncu-binary",
+          "/opt/nvidia/nsight-compute/2025.3.1/ncu",
+          "--ncu-kernel-id",
+          "::regex:^(updateShapesLaunch|MemCopyBalanced|radixSortMultiBlockLaunchWithCount|radixSortMultiCalculateRanksLaunchWithCount|translateAABBsLaunch|markUpdatedPairsLaunch|computeEndPtsHistogram|outputEndPtsHistogram|computeIncrementalComparisonHistograms_Stage1|performIncrementalSAP|initializeSapBox1DLaunch|createRegionsKernel|computeStartRegionsHistogram|computeRegionsHistogram|writeOutStartAndActiveRegionHistogram|computeStartAndActiveRegionHistogram|outputOrderedActiveRegionHistogram|writeOutOverlapChecksForInsertedBoundsRegionsHistogram|computeOverlapChecksForRegionsHistogram|generateFoundPairsForNewBoundsRegion|clearNewFlagLaunch|nativePairSortTiles|nativePairMerge|copyReports|initializeManifolds|sphereNphase_Kernel|prepareLostFoundPairs_Stage2|boxBoxNphase_Kernel|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e318captureInputOwnersENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEjPKNS_10PxgBodySimEPNS_24PxgDestructionInputOwnerEPNS_28PxgDestructionInputOwnershipE|preIntegrationLaunchTGS|initStaticKinematics|rigidSumInternalContactAndJointBatches2|constraintContactBlockPrePrepLaunch|contactConstraintBlockPrepareParallelLaunchTGS|markActiveSlabTGS|solveBlockUnified|computeAverageSolverBodyVelocityTGS|solveStaticBlockTGS|propagateStaticSolverBodyVelocitiesTGS|propagateAverageSolverBodyVelocityTGS|_ZN5physx23destructionContactGraph7connectEPKNS_22PxgContactManagerInputEPKNS_23PxgContactGraphIdentityEPKNS_23PxsContactManagerOutputEjPKNS_11PxgShapeSimEjjPNS_32PxgDestructionContactGraphStatusEPKjPjSH_|writebackBlocksTGS|_ZN5physx23destructionContactGraph20connectRetainedSlotsEPKNS_26PxgDestructionRetainedEdgeEPKjjjPjS6_PNS_32PxgDestructionContactGraphStatusE|_ZN5physx23destructionContactGraph8compressEPjS1_j|integrateCoreParallelLaunchTGS|updateTransformCacheAndBoundArrayLaunch|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e312prepareLoadsEPKNS_24PxDestructionStressChunkEjPKNS_26PxDestructionStressClusterEPKNS_12PxTransformTIfEEPKNS_7PxVec3TIfEESC_PNS_23PxDestructionVectorPairEPNS_24PxDestructionSurfaceLoadEPf|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e316contactRouteKeysENS_28PxgDestructionSolvedContactsEPKNS0_6LookupEjPm|_ZN3cub17_V_300402_SM_12006detail10radix_sort29DeviceRadixSortOnesweepKernelINS2_26policy_selector_from_typesImNS0_8NullTypeEjEELNS0_9SortOrderE0EmS5_jiiNS1_21identity_decomposer_tEEEvPT5_SA_PT3_PKSB_PT1_PKSF_PT2_PKSJ_T4_iiT6_|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319routeSortedContactsEPKmjNS_28PxgDestructionSolvedContactsEPKNS0_6LookupEjPKNS_24PxDestructionStressChunkEPKNS_12PxTransformTIfEEfPNS_23PxDestructionVectorPairEPNS_24PxDestructionSurfaceLoadEPNS_24PxDestructionStageStatusEPKNS_10PxgBodySimEPKNS_21PxDestructionMaterialEPf|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321evaluateBondMaterialsEPKNS_24PxDestructionStressChunkEPKNS_23PxDestructionStressBondEPKNS_21PxDestructionMaterialEPKfPKNS_23PxDestructionVectorPairEjfffbPNS_24PxDestructionBondVerdictEPNS_7PxVec3TIfEEPNS_24PxDestructionStageStatusE|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322evaluateChunkMaterialsEPKNS_24PxDestructionStressChunkEPKNS_23PxDestructionStressBondEPKNS_21PxDestructionMaterialEPKjSB_PKfPKNS_23PxDestructionVectorPairEPKNS_7PxVec3TIfEEPKNS_24PxDestructionSurfaceLoadESD_PKNS_23PxDestructionCrushStateEPSO_jfPNS_24PxDestructionStageStatusE|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e323finalizeMaterialVerdictEPKNS_23PxDestructionStressBondEPNS_24PxDestructionBondVerdictEPKNS_23PxDestructionCrushStateEPKfjPNS_24PxDestructionStageStatusE|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e325provisionalTopologyMotionENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEPKNS_12PxTransformTIfEEPKNS_10PxgBodySimEPNS_26PxDestructionClusterMotionE|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322prepareCandidateBodiesENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEPNS_29PxDestructionClusterBodyStateEPNS_34PxDestructionBodyPreparationStatusES1_PNS_25PxvDestructionBodyRequestEPj|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e316committedChanges6recordEPhS2_NS_31PxDestructionTopologyDeviceViewES3_PKNS_38PxDestructionTopologyTransactionStatusEPKjPKNS_24PxDestructionStressChunkES8_|_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319commitMaterialStateEPKNS_24PxDestructionBondVerdictEPfjPKNS_23PxDestructionCrushStateEPS5_jPKNS_24PxDestructionStageStatusE|refreshReboundShapeBounds|_ZN3cub17_V_300402_SM_12006detail10radix_sort31DeviceRadixSortSingleTileKernelINS2_26policy_selector_from_typesImNS0_8NullTypeEjEELNS0_9SortOrderE0EmS5_jNS1_21identity_decomposer_tEEEvPKT1_PS9_PKT2_PSD_T3_iiT4_|_ZN3cub17_V_300402_SM_12006detail6select23DeviceSelectSweepKernelINS2_26policy_selector_from_typesIN6thrust17_V_300402_SM_120017counting_iteratorIjNS6_11use_defaultES8_S8_NS6_20__compile_time_valueILi1EEEEEPNS0_8NullTypeEPjlLNS0_10SelectImplE0EEESB_SD_SE_SE_NS0_13ScanTileStateIiLb1EEEN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e320HasPendingShapeOwnerESC_iNS2_19streaming_context_tIlLb1EEELSF_0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iT8_NS1_7vsmem_tE)$:^(1|2|3|4|5|6|9|16)$",
+          "--ncu-name-base",
+          "mangled",
+          "--ncu-filter-mode",
+          "per-launch-config",
+          "--ncu-count",
+          "100000",
+          "--ncu-mode",
+          "full",
+          "--ncu-apply-rules",
+          "no",
+          "--ncu-replay",
+          "application"
+        ],
+        "path": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-cascading-fracture"
       }
     },
     {
