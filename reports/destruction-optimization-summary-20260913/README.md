@@ -2,7 +2,9 @@
 
 2026-09-13. Summary only; raw measurements, detailed experimental evidence,
 implementation changes and tooling are not included in this summary commit.
-No new application speedup or fully qualified final implementation is claimed.
+No physically equivalent application speedup or fully qualified final implementation
+is claimed. The convergence-policy diagnostic below deliberately changes numerical
+acceptance and reports its resulting physics differences.
 
 ## Measured application baseline
 
@@ -15,7 +17,7 @@ topology, transfers, waits, required correction and final publication. Restore,
 validation and observation export are excluded from tick latency. Ordinary PhysX
 APIs, sleeping, current-tick contacts and at most one correction are preserved.
 
-All entries below compare identical builds. Mean ranges describe separate
+The baseline entries in this section compare identical builds. Mean ranges describe separate
 processes, not confidence intervals; peaks are observed maxima, not bounds.
 Every first-use tick is retained.
 
@@ -98,6 +100,83 @@ restored-debris gain. Fixed repetition counts never guarantee arbitrary precisio
 - Preserve setup and first-use costs. In the paired debris calibration, arbitrary
   A/B first-use means differed by16.338ms, versus0.331ms for subsequent means.
   This localizes variation but does not prove its cause or justify dropping samples.
+
+## Convergence-policy diagnostic — 2026-09-13
+
+The user requested a surgical test of Vibe's looser tolerance and 32-iteration
+stopping policy on the native implementation. Native already implements an
+iteration cap; the important difference is that it rejects unconverged results,
+whereas the deployed Vibe policy consumes them. Matching stopping settings does
+not make the two different solvers or their resulting physics equivalent.
+
+Four isolated modes retained the selected native operator, preconditioner,
+arithmetic precision, materials, inputs, ordinary APIs, sleeping and at most one
+same-tick correction. Only tolerance, maximum iterations and permission to consume
+an unconverged result changed. Convergence flags remained truthful. Production
+settings and the installed SDK were not changed by this experiment.
+
+Continuous heavy scene: 256 buildings, 113664 chunks, 229376 bonds and one 256-projectile
+wave. Each mode ran two independent 180-tick processes, in forward then reverse
+mode order. All first-use ticks remain in the full-step timing.
+
+| Mode | Tolerance / cap | Mean tick, ms | Range of process means, ms | Broken bonds per run | Unconverged ticks /360 |
+|---|---|---:|---:|---:|---:|
+| Strict control |1e-5 /8192|55.101|55.086–55.115|56077|0|
+| Tolerance only |1e-3 /8192|45.430|45.166–45.695|58723|0|
+| Cap only, accept unconverged |1e-5 /32|23.475|23.275–23.675|33213|202|
+| Loose + cap, accept unconverged |1e-3 /32|23.160|23.064–23.257|33213|200|
+
+Tolerance alone reduces the heavy mean 17.6% while meeting its requested, looser
+convergence criterion, but breaks 4.7% more bonds. Combined settings reduce the
+mean 58.0% and break 40.8% fewer bonds. Final clusters change from 12248 strict to
+13230 tolerance-only and 8145 in either capped mode. The continuous gain includes
+both cheaper solves and a different later workload; this test does not separate
+their contributions. Recorded work and iteration histories repeat exactly within
+each mode. An unconverged tick means at least one component/pass misses its
+criterion, not that every component fails.
+
+The largest heavy tick remains 179.370 ms with combined settings versus 188.800 ms
+strict. Combined settings still miss 60 Hz on 193/360 ticks, versus 198/360 strict.
+Continuous idle shows no reliable benefit: process means span 1.353–1.787 ms across
+the modes, all meet 60 Hz, no bonds break and the final bodies are asleep.
+
+Three full ticks per mode were also measured from each identical saved starting
+state. Tower mean falls 108.904→72.323 ms with tolerance alone and 29.476 ms combined,
+without breakage or observed motion changes in that tick. City25 initial impact
+stays around 38–40 ms; capped output has 655 clusters instead of 537. City256 debris
+means are 372.073 ms strict and 340.959 ms combined, but the short fixed-order screen
+and large first-use variation do not establish a small performance win. Restore
+and initialization are excluded from tick latency and retained in the local report.
+
+The rebuilt strict mode passes the original frozen physical checker against a
+fresh original binary/runtime on city25 impact. Every relaxed snapshot mode fails
+at least one strict comparison. In city25 impact, the cap changes 2012 broken/intact
+bond identities and produces about 52% relative L2 difference in end-of-tick bond
+forces. This is a discrepancy from the strict output, not an independent exact-
+solution error; once fracture changes, correction loads and final equations can
+also change. Tolerance-only preserves city25 break identities in that tick but
+changes health, and changes 83 break identities in the debris snapshot.
+
+The campaign completes 29 processes and 2919 ticks (39 restored, 2880 continuous)
+in 203.560 s including GPU isolation and desktop restoration, excluding builds,
+the wait behind another qualification campaign and offline analysis. Complete
+timers close for every tick; native error, correction/pass, finite snapshot and
+non-healing checks remain enforced. No new GPU profiles or full trajectory/
+independent-reference qualification were collected for these changed policies.
+
+Decision: preserve as diagnostic evidence, with no runtime promotion. Unequal
+numerical budgets materially affect the earlier comparison. Tolerance-only is a
+more conservative candidate for further evaluation than a universal 32-iteration
+cap, but its changed fracture behavior still needs an explicit quality decision.
+Large impact stalls and debris costs remain separate performance concerns.
+
+Source remains `13b11af2e0aeabf4e0070931fbd8a060f383dfaf`; the diagnostic runtime
+SHA256 is `9334bb97c3b16f2456c1bd2f5f35e74f1df426512353fc4b07717459ae76083b`.
+Local-only details and chart: `reports/destruction-convergence-policy-20260913/`.
+Raw receipts, inputs, observations and build records:
+`out/destruction-convergence-policy-20260913/`, especially `screen/screen.json`,
+`build/build.json` and `verification.json`. Source edits, tools, detailed reports
+and raw evidence remain local and are excluded from this summary commit.
 
 ## Agreed optimization procedure
 
