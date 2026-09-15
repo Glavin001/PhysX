@@ -458,3 +458,13 @@ node lifetimes and merges the current graph's edges, so skipping the
 intermediate retained-only generation over-merges nothing the audits can
 detect. Timing and the native suite under the skip follow.
 
+Timing under the skip (3 s bombardment, no audits): 32.7 ms against a 58.8 ms
+control in the same run, ratio 0.556, inside the session's 0.54–0.56 band;
+native suite unchanged (38/41, the three pre-existing failures). No time is
+saved yet because the CPU still inserts island nodes and edges for the three
+consumers named above (active-node roster, incremental partitioning,
+retained-edge upload); serving every pass from the device producer is the
+prerequisite for removing them. The skip therefore stays opt-in
+(`PHYSX_DESTRUCTION_PRESOLVE_SEED_SKIP=1`) until milestone 2 replaces those
+consumers, at which point it becomes the default together with them.
+
