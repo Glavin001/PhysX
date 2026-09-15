@@ -447,3 +447,17 @@ produced (heads by minimum member, successors by ascending node).
 Histories identical to the baseline on every tick (56,077 bonds); native
 suite unchanged (38/41, same three pre-existing failures). Against the
 baseline runtime the shipped defaults now measure 55.8 → 32.4 ms.
+
+## Refactor on a thread-block cluster (negative result)
+
+`factorNativeDirectCluster` spreads one component's refactor over a cluster of
+eight CTAs (columns of wide levels over every warp of the cluster, the dense
+top's gathers, scalings and rank-6 pair updates over every thread, cluster
+barriers between phases; `BLAST_GPU_NATIVE_DIRECT_CLUSTER=8`). It is
+bit-identical in outcome (histories and tests unchanged) but slower: 5.40 ms
+per launch versus 2.77 and an 80 ms impact burst versus 27 ms, city256
+bombardment 37.2 versus 32.4 ms. Clusters must co-reside on one GPC, so far
+fewer components refactor concurrently at impact, and the roughly 450 cluster
+barriers per component cost more than the parallel pair updates save. The
+default stays single-CTA; the remaining levers are a partitioner with
+refinement for the ordering, or Woodbury updates that avoid refactoring.

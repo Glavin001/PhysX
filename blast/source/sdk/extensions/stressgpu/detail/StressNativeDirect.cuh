@@ -426,4 +426,159 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         __syncthreads();
     }
 }
+
+// Assemble one block (row i of column j) of the current operator inside the parent pattern.
+__device__ __forceinline__ void directAssembleBlock(const NativeDirectOperator& op, const NativeDirectPatternRefs& P, float* val,
+    unsigned id, unsigned pinned, unsigned j, unsigned jnode, bool present, const Inertia& dj, unsigned q) {
+    const unsigned i = P.rowIdx[q], inode = P.order[i];
+    float acc[kDirectBlockEntries];
+    for (unsigned x = 0; x < kDirectBlockEntries; ++x) acc[x] = 0.f;
+    if (present && op.nodeIsland[inode] == id && inode != pinned) {
+        for (unsigned r = op.nodeBondBegin[jnode]; r < op.nodeBondBegin[jnode + 1]; ++r) {
+            const unsigned ref = op.nodeBondRef[r];
+            if (ref == kDeadBondRef) continue;
+            const unsigned edge = ref & 0x7fffffffu;
+            if (op.health[edge] <= 0.f) continue;
+            const bool second = (ref >> 31) != 0u;
+            const unsigned other = second ? op.node0[edge] : op.node1[edge];
+            float mj[kDirectBlockEntries];
+            directBondBlock(mj, second ? op.offset1[edge] : op.offset0[edge], dj, op.colScale[edge], second ? -1.f : 1.f);
+            if (i == j) directAccumulateMMt(acc, mj, mj);
+            else if (other == inode) {
+                float mi[kDirectBlockEntries];
+                directBondBlock(mi, second ? op.offset0[edge] : op.offset1[edge], op.inertia[inode], op.colScale[edge], second ? 1.f : -1.f);
+                directAccumulateMMt(acc, mi, mj);
+            }
+        }
+    } else if (i == j) { acc[0] = acc[7] = acc[14] = acc[21] = acc[28] = acc[35] = 1.f; }
+    float* dst = val + size_t(q) * kDirectBlockEntries;
+    for (unsigned x = 0; x < kDirectBlockEntries; ++x) dst[x] = acc[x];
+}
+// Left-looking gather for one target row (i, rr) of column j over finished columns k
+// with level < limit: dst -= sum_k L(i,k) L(j,k)^T (row rr).
+__device__ __forceinline__ void directGatherRow(const NativeDirectPatternRefs& P, float* val, unsigned j, unsigned q, unsigned rr, unsigned levelLimit) {
+    const unsigned i = P.rowIdx[q];
+    float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    for (unsigned r = P.rowPtr[j]; r < P.rowPtr[j + 1]; ++r) {
+        const unsigned k = P.rowCols[r], q0 = P.rowPos[r];
+        if (P.columnLevel[k] >= levelLimit) continue;
+        unsigned lo = q0, hi = P.colPtr[k + 1];
+        while (lo < hi) { const unsigned mid = (lo + hi) >> 1; if (P.rowIdx[mid] < i) lo = mid + 1; else hi = mid; }
+        if (lo >= P.colPtr[k + 1] || P.rowIdx[lo] != i) continue;
+        const float* ljk = val + size_t(q0) * kDirectBlockEntries;
+        const float* lik = val + size_t(lo) * kDirectBlockEntries + rr * 6u;
+        for (unsigned cc = 0; cc < 6; ++cc) {
+            float sum = acc[cc];
+            for (unsigned tt = 0; tt < 6; ++tt) sum = fmaf(lik[tt], ljk[cc * 6 + tt], sum);
+            acc[cc] = sum;
+        }
+    }
+    float* dst = val + size_t(q) * kDirectBlockEntries + rr * 6u;
+    for (unsigned cc = 0; cc < 6; ++cc) dst[cc] -= acc[cc];
+}
+__device__ __forceinline__ void directScaleRow(const NativeDirectPatternRefs& P, float* val, unsigned p0, unsigned q, unsigned rr) {
+    const float* ljj = val + size_t(p0) * kDirectBlockEntries;
+    float* row = val + size_t(q) * kDirectBlockEntries + rr * 6u;
+    for (unsigned cc = 0; cc < 6; ++cc) {
+        float sum = row[cc];
+        for (unsigned tt = 0; tt < cc; ++tt) sum = fmaf(-row[tt], ljj[cc * 6 + tt], sum);
+        row[cc] = sum / ljj[cc * 6 + cc];
+    }
+}
+// Right-looking rank-6 update for one (pair, row) item of column j.
+__device__ __forceinline__ bool directPairUpdate(const NativeDirectPatternRefs& P, float* val, unsigned p0, unsigned pair, unsigned rr) {
+    unsigned a = unsigned((sqrtf(8.f * float(pair) + 1.f) - 1.f) * 0.5f);
+    while (a * (a + 1u) / 2u > pair) --a;
+    while ((a + 1u) * (a + 2u) / 2u <= pair) ++a;
+    const unsigned b = pair - a * (a + 1u) / 2u;
+    const unsigned qi = p0 + 1u + a, qk = p0 + 1u + b, i = P.rowIdx[qi], k = P.rowIdx[qk];
+    unsigned lo = P.colPtr[k], hi = P.colPtr[k + 1];
+    if (i != k) { lo = P.colPtr[k] + 1u; while (lo < hi) { const unsigned mid = (lo + hi) >> 1; if (P.rowIdx[mid] < i) lo = mid + 1; else hi = mid; } }
+    if (lo >= P.colPtr[k + 1] || P.rowIdx[lo] != i) return false;
+    const float* lij = val + size_t(qi) * kDirectBlockEntries + rr * 6u;
+    const float* lkj = val + size_t(qk) * kDirectBlockEntries;
+    float* dst = val + size_t(lo) * kDirectBlockEntries + rr * 6u;
+    for (unsigned cc = 0; cc < 6; ++cc) {
+        float sum = 0.f;
+        for (unsigned tt = 0; tt < 6; ++tt) sum = fmaf(lij[tt], lkj[cc * 6 + tt], sum);
+        dst[cc] -= sum;
+    }
+    return true;
+}
+// Thread-block-cluster refactor: one cluster of CTAs per component. Wide levels
+// spread columns over every warp of the cluster, narrow bottom levels over the
+// CTAs, and the dense top's gathers, scalings and rank-6 pair updates over every
+// thread of the cluster with cluster barriers between phases. Work partition is
+// a fixed function of rank, so the factor is bit-identical to the single-CTA
+// kernel's arithmetic order per block. Failure is recorded in slotFailed.
+__global__ void __launch_bounds__(kBlockSize) factorNativeDirectCluster(NativeDirectView v, NativeDirectOperator op,
+    ResidentStressComponentView c, const StressHierarchy::MotionComponent* modes, const ExtStressGpuDeviceTopologyStatus* state) {
+    namespace cg = cooperative_groups;
+    cg::cluster_group cluster = cg::this_cluster();
+    if (!v.enabled) return;
+    const unsigned rank = cluster.block_rank(), cs = cluster.num_blocks();
+    const unsigned clusterId = blockIdx.x / cs, clusters = gridDim.x / cs;
+    const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
+    const unsigned gwarp = rank * warps + warp, gwarps = cs * warps;
+    const unsigned gthread = rank * blockDim.x + threadIdx.x, gthreads = cs * blockDim.x;
+    for (unsigned t = clusterId; t < *c.count; t += clusters) {
+        const unsigned id = c.ids[t], s = v.slots.componentSlot[id];
+        if (s == kNoIsland || (v.slots.slotValid[s] && !v.slots.slotStale[s]) || v.slots.slotFailed[s]) continue;
+        const unsigned p = v.pattern.nodeParent[c.nodes[c.begin[id]]];
+        if (p == kNoIsland) continue;
+        const auto P = directPatternRefs(v.pattern, p);
+        float* val = v.slots.values + size_t(s) * v.slots.stride;
+        const unsigned pinned = modes[id].anchored ? kNoIsland : id;
+        const unsigned T = v.rightLooking ? P.topLevel : P.levels, topBegin = P.levelPtr[T];
+        if (!gthread && v.counters) atomicAdd(v.counters + 6, 1u);
+        cluster.sync();
+        for (unsigned l = 0; l < T; ++l) {
+            const unsigned levelBegin = P.levelPtr[l], levelEnd = P.levelPtr[l + 1];
+            const bool wide = (levelEnd - levelBegin) >= gwarps;
+            const unsigned groups = wide ? gwarps : cs, group = wide ? gwarp : rank;
+            const unsigned lanes = wide ? 32u : blockDim.x, laneId = wide ? lane : threadIdx.x;
+            for (unsigned e = levelBegin + group; e < levelEnd; e += groups) {
+                const unsigned j = P.levelCols[e], jnode = P.order[j], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
+                const bool present = op.nodeIsland[jnode] == id && jnode != pinned;
+                const Inertia dj = op.inertia[jnode];
+                for (unsigned q = p0 + laneId; q < p1; q += lanes) directAssembleBlock(op, P, val, id, pinned, j, jnode, present, dj, q);
+                if (wide) __syncwarp(); else __syncthreads();
+                for (unsigned x = laneId; x < (p1 - p0) * 6u; x += lanes) directGatherRow(P, val, j, p0 + x / 6u, x % 6u, ~0u);
+                if (wide) __syncwarp(); else __syncthreads();
+                if (laneId == 0) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(v.slots.slotFailed + s, 1u); }
+                if (wide) __syncwarp(); else __syncthreads();
+                for (unsigned x = laneId; x < (p1 - p0 - 1u) * 6u; x += lanes) directScaleRow(P, val, p0, p0 + 1u + x / 6u, x % 6u);
+                if (!wide) __syncthreads();
+            }
+            cluster.sync();
+        }
+        for (unsigned e = topBegin + gwarp; e < P.nodes; e += gwarps) {
+            const unsigned j = P.levelCols[e], jnode = P.order[j], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
+            const bool present = op.nodeIsland[jnode] == id && jnode != pinned;
+            const Inertia dj = op.inertia[jnode];
+            for (unsigned q = p0 + lane; q < p1; q += 32) directAssembleBlock(op, P, val, id, pinned, j, jnode, present, dj, q);
+        }
+        cluster.sync();
+        for (unsigned e = topBegin; e < P.nodes; ++e) {
+            const unsigned j = P.levelCols[e], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
+            for (unsigned x = gthread; x < (p1 - p0) * 6u; x += gthreads) directGatherRow(P, val, j, p0 + x / 6u, x % 6u, T);
+            cluster.sync();
+            if (!gthread) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(v.slots.slotFailed + s, 1u); }
+            cluster.sync();
+            for (unsigned x = gthread; x < (p1 - p0 - 1u) * 6u; x += gthreads) directScaleRow(P, val, p0, p0 + 1u + x / 6u, x % 6u);
+            cluster.sync();
+            const unsigned n = p1 - p0 - 1u, pairs = n * (n + 1u) / 2u;
+            for (unsigned x = gthread; x < pairs * 6u; x += gthreads)
+                if (!directPairUpdate(P, val, p0, x / 6u, x % 6u)) atomicExch(v.slots.slotFailed + s, 1u);
+            cluster.sync();
+        }
+        if (!gthread) {
+            if (v.slots.slotFailed[s]) v.slots.slotValid[s] = 0;
+            else v.slots.slotValid[s] = 1;
+            v.slots.slotStale[s] = 0; v.slots.slotPinned[s] = pinned;
+            v.slots.slotGeneration[s] = state->generation;
+        }
+        cluster.sync();
+    }
+}
 #endif

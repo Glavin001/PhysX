@@ -348,6 +348,17 @@ bool nativeDirectNestedDissection()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_ORDER"); return raw && std::string(raw) == "nd"; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_DIRECT_CLUSTER: CTAs per refactoring component as a
+/// thread-block cluster (0 = single CTA, the default). Measured worse on the
+/// RTX 5060 Ti with 8: 5.40 vs 2.77 ms per launch and an 80 vs 27 ms impact
+/// burst, because clusters must co-reside on one GPC (fewer components refactor
+/// concurrently) and the per-column cluster barriers outweigh the parallel
+/// pair updates. Kept as an experiment.
+unsigned nativeDirectClusterSize()
+{
+    static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_CLUSTER"); return raw ? unsigned(std::max(0L, std::atol(raw))) : 0u; }();
+    return value;
+}
 bool nativeDirectEnabled()
 {
     static const bool enabled = []() {
