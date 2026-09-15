@@ -509,3 +509,12 @@ CTA-cooperative dense-top triangular solve (the narrow levels run one warp
 while three idle), skipping the second residual evaluation when the first
 application already lands under the gate, and batching tiny components per
 warp instead of per CTA.
+
+Follow-up: the iteration loop's first monitor recomputed exactly the residual
+norm the direct step had just evaluated (the residual is untouched in
+between). The direct step now publishes that norm and the first monitor reuses
+it; the separate verification pass that the contract requires is unchanged.
+Census sweeps per direct-solved remnant 1.3 → 0.7, bombardment 31.6 → 31.1 ms,
+histories identical, 11/11 tests. A first attempt without a block barrier
+between the publishing thread and the readers diverged around the
+preparation's barriers and aborted a step; the barrier is now explicit.

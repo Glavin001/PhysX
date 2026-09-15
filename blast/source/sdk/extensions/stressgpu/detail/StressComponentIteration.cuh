@@ -56,7 +56,8 @@ __device__ __forceinline__ float nativeComponentResidualNorm(const PersistentStr
 }
 __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
 {
-    __shared__ unsigned counts[2], iteration, activeCount, slot, directApplied;
+    __shared__ unsigned counts[2], iteration, activeCount, slot, directApplied, directNormValid;
+    __shared__ float directNorm;
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
     __shared__ float directX[6*kResidentComponentMaxNodes];
@@ -99,7 +100,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         __syncthreads();
         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
-        if(!threadIdx.x)directApplied=0;
+        if(!threadIdx.x){directApplied=0;directNormValid=0;directNorm=0.f;}
         __syncthreads();
         // Direct step: apply the cached factor to the current residual, add the
         // result to the accumulated solution and rebuild the true residual. At
@@ -120,6 +121,9 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 prepareNativeResidualComponent(a,c.nodes+begin,count,id,false);
                 const float norm=nativeComponentResidualNorm(a,c.nodes+begin,count,id,nodeBlocks,counts,&iteration,&reduceValue);
                 if(!(norm>a.m_deltaSquared[id]) || !isfinite(norm)){
+                    // The residual is not touched again before the loop's first
+                    // monitor, which would recompute exactly this norm: keep it.
+                    if(!threadIdx.x && isfinite(norm)){directNorm=norm;directNormValid=1u;}
                     if(attempt && isfinite(norm) && a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters+2,1u);
                     if(attempt && isfinite(norm) && a.hierarchy.direct.counters && attempts>2u && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters+7,1u);
                     if(attempt && !isfinite(norm)){
@@ -145,9 +149,14 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 __syncthreads();
             }
         }
+        // Thread 0 published directNorm/directNormValid inside the direct step;
+        // every thread must observe them before deciding whether to take the
+        // preparation path (which contains block barriers).
+        __syncthreads();
         do {
             const bool scheduledMonitor=(iteration%4u)==0u || iteration+1u>=a.maxIterations;
-            if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id,scheduledMonitor);
+            const bool reuseDirectNorm=iteration==0u && directNormValid!=0u;
+            if(a.m_islandActive[id] && !reuseDirectNorm)prepareNativeResidualComponent(a,c.nodes+begin,count,id,scheduledMonitor);
             COMPONENT_PROBE_END(0)
             float squared=0;
             // The sparse bond-gradient norm is an acceptance monitor, separate
@@ -164,6 +173,10 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
                 monitor=!__syncthreads_or(nonzero);
             }
             if(monitor){
+            if(reuseDirectNorm){
+                if(threadIdx.x==0)reduceValue=directNorm;
+                __syncthreads();
+            } else {
             if(!scheduledMonitor){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const auto node=c.nodes[begin+i];cacheNativeOperatorInput(a,node,a.m_residual[node]);}__syncthreads();}
             COMPONENT_WORK_SWEEP(a,id,residualSweeps)
             for(unsigned block=0;block<nodeBlocks;++block) {
@@ -177,6 +190,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             const float numerator=componentSquaredNorm(squared);
             if(threadIdx.x==0)reduceValue=numerator;
             __syncthreads();
+            }
             if((iteration || a.warmStart || directApplied) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]){
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                 if(!threadIdx.x)a.hierarchy.previous[id]=0;__syncthreads();
