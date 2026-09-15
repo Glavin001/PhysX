@@ -427,3 +427,23 @@ corrected pass 15.6 → 14.1 ms; city256 bombardment 34.7 → 33.5 ms with
 identical histories; native suite unchanged (38/41, same three pre-existing
 failures). The remaining 3.6 ms is the time for the solver stream to reach the
 merge point plus the graph build and readback; attribution continues.
+
+Second step: `observeContactComponents` synchronously copied the graph status
+on the legacy default stream (which joins every blocking stream, i.e. the
+rigid solver), then ran a radix-sort chain of about twelve launches per graph
+and two device-to-host copies per graph, all serialized on the runtime stream
+and queued behind the standard-scene body readback on the copy engine
+(Nsight: 63 MB of solver-stream device-to-host traffic overlapping the wait).
+It now issues the status and label copies asynchronously, joins once, and
+builds the member chains on the host in exactly the layout the sorted keys
+produced (heads by minimum member, successors by ascending node).
+
+| late window, per tick | before | graph stream | + async observation |
+|---|---:|---:|---:|
+| island repair (both passes) | 7.06 ms | 4.10 ms | **1.70 ms** |
+| of which observe wait | 6.39 | 3.63 | **1.21** |
+| city256 bombardment mean (3 s) | 34.7 | 33.5 | **32.4** |
+
+Histories identical to the baseline on every tick (56,077 bonds); native
+suite unchanged (38/41, same three pre-existing failures). Against the
+baseline runtime the shipped defaults now measure 55.8 → 32.4 ms.
