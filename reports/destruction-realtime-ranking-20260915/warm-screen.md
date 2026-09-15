@@ -126,3 +126,12 @@ The 32 small/idle windows average 1.56 ms (candidate) versus 1.52 ms (control).
 Open: city25 late debris (29.8 → 32.6 ms) and city64 late debris (49.4 → 48.7 ms) show
 no gain against their unpaired controls; both are small-city late-debris windows and
 need a paired A/B and a per-component diagnostic before drawing a conclusion.
+
+## Frozen 600-tick ordinary/sleeping wall (`run-destruction-penetration-regression.py --tier full`)
+
+Candidate runtime `out/direct-ab-arms/B`, results `out/direct-wall-20260915/quality.json`:
+status passed; topology identity sha256 identical to the pinned ordinary
+reference; 400 supported / 44 detached / 182 broken bonds and 1 correction per
+step maximum, exactly as the reference; maximum position error 0.0 m; cluster
+COM error 2.0e-6 m (same as reference); peak physics tick 17.85 ms versus the
+reference run's 26.95 ms.
