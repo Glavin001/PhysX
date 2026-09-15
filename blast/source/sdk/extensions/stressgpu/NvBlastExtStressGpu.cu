@@ -366,6 +366,13 @@ bool nativeMotionIncremental()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_MOTION_INCREMENTAL"); return !raw || std::string(raw) != "0"; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_DIRECT_EAGER=0 refactors only at solve time; default 1
+/// refactors right after each topology transaction (overlapping CPU work).
+bool nativeDirectEager()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_EAGER"); return !raw || std::string(raw) != "0"; }();
+    return value;
+}
 bool nativeDirectEnabled()
 {
     static const bool enabled = []() {

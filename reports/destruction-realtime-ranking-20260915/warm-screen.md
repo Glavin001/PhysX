@@ -472,3 +472,16 @@ positions, closure, axes and factor. Kernel 1.86 → 0.43 ms per launch (about
 157 launches per 180 ticks), histories identical, resident motion-mode and
 native tests pass. `BLAST_GPU_NATIVE_MOTION_INCREMENTAL=0` restores the full
 rebuild.
+
+## Eager refactorization after the topology transaction (lossless)
+
+The direct factors of changed components depend only on the committed
+topology, so `updateDeviceTopologyAsync` now launches the slot assignment and
+refactor right after recording the consumers' ready event
+(`BLAST_GPU_NATIVE_DIRECT_EAGER=0` restores refactor-at-solve). Between the
+trial and corrected passes this overlaps the CPU fragment registration; the
+solve's own factor launch then finds every slot valid. Late window per tick:
+`finishAndReserve` 18.4 → 15.3 ms; city256 bombardment 32.6 → 31.6 ms
+(phase-profiled run 34.2 → 31.7), histories identical, 11/11 resident and
+native tests. The impact tick is unchanged: its corrected-pass refactor has
+no CPU work left to hide behind.

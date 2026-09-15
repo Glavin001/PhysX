@@ -128,5 +128,14 @@
         m_telemetry = {};
         m_deviceTopology->submit({mask,generation,accept,bondUtilization},m_stream);
         checkCuda(cudaEventRecord(m_statusReady,m_stream), "record stress topology update");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        // Eager refactorization: the changed components' factors only depend on
+        // the topology just committed, so rebuild them now, after the consumers'
+        // ready event, and overlap the CPU work that precedes the next solve
+        // (fragment registration between the trial and corrected passes, the
+        // impact tick's burst in particular). The solve's own factor launch then
+        // finds every slot valid.
+        if (m_direct.enabled && !m_direct.deferred && nativeDirectEager()) launchNativeDirectFactor();
+#endif
         return true;
     }
