@@ -80,5 +80,9 @@ cases; only stress iteration counts differ.
 
 The idle peak is the first tick: the candidate factorizes every initial
 component once (about 13 ms extra on tick 0). Initialization rose from about
-2.2 s to 2.8 s per process for the host symbolic analysis; sharing symbolic
-structures across identical assets removes most of that (next commit).
+2.2 s to 2.8 s per process for the host symbolic analysis. Commit `6adc8873`
+shares symbolic structures across identical assets and factors every initial
+component when device topology is enabled: in a 256-building rerun the
+candidate initialized in 2.11 s versus 2.49 s for the control, the first idle
+tick took 11.6 ms versus 12.5 ms, idle stayed within 0.1 ms, and the heavy
+3 s mean was 54.8 → 36.5 ms with identical histories.
