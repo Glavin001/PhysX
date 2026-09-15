@@ -609,3 +609,48 @@ moved 30.1 → 30.7 → 31.7 → 31.5 ms; the candidate-to-control ratio stayed 
 (the GPU idles at 180 MHz between runs and boosts to 3.09 GHz), so any claim
 smaller than about 1.5 ms should be read from the paired ratio or from
 interleaved repeats, as done for the body pool.
+
+## Woodbury updates of cached factors (exact-equivalent; mean neutral, peak −19 ms)
+
+`StressNativeWoodbury.cuh` (commits `86ff274c`, `df83bcbc`). A slot whose
+component lost at most 16 bonds since its factor keeps the factor of
+A_old and solves A_new = A_old − U Uᵀ through the Woodbury identity. The
+capacitance C = I − UᵀW is only positive *semi*definite after a split: the
+departed part is a free fragment whose rigid modes are null vectors of both
+A_new and C. For a residual supported on the kept rows Uᵀy lies in range(C),
+so a particular solution of C t = Uᵀy (pivoted Cholesky to find the rank,
+explicit inverse of the leading pivot block) gives an exact kept-part
+solution with no departed-node bookkeeping; the departed rows are never
+scattered. Two attempts before that were numerically wrong or weak: identity
+columns on every departed node (exact but capped at eight nodes, so most
+fragments refactored) and one identity block per departed fragment (a weak
+regularisation: 54 undone direct steps and 5× the PCG iterations). W is
+built by entry-parallel level sweeps (a whole CTA per narrow row, lanes over
+columns × entry groups); the first build parallelised lanes over columns
+only, which serialised the dense top's ~100-entry rows and made a build
+cost as much as a refactor.
+
+Result on the city256 g16 3 s bombardment, `BLAST_GPU_NATIVE_DIRECT_DIAG=1`:
+histories identical (56,077 bonds, 0 mismatching ticks), accepted direct
+steps and PCG iterations identical to the refactor-only path, 0 undone;
+2,269 Woodbury builds replace 2,269 of 3,628 refactors. Tick mean is
+neutral within the paired-ratio noise (31.3 vs 30.8 ms, controls 56.5 vs
+57.0; ratio 0.554 vs 0.540) and the peak drops 182 → 163 ms.
+
+Why the mean does not move: the factor launch time is the maximum over its
+CTAs, and almost every transaction still contains at least one full
+refactor, because every split creates a *new* component that needs a fresh
+factor in the parent pattern (1,359 refactors remain: new fragments, more
+than 16 removals at impact, pinning changes). The factor kernel now skips
+absent columns of the parent pattern (identity columns with zero couplings
+and zero fill), so a small fragment costs only its own columns; that change
+is lossless (identical histories) and moved the peak, not the mean.
+
+Where the sustained tick goes now (`--profile-phases 1`, ticks 60–180,
+host wall ms per tick, Woodbury on / off): `finishDetail.waitForGpu` 12.8 /
+11.9 (1.7 waits per tick), `correctedCollisionSolve` 12.0 / 11.9 (0.7 per
+tick, i.e. ~17 ms per corrected pass), then a tail of 1–2 ms phases
+(postBroadPhase 2.1, broadPhaseWait 2.1, prepareIslandRepair 1.5,
+applyBindings 1.5, acceptCorrection 1.4, submit 1.3, island maintenance
+1.2+1.2, postNarrowPhase 1.1). The two large items are the GPU stress
+pipeline wait and the corrected physics pass (R5's target).
