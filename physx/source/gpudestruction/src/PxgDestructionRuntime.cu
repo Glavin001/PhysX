@@ -1318,6 +1318,22 @@ public:
             mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.warmStart=d.warmStart;
             check(cudaMemset(mStatus,0,sizeof(*mStatus)));*mHostStatus={};
             mSnapshotAsset.authored(d);
+            // Pre-created fragment body pool, CPU half: grant the node handles and
+            // create their inactive placeholder bodies now, at configuration time,
+            // so the first simulated tick only grows GPU motion storage (the CPU
+            // creation of thousands of placeholders is setup cost, not tick cost).
+            // Snapshot restores reach this point from importState, where the
+            // scene-side allocator is not yet ready for grants; they reserve at
+            // the first advance instead.
+            if(!restored && mBodyAllocator && mTopology && !mInitialPoolReserved) {
+                const PxU32 pool=initialBodyPool(mN);
+                mBodyAllocator->setPlaceholderPool(pool>0);
+                if(pool) {
+                    PxProfileScoped setup(mProfiler,"GpuDestruction.setup.reserveBodyPool",false,mProfileContext);
+                    const PxU32* granted=nullptr;
+                    if(!mBodyAllocator->reserveNodeCapacity(pool,granted))throw std::runtime_error("native body pool reservation failed");
+                }
+            }
             check(cudaEventRecord(mReady,mStream));return true;
         }catch(...){mFailed=true;return false;}
     }
@@ -1631,11 +1647,14 @@ public:
         check(mMotionAllocation.setResources(mGrantedMotionIndices,mMotionSlotCapacity,mMotionStorage,mStream,mGrantedPlaceholders));
     }
     static PxU32 initialBodyPool(PxU32 chunkCount) {
-        // PHYSX_DESTRUCTION_BODY_POOL=N reserves N native bodies (with CPU
-        // placeholders) at the first advance; unset or "auto" (the default) uses
-        // one body per eight chunks clamped to [256, 16384]; 0 disables the pool.
+        // Opt-in (2026-09-15 measurement: neutral on every plan metric once the
+        // direct stress solve is in place, so it stays off by default).
+        // PHYSX_DESTRUCTION_BODY_POOL=N reserves N native bodies with CPU
+        // placeholders at configuration; "auto" uses one body per eight chunks
+        // clamped to [256, 16384]; unset or 0 disables the pool.
         const char* raw=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");
-        if(!raw || std::string(raw)=="auto")return PxU32(std::min<PxU64>(16384,std::max<PxU64>(256,PxU64(chunkCount)/8)));
+        if(!raw)return 0u;
+        if(std::string(raw)=="auto")return PxU32(std::min<PxU64>(16384,std::max<PxU64>(256,PxU64(chunkCount)/8)));
         return PxU32(std::max(0L,std::atol(raw)));
     }
     bool mInitialPoolReserved=false;

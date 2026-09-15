@@ -129,7 +129,7 @@ void run(bool sleeping,bool accelerations) {
     configure(2,true);fracture();const auto first=observe(2);
     // In-tick growth reserves spare storage beyond the registered bodies. With the
     // pre-created body pool the pool itself is the spare capacity.
-    if(std::getenv("PHYSX_DESTRUCTION_BODY_POOL") && std::strcmp(std::getenv("PHYSX_DESTRUCTION_BODY_POOL"),"0")==0)
+    if(!(std::getenv("PHYSX_DESTRUCTION_BODY_POOL") && std::strcmp(std::getenv("PHYSX_DESTRUCTION_BODY_POOL"),"0")!=0))
         require(core.getBodySimStorageCapacity()>controller.getBodySimManager().mTotalNumBodies,
             "first split did not exercise spare storage separation");
     // An uncommitted slot must not be accepted as a new graph's source:
@@ -289,7 +289,7 @@ void membership() {
     NpDestructionBodyAllocator allocator(internal);
     // Unit-level allocator: opt into the placeholder pool exactly as the runtime
     // does (PHYSX_DESTRUCTION_BODY_POOL unset or non-zero).
-    {const char* poolEnv=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");allocator.setPlaceholderPool(!(poolEnv && std::strcmp(poolEnv,"0")==0));}
+    {const char* poolEnv=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");allocator.setPlaceholderPool(poolEnv && std::strcmp(poolEnv,"0")!=0);}
     constexpr PxU32 count=257;
     std::vector<PxvDestructionBodyRequest> requests(count);std::vector<PxU32> ids(count);
     for(PxU32 i=0;i<count;++i)requests[i]={i,parent->getGPUIndex(),1,1,i};

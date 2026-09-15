@@ -380,3 +380,30 @@ cost to under 1 ms per sustained tick (`correctedCollisionSolve` +0.95 ms) and
 0.5 ms once at the first advance. Its benefit is confined to the impact
 window's registration burst measured on the warm probe (88 → 66 ms); the demo's
 impact window is unchanged (32.1 vs 32.3 ms).
+
+Pooled nine-window screen (`results-pool`, candidate probes relinked against
+the current static SDK because the frozen probe's embedded allocator predates
+the appended interface call; runtime with pool and elastic reuse on):
+
+| window | A0 mean | **B mean** | A1 mean | B max | pool-free B (elastic) | v4 verdict |
+|---|---:|---:|---:|---:|---:|---|
+| city25 impact | 22.87 | **16.79** | 22.31 | 29.3 | 16.79 | exact outcomes, zero motion error |
+| city256 idle | 1.52 | 1.68 | 1.65 | 3.3 | 1.86 | pass |
+| city256 impact | 90.76 | **74.18** | 88.57 | 174.7 | 73.59 | exact outcomes, zero motion error |
+| city256 cascade | 109.06 | **77.56** | 107.49 | 116.3 | 78.66 | exact outcomes, zero motion error |
+| city256 debris | 125.82 | **82.50** | 128.85 | 90.3 | 83.85 | exact outcomes, zero motion error |
+
+Contract v3 reports the city windows as failed only through its force bound,
+which the elastic-reuse default exceeds by design; the v4 comparator passes
+every window with the same health drift as elastic reuse alone. The pool moves
+no window beyond run noise, and the continuous campaign with it on measured
+30.56 ms and 306–312 misses against 29.83 ms and 294–300 without it (bodies
+counter differs by the placeholder count on every tick; all other physical
+counters identical). The earlier 88 → 66 ms impact-window figure came from an
+older runtime state and does not reproduce once the direct stress solve is in
+place: fragment body creation is not the dominant cost of the impact tick.
+
+**Decision.** The pool ships complete but opt-in (`PHYSX_DESTRUCTION_BODY_POOL=auto`
+or a count), reversing the earlier recommendation on the strength of these
+numbers. Its CPU placeholder creation now happens at configuration time, not
+inside the first simulated tick.

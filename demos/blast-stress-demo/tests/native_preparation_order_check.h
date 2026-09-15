@@ -114,7 +114,7 @@ void preparationBeforeCompatibility(bool ordinary=false) {
     // granted at the first advance, so the first fracture already takes the
     // normal boundary; otherwise it must exercise exactly one in-tick growth.
     const char* poolEnv=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");
-    const bool pooled=!(poolEnv && std::strcmp(poolEnv,"0")==0); // default on
+    const bool pooled=poolEnv && std::strcmp(poolEnv,"0")!=0; // opt-in
     if(pooled)require(observe.observed && observe.constructed && observe.normalBoundary && observe.growths==0,"pooled capacity still grew in the tick");
     else require(observe.observed && observe.constructed && observe.growths==1,"initial growth ordering was not exercised");
     auto status=f.stage->getLastStatus();

@@ -308,6 +308,11 @@ stays off; refactor latency (2.7 ms per launch, one building's level chain) is
 the remaining solver-side target, ahead of R2/R5. See
 [warm-screen.md](warm-screen.md).
 
+The R2 body pool is complete (placeholder-aware GPU births, configure-time
+creation, runtime-driven opt-in, contracts updated) but measured neutral on
+every plan metric with the direct solve in place, so it ships opt-in
+(`PHYSX_DESTRUCTION_BODY_POOL=auto`). Details: [warm-screen.md](warm-screen.md).
+
 Continuous 600-tick heavy run with elastic reuse enabled: 51.2 → 29.8 ms mean,
 60 Hz misses 519 → 294–300 of 600, peak 182 → 150 ms, physical counters
 identical on every tick (R1 alone: 33.8 ms, 328 misses).
