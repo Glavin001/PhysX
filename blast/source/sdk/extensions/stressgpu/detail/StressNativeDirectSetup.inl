@@ -193,25 +193,52 @@
         view.slots.values = directUpload(values); view.slots.slotComponent = directUpload(slotComponent);
         view.slots.componentSlot = directUpload(componentSlot); view.slots.slotValid = directUpload(zeros);
         view.slots.slotFailed = directUpload(zeros); view.slots.slotGeneration = directUpload(generations);
-        view.slots.freeList = directUpload(zeros);
+        view.slots.freeList = directUpload(zeros); view.slots.slotStale = directUpload(zeros); view.slots.slotPinned = directUpload(std::vector<unsigned>(slotCount, kNoIsland));
         view.slots.slotCount = slotCount; view.slots.stride = stride; view.enabled = 1;
         view.counters = directUpload(std::vector<unsigned>(kDirectCounterCount, 0u));
         view.diagnostics = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG") ? 1u : 0u;
         view.minNodes = minNodes;
+        view.deferred = nativeDirectDeferred() ? 1u : 0u;
+        if (view.diagnostics) {
+            // Level structure of the largest pattern: the refactor and solve
+            // critical path is the level count, and the dense top of the
+            // elimination tree (levels with fewer columns than warps) runs one
+            // column per CTA step.
+            // Level data is stored per shared structure (patternStructure maps instances to it).
+            unsigned worst = 0;
+            for (unsigned s = 0; s < structures; ++s) if (patternLevelCount[s] > patternLevelCount[worst]) worst = s;
+            const unsigned lv = patternLevelCount[worst], lb = patternLevelBegin[worst], cb = patternColBegin[worst], ce = patternColBegin[worst + 1];
+            const unsigned np = ce > cb ? ce - cb - 1u : 0u, blocksTotal = ce > cb ? colPtr[ce - 1u] : 0u;
+            unsigned narrow = 0, narrowColumns = 0;
+            for (unsigned l = 0; l < lv; ++l) { const unsigned w = levelPtr[lb + l + 1] - levelPtr[lb + l]; if (w < kBlockSize / 32u) { ++narrow; narrowColumns += w; } }
+            std::fprintf(stderr, "native direct patterns: instances=%u structures=%u maxBlocks=%u deepest structure: nodes=%u levels=%u blocks=%u narrowLevels=%u narrowColumns=%u\n",
+                patterns, structures, maxBlocks, np, lv, blocksTotal, narrow, narrowColumns);
+        }
         m_direct = view;
         m_directPatternCount = patterns; m_directStructureCount = structures; m_directMaxBlocks = maxBlocks;
     }
     unsigned m_directPatternCount = 0, m_directStructureCount = 0, m_directMaxBlocks = 0;
-    void prefactorNativeDirect() {
+    // Claim slots for eligible components and refactor every invalid or stale
+    // slot. Launched before the solve in the original schedule, after the
+    // solve's completion event in deferred mode, and once at setup.
+    void launchNativeDirectFactor() {
         if (!m_direct.enabled || !m_deviceTopology) return;
         const auto components = m_deviceTopology->components();
         const auto view = m_deviceTopology->cycleView();
-        int device = 0, sms = 0;
-        checkCuda(cudaGetDevice(&device), "prefactor device");
-        checkCuda(cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, device), "prefactor multiprocessors");
+        if (!m_directGrid) {
+            int device = 0, sms = 0;
+            checkCuda(cudaGetDevice(&device), "prefactor device");
+            checkCuda(cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, device), "prefactor multiprocessors");
+            m_directGrid = std::min(m_nodeCount, unsigned(std::max(1, sms) * 2));
+        }
         const NativeDirectOperator op{m_node0, m_node1, m_nodeBondBegin, m_nodeBondRef, m_nodeIsland, m_offset0, m_offset1, m_inertia, m_health, m_colScales};
         assignNativeDirectSlots<<<1, kBlockSize, 0, m_stream>>>(m_direct, components, view.modes.components, m_deviceTopology->status());
-        factorNativeDirect<<<std::min(m_nodeCount, unsigned(std::max(1, sms) * 2)), kBlockSize, 0, m_stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status());
-        checkCuda(cudaGetLastError(), "prefactor native direct launch");
+        factorNativeDirect<<<m_directGrid, kBlockSize, 0, m_stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status());
+        checkCuda(cudaGetLastError(), "native direct factor launch");
+    }
+    unsigned m_directGrid = 0;
+    void prefactorNativeDirect() {
+        if (!m_direct.enabled || !m_deviceTopology) return;
+        launchNativeDirectFactor();
         checkCuda(cudaStreamSynchronize(m_stream), "prefactor native direct");
     }

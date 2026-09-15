@@ -8,6 +8,11 @@ __device__ __forceinline__ void directWarpReduce6(float (&acc)[6]) {
     for (unsigned o = 16; o; o >>= 1)
         for (unsigned r = 0; r < 6; ++r) acc[r] += __shfl_xor_sync(0xffffffffu, acc[r], o);
 }
+__device__ __forceinline__ bool directSlotStale(const NativeDirectView& v, unsigned id) {
+    if (!v.enabled) return false;
+    const unsigned s = v.slots.componentSlot[id];
+    return s != kNoIsland && v.slots.slotValid[s] && !v.slots.slotFailed[s] && v.slots.slotStale[s];
+}
 __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStressArgs& a, const unsigned* nodes, unsigned count, unsigned id, float* x) {
     const NativeDirectView& v = a.hierarchy.direct;
     if (!v.enabled || count > kResidentComponentMaxNodes) return false;
@@ -17,6 +22,9 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     const unsigned p = v.pattern.nodeParent[nodes[0]];
     if (p == kNoIsland) return false;
     const unsigned pinned = StressHierarchy::motionDimension(a.hierarchy.modes.components[id]) ? id : kNoIsland;
+    // A stale factor built under a different pinning is not a preconditioner
+    // for this operator (the null space changed); leave the component to PCG.
+    if (v.slots.slotStale[s] && v.slots.slotPinned[s] != pinned) { if (v.counters && !threadIdx.x) atomicAdd(v.counters + 4, 1u); return false; }
     const auto P = directPatternRefs(v.pattern, p);
     const float* val = v.slots.values + size_t(s) * v.slots.stride;
     const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
@@ -92,8 +100,24 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
         u.angular.x += double(x[6 * i + 0]); u.angular.y += double(x[6 * i + 1]); u.angular.z += double(x[6 * i + 2]);
         u.linear.x += double(x[6 * i + 3]);  u.linear.y += double(x[6 * i + 4]);  u.linear.z += double(x[6 * i + 5]);
     }
-    if (v.counters && !threadIdx.x) { atomicAdd(v.counters + 1, 1u); if (pinned != kNoIsland) atomicAdd(v.counters + 5, 1u); }
+    if (v.counters && !threadIdx.x) { atomicAdd(v.counters + 1, 1u); if (pinned != kNoIsland) atomicAdd(v.counters + 5, 1u); if (v.slots.slotStale[s]) atomicAdd(v.counters + 7, 1u); }
     __syncthreads();
     return true;
+}
+// Undo the last application: subtract the same x from the accumulated solution.
+__device__ __forceinline__ void directUndoNativeComponent(const PersistentStressArgs& a, const unsigned* nodes, unsigned id, const float* x) {
+    const NativeDirectView& v = a.hierarchy.direct;
+    const unsigned p = v.pattern.nodeParent[nodes[0]];
+    const unsigned pinned = StressHierarchy::motionDimension(a.hierarchy.modes.components[id]) ? id : kNoIsland;
+    const auto P = directPatternRefs(v.pattern, p);
+    for (unsigned i = threadIdx.x; i < P.nodes; i += blockDim.x) {
+        const unsigned node = P.order[i];
+        if (a.m_nodeIsland[node] != id || node == pinned) continue;
+        auto& u = a.hierarchy.solution[node];
+        u.angular.x -= double(x[6 * i + 0]); u.angular.y -= double(x[6 * i + 1]); u.angular.z -= double(x[6 * i + 2]);
+        u.linear.x -= double(x[6 * i + 3]);  u.linear.y -= double(x[6 * i + 4]);  u.linear.z -= double(x[6 * i + 5]);
+    }
+    if (v.counters && !threadIdx.x) atomicAdd(v.counters + 8, 1u);
+    __syncthreads();
 }
 #endif

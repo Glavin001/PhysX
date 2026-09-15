@@ -302,6 +302,12 @@ one change fraction (measured up to 1.85× a bond's reference norm on a heavy
 debris cluster). Contract v4 (`--contract-version 4`) reports that force
 deviation instead of gating it. Details and the envelope: [warm-screen.md](warm-screen.md#r6-elastic-margin-reuse-implemented-off-by-default-measured-declared-compromise).
 
+Contact-pair preservation measured neutral with identical histories. A deferred
+refactor schedule using stale factors as preconditioners measured slower and
+stays off; refactor latency (2.7 ms per launch, one building's level chain) is
+the remaining solver-side target, ahead of R2/R5. See
+[warm-screen.md](warm-screen.md).
+
 Full52 warm qualification passes 52/52 under contract v3 (city256 late debris 124.7 → 92.3 ms, fragmented 82.2 → 45.7). Continuous 600-tick heavy run: 51.4 → 33.8 ms mean, 60 Hz misses 519 → 328 of 600, identical physical work counters every tick. Official nine-window warm screen (all windows pass contract v3; city25 impact 22.6 → 17.1 ms, city256 cascade 105 → 80 ms, debris 125 → 93 ms, impact 89 → 75 ms, idle unchanged): [warm-screen.md](warm-screen.md).
 
 ## References

@@ -55,6 +55,11 @@
 #ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
         m_workCapture->finish(m_stream);
 #endif
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        // Deferred refactorization: consumers already have the completion event,
+        // so the changed components' factors rebuild while the tick continues.
+        if (m_direct.enabled && m_direct.deferred && m_deviceTopology) launchNativeDirectFactor();
+#endif
         m_hasWarmStart = true;
         return true;
     }

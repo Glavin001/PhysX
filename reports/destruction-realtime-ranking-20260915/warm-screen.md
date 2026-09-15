@@ -246,3 +246,34 @@ enabled: margin 0.5, change fraction 0.1. A tighter change fraction of 0.03
 (`ab-g16-elastic3`) keeps 147,479 of the skips and 34.8 ms, so most of the
 gain survives a three-times-smaller staleness bound if the envelope above is
 judged too loose.
+
+## Contact-pair preservation (plan Phase 0 item 1): neutral with R1 in place
+
+`--preserve-contact-pairs 1` on both arms of the city256 bombardment A/B
+(`ab-g16-preserve`): histories identical to the rebuild-all runs on every tick
+(bonds broken, post-correction breaks, clusters, contacts, correction status),
+34.3 ms versus 33.6 ms with the same runtime and rebuild-all, 55.2 versus 55.5
+ms for the baseline runtime. The full-scene refiltering after each correction is
+not a measurable cost at this scale once the stress solve is fast; the setting
+stays as each profile has it.
+
+## Refactor latency and the deferred stale-factor schedule (negative result)
+
+In the late-debris profile (`results-elastic/city256-debris-nsys`) each
+`factorNativeDirect` launch costs 2.7 ms although only 1–7 components refactor:
+one 444-node building's elimination chain is latency bound, so the launch time is
+the slowest single refactor, twice per tick (5.5 ms of the 84 ms tick on the
+critical path, and a 27 ms burst on the impact tick). A deferred schedule
+(`BLAST_GPU_NATIVE_DIRECT_DEFERRED=1`) keeps a changed component's old factor as
+a preconditioner for this solve, refactors after the completion event, and
+guards every application with a true-residual decrease (an application that
+grows the residual is undone; a stale factor built under a different pinning is
+not applied). It is correct (identical 180-tick histories, 9/9 CTests) but
+slower: 39.7 ms versus 33.6 ms, mean per-tick maximum iterations 30 → 202.
+After a split the departed nodes stay coupled inside the old factor, so most
+stale applications grow the residual (1,447 undone) and those components fall
+back to PCG. The switch stays off; the pattern-depth diagnostic
+(`BLAST_GPU_NATIVE_DIRECT_DIAG=1` prints the deepest pattern's levels and
+narrow-level count) is the input for the remaining options: a dense-top
+(supernodal) factorization of the narrow levels, or Woodbury updates that
+decouple departed nodes.

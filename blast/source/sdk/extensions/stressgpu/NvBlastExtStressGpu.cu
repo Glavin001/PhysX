@@ -321,6 +321,17 @@ std::uint32_t conditionalLoopChunk()
 /// rather than assume it. Also the smoother a multigrid V-cycle would need.
 /// Cached direct factorization for anchored resident components (R1).
 /// BLAST_GPU_NATIVE_DIRECT=0 disables it; the PCG path is then unchanged.
+/// BLAST_GPU_NATIVE_DIRECT_DEFERRED=1 keeps stale factors as preconditioners
+/// and refactors after the solve's completion event. Measured worse (city256
+/// bombardment 39.7 vs 33.6 ms): after a split the departed nodes stay coupled
+/// in the old factor, so most stale applications grow the residual, are undone,
+/// and the component falls back to hundreds of PCG iterations. Default 0:
+/// invalidate on change and refactor before the solve.
+bool nativeDirectDeferred()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_DEFERRED"); return raw && std::string(raw) == "1"; }();
+    return value;
+}
 bool nativeDirectEnabled()
 {
     static const bool enabled = []() {

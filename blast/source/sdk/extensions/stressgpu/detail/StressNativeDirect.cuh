@@ -18,6 +18,7 @@
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 constexpr unsigned kDirectBlockEntries = 36u;
 constexpr unsigned kDirectMinNodes = 8u;
+constexpr unsigned kDirectStaleAttempts = 6u;
 
 struct NativeDirectPatternView {
     const unsigned* nodeParent = nullptr;        // node -> pattern instance index or kNoIsland
@@ -45,6 +46,8 @@ struct NativeDirectSlotView {
     unsigned* componentSlot = nullptr;     // component id -> slot or kNoIsland (node capacity entries)
     unsigned* slotValid = nullptr;         // factor values are current for the component's operator
     unsigned* slotFailed = nullptr;        // numeric factorization failed; PCG handles the component
+    unsigned* slotStale = nullptr;         // factor predates a topology change: still applied as a preconditioner, refactored after the next solve
+    unsigned* slotPinned = nullptr;        // pinned node the factor was built with (kNoIsland for anchored); a stale factor is only applied to the same pinning
     unsigned long long* slotGeneration = nullptr;
     unsigned* freeList = nullptr;          // scratch for deterministic assignment (slotCount entries)
     unsigned slotCount = 0, stride = 0;
@@ -52,10 +55,15 @@ struct NativeDirectSlotView {
 struct NativeDirectView {
     NativeDirectPatternView pattern{};
     NativeDirectSlotView slots{};
-    unsigned* counters = nullptr; // diagnostics: [0] eligible [1] applied [2] accepted before iterating [3] no slot [4] slot invalid/failed [5] pinned free applied [6] refactored
+    unsigned* counters = nullptr; // diagnostics: [0] eligible [1] applied [2] accepted before iterating [3] no slot [4] slot invalid/failed [5] pinned free applied [6] refactored [7] stale applied [8] applications undone (residual grew)
     unsigned enabled = 0, diagnostics = 0, minNodes = kDirectMinNodes;
+    // Deferred mode: a changed component keeps its factor as a stale
+    // preconditioner for this solve and is refactored after the solve, off the
+    // tick's critical path. Otherwise changed factors are invalidated and
+    // refactored before the solve (the original R1 schedule).
+    unsigned deferred = 1;
 };
-constexpr unsigned kDirectCounterCount = 8u;
+constexpr unsigned kDirectCounterCount = 9u;
 struct NativeDirectOperator {
     const unsigned *node0, *node1, *nodeBondBegin, *nodeBondRef, *nodeIsland;
     const Vec4 *offset0, *offset1;
@@ -124,7 +132,11 @@ __global__ void refreshNativeDirectSlots(NativeDirectView v, ResidentStressCompo
         const unsigned id = c.ids[t], s = v.slots.componentSlot[id];
         if (s == kNoIsland) continue;
         if (!state->initialized || changed[id] || v.slots.slotGeneration[s] != state->generation) {
-            v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0;
+            if (v.deferred && state->initialized && v.slots.slotValid[s] && !v.slots.slotFailed[s]) {
+                // Bond removal never adds fill: the old factor is an exact factor of a
+                // nearby operator on a superset pattern, i.e. a preconditioner.
+                v.slots.slotStale[s] = 1; v.slots.slotGeneration[s] = batch->generation ? *batch->generation : 0ull;
+            } else { v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0; v.slots.slotStale[s] = 0; }
         } else v.slots.slotGeneration[s] = batch->generation ? *batch->generation : 0ull;
     }
 }
@@ -137,7 +149,7 @@ __global__ void releaseNativeDirectSlots(NativeDirectView v, const unsigned* nod
         if (id == kNoIsland) continue;
         if (id >= n || nodeIsland[id] != id) {
             v.slots.componentSlot[id] = kNoIsland; v.slots.slotComponent[s] = kNoIsland;
-            v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0;
+            v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0; v.slots.slotStale[s] = 0;
         }
     }
 }
@@ -183,7 +195,7 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
         const unsigned rank = needTotal + inclusive - need;
         if (need && rank < freeTotal) {
             const unsigned s = v.slots.freeList[rank];
-            v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0; v.slots.slotGeneration[s] = state->generation;
+            v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0; v.slots.slotStale[s] = 0; v.slots.slotGeneration[s] = state->generation;
             v.slots.componentSlot[id] = s; v.slots.slotComponent[s] = id;
         }
         __syncthreads();
@@ -201,7 +213,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
     const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
     for (unsigned t = blockIdx.x; t < *c.count; t += gridDim.x) {
         const unsigned id = c.ids[t], s = v.slots.componentSlot[id];
-        if (s == kNoIsland || v.slots.slotValid[s] || v.slots.slotFailed[s]) continue;
+        if (s == kNoIsland || (v.slots.slotValid[s] && !v.slots.slotStale[s]) || v.slots.slotFailed[s]) continue;
         const unsigned p = v.pattern.nodeParent[c.nodes[c.begin[id]]];
         if (p == kNoIsland) continue;
         const auto P = directPatternRefs(v.pattern, p);
@@ -297,6 +309,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         if (!threadIdx.x) {
             if (failed) { v.slots.slotFailed[s] = 1; v.slots.slotValid[s] = 0; }
             else v.slots.slotValid[s] = 1;
+            v.slots.slotStale[s] = 0; v.slots.slotPinned[s] = pinned;
             v.slots.slotGeneration[s] = state->generation;
         }
         __syncthreads();
