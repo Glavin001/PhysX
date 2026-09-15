@@ -665,3 +665,13 @@ and 157 carry work (53 in 1.5–3.5 ms, 92 in 3.5–10 ms, 6 above 10 ms);
 `performIncrementalSAP` 203 ms / 266. Per sustained tick the GPU stress
 pipeline is therefore ~5.5 ms of solves plus ~2.6 ms of factor launches plus
 the transaction kernels, which matches the 12.8 ms `waitForGpu`.
+
+## Nested-dissection ordering re-tested against the solve-bound tick (negative)
+
+With the solve kernel now the largest GPU item (its remnant latency is the
+level count of the block triangular solves), the level-structure
+nested-dissection order (`BLAST_GPU_NATIVE_DIRECT_ORDER=nd`) was re-run on
+the g16 bombardment: levels 74 → 67, narrow levels 68 → 57, blocks
+4,741 → 5,449, histories identical, tick ratio 0.579 vs 0.554 for minimum
+degree. The bisection order does not produce a shallow tree on this
+building graph; it stays off.
