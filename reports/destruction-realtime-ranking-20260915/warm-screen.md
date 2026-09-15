@@ -333,3 +333,50 @@ are a graph partitioner with refinement for the ordering, several CTAs (a
 thread block cluster) per refactoring component, or Woodbury updates so that
 few-bond removals do not refactor at all. Per sustained tick this is 5.5 ms of
 the 84 ms; at the impact tick it is the 27 ms burst.
+
+## R2 step 1 completed: the pre-created fragment body pool is the default
+
+The pool is now enabled by the runtime (`PHYSX_DESTRUCTION_BODY_POOL`, unset or
+`auto` = one body per eight chunks clamped to [256, 16384]; `0` disables; a
+number sets the count) and opted into on the CPU allocator through an appended
+interface call, so the frozen baseline runtime never creates placeholders and
+control arms stay valid. What made it work with the GPU pre-solve roster:
+
+- A pooled placeholder is an inactive kinematic body on a granted node handle,
+  so it already owns one island lifetime. The allocator exposes that lifetime,
+  the runtime uploads it beside the granted addresses, and the GPU birth kernel
+  uses it as the base: unchanged for a supported (kinematic) fragment, plus one
+  when the fragment becomes dynamic. Claiming switches the body to dynamic as a
+  device-owner transaction.
+- The first-advance reservation grows the motion storage before the tick's
+  address registration; the tick now registers the grown storage rather than
+  the caller's pre-growth view (that stale view rejected every grant with
+  allocation error 16 → stage error 776).
+- Contracts: address grants may own placeholder nodes; the growth-path
+  fixtures either opt out (`native_initialization_failure_check.h`) or expect
+  no in-tick growth when pooled; the birth-roster check accepts pooled births.
+
+Native GPU suite with the pool on: 38 of 41 pass. The three failures are not
+pool-related: `physx_native_gpu_state_initcheck_accepted-properties(-pgs)`
+(compute-sanitizer initcheck, uninitialized read in `compactFreeMotionSlots`
+during topology init) reproduces with the frozen baseline runtime, and
+`physx_native_gpu_bombardment_contacts` (motion audit requires exactly zero
+CPU/GPU pose difference; measured 1.7e-5 to 2.2e-5 m, float-ulp level) fails
+identically with the baseline runtime and the pool disabled. Both predate this
+branch's runtime changes in this build environment and are recorded as open.
+
+Timing with the pool as default (city256 bombardment, 3 s, three interleaved
+pairs, same runtime, `PHYSX_DESTRUCTION_BODY_POOL=auto` versus `0`):
+
+| pair | pool on mean / max | pool off mean / max |
+|---|---:|---:|
+| 1 | 34.69 / 157.7 | 35.16 / 192.3 |
+| 2 | 34.26 / 166.6 | 34.31 / 149.8 |
+| 3 | 34.92 / 171.3 | 34.54 / 184.6 |
+
+Neutral on the mean, peaks within run noise, histories identical to both the
+baseline and the pool-free run. Phase profiles attribute the pool's steady
+cost to under 1 ms per sustained tick (`correctedCollisionSolve` +0.95 ms) and
+0.5 ms once at the first advance. Its benefit is confined to the impact
+window's registration burst measured on the warm probe (88 → 66 ms); the demo's
+impact window is unchanged (32.1 vs 32.3 ms).

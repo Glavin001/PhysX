@@ -78,5 +78,8 @@ public:
     virtual PxU64 placeholderLifetime(PxU32) const { return 0; }
     /// True when the granted node already has an inactive CPU placeholder body.
     virtual bool hasPlaceholder(PxU32 node) const { return placeholderLifetime(node)!=0; }
+    /// Runtime opt-in: create inactive placeholder bodies for every node handle
+    /// granted from now on. Runtimes that never call this get in-tick creation.
+    virtual void setPlaceholderPool(bool) {}
 };
 }

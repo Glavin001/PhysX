@@ -37,11 +37,13 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
     // native lifecycle tests and CPU/GPU island audits still expect none before
     // allocation, so the default stays off until those consumers are migrated.
     PxHashMap<PxU32,NpRigidDynamic*> mPlaceholders;
-    static bool poolEnabled() {
-        // Default on (2026-09-15); PHYSX_DESTRUCTION_BODY_POOL=0 disables the pre-created pool.
-        static const bool enabled=[](){const char* raw=getenv("PHYSX_DESTRUCTION_BODY_POOL");return !raw || strcmp(raw,"0")!=0;}();
-        return enabled;
-    }
+    // Placeholder pool: enabled by the runtime (PxgDestructionRuntime reads
+    // PHYSX_DESTRUCTION_BODY_POOL); a runtime that never asks gets in-tick creation.
+    bool mPlaceholderPool=false;
+public:
+    bool poolEnabled() const { return mPlaceholderPool; }
+    void setPlaceholderPool(bool enabled) override { mPlaceholderPool=enabled; }
+private:
     NpRigidDynamic* source(PxU32 id, bool allowReservation=false) const {
         const auto& islands=mScene.getScScene().getSimpleIslandManager()->getAccurateIslandSim();
         if(id>=islands.getNbNodes())return NULL;

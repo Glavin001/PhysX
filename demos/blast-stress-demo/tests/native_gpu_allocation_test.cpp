@@ -287,6 +287,9 @@ void membership() {
     auto* parent=context.physics().createRigidDynamic(PxTransform(PxIdentity));
     parent->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);scene.addActor(*parent);step(scene);
     NpDestructionBodyAllocator allocator(internal);
+    // Unit-level allocator: opt into the placeholder pool exactly as the runtime
+    // does (PHYSX_DESTRUCTION_BODY_POOL unset or non-zero).
+    {const char* poolEnv=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");allocator.setPlaceholderPool(!(poolEnv && std::strcmp(poolEnv,"0")==0));}
     constexpr PxU32 count=257;
     std::vector<PxvDestructionBodyRequest> requests(count);std::vector<PxU32> ids(count);
     for(PxU32 i=0;i<count;++i)requests[i]={i,parent->getGPUIndex(),1,1,i};
@@ -301,8 +304,7 @@ void membership() {
         // fragment records. With the pre-created body pool enabled
         // (PHYSX_DESTRUCTION_BODY_POOL), each newly granted node owns an inactive
         // kinematic placeholder body, so the island node count grows by the grant.
-        const char* poolEnv=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");
-        const bool pool=!(poolEnv && std::strcmp(poolEnv,"0")==0); // default on
+        const bool pool=allocator.poolEnabled();
         const PxU32 newlyGranted=cycle?0u:count+1u;
         require(!allocator.size() && scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==1
             && islands.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE)==active

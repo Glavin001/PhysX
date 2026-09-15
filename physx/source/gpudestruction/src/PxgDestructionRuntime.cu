@@ -1433,6 +1433,7 @@ public:
             if(!mInitialPoolReserved && mTopology && mBodyAllocator) {
                 mInitialPoolReserved=true;
                 const PxU32 pool=initialBodyPool(mN);
+                mBodyAllocator->setPlaceholderPool(pool>0);
                 if(pool>mMotionSlotCapacity){PxProfileScoped setup(mProfiler,"GpuDestruction.setup.reserveBodyPool",false,mProfileContext);growMotionSlots(pool);}
                 bodyStates=mMotionStorage.bodies; // growth may have moved the body storage
             }
