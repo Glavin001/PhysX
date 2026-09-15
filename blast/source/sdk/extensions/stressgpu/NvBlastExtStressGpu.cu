@@ -397,11 +397,14 @@ float nativeContinuingChangeFraction()
     }();
     return value;
 }
-/// R6 elastic-margin reuse: BLAST_GPU_NATIVE_ELASTIC_MARGIN (0 = off; e.g. 0.5)
-/// and BLAST_GPU_NATIVE_ELASTIC_CHANGE (default 0.1).
+/// R6 elastic-margin reuse: BLAST_GPU_NATIVE_ELASTIC_MARGIN (default 0.5; 0 = off)
+/// and BLAST_GPU_NATIVE_ELASTIC_CHANGE (default 0.1). Accepted default
+/// (2026-09-15): verdicts and damage are unchanged; reported stress on
+/// components provably below the elastic limit may be up to one change
+/// fraction old (envelope in reports/destruction-realtime-ranking-20260915).
 float nativeElasticMargin()
 {
-    static const float value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_ELASTIC_MARGIN"); return raw ? float(std::atof(raw)) : 0.f; }();
+    static const float value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_ELASTIC_MARGIN"); return raw ? float(std::atof(raw)) : 0.5f; }();
     return value;
 }
 float nativeElasticChangeFraction()
