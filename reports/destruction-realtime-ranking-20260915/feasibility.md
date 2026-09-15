@@ -124,6 +124,16 @@ component; max column count 336). At 10–30% of the 5060 Ti's FP32 peak this is
 7–2 ms for a full-city refactor burst; per-component refactors in the sustained
 regime are microseconds. This is an estimate, not a measured kernel.
 
+## R3 corollary: FP32-first is sufficient for anchored components
+
+Gate (b) doubles as the R3 replay for the anchored population: FP32 factors
+plus at most one FP64 refinement reach the solver's 1e-5 gate on all 510
+systems, including κ ≈ 1.6e6. Any FP64 that remains in R1 is one sparse
+residual product per component per refinement step, so the 1/64 FP64 rate of
+consumer Ada/Blackwell no longer sits on the per-iteration path. For components
+that stay on the existing PCG (free debris, fallbacks), the same FP32-iterate /
+FP64-gate structure applies and still needs its own runtime qualification.
+
 ## Reproduction
 
 ```bash
