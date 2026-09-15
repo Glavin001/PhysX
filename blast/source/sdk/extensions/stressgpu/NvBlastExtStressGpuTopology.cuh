@@ -7,6 +7,7 @@ struct DeviceStressTopologyBatch
     const std::uint32_t* mask;
     const std::uint64_t* generation;
     const std::uint32_t* accept;
+    const float* utilization; // per-bond elastic utilization from the last material pass, or null
 };
 __global__ void setDeviceStressTopologyBatch(DeviceStressTopologyBatch* dst, DeviceStressTopologyBatch src)
 { *dst = src; }
@@ -384,7 +385,7 @@ public:
             checkCuda(cub::DeviceScan::ExclusiveSum(nullptr,scanBytes,tileCounts,b.orders[0].devicePartialBegin,b.n+1), "size stress tile scan");
             checkCuda(cudaMalloc(&scanScratch,scanBytes), "allocate stress tile scan scratch");
         }
-        build(stream); submit({nullptr,nullptr,nullptr},stream);
+        build(stream); submit({nullptr,nullptr,nullptr,nullptr},stream);
     }
     void submit(DeviceStressTopologyBatch input,cudaStream_t stream)
     {
@@ -392,6 +393,7 @@ public:
         checkCuda(cudaGraphLaunch(exec,stream), "launch device stress topology transaction");
     }
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
+    const DeviceStressTopologyBatch* batchView() const { return batch; }
     const unsigned* islandIds() const { return liveIslands; }
 #ifdef PHYSX_RESIDENT_DESTRUCTION
     NativeStressCycleView cycleView()const{return nativeHierarchy->view();}

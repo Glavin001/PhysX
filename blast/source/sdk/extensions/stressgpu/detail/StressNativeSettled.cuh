@@ -10,6 +10,14 @@ struct NativeSettledCache {
     ExtStressGpuImpulse* inputs=nullptr;
     NativeSettledCertificate* certificates=nullptr;
     unsigned* verifiedStoredOutput=nullptr;
+    // Weaker than a certificate: `inputs` holds the load of the last fresh
+    // CONVERGED solve of this component and the stored forces are that solve's
+    // export (within the solve tolerance, not verified against the strict
+    // residual gate). Used by the continuing-load (R4) and elastic-margin (R6)
+    // policies, whose margins dwarf the tolerance. Same lifetime rules as the
+    // certificate: changed old components lose it; survivors advance.
+    NativeSettledCertificate* references=nullptr;
+    unsigned* counters=nullptr; // [0] elastic-margin skips (diagnostic)
 };
 __device__ __forceinline__ bool identicalNativeInput(const ExtStressGpuImpulse& a,const ExtStressGpuImpulse& b){
     return __float_as_uint(a.angular.x)==__float_as_uint(b.angular.x)
@@ -28,10 +36,14 @@ __global__ void refreshNativeSettledCertificates(NativeSettledCache cache,
     ResidentStressComponentView components,const ExtStressGpuDeviceTopologyStatus* topology,
     const DeviceStressTopologyBatch* batch,const unsigned* changed){
     for(unsigned slot=blockIdx.x*blockDim.x+threadIdx.x;slot<*components.count;slot+=blockDim.x*gridDim.x){
-        const unsigned id=components.ids[slot];auto& proof=cache.certificates[id];
-        if(!topology->initialized || !proof.valid)continue;
-        if(changed[id] || proof.generation!=topology->generation)proof.valid=0;
-        else proof.generation=batch->generation?*batch->generation:0ull;
+        const unsigned id=components.ids[slot];
+        if(!topology->initialized)continue;
+        NativeSettledCertificate* proofs[2]={cache.certificates+id,cache.references+id};
+        for(auto* proof:proofs){
+            if(!proof->valid)continue;
+            if(changed[id] || proof->generation!=topology->generation)proof->valid=0;
+            else proof->generation=batch->generation?*batch->generation:0ull;
+        }
     }
 }
 __global__ void beginNativeSettledReuse(NativeSettledCache cache,ResidentStressComponentView components,
@@ -70,7 +82,7 @@ __global__ void relaxNativeContinuingTolerance(NativeSettledCache cache,Resident
     for(unsigned slot=blockIdx.x;slot<*components.count;slot+=gridDim.x){
         const unsigned id=components.ids[slot];
         if(!warm || !topology->initialized || topology->error || (skip && skip[id]))continue;
-        const auto proof=cache.certificates[id];
+        const auto proof=cache.references[id];
         if(!proof.valid || proof.generation!=topology->generation)continue;
         float diff=0.f,prev=0.f;
         for(unsigned i=components.begin[id]+threadIdx.x;i<components.end[id];i+=blockDim.x){
@@ -89,16 +101,64 @@ __global__ void relaxNativeContinuingTolerance(NativeSettledCache cache,Resident
         __syncthreads();
     }
 }
+// R6: elastic-margin reuse. A component whose last material pass reported every
+// bond below `margin` of its elastic limit, and whose load changed by less than
+// `changeFraction` of the load last solved, reuses its stored forces this tick:
+// no damage can accrue below the elastic limit, so the fracture verdict is
+// unchanged; only the reported forces of such components are stale. Requires a
+// converged reference solve for the current topology. Off unless
+// BLAST_GPU_NATIVE_ELASTIC_MARGIN is set.
+__global__ void beginNativeElasticReuse(NativeSettledCache cache,ResidentStressComponentView components,
+    const ExtStressGpuDeviceTopologyStatus* topology,const DeviceStressTopologyBatch* batch,const ExtStressGpuImpulse* inputs,
+    const unsigned* nodeBondBegin,const unsigned* nodeBondRef,const float* health,
+    unsigned* converged,unsigned* skip,bool warm,float margin,float changeFraction,unsigned* counters){
+    __shared__ float partial[3][kBlockSize/32];
+    const float* utilization=batch->utilization;
+    if(!utilization)return;
+    for(unsigned slot=blockIdx.x;slot<*components.count;slot+=gridDim.x){
+        const unsigned id=components.ids[slot];
+        if(!warm || !topology->initialized || topology->error || skip[id])continue;
+        const auto proof=cache.references[id];
+        if(!proof.valid || proof.generation!=topology->generation)continue;
+        float diff=0.f,prev=0.f,umax=0.f;
+        for(unsigned i=components.begin[id]+threadIdx.x;i<components.end[id];i+=blockDim.x){
+            const unsigned node=components.nodes[i];const auto a=inputs[node],b=cache.inputs[node];
+            const float dx[6]={a.angular.x-b.angular.x,a.angular.y-b.angular.y,a.angular.z-b.angular.z,a.linear.x-b.linear.x,a.linear.y-b.linear.y,a.linear.z-b.linear.z};
+            const float px[6]={b.angular.x,b.angular.y,b.angular.z,b.linear.x,b.linear.y,b.linear.z};
+            for(unsigned k=0;k<6;++k){diff=fmaf(dx[k],dx[k],diff);prev=fmaf(px[k],px[k],prev);}
+            for(unsigned r=nodeBondBegin[node];r<nodeBondBegin[node+1];++r){
+                const unsigned ref=nodeBondRef[r];if(ref==kDeadBondRef)continue;const unsigned edge=ref&0x7fffffffu;
+                if(health[edge]>0.f)umax=fmaxf(umax,utilization[edge]);
+            }
+        }
+        for(unsigned o=16;o;o>>=1){diff+=__shfl_down_sync(0xffffffffu,diff,o);prev+=__shfl_down_sync(0xffffffffu,prev,o);umax=fmaxf(umax,__shfl_down_sync(0xffffffffu,umax,o));}
+        if(!(threadIdx.x&31u)){partial[0][threadIdx.x/32]=diff;partial[1][threadIdx.x/32]=prev;partial[2][threadIdx.x/32]=umax;}
+        __syncthreads();
+        if(!threadIdx.x){
+            float d2=0.f,p2=0.f,u=0.f;for(unsigned w=0;w<kBlockSize/32;++w){d2+=partial[0][w];p2+=partial[1][w];u=fmaxf(u,partial[2][w]);}
+            if(p2>0.f && d2<=changeFraction*changeFraction*p2 && u<margin){skip[id]=1;converged[id]=1;if(counters)atomicAdd(counters,1u);}
+        }
+        __syncthreads();
+    }
+}
 __global__ void commitNativeSettledReuse(NativeSettledCache cache,ResidentStressComponentView components,
     const ExtStressGpuDeviceTopologyStatus* topology,const ExtStressGpuImpulse* inputs,
     const unsigned* converged,const unsigned* skip,float tolerance,unsigned maxIterations){
     for(unsigned slot=blockIdx.x;slot<*components.count;slot+=gridDim.x){
         const unsigned id=components.ids[slot];
-        const bool valid=topology->initialized && !topology->error && converged[id] && cache.verifiedStoredOutput[id];
-        if(valid && !skip[id])for(unsigned i=components.begin[id]+threadIdx.x;i<components.end[id];i+=blockDim.x){
+        const bool ok=topology->initialized && !topology->error && converged[id];
+        const bool valid=ok && cache.verifiedStoredOutput[id];
+        // A fresh converged solve becomes the reference load for the stored
+        // forces. Skipped components keep the reference their stored forces
+        // still belong to; a non-converged fresh solve invalidates it.
+        if(ok && !skip[id])for(unsigned i=components.begin[id]+threadIdx.x;i<components.end[id];i+=blockDim.x){
             const unsigned node=components.nodes[i];cache.inputs[node]=inputs[node];}
         __syncthreads();
-        if(!threadIdx.x)cache.certificates[id]={topology->generation,__float_as_uint(tolerance),maxIterations,unsigned(valid)};
+        if(!threadIdx.x){
+            cache.certificates[id]={topology->generation,__float_as_uint(tolerance),maxIterations,unsigned(valid)};
+            if(!skip[id])cache.references[id]={topology->generation,__float_as_uint(tolerance),maxIterations,unsigned(ok)};
+            else if(!ok)cache.references[id].valid=0;
+        }
         __syncthreads();
     }
 }

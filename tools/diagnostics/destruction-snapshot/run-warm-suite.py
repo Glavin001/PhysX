@@ -3,11 +3,11 @@
 import argparse, fcntl, hashlib, importlib.util, json, os, signal, subprocess, sys, time
 from pathlib import Path
 root=Path(__file__).resolve().parents[3];here=Path(__file__).resolve().parent
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('plan',type=Path);p.add_argument('output',type=Path);p.add_argument('--manage-desktop',action='store_true');p.add_argument('--budget-seconds',type=float,default=300);p.add_argument('--contract-version',choices=['1','2','3'],default='1',help='Version 2 admits ordinary scenes with no destruction stage; version 3 additionally bounds bond forces per bond relative to their norm and health drift, for numerical-policy candidates');a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('plan',type=Path);p.add_argument('output',type=Path);p.add_argument('--manage-desktop',action='store_true');p.add_argument('--budget-seconds',type=float,default=300);p.add_argument('--contract-version',choices=['1','2','3','4'],default='1',help='Version 2 admits ordinary scenes with no destruction stage; version 3 additionally bounds bond forces per bond relative to their norm and health drift, for numerical-policy candidates');a=p.parse_args()
 plan=json.loads(a.plan.read_text());out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
 record=dict(status='starting',plan=plan,plan_sha256=hashlib.sha256(a.plan.read_bytes()).hexdigest(),jobs=[],pid=os.getpid())
 spec=importlib.util.spec_from_file_location('capture',root/'tools/scripts/run-destruction-timing.py');c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
-suffix={'1':'','2':'-v2','3':'-v3'}[a.contract_version]
+suffix={'1':'','2':'-v2','3':'-v3','4':'-v4'}[a.contract_version]
 contract_path=here/('warm-window-contract'+suffix+'.py');checker_path=here/('compare-warm-observations'+suffix+'.py')
 cspec=importlib.util.spec_from_file_location('contract',contract_path);contract=importlib.util.module_from_spec(cspec);cspec.loader.exec_module(contract)
 record.update(contract_version=a.contract_version,checker_sha256={str(q):hashlib.sha256(q.read_bytes()).hexdigest() for q in [contract_path,checker_path]})

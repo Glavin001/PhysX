@@ -24,6 +24,11 @@
             beginNativeSettledReuse<<<std::min(m_nodeCount,256u),128,0,m_stream>>>(
                 m_deviceTopology->cycleView().settled,m_deviceTopology->components(),m_deviceTopology->status(),
                 m_input,m_islandConverged,m_islandSkip,warmStart,params.tolerance,params.maxIterations);
+            if(nativeElasticMargin()>0.f)
+                beginNativeElasticReuse<<<std::min(m_nodeCount,256u),kBlockSize,0,m_stream>>>(
+                    m_deviceTopology->cycleView().settled,m_deviceTopology->components(),m_deviceTopology->status(),m_deviceTopology->batchView(),
+                    m_input,m_nodeBondBegin,m_nodeBondRef,m_health,m_islandConverged,m_islandSkip,warmStart,nativeElasticMargin(),nativeElasticChangeFraction(),
+                    m_deviceTopology->cycleView().settled.counters);
         }
 #endif
 

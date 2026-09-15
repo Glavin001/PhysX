@@ -507,7 +507,7 @@ public:
     virtual bool updateDeviceTopologyAsync(const std::uint32_t* activeBonds,
         std::uint32_t bondCount, const std::uint64_t* generation,
         const std::uint32_t* deviceAccept = nullptr, void* producerReady = nullptr,
-        void* consumerDone = nullptr) = 0;
+        void* consumerDone = nullptr, const float* bondUtilization = nullptr) = 0;
 
 protected:
     virtual ~ExtStressGpuSolver() = default;

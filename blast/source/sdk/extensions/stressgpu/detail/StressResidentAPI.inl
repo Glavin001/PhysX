@@ -114,14 +114,14 @@
 
     bool updateDeviceTopologyAsync(const std::uint32_t* mask, std::uint32_t count,
         const std::uint64_t* generation, const std::uint32_t* accept,
-        void* producerReady, void* consumerDone) override
+        void* producerReady, void* consumerDone, const float* bondUtilization) override
     {
         if (!m_deviceTopology || m_deviceTopologyFailed || !mask || !generation || count!=m_bondCount) return false;
         ContextGuard context(m_cudaContext);
         if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(consumerDone),0), "wait stress topology consumer");
         if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(producerReady),0), "wait stress topology producer");
         m_telemetry = {};
-        m_deviceTopology->submit({mask,generation,accept},m_stream);
+        m_deviceTopology->submit({mask,generation,accept,bondUtilization},m_stream);
         checkCuda(cudaEventRecord(m_statusReady,m_stream), "record stress topology update");
         return true;
     }

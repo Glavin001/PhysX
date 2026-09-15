@@ -370,6 +370,18 @@ float nativeContinuingChangeFraction()
     }();
     return value;
 }
+/// R6 elastic-margin reuse: BLAST_GPU_NATIVE_ELASTIC_MARGIN (0 = off; e.g. 0.5)
+/// and BLAST_GPU_NATIVE_ELASTIC_CHANGE (default 0.1).
+float nativeElasticMargin()
+{
+    static const float value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_ELASTIC_MARGIN"); return raw ? float(std::atof(raw)) : 0.f; }();
+    return value;
+}
+float nativeElasticChangeFraction()
+{
+    static const float value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_ELASTIC_CHANGE"); return raw ? float(std::atof(raw)) : 0.1f; }();
+    return value;
+}
 bool jacobiEnabled()
 {
 #ifdef PHYSX_RESIDENT_DESTRUCTION

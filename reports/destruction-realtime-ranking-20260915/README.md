@@ -291,6 +291,17 @@ peak and ~15 ms per sustained tick of GPU-idle CPU time) are the next targets.
 Routing components smaller than eight nodes through the direct path was measured
 worse (39.7 vs 37.2 ms) and is not enabled.
 
+R6 elastic-margin reuse is implemented (env-gated, off by default): the
+material pass exports per-bond elastic utilization, the solver keeps the load of
+each component's last converged solve, and components whose bonds all sit below
+half their elastic limit and whose load moved by under 10 % republish stored
+forces. City256 late debris 93 → 84 ms, bombardment 36.5 → 33.6 ms, discrete
+outcomes and health drift identical in every window and over 180 bombardment
+ticks; republished forces on those provably-safe components are stale by up to
+one change fraction (measured up to 1.85× a bond's reference norm on a heavy
+debris cluster). Contract v4 (`--contract-version 4`) reports that force
+deviation instead of gating it. Details and the envelope: [warm-screen.md](warm-screen.md#r6-elastic-margin-reuse-implemented-off-by-default-measured-declared-compromise).
+
 Full52 warm qualification passes 52/52 under contract v3 (city256 late debris 124.7 → 92.3 ms, fragmented 82.2 → 45.7). Continuous 600-tick heavy run: 51.4 → 33.8 ms mean, 60 Hz misses 519 → 328 of 600, identical physical work counters every tick. Official nine-window warm screen (all windows pass contract v3; city25 impact 22.6 → 17.1 ms, city256 cascade 105 → 80 ms, debris 125 → 93 ms, impact 89 → 75 ms, idle unchanged): [warm-screen.md](warm-screen.md).
 
 ## References

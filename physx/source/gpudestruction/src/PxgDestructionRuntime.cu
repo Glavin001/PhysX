@@ -556,7 +556,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionStageStatus* mStatus{}; PxDestructionStageStatus* mHostStatus{};
     PxDestructionMaterial* mMaterials{};PxDestructionStressBond* mBonds{};
     float *mHealth{},*mRates{};PxU32 *mNodeBegin{},*mNodeRefs{};
-    PxVec3* mBondCentroids{};PxDestructionBondVerdict* mVerdicts{};
+    PxVec3* mBondCentroids{};PxDestructionBondVerdict* mVerdicts{};float* mBondUtilization{};
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
     PxgDestructionTopologyTransaction* mTopology{};
@@ -1110,7 +1110,7 @@ public:
         cudaFree(mMaterials);mMaterials=nullptr;cudaFree(mBonds);mBonds=nullptr;
         cudaFree(mHealth);mHealth=nullptr;cudaFree(mRates);mRates=nullptr;
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
-        cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
+        cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);cudaFree(mBondUtilization);mBondUtilization=nullptr;mVerdicts=nullptr;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;mSnapshotAsset={};
     }
@@ -1223,7 +1223,7 @@ public:
             if(d.materialCount) {
                 allocate(mMaterials,d.materialCount);allocate(mBonds,d.bondCount);allocate(mHealth,d.bondCount);
                 allocate(mRates,d.chunkCount);allocate(mNodeBegin,begin.size());allocate(mNodeRefs,refs.size());
-                allocate(mBondCentroids,d.bondCount);allocate(mVerdicts,d.bondCount);
+                allocate(mBondCentroids,d.bondCount);allocate(mVerdicts,d.bondCount);allocate(mBondUtilization,d.bondCount);
                 allocate(mCrush,d.chunkCount);allocate(mTrialCrush,d.chunkCount);
                 check(cudaMemcpy(mMaterials,materials.data(),sizeof(*mMaterials)*d.materialCount,cudaMemcpyHostToDevice));
                 if(d.bondCount) {
@@ -1468,7 +1468,7 @@ public:
             if(mCorrectionEnabled)requireNativeConvergence<<<1,1,0,mStream>>>(mStatus);
             if(mMaterials) {
                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
-                    dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus);
+                    dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mBondUtilization);
                 evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
@@ -1497,7 +1497,7 @@ public:
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
                 if(mSolver) {
                     const auto accepted=mTopology->accepted();
-                    if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,accepted.readyEvent))
+                    if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,accepted.readyEvent,nullptr,mBondUtilization))
                         throw std::runtime_error("native stress topology update submission failed");
                     const auto stress=mSolver->deviceView();
                     check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
@@ -2051,7 +2051,7 @@ public:
             check(cudaEventRecord(mReady,mStream));
             if(mSolver) {
                 const auto accepted=mTopology->accepted();
-                if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,mReady))
+                if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,mReady,nullptr,mBondUtilization))
                     throw std::runtime_error("corrected stress topology update failed");
                 const auto stress=mSolver->deviceView();check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
                 inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);

@@ -9,11 +9,12 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     const PxDestructionStressBond* bonds,const PxDestructionMaterial* materials,
     const float* health,const PxDestructionVectorPair* forces,PxU32 count,
     float dt,float rate,float bendGain,bool fibres,PxDestructionBondVerdict* verdict,
-    PxVec3* centroids,PxDestructionStageStatus* status)
+    PxVec3* centroids,PxDestructionStageStatus* status,float* utilization)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bonds[i];const float area=health[i];auto& v=verdict[i];v={};v.health=area;
     centroids[i]=b.centroid;
+    if(utilization)utilization[i]=0.f;
     if(!(area>0 && area<0.5f*FLT_MAX))return;
     const PxVec3 displacement=chunks[b.chunk1].position-chunks[b.chunk0].position;
     const PxVec3 aligned=b.normal*copysignf(1.0f,b.normal.dot(displacement));
@@ -34,6 +35,15 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
         atomicOr(&status->error,2u);return;
     }
     float compression,tension;extStressFibre(fibres,v.stressNormal,v.stressBend,compression,tension);
+    if(utilization) {
+        // Elastic utilization: the largest stress/elastic-limit ratio. A missing
+        // limit counts as fully utilized so such bonds never permit a skip.
+        const auto& m=materials[b.material];float u=0.f;
+        u=fmaxf(u,m.compressionElasticLimit>0.f?compression/m.compressionElasticLimit:1.f);
+        u=fmaxf(u,m.tensionElasticLimit>0.f?tension/m.tensionElasticLimit:1.f);
+        u=fmaxf(u,m.shearElasticLimit>0.f?fabsf(v.stressShear)/m.shearElasticLimit:1.f);
+        utilization[i]=u;
+    }
     const auto damage=extStressBondDamage(compression,tension,v.stressShear,area,b.area,materials[b.material],dt,rate);
     v.damage=damage.damage;v.command=damage.command;v.health=area-damage.damage;
     if(!extStressFinite(v.health) || !extStressFinite(v.damage))atomicOr(&status->error,2u);

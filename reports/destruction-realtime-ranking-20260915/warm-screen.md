@@ -180,3 +180,69 @@ direct factorization in place the relaxation is neutral: city256 bombardment
 per-tick maximum iteration count 30.5 versus 30.6, because the direct step
 already reaches 1e-5 in one application. It remains available for PCG-only
 configurations.
+
+## R6: elastic-margin reuse (implemented, off by default, measured, declared compromise)
+
+Mechanism. The runtime's material pass now also writes each bond's elastic
+utilization (largest stress / elastic-limit ratio; a bond without a limit
+reports 1) and hands the array to the solver with the topology transaction
+(`updateDeviceTopologyAsync(..., bondUtilization)`). The solver keeps, per
+component, the load of its last fresh **converged** solve (`references` in the
+settled cache; weaker than the exact-settled certificate, which needs a
+zero-iteration verification solve and therefore almost never exists in a
+moving scene: the first attempt gated on the certificate fired zero times and
+was neutral). `beginNativeElasticReuse` then skips a component this tick when
+every live bond was below `BLAST_GPU_NATIVE_ELASTIC_MARGIN` of its elastic
+limit at the last material pass and the load changed by less than
+`BLAST_GPU_NATIVE_ELASTIC_CHANGE` (0.1) of the reference load: no damage can
+accrue below the elastic limit, so the fracture verdict is unchanged and the
+stored forces are republished. Impacts, changed topology and large load changes
+never qualify. Skipped components keep their reference, so the deviation is
+bounded by one change fraction and does not accumulate. The R4 relaxation now
+gates on the same reference.
+
+Fidelity envelope (this is the declared compromise; contract v4 reports forces
+without gating them):
+
+| window (results-elastic, v4) | discrete outcomes | motion | health drift | force relL2 | max per-bond scaled | max abs |
+|---|---|---|---:|---:|---:|---:|
+| city25 impact | exact | pass | 1.1e-6 (as v3) | 1.5e-3 | 0.24 | 2.9 kN |
+| city256 impact | exact | pass | 1.2e-6 (as v3) | 4.4e-4 | 0.73 | 6.9 kN |
+| city256 cascade | exact | pass | 1.1e-6 (as v3) | 1.3e-3 | 1.00 | 66 kN |
+| city256 debris | exact | pass | 3.5e-5 (as v3) | 1.9e-2 | 1.85 | 928 kN |
+| city256 idle, bridge, chain, dense, tower | exact | pass | 0 | ≤3.4e-7 | 0 | 0 |
+
+Read the last column as: on a heavy debris cluster whose total load moved by
+under 10 %, one far-from-limit bond's republished force is stale by up to
+928 kN (1.85× its own reference norm). Damage is unaffected (the health drift
+is identical to the lossless run), broken-bond identities and cluster
+partitions are exact in every window, and the 180-tick city256 bombardment
+A/B breaks the same 56,077 bonds tick for tick. What is lost is the accuracy
+of the *reported* stress on components that are provably not going to break
+this tick; anything that visualises or queries per-bond stress sees a
+republished value up to one change fraction old.
+
+Timing (nine-window warm screen, same controls and probes as the v3 screen,
+`out/direct-warm-screen-20260915/results-elastic`, 287.9 s):
+
+| window | A0 mean | **B mean** | A1 mean | B (R1 only, v3 screen) | B max | misses A0/B/A1 |
+|---|---:|---:|---:|---:|---:|---:|
+| city25 impact | 22.40 | **16.79** | 22.94 | 17.06 | 31.8 | 10/9/10 of 16 |
+| city256 idle | 1.63 | 1.86 | 1.63 | 1.64 | 2.2 | 0/0/0 of 32 |
+| city256 impact | 90.54 | **73.59** | 89.93 | 75.42 | 187.5 | 16/16/16 |
+| city256 cascade | 106.49 | **78.66** | 103.93 | 79.85 | 121.1 | 16/16/16 |
+| city256 debris | 125.29 | **83.85** | 124.37 | 93.05 | 89.4 | 16/16/16 |
+| bridge/chain/dense/tower | 1.42–1.52 | 1.32–1.47 | 1.15–1.49 | 1.20–1.53 | ≤1.8 | 0 |
+
+City256 bombardment A/B (native demo, 3 s, 180 ticks, `ab-g16-elastic2`):
+33.6 ms mean with the skip versus 36.3–36.7 ms without (R1 only) and 55 ms
+baseline; 206,870 component skips over 267 solves (about 775 per solve; the
+skipped components are the small settled-debris clusters, so the per-tick
+maximum iteration count is unchanged at 30.5). Idle costs about 0.2 ms for the
+scan itself (1.64 → 1.86 ms); the kernel visits every component each tick and
+could be folded into the settled-reuse scan. The feature stays env-gated and
+off by default until the envelope above is accepted; recommended setting when
+enabled: margin 0.5, change fraction 0.1. A tighter change fraction of 0.03
+(`ab-g16-elastic3`) keeps 147,479 of the skips and 34.8 ms, so most of the
+gain survives a three-times-smaller staleness bound if the envelope above is
+judged too loose.

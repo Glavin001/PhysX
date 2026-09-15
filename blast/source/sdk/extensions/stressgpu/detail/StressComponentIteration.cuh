@@ -265,7 +265,8 @@ __global__ void finishComponentStress(PersistentStressArgs a, ResidentStressComp
     }
     if(threadIdx.x==0) {
         if(a.hierarchy.direct.diagnostics && a.hierarchy.direct.counters){const unsigned* k=a.hierarchy.direct.counters;
-            printf("native direct: eligible=%u applied=%u accepted=%u noslot=%u invalid=%u pinnedfree=%u refactored=%u maxIterations=%u\n",k[0],k[1],k[2],k[3],k[4],k[5],k[6],iterations[0]);}
+            unsigned* e=a.hierarchy.settled.counters;const unsigned elastic=e?e[0]:0u;if(e)e[0]=0u;
+            printf("native direct: eligible=%u applied=%u accepted=%u noslot=%u invalid=%u pinnedfree=%u refactored=%u elasticSkips=%u maxIterations=%u\n",k[0],k[1],k[2],k[3],k[4],k[5],k[6],elastic,iterations[0]);}
         a.m_status->active+=active[0];
         a.m_status->iterations=max(a.m_status->iterations,iterations[0]);
         a.m_status->converged=a.m_status->converged && failed[0]==0;

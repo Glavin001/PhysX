@@ -30,15 +30,17 @@ class NativeStressHierarchy {
     NativeStressCycleView mView;cudaStream_t mStream;
     static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
-    void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.fineInverse);cudaFree(mView.mixedInverse);cudaFree(mView.mixedEligible);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.operatorOther);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
+    void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.settled.references);cudaFree(mView.settled.counters);cudaFree(mView.fineInverse);cudaFree(mView.mixedInverse);cudaFree(mView.mixedEligible);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.operatorOther);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
 public:
     NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
         :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stream),mStream(stream){
         mView.topology=status;mView.modes=mModes.view();mView.inverseStride=input.nodes;
         try{
             allocate(mView.settled.inputs,input.nodes);allocate(mView.settled.certificates,input.nodes);
-            allocate(mView.settled.verifiedStoredOutput,input.nodes);
+            allocate(mView.settled.verifiedStoredOutput,input.nodes);allocate(mView.settled.references,input.nodes);allocate(mView.settled.counters,4);
             checkCuda(cudaMemsetAsync(mView.settled.certificates,0,sizeof(NativeSettledCertificate)*input.nodes,stream),"invalidate native settled certificates");
+            checkCuda(cudaMemsetAsync(mView.settled.references,0,sizeof(NativeSettledCertificate)*input.nodes,stream),"invalidate native reference loads");
+            checkCuda(cudaMemsetAsync(mView.settled.counters,0,sizeof(unsigned)*4,stream),"clear native reuse counters");
             allocate(mView.fineInverse,size_t(input.nodes)*10);allocate(mView.mixedInverse,size_t(input.nodes)*10);allocate(mView.mixedEligible,input.nodes);allocate(mView.operatorOther,size_t(input.bonds)*2);
             allocate(mView.inverseValid,input.nodes);allocate(mView.inverseGeneration,input.nodes);
             checkCuda(cudaMemsetAsync(mView.inverseValid,0,sizeof(unsigned)*input.nodes,stream),"invalidate native local inverse cache");
