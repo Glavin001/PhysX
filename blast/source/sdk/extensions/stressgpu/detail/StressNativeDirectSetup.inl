@@ -47,7 +47,7 @@
         }
         std::vector<unsigned> nodeParent(n, kNoIsland), nodeLocal(n, 0);
         std::vector<unsigned> patternNodeBegin{0u}, order, patternStructure, structureNodeBegin{0u}, patternColBegin{0u}, colPtr, patternPosBegin{0u}, rowIdx,
-            rowPtr, patternRowEntryBegin{0u}, rowCols, rowPos, patternLevelBegin{0u}, patternLevelCount, levelPtr, levelCols;
+            rowPtr, patternRowEntryBegin{0u}, rowCols, rowPos, patternLevelBegin{0u}, patternLevelCount, levelPtr, levelCols, columnLevel, structureTopLevel;
         unsigned patterns = 0, structures = 0, maxBlocks = 0;
         std::vector<unsigned> local(n, kNoIsland);
         // Structurally identical groups (same size, same local edge set under the
@@ -91,14 +91,77 @@
             std::vector<unsigned char> adj(size_t(np) * np, 0);
             std::vector<unsigned> degree(np, 0);
             for (unsigned e = 1; e + 1 < key.size(); e += 2) { const unsigned i = key[e], j = key[e + 1]; adj[size_t(i) * np + j] = adj[size_t(j) * np + i] = 1; ++degree[i]; ++degree[j]; }
-            // Minimum-degree elimination; column structures are the neighbors at elimination time.
+            // Elimination priority. Minimum degree by default. The optional
+            // nested dissection (BLAST_GPU_NATIVE_DIRECT_ORDER=nd) is a recursive
+            // level-structure bisection ordering each part before its separator;
+            // the numeric refactor is throughput-bound on its single CTA with cost
+            // cubic in the dense-top size, so a smaller top separator is the lever.
+            // The simple bisection measured worse than minimum degree on the
+            // city256 building (see nativeDirectNestedDissection); a real graph
+            // partitioner (with refinement) is the next step for this path.
+            std::vector<unsigned> priority(np, 0);
+            if (nativeDirectNestedDissection()) {
+                std::vector<std::vector<unsigned>> graph(np);
+                for (unsigned e = 1; e + 1 < key.size(); e += 2) { graph[key[e]].push_back(key[e + 1]); graph[key[e + 1]].push_back(key[e]); }
+                unsigned nextRank = 0;
+                std::vector<unsigned> mark(np, kNoIsland), dist(np, 0), queue;
+                auto bfs = [&](unsigned source, unsigned stamp) {
+                    // Returns the farthest node; dist holds levels for nodes with mark == stamp.
+                    queue.clear(); queue.push_back(source); mark[source] = stamp; dist[source] = 0; unsigned far = source;
+                    for (size_t h = 0; h < queue.size(); ++h) { const unsigned u = queue[h]; if (dist[u] > dist[far]) far = u;
+                        for (unsigned w : graph[u]) if (mark[w] == stamp - 1u) { mark[w] = stamp; dist[w] = dist[u] + 1; queue.push_back(w); } }
+                    return far;
+                };
+                unsigned stamp = 0;
+                auto dissect = [&](auto& self, const std::vector<unsigned>& part) -> void {
+                    if (part.size() <= 12u) { for (unsigned v : part) priority[v] = nextRank++; return; }
+                    // Pseudo-peripheral start: two BFS passes inside the part. Every
+                    // marking round uses a fresh stamp so no node outside the round
+                    // can carry the membership value by coincidence.
+                    ++stamp; for (unsigned v : part) mark[v] = stamp; ++stamp;
+                    unsigned far = bfs(part[0], stamp);
+                    ++stamp; for (unsigned v : part) mark[v] = stamp; ++stamp;
+                    far = bfs(far, stamp);
+                    const unsigned depth = dist[far];
+                    bool reached = true;
+                    for (unsigned v : part) reached = reached && mark[v] == stamp && dist[v] <= depth;
+                    if (depth < 2u || !reached) { for (unsigned v : part) priority[v] = nextRank++; return; }
+                    // Separator: the level whose cumulative count first reaches half.
+                    std::vector<unsigned> levelCountLocal(depth + 1, 0);
+                    for (unsigned v : part) ++levelCountLocal[dist[v]];
+                    unsigned sepLevel = 0, cumulative = 0;
+                    for (unsigned l = 0; l <= depth; ++l) { cumulative += levelCountLocal[l]; if (cumulative * 2u >= part.size()) { sepLevel = l; break; } }
+                    if (sepLevel == 0u) sepLevel = 1u; if (sepLevel == depth) sepLevel = depth - 1u;
+                    std::vector<unsigned> separator, rest;
+                    for (unsigned v : part) (dist[v] == sepLevel ? separator : rest).push_back(v);
+                    if (rest.empty() || separator.empty()) { for (unsigned v : part) priority[v] = nextRank++; return; }
+                    // Connected components of the rest, each dissected recursively.
+                    ++stamp; for (unsigned v : rest) mark[v] = stamp; ++stamp;
+                    const unsigned restStamp = stamp;
+                    std::vector<std::vector<unsigned>> components;
+                    for (unsigned v : rest) {
+                        if (mark[v] != restStamp - 1u) continue;
+                        queue.clear(); queue.push_back(v); mark[v] = restStamp;
+                        for (size_t h = 0; h < queue.size(); ++h) for (unsigned w : graph[queue[h]]) if (mark[w] == restStamp - 1u) { mark[w] = restStamp; queue.push_back(w); }
+                        components.emplace_back(queue.begin(), queue.end());
+                        std::sort(components.back().begin(), components.back().end());
+                    }
+                    // Progress guard: every child must be strictly smaller than the part.
+                    for (const auto& component : components) if (component.size() >= part.size()) { for (unsigned v : part) priority[v] = nextRank++; return; }
+                    for (const auto& component : components) self(self, component);
+                    for (unsigned v : separator) priority[v] = nextRank++;
+                };
+                std::vector<unsigned> all(np); for (unsigned i = 0; i < np; ++i) all[i] = i;
+                stamp = 1u; dissect(dissect, all);
+            } else for (unsigned i = 0; i < np; ++i) priority[i] = degree[i];
             std::vector<unsigned char> eliminated(np, 0);
             std::vector<unsigned> position(np, 0), eliminationOrder(np, 0);
             std::vector<std::vector<unsigned>> structure(np);
             std::vector<unsigned> neighbors;
+            const bool dynamicDegree = !nativeDirectNestedDissection();
             for (unsigned step = 0; step < np; ++step) {
                 unsigned pick = kNoIsland, best = ~0u;
-                for (unsigned i = 0; i < np; ++i) if (!eliminated[i] && degree[i] < best) { best = degree[i]; pick = i; }
+                for (unsigned i = 0; i < np; ++i) if (!eliminated[i]) { const unsigned key2 = dynamicDegree ? degree[i] : priority[i]; if (key2 < best) { best = key2; pick = i; } }
                 neighbors.clear();
                 const unsigned char* row = adj.data() + size_t(pick) * np;
                 for (unsigned v = 0; v < np; ++v) if (row[v] && !eliminated[v]) neighbors.push_back(v);
@@ -168,6 +231,13 @@
             patternLevelBegin.push_back(unsigned(levelPtr.size()));
             patternLevelCount.push_back(levels);
             for (unsigned j : levelOrder) levelCols.push_back(j);
+            for (unsigned j = 0; j < np; ++j) columnLevel.push_back(level[j]);
+            // First level of the narrow tail: every level from here on has fewer
+            // columns than the CTA has warps, so the level-parallel scheme runs
+            // them one column at a time anyway.
+            unsigned top = levels;
+            while (top > 0 && levelCount[top] - levelCount[top - 1] < kBlockSize / 32u) --top;
+            structureTopLevel.push_back(top);
             structureNodeBegin.push_back(unsigned(levelCols.size()));
             maxBlocks = std::max(maxBlocks, blocks);
             for (unsigned i = 0; i < np; ++i) local[group[i]] = kNoIsland;
@@ -187,6 +257,7 @@
         view.pattern.rowCols = directUpload(rowCols); view.pattern.rowPos = directUpload(rowPos);
         view.pattern.patternLevelBegin = directUpload(patternLevelBegin); view.pattern.patternLevelCount = directUpload(patternLevelCount);
         view.pattern.levelPtr = directUpload(levelPtr); view.pattern.levelCols = directUpload(levelCols);
+        view.pattern.columnLevel = directUpload(columnLevel); view.pattern.structureTopLevel = directUpload(structureTopLevel);
         std::vector<float> values(size_t(slotCount) * stride, 0.f);
         std::vector<unsigned> slotComponent(slotCount, kNoIsland), componentSlot(n, kNoIsland), zeros(slotCount, 0u);
         std::vector<unsigned long long> generations(slotCount, 0ull);
@@ -199,6 +270,7 @@
         view.diagnostics = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG") ? 1u : 0u;
         view.minNodes = minNodes;
         view.deferred = nativeDirectDeferred() ? 1u : 0u;
+        view.rightLooking = nativeDirectRightLooking() ? 1u : 0u;
         if (view.diagnostics) {
             // Level structure of the largest pattern: the refactor and solve
             // critical path is the level count, and the dense top of the
@@ -211,8 +283,8 @@
             const unsigned np = ce > cb ? ce - cb - 1u : 0u, blocksTotal = ce > cb ? colPtr[ce - 1u] : 0u;
             unsigned narrow = 0, narrowColumns = 0;
             for (unsigned l = 0; l < lv; ++l) { const unsigned w = levelPtr[lb + l + 1] - levelPtr[lb + l]; if (w < kBlockSize / 32u) { ++narrow; narrowColumns += w; } }
-            std::fprintf(stderr, "native direct patterns: instances=%u structures=%u maxBlocks=%u deepest structure: nodes=%u levels=%u blocks=%u narrowLevels=%u narrowColumns=%u\n",
-                patterns, structures, maxBlocks, np, lv, blocksTotal, narrow, narrowColumns);
+            std::fprintf(stderr, "native direct patterns: instances=%u structures=%u maxBlocks=%u deepest structure: nodes=%u levels=%u blocks=%u narrowLevels=%u narrowColumns=%u topLevel=%u rightLooking=%u\n",
+                patterns, structures, maxBlocks, np, lv, blocksTotal, narrow, narrowColumns, structureTopLevel[worst], view.rightLooking);
         }
         m_direct = view;
         m_directPatternCount = patterns; m_directStructureCount = structures; m_directMaxBlocks = maxBlocks;

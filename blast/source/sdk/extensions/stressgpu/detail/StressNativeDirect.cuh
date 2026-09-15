@@ -39,6 +39,8 @@ struct NativeDirectPatternView {
     const unsigned* patternLevelCount = nullptr; // pattern -> number of levels
     const unsigned* levelPtr = nullptr;          // level l -> [levelPtr[l], levelPtr[l+1]) into levelCols (levels+1 entries per pattern)
     const unsigned* levelCols = nullptr;         // local columns ordered by level (np entries per pattern, offset patternNodeBegin)
+    const unsigned* columnLevel = nullptr;       // local column -> level (np entries per structure, offset structureNodeBegin)
+    const unsigned* structureTopLevel = nullptr; // structure -> first level of the narrow tail (levels with fewer columns than warps); == levels when none
 };
 struct NativeDirectSlotView {
     float* values = nullptr;               // slotCount * stride
@@ -62,6 +64,10 @@ struct NativeDirectView {
     // tick's critical path. Otherwise changed factors are invalidated and
     // refactored before the solve (the original R1 schedule).
     unsigned deferred = 1;
+    // Right-looking elimination of the narrow tail of the elimination tree
+    // (the dense top): rank-6 updates spread over the CTA instead of one
+    // gather per target block over every finished column.
+    unsigned rightLooking = 1;
 };
 constexpr unsigned kDirectCounterCount = 9u;
 struct NativeDirectOperator {
@@ -106,8 +112,8 @@ __device__ __forceinline__ bool directCholesky6(float* d) {
     return true;
 }
 struct NativeDirectPatternRefs {
-    const unsigned *order, *colPtr, *rowIdx, *rowPtr, *rowCols, *rowPos, *levelPtr, *levelCols;
-    unsigned nodes, levels, blocks;
+    const unsigned *order, *colPtr, *rowIdx, *rowPtr, *rowCols, *rowPos, *levelPtr, *levelCols, *columnLevel;
+    unsigned nodes, levels, blocks, topLevel;
 };
 __device__ __forceinline__ NativeDirectPatternRefs directPatternRefs(const NativeDirectPatternView& P, unsigned p) {
     NativeDirectPatternRefs r;
@@ -119,6 +125,7 @@ __device__ __forceinline__ NativeDirectPatternRefs directPatternRefs(const Nativ
     r.rowCols = P.rowCols + P.patternRowEntryBegin[s]; r.rowPos = P.rowPos + P.patternRowEntryBegin[s];
     r.levelPtr = P.levelPtr + P.patternLevelBegin[s]; r.levels = P.patternLevelCount[s];
     r.blocks = P.patternPosBegin[s + 1] - P.patternPosBegin[s];
+    r.columnLevel = P.columnLevel + P.structureNodeBegin[s]; r.topLevel = P.structureTopLevel[s];
     return r;
 }
 
@@ -222,9 +229,14 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         // component id) makes the reduced operator SPD; any particular solution
         // of the compatible projected residual yields the same bond forces.
         const unsigned pinned = modes[id].anchored ? kNoIsland : id;
+        // Levels below T use the level-parallel left-looking scheme; levels
+        // from T on (the narrow tail) are eliminated one column at a time with
+        // right-looking updates. Both give each target block one writer per
+        // source column in a fixed order, so the factor is deterministic.
+        const unsigned T = v.rightLooking ? P.topLevel : P.levels, topBegin = P.levelPtr[T];
         if (!threadIdx.x) { failed = 0; if (v.counters) atomicAdd(v.counters + 6, 1u); }
         __syncthreads();
-        for (unsigned l = 0; l < P.levels; ++l) {
+        for (unsigned l = 0; l < T; ++l) {
             const unsigned levelBegin = P.levelPtr[l], levelEnd = P.levelPtr[l + 1];
             // Sparse levels (the dense top of the elimination tree) use the
             // whole CTA per column; wide levels use one warp per column. Both
@@ -303,6 +315,105 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                     }
                 }
                 if (!wide) __syncthreads();
+            }
+            __syncthreads();
+        }
+        // Dense top, step 1: assemble every column of the tail up front, because
+        // right-looking updates land in columns that are eliminated later.
+        for (unsigned e = topBegin + warp; e < P.nodes; e += warps) {
+            const unsigned j = P.levelCols[e], jnode = P.order[j], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
+            const bool present = op.nodeIsland[jnode] == id && jnode != pinned;
+            const Inertia dj = op.inertia[jnode];
+            for (unsigned q = p0 + lane; q < p1; q += 32) {
+                const unsigned i = P.rowIdx[q], inode = P.order[i];
+                float acc[kDirectBlockEntries];
+                for (unsigned x = 0; x < kDirectBlockEntries; ++x) acc[x] = 0.f;
+                if (present && op.nodeIsland[inode] == id && inode != pinned) {
+                    for (unsigned r = op.nodeBondBegin[jnode]; r < op.nodeBondBegin[jnode + 1]; ++r) {
+                        const unsigned ref = op.nodeBondRef[r];
+                        if (ref == kDeadBondRef) continue;
+                        const unsigned edge = ref & 0x7fffffffu;
+                        if (op.health[edge] <= 0.f) continue;
+                        const bool second = (ref >> 31) != 0u;
+                        const unsigned other = second ? op.node0[edge] : op.node1[edge];
+                        float mj[kDirectBlockEntries];
+                        directBondBlock(mj, second ? op.offset1[edge] : op.offset0[edge], dj, op.colScale[edge], second ? -1.f : 1.f);
+                        if (i == j) directAccumulateMMt(acc, mj, mj);
+                        else if (other == inode) {
+                            float mi[kDirectBlockEntries];
+                            directBondBlock(mi, second ? op.offset0[edge] : op.offset1[edge], op.inertia[inode], op.colScale[edge], second ? 1.f : -1.f);
+                            directAccumulateMMt(acc, mi, mj);
+                        }
+                    }
+                } else if (i == j) { acc[0] = acc[7] = acc[14] = acc[21] = acc[28] = acc[35] = 1.f; }
+                float* dst = val + size_t(q) * kDirectBlockEntries;
+                for (unsigned x = 0; x < kDirectBlockEntries; ++x) dst[x] = acc[x];
+            }
+        }
+        __syncthreads();
+        // Dense top, step 2: eliminate tail columns in level order. Contributions
+        // from bottom columns are gathered (left-looking, few per column);
+        // contributions from earlier tail columns already arrived right-looking.
+        for (unsigned e = topBegin; e < P.nodes; ++e) {
+            const unsigned j = P.levelCols[e], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
+            for (unsigned t = threadIdx.x; t < (p1 - p0) * 6u; t += blockDim.x) {
+                const unsigned q = p0 + t / 6u, rr = t % 6u, i = P.rowIdx[q];
+                float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                for (unsigned r = P.rowPtr[j]; r < P.rowPtr[j + 1]; ++r) {
+                    const unsigned k = P.rowCols[r], q0 = P.rowPos[r];
+                    if (P.columnLevel[k] >= T) continue;
+                    unsigned lo = q0, hi = P.colPtr[k + 1];
+                    while (lo < hi) { const unsigned mid = (lo + hi) >> 1; if (P.rowIdx[mid] < i) lo = mid + 1; else hi = mid; }
+                    if (lo >= P.colPtr[k + 1] || P.rowIdx[lo] != i) continue;
+                    const float* ljk = val + size_t(q0) * kDirectBlockEntries;
+                    const float* lik = val + size_t(lo) * kDirectBlockEntries + rr * 6u;
+                    for (unsigned cc = 0; cc < 6; ++cc) {
+                        float sum = acc[cc];
+                        for (unsigned tt = 0; tt < 6; ++tt) sum = fmaf(lik[tt], ljk[cc * 6 + tt], sum);
+                        acc[cc] = sum;
+                    }
+                }
+                float* dst = val + size_t(q) * kDirectBlockEntries + rr * 6u;
+                for (unsigned cc = 0; cc < 6; ++cc) dst[cc] -= acc[cc];
+            }
+            __syncthreads();
+            if (threadIdx.x == 0) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); }
+            __syncthreads();
+            {
+                const float* ljj = val + size_t(p0) * kDirectBlockEntries;
+                for (unsigned t = threadIdx.x; t < (p1 - p0 - 1u) * 6u; t += blockDim.x) {
+                    const unsigned q = p0 + 1u + t / 6u, rr = t % 6u;
+                    float* row = val + size_t(q) * kDirectBlockEntries + rr * 6u;
+                    for (unsigned cc = 0; cc < 6; ++cc) {
+                        float sum = row[cc];
+                        for (unsigned tt = 0; tt < cc; ++tt) sum = fmaf(-row[tt], ljj[cc * 6 + tt], sum);
+                        row[cc] = sum / ljj[cc * 6 + cc];
+                    }
+                }
+            }
+            __syncthreads();
+            // Right-looking rank-6 update of every pair of rows (i >= k) below the
+            // diagonal: block (i,k) -= L(i,j) L(k,j)^T. Rows are sorted ascending,
+            // and (i,k) is in the pattern by the fill rule. One writer per (i,k,row).
+            const unsigned n = p1 - p0 - 1u, pairs = n * (n + 1u) / 2u;
+            for (unsigned t = threadIdx.x; t < pairs * 6u; t += blockDim.x) {
+                const unsigned pair = t / 6u, rr = t % 6u;
+                unsigned a = unsigned((sqrtf(8.f * float(pair) + 1.f) - 1.f) * 0.5f);
+                while (a * (a + 1u) / 2u > pair) --a;
+                while ((a + 1u) * (a + 2u) / 2u <= pair) ++a;
+                const unsigned b = pair - a * (a + 1u) / 2u;
+                const unsigned qi = p0 + 1u + a, qk = p0 + 1u + b, i = P.rowIdx[qi], k = P.rowIdx[qk];
+                unsigned lo = P.colPtr[k], hi = P.colPtr[k + 1];
+                if (i != k) { lo = P.colPtr[k] + 1u; while (lo < hi) { const unsigned mid = (lo + hi) >> 1; if (P.rowIdx[mid] < i) lo = mid + 1; else hi = mid; } }
+                if (lo >= P.colPtr[k + 1] || P.rowIdx[lo] != i) { atomicExch(&failed, 1u); continue; }
+                const float* lij = val + size_t(qi) * kDirectBlockEntries + rr * 6u;
+                const float* lkj = val + size_t(qk) * kDirectBlockEntries;
+                float* dst = val + size_t(lo) * kDirectBlockEntries + rr * 6u;
+                for (unsigned cc = 0; cc < 6; ++cc) {
+                    float sum = 0.f;
+                    for (unsigned tt = 0; tt < 6; ++tt) sum = fmaf(lij[tt], lkj[cc * 6 + tt], sum);
+                    dst[cc] -= sum;
+                }
             }
             __syncthreads();
         }

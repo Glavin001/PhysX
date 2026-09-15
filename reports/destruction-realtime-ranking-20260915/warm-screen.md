@@ -316,3 +316,20 @@ For reference the R1-only campaign measured 33.81 ms and 328 misses on the same
 fixture. Half of the heavy ticks now meet 60 Hz; the other half are the impact
 and cascade ticks whose cost is CPU fragment registration and island repair
 (R2), not the stress solve.
+
+## Refactor cost: throughput, not latency (two more measured attempts)
+
+Nsight kernel sums over the 3 s city256 bombardment (267 solves) put
+`factorNativeDirect` at 2.77 ms per launch with the original level-parallel
+scheme and at 2.77 ms with a right-looking elimination of the narrow tail
+(`BLAST_GPU_NATIVE_DIRECT_TOP`, on by default, histories identical, and the
+impact tick's maximum PCG iteration count fell from 420 to 28). The launch
+time is therefore not the serial level chain but the arithmetic of one CTA on
+the dense top: the deepest structure has 380 nodes, 4,741 factor blocks and a
+111-column dense top, about 0.1 GFLOP per refactor. A level-structure nested
+dissection order (`BLAST_GPU_NATIVE_DIRECT_ORDER=nd`, off) gave more fill
+(5,449 blocks), a larger top (124 columns) and 3.16 ms. The remaining options
+are a graph partitioner with refinement for the ordering, several CTAs (a
+thread block cluster) per refactoring component, or Woodbury updates so that
+few-bond removals do not refactor at all. Per sustained tick this is 5.5 ms of
+the 84 ms; at the impact tick it is the 27 ms burst.

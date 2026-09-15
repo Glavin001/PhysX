@@ -332,6 +332,22 @@ bool nativeDirectDeferred()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_DEFERRED"); return raw && std::string(raw) == "1"; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_DIRECT_TOP=0 disables the right-looking elimination of
+/// the narrow tail of each elimination tree (falls back to per-column gathers).
+bool nativeDirectRightLooking()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_TOP"); return !raw || std::string(raw) != "0"; }();
+    return value;
+}
+/// BLAST_GPU_NATIVE_DIRECT_ORDER=nd selects the level-structure nested
+/// dissection order. Default minimum degree: on the city256 building the
+/// simple bisection produced more fill (5,449 vs 4,741 blocks) and a larger
+/// dense top (124 vs 111 columns), and the refactor took 3.16 vs 2.77 ms.
+bool nativeDirectNestedDissection()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_ORDER"); return raw && std::string(raw) == "nd"; }();
+    return value;
+}
 bool nativeDirectEnabled()
 {
     static const bool enabled = []() {
