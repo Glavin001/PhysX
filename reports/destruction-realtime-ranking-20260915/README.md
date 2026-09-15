@@ -319,6 +319,11 @@ stream after the narrowphase merge and by making the component observation
 asynchronous with host-built member chains; bombardment 34.7 → 32.4 ms,
 histories identical. See [warm-screen.md](warm-screen.md).
 
+**Grid defaults (after the final requalification below):** the component solve runs
+four resident CTAs per SM and the batched refactor eight (`BLAST_GPU_NATIVE_SOLVE_BLOCKS`,
+`BLAST_GPU_NATIVE_FACTOR_BLOCKS`), both lossless: 3 s bombardment 31.1 → 30.2 ms and the
+impact peak 194.6 → 177.9 ms, the only change on this branch that moved the peak.
+
 **Final state of this branch (2026-09-15, commit `29a478bc` + records).**
 Nine-window warm screen under contract v4: all pass, city256 debris 127 → 74
 ms, cascade 108 → 71, impact 91 → 69, city25 impact 24 → 15. Continuous
