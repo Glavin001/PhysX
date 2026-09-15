@@ -350,3 +350,41 @@ Full52 warm qualification passes 52/52 under contract v3 (city256 late debris 12
 - Sellán et al. Breaking Good: Fracture Modes for Realtime Destruction. ACM TOG
   2022 (precomputed-mode alternative; noted, not adopted: no stress propagation).
 - NVIDIA CUDA 13.4 release notes (Programmatic Dependent Launch, Tile IR).
+
+## 6. Handoff: remaining items with scoped designs
+
+Ordered by expected gain per effort on the current runtime (`5f0b72ca`).
+
+1. **R2 ownership migration (impact peak, ~150 ms of GPU-idle CPU per impact tick;
+   10–20 ms per sustained tick in `correctedCollisionSolve` host time).** The body
+   pool is done and opt-in; the remaining consumers are the shape migration
+   (`applyBindings` / `rebindRigidOwner`), contact-manager creation and interaction
+   registration, and `PxgGpuContext::update`/`updatePostPartitioning`. The inventory
+   and the measured per-consumer costs are in `r2-consumer-inventory.md`. The GPU
+   pre-solve island producer already exists; lifting `mPreSolveSleepingDisabled`
+   needs authoritative device activity and sleep transitions.
+2. **Tiny components (30 % of solve cycles, 1,693 per late solve).** Their cost is
+   the per-component CTA epilogue (neighbor cache, rigid inverse, projection,
+   monitor matvec, verification, finalize), each a block barrier with 128 threads
+   over ≤7 nodes, not the 1.6 PCG iterations. The fix is a group-templated
+   variant of `componentStressSolve` and its helpers on a 32-thread tile (four
+   components per CTA), dispatched for `count <= 7` from the same work cursor.
+   The shared arrays that cap occupancy (`directX`, 24 KB) are not needed there.
+   A cheaper partial step: leaf elimination gives the exact static solution of
+   loaded tree components in O(n), extending `retireHomogeneousTreeComponent`
+   beyond zero input; it removes the iterations but not the epilogue.
+3. **Refactor throughput (2.8 ms per launch on one SM; 19.5 ms impact burst).**
+   Either a graph partitioner with refinement to shrink the 111-column dense top
+   (the level-structure bisection tried here made it larger), or Woodbury
+   updates so that few-bond removals keep the old factor: A_new = A_old − U Uᵀ
+   with six columns per removed bond, capacitance 6k×6k, with A_old⁻¹U cached per
+   slot until the next refactor. Departed nodes after a split are handled by the
+   same subtraction (the updated operator is block-diagonal across the parts).
+4. **R5 island-scoped correction** after R2's device islands exist; the affected
+   set must include islands that lose or gain contact after correction.
+
+Measurement recipe for any of these: `run-ab-demo.sh` (histories via
+`compare_frames.py`), the nine-window warm screen with relinked probes under
+contract v4, and the continuous 600-tick campaign, all documented in
+`warm-screen.md`.
+
