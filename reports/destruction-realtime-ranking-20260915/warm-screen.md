@@ -296,3 +296,23 @@ same controls, probes and plan as the earlier screens, 286.5 s:
 All nine windows pass; the numbers reproduce the first R1 screen within run
 noise, so the converged-load reference, the residual-decrease guard and the
 diagnostics changed nothing in the default path.
+
+## Continuous 600-tick A/B/A with elastic-margin reuse (`out/direct-continuous-ab-elastic-20260915`)
+
+Same procedure as the R1 campaign (`run-destruction-ab.py`, two trials per arm,
+10 simulated seconds, ordinary APIs, sleeping on, one correction), runtime
+`db6f05eb` with `BLAST_GPU_NATIVE_ELASTIC_MARGIN=0.5` (change fraction 0.1),
+controls before and after. Physical work counters (bodies, awake bodies,
+clusters, contacts, stress nodes/bonds/islands, bonds broken, correction
+passes) match the control on every one of the 600 ticks in all four
+comparisons; only stress iteration counts differ.
+
+| case | A-before mean | **B mean** | A-after mean | peaks (median) A/B/A | 60 Hz misses A/B/A |
+|---|---:|---:|---:|---|---|
+| idle-256 | 1.569 | 1.606 | 1.636 | 13.8 / 11.3 / 13.7 | 0 / 0 / 0 of 600 |
+| impacts-256 | 51.23 | **29.83** | 51.14 | 182.1 / 150.2 / 179.8 | 519 / **294–300** / 519 of 600 |
+
+For reference the R1-only campaign measured 33.81 ms and 328 misses on the same
+fixture. Half of the heavy ticks now meet 60 Hz; the other half are the impact
+and cascade ticks whose cost is CPU fragment registration and island repair
+(R2), not the stress solve.
