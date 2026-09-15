@@ -654,3 +654,14 @@ tick, i.e. ~17 ms per corrected pass), then a tail of 1–2 ms phases
 applyBindings 1.5, acceptCorrection 1.4, submit 1.3, island maintenance
 1.2+1.2, postNarrowPhase 1.1). The two large items are the GPU stress
 pipeline wait and the corrected physics pass (R5's target).
+
+Kernel totals over the same 3 s run (`nsys --cuda-graph-trace=node`, needed
+because the stress kernels run inside captured graphs; delete the stale
+`.sqlite` before `nsys stats` or it reuses the previous export):
+`componentStressSolve` 987 ms / 267 launches (3.7 ms avg, 9.7 max);
+`factorNativeDirect` 694 ms / 678 launches, of which 521 are empty (≤50 µs)
+and 157 carry work (53 in 1.5–3.5 ms, 92 in 3.5–10 ms, 6 above 10 ms);
+`massProperties` 100 ms / 158; `constructMotionModes` 68 ms / 157;
+`performIncrementalSAP` 203 ms / 266. Per sustained tick the GPU stress
+pipeline is therefore ~5.5 ms of solves plus ~2.6 ms of factor launches plus
+the transaction kernels, which matches the 12.8 ms `waitForGpu`.
