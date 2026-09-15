@@ -395,3 +395,35 @@ Measurement recipe for any of these: `run-ab-demo.sh` (histories via
 contract v4, and the continuous 600-tick campaign, all documented in
 `warm-screen.md`.
 
+## 7. R2 stage 1: impact-tick attribution on the current runtime (2026-09-15)
+
+Phase profile of the first-impact tick (step 82, 256 buildings, 5,204 fragment
+bodies, 5,492 migrating shapes), runtime `64edea3f`, pool off / on. Per-scope
+profiler cost inflates zones with thousands of scopes: `migrateShapes` reports
+22.6 ms but its four per-shape sub-zones total 6.8 ms, so the migration itself
+is about 7 ms; zones with one or two scopes are accurate.
+
+| stage (host wall, ms) | pool off | pool on | nature |
+|---|---:|---:|---|
+| corrected collision + solve (parent) | 94.4 | 97.2 | mostly GPU waits |
+| accept correction (+ rigid-state capture) | 28.4 | 21.4 | GPU wait |
+| body allocation (`prepare`) | 18.7 | 15.6 | CPU: Sc/island bookkeeping per body, not creation |
+| final publication | 17.3 | 20.2 | GPU gather wait + 5,204 direct core writes |
+| contact-manager preallocation | 15.9 | 11.0 | CPU: new pairs |
+| island insertion | 9.7 | 10.9 | CPU: new pairs |
+| interaction registration (scene + shape) | 14.5 | 14.5 | CPU: new pairs |
+| shape migration (net of profiler) | ~7 | ~7 | CPU |
+| broad-phase wait / post broad-phase | 26.6 | – | GPU wait |
+
+Conclusions for the migration: the pool does not buy the body cost because
+the per-body island and scheduler bookkeeping (and, when pooled, the
+kinematic-to-dynamic switch) is the cost, not object creation; publication is
+already direct core writes; and the largest CPU block is the PhysX new-pair
+pipeline (about 40 ms), which is exactly the consumer set that R2 moves to the
+device (contact-manager creation, island insertion, interaction registration).
+None of these is a bounded change: each requires the GPU-owned ownership
+transaction and the sleep-scheduler consumption of device components described
+in `r2-consumer-inventory.md`. Recommended first milestone: device-owned
+contact-manager preallocation and island insertion for native pairs, gated by
+the existing `mPreSolveSleepingDisabled` path, measured on this tick.
+
