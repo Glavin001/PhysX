@@ -46,18 +46,21 @@
             if (anchoredNode[i]) anchoredRoot[r] = 1;
         }
         std::vector<unsigned> nodeParent(n, kNoIsland), nodeLocal(n, 0);
-        std::vector<unsigned> patternNodeBegin{0u}, order, patternColBegin{0u}, colPtr, patternPosBegin{0u}, rowIdx,
+        std::vector<unsigned> patternNodeBegin{0u}, order, patternStructure, structureNodeBegin{0u}, patternColBegin{0u}, colPtr, patternPosBegin{0u}, rowIdx,
             rowPtr, patternRowEntryBegin{0u}, rowCols, rowPos, patternLevelBegin{0u}, patternLevelCount, levelPtr, levelCols;
-        unsigned patterns = 0, maxBlocks = 0;
+        unsigned patterns = 0, structures = 0, maxBlocks = 0;
         std::vector<unsigned> local(n, kNoIsland);
+        // Structurally identical groups (same size, same local edge set under the
+        // member-order numbering) share one symbolic structure and one ordering.
+        std::map<std::vector<unsigned>, unsigned> structureIndex;
+        std::vector<std::vector<unsigned>> structureOrder;
         for (unsigned root = 0; root < n; ++root) {
             const auto& group = members[root];
             const unsigned np = unsigned(group.size());
             // Free groups get patterns too: their solves pin the minimum node.
             if (np < minNodes || np > kResidentComponentMaxNodes) continue;
             for (unsigned i = 0; i < np; ++i) local[group[i]] = i;
-            std::vector<unsigned char> adj(size_t(np) * np, 0);
-            std::vector<unsigned> degree(np, 0);
+            std::vector<std::pair<unsigned, unsigned>> pairs;
             for (unsigned i = 0; i < np; ++i) {
                 const unsigned node = group[i];
                 for (unsigned r = m_hostNodeBondBegin[node]; r < m_hostNodeBondBegin[node + 1]; ++r) {
@@ -67,10 +70,27 @@
                     if (m_hostHealth[edge] <= 0.f) continue;
                     const unsigned other = (ref >> 31) ? m_hostNode0[edge] : m_hostNode1[edge];
                     const unsigned j = local[other];
-                    if (j == kNoIsland || j == i) continue;
-                    if (!adj[size_t(i) * np + j]) { adj[size_t(i) * np + j] = adj[size_t(j) * np + i] = 1; ++degree[i]; ++degree[j]; }
+                    if (j == kNoIsland || j <= i) continue;
+                    pairs.push_back({i, j});
                 }
             }
+            std::sort(pairs.begin(), pairs.end());
+            pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
+            std::vector<unsigned> key{np};
+            for (const auto& e : pairs) { key.push_back(e.first); key.push_back(e.second); }
+            const auto known = structureIndex.find(key);
+            if (known != structureIndex.end()) {
+                // Reuse the structure; only this instance's node order is new.
+                const unsigned sIndex = known->second, p = patterns++;
+                const auto& eliminationOrder = structureOrder[sIndex];
+                for (unsigned j = 0; j < np; ++j) { const unsigned node = group[eliminationOrder[j]]; order.push_back(node); nodeParent[node] = p; nodeLocal[node] = j; }
+                patternNodeBegin.push_back(unsigned(order.size())); patternStructure.push_back(sIndex);
+                for (unsigned i = 0; i < np; ++i) local[group[i]] = kNoIsland;
+                continue;
+            }
+            std::vector<unsigned char> adj(size_t(np) * np, 0);
+            std::vector<unsigned> degree(np, 0);
+            for (unsigned e = 1; e + 1 < key.size(); e += 2) { const unsigned i = key[e], j = key[e + 1]; adj[size_t(i) * np + j] = adj[size_t(j) * np + i] = 1; ++degree[i]; ++degree[j]; }
             // Minimum-degree elimination; column structures are the neighbors at elimination time.
             std::vector<unsigned char> eliminated(np, 0);
             std::vector<unsigned> position(np, 0), eliminationOrder(np, 0);
@@ -125,13 +145,14 @@
             for (unsigned l = 0; l < levels; ++l) levelCount[l + 1] += levelCount[l];
             std::vector<unsigned> levelOrder(np), cursor(levelCount.begin(), levelCount.end() - 1);
             for (unsigned j = 0; j < np; ++j) levelOrder[cursor[level[j]]++] = j;
-            // Append this pattern.
-            const unsigned p = patterns++;
+            // Append this instance and its new structure.
+            const unsigned p = patterns++, sIndex = structures++;
+            structureIndex.emplace(key, sIndex); structureOrder.push_back(eliminationOrder);
             for (unsigned j = 0; j < np; ++j) {
                 const unsigned node = group[eliminationOrder[j]];
                 order.push_back(node); nodeParent[node] = p; nodeLocal[node] = j;
             }
-            patternNodeBegin.push_back(unsigned(order.size()));
+            patternNodeBegin.push_back(unsigned(order.size())); patternStructure.push_back(sIndex);
             for (unsigned j = 0; j <= np; ++j) colPtr.push_back(columnBase[j]);
             for (unsigned j = 0; j < np; ++j) for (unsigned r : columns[j]) rowIdx.push_back(r);
             patternColBegin.push_back(unsigned(colPtr.size()));
@@ -147,6 +168,7 @@
             patternLevelBegin.push_back(unsigned(levelPtr.size()));
             patternLevelCount.push_back(levels);
             for (unsigned j : levelOrder) levelCols.push_back(j);
+            structureNodeBegin.push_back(unsigned(levelCols.size()));
             maxBlocks = std::max(maxBlocks, blocks);
             for (unsigned i = 0; i < np; ++i) local[group[i]] = kNoIsland;
         }
@@ -158,6 +180,7 @@
         NativeDirectView view{};
         view.pattern.nodeParent = directUpload(nodeParent); view.pattern.nodeLocal = directUpload(nodeLocal);
         view.pattern.patternNodeBegin = directUpload(patternNodeBegin); view.pattern.order = directUpload(order);
+        view.pattern.patternStructure = directUpload(patternStructure); view.pattern.structureNodeBegin = directUpload(structureNodeBegin);
         view.pattern.patternColBegin = directUpload(patternColBegin); view.pattern.colPtr = directUpload(colPtr);
         view.pattern.patternPosBegin = directUpload(patternPosBegin); view.pattern.rowIdx = directUpload(rowIdx);
         view.pattern.rowPtr = directUpload(rowPtr); view.pattern.patternRowEntryBegin = directUpload(patternRowEntryBegin);
@@ -175,6 +198,19 @@
         view.diagnostics = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG") ? 1u : 0u;
         view.minNodes = minNodes;
         m_direct = view;
-        m_directPatternCount = patterns; m_directMaxBlocks = maxBlocks;
+        m_directPatternCount = patterns; m_directStructureCount = structures; m_directMaxBlocks = maxBlocks;
     }
-    unsigned m_directPatternCount = 0, m_directMaxBlocks = 0;
+    unsigned m_directPatternCount = 0, m_directStructureCount = 0, m_directMaxBlocks = 0;
+    void prefactorNativeDirect() {
+        if (!m_direct.enabled || !m_deviceTopology) return;
+        const auto components = m_deviceTopology->components();
+        const auto view = m_deviceTopology->cycleView();
+        int device = 0, sms = 0;
+        checkCuda(cudaGetDevice(&device), "prefactor device");
+        checkCuda(cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, device), "prefactor multiprocessors");
+        const NativeDirectOperator op{m_node0, m_node1, m_nodeBondBegin, m_nodeBondRef, m_nodeIsland, m_offset0, m_offset1, m_inertia, m_health, m_colScales};
+        assignNativeDirectSlots<<<(m_nodeCount + kBlockSize - 1) / kBlockSize, kBlockSize, 0, m_stream>>>(m_direct, components, view.modes.components, m_deviceTopology->status());
+        factorNativeDirect<<<std::min(m_nodeCount, unsigned(std::max(1, sms) * 2)), kBlockSize, 0, m_stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status());
+        checkCuda(cudaGetLastError(), "prefactor native direct launch");
+        checkCuda(cudaStreamSynchronize(m_stream), "prefactor native direct");
+    }

@@ -20,10 +20,12 @@ constexpr unsigned kDirectBlockEntries = 36u;
 constexpr unsigned kDirectMinNodes = 8u;
 
 struct NativeDirectPatternView {
-    const unsigned* nodeParent = nullptr;        // node -> pattern index or kNoIsland
+    const unsigned* nodeParent = nullptr;        // node -> pattern instance index or kNoIsland
     const unsigned* nodeLocal = nullptr;         // node -> local block index in its pattern
-    const unsigned* patternNodeBegin = nullptr;  // pattern -> offset into order/levelCols (patterns+1)
-    const unsigned* order = nullptr;             // local -> node
+    const unsigned* patternNodeBegin = nullptr;  // instance -> offset into order (instances+1)
+    const unsigned* order = nullptr;             // local -> node (per instance)
+    const unsigned* patternStructure = nullptr;  // instance -> structure index (identical structures share one)
+    const unsigned* structureNodeBegin = nullptr;// structure -> offset into levelCols (structures+1)
     const unsigned* patternColBegin = nullptr;   // pattern -> offset into colPtr/rowPtr (patterns+1), np+1 entries each
     const unsigned* colPtr = nullptr;            // column j -> [colPtr[j], colPtr[j+1]) pattern-local block positions, diagonal first
     const unsigned* patternPosBegin = nullptr;   // pattern -> offset into rowIdx (patterns+1)
@@ -100,14 +102,14 @@ struct NativeDirectPatternRefs {
 };
 __device__ __forceinline__ NativeDirectPatternRefs directPatternRefs(const NativeDirectPatternView& P, unsigned p) {
     NativeDirectPatternRefs r;
-    const unsigned nodeBase = P.patternNodeBegin[p];
+    const unsigned nodeBase = P.patternNodeBegin[p], s = P.patternStructure[p];
     r.nodes = P.patternNodeBegin[p + 1] - nodeBase;
-    r.order = P.order + nodeBase; r.levelCols = P.levelCols + nodeBase;
-    r.colPtr = P.colPtr + P.patternColBegin[p]; r.rowPtr = P.rowPtr + P.patternColBegin[p];
-    r.rowIdx = P.rowIdx + P.patternPosBegin[p];
-    r.rowCols = P.rowCols + P.patternRowEntryBegin[p]; r.rowPos = P.rowPos + P.patternRowEntryBegin[p];
-    r.levelPtr = P.levelPtr + P.patternLevelBegin[p]; r.levels = P.patternLevelCount[p];
-    r.blocks = P.patternPosBegin[p + 1] - P.patternPosBegin[p];
+    r.order = P.order + nodeBase; r.levelCols = P.levelCols + P.structureNodeBegin[s];
+    r.colPtr = P.colPtr + P.patternColBegin[s]; r.rowPtr = P.rowPtr + P.patternColBegin[s];
+    r.rowIdx = P.rowIdx + P.patternPosBegin[s];
+    r.rowCols = P.rowCols + P.patternRowEntryBegin[s]; r.rowPos = P.rowPos + P.patternRowEntryBegin[s];
+    r.levelPtr = P.levelPtr + P.patternLevelBegin[s]; r.levels = P.patternLevelCount[s];
+    r.blocks = P.patternPosBegin[s + 1] - P.patternPosBegin[s];
     return r;
 }
 

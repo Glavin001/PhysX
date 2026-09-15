@@ -98,6 +98,11 @@
             m_activeBondCount = m_bondCount; m_activeNodeCount = m_nodeCount;
             m_graphParamsDirty = true;
             m_hasWarmStart = false; m_settledBaselineValid = false; m_hostInputValid = false;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+            // Factor every initial component now, at the asset/topology boundary,
+            // so the first simulated tick does not pay the whole-city burst.
+            prefactorNativeDirect();
+#endif
             m_jacobiBuilt = true; // topology rebuild maintains it on the device
             checkCuda(cudaEventRecord(m_statusReady,m_stream), "record device topology preparation");
 #ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
