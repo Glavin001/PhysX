@@ -277,3 +277,22 @@ back to PCG. The switch stays off; the pattern-depth diagnostic
 narrow-level count) is the input for the remaining options: a dense-top
 (supernodal) factorization of the narrow levels, or Woodbury updates that
 decouple departed nodes.
+
+## Requalification of the committed default configuration (contract v3, `results-final`)
+
+Runtime `db6f05eb` with every new switch at its default (elastic-margin reuse
+off, deferred refactor off, continuing-load relaxation off, body pool off),
+same controls, probes and plan as the earlier screens, 286.5 s:
+
+| window | A0 mean | **B mean** | A1 mean | B max | misses A0/B/A1 | force relL2 | health drift |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| bridge64 / chain256 / dense12 / tower64 | 1.31–1.62 | 1.38–1.52 | 1.31–1.39 | ≤1.8 | 0 | ≤3.1e-7 | 0 |
+| city25 impact | 22.68 | **16.25** | 21.73 | 32.6 | 10/9/10 of 16 | 3.0e-6 | 1.1e-6 |
+| city256 idle | 1.49 | 1.66 | 1.48 | 1.8 | 0/0/0 of 32 | 2.4e-7 | 0 |
+| city256 impact | 88.36 | **71.13** | 88.56 | 160.0 | 16/16/16 | 4.9e-6 | 1.2e-6 |
+| city256 cascade | 105.38 | **80.05** | 103.25 | 115.6 | 16/16/16 | 1.5e-6 | 1.1e-6 |
+| city256 debris | 124.23 | **92.52** | 125.09 | 97.3 | 16/16/16 | 2.3e-6 | 3.5e-5 |
+
+All nine windows pass; the numbers reproduce the first R1 screen within run
+noise, so the converged-load reference, the residual-decrease guard and the
+diagnostics changed nothing in the default path.
