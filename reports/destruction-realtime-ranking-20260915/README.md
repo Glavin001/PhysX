@@ -372,7 +372,14 @@ Ordered by expected gain per effort on the current runtime (`5f0b72ca`).
    The shared arrays that cap occupancy (`directX`, 24 KB) are not needed there.
    A cheaper partial step: leaf elimination gives the exact static solution of
    loaded tree components in O(n), extending `retireHomogeneousTreeComponent`
-   beyond zero input; it removes the iterations but not the epilogue.
+   beyond zero input; it removes the iterations but not the epilogue. A first
+   implementation (not kept) derived the per-endpoint bond blocks from
+   `directBondBlock` and integrated node corrections from the pinned root; on
+   the city256 bombardment most of its applications grew the residual and were
+   undone, and the run then failed to converge (stage error 4096) while the
+   resident analytic columns test failed. The bond-variable/residual sign and
+   scaling relation must be taken from `nodeSpaceMatvecBody`'s actual operator
+   (including the null-space projection of free components) before retrying.
 3. **Refactor throughput (2.8 ms per launch on one SM; 19.5 ms impact burst).**
    Either a graph partitioner with refinement to shrink the 111-column dense top
    (the level-structure bisection tried here made it larger), or Woodbury
