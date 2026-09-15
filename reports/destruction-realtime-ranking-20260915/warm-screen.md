@@ -167,3 +167,16 @@ node=4 expected=4 gpu=2`), plus the node-birth acknowledgement and
 first-advance placement of the creation cost. The code stays opt-in.
 Stream priorities for the destruction and stress streams (`PHYSX_DESTRUCTION_STREAM_PRIORITY`,
 `BLAST_GPU_STREAM_PRIORITY`) measured no change (36.3 vs 36.5 ms) and stay on.
+
+## R4: continuing-load tolerance relaxation (implemented, off by default, measured neutral)
+
+`relaxNativeContinuingTolerance` (solver) keeps the strict tolerance for any
+component without a verified stored input, with a changed topology, or whose
+load changed by more than `BLAST_GPU_NATIVE_CONTINUING_CHANGE` (0.1) of the
+stored load; other components use `BLAST_GPU_NATIVE_CONTINUING_TOLERANCE`
+(0 = off). Impacts therefore still get the strict same-tick verdict. With the
+direct factorization in place the relaxation is neutral: city256 bombardment
+36.19 ms (1e-3) versus 36.3–36.5 ms (strict), identical histories, mean of the
+per-tick maximum iteration count 30.5 versus 30.6, because the direct step
+already reaches 1e-5 in one application. It remains available for PCG-only
+configurations.

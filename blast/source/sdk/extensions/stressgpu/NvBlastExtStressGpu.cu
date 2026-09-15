@@ -351,6 +351,25 @@ int streamPriority()
     }();
     return priority;
 }
+/// R4 continuing-load relaxation: relative tolerance for components whose load
+/// changed by less than BLAST_GPU_NATIVE_CONTINUING_CHANGE (default 0.1) of the
+/// verified stored load. BLAST_GPU_NATIVE_CONTINUING_TOLERANCE, default 0 (off).
+float nativeContinuingTolerance()
+{
+    static const float value = []() {
+        const char* raw = std::getenv("BLAST_GPU_NATIVE_CONTINUING_TOLERANCE");
+        return raw ? float(std::atof(raw)) : 0.f;
+    }();
+    return value;
+}
+float nativeContinuingChangeFraction()
+{
+    static const float value = []() {
+        const char* raw = std::getenv("BLAST_GPU_NATIVE_CONTINUING_CHANGE");
+        return raw ? float(std::atof(raw)) : 0.1f;
+    }();
+    return value;
+}
 bool jacobiEnabled()
 {
 #ifdef PHYSX_RESIDENT_DESTRUCTION

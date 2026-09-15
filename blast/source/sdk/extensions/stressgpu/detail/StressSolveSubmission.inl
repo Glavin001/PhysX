@@ -109,6 +109,12 @@
             params.tolerance,
             m_islandCount);
         m_kernelProfile.end(m_stream);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(m_deviceTopology && nativeContinuingTolerance()>0.f)
+            relaxNativeContinuingTolerance<<<std::min(m_nodeCount,256u),kBlockSize,0,m_stream>>>(
+                m_deviceTopology->cycleView().settled,m_deviceTopology->components(),m_deviceTopology->status(),
+                m_input,m_deltaSquared,m_gradientSquared,islandSkip,nativeContinuingTolerance(),nativeContinuingChangeFraction(),warmStart);
+#endif
         m_kernelProfile.begin("initializeStatus", m_stream);
         initializeStatus<<<1, 1, 0, m_stream>>>(
             m_status, m_iteration, params.maxIterations,
