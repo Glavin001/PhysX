@@ -485,3 +485,27 @@ solve's own factor launch then finds every slot valid. Late window per tick:
 (phase-profiled run 34.2 → 31.7), histories identical, 11/11 resident and
 native tests. The impact tick is unchanged: its corrected-pass refactor has
 no CPU work left to hide behind.
+
+## Where the remaining stress-solve time goes (component census, late window)
+
+Diagnostic runtime (`PhysXDestructionGpuWorkDiagnostic`, `PHYSX_COMPONENT_WORK_OUTPUT`),
+city256 bombardment, solves 200–267, tabulated with
+`tools/diagnostics/destruction-direct-factor/component_census.py`:
+
+| component size (nodes) | per solve | share of CTA cycles | mean Mcycles | iterations |
+|---|---:|---:|---:|---:|
+| 2–7 (free debris) | 1,693 | 30 % | 0.18 | 1.6 |
+| 8–31 | 180 | 10 % | 0.61 | 0 |
+| 128–511 (anchored remnants, direct) | 255 | 60 % | 2.43 | 0 |
+
+Phase clocks put 80 % of all component cycles before the iteration loop's
+first monitor: operator caching, the direct application with its two true
+residual evaluations and the residual rebuild. The direct-solved remnants
+therefore no longer iterate but still cost about 2.4 Mcycles each, dominated
+by the two block triangular solves (74 levels, 68 of them narrow, each a
+barrier) and two residual matvecs; the 1,693 tiny free components cost
+0.18 Mcycles each mostly in per-component setup. Next levers, in order: a
+CTA-cooperative dense-top triangular solve (the narrow levels run one warp
+while three idle), skipping the second residual evaluation when the first
+application already lands under the gate, and batching tiny components per
+warp instead of per CTA.
