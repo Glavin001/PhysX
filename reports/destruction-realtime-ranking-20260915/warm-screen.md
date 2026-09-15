@@ -518,3 +518,25 @@ Census sweeps per direct-solved remnant 1.3 → 0.7, bombardment 31.6 → 31.1 m
 histories identical, 11/11 tests. A first attempt without a block barrier
 between the publishing thread and the readers diverged around the
 preparation's barriers and aborted a step; the barrier is now explicit.
+
+## Final requalification of the shipped defaults (contract v4, `results-final-v4`)
+
+Runtime `29a478bc` at its defaults (direct factorization with eager refactor,
+elastic-margin reuse on, contact graph on its own stream, asynchronous
+component observation, incremental motion modes; body pool and the negative
+experiments off), candidate probes relinked against the current SDK, frozen
+baseline controls before and after, 29 jobs, all pass:
+
+| window | A0 mean | **B mean** | A1 mean | B max | misses A0/B/A1 | force relL2 | health drift |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| bridge64 / chain256 / dense12 / tower64 | 1.36–1.57 | 1.48–1.76 | 1.21–1.57 | ≤2.1 | 0 | ≤3.0e-7 | 0 |
+| city25 impact | 23.97 | **15.30** | 23.58 | 35.8 | 10/7/10 of 16 | 1.5e-3 | 1.3e-6 |
+| city256 idle | 3.05 | 1.78 | 1.62 | 2.0 | 0/0/0 of 32 | 2.4e-7 | 0 |
+| city256 impact | 90.70 | **69.40** | 90.05 | 175.8 | 16/16/16 | 4.4e-4 | 1.3e-6 |
+| city256 cascade | 107.99 | **70.87** | 108.71 | 116.5 | 16/16/16 | 1.3e-3 | 1.4e-6 |
+| city256 debris | 127.45 | **74.48** | 128.77 | 80.4 | 16/16/16 | 1.9e-2 | 3.6e-5 |
+
+Discrete outcomes exact and motion error zero in every window; the force
+deviations are the declared elastic-reuse envelope. Against the plan's
+starting point the sustained windows are at 55–58 % of the baseline; the
+impact peak is unchanged (CPU registration, R2).
