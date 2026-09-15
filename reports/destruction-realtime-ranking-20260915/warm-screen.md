@@ -58,5 +58,8 @@ the frozen motion bounds, a whole-array relative force bound (1e-4) and a health
 drift bound (1e-4 remaining-area units over the window), and reports the per-bond
 maximum as a diagnostic. `run-warm-suite.py --contract-version 3` selects it.
 
-Not established by this screen: continuous 600-tick trajectories, full52, and
-sanitizer qualification of the new kernels (memcheck/initcheck) remain to run.
+Sanitizers with the candidate runtime: `gpu_resident_stress_3d_test` and
+`gpu_resident_motion_modes_test` under memcheck, initcheck and synccheck, and
+`native_gpu_correction_body_test` under memcheck, all report zero errors
+(`out/direct-factor-feasibility-20260915/sanitizers.log`). Not established by
+this screen: continuous 600-tick trajectories (running separately) and full52.

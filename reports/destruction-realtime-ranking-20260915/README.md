@@ -280,6 +280,17 @@ The impact peak is unchanged because it is CPU registration (R2). Remaining
 solver work: supernodal treatment of the dense top of each elimination tree
 (refactor latency), Woodbury updates for few-bond removals, and warp-level
 handling of the thousands of tiny free components that still serialize per CTA.
+**Status of the other items.** R3 is largely subsumed: the direct path runs in
+FP32 with one FP64 residual product per refinement, and the FP64 preconditioner
+work now only runs for components left on PCG. R4 (verdict-aware stopping) lost
+most of its value once anchored and free components converge before iterating
+(mean max iterations 316 → 31 in the 256-building run); it remains useful only
+for the PCG fallback and is deprioritized. R6's motion-mode/mass work per topology
+change (~2.7 ms per sustained tick in the candidate profile) and R2 (the impact
+peak and ~15 ms per sustained tick of GPU-idle CPU time) are the next targets.
+Routing components smaller than eight nodes through the direct path was measured
+worse (39.7 vs 37.2 ms) and is not enabled.
+
 Official nine-window warm screen (all windows pass contract v3; city25 impact 22.6 → 17.1 ms, city256 cascade 105 → 80 ms, debris 125 → 93 ms, impact 89 → 75 ms, idle unchanged): [warm-screen.md](warm-screen.md).
 
 ## References
