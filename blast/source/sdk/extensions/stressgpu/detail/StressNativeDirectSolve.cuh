@@ -12,15 +12,17 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     const NativeDirectView& v = a.hierarchy.direct;
     if (!v.enabled || count > kResidentComponentMaxNodes) return false;
     const unsigned s = v.slots.componentSlot[id];
-    if (s == kNoIsland || !v.slots.slotValid[s] || v.slots.slotFailed[s]) return false;
+    if (s == kNoIsland) { if (v.counters && !threadIdx.x) atomicAdd(v.counters + 3, 1u); return false; }
+    if (!v.slots.slotValid[s] || v.slots.slotFailed[s]) { if (v.counters && !threadIdx.x) atomicAdd(v.counters + 4, 1u); return false; }
     const unsigned p = v.pattern.nodeParent[nodes[0]];
     if (p == kNoIsland) return false;
+    const unsigned pinned = StressHierarchy::motionDimension(a.hierarchy.modes.components[id]) ? id : kNoIsland;
     const auto P = directPatternRefs(v.pattern, p);
     const float* val = v.slots.values + size_t(s) * v.slots.stride;
     const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
     for (unsigned i = threadIdx.x; i < P.nodes; i += blockDim.x) {
         const unsigned node = P.order[i];
-        if (a.m_nodeIsland[node] == id) {
+        if (a.m_nodeIsland[node] == id && node != pinned) {
             const auto r = a.m_residual[node];
             x[6 * i + 0] = r.angular.x; x[6 * i + 1] = r.angular.y; x[6 * i + 2] = r.angular.z;
             x[6 * i + 3] = r.linear.x;  x[6 * i + 4] = r.linear.y;  x[6 * i + 5] = r.linear.z;
@@ -85,11 +87,12 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     }
     for (unsigned i = threadIdx.x; i < P.nodes; i += blockDim.x) {
         const unsigned node = P.order[i];
-        if (a.m_nodeIsland[node] != id) continue;
+        if (a.m_nodeIsland[node] != id || node == pinned) continue;
         auto& u = a.hierarchy.solution[node];
         u.angular.x += double(x[6 * i + 0]); u.angular.y += double(x[6 * i + 1]); u.angular.z += double(x[6 * i + 2]);
         u.linear.x += double(x[6 * i + 3]);  u.linear.y += double(x[6 * i + 4]);  u.linear.z += double(x[6 * i + 5]);
     }
+    if (v.counters && !threadIdx.x) { atomicAdd(v.counters + 1, 1u); if (pinned != kNoIsland) atomicAdd(v.counters + 5, 1u); }
     __syncthreads();
     return true;
 }

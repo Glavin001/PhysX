@@ -105,10 +105,17 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         // result to the accumulated solution and rebuild the true residual. At
         // most two refinement applications; the loop below still owns
         // acceptance through its unchanged monitor and verification.
-        if(a.m_islandActive[id] && a.hierarchy.direct.enabled && !StressHierarchy::motionDimension(a.hierarchy.modes.components[id])){
+        if(a.m_islandActive[id] && a.hierarchy.direct.enabled && count>=kDirectMinNodes){
+            if(a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters,1u);
             for(unsigned attempt=0;attempt<2u;++attempt){
+                // Free components solve on the null-space quotient: project the
+                // residual exactly as the iteration does before measuring it.
+                prepareNativeResidualComponent(a,c.nodes+begin,count,id,false);
                 const float norm=nativeComponentResidualNorm(a,c.nodes+begin,count,id,nodeBlocks,counts,&iteration,&reduceValue);
-                if(!(norm>a.m_deltaSquared[id]) || !isfinite(norm))break;
+                if(!(norm>a.m_deltaSquared[id]) || !isfinite(norm)){
+                    if(attempt && a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters+2,1u);
+                    break;
+                }
                 if(!directSolveNativeComponent(a,c.nodes+begin,count,id,directX))break;
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                 if(!threadIdx.x)directApplied=1;
@@ -257,6 +264,8 @@ __global__ void finishComponentStress(PersistentStressArgs a, ResidentStressComp
         __syncthreads();
     }
     if(threadIdx.x==0) {
+        if(a.hierarchy.direct.diagnostics && a.hierarchy.direct.counters){const unsigned* k=a.hierarchy.direct.counters;
+            printf("native direct: eligible=%u applied=%u accepted=%u noslot=%u invalid=%u pinnedfree=%u refactored=%u maxIterations=%u\n",k[0],k[1],k[2],k[3],k[4],k[5],k[6],iterations[0]);}
         a.m_status->active+=active[0];
         a.m_status->iterations=max(a.m_status->iterations,iterations[0]);
         a.m_status->converged=a.m_status->converged && failed[0]==0;

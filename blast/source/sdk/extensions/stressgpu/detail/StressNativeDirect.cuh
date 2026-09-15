@@ -49,8 +49,10 @@ struct NativeDirectSlotView {
 struct NativeDirectView {
     NativeDirectPatternView pattern{};
     NativeDirectSlotView slots{};
-    unsigned enabled = 0;
+    unsigned* counters = nullptr; // diagnostics: [0] eligible [1] applied [2] accepted before iterating [3] no slot [4] slot invalid/failed [5] pinned free applied [6] refactored
+    unsigned enabled = 0, diagnostics = 0;
 };
+constexpr unsigned kDirectCounterCount = 8u;
 struct NativeDirectOperator {
     const unsigned *node0, *node1, *nodeBondBegin, *nodeBondRef, *nodeIsland;
     const Vec4 *offset0, *offset1;
@@ -142,8 +144,9 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
     const StressHierarchy::MotionComponent* modes, const ExtStressGpuDeviceTopologyStatus* state) {
     if (!v.enabled) return;
     for (unsigned t = blockIdx.x * blockDim.x + threadIdx.x; t < *c.count; t += blockDim.x * gridDim.x) {
+        if (t == 0 && v.counters) for (unsigned k = 0; k < kDirectCounterCount; ++k) v.counters[k] = 0;
         const unsigned id = c.ids[t], count = c.end[id] - c.begin[id];
-        if (count > kResidentComponentMaxNodes || count < kDirectMinNodes || !modes[id].anchored) continue;
+        if (count > kResidentComponentMaxNodes || count < kDirectMinNodes) continue;
         if (v.pattern.nodeParent[c.nodes[c.begin[id]]] == kNoIsland) continue;
         if (v.slots.componentSlot[id] != kNoIsland) continue;
         const unsigned start = (id * 2654435761u) % v.slots.slotCount;
@@ -163,7 +166,7 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
 // component, warp per column, columns of one elimination-tree level in
 // parallel, left-looking updates gathered in a fixed order (deterministic).
 __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirectView v, NativeDirectOperator op,
-    ResidentStressComponentView c, const ExtStressGpuDeviceTopologyStatus* state) {
+    ResidentStressComponentView c, const StressHierarchy::MotionComponent* modes, const ExtStressGpuDeviceTopologyStatus* state) {
     __shared__ unsigned failed;
     if (!v.enabled) return;
     const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
@@ -174,19 +177,31 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         if (p == kNoIsland) continue;
         const auto P = directPatternRefs(v.pattern, p);
         float* val = v.slots.values + size_t(s) * v.slots.stride;
-        if (!threadIdx.x) failed = 0;
+        // A free component has a rigid null space. Pinning its minimum node (the
+        // component id) makes the reduced operator SPD; any particular solution
+        // of the compatible projected residual yields the same bond forces.
+        const unsigned pinned = modes[id].anchored ? kNoIsland : id;
+        if (!threadIdx.x) { failed = 0; if (v.counters) atomicAdd(v.counters + 6, 1u); }
         __syncthreads();
         for (unsigned l = 0; l < P.levels; ++l) {
-            for (unsigned e = P.levelPtr[l] + warp; e < P.levelPtr[l + 1]; e += warps) {
+            const unsigned levelBegin = P.levelPtr[l], levelEnd = P.levelPtr[l + 1];
+            // Sparse levels (the dense top of the elimination tree) use the
+            // whole CTA per column; wide levels use one warp per column. Both
+            // give every target block exactly one writer per source column k,
+            // applied in a fixed order, so results are deterministic.
+            const bool wide = (levelEnd - levelBegin) >= warps;
+            const unsigned groups = wide ? warps : 1u, group = wide ? warp : 0u;
+            const unsigned lanes = wide ? 32u : blockDim.x, laneId = wide ? lane : threadIdx.x;
+            for (unsigned e = levelBegin + group; e < levelEnd; e += groups) {
                 const unsigned j = P.levelCols[e], jnode = P.order[j], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
-                const bool present = op.nodeIsland[jnode] == id;
+                const bool present = op.nodeIsland[jnode] == id && jnode != pinned;
                 const Inertia dj = op.inertia[jnode];
                 // Assemble column j of the current operator inside the parent pattern.
-                for (unsigned q = p0 + lane; q < p1; q += 32) {
+                for (unsigned q = p0 + laneId; q < p1; q += lanes) {
                     const unsigned i = P.rowIdx[q], inode = P.order[i];
                     float acc[kDirectBlockEntries];
                     for (unsigned x = 0; x < kDirectBlockEntries; ++x) acc[x] = 0.f;
-                    if (present && op.nodeIsland[inode] == id) {
+                    if (present && op.nodeIsland[inode] == id && inode != pinned) {
                         for (unsigned r = op.nodeBondBegin[jnode]; r < op.nodeBondBegin[jnode + 1]; ++r) {
                             const unsigned ref = op.nodeBondRef[r];
                             if (ref == kDeadBondRef) continue;
@@ -207,43 +222,46 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                     float* dst = val + size_t(q) * kDirectBlockEntries;
                     for (unsigned x = 0; x < kDirectBlockEntries; ++x) dst[x] = acc[x];
                 }
-                __syncwarp();
-                // Left-looking: subtract L(i,k) L(j,k)^T for every finished column k in row j.
-                for (unsigned r = P.rowPtr[j]; r < P.rowPtr[j + 1]; ++r) {
-                    const unsigned k = P.rowCols[r], q0 = P.rowPos[r], qEnd = P.colPtr[k + 1];
-                    float ljk[kDirectBlockEntries];
-                    { const float* src = val + size_t(q0) * kDirectBlockEntries; for (unsigned x = 0; x < kDirectBlockEntries; ++x) ljk[x] = src[x]; }
-                    for (unsigned q = q0 + lane; q < qEnd; q += 32) {
-                        const unsigned i = P.rowIdx[q];
-                        float lik[kDirectBlockEntries];
-                        { const float* src = val + size_t(q) * kDirectBlockEntries; for (unsigned x = 0; x < kDirectBlockEntries; ++x) lik[x] = src[x]; }
-                        unsigned lo = p0, hi = p1;
+                if (wide) __syncwarp(); else __syncthreads();
+                // Left-looking gather: each thread owns one row of one target
+                // block (i,j) and accumulates -L(i,k) L(j,k)^T over every finished
+                // column k of row j, locating (i,k) by binary search in column k's
+                // sorted rows. No barrier is needed and the k order is fixed.
+                for (unsigned t = laneId; t < (p1 - p0) * 6u; t += lanes) {
+                    const unsigned q = p0 + t / 6u, rr = t % 6u, i = P.rowIdx[q];
+                    float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                    for (unsigned r = P.rowPtr[j]; r < P.rowPtr[j + 1]; ++r) {
+                        const unsigned k = P.rowCols[r], q0 = P.rowPos[r];
+                        unsigned lo = q0, hi = P.colPtr[k + 1];
                         while (lo < hi) { const unsigned mid = (lo + hi) >> 1; if (P.rowIdx[mid] < i) lo = mid + 1; else hi = mid; }
-                        float* dst = val + size_t(lo) * kDirectBlockEntries;
-                        for (unsigned rr = 0; rr < 6; ++rr)
-                            for (unsigned cc = 0; cc < 6; ++cc) {
-                                float sum = 0.f;
-                                for (unsigned tt = 0; tt < 6; ++tt) sum = fmaf(lik[rr * 6 + tt], ljk[cc * 6 + tt], sum);
-                                dst[rr * 6 + cc] -= sum;
-                            }
+                        if (lo >= P.colPtr[k + 1] || P.rowIdx[lo] != i) continue;
+                        const float* ljk = val + size_t(q0) * kDirectBlockEntries;
+                        const float* lik = val + size_t(lo) * kDirectBlockEntries + rr * 6u;
+                        for (unsigned cc = 0; cc < 6; ++cc) {
+                            float sum = acc[cc];
+                            for (unsigned tt = 0; tt < 6; ++tt) sum = fmaf(lik[tt], ljk[cc * 6 + tt], sum);
+                            acc[cc] = sum;
+                        }
                     }
-                    __syncwarp();
+                    float* dst = val + size_t(q) * kDirectBlockEntries + rr * 6u;
+                    for (unsigned cc = 0; cc < 6; ++cc) dst[cc] -= acc[cc];
                 }
-                if (lane == 0) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); }
-                __syncwarp();
+                if (wide) __syncwarp(); else __syncthreads();
+                if (laneId == 0) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); }
+                if (wide) __syncwarp(); else __syncthreads();
                 {
-                    float ljj[kDirectBlockEntries];
-                    { const float* d = val + size_t(p0) * kDirectBlockEntries; for (unsigned x = 0; x < kDirectBlockEntries; ++x) ljj[x] = d[x]; }
-                    for (unsigned q = p0 + 1 + lane; q < p1; q += 32) {
-                        float* blk = val + size_t(q) * kDirectBlockEntries;
-                        for (unsigned rr = 0; rr < 6; ++rr)
-                            for (unsigned cc = 0; cc < 6; ++cc) {
-                                float sum = blk[rr * 6 + cc];
-                                for (unsigned tt = 0; tt < cc; ++tt) sum = fmaf(-blk[rr * 6 + tt], ljj[cc * 6 + tt], sum);
-                                blk[rr * 6 + cc] = sum / ljj[cc * 6 + cc];
-                            }
+                    const float* ljj = val + size_t(p0) * kDirectBlockEntries;
+                    for (unsigned t = laneId; t < (p1 - p0 - 1u) * 6u; t += lanes) {
+                        const unsigned q = p0 + 1u + t / 6u, rr = t % 6u;
+                        float* row = val + size_t(q) * kDirectBlockEntries + rr * 6u;
+                        for (unsigned cc = 0; cc < 6; ++cc) {
+                            float sum = row[cc];
+                            for (unsigned tt = 0; tt < cc; ++tt) sum = fmaf(-row[tt], ljj[cc * 6 + tt], sum);
+                            row[cc] = sum / ljj[cc * 6 + cc];
+                        }
                     }
                 }
+                if (!wide) __syncthreads();
             }
             __syncthreads();
         }

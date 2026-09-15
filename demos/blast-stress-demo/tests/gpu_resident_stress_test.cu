@@ -211,7 +211,9 @@ void mixedComponentSizes(bool interleaved)
     }
     // A nonconverged result from EITHER specialization must reject the whole
     // solve, even when every component handled by the other one converges.
-    params.maxIterations=2;
+    // An unreachable tolerance keeps the cap decisive even when the cached
+    // direct factorization would otherwise converge before iterating.
+    params.maxIterations=2;params.tolerance=1e-30f;
     for(unsigned component:{0u,2u}) {
         const unsigned first=nodeId(starts[component]),last=nodeId(starts[component]+sizes[component]-1);
         loads[first].linear.y+=2;loads[last].linear.y-=2;
@@ -219,6 +221,7 @@ void mixedComponentSizes(bool interleaved)
         require(!status.converged && status.active && status.iterations==2,"component failure was hidden by merged status");
         loads[first].linear.y-=2;loads[last].linear.y+=2;
     }
+    params.tolerance=1e-5f;
     // These squared contributions are individually subnormal. Global float
     // atomics flush each one before adding; a shared accumulator must not
     // accidentally collect them into a normal value and change convergence.

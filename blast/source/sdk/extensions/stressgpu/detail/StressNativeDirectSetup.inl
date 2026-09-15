@@ -52,7 +52,8 @@
         for (unsigned root = 0; root < n; ++root) {
             const auto& group = members[root];
             const unsigned np = unsigned(group.size());
-            if (np < kDirectMinNodes || np > kResidentComponentMaxNodes || !anchoredRoot[root]) continue;
+            // Free groups get patterns too: their solves pin the minimum node.
+            if (np < kDirectMinNodes || np > kResidentComponentMaxNodes) continue;
             for (unsigned i = 0; i < np; ++i) local[group[i]] = i;
             std::vector<unsigned char> adj(size_t(np) * np, 0);
             std::vector<unsigned> degree(np, 0);
@@ -166,6 +167,8 @@
         view.slots.componentSlot = directUpload(componentSlot); view.slots.slotValid = directUpload(zeros);
         view.slots.slotFailed = directUpload(zeros); view.slots.slotGeneration = directUpload(generations);
         view.slots.slotCount = slotCount; view.slots.stride = stride; view.enabled = 1;
+        view.counters = directUpload(std::vector<unsigned>(kDirectCounterCount, 0u));
+        view.diagnostics = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG") ? 1u : 0u;
         m_direct = view;
         m_directPatternCount = patterns; m_directMaxBlocks = maxBlocks;
     }
