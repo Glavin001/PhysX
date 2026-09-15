@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
+#include <cstdlib>
 #include "PxNodeIndex.h"
 #include "PxsContactManagerState.h"
 #include "common/PxProfileZone.h"
@@ -172,6 +173,16 @@ PxgGpuNarrowphaseCore::PxgGpuNarrowphaseCore(PxgCudaKernelWranglerManager* gpuKe
 	mTotalLostFoundPatches = 0;
 	mTotalLostFoundPairs = 0;
 	mTotalNumPairs = 0;
+	mDestructionGraphStream = NULL; mDestructionMergedEvent = NULL;
+	{
+		const char* raw = getenv("PHYSX_DESTRUCTION_GRAPH_STREAM");
+		if(!(raw && raw[0]=='0' && raw[1]==0))
+		{
+			if(mCudaContext->streamCreate(&mDestructionGraphStream, CU_STREAM_NON_BLOCKING) != CUDA_SUCCESS) mDestructionGraphStream = NULL;
+			else if(mCudaContext->eventCreate(&mDestructionMergedEvent, CU_EVENT_DISABLE_TIMING) != CUDA_SUCCESS)
+			{ mCudaContext->streamDestroy(mDestructionGraphStream); mDestructionGraphStream = NULL; mDestructionMergedEvent = NULL; }
+		}
+	}
 
 	for (PxU32 i = 0; i < GPU_BUCKET_ID::eCount; ++i)
 	{
@@ -276,6 +287,8 @@ PxgGpuNarrowphaseCore::~PxgGpuNarrowphaseCore()
 
 	mCopyMan.destroyFinishedEvent(mCudaContext);
 	mCopyManBp.destroyFinishedEvent(mCudaContext);
+	if(mDestructionGraphStream) { mCudaContext->streamSynchronize(mDestructionGraphStream); mCudaContext->streamDestroy(mDestructionGraphStream); mDestructionGraphStream = NULL; }
+	if(mDestructionMergedEvent) { mCudaContext->eventDestroy(mDestructionMergedEvent); mDestructionMergedEvent = NULL; }
 
 	for (PxU32 i = 0; i < GPU_BUCKET_ID::eCount; ++i)
 	{
@@ -2202,6 +2215,10 @@ void PxgGpuNarrowphaseCore::fetchNarrowPhaseResults(
 	}
 	
     mDestructionGraphFallbackPairs=nbFallbackPairs;
+    // The merged pair inputs/identities/outputs above are complete on the solver
+    // stream at this point; the destruction contact graph waits on this event
+    // rather than on everything the solver queues afterwards.
+    if(mDestructionMergedEvent) mCudaContext->eventRecord(mDestructionMergedEvent, mSolverStream);
 
 	// finally we copy the GPU contact stream data to the CPU.
 	if (!mGpuContext->getEnableDirectGPUAPI() || mGpuContext->getSimulationController()->getEnableOVDCollisionReadback())
@@ -8586,10 +8603,14 @@ bool PxgGpuNarrowphaseCore::buildDestructionContactGraph(bool reuseSamePass)
     // Late broadphase loss retires CPU interactions after NP output merge.
     // Regenerate only after those lifecycle deltas are available; do not let
     // deferred NP-buffer compaction retain dead edges in the committed graph.
+    CUstream graphStream=mSolverStream;
+    if(mDestructionGraphStream && mDestructionMergedEvent
+        && mCudaContext->streamWaitEvent(mDestructionGraphStream,mDestructionMergedEvent)==CUDA_SUCCESS)
+        graphStream=mDestructionGraphStream;
     const bool ok=controller->buildDestructionContactGraph(
         merged.mContactManagerInputData.getTypedPtr(),merged.mContactGraphIdentities.getTypedPtr(),
         merged.mContactManagerOutputData.getTypedPtr(),rigidPairs,mTotalNumPairs+mDestructionGraphFallbackPairs-rigidPairs,
-        retired.begin(),retired.size(),mSolverStream,mContactGraphSequence.getTypedPtr());
+        retired.begin(),retired.size(),graphStream,mContactGraphSequence.getTypedPtr());
     if(ok) {
         mDestructionGraphCachedGeneration=controller->getDestructionContactGraphGeneration();
         mDestructionGraphRetainedRevision=mGpuContext->getIslandManager().getRetainedContactRevision();

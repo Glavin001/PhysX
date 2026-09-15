@@ -659,7 +659,10 @@ namespace physx
         PxScopedCudaLock lock(*mCudaContextManager);
         islands.getAccurateIslandSim().setGpuContactComponents(NULL,NULL,0);
         islands.getSpeculativeIslandSim().setGpuContactComponents(NULL,NULL,0);
-        if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph()){islands.restoreHostConnectivity();return;}
+        {
+            PxProfileScoped graph(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
+            if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph()){islands.restoreHostConnectivity();return;}
+        }
         const PxU32 *accurate=NULL,*speculative=NULL;const PxU32 *aMembers=NULL,*sMembers=NULL;PxU32 count=0;
         const bool owned=mDynamicContext->deviceConnectivityOwnershipReady();
         if(!owned)islands.restoreHostConnectivity();
@@ -669,7 +672,13 @@ namespace physx
         const bool needSpeculative=islands.getSpeculativeIslandSim().gpuComponentAuditEnabled()
             || (!owned && islands.getSpeculativeIslandSim().hasPendingConnectivityChanges());
         if(!needAccurate && !needSpeculative)return;
-        if(mDestruction->observeContactComponents(accurate,speculative,aMembers,sMembers,count,needAccurate,needSpeculative)) {
+        bool observed=false;
+        {
+            PxProfileScoped observe(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair.observeComponents",false,PxU64(reinterpret_cast<size_t>(this)));
+            observed=mDestruction->observeContactComponents(accurate,speculative,aMembers,sMembers,count,needAccurate,needSpeculative);
+        }
+        if(observed) {
+            PxProfileScoped install(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair.installComponents",false,PxU64(reinterpret_cast<size_t>(this)));
             islands.getAccurateIslandSim().setGpuContactComponents(accurate,aMembers,count);
             islands.getSpeculativeIslandSim().setGpuContactComponents(speculative,sMembers,count);
         }
@@ -709,6 +718,7 @@ namespace physx
         // transactions upload coalesced lifecycle deltas, including removals.
         // CUDA owns persistent edge-indexed storage between graph builds.
         const bool reset=!mDestruction->getContactGraphView().generation;
+        PxProfileScoped retainedScope(PxGetProfilerCallback(),"GpuDestruction.contactGraph.retainedUpdates",false,PxU64(reinterpret_cast<size_t>(this)));
         PxArray<PxgDestructionRetainedEdge> retainedUpdates;
         PxArray<PxU32> deferred;
         const auto& retainedMap=islands.getRetainedContactMap();
@@ -737,6 +747,7 @@ namespace physx
             if(!(update.flags&PxgDestructionRetainedEdge::eREMOVED)
                 || (!reset && islands.wasRetainedContactPublished(edgeIndex)))retainedUpdates.pushBack(update);
         }
+        retainedScope.~PxProfileScoped();new(&retainedScope)PxProfileScoped(PxGetProfilerCallback(),"GpuDestruction.contactGraph.buildSubmit",false,PxU64(reinterpret_cast<size_t>(this)));
         const bool ok=mDestruction->buildContactGraph(inputs,identities,outputs,count,omitted,
             shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),mBodySimManager.mBodies.size(),retired,retiredCount,stream,
             retainedUpdates.begin(),retainedUpdates.size(),islands.getNbEdgeHandles(),sequence);

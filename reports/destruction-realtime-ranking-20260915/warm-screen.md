@@ -407,3 +407,23 @@ place: fragment body creation is not the dominant cost of the impact tick.
 or a count), reversing the earlier recommendation on the strength of these
 numbers. Its CPU placeholder creation now happens at configuration time, not
 inside the first simulated tick.
+
+## Island repair: the host wait was queued behind the rigid solver (fixed)
+
+Sub-zones inside `GpuDestruction.task.prepareIslandRepair` (late window, per
+tick, both passes) showed 6.4 of its 7.1 ms inside `observeContactComponents`,
+i.e. the host waiting for the contact-graph completion event. The graph kernels
+themselves take under 0.5 ms; aligning the profiled debris tick's host zones
+with the Nsight kernel timeline showed the GPU only 13–25 % busy during that
+wait, running TGS solver kernels. The graph was submitted on the solver stream
+after the rigid solve had been queued, so the host waited for the whole solve.
+
+The narrowphase core now records a "merged outputs ready" event on the solver
+stream right after the merged pair inputs, identities and outputs are copied,
+and builds the graph on its own non-blocking stream that waits only on that
+event (`PHYSX_DESTRUCTION_GRAPH_STREAM=0` restores the old schedule). Late
+window per tick: island repair 7.06 → 4.10 ms (observe wait 6.39 → 3.63),
+corrected pass 15.6 → 14.1 ms; city256 bombardment 34.7 → 33.5 ms with
+identical histories; native suite unchanged (38/41, same three pre-existing
+failures). The remaining 3.6 ms is the time for the solver stream to reach the
+merge point plus the graph build and readback; attribution continues.

@@ -367,6 +367,12 @@ namespace physx
 
 		CUstream								mStream;
 		CUstream								mSolverStream; //this is the stream handle belong to the solver, we can't destroy the solver stream
+		// Native destruction contact graph: built on its own stream as soon as the
+		// merged narrowphase outputs exist, instead of behind the rigid solver on
+		// mSolverStream (the island-repair host wait was serialized behind the
+		// whole TGS solve). Null when creation failed or PHYSX_DESTRUCTION_GRAPH_STREAM=0.
+		CUstream								mDestructionGraphStream;
+		CUevent									mDestructionMergedEvent;
 		PxgCudaKernelWranglerManager*			mGpuKernelWranglerManager;
 		PxCudaContextManager*					mCudaContextManager;
 		PxCudaContext*							mCudaContext;
