@@ -755,8 +755,15 @@ public:
             // CPU materializer. Order the roster consumer after that producer.
             check(cudaStreamWaitEvent(cudaStream,mReady,0));
             if(mGraphView.generation)check(cudaStreamWaitEvent(cudaStream,mGraphReady,0));
+            // Experiment (PHYSX_DESTRUCTION_PRESOLVE_SEED_SKIP=N, default 0): accept a
+            // seed up to N generations older than the strict +1 rule. A pass builds
+            // the contact graph twice; when the second build is not a same-pass
+            // reuse the generation advances by two and the strict rule falls back
+            // to CPU islands. The island audits decide whether skipping is sound.
+            static const PxU64 seedSkip=[](){const char* raw=std::getenv("PHYSX_DESTRUCTION_PRESOLVE_SEED_SKIP");return raw?PxU64(std::max(0L,std::atol(raw))):0ull;}();
             bool usable=mPrePreviousCount && mGraphView.generation && mGraphView.nodeCapacity>=mPrePreviousCount
-                && mPreSourceGraphGeneration!=~PxU64(0) && mGraphView.generation==mPreSourceGraphGeneration+1;
+                && mPreSourceGraphGeneration!=~PxU64(0) && mGraphView.generation>=mPreSourceGraphGeneration+1
+                && mGraphView.generation<=mPreSourceGraphGeneration+1+seedSkip;
             // Growth preserves both rosters and the previous graph certificate.
             // New handle holes are initialized below before applying deltas.
             if(count>mPreCapacity)growPreSolveStorage(count,cudaStream);
