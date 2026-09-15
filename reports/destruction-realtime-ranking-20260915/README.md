@@ -468,3 +468,37 @@ prerequisite for removing them. The skip therefore stays opt-in
 (`PHYSX_DESTRUCTION_PRESOLVE_SEED_SKIP=1`) until milestone 2 replaces those
 consumers, at which point it becomes the default together with them.
 
+### R2 milestone 2 (design): replace the three CPU island consumers
+
+With the device producer serving every pass (milestone 1), the CPU island
+work that remains on the critical path exists only to feed three consumers:
+
+1. **Solver node ordering** (`PxgGpuContext::update`, `PxgContext.cpp:2255–2380`):
+   `mActiveNodeIndex` is assembled from the CPU island sim's active kinematic,
+   rigid and articulation lists; it defines `mBodyCount` and the solver body
+   order. Device counterpart: the pre-solve component labels plus per-node
+   activity from the roster (`live`, static-touch counts). The device already
+   produces the labels; producing a compacted active-node list on the device
+   (a stream compaction over the roster) and reading it back replaces the
+   copy, and the CPU island sim no longer needs to be brought up to date before
+   the solve for ordering.
+2. **Constraint partitioning** (`PxgConstraintPartition.cpp`): partition edges
+   are keyed by the CPU island edge index (`getFirstPartitionEdge(unit.mEdgeIndex)`,
+   `mSolverConstants[].mEdgeIndex`, `ShapeInteraction::mEdgeIndex`). Device
+   counterpart: `PxgContactGraphIdentity` already carries the edge index and a
+   64-bit contact-manager lifetime generation per resident pair
+   (`GPU_CONTACT_GRAPH_NEXT.md`); keying partition edges by that identity, and
+   allocating the edge slots on the device at pair creation, removes the
+   requirement that every new pair be inserted into the CPU island sim before
+   the corrected pass. This is the largest piece and the one that retires
+   `preallocateContactManagers`/`islandInsertion`/`registerInteractions` from
+   the impact tick (about 40 ms) and the per-tick island maintenance.
+3. **Retained-edge upload** (`buildDestructionContactGraph`, host loop over the
+   retained-contact bitmap): becomes a device-side delta once pair lifetimes
+   are device-owned (item 2), leaving no host walk.
+
+Order of work: 1 (bounded, measurable on its own only as CPU time in
+`update`), then 2 with the sleeping gate lifted by consuming device component
+membership in the sleep scheduler (the `processLostEdges` deactivation loop),
+then 3. Milestone 1's seed skip becomes the default with item 1.
+
