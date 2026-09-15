@@ -275,6 +275,11 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
 __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirectView v, NativeDirectOperator op,
     ResidentStressComponentView c, const StressHierarchy::MotionComponent* modes, const ExtStressGpuDeviceTopologyStatus* state) {
     __shared__ unsigned failed;
+    // Present columns of the pattern (nodes of this component other than the
+    // pinned one). Columns of absent nodes are identity with zero couplings, so
+    // every gather or update that reads or writes them is skipped: a small
+    // fragment inside a large parent pattern costs only its own columns.
+    __shared__ unsigned presentMask[kWoodburyPresentWords];
     if (!v.enabled) return;
     const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
     for (unsigned t = blockIdx.x; t < *c.count; t += gridDim.x) {
@@ -288,6 +293,16 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         // component id) makes the reduced operator SPD; any particular solution
         // of the compatible projected residual yields the same bond forces.
         const unsigned pinned = modes[id].anchored ? kNoIsland : id;
+        __syncthreads();
+        for (unsigned wd = threadIdx.x; wd < kWoodburyPresentWords; wd += blockDim.x) {
+            unsigned bits = 0;
+            for (unsigned bit = 0; bit < 32; ++bit) {
+                const unsigned i = wd * 32u + bit;
+                if (i < P.nodes && op.nodeIsland[P.order[i]] == id && P.order[i] != pinned) bits |= 1u << bit;
+            }
+            presentMask[wd] = bits;
+        }
+        __syncthreads();
         // Stale factor with few removed bonds and the same pinning: Woodbury
         // update instead of a refactor (StressNativeWoodbury.cuh).
         if (v.woodbury && v.slots.slotValid[s] && v.slots.slotStale[s] && v.slots.slotPinned[s] == pinned
@@ -356,11 +371,13 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                 // block (i,j) and accumulates -L(i,k) L(j,k)^T over every finished
                 // column k of row j, locating (i,k) by binary search in column k's
                 // sorted rows. No barrier is needed and the k order is fixed.
-                for (unsigned t = laneId; t < (p1 - p0) * 6u; t += lanes) {
+                if (present) for (unsigned t = laneId; t < (p1 - p0) * 6u; t += lanes) {
                     const unsigned q = p0 + t / 6u, rr = t % 6u, i = P.rowIdx[q];
+                    if (!woodburyPresent(presentMask, i)) continue;
                     float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
                     for (unsigned r = P.rowPtr[j]; r < P.rowPtr[j + 1]; ++r) {
                         const unsigned k = P.rowCols[r], q0 = P.rowPos[r];
+                        if (!woodburyPresent(presentMask, k)) continue;
                         unsigned lo = q0, hi = P.colPtr[k + 1];
                         while (lo < hi) { const unsigned mid = (lo + hi) >> 1; if (P.rowIdx[mid] < i) lo = mid + 1; else hi = mid; }
                         if (lo >= P.colPtr[k + 1] || P.rowIdx[lo] != i) continue;
@@ -376,12 +393,13 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                     for (unsigned cc = 0; cc < 6; ++cc) dst[cc] -= acc[cc];
                 }
                 if (wide) __syncwarp(); else __syncthreads();
-                if (laneId == 0) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); }
+                if (laneId == 0 && present) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); }
                 if (wide) __syncwarp(); else __syncthreads();
-                {
+                if (present) {
                     const float* ljj = val + size_t(p0) * kDirectBlockEntries;
                     for (unsigned t = laneId; t < (p1 - p0 - 1u) * 6u; t += lanes) {
                         const unsigned q = p0 + 1u + t / 6u, rr = t % 6u;
+                        if (!woodburyPresent(presentMask, P.rowIdx[q])) continue;
                         float* row = val + size_t(q) * kDirectBlockEntries + rr * 6u;
                         for (unsigned cc = 0; cc < 6; ++cc) {
                             float sum = row[cc];
@@ -432,12 +450,14 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         // contributions from earlier tail columns already arrived right-looking.
         for (unsigned e = topBegin; e < P.nodes; ++e) {
             const unsigned j = P.levelCols[e], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
+            if (!woodburyPresent(presentMask, j)) continue; // identity column: nothing to eliminate or propagate
             for (unsigned t = threadIdx.x; t < (p1 - p0) * 6u; t += blockDim.x) {
                 const unsigned q = p0 + t / 6u, rr = t % 6u, i = P.rowIdx[q];
+                if (!woodburyPresent(presentMask, i)) continue;
                 float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
                 for (unsigned r = P.rowPtr[j]; r < P.rowPtr[j + 1]; ++r) {
                     const unsigned k = P.rowCols[r], q0 = P.rowPos[r];
-                    if (P.columnLevel[k] >= T) continue;
+                    if (P.columnLevel[k] >= T || !woodburyPresent(presentMask, k)) continue;
                     unsigned lo = q0, hi = P.colPtr[k + 1];
                     while (lo < hi) { const unsigned mid = (lo + hi) >> 1; if (P.rowIdx[mid] < i) lo = mid + 1; else hi = mid; }
                     if (lo >= P.colPtr[k + 1] || P.rowIdx[lo] != i) continue;
@@ -459,6 +479,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                 const float* ljj = val + size_t(p0) * kDirectBlockEntries;
                 for (unsigned t = threadIdx.x; t < (p1 - p0 - 1u) * 6u; t += blockDim.x) {
                     const unsigned q = p0 + 1u + t / 6u, rr = t % 6u;
+                    if (!woodburyPresent(presentMask, P.rowIdx[q])) continue;
                     float* row = val + size_t(q) * kDirectBlockEntries + rr * 6u;
                     for (unsigned cc = 0; cc < 6; ++cc) {
                         float sum = row[cc];
@@ -479,6 +500,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                 while ((a + 1u) * (a + 2u) / 2u <= pair) ++a;
                 const unsigned b = pair - a * (a + 1u) / 2u;
                 const unsigned qi = p0 + 1u + a, qk = p0 + 1u + b, i = P.rowIdx[qi], k = P.rowIdx[qk];
+                if (!woodburyPresent(presentMask, i) || !woodburyPresent(presentMask, k)) continue;
                 unsigned lo = P.colPtr[k], hi = P.colPtr[k + 1];
                 if (i != k) { lo = P.colPtr[k] + 1u; while (lo < hi) { const unsigned mid = (lo + hi) >> 1; if (P.rowIdx[mid] < i) lo = mid + 1; else hi = mid; } }
                 if (lo >= P.colPtr[k + 1] || P.rowIdx[lo] != i) { atomicExch(&failed, 1u); continue; }
@@ -495,14 +517,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         }
         if (v.woodbury) {
             unsigned* present = v.slots.slotPresent + size_t(s) * kWoodburyPresentWords;
-            for (unsigned wd = threadIdx.x; wd < kWoodburyPresentWords; wd += blockDim.x) {
-                unsigned bits = 0;
-                for (unsigned bit = 0; bit < 32; ++bit) {
-                    const unsigned i = wd * 32u + bit;
-                    if (i < P.nodes && op.nodeIsland[P.order[i]] == id && P.order[i] != pinned) bits |= 1u << bit;
-                }
-                present[wd] = bits;
-            }
+            for (unsigned wd = threadIdx.x; wd < kWoodburyPresentWords; wd += blockDim.x) present[wd] = presentMask[wd];
         }
         if (!threadIdx.x) {
             if (failed) { v.slots.slotFailed[s] = 1; v.slots.slotValid[s] = 0; }

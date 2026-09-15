@@ -269,15 +269,16 @@
         // Woodbury pool (StressNativeWoodbury.cuh): W is 6 np x m floats per
         // buffer; buffers come from BLAST_GPU_NATIVE_WOODBURY_BUDGET_MB.
         view.woodbury = (nativeDirectWoodbury() && !nativeDirectDeferred() && nativeDirectClusterSize() <= 1u) ? 1u : 0u;
+        // Per-slot bookkeeping is always present (the slot kernels reset it); only the pool depends on the switch.
+        view.slots.slotRemovedCount = directUpload(zeros); view.slots.slotRemoved = directUpload(std::vector<unsigned>(size_t(slotCount) * kWoodburyMaxBonds, 0u));
+        view.slots.slotPresent = directUpload(std::vector<unsigned>(size_t(slotCount) * kWoodburyPresentWords, 0u));
+        view.slots.slotWoodbury = directUpload(zeros); view.slots.slotWoodburyBuffer = directUpload(std::vector<unsigned>(slotCount, kNoIsland));
         if (view.woodbury) {
             unsigned maxNodes = 0;
             for (unsigned p = 0; p < patterns; ++p) maxNodes = std::max(maxNodes, patternNodeBegin[p + 1] - patternNodeBegin[p]);
             const unsigned wStride = ((6u * maxNodes * kWoodburyMaxColumns + 31u) / 32u) * 32u;
             const size_t perBuffer = size_t(wStride) * sizeof(float) + size_t(kWoodburyCapFloats) * sizeof(float);
             const unsigned buffers = unsigned(std::min<size_t>(slotCount, std::max<size_t>(1, nativeWoodburyBudgetBytes() / perBuffer)));
-            view.slots.slotRemovedCount = directUpload(zeros); view.slots.slotRemoved = directUpload(std::vector<unsigned>(size_t(slotCount) * kWoodburyMaxBonds, 0u));
-            view.slots.slotPresent = directUpload(std::vector<unsigned>(size_t(slotCount) * kWoodburyPresentWords, 0u));
-            view.slots.slotWoodbury = directUpload(zeros); view.slots.slotWoodburyBuffer = directUpload(std::vector<unsigned>(slotCount, kNoIsland));
             view.slots.woodburyPool = directUpload(std::vector<float>(size_t(buffers) * wStride, 0.f));
             view.slots.woodburyCap = directUpload(std::vector<float>(size_t(buffers) * kWoodburyCapFloats, 0.f));
             view.slots.woodburyOwner = directUpload(std::vector<unsigned>(buffers, kNoIsland)); view.slots.woodburyFree = directUpload(std::vector<unsigned>(buffers, 0u));
