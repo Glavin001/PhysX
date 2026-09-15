@@ -248,7 +248,9 @@ public:
             if(poolEnabled()) {
                 PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.allocator.createPlaceholders",false,PxU64(reinterpret_cast<size_t>(this)));
                 for(PxU32 i=old;i<capacity;++i) {
-                    auto* body=reserve(false,mGrantedNodes[i]);
+                    // Kinematic placeholders stay outside dynamic island audits
+                    // and contact components until a fracture claims them.
+                    auto* body=reserve(true,mGrantedNodes[i]);
                     if(!body)break; // later fractures fall back to in-tick creation
                     mPlaceholders.insert(mGrantedNodes[i],body);
                 }
@@ -292,9 +294,9 @@ public:
             if(!body) {
                 if(auto* placeholder=mPlaceholders.find(indices[i])) {
                     body=placeholder->second;mPlaceholders.erase(indices[i]);
-                    // Placeholders are created dynamic and inactive; supported
-                    // fragments become kinematic exactly as a fresh reservation.
-                    if(request.supported)body->getCore().setFlags(PxRigidBodyFlag::eKINEMATIC);
+                    // Placeholders are kinematic and inactive; an unsupported
+                    // fragment becomes dynamic exactly as a fresh reservation would be.
+                    if(!request.supported)body->getCore().setFlags(PxRigidBodyFlags());
                 }
             }
             if(!body)body=reserve(request.supported!=0,indices[i]);

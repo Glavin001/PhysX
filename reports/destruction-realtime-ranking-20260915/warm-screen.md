@@ -156,7 +156,14 @@ position error, peak 16.9 ms). It is **not** the default because placeholders
 are island nodes: eight native lifecycle tests assert that address capacity
 creates no simulation bodies and that CPU edge flood fill matches the GPU
 contact components, and both audits see the shape-less placeholder nodes.
-Migrating those consumers (island audits, body-count expectations, first-advance
-placement of the creation cost) is the next R2 step; the code stays opt-in.
+Placeholders are now created kinematic, which keeps them out of the dynamic
+island flood-fill audit (`retained_registry` passes with the pool on). Still
+failing with the pool on, and therefore the concrete R2 consumer list: the
+explicit contract that address grants create no simulation bodies
+(`native_gpu_allocation_test`), and the GPU pre-solve island registry, which
+treats granted handles as unborn until allocation and so labels islands
+differently once placeholder nodes exist (`GPU island audit partition:
+node=4 expected=4 gpu=2`), plus the node-birth acknowledgement and
+first-advance placement of the creation cost. The code stays opt-in.
 Stream priorities for the destruction and stress streams (`PHYSX_DESTRUCTION_STREAM_PRIORITY`,
 `BLAST_GPU_STREAM_PRIORITY`) measured no change (36.3 vs 36.5 ms) and stay on.
