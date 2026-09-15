@@ -270,7 +270,15 @@
             // Persistent grid: BLAST_GPU_NATIVE_SOLVE_BLOCKS resident CTAs per SM
             // (default 2). Components are pulled from a device work cursor, so
             // more resident CTAs only change the schedule, never a component's result.
-            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm())),kBlockSize,0,m_stream>>>(args,components);
+            {
+                // Tiny components (<= kTinyComponentNodes) on 32-thread CTAs without
+                // the direct-solve array: BLAST_GPU_NATIVE_TINY_CTAS resident CTAs
+                // per SM (default 16; 0 keeps the single launch).
+                const unsigned tinyCtas=nativeTinyCtasPerSm();
+                const unsigned tinyLimit=tinyCtas?kTinyComponentNodes:0u;
+                if(tinyCtas)componentStressSolve<true><<<std::min(m_nodeCount,unsigned(sms*tinyCtas)),32,0,m_stream>>>(args,components,tinyLimit);
+                componentStressSolve<false><<<std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm())),kBlockSize,0,m_stream>>>(args,components,tinyLimit);
+            }
             args.islandIds=components.largeIds;
             args.liveIslandCount=components.largeCount;
             args.largeComponentsOnly=true;

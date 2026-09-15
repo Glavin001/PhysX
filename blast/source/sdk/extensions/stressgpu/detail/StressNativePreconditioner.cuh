@@ -48,7 +48,8 @@ __device__ __forceinline__ double nativeCycleMagnitude(StressHierarchy::Vector v
 __device__ __forceinline__ double nativeComponentMaximum(double value,double& inverse){
     __shared__ double partial[kBlockSize/32+1];for(unsigned step=16;step;step>>=1)value=fmax(value,__shfl_down_sync(0xffffffffu,value,step));
     if(!(threadIdx.x&31u))partial[threadIdx.x/32]=value;__syncthreads();
-    if(!threadIdx.x){double maximum=0;for(unsigned i=0;i<kBlockSize/32;++i)maximum=fmax(maximum,partial[i]);partial[0]=maximum;partial[kBlockSize/32]=1/maximum;}
+    // Fold only the warps this CTA actually has (the tiny-component launch runs 32-thread CTAs).
+    if(!threadIdx.x){double maximum=0;for(unsigned i=0;i<blockDim.x/32;++i)maximum=fmax(maximum,partial[i]);partial[0]=maximum;partial[kBlockSize/32]=1/maximum;}
     __syncthreads();value=partial[0];inverse=partial[kBlockSize/32];__syncthreads();return value;
 }
 template<bool SharedInverse=false>

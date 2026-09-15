@@ -14,7 +14,7 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
     if((threadIdx.x&31u)==0)warpSums[threadIdx.x/32]=value;
     __syncthreads();
     float sum=0;
-    if(threadIdx.x==0)for(unsigned warp=0;warp<kBlockSize/32;++warp)sum+=warpSums[warp];
+    if(threadIdx.x==0)for(unsigned warp=0;warp<blockDim.x/32;++warp)sum+=warpSums[warp];
     return sum;
 }
 
@@ -54,26 +54,35 @@ __device__ __forceinline__ float nativeComponentResidualNorm(const PersistentStr
     __syncthreads();
     return *reduceValue;
 }
-__global__ void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
+// Two instantiations share one body: Tiny=false takes components from the
+// work cursor with kBlockSize threads; Tiny=true runs 32-thread CTAs over a
+// grid stride for components of at most tinyLimit nodes, without the 24 KB
+// direct-solve array, so many more of them are resident at once. Either way a
+// component's numerical order is unchanged; only the CTA that runs it differs.
+constexpr unsigned kTinyComponentNodes = 7u;
+template<bool Tiny>
+__global__ void __launch_bounds__(kBlockSize) componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c, unsigned tinyLimit)
 {
     __shared__ unsigned counts[2], iteration, activeCount, slot, directApplied, directNormValid;
     __shared__ float directNorm;
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
-    __shared__ float directX[6*kResidentComponentMaxNodes];
+    __shared__ float directX[Tiny?6u*8u:6u*kResidentComponentMaxNodes];
     COMPONENT_PROBE_BEGIN
     // Components have very different convergence costs after fracture. A CTA
     // claims its next independent component only when its previous one finishes;
     // fixed grid-stride ownership can strand expensive components on one SM.
     // Only integer dispatch order changes, never a component's numerical order.
-    for(;;) {
-        if(threadIdx.x==0)slot=atomicAdd(c.workCursor,1u);
+    for(unsigned next=blockIdx.x;;next+=gridDim.x) {
+        if(threadIdx.x==0)slot=Tiny?next:atomicAdd(c.workCursor,1u);
         __syncthreads();
         if(slot>=*c.count)break;
         const unsigned id=c.ids[slot], begin=c.begin[id], count=c.end[id]-begin;
         // Every live component publishes a defined verification flag before
         // the subsequent cooperative kernel visits the shared active-node list.
         if(!threadIdx.x)a.hierarchy.verification[id]=0;
+        // Size partition between the two instantiations (tinyLimit 0: no split).
+        if(Tiny?count>tinyLimit:(tinyLimit && count<=tinyLimit)){__syncthreads();continue;}
         if(count>kResidentComponentMaxNodes) {
             COMPONENT_WORK_UNMEASURED(id,count)
             // All readers must finish using the shared ticket before reuse.

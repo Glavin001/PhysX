@@ -573,3 +573,18 @@ the city256 bombardment: peak tick 194.6 → 185.8 → 177.9 ms, mean
 31.0 → 30.7 → 30.2 ms, profiled burst 24.6 → 19.5 ms at four; histories
 identical. Eight is the new default. This is the first change on this branch
 that moves the impact peak; the rest of that tick is CPU registration (R2).
+
+## Tiny components on 32-thread CTAs (neutral; off by default)
+
+A `Tiny` instantiation of `componentStressSolve` runs components of at most
+seven nodes on 32-thread CTAs over a grid stride, without the 24 KB
+direct-solve shared array (`BLAST_GPU_NATIVE_TINY_CTAS`, resident CTAs per SM).
+It required the preconditioner's warp fold and two other reductions to use
+the live warp count. Correct (11/11 tests, identical histories) but neutral:
+30.1 → 29.9 ms. The census share it targeted (30 % of component CTA cycles) is
+not wall time: the solve kernel's duration is the latency of the slowest
+chains, the direct-solved remnants at about 1 ms each (two block triangular
+solves over 74 levels plus residual matvecs), and the tiny components already
+ran in their shadow. The remaining solve-side lever is therefore the remnant
+latency: a CTA-cooperative triangular solve for the narrow levels, where three
+of four warps now idle.

@@ -391,6 +391,16 @@ unsigned nativeFactorBlocksPerSm()
     static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_FACTOR_BLOCKS"); const long v = raw ? std::atol(raw) : 8; return unsigned(std::min(16L, std::max(1L, v))); }();
     return value;
 }
+/// BLAST_GPU_NATIVE_TINY_CTAS: resident 32-thread CTAs per SM for a separate
+/// tiny-component launch (0 = single launch, the default). Measured neutral
+/// (30.1 vs 29.9 ms): the solve's wall time is the latency of the direct-solved
+/// remnants, and the tiny components already ran in their shadow. Kept as the
+/// base for a warp-level tiny-component path.
+unsigned nativeTinyCtasPerSm()
+{
+    static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_TINY_CTAS"); const long v = raw ? std::atol(raw) : 0; return unsigned(std::min(32L, std::max(0L, v))); }();
+    return value;
+}
 bool nativeDirectEnabled()
 {
     static const bool enabled = []() {

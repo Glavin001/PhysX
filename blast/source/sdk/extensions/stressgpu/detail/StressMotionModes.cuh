@@ -18,7 +18,7 @@ __device__ void reduceMotionValues(double (&values)[Count],double (&partial)[Cou
     for(unsigned k=0;k<Count;++k)values[k]=warpSum(values[k]);
     if(!(threadIdx.x&31u))for(unsigned k=0;k<Count;++k)partial[k][threadIdx.x/32]=values[k];
     __syncthreads();
-    if(!threadIdx.x)for(unsigned k=0;k<Count;++k){values[k]=0;for(unsigned warp=0;warp<Threads/32;++warp)values[k]+=partial[k][warp];}
+    if(!threadIdx.x)for(unsigned k=0;k<Count;++k){values[k]=0;for(unsigned warp=0;warp<blockDim.x/32;++warp)values[k]+=partial[k][warp];}
     __syncthreads();
 }
 __device__ void buildMotionFactor(Input a,MotionBuffers b,Status* status,unsigned id){
