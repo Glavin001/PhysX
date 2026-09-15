@@ -373,6 +373,14 @@ bool nativeDirectEager()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_EAGER"); return !raw || std::string(raw) != "0"; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_DIRECT_PIPELINE=0 disables the pipelined narrow levels of
+/// the direct solve (early gathers of the next level's rows run on the idle
+/// warps while the current level's rows finish).
+bool nativeDirectPipeline()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE"); return !raw || std::string(raw) != "0"; }();
+    return value;
+}
 /// BLAST_GPU_NATIVE_WOODBURY=0 disables Woodbury updates of cached direct
 /// factors (default on): a slot that lost at most kWoodburyMaxBonds bonds keeps
 /// its factor and applies a dense low-rank correction instead of refactoring.

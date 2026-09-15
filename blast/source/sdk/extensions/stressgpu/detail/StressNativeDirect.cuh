@@ -41,6 +41,15 @@ struct NativeDirectPatternView {
     const unsigned* levelCols = nullptr;         // local columns ordered by level (np entries per pattern, offset patternNodeBegin)
     const unsigned* columnLevel = nullptr;       // local column -> level (np entries per structure, offset structureNodeBegin)
     const unsigned* structureTopLevel = nullptr; // structure -> first level of the narrow tail (levels with fewer columns than warps); == levels when none
+    // Pipelined narrow-level solve (StressNativeDirectSolve.cuh): per row the
+    // "late" entries whose column sits exactly one level below (forward) or
+    // one level above (backward); every other entry is final one step earlier.
+    const unsigned* lateFwdPtr = nullptr;        // row j -> [lateFwdPtr[j], lateFwdPtr[j+1]) into lateFwdIdx (np+1 per structure, offset patternColBegin)
+    const unsigned* lateFwdIdx = nullptr;        // entry index into rowCols/rowPos
+    const unsigned* patternLateFwdBegin = nullptr; // structure -> offset into lateFwdIdx
+    const unsigned* lateBwdPtr = nullptr;        // column j -> [.., ..) into lateBwdIdx (np+1 per structure, offset patternColBegin)
+    const unsigned* lateBwdIdx = nullptr;        // pattern-local block position q in column j
+    const unsigned* patternLateBwdBegin = nullptr; // structure -> offset into lateBwdIdx
 };
 struct NativeDirectSlotView {
     float* values = nullptr;               // slotCount * stride
@@ -81,6 +90,8 @@ struct NativeDirectView {
     unsigned rightLooking = 1;
     // Woodbury factor updates for slots that lost few bonds (default on).
     unsigned woodbury = 1;
+    // Pipelined narrow levels in the direct solve (default on).
+    unsigned pipeline = 1;
 };
 constexpr unsigned kDirectCounterCount = 11u; // [9] Woodbury builds [10] Woodbury applications
 struct NativeDirectOperator {
@@ -126,6 +137,7 @@ __device__ __forceinline__ bool directCholesky6(float* d) {
 }
 struct NativeDirectPatternRefs {
     const unsigned *order, *colPtr, *rowIdx, *rowPtr, *rowCols, *rowPos, *levelPtr, *levelCols, *columnLevel;
+    const unsigned *lateFwdPtr, *lateFwdIdx, *lateBwdPtr, *lateBwdIdx;
     unsigned nodes, levels, blocks, topLevel;
 };
 __device__ __forceinline__ NativeDirectPatternRefs directPatternRefs(const NativeDirectPatternView& P, unsigned p) {
@@ -139,6 +151,8 @@ __device__ __forceinline__ NativeDirectPatternRefs directPatternRefs(const Nativ
     r.levelPtr = P.levelPtr + P.patternLevelBegin[s]; r.levels = P.patternLevelCount[s];
     r.blocks = P.patternPosBegin[s + 1] - P.patternPosBegin[s];
     r.columnLevel = P.columnLevel + P.structureNodeBegin[s]; r.topLevel = P.structureTopLevel[s];
+    r.lateFwdPtr = P.lateFwdPtr ? P.lateFwdPtr + P.patternColBegin[s] : nullptr; r.lateFwdIdx = P.lateFwdIdx ? P.lateFwdIdx + P.patternLateFwdBegin[s] : nullptr;
+    r.lateBwdPtr = P.lateBwdPtr ? P.lateBwdPtr + P.patternColBegin[s] : nullptr; r.lateBwdIdx = P.lateBwdIdx ? P.lateBwdIdx + P.patternLateBwdBegin[s] : nullptr;
     return r;
 }
 

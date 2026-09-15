@@ -47,7 +47,8 @@
         }
         std::vector<unsigned> nodeParent(n, kNoIsland), nodeLocal(n, 0);
         std::vector<unsigned> patternNodeBegin{0u}, order, patternStructure, structureNodeBegin{0u}, patternColBegin{0u}, colPtr, patternPosBegin{0u}, rowIdx,
-            rowPtr, patternRowEntryBegin{0u}, rowCols, rowPos, patternLevelBegin{0u}, patternLevelCount, levelPtr, levelCols, columnLevel, structureTopLevel;
+            rowPtr, patternRowEntryBegin{0u}, rowCols, rowPos, patternLevelBegin{0u}, patternLevelCount, levelPtr, levelCols, columnLevel, structureTopLevel,
+            lateFwdPtr, lateFwdIdx, patternLateFwdBegin{0u}, lateBwdPtr, lateBwdIdx, patternLateBwdBegin{0u};
         unsigned patterns = 0, structures = 0, maxBlocks = 0;
         std::vector<unsigned> local(n, kNoIsland);
         // Structurally identical groups (same size, same local edge set under the
@@ -223,9 +224,34 @@
             unsigned entries = 0;
             for (unsigned j = 0; j < np; ++j) {
                 rowPtr.push_back(entries);
-                for (const auto& e : rows[j]) { rowCols.push_back(e.first); rowPos.push_back(e.second); ++entries; }
+                lateFwdPtr.push_back(unsigned(lateFwdIdx.size()) - patternLateFwdBegin.back());
+                for (const auto& e : rows[j]) {
+                    if (level[e.first] + 1u == level[j]) lateFwdIdx.push_back(entries);
+                    rowCols.push_back(e.first); rowPos.push_back(e.second); ++entries;
+                }
             }
             rowPtr.push_back(entries);
+            lateFwdPtr.push_back(unsigned(lateFwdIdx.size()) - patternLateFwdBegin.back());
+            patternLateFwdBegin.push_back(unsigned(lateFwdIdx.size()));
+            for (unsigned j = 0; j < np; ++j) {
+                lateBwdPtr.push_back(unsigned(lateBwdIdx.size()) - patternLateBwdBegin.back());
+                for (unsigned q = 1; q < columns[j].size(); ++q) if (level[columns[j][q]] == level[j] + 1u) lateBwdIdx.push_back(columnBase[j] + q);
+            }
+            lateBwdPtr.push_back(unsigned(lateBwdIdx.size()) - patternLateBwdBegin.back());
+            patternLateBwdBegin.push_back(unsigned(lateBwdIdx.size()));
+            if (std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG")) {
+                // Host check of the late lists against the level rule.
+                const unsigned fb = patternLateFwdBegin[patternLateFwdBegin.size() - 2], bb = patternLateBwdBegin[patternLateBwdBegin.size() - 2];
+                const unsigned pb = patternColBegin[patternColBegin.size() - 2], rb = patternRowEntryBegin.back(), posb = patternPosBegin[patternPosBegin.size() - 2];
+                unsigned badF = 0, badB = 0, cntF = 0, cntB = 0, expF = 0, expB = 0;
+                for (unsigned j = 0; j < np; ++j) {
+                    for (unsigned t = lateFwdPtr[pb + j]; t < lateFwdPtr[pb + j + 1]; ++t) { const unsigned r = lateFwdIdx[fb + t]; ++cntF; if (level[rowCols[rb + r]] + 1u != level[j]) ++badF; }
+                    for (const auto& e : rows[j]) if (level[e.first] + 1u == level[j]) ++expF;
+                    for (unsigned t = lateBwdPtr[pb + j]; t < lateBwdPtr[pb + j + 1]; ++t) { const unsigned q = lateBwdIdx[bb + t]; ++cntB; if (level[rowIdx[posb + q]] != level[j] + 1u) ++badB; }
+                    for (unsigned q = 1; q < columns[j].size(); ++q) if (level[columns[j][q]] == level[j] + 1u) ++expB;
+                }
+                std::fprintf(stderr, "native direct late lists: structure=%u np=%u fwd=%u/%u bad=%u bwd=%u/%u bad=%u\n", sIndex, np, cntF, expF, badF, cntB, expB, badB);
+            }
             patternRowEntryBegin.push_back(unsigned(rowCols.size()));
             for (unsigned l = 0; l <= levels; ++l) levelPtr.push_back(levelCount[l]);
             patternLevelBegin.push_back(unsigned(levelPtr.size()));
@@ -258,6 +284,9 @@
         view.pattern.patternLevelBegin = directUpload(patternLevelBegin); view.pattern.patternLevelCount = directUpload(patternLevelCount);
         view.pattern.levelPtr = directUpload(levelPtr); view.pattern.levelCols = directUpload(levelCols);
         view.pattern.columnLevel = directUpload(columnLevel); view.pattern.structureTopLevel = directUpload(structureTopLevel);
+        view.pattern.lateFwdPtr = directUpload(lateFwdPtr); view.pattern.lateFwdIdx = directUpload(lateFwdIdx); view.pattern.patternLateFwdBegin = directUpload(patternLateFwdBegin);
+        view.pattern.lateBwdPtr = directUpload(lateBwdPtr); view.pattern.lateBwdIdx = directUpload(lateBwdIdx); view.pattern.patternLateBwdBegin = directUpload(patternLateBwdBegin);
+        view.pipeline = nativeDirectPipeline() ? (std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE") ? unsigned(std::atoi(std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE"))) : 1u) : 0u;
         std::vector<float> values(size_t(slotCount) * stride, 0.f);
         std::vector<unsigned> slotComponent(slotCount, kNoIsland), componentSlot(n, kNoIsland), zeros(slotCount, 0u);
         std::vector<unsigned long long> generations(slotCount, 0ull);

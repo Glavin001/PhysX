@@ -13,6 +13,38 @@ __device__ __forceinline__ bool directSlotStale(const NativeDirectView& v, unsig
     const unsigned s = v.slots.componentSlot[id];
     return s != kNoIsland && v.slots.slotValid[s] && !v.slots.slotFailed[s] && v.slots.slotStale[s];
 }
+// One entry of a block row: acc += L(i,k) x_k (forward, block stored row-major) or
+// acc += L(k,i)^T x_k (backward), then the 6x6 triangular finish of row i.
+__device__ __forceinline__ void directFwdEntry(float (&acc)[6], const float* val, const float* x, const NativeDirectPatternRefs& P, unsigned q) {
+    const float* blk = val + size_t(P.rowPos[q]) * kDirectBlockEntries;
+    const float* xk = x + 6 * P.rowCols[q];
+    for (unsigned r = 0; r < 6; ++r) { float sum = acc[r]; for (unsigned cc = 0; cc < 6; ++cc) sum = fmaf(blk[r * 6 + cc], xk[cc], sum); acc[r] = sum; }
+}
+__device__ __forceinline__ void directBwdEntry(float (&acc)[6], const float* val, const float* x, const NativeDirectPatternRefs& P, unsigned q) {
+    const float* blk = val + size_t(q) * kDirectBlockEntries; // L(k,i)
+    const float* xk = x + 6 * P.rowIdx[q];
+    for (unsigned r = 0; r < 6; ++r) { float sum = acc[r]; for (unsigned cc = 0; cc < 6; ++cc) sum = fmaf(blk[cc * 6 + r], xk[cc], sum); acc[r] = sum; }
+}
+__device__ __forceinline__ void directFwdFinish(const float* val, float* x, const NativeDirectPatternRefs& P, unsigned i, const float (&acc)[6]) {
+    const float* d = val + size_t(P.colPtr[i]) * kDirectBlockEntries;
+    float y[6];
+    for (unsigned r = 0; r < 6; ++r) {
+        float sum = x[6 * i + r] - acc[r];
+        for (unsigned tt = 0; tt < r; ++tt) sum = fmaf(-d[r * 6 + tt], y[tt], sum);
+        y[r] = sum / d[r * 6 + r];
+    }
+    for (unsigned r = 0; r < 6; ++r) x[6 * i + r] = y[r];
+}
+__device__ __forceinline__ void directBwdFinish(const float* val, float* x, const NativeDirectPatternRefs& P, unsigned i, const float (&acc)[6]) {
+    const float* d = val + size_t(P.colPtr[i]) * kDirectBlockEntries;
+    float y[6];
+    for (unsigned r = 6; r-- > 0;) {
+        float sum = x[6 * i + r] - acc[r];
+        for (unsigned tt = r + 1; tt < 6; ++tt) sum = fmaf(-d[tt * 6 + r], y[tt], sum);
+        y[r] = sum / d[r * 6 + r];
+    }
+    for (unsigned r = 0; r < 6; ++r) x[6 * i + r] = y[r];
+}
 __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStressArgs& a, const unsigned* nodes, unsigned count, unsigned id, float* x) {
     const NativeDirectView& v = a.hierarchy.direct;
     if (!v.enabled || count > kResidentComponentMaxNodes) return false;
@@ -47,66 +79,153 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     }
     __syncthreads();
     DIRECT_PROBE(0)
-    // Forward: L y = r, rows in ascending level order (descendants first).
-    for (unsigned l = 0; l < P.levels; ++l) {
+    // Level loops. Wide levels: one warp per row, lanes over entries. Narrow
+    // levels (fewer rows than warps, the elimination tree's top) are pipelined:
+    // while the rows of level l finish with their "late" entries (columns one
+    // level away, an explicit list) and the 6x6 solve, the idle warps gather
+    // the "early" entries of the next level's rows (all already final) into
+    // per-warp partials that the next step sums in a fixed order. This takes
+    // the entry-bound gathers of the dense top off the serial chain.
+    __shared__ float scratch[2][kBlockSize / 32u][6];
+    const unsigned T = (v.pipeline && warps >= 2u && P.lateFwdPtr) ? P.topLevel : P.levels;
+    const unsigned Tf = (v.pipeline == 3u) ? P.levels : T, Tb = (v.pipeline == 2u) ? P.levels : T; // debug split: 2 forward only, 3 backward only
+    for (unsigned l = 0; l < Tf; ++l) {
         for (unsigned e = P.levelPtr[l] + warp; e < P.levelPtr[l + 1]; e += warps) {
             const unsigned i = P.levelCols[e];
             float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
-            for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) {
-                const float* blk = val + size_t(P.rowPos[q]) * kDirectBlockEntries;
-                const float* xk = x + 6 * P.rowCols[q];
-                for (unsigned r = 0; r < 6; ++r) {
-                    float sum = acc[r];
-                    for (unsigned cc = 0; cc < 6; ++cc) sum = fmaf(blk[r * 6 + cc], xk[cc], sum);
-                    acc[r] = sum;
-                }
-            }
+            for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) directFwdEntry(acc, val, x, P, q);
             directWarpReduce6(acc);
-            if (lane == 0) {
-                const float* d = val + size_t(P.colPtr[i]) * kDirectBlockEntries;
-                float y[6];
-                for (unsigned r = 0; r < 6; ++r) {
-                    float sum = x[6 * i + r] - acc[r];
-                    for (unsigned tt = 0; tt < r; ++tt) sum = fmaf(-d[r * 6 + tt], y[tt], sum);
-                    y[r] = sum / d[r * 6 + r];
-                }
-                for (unsigned r = 0; r < 6; ++r) x[6 * i + r] = y[r];
-            }
+            if (lane == 0) directFwdFinish(val, x, P, i, acc);
         }
         __syncthreads();
-        DIRECT_PROBE((P.levelPtr[l + 1] - P.levelPtr[l]) >= warps ? 1 : 2)
+        DIRECT_PROBE(1)
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
         if (!threadIdx.x) probeAcc[7] += 1;
 #endif
     }
-    // Backward: L^T x = y, rows in descending level order (ancestors first).
-    for (unsigned l = P.levels; l-- > 0;) {
-        for (unsigned e = P.levelPtr[l] + warp; e < P.levelPtr[l + 1]; e += warps) {
-            const unsigned i = P.levelCols[e], p0 = P.colPtr[i], p1 = P.colPtr[i + 1];
-            float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
-            for (unsigned q = p0 + 1 + lane; q < p1; q += 32) {
-                const float* blk = val + size_t(q) * kDirectBlockEntries; // L(k,i)
-                const float* xk = x + 6 * P.rowIdx[q];
-                for (unsigned r = 0; r < 6; ++r) {
-                    float sum = acc[r];
-                    for (unsigned cc = 0; cc < 6; ++cc) sum = fmaf(blk[cc * 6 + r], xk[cc], sum);
-                    acc[r] = sum;
-                }
-            }
-            directWarpReduce6(acc);
-            if (lane == 0) {
-                const float* d = val + size_t(p0) * kDirectBlockEntries;
-                float y[6];
-                for (unsigned r = 6; r-- > 0;) {
-                    float sum = x[6 * i + r] - acc[r];
-                    for (unsigned tt = r + 1; tt < 6; ++tt) sum = fmaf(-d[tt * 6 + r], y[tt], sum);
-                    y[r] = sum / d[r * 6 + r];
-                }
-                for (unsigned r = 0; r < 6; ++r) x[6 * i + r] = y[r];
+    if (Tf < P.levels) {
+        unsigned buf = 0;
+        // Prep: early entries of the first narrow level's rows (columns at
+        // levels <= T-2) on every warp; the late ones (level T-1) follow below.
+        {
+            // Work items (row, part) of the next level: parts per row = max(1,
+            // early warps / rows); item idx -> row idx % R, part idx / R; early
+            // warp `we` takes items we, we + We, ... and slot idx holds its partial.
+            const unsigned R = P.levelPtr[T + 1] - P.levelPtr[T], We = warps, parts = We / R > 0u ? We / R : 1u;
+            for (unsigned idx = warp; idx < R * parts; idx += We) {
+                const unsigned row = idx % R, part = idx / R, i = P.levelCols[P.levelPtr[T] + row];
+                float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                for (unsigned q = P.rowPtr[i] + part * 32u + lane; q < P.rowPtr[i + 1]; q += 32u * parts)
+                    if (P.columnLevel[P.rowCols[q]] + 1u != T) directFwdEntry(acc, val, x, P, q);
+                directWarpReduce6(acc);
+                if (lane == 0) for (unsigned r = 0; r < 6; ++r) scratch[buf][idx][r] = acc[r];
             }
         }
         __syncthreads();
-        DIRECT_PROBE((P.levelPtr[l + 1] - P.levelPtr[l]) >= warps ? 3 : 4)
+        for (unsigned l = T; l < P.levels; ++l) {
+            const unsigned nl = P.levelPtr[l + 1] - P.levelPtr[l];
+            const unsigned WePrev = (l == T) ? warps : warps - (P.levelPtr[l] - P.levelPtr[l - 1]);
+            if (warp < nl) {
+                const unsigned i = P.levelCols[P.levelPtr[l] + warp];
+                float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                if (v.pipeline == 4u) { for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) directFwdEntry(acc, val, x, P, q); }
+                else if (v.pipeline == 5u) { for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) if (P.columnLevel[P.rowCols[q]] + 1u != l) directFwdEntry(acc, val, x, P, q); for (unsigned t = P.lateFwdPtr[i] + lane; t < P.lateFwdPtr[i + 1]; t += 32) directFwdEntry(acc, val, x, P, P.lateFwdIdx[t]); }
+                else for (unsigned t = P.lateFwdPtr[i] + lane; t < P.lateFwdPtr[i + 1]; t += 32) directFwdEntry(acc, val, x, P, P.lateFwdIdx[t]);
+                directWarpReduce6(acc);
+                if (lane == 0) {
+                    if (v.pipeline < 4u) { const unsigned parts = WePrev / nl > 0u ? WePrev / nl : 1u; for (unsigned part = 0; part < parts; ++part) for (unsigned r = 0; r < 6; ++r) acc[r] += scratch[buf][warp + part * nl][r]; }
+                    directFwdFinish(val, x, P, i, acc);
+                }
+            } else if (l + 1 < P.levels) {
+                const unsigned R = P.levelPtr[l + 2] - P.levelPtr[l + 1], We = warps - nl, we = warp - nl, parts = We / R > 0u ? We / R : 1u;
+                for (unsigned idx = we; idx < R * parts; idx += We) {
+                    const unsigned row = idx % R, part = idx / R, i = P.levelCols[P.levelPtr[l + 1] + row];
+                    float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                    for (unsigned q = P.rowPtr[i] + part * 32u + lane; q < P.rowPtr[i + 1]; q += 32u * parts)
+                        if (P.columnLevel[P.rowCols[q]] != l) directFwdEntry(acc, val, x, P, q);
+                    directWarpReduce6(acc);
+                    if (lane == 0) for (unsigned r = 0; r < 6; ++r) scratch[buf ^ 1u][idx][r] = acc[r];
+                }
+            }
+            __syncthreads();
+            buf ^= 1u;
+            DIRECT_PROBE(2)
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+            if (!threadIdx.x) probeAcc[7] += 1;
+#endif
+        }
+    }
+    if (v.diagnostics >= 2u) {
+        // Self-check of the forward sweep: L y = r on every row, against the
+        // untouched residual source. One warp per row, lanes over entries.
+        __shared__ float checkErr, checkRef;
+        if (!threadIdx.x) { checkErr = 0.f; checkRef = 0.f; }
+        __syncthreads();
+        for (unsigned i = warp; i < P.nodes; i += warps) {
+            const unsigned node = P.order[i];
+            float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+            for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) directFwdEntry(acc, val, x, P, q);
+            directWarpReduce6(acc);
+            if (lane == 0) {
+                const float* d = val + size_t(P.colPtr[i]) * kDirectBlockEntries;
+                float rhs[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                if (a.m_nodeIsland[node] == id && node != pinned) { const auto r = a.m_residual[node]; rhs[0] = r.angular.x; rhs[1] = r.angular.y; rhs[2] = r.angular.z; rhs[3] = r.linear.x; rhs[4] = r.linear.y; rhs[5] = r.linear.z; }
+                float e = 0.f, f = 0.f;
+                for (unsigned r = 0; r < 6; ++r) {
+                    float sum = acc[r];
+                    for (unsigned tt = 0; tt <= r; ++tt) sum = fmaf(d[r * 6 + tt], x[6 * i + tt], sum);
+                    e += (sum - rhs[r]) * (sum - rhs[r]); f += rhs[r] * rhs[r];
+                }
+                atomicAdd(&checkErr, e); atomicAdd(&checkRef, f);
+            }
+        }
+        __syncthreads();
+        if (!threadIdx.x && checkErr > 1e-8f * fmaxf(checkRef, 1e-30f)) printf("direct forward check: component=%u nodes=%u levels=%u top=%u rel=%.3e\n", id, P.nodes, P.levels, P.topLevel, sqrtf(checkErr / fmaxf(checkRef, 1e-30f)));
+        __syncthreads();
+    }
+    // Backward: L^T x = y, rows in descending level order (ancestors first).
+    if (Tb < P.levels) {
+        unsigned buf = 0;
+        // The top level has no entries above it; its rows finish directly while
+        // the other warps gather the early entries of the level below.
+        for (unsigned l = P.levels; l-- > T;) {
+            const unsigned nl = P.levelPtr[l + 1] - P.levelPtr[l];
+            const unsigned WePrev = (l + 1 == P.levels) ? 0u : warps - (P.levelPtr[l + 2] - P.levelPtr[l + 1]);
+            if (warp < nl) {
+                const unsigned i = P.levelCols[P.levelPtr[l] + warp];
+                float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                for (unsigned t = P.lateBwdPtr[i] + lane; t < P.lateBwdPtr[i + 1]; t += 32) directBwdEntry(acc, val, x, P, P.lateBwdIdx[t]);
+                directWarpReduce6(acc);
+                if (lane == 0) {
+                    if (WePrev) { const unsigned parts = WePrev / nl > 0u ? WePrev / nl : 1u; for (unsigned part = 0; part < parts; ++part) for (unsigned r = 0; r < 6; ++r) acc[r] += scratch[buf][warp + part * nl][r]; }
+                    directBwdFinish(val, x, P, i, acc);
+                }
+            } else if (l > Tb) {
+                const unsigned R = P.levelPtr[l] - P.levelPtr[l - 1], We = warps - nl, we = warp - nl, parts = We / R > 0u ? We / R : 1u;
+                for (unsigned idx = we; idx < R * parts; idx += We) {
+                    const unsigned row = idx % R, part = idx / R, i = P.levelCols[P.levelPtr[l - 1] + row], p0 = P.colPtr[i], p1 = P.colPtr[i + 1];
+                    float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                    for (unsigned q = p0 + 1u + part * 32u + lane; q < p1; q += 32u * parts)
+                        if (P.columnLevel[P.rowIdx[q]] != l) directBwdEntry(acc, val, x, P, q);
+                    directWarpReduce6(acc);
+                    if (lane == 0) for (unsigned r = 0; r < 6; ++r) scratch[buf ^ 1u][idx][r] = acc[r];
+                }
+            }
+            __syncthreads();
+            buf ^= 1u;
+            DIRECT_PROBE(4)
+        }
+    }
+    for (unsigned l = Tb; l-- > 0;) {
+        for (unsigned e = P.levelPtr[l] + warp; e < P.levelPtr[l + 1]; e += warps) {
+            const unsigned i = P.levelCols[e], p0 = P.colPtr[i], p1 = P.colPtr[i + 1];
+            float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+            for (unsigned q = p0 + 1 + lane; q < p1; q += 32) directBwdEntry(acc, val, x, P, q);
+            directWarpReduce6(acc);
+            if (lane == 0) directBwdFinish(val, x, P, i, acc);
+        }
+        __syncthreads();
+        DIRECT_PROBE(3)
     }
     if (v.woodbury && v.slots.slotWoodbury[s] == 2u) {
         const NativeDirectOperator op{a.m_node0, a.m_node1, a.m_nodeBondBegin, a.m_nodeBondRef, a.m_nodeIsland, a.m_offset0, a.m_offset1, a.m_inertia, a.m_health, a.m_colScales};
