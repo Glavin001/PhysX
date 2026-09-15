@@ -449,3 +449,12 @@ seeds can skip generations. Expected effect: island insertion and maintenance
 (about 12 ms per sustained tick, 20 ms at impact) leave the CPU path in those
 passes; the sleeping gate (`mPreSolveSleepingDisabled`) is a separate step.
 
+Audited experiment (option (b)-like, `PHYSX_DESTRUCTION_PRESOLVE_SEED_SKIP=1`,
+runtime `63d29cad`, `--audit-islands 1`, 3 s bombardment): device producer
+passes 110 → 266 of 267, fallbacks 157 → 1, island boundary audits 534 with 0
+failures in both runs, broken bonds identical (56,077), motion audit unchanged
+(pre-existing 1.7e-5). The seed inherits node membership only for surviving
+node lifetimes and merges the current graph's edges, so skipping the
+intermediate retained-only generation over-merges nothing the audits can
+detect. Timing and the native suite under the skip follow.
+
