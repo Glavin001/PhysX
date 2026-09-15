@@ -319,6 +319,12 @@ stream after the narrowphase merge and by making the component observation
 asynchronous with host-built member chains; bombardment 34.7 → 32.4 ms,
 histories identical. See [warm-screen.md](warm-screen.md).
 
+**Final state of this branch (2026-09-15, commit `29a478bc` + records).**
+Nine-window warm screen under contract v4: all pass, city256 debris 127 → 74
+ms, cascade 108 → 71, impact 91 → 69, city25 impact 24 → 15. Continuous
+600-tick heavy campaign: 52.3 → 30.7 ms mean, 60 Hz misses 519 → 311, peaks
+unchanged, physical counters identical every tick.
+
 Continuous 600-tick heavy run with elastic reuse enabled: 51.2 → 29.8 ms mean,
 60 Hz misses 519 → 294–300 of 600, peak 182 → 150 ms, physical counters
 identical on every tick (R1 alone: 33.8 ms, 328 misses).

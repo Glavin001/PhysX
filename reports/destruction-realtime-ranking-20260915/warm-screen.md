@@ -540,3 +540,19 @@ Discrete outcomes exact and motion error zero in every window; the force
 deviations are the declared elastic-reuse envelope. Against the plan's
 starting point the sustained windows are at 55–58 % of the baseline; the
 impact peak is unchanged (CPU registration, R2).
+
+## Final continuous 600-tick A/B/A of the shipped defaults (`out/direct-continuous-ab-final-20260915`)
+
+Same procedure as before (two trials per arm, 10 simulated seconds, ordinary
+APIs, sleeping on, one correction), runtime `29a478bc` at its defaults, frozen
+baseline runtime as control before and after. Physical work counters identical
+on every one of the 600 ticks in all four comparisons.
+
+| case | A-before mean | **B mean** | A-after mean | peaks (median) A/B/A | 60 Hz misses A/B/A |
+|---|---:|---:|---:|---|---|
+| idle-256 | 1.64 | 1.77 | 1.65 | 14.0 / 12.5 / 13.2 | 0 / 0 / 0 of 600 |
+| impacts-256 | 52.34 | **30.69** | 52.27 | 173.4 / 178.3 / 182.5 | 519 / **311** / 519 of 600 |
+
+The idle mean carries the 0.1 ms elastic-reuse scan. The heavy mean is at 59 %
+of the baseline with 40 % fewer 60 Hz misses; the remaining misses are the
+impact and cascade ticks whose cost is CPU fragment registration (R2).
