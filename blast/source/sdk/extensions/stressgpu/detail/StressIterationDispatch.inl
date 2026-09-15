@@ -267,7 +267,10 @@
             if(m_direct.enabled && !m_direct.deferred)launchNativeDirectFactor();
             // The device list controls the live work; a bounded persistent
             // grid distributes independent components without a host count.
-            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);
+            // Persistent grid: BLAST_GPU_NATIVE_SOLVE_BLOCKS resident CTAs per SM
+            // (default 2). Components are pulled from a device work cursor, so
+            // more resident CTAs only change the schedule, never a component's result.
+            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm())),kBlockSize,0,m_stream>>>(args,components);
             args.islandIds=components.largeIds;
             args.liveIslandCount=components.largeCount;
             args.largeComponentsOnly=true;

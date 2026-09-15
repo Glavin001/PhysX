@@ -373,6 +373,15 @@ bool nativeDirectEager()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_EAGER"); return !raw || std::string(raw) != "0"; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_SOLVE_BLOCKS: resident CTAs per SM for the per-component
+/// stress solve's persistent grid. Default 4 (2026-09-15: city256 bombardment
+/// 31.1 -> 30.0 ms versus 2, identical histories; thousands of tiny components
+/// are pulled from the work cursor and keep more CTAs busy).
+unsigned nativeSolveBlocksPerSm()
+{
+    static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_SOLVE_BLOCKS"); const long v = raw ? std::atol(raw) : 4; return unsigned(std::min(16L, std::max(1L, v))); }();
+    return value;
+}
 bool nativeDirectEnabled()
 {
     static const bool enabled = []() {

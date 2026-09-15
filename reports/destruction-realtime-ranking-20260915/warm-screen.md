@@ -556,3 +556,11 @@ on every one of the 600 ticks in all four comparisons.
 The idle mean carries the 0.1 ms elastic-reuse scan. The heavy mean is at 59 %
 of the baseline with 40 % fewer 60 Hz misses; the remaining misses are the
 impact and cascade ticks whose cost is CPU fragment registration (R2).
+
+## Resident CTAs for the component solve (lossless)
+
+The per-component solve is a persistent grid that pulls components from a
+device work cursor; it launched two CTAs per SM. With thousands of tiny
+components per solve, more resident CTAs simply keep more of them in flight:
+`BLAST_GPU_NATIVE_SOLVE_BLOCKS` 2 → 4 measures 31.1 → 30.0 ms on the city256
+bombardment (3 → 29.95), histories identical. Four is the new default.
