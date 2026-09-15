@@ -63,3 +63,22 @@ Sanitizers with the candidate runtime: `gpu_resident_stress_3d_test` and
 `native_gpu_correction_body_test` under memcheck, all report zero errors
 (`out/direct-factor-feasibility-20260915/sanitizers.log`). Not established by
 this screen: continuous 600-tick trajectories (running separately) and full52.
+
+## Continuous 600-tick A/B/A (10 simulated seconds, `run-destruction-ab.py`)
+
+Arms `out/direct-ab-arms/{A,B}` (identical demo and GPU module; runtime `d5770a80…`
+versus `aa2ca56f…`), config `destruction-ordinary-ab.json`, two trials per arm,
+results `out/direct-continuous-ab-20260915/`. Physical work counters (bodies,
+awake bodies, clusters, contacts, stress nodes/bonds/islands, bonds broken,
+correction passes) match the control on every one of the 600 ticks in both
+cases; only stress iteration counts differ.
+
+| case | A-before mean | **B mean** | A-after mean | peaks (median) A/B/A | 60 Hz misses A/B/A |
+|---|---:|---:|---:|---|---|
+| idle-256 (no projectiles) | 1.580 | 1.585 | 1.644 | 12.0 / 24.7 / 13.7 | 0 / 1 / 0 of 600 |
+| impacts-256 (one 256-shot wave) | 51.41 | **33.81** | 51.35 | 183.3 / 181.2 / 184.0 | 519 / **328** / 519 of 600 |
+
+The idle peak is the first tick: the candidate factorizes every initial
+component once (about 13 ms extra on tick 0). Initialization rose from about
+2.2 s to 2.8 s per process for the host symbolic analysis; sharing symbolic
+structures across identical assets removes most of that (next commit).
