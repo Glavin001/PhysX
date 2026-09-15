@@ -38,7 +38,8 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
     // allocation, so the default stays off until those consumers are migrated.
     PxHashMap<PxU32,NpRigidDynamic*> mPlaceholders;
     static bool poolEnabled() {
-        static const bool enabled=[](){const char* raw=getenv("PHYSX_DESTRUCTION_BODY_POOL");return raw && strcmp(raw,"0")!=0;}();
+        // Default on (2026-09-15); PHYSX_DESTRUCTION_BODY_POOL=0 disables the pre-created pool.
+        static const bool enabled=[](){const char* raw=getenv("PHYSX_DESTRUCTION_BODY_POOL");return !raw || strcmp(raw,"0")!=0;}();
         return enabled;
     }
     NpRigidDynamic* source(PxU32 id, bool allowReservation=false) const {
@@ -258,6 +259,11 @@ public:
         }
         indices=mGrantedNodes.begin();return true;
     }
+    PxU64 placeholderLifetime(PxU32 node) const override {
+        if(!mPlaceholders.find(node))return 0;
+        const PxU64 lifetime=mScene.getScScene().getSimpleIslandManager()->getAccurateIslandSim().getPreSolveLifetime(node);
+        return lifetime?lifetime:1; // a live placeholder node always owns at least one lifetime
+    }
     bool prepare(const PxvDestructionBodyRequest* requests,PxU32 count,const PxU32* indices) override {
         if(count && (!requests || !indices))return false;
         // Validate all GPU-selected addresses before creating a compatibility
@@ -296,7 +302,9 @@ public:
                     body=placeholder->second;mPlaceholders.erase(indices[i]);
                     // Placeholders are kinematic and inactive; an unsupported
                     // fragment becomes dynamic exactly as a fresh reservation would be.
-                    if(!request.supported)body->getCore().setFlags(PxRigidBodyFlags());
+                    // Device-owner transaction: the GPU allocation owns motion and
+                    // broadphase state for this body, so no CPU-side republication.
+                    if(!request.supported)body->getCore().setFlags(PxRigidBodyFlags(),true);
                 }
             }
             if(!body)body=reserve(request.supported!=0,indices[i]);

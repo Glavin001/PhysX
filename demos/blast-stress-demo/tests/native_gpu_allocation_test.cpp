@@ -9,6 +9,7 @@
 #include "PxgSimulationCore.h"
 #include "PxgDestructionRuntime.h"
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <PxDestructionScene.h>
 #include <cuda.h>
@@ -126,8 +127,11 @@ void run(bool sleeping,bool accelerations) {
     auto fracture=[&]{scene.simulate(1.0f/60);PxU32 error=0;require(!scene.fetchResults(true,&error)&&error&&stage->getLastStatus().error==8,"unimplemented correction falsely completed or reservation failed");};
     configure(2,false);step(scene);require(!internal.getNbDestructionBodyCandidates(),"intact cluster allocated per-chunk motion slots");
     configure(2,true);fracture();const auto first=observe(2);
-    require(core.getBodySimStorageCapacity()>controller.getBodySimManager().mTotalNumBodies,
-        "first split did not exercise spare storage separation");
+    // In-tick growth reserves spare storage beyond the registered bodies. With the
+    // pre-created body pool the pool itself is the spare capacity.
+    if(std::getenv("PHYSX_DESTRUCTION_BODY_POOL") && std::strcmp(std::getenv("PHYSX_DESTRUCTION_BODY_POOL"),"0")==0)
+        require(core.getBodySimStorageCapacity()>controller.getBodySimManager().mTotalNumBodies,
+            "first split did not exercise spare storage separation");
     // An uncommitted slot must not be accepted as a new graph's source:
     // reconfiguration would release that reservation while retaining its ID.
     PxDestructionStressChunk privateChunk{PxVec3(0),1,1,0,PX_INVALID_U32};
@@ -293,8 +297,16 @@ void membership() {
         const auto nodes=islands.getNbNodes();
         require(!allocator.reserveNodeCapacity(PX_INVALID_U32,granted),"overflowing native capacity grant accepted");
         require(allocator.reserveNodeCapacity(count+1,granted),"native address capacity grant failed");
+        // Address grants publish no actors, activate nothing and create no
+        // fragment records. With the pre-created body pool enabled
+        // (PHYSX_DESTRUCTION_BODY_POOL), each newly granted node owns an inactive
+        // kinematic placeholder body, so the island node count grows by the grant.
+        const char* poolEnv=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");
+        const bool pool=!(poolEnv && std::strcmp(poolEnv,"0")==0); // default on
+        const PxU32 newlyGranted=cycle?0u:count+1u;
         require(!allocator.size() && scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)==1
-            && islands.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE)==active && islands.getNbNodes()==nodes,
+            && islands.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE)==active
+            && islands.getNbNodes()==nodes+(pool?newlyGranted:0u),
             "address capacity created simulation bodies");
         for(PxU32 i=0;i<count;++i)ids[i]=granted[i];
         const auto selected=ids;

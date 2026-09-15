@@ -8,6 +8,7 @@ struct NativeMotionAddresses {
     const PxU32* indices;PxU32 capacity;PxgDestructionMotionStorage storage;
     PxU32* ordinals;PxU32* error;
     PxvPreSolveNode* nodes;PxU32 nodeCapacity;
+    const PxU64* placeholderLifetimes; // per granted position: the CPU placeholder's island lifetime (pool), 0 when none; or null
 };
 __global__ void registerNativeMotionAddresses(NativeMotionAddresses v) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=v.capacity)return;
@@ -121,7 +122,7 @@ __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
             const auto storage=v.addresses->storage;
             if(id==~PxU32(0) || id==request.sourceBody)atomicOr(&v.allocation->error,4u);
             if(!storage.bodies || id>=storage.capacity || request.sourceBody>=storage.capacity)
-                atomicOr(&v.allocation->error,16u);
+                atomicOr(&v.allocation->error,16u|1024u); // reason: body storage bounds
             else {
                 // Resolve against registered immutable ownership. A corrupted
                 // grant cannot redirect a write into an ordinary/foreign body.
@@ -135,10 +136,10 @@ __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
             }
             if(!v.addresses->nodes || id>=v.addresses->nodeCapacity
                 || (v.births->initialize && v.addresses->nodes[id].lifetime==~PxU64(0)))
-                atomicOr(&v.allocation->error,16u);
+                atomicOr(&v.allocation->error,16u|2048u); // reason: node roster bounds or retired node
             const auto candidate=v.candidates[request.candidateSlot];
             if(candidate.cluster!=request.cluster || candidate.sourceBody!=request.sourceBody || candidate.supported!=request.supported)
-                atomicOr(&v.allocation->error,16u);
+                atomicOr(&v.allocation->error,16u|4096u); // reason: candidate record mismatch
         }
         offset+=total;__syncthreads();
     }
@@ -156,7 +157,12 @@ __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
             storage.bodies[id]=b;
             if(v.births->initialize) {
                 auto& node=v.addresses->nodes[id];
-                node={node.lifetime+1,0,PxU32(!request.supported)};
+                // A pooled placeholder already consumed one island lifetime on the
+                // CPU; it advances again only when the fragment becomes dynamic.
+                const PxU64 placeholder=v.addresses->placeholderLifetimes?v.addresses->placeholderLifetimes[v.pool->committed+i]:0ull;
+                const PxU64 base=placeholder?placeholder:node.lifetime;
+                const PxU64 advance=placeholder?(request.supported?0ull:1ull):1ull;
+                node={base+advance,0,PxU32(!request.supported)};
             }
             if(storage.previous){storage.previous[id].linearVelocity=b.linearVelocityXYZ_inverseMassW;
                 storage.previous[id].angularVelocity=b.angularVelocityXYZ_maxPenBiasW;}
@@ -266,10 +272,10 @@ public:
         return registerAddresses(stream);
     }
     cudaError_t setResources(const PxU32* indices,PxU32 capacity,
-        const PxgDestructionMotionStorage& storage,cudaStream_t stream) {
+        const PxgDestructionMotionStorage& storage,cudaStream_t stream,const PxU64* placeholderLifetimes=nullptr) {
         // Combined exceptional growth: build the new index once, after both
         // the immutable address prefix and borrowed body storage are ready.
-        mHostAddresses.indices=indices;mHostAddresses.capacity=capacity;
+        mHostAddresses.indices=indices;mHostAddresses.capacity=capacity;mHostAddresses.placeholderLifetimes=placeholderLifetimes;
         mHostAddresses.storage=storage;return registerAddresses(stream);
     }
     cudaError_t setStorage(const PxgDestructionMotionStorage& storage,cudaStream_t stream) {

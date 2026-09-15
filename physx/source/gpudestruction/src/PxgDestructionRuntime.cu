@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cstdio>
 #include <thrust/iterator/counting_iterator.h>
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxgDestructionRuntime.h"
@@ -569,7 +570,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxvDestructionBodyRequest* mBodyRequests{};
     PxvDestructionBodyRequest* mCompactBodyRequests{};
     PxU32* mReturnedBodyIndices{}; // GPU-selected; CPU consumes a compatibility observation
-    PxU32* mGrantedMotionIndices{};
+    PxU32* mGrantedMotionIndices{};PxU64* mGrantedPlaceholders{};
     PxDestructionMotionSlotStatus* mMotionSlots{};
     PxU32 mMotionSlotCapacity{},mCommittedMotionSlots{}; // capacity accounting, not allocation decisions
     NativeMotionAllocation mMotionAllocation;
@@ -1091,7 +1092,7 @@ public:
         if(mBodyAllocator)mBodyAllocator->clear();
         cudaFree(mCompactBodyRequests);mCompactBodyRequests=nullptr;
         cudaFree(mReturnedBodyIndices);mReturnedBodyIndices=nullptr;
-        cudaFree(mGrantedMotionIndices);mGrantedMotionIndices=nullptr;
+        cudaFree(mGrantedMotionIndices);mGrantedMotionIndices=nullptr;cudaFree(mGrantedPlaceholders);mGrantedPlaceholders=nullptr;
         cudaFree(mMotionSlots);mMotionSlots=nullptr;mMotionSlotCapacity=mCommittedMotionSlots=0;
         mDevicePreparation.clear();mMotionAllocation.clear();
         cudaFree(mBodyRequests);mBodyRequests=nullptr;cudaFree(mTrialBodyIndices);mTrialBodyIndices=nullptr;
@@ -1433,6 +1434,7 @@ public:
                 mInitialPoolReserved=true;
                 const PxU32 pool=initialBodyPool(mN);
                 if(pool>mMotionSlotCapacity){PxProfileScoped setup(mProfiler,"GpuDestruction.setup.reserveBodyPool",false,mProfileContext);growMotionSlots(pool);}
+                bodyStates=mMotionStorage.bodies; // growth may have moved the body storage
             }
             // Join borrowed NP streams and the native body's last writer before
             // reading either. Recording the existing input event on the body
@@ -1442,7 +1444,9 @@ public:
             check(cudaEventRecord(mInput,producerStream));
             check(cudaStreamWaitEvent(mStream,mInput,0));
             if(mTopology) {
-                check(mMotionAllocation.setStorage(storage,mStream));
+                // The first-advance pool reservation above may have grown the
+                // motion storage; the caller's view predates that growth.
+                check(mMotionAllocation.setStorage(mMotionStorage,mStream));
                 check(mMotionAllocation.setNodes(mPreNodes,mPreRegistryCapacity,mStream));
                 prepareDeviceInputs();
             }
@@ -1611,16 +1615,26 @@ public:
         PxU32* next=nullptr;allocate(next,capacity);
         try {check(cudaMemcpyAsync(next,granted,size_t(capacity)*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));}
         catch(...){cudaFree(next);throw;}
+        // Pooled placeholders: the GPU birth rule needs to know which granted
+        // nodes already carry a CPU body (see assignNativeMotionOwners).
+        std::vector<PxU64> placeholderLifetimes(capacity,0ull);PxU32 placeholderCount=0;
+        for(PxU32 i=0;i<capacity;++i){placeholderLifetimes[i]=mBodyAllocator->placeholderLifetime(granted[i]);if(placeholderLifetimes[i])++placeholderCount;}
+        PxU64* nextFlags=nullptr;
+        if(placeholderCount) {
+            allocate(nextFlags,capacity);
+            try {check(cudaMemcpyAsync(nextFlags,placeholderLifetimes.data(),size_t(capacity)*sizeof(PxU64),cudaMemcpyHostToDevice,mStream));}
+            catch(...){cudaFree(nextFlags);cudaFree(next);throw;}
+        }
         check(cudaFree(mGrantedMotionIndices));mGrantedMotionIndices=next;mMotionSlotCapacity=capacity;
-        check(mMotionAllocation.setResources(mGrantedMotionIndices,mMotionSlotCapacity,mMotionStorage,mStream));
+        check(cudaFree(mGrantedPlaceholders));mGrantedPlaceholders=nextFlags;
+        check(mMotionAllocation.setResources(mGrantedMotionIndices,mMotionSlotCapacity,mMotionStorage,mStream,mGrantedPlaceholders));
     }
     static PxU32 initialBodyPool(PxU32 chunkCount) {
-        // Opt-in: PHYSX_DESTRUCTION_BODY_POOL=N reserves N native bodies (with
-        // CPU placeholders) at the first advance; PHYSX_DESTRUCTION_BODY_POOL=auto
-        // uses one body per eight chunks clamped to [256, 16384]. Default: none.
+        // PHYSX_DESTRUCTION_BODY_POOL=N reserves N native bodies (with CPU
+        // placeholders) at the first advance; unset or "auto" (the default) uses
+        // one body per eight chunks clamped to [256, 16384]; 0 disables the pool.
         const char* raw=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");
-        if(!raw)return 0u;
-        if(std::string(raw)=="auto")return PxU32(std::min<PxU64>(16384,std::max<PxU64>(256,PxU64(chunkCount)/8)));
+        if(!raw || std::string(raw)=="auto")return PxU32(std::min<PxU64>(16384,std::max<PxU64>(256,PxU64(chunkCount)/8)));
         return PxU32(std::max(0L,std::atol(raw)));
     }
     bool mInitialPoolReserved=false;
@@ -1629,6 +1643,10 @@ public:
         mHostReservedIndices.clear();mCompatibilityPrepared=false;
         if(!mTopology)return;
         mHostBodyAllocation=*mBodyAllocationObservation;
+        if(std::getenv("PHYSX_DESTRUCTION_ALLOC_DIAG"))
+            std::fprintf(stderr,"native allocation diag: valid=%u error=%u initializationError=%u count=%u reserved=%u initialized=%u stage=%u slots=%u\n",
+                unsigned(mHostBodyAllocation.valid),unsigned(mHostBodyAllocation.error),unsigned(mHostBodyAllocation.initializationError),
+                unsigned(mHostBodyAllocation.count),unsigned(mHostBodyAllocation.reserved),unsigned(mHostBodyAllocation.initialized),unsigned(mHostStatus->error),unsigned(mMotionSlotCapacity));
         auto& allocation=mHostBodyAllocation;
         if(mHostStatus->error!=8u || !mHostBodyPreparation->valid) {
             if(mBodyAllocator)mBodyAllocator->discardReservations();return;

@@ -5,6 +5,7 @@
 #include "PxgSolverCore.h"
 #include "cudamanager/PxCudaContextManager.h"
 #include <cuda.h>
+#include <cstdio>
 #include <vector>
 #include <map>
 #include <stdexcept>
@@ -19,8 +20,11 @@ inline void verify(physx::PxgGpuContext& gpu,physx::PxCudaContextManager& cuda) 
                 && cuMemcpyDtoH(actual.data(),gpu.getPreSolveNodeDevicePointer(),actual.size()*sizeof(actual[0]))!=CUDA_SUCCESS))
                 throw std::runtime_error("CUDA pre-solve node audit readback failed");}
         for(PxU32 i=0;i<actual.size();++i)if(actual[i].lifetime!=expected[i].lifetime || actual[i].live!=expected[i].live
-            || actual[i].staticTouches!=(gpu.preSolveNodesUseNativeSupport()?expected[i].staticTouches:0u))
-            throw std::runtime_error("persistent CUDA node record differs from full native pre-solve snapshot");
+            || actual[i].staticTouches!=(gpu.preSolveNodesUseNativeSupport()?expected[i].staticTouches:0u)) {
+            std::fprintf(stderr,"pre-solve roster mismatch: node=%u gpu lifetime=%llu live=%u touches=%u expected lifetime=%llu live=%u touches=%u\n",
+                i,(unsigned long long)actual[i].lifetime,actual[i].live,actual[i].staticTouches,
+                (unsigned long long)expected[i].lifetime,expected[i].live,expected[i].staticTouches);
+            throw std::runtime_error("persistent CUDA node record differs from full native pre-solve snapshot");}
     }
     if(gpu.getPreSolveSupportDevicePointer()) {
         const auto& expected=gpu.getExpectedPreSolveNodes();std::vector<PxU32> support(expected.size());

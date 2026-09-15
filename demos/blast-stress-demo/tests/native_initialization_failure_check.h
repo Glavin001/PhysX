@@ -9,6 +9,9 @@ void nativeInitializationFailure() {
         Fault(){require(!PxGetProfilerCallback(),"fault test profiler already occupied");PxSetProfilerCallback(this);}
         ~Fault()override{PxSetProfilerCallback(nullptr);}
         void* zoneStart(const char* name,bool,PxU64)override {
+            // Corrupt the candidate record between in-tick capacity growth and the
+            // retried allocation. This fixture exercises the growth path, so it
+            // opts out of the pre-created body pool (see below).
             if(stage && std::strcmp(name,"GpuDestruction.finishDetail.growMotionSlots")==0 && !injected.exchange(true)) {
                 PxScopedCudaLock lock(*cuda);const auto view=stage->getDeviceView();
                 PxDestructionClusterBodyState candidate;
@@ -23,10 +26,15 @@ void nativeInitializationFailure() {
         }
         void zoneEnd(void*,const char*,bool,PxU64)override{}
     } fault;
+    setenv("PHYSX_DESTRUCTION_BODY_POOL","0",1); // growth-path fixture: no pre-created pool
     Fixture f(4,0,false);f.desc.internalCorrectionLimit=1;f.configure();
     fault.cuda=&f.cuda;fault.stage=f.stage;
     f.scene.simulate(1.0f/60);PxU32 error=0;
-    require(!f.scene.fetchResults(true,&error) && error && fault.injected && !fault.failed,
+    const bool completed=f.scene.fetchResults(true,&error);
+    if(completed || !error || !fault.injected || fault.failed)
+        std::fprintf(stderr,"initialization failure fixture: completed=%u error=%u injected=%u failed=%u stage=%u\n",
+            unsigned(completed),error,unsigned(fault.injected.load()),unsigned(fault.failed.load()),f.stage->getLastStatus().error);
+    require(!completed && error && fault.injected && !fault.failed,
         "native initialization failure was not exercised/rejected");
     require(f.stage->getLastStatus().error==(8u|4u|256u|512u),"mandatory completion lost initialization failure");
     f.assertUncommitted();

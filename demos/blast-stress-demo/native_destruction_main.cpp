@@ -375,6 +375,9 @@ int run(int argc,char** argv){
                     motionTrace<<','<<status.correctionPasses<<'\n';
                 }
                 const float error=(actual.p-poses[i].pose.p).magnitude();maxMotionError=std::max(maxMotionError,error);
+                if(error>0 && std::getenv("PHYSX_MOTION_AUDIT_VERBOSE"))
+                    std::fprintf(stderr,"motion audit nonzero step=%u chunk=%u cluster=%u body=%u error=%.9g actual=(%.9g,%.9g,%.9g) recorded=(%.9g,%.9g,%.9g)\n",
+                        frame,i,membership[i],owners[i],error,actual.p.x,actual.p.y,actual.p.z,poses[i].pose.p.x,poses[i].pose.p.y,poses[i].pose.p.z);
                 // Compare orientation independently of floating-point quaternion norm drift.
                 const float orientationDot=std::abs(actual.q.getNormalized().dot(poses[i].pose.q.getNormalized()));
                 if(!(error<1e-3f && orientationDot>1-1e-5f)) {

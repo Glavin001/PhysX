@@ -354,6 +354,8 @@ class NpScene : public NpSceneAccessor, public PxUserAllocated
     // Internal transaction reservations, not committed public actors.
     NpRigidDynamic* getDestructionBodyCandidate(PxU32 cluster) const;
     PxU32 getNbDestructionBodyCandidates() const;
+    // True when a granted native node handle already owns an inactive pooled placeholder body.
+    bool hasDestructionPlaceholder(PxU32 node) const;
 
 	// NpSceneAccessor
 	virtual			PxsSimulationController*		getSimulationController()	PX_OVERRIDE PX_FINAL;

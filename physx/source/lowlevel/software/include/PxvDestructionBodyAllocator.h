@@ -53,6 +53,14 @@ public:
     // Exceptional capacity grant, containing indices only. No solver bodies are
     // created here. The returned immutable prefix survives until clear().
     virtual bool reserveNodeCapacity(PxU32 capacity,const PxU32*& indices) = 0;
+    /// True when the granted node already has an inactive CPU placeholder body
+    /// (pre-created body pool). Such a node's island lifetime was consumed by the
+    /// placeholder; claiming it as a supported (kinematic) fragment keeps that
+    /// lifetime, claiming it as a dynamic fragment advances it once.
+    virtual bool hasPlaceholder(PxU32 node) const { return placeholderLifetime(node)!=0; }
+    /// The placeholder's current island pre-solve lifetime (0 when the node has
+    /// no placeholder). The GPU birth rule uses it as the base lifetime.
+    virtual PxU64 placeholderLifetime(PxU32) const { return 0; }
     // Materialize compatibility records at indices already selected by CUDA.
     // This bridge cannot choose or replace a requested native index.
     virtual bool prepare(const PxvDestructionBodyRequest* requests,PxU32 count,const PxU32* indices) = 0;

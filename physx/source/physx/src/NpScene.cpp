@@ -3847,6 +3847,10 @@ PxU32 NpScene::getNbDestructionBodyCandidates() const
 {
     return mDestructionBodyAllocator?mDestructionBodyAllocator->size():0;
 }
+bool NpScene::hasDestructionPlaceholder(PxU32 node) const
+{
+    return mDestructionBodyAllocator && mDestructionBodyAllocator->hasPlaceholder(node);
+}
 
 PxDirectGPUAPI& NpScene::getDirectGPUAPI()
 {

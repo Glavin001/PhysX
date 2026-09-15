@@ -39,10 +39,17 @@ void preparationBeforeCompatibility(bool ordinary=false) {
                 unsigned registered=0;
                 auto& scene=static_cast<NpScene&>(fixture->scene).getScScene();
                 for(PxU32 id:targets) {
-                    if(!scene.getSimpleIslandManager()->isUnusedNativeNodeHandle(id))continue;
+                    const bool placeholder=static_cast<NpScene&>(fixture->scene).hasDestructionPlaceholder(id);
+                    if(!placeholder && !scene.getSimpleIslandManager()->isUnusedNativeNodeHandle(id))continue;
                     PxvPreSolveNode node{};check(cuMemcpyDtoH(&node,CUdeviceptr(nodes+id),sizeof(node)));
-                    require(node.lifetime==scene.getSimpleIslandManager()->getAccurateIslandSim().getPreSolveLifetime(id)+1
-                        && node.live==1 && !node.staticTouches,
+                    // A fresh handle is born on the GPU one lifetime ahead of the CPU
+                    // (which materializes later). A pooled placeholder already owns a
+                    // CPU lifetime; a dynamic fragment claiming it advances once.
+                    const PxU64 cpuLifetime=scene.getSimpleIslandManager()->getAccurateIslandSim().getPreSolveLifetime(id);
+                    if(!(node.lifetime==cpuLifetime+1 && node.live==1 && !node.staticTouches))
+                        std::fprintf(stderr,"birth roster mismatch: node=%u placeholder=%u gpu lifetime=%llu live=%u touches=%u cpu lifetime=%llu\n",
+                            id,unsigned(placeholder),(unsigned long long)node.lifetime,node.live,node.staticTouches,(unsigned long long)cpuLifetime);
+                    require(node.lifetime==cpuLifetime+1 && node.live==1 && !node.staticTouches,
                         "fragment simulation birth still waits for CPU materialization");
                     ++registered;
                 }
@@ -103,7 +110,13 @@ void preparationBeforeCompatibility(bool ordinary=false) {
     f.bonds[1].area=f.bonds[1].health=f.bonds[2].area=f.bonds[2].health=100;f.configure();observe.fixture=&f;
     step(f.scene);
     if(observe.failed)throw std::runtime_error("GPU preparation/CPU compatibility ordering failed: "+observe.error);
-    require(observe.observed && observe.constructed && observe.growths==1,"initial growth ordering was not exercised");
+    // With the pre-created body pool (PHYSX_DESTRUCTION_BODY_POOL) capacity is
+    // granted at the first advance, so the first fracture already takes the
+    // normal boundary; otherwise it must exercise exactly one in-tick growth.
+    const char* poolEnv=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");
+    const bool pooled=!(poolEnv && std::strcmp(poolEnv,"0")==0); // default on
+    if(pooled)require(observe.observed && observe.constructed && observe.normalBoundary && observe.growths==0,"pooled capacity still grew in the tick");
+    else require(observe.observed && observe.constructed && observe.growths==1,"initial growth ordering was not exercised");
     auto status=f.stage->getLastStatus();
     require(status.brokenBonds==1 && status.correctionPasses==1 && status.stressPasses==2,
         "first load did not leave two intact bonds for the resident retry-free path");
@@ -111,7 +124,7 @@ void preparationBeforeCompatibility(bool ordinary=false) {
     observe.expectedNew=2;observe.expectedOwners=3;observe.expectedShapes=3;
     f.scene.setGravity(PxVec3(0,-100000,0));step(f.scene);
     if(observe.failed)throw std::runtime_error("GPU preparation/CPU compatibility ordering failed: "+observe.error);
-    require(observe.observed && observe.constructed && observe.normalBoundary && observe.growths==1,
+    require(observe.observed && observe.constructed && observe.normalBoundary && observe.growths==(pooled?0u:1u),
         "normal GPU preparation still needs allocation growth or host resubmission");
     status=f.stage->getLastStatus();
     require(status.brokenBonds==2 && status.correctionPasses==1 && status.stressPasses==2,
