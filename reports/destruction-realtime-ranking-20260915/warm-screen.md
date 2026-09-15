@@ -599,3 +599,13 @@ then run sequentially behind two block barriers each, which costs more than
 the wider dot product saves. The direct solve's latency is barrier-bound, not
 bandwidth-bound; shortening it needs fewer levels (ordering), not more lanes
 per row.
+
+## Measurement note: paired ratios, not absolute means
+
+Across the last four consecutive 3 s bombardment A/Bs on the same code the
+frozen control arm drifted 55.8 → 56.2 → 56.9 → 57.5 ms while the candidate
+moved 30.1 → 30.7 → 31.7 → 31.5 ms; the candidate-to-control ratio stayed at
+0.54–0.56. Absolute means move with the machine's state over a long session
+(the GPU idles at 180 MHz between runs and boosts to 3.09 GHz), so any claim
+smaller than about 1.5 ms should be read from the paired ratio or from
+interleaved repeats, as done for the body pool.
