@@ -135,3 +135,28 @@ reference; 400 supported / 44 detached / 182 broken bonds and 1 correction per
 step maximum, exactly as the reference; maximum position error 0.0 m; cluster
 COM error 2.0e-6 m (same as reference); peak physics tick 17.85 ms versus the
 reference run's 26.95 ms.
+
+## R2 first step: pre-created fragment body pool (opt-in, measured, not default)
+
+The GPU motion-slot allocator hands out granted node handles sequentially, so the
+CPU can pre-create private placeholder bodies bound to those handles and take
+them at fracture instead of creating and adding a `BodySim` inside the tick
+(`NpDestructionBodyAllocator` placeholders; `PHYSX_DESTRUCTION_BODY_POOL=N|auto`).
+256-building bombardment A/B, 3 s, identical physical histories, pool `auto`
+(14,208 placeholders reserved at the first advance):
+
+| window | control | R1 alone | R1 + pool |
+|---|---:|---:|---:|
+| impact tick 82 | 173.8 ms | ≈176–183 ms | 161.5 ms |
+| ticks 82–99 mean | 88.0 ms | ≈76–79 ms | 66.1 ms |
+| first idle tick (pool creation) | 12.5 ms | 11.6 ms | 29.3 ms |
+
+The frozen wall passes with the pool on (identical topology, 400/44/182, zero
+position error, peak 16.9 ms). It is **not** the default because placeholders
+are island nodes: eight native lifecycle tests assert that address capacity
+creates no simulation bodies and that CPU edge flood fill matches the GPU
+contact components, and both audits see the shape-less placeholder nodes.
+Migrating those consumers (island audits, body-count expectations, first-advance
+placement of the creation cost) is the next R2 step; the code stays opt-in.
+Stream priorities for the destruction and stress streams (`PHYSX_DESTRUCTION_STREAM_PRIORITY`,
+`BLAST_GPU_STREAM_PRIORITY`) measured no change (36.3 vs 36.5 ms) and stay on.

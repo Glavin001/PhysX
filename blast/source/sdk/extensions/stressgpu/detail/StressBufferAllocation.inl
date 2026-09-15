@@ -167,7 +167,7 @@
         std::fill(m_hostIslandSkip, m_hostIslandSkip + m_islandCount, 0u);
 
         checkCuda(
-            cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking),
+            cudaStreamCreateWithPriority(&m_stream, cudaStreamNonBlocking, streamPriority()),
             "create solver stream");
 #ifndef PHYSX_RESIDENT_DESTRUCTION
         // Capture-only: the conditional loop body is captured onto this stream

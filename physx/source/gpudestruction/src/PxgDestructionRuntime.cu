@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <thrust/iterator/counting_iterator.h>
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxgDestructionRuntime.h"
@@ -673,7 +674,15 @@ public:
     Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
         Context current(c);
         mRigidIterationLimits.initialize();
-        check(cudaStreamCreateWithFlags(&mStream,cudaStreamNonBlocking));
+        {
+            // Destruction work gates the correction and the second stress pass;
+            // give it the highest stream priority so it is not queued behind the
+            // ordinary rigid solve when both are pending (env PHYSX_DESTRUCTION_STREAM_PRIORITY=0 disables).
+            int lo=0,hi=0;check(cudaDeviceGetStreamPriorityRange(&lo,&hi));
+            const char* raw=std::getenv("PHYSX_DESTRUCTION_STREAM_PRIORITY");
+            const bool prioritized=!raw || std::string(raw)!="0";
+            check(cudaStreamCreateWithPriority(&mStream,cudaStreamNonBlocking,prioritized?hi:0));
+        }
         check(cudaEventCreateWithFlags(&mInput,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mReady,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mCheckpointReady,cudaEventDisableTiming));
@@ -1420,6 +1429,11 @@ public:
         const auto* bodyStates=storage.bodies;
         try {Context current(mContext);
             mCollisionStorage=collision;mMotionStorage=storage;mGrowMotionStorage=growStorage;mMotionStorageOwner=storageOwner;mMotionProducerStream=producerStream;if(!configured() || dt<=0 || !bodyStates || !producerStream)return false;
+            if(!mInitialPoolReserved && mTopology && mBodyAllocator) {
+                mInitialPoolReserved=true;
+                const PxU32 pool=initialBodyPool(mN);
+                if(pool>mMotionSlotCapacity){PxProfileScoped setup(mProfiler,"GpuDestruction.setup.reserveBodyPool",false,mProfileContext);growMotionSlots(pool);}
+            }
             // Join borrowed NP streams and the native body's last writer before
             // reading either. Recording the existing input event on the body
             // producer preserves the previous API-gather ordering without
@@ -1571,6 +1585,45 @@ public:
             ? "GpuDestruction.cuda.allocationAndPreparationRetry" : "GpuDestruction.cuda.allocationAndPreparation",mProfileContext);
         mMotionTimingPending=false;
     }
+    // Grant native motion/body capacity: island node handles (with their CPU
+    // placeholder bodies when the pool is enabled), raw PhysX motion storage and
+    // the device address list the GPU allocator consumes sequentially.
+    void growMotionSlots(PxU32 capacity) {
+        const PxU32* granted=nullptr;
+        if(!mBodyAllocator || !mBodyAllocator->reserveNodeCapacity(capacity,granted))
+            throw std::runtime_error("native motion index capacity grant failed");
+        // Grow raw PhysX motion storage before any compatibility body exists.
+        // This is an exceptional resource grant, not a CPU fragment decision.
+        PxU32 storageCount=mMotionStorage.capacity;
+        for(PxU32 i=0;i<capacity;++i) {
+            if(granted[i]==PX_INVALID_U32)throw std::runtime_error("invalid native motion storage address");
+            storageCount=std::max(storageCount,granted[i]+1);
+        }
+        if(!mGrowMotionStorage || !mGrowMotionStorage(mMotionStorageOwner,storageCount,mMotionStorage)
+            || mMotionStorage.capacity<storageCount || !mMotionStorage.bodies)
+            throw std::runtime_error("native motion storage capacity grant failed");
+        check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(mMotionProducerStream)));
+        check(cudaStreamWaitEvent(mStream,mInput,0));
+        check(cudaStreamWaitEvent(mStream,mPreReady,0));
+        if(mGraphView.generation)check(cudaStreamWaitEvent(mStream,mGraphReady,0));
+        growNativeNodeStorage(mMotionStorage.capacity,mStream);
+        check(mMotionAllocation.setNodes(mPreNodes,mPreRegistryCapacity,mStream));
+        PxU32* next=nullptr;allocate(next,capacity);
+        try {check(cudaMemcpyAsync(next,granted,size_t(capacity)*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));}
+        catch(...){cudaFree(next);throw;}
+        check(cudaFree(mGrantedMotionIndices));mGrantedMotionIndices=next;mMotionSlotCapacity=capacity;
+        check(mMotionAllocation.setResources(mGrantedMotionIndices,mMotionSlotCapacity,mMotionStorage,mStream));
+    }
+    static PxU32 initialBodyPool(PxU32 chunkCount) {
+        // Opt-in: PHYSX_DESTRUCTION_BODY_POOL=N reserves N native bodies (with
+        // CPU placeholders) at the first advance; PHYSX_DESTRUCTION_BODY_POOL=auto
+        // uses one body per eight chunks clamped to [256, 16384]. Default: none.
+        const char* raw=std::getenv("PHYSX_DESTRUCTION_BODY_POOL");
+        if(!raw)return 0u;
+        if(std::string(raw)=="auto")return PxU32(std::min<PxU64>(16384,std::max<PxU64>(256,PxU64(chunkCount)/8)));
+        return PxU32(std::max(0L,std::atol(raw)));
+    }
+    bool mInitialPoolReserved=false;
     void reserveBodySlots() {
         PxProfileScoped profile(mProfiler,"GpuDestruction.finishDetail.reserveBodies",false,mProfileContext);
         mHostReservedIndices.clear();mCompatibilityPrepared=false;
@@ -1587,30 +1640,7 @@ public:
             PxProfileScoped growth(mProfiler,"GpuDestruction.finishDetail.growMotionSlots",false,mProfileContext);
             const PxU32 capacity=PxU32(std::min<PxU64>(PX_INVALID_U32,
                 std::max<PxU64>(needed,std::max<PxU64>(256,PxU64(mMotionSlotCapacity)+mMotionSlotCapacity/2))));
-            const PxU32* granted=nullptr;
-            if(!mBodyAllocator || !mBodyAllocator->reserveNodeCapacity(capacity,granted))
-                throw std::runtime_error("native motion index capacity grant failed");
-            // Grow raw PhysX motion storage before any compatibility body exists.
-            // This is an exceptional resource grant, not a CPU fragment decision.
-            PxU32 storageCount=mMotionStorage.capacity;
-            for(PxU32 i=0;i<capacity;++i) {
-                if(granted[i]==PX_INVALID_U32)throw std::runtime_error("invalid native motion storage address");
-                storageCount=std::max(storageCount,granted[i]+1);
-            }
-            if(!mGrowMotionStorage || !mGrowMotionStorage(mMotionStorageOwner,storageCount,mMotionStorage)
-                || mMotionStorage.capacity<storageCount || !mMotionStorage.bodies)
-                throw std::runtime_error("native motion storage capacity grant failed");
-            check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(mMotionProducerStream)));
-            check(cudaStreamWaitEvent(mStream,mInput,0));
-            check(cudaStreamWaitEvent(mStream,mPreReady,0));
-            if(mGraphView.generation)check(cudaStreamWaitEvent(mStream,mGraphReady,0));
-            growNativeNodeStorage(mMotionStorage.capacity,mStream);
-            check(mMotionAllocation.setNodes(mPreNodes,mPreRegistryCapacity,mStream));
-            PxU32* next=nullptr;allocate(next,capacity);
-            try {check(cudaMemcpyAsync(next,granted,size_t(capacity)*sizeof(PxU32),cudaMemcpyHostToDevice,mStream));}
-            catch(...){cudaFree(next);throw;}
-            check(cudaFree(mGrantedMotionIndices));mGrantedMotionIndices=next;mMotionSlotCapacity=capacity;
-            check(mMotionAllocation.setResources(mGrantedMotionIndices,mMotionSlotCapacity,mMotionStorage,mStream));
+            growMotionSlots(capacity);
             // Retry allocation/preparation only. The intact response, fracture verdict and
             // material evolution have already run and must not run again.
             prepareDeviceInputs();submitMotionAllocation(true);observeCompletion();

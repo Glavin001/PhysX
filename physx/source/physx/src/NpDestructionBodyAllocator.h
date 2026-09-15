@@ -1,5 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #pragma once
+#include <cstdlib>
+#include <cstring>
 #include "PxvDestructionBodyAllocator.h"
 #include "NpFactory.h"
 #include "NpRigidDynamic.h"
@@ -27,6 +29,18 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
     // chunk binding. False denotes an uncommitted reservation; true denotes an
     // accepted owner. The arrays retain deterministic allocation/teardown order.
     PxHashMap<NpRigidDynamic*,bool> mPrivateBodies;
+    // Placeholder bodies pre-bound to granted node handles. The GPU allocator
+    // consumes granted handles sequentially, so a fracture takes the placeholder
+    // already registered on its handle instead of creating and adding a body
+    // inside the tick. Opt-in: PHYSX_DESTRUCTION_BODY_POOL=N (bodies reserved at
+    // the first advance) enables it; placeholders are island nodes, and the
+    // native lifecycle tests and CPU/GPU island audits still expect none before
+    // allocation, so the default stays off until those consumers are migrated.
+    PxHashMap<PxU32,NpRigidDynamic*> mPlaceholders;
+    static bool poolEnabled() {
+        static const bool enabled=[](){const char* raw=getenv("PHYSX_DESTRUCTION_BODY_POOL");return raw && strcmp(raw,"0")!=0;}();
+        return enabled;
+    }
     NpRigidDynamic* source(PxU32 id, bool allowReservation=false) const {
         const auto& islands=mScene.getScScene().getSimpleIslandManager()->getAccurateIslandSim();
         if(id>=islands.getNbNodes())return NULL;
@@ -231,6 +245,14 @@ public:
                 mGrantedNodes.forceSize_Unsafe(old);return false;
             }
             for(PxU32 i=old;i<capacity;++i)mGrantedNodeMask.set(mGrantedNodes[i]);
+            if(poolEnabled()) {
+                PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.allocator.createPlaceholders",false,PxU64(reinterpret_cast<size_t>(this)));
+                for(PxU32 i=old;i<capacity;++i) {
+                    auto* body=reserve(false,mGrantedNodes[i]);
+                    if(!body)break; // later fractures fall back to in-tick creation
+                    mPlaceholders.insert(mGrantedNodes[i],body);
+                }
+            }
         }
         indices=mGrantedNodes.begin();return true;
     }
@@ -254,7 +276,7 @@ public:
                     && entry.source==request.sourceBody
                     && bool(entry.body->getCore().getFlags()&PxRigidBodyFlag::eKINEMATIC)==bool(request.supported))continue;
             }
-            if(!islands.isUnusedNativeNodeHandle(indices[i]))return false;
+            if(!mPlaceholders.find(indices[i]) && !islands.isUnusedNativeNodeHandle(indices[i]))return false;
         }
         PxArray<Entry> next;PxArray<PxU32> reused;PxArray<PxU8> kept;
         next.reserve(count);reused.reserve(count);kept.resize(mBodies.size(),0);
@@ -266,6 +288,14 @@ public:
             const auto* found=previous.find(request.cluster);
             if(found && mBodies[found->second].body->getCore().getInternalIslandNodeIndex().index()==indices[i]) {
                 old=found->second;body=mBodies[old].body;kept[old]=1;
+            }
+            if(!body) {
+                if(auto* placeholder=mPlaceholders.find(indices[i])) {
+                    body=placeholder->second;mPlaceholders.erase(indices[i]);
+                    // Placeholders are created dynamic and inactive; supported
+                    // fragments become kinematic exactly as a fresh reservation.
+                    if(request.supported)body->getCore().setFlags(PxRigidBodyFlag::eKINEMATIC);
+                }
             }
             if(!body)body=reserve(request.supported!=0,indices[i]);
             if(!body){ok=false;break;}
@@ -383,6 +413,8 @@ public:
     void discardReservations() override {for(auto& entry:mBodies)discard(*entry.body);mBodies.clear();}
     void clear() override {
         discardReservations();
+        for(auto it=mPlaceholders.getIterator();!it.done();++it)discard(*it->second);
+        mPlaceholders.clear();
         for(auto& entry:mAcceptedBodies)discard(*entry.body);
         mAcceptedBodies.clear();
         PX_ASSERT(mPrivateBodies.size()==0);

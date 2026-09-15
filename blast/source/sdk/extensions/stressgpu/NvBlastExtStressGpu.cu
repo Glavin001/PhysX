@@ -339,6 +339,18 @@ size_t nativeDirectSlotBudgetBytes()
     }();
     return bytes;
 }
+/// Stress solves gate the fracture verdict: use the highest stream priority
+/// unless BLAST_GPU_STREAM_PRIORITY=0.
+int streamPriority()
+{
+    static const int priority = []() {
+        const char* raw = std::getenv("BLAST_GPU_STREAM_PRIORITY");
+        if (raw && std::string(raw) == "0") return 0;
+        int lo = 0, hi = 0;
+        return cudaDeviceGetStreamPriorityRange(&lo, &hi) == cudaSuccess ? hi : 0;
+    }();
+    return priority;
+}
 bool jacobiEnabled()
 {
 #ifdef PHYSX_RESIDENT_DESTRUCTION
