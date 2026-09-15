@@ -5,6 +5,9 @@
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
 __device__ unsigned long long componentPhaseClocks[9];
 __device__ unsigned long long componentPreconditionClocks[4];
+// Direct-solve split: [0] gather [1] forward wide levels [2] forward narrow
+// levels [3] backward wide [4] backward narrow [5] Woodbury apply [6] scatter [7] levels visited.
+__device__ unsigned long long directSolveClocks[8];
 // Explicitly share one CTA allocation across the caller and callee.
 #define COMPONENT_SUBPROBE_PARAMETER , unsigned long long* subProbe
 #define COMPONENT_SUBPROBE_ARGUMENT , probeSubCycles

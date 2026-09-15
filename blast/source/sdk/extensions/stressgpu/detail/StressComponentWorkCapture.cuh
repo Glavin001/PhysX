@@ -11,7 +11,7 @@ class ComponentWorkCapture {
     std::vector<ComponentWorkRecord> host;
     FILE* output=nullptr;
     unsigned solve=0,capacity;
-    void *overflow=nullptr,*phases=nullptr,*precondition=nullptr;
+    void *overflow=nullptr,*phases=nullptr,*precondition=nullptr,*directClocks=nullptr;
     static inline bool bound=false;
 #ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
     std::unique_ptr<NativeProblemCapture> problem;
@@ -31,6 +31,7 @@ public:
             checkCuda(cudaGetSymbolAddress(&overflow,componentWorkOverflow),"locate diagnostic overflow");
             checkCuda(cudaGetSymbolAddress(&phases,componentPhaseClocks),"locate diagnostic phase clocks");
             checkCuda(cudaGetSymbolAddress(&precondition,componentPreconditionClocks),"locate diagnostic precondition clocks");
+            checkCuda(cudaGetSymbolAddress(&directClocks,directSolveClocks),"locate diagnostic direct clocks");
 #ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
             problem=std::make_unique<NativeProblemCapture>(count,bonds);
 #else
@@ -48,6 +49,7 @@ public:
         checkCuda(cudaMemsetAsync(overflow,0,sizeof(unsigned),stream),"clear diagnostic overflow");
         checkCuda(cudaMemsetAsync(phases,0,9*sizeof(unsigned long long),stream),"clear phase diagnostic");
         checkCuda(cudaMemsetAsync(precondition,0,4*sizeof(unsigned long long),stream),"clear precondition diagnostic");
+        checkCuda(cudaMemsetAsync(directClocks,0,8*sizeof(unsigned long long),stream),"clear direct diagnostic");
     }
     void finish(cudaStream_t stream){
 #ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
@@ -55,11 +57,12 @@ public:
 #endif
         // Observation is synchronous and intrusive by design. Its timings are
         // excluded from production performance claims by the capture runner.
-        unsigned exceeded=0;unsigned long long clocks[9]{},subclocks[4]{};
+        unsigned exceeded=0;unsigned long long clocks[9]{},subclocks[4]{},direct[8]{};
         checkCuda(cudaMemcpyAsync(host.data(),device,sizeof(ComponentWorkRecord)*capacity,cudaMemcpyDeviceToHost,stream),"observe component records");
         checkCuda(cudaMemcpyAsync(&exceeded,overflow,sizeof(exceeded),cudaMemcpyDeviceToHost,stream),"observe diagnostic overflow");
         checkCuda(cudaMemcpyAsync(clocks,phases,sizeof(clocks),cudaMemcpyDeviceToHost,stream),"observe phase diagnostics");
         checkCuda(cudaMemcpyAsync(subclocks,precondition,sizeof(subclocks),cudaMemcpyDeviceToHost,stream),"observe precondition diagnostics");
+        checkCuda(cudaMemcpyAsync(direct,directClocks,sizeof(direct),cudaMemcpyDeviceToHost,stream),"observe direct diagnostics");
         checkCuda(cudaStreamSynchronize(stream),"finish diagnostic observation");
         if(exceeded)throw std::runtime_error("component diagnostic overflow; capture incomplete");
         unsigned components=0,unmeasured=0;unsigned long long nodeVisits=0,csrVisits=0,liveVisits=0,updates=0,polynomialVisits=0,inverseApplications=0;
@@ -75,6 +78,7 @@ public:
         std::fprintf(output,"{\"record\":\"total\",\"solve\":%u,\"components\":%u,\"unmeasured_components\":%u,\"operator_node_visits\":%llu,\"operator_csr_visits\":%llu,\"operator_live_visits\":%llu,\"component_updates\":%llu,\"polynomial_live_visits\":%llu,\"fine_inverse_applications\":%llu,\"phase_cycles\":[",solve++,components,unmeasured,nodeVisits,csrVisits,liveVisits,updates,polynomialVisits,inverseApplications);
         for(unsigned i=0;i<9;++i)std::fprintf(output,"%s%llu",i?",":"",clocks[i]);
         std::fprintf(output,"],\"precondition_cycles\":[");for(unsigned i=0;i<4;++i)std::fprintf(output,"%s%llu",i?",":"",subclocks[i]);
+        std::fprintf(output,"],\"direct_cycles\":[");for(unsigned i=0;i<8;++i)std::fprintf(output,"%s%llu",i?",":"",direct[i]);
         std::fprintf(output,"]}\n");
         if(std::fflush(output) || std::ferror(output))throw std::runtime_error("component diagnostic output incomplete");
     }

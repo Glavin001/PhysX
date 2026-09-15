@@ -69,6 +69,16 @@ __global__ void __launch_bounds__(kBlockSize) componentStressSolve(PersistentStr
     __shared__ float reduceValue;
     __shared__ float directX[Tiny?6u*8u:6u*kResidentComponentMaxNodes];
     COMPONENT_PROBE_BEGIN
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+    // Diagnostic split of the pre-monitor phase: [0] operator/rigid setup,
+    // [1] residual prepare + norm, [2] direct application, [3] residual rebuild.
+    __shared__ unsigned long long directSubLast;
+#define DIRECT_SUBPROBE_START __syncthreads();if(!threadIdx.x)directSubLast=clock64();
+#define DIRECT_SUBPROBE_END(i) __syncthreads();if(!threadIdx.x){const auto probeN=clock64();probeSubCycles[i]+=probeN-directSubLast;directSubLast=probeN;}
+#else
+#define DIRECT_SUBPROBE_START
+#define DIRECT_SUBPROBE_END(i)
+#endif
     // Components have very different convergence costs after fracture. A CTA
     // claims its next independent component only when its previous one finishes;
     // fixed grid-stride ownership can strand expensive components on one SM.
@@ -102,6 +112,7 @@ __global__ void __launch_bounds__(kBlockSize) componentStressSolve(PersistentStr
             if(!threadIdx.x){status={0u,0u,1u};COMPONENT_WORK_END(id,status) c.results[id]=status;}
             __syncthreads();continue;
         }
+        DIRECT_SUBPROBE_START
         cacheNativeOperatorNeighbors(a,c.nodes+begin,count);
         // Cache validity belongs to each built operator, independently of a
         // solve's success. Each node has one writer in this owning component.
@@ -111,6 +122,7 @@ __global__ void __launch_bounds__(kBlockSize) componentStressSolve(PersistentStr
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
         if(!threadIdx.x){directApplied=0;directNormValid=0;directNorm=0.f;}
         __syncthreads();
+        DIRECT_SUBPROBE_END(0)
         // Direct step: apply the cached factor to the current residual, add the
         // result to the accumulated solution and rebuild the true residual. At
         // most two refinement applications; the loop below still owns
@@ -129,6 +141,7 @@ __global__ void __launch_bounds__(kBlockSize) componentStressSolve(PersistentStr
                 // residual exactly as the iteration does before measuring it.
                 prepareNativeResidualComponent(a,c.nodes+begin,count,id,false);
                 const float norm=nativeComponentResidualNorm(a,c.nodes+begin,count,id,nodeBlocks,counts,&iteration,&reduceValue);
+                DIRECT_SUBPROBE_END(1)
                 if(!(norm>a.m_deltaSquared[id]) || !isfinite(norm)){
                     // The residual is not touched again before the loop's first
                     // monitor, which would recompute exactly this norm: keep it.
@@ -153,9 +166,11 @@ __global__ void __launch_bounds__(kBlockSize) componentStressSolve(PersistentStr
                 if(attempt==attempts)break;
                 previous=norm;
                 if(!directSolveNativeComponent(a,c.nodes+begin,count,id,directX))break;
+                DIRECT_SUBPROBE_END(2)
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                 if(!threadIdx.x)directApplied=1;
                 __syncthreads();
+                DIRECT_SUBPROBE_END(3)
             }
         }
         // Thread 0 published directNorm/directNormValid inside the direct step;
@@ -282,6 +297,8 @@ __global__ void __launch_bounds__(kBlockSize) componentStressSolve(PersistentStr
     COMPONENT_PROBE_PUBLISH
 }
 
+#undef DIRECT_SUBPROBE_START
+#undef DIRECT_SUBPROBE_END
 #undef COMPONENT_PROBE_BEGIN
 #undef COMPONENT_PROBE_END
 #undef COMPONENT_PROBE_PUBLISH

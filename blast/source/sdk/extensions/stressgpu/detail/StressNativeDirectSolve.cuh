@@ -28,6 +28,15 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     const auto P = directPatternRefs(v.pattern, p);
     const float* val = v.slots.values + size_t(s) * v.slots.stride;
     const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+    unsigned long long probeAcc[8] = {0, 0, 0, 0, 0, 0, 0, 0}, probeLast = 0;
+    if (!threadIdx.x) probeLast = clock64();
+#define DIRECT_PROBE(i) if (!threadIdx.x) { const auto probeNow = clock64(); probeAcc[i] += probeNow - probeLast; probeLast = probeNow; }
+#define DIRECT_PROBE_PUBLISH if (!threadIdx.x) for (unsigned pi = 0; pi < 8; ++pi) atomicAdd(directSolveClocks + pi, probeAcc[pi]);
+#else
+#define DIRECT_PROBE(i)
+#define DIRECT_PROBE_PUBLISH
+#endif
     for (unsigned i = threadIdx.x; i < P.nodes; i += blockDim.x) {
         const unsigned node = P.order[i];
         if (a.m_nodeIsland[node] == id && node != pinned) {
@@ -37,6 +46,7 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
         } else for (unsigned r = 0; r < 6; ++r) x[6 * i + r] = 0.f;
     }
     __syncthreads();
+    DIRECT_PROBE(0)
     // Forward: L y = r, rows in ascending level order (descendants first).
     for (unsigned l = 0; l < P.levels; ++l) {
         for (unsigned e = P.levelPtr[l] + warp; e < P.levelPtr[l + 1]; e += warps) {
@@ -64,6 +74,10 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
             }
         }
         __syncthreads();
+        DIRECT_PROBE((P.levelPtr[l + 1] - P.levelPtr[l]) >= warps ? 1 : 2)
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+        if (!threadIdx.x) probeAcc[7] += 1;
+#endif
     }
     // Backward: L^T x = y, rows in descending level order (ancestors first).
     for (unsigned l = P.levels; l-- > 0;) {
@@ -92,12 +106,14 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
             }
         }
         __syncthreads();
+        DIRECT_PROBE((P.levelPtr[l + 1] - P.levelPtr[l]) >= warps ? 3 : 4)
     }
     if (v.woodbury && v.slots.slotWoodbury[s] == 2u) {
         const NativeDirectOperator op{a.m_node0, a.m_node1, a.m_nodeBondBegin, a.m_nodeBondRef, a.m_nodeIsland, a.m_offset0, a.m_offset1, a.m_inertia, a.m_health, a.m_colScales};
         woodburyApply(v, op, P, p, pinned, s, x);
         if (v.counters && !threadIdx.x) atomicAdd(v.counters + 10, 1u);
     }
+    DIRECT_PROBE(5)
     for (unsigned i = threadIdx.x; i < P.nodes; i += blockDim.x) {
         const unsigned node = P.order[i];
         if (a.m_nodeIsland[node] != id || node == pinned) continue;
@@ -107,6 +123,10 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     }
     if (v.counters && !threadIdx.x) { atomicAdd(v.counters + 1, 1u); if (pinned != kNoIsland) atomicAdd(v.counters + 5, 1u); if (v.slots.slotStale[s]) atomicAdd(v.counters + 7, 1u); }
     __syncthreads();
+    DIRECT_PROBE(6)
+    DIRECT_PROBE_PUBLISH
+#undef DIRECT_PROBE
+#undef DIRECT_PROBE_PUBLISH
     return true;
 }
 // Undo the last application: subtract the same x from the accumulated solution.
