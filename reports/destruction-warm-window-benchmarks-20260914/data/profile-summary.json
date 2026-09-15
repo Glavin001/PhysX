@@ -1,0 +1,86 @@
+{
+  "physically_checked_against_plain": true,
+  "nsys_tick_ms": 208.448645,
+  "gpu_activity_union_ms": 99.959129,
+  "kernel_count": 903,
+  "copy_count": 307,
+  "copy_bytes": 98688864,
+  "cpu_samples_inside_range": 579,
+  "stage_ms": {
+    "commands": 0.00901,
+    "simulate_fetch": 207.743393,
+    "completion": 0.690086
+  },
+  "warnings": [
+    {
+      "severity": 2,
+      "text": "Not all NVTX events might have been collected."
+    },
+    {
+      "severity": 2,
+      "text": "Not all CUDA events might have been collected."
+    },
+    {
+      "severity": 2,
+      "text": "Not all OS runtime libraries events might have been collected."
+    },
+    {
+      "severity": 2,
+      "text": "The operating system throttled the collection of sampling data 42 times."
+    }
+  ],
+  "complete_timeline_certified": false,
+  "targeted_counter_launches": [
+    {
+      "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+      "metrics": {
+        "gpu__time_duration.sum": {
+          "value": 39.298944,
+          "unit": "ms"
+        },
+        "sm__warps_active.avg.pct_of_peak_sustained_active": {
+          "value": 32.213282,
+          "unit": "%"
+        },
+        "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+          "value": 10.648164,
+          "unit": "%"
+        },
+        "dram__bytes.sum.per_second": {
+          "value": 1.755842,
+          "unit": "Gbyte/s"
+        },
+        "launch__registers_per_thread": {
+          "value": 109.0,
+          "unit": "register/thread"
+        }
+      }
+    },
+    {
+      "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+      "metrics": {
+        "gpu__time_duration.sum": {
+          "value": 31.200384,
+          "unit": "ms"
+        },
+        "sm__warps_active.avg.pct_of_peak_sustained_active": {
+          "value": 32.05196,
+          "unit": "%"
+        },
+        "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+          "value": 10.686865,
+          "unit": "%"
+        },
+        "dram__bytes.sum.per_second": {
+          "value": 2.101997,
+          "unit": "Gbyte/s"
+        },
+        "launch__registers_per_thread": {
+          "value": 109.0,
+          "unit": "register/thread"
+        }
+      }
+    }
+  ],
+  "ncu_cache_control": "all; kernel replay; not a production warm-cache latency measurement"
+}

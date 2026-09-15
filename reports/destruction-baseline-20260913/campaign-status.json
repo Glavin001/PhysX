@@ -1,0 +1,177 @@
+{
+  "status": "stopped_by_user_budget",
+  "pid": 1065647,
+  "source_commit": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf",
+  "started_utc": "2026-09-13T01:47:21Z",
+  "completed_phases": [
+    "cpu-light",
+    "graphs-light",
+    "cpu-full",
+    "warm"
+  ],
+  "commands": [
+    {
+      "phase": "cpu-light",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/profile-cpu-suite.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full",
+        "--manifest",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/manifest.json",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profile/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--preset",
+        "light"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 50.23061830199731,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-light-driver-1789262499748561363.log"
+    },
+    {
+      "phase": "cpu-light",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/profile-cpu-suite.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full",
+        "--manifest",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/manifest.json",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profile/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--preset",
+        "light",
+        "--resume"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 67.81047148600919,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-light-driver-1789262756902457547.log"
+    },
+    {
+      "phase": "graphs-light",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/profile-graph-suite.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/graphs-full",
+        "--manifest",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/manifest.json",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profile/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--timeline-campaign",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/timelines",
+        "--scenarios",
+        "bridge64-cold",
+        "chain256-cold",
+        "dense12-cold",
+        "destruction-stimulus",
+        "city25-initial-impact",
+        "city256-intact-idle",
+        "city256-late-debris"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 0.46871849600574933,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/graphs-light-driver-1789262824721044294.log"
+    },
+    {
+      "phase": "graphs-light",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/profile-graph-suite.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/graphs-full",
+        "--manifest",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/manifest.json",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profile/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--timeline-campaign",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/timelines",
+        "--resume",
+        "--scenarios",
+        "bridge64-cold",
+        "chain256-cold",
+        "dense12-cold",
+        "destruction-stimulus",
+        "city25-initial-impact",
+        "city256-intact-idle",
+        "city256-late-debris"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 439.88535373499326,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/graphs-light-driver-1789262922745253760.log"
+    },
+    {
+      "phase": "cpu-full",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/profile-cpu-suite.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full",
+        "--manifest",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/manifest.json",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profile/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--preset",
+        "full",
+        "--resume"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 373.91325759800384,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full-driver-1789263362637245699.log"
+    },
+    {
+      "phase": "cpu-full",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/profile-cpu-suite.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full",
+        "--manifest",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/manifest.json",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profile/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--preset",
+        "full",
+        "--resume"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 261.78749714900914,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full-driver-1789264042113372568.log"
+    },
+    {
+      "phase": "warm",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/profile-warm-suite.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/warm",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/native/native_destruction_demo",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--args-root",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/warm-args",
+        "--sampling-period",
+        "10000000"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 86.08221321599558,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/warm-driver-1789264303912544303.log"
+    }
+  ],
+  "scope": "Serialized analysis of frozen selected control; all new captures diagnostic, all old A0/A1 baseline samples preserved. No runtime optimization.",
+  "desktop_was_active": true,
+  "phase": "graphs-full",
+  "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/graphs-full-driver-1789264390000717367.log",
+  "child_pid": 1068947,
+  "error": "RuntimeError('Coordinator interrupted by signal 15')",
+  "desktop_restore_exit_code": 0,
+  "finished_utc": "2026-09-13T02:24:26Z",
+  "stop_reason": "User prioritizes a 1\u20133 minute profiled experiment loop and limits additional baseline collection to roughly ten minutes",
+  "updated_unix": 1789266619.3686821
+}

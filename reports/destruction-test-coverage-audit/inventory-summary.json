@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "scope": "Custom destruction test and helper sources; upstream SDK suites excluded",
+  "date": "2026-09-13",
+  "worktree_head": "1155b7ffb60d4d65853f448b00485c21cfd06b99",
+  "worktree_clean": false,
+  "sources": 318,
+  "families": {
+    "consumer-diagnostic-and-archived-reference": 23,
+    "demo-native-and-adapter": 98,
+    "javascript-bridge-browser": 9,
+    "native-runtime": 10,
+    "python-checker-accounting": 15,
+    "rust-adapters": 42,
+    "rust-demo": 1,
+    "rust-embedded-tests": 7,
+    "snapshot-and-load-checker": 14,
+    "stress-extension-and-prototype": 22,
+    "typescript-wasm-rapier": 77
+  },
+  "configured_ctest_entries": 174,
+  "run_serial": 65,
+  "labeled": 65,
+  "warning": "Inventory is not line/branch coverage or proof these binaries match the current worktree. No GPU tests run in this audit."
+}

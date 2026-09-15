@@ -1,0 +1,1613 @@
+{
+  "status": "complete",
+  "candidate_commit": "c2644fa00b64f6a3f34ca8ced02b5825803bd860",
+  "scenarios": [
+    {
+      "scenario": "chain256-cold",
+      "A": {
+        "n": 40,
+        "mean_ms": 7.1183139,
+        "median_ms": 7.0861605,
+        "max_ms": 9.900852,
+        "sd_ms": 0.7316035574259797,
+        "peak_sample_index": 0,
+        "over_8ms": 2,
+        "over_120hz": 2,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 5.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 492,
+          "max": 492,
+          "mean": 492
+        },
+        "restore_mean_ms": 18.24857515,
+        "stages_ms": {
+          "command_ms": 0.000132925,
+          "simulate_fetch_ms": 6.9422396,
+          "completion_ms": 0.175941375
+        }
+      },
+      "context_setup_ms": {
+        "A0": 491.223866,
+        "B": 431.382203,
+        "A1": 441.8072
+      },
+      "first_tick_ms": {
+        "A0": 9.900852,
+        "B": 10.67109,
+        "A1": 9.76274
+      },
+      "later_tick_mean_ms": {
+        "A0": 6.781926,
+        "B": 7.092516,
+        "A1": 7.169072105263158
+      },
+      "saved_ms": -0.15313079999999957,
+      "descriptive_saved_ms_95": [
+        -0.6341179499999994,
+        0.21351852499999957
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain256-cold-A0",
+        "B": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain256-cold-B",
+        "A1": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain256-cold-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 6.9378723,
+        "median_ms": 6.8699765,
+        "max_ms": 9.900852,
+        "sd_ms": 0.8108568229482934,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 5.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 492,
+          "max": 492,
+          "mean": 492
+        },
+        "restore_mean_ms": 18.1694058,
+        "stages_ms": {
+          "command_ms": 0.00015185,
+          "simulate_fetch_ms": 6.7777018,
+          "completion_ms": 0.16001864999999998
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 7.2714447,
+        "median_ms": 7.0604595,
+        "max_ms": 10.67109,
+        "sd_ms": 0.81256871051079,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 5.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 492,
+          "max": 492,
+          "mean": 492
+        },
+        "restore_mean_ms": 17.51366605,
+        "stages_ms": {
+          "command_ms": 0.00015525,
+          "simulate_fetch_ms": 7.05571835,
+          "completion_ms": 0.2155711
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 7.2987555,
+        "median_ms": 7.1653975,
+        "max_ms": 9.76274,
+        "sd_ms": 0.6104292296908792,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 5.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 492,
+          "max": 492,
+          "mean": 492
+        },
+        "restore_mean_ms": 18.3277445,
+        "stages_ms": {
+          "command_ms": 0.000114,
+          "simulate_fetch_ms": 7.1067774,
+          "completion_ms": 0.1918641
+        }
+      }
+    },
+    {
+      "scenario": "chain32-warm",
+      "A": {
+        "n": 40,
+        "mean_ms": 2.60320115,
+        "median_ms": 2.26377,
+        "max_ms": 9.874296,
+        "sd_ms": 1.372612695703111,
+        "peak_sample_index": 20,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 2.5,
+          "120hz": 2.5,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 32,
+          "max": 32,
+          "mean": 32
+        },
+        "restore_mean_ms": 16.271902775,
+        "stages_ms": {
+          "command_ms": 9.125e-05,
+          "simulate_fetch_ms": 2.430521275,
+          "completion_ms": 0.172588625
+        }
+      },
+      "context_setup_ms": {
+        "A0": 437.613135,
+        "B": 422.431617,
+        "A1": 450.825659
+      },
+      "first_tick_ms": {
+        "A0": 5.95783,
+        "B": 7.063365,
+        "A1": 9.874296
+      },
+      "later_tick_mean_ms": {
+        "A0": 2.4232846842105262,
+        "B": 2.4585383684210527,
+        "A1": 2.223869
+      },
+      "saved_ms": -0.08557855000000014,
+      "descriptive_saved_ms_95": [
+        -0.7476412250000002,
+        0.5527833000000002
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain32-warm-A0",
+        "B": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain32-warm-B",
+        "A1": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain32-warm-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 2.60001195,
+        "median_ms": 2.4233845,
+        "max_ms": 5.95783,
+        "sd_ms": 0.8354794361859716,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 32,
+          "max": 32,
+          "mean": 32
+        },
+        "restore_mean_ms": 16.27989475,
+        "stages_ms": {
+          "command_ms": 0.0001018,
+          "simulate_fetch_ms": 2.4171151,
+          "completion_ms": 0.18279505000000001
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 2.6887797,
+        "median_ms": 2.372819,
+        "max_ms": 7.063365,
+        "sd_ms": 1.1190898280269928,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 32,
+          "max": 32,
+          "mean": 32
+        },
+        "restore_mean_ms": 16.25238375,
+        "stages_ms": {
+          "command_ms": 8.245e-05,
+          "simulate_fetch_ms": 2.5259525,
+          "completion_ms": 0.16274475
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 2.60639035,
+        "median_ms": 2.0805505,
+        "max_ms": 9.874296,
+        "sd_ms": 1.7802374200982078,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 5.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 32,
+          "max": 32,
+          "mean": 32
+        },
+        "restore_mean_ms": 16.263910799999998,
+        "stages_ms": {
+          "command_ms": 8.07e-05,
+          "simulate_fetch_ms": 2.44392745,
+          "completion_ms": 0.1623822
+        }
+      }
+    },
+    {
+      "scenario": "destruction-cold",
+      "A": {
+        "n": 40,
+        "mean_ms": 3.354786325,
+        "median_ms": 3.044176,
+        "max_ms": 7.124317,
+        "sd_ms": 0.9182826323776521,
+        "peak_sample_index": 20,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 15.26299,
+        "stages_ms": {
+          "command_ms": 9.075e-05,
+          "simulate_fetch_ms": 3.186087575,
+          "completion_ms": 0.168608
+        }
+      },
+      "context_setup_ms": {
+        "A0": 479.47785,
+        "B": 433.841645,
+        "A1": 406.434849
+      },
+      "first_tick_ms": {
+        "A0": 6.881463,
+        "B": 6.759839,
+        "A1": 7.124317
+      },
+      "later_tick_mean_ms": {
+        "A0": 3.250168210526316,
+        "B": 2.387356210526316,
+        "A1": 3.0753935263157897
+      },
+      "saved_ms": 0.7488059750000002,
+      "descriptive_saved_ms_95": [
+        0.23306464999999976,
+        1.2118423999999997
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-cold-A0",
+        "B": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-cold-B",
+        "A1": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-cold-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 3.4317329500000002,
+        "median_ms": 3.063806,
+        "max_ms": 6.881463,
+        "sd_ms": 0.9127906818708551,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 15.6335757,
+        "stages_ms": {
+          "command_ms": 8.24e-05,
+          "simulate_fetch_ms": 3.2543153,
+          "completion_ms": 0.17733525
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 2.60598035,
+        "median_ms": 2.38744,
+        "max_ms": 6.759839,
+        "sd_ms": 1.0168809947881794,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 16.4410721,
+        "stages_ms": {
+          "command_ms": 9.894999999999999e-05,
+          "simulate_fetch_ms": 2.43747145,
+          "completion_ms": 0.16840995
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 3.2778397,
+        "median_ms": 3.0242085,
+        "max_ms": 7.124317,
+        "sd_ms": 0.9408589482874901,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 14.8924043,
+        "stages_ms": {
+          "command_ms": 9.91e-05,
+          "simulate_fetch_ms": 3.11785985,
+          "completion_ms": 0.15988075
+        }
+      }
+    },
+    {
+      "scenario": "destruction-onset",
+      "A": {
+        "n": 40,
+        "mean_ms": 3.593284925,
+        "median_ms": 3.6798615000000003,
+        "max_ms": 7.94559,
+        "sd_ms": 1.031233930502985,
+        "peak_sample_index": 20,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 16.61243315,
+        "stages_ms": {
+          "command_ms": 0.00011215,
+          "simulate_fetch_ms": 3.4272684,
+          "completion_ms": 0.165904375
+        }
+      },
+      "context_setup_ms": {
+        "A0": 436.296808,
+        "B": 432.131789,
+        "A1": 427.695763
+      },
+      "first_tick_ms": {
+        "A0": 4.686569,
+        "B": 8.214535,
+        "A1": 7.94559
+      },
+      "later_tick_mean_ms": {
+        "A0": 2.787562842105263,
+        "B": 3.8242764736842103,
+        "A1": 4.112397052631579
+      },
+      "saved_ms": -0.4505044749999998,
+      "descriptive_saved_ms_95": [
+        -1.0382660749999997,
+        0.050292299999999734
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-onset-A0",
+        "B": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-onset-B",
+        "A1": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-onset-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 2.88251315,
+        "median_ms": 2.7531355,
+        "max_ms": 4.686569,
+        "sd_ms": 0.5289996568084924,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 17.19808975,
+        "stages_ms": {
+          "command_ms": 0.0001117,
+          "simulate_fetch_ms": 2.7218184,
+          "completion_ms": 0.16058305
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 4.0437894,
+        "median_ms": 3.7572975,
+        "max_ms": 8.214535,
+        "sd_ms": 1.0135419786827515,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 15.99553475,
+        "stages_ms": {
+          "command_ms": 9.665e-05,
+          "simulate_fetch_ms": 3.92782845,
+          "completion_ms": 0.1158643
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 4.3040567,
+        "median_ms": 4.1080925,
+        "max_ms": 7.94559,
+        "sd_ms": 0.916212472794275,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 16.02677655,
+        "stages_ms": {
+          "command_ms": 0.0001126,
+          "simulate_fetch_ms": 4.1327184,
+          "completion_ms": 0.17122569999999998
+        }
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "A": {
+        "n": 40,
+        "mean_ms": 4.076858475,
+        "median_ms": 3.839634,
+        "max_ms": 8.044737,
+        "sd_ms": 0.8996636606525337,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 2.5,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 15.809082225000001,
+        "stages_ms": {
+          "command_ms": 0.001727275,
+          "simulate_fetch_ms": 3.907454625,
+          "completion_ms": 0.167676575
+        }
+      },
+      "context_setup_ms": {
+        "A0": 437.029949,
+        "B": 429.201879,
+        "A1": 432.341256
+      },
+      "first_tick_ms": {
+        "A0": 8.044737,
+        "B": 8.004287,
+        "A1": 7.475119
+      },
+      "later_tick_mean_ms": {
+        "A0": 3.8004905263157895,
+        "B": 3.866271052631579,
+        "A1": 3.9655348947368423
+      },
+      "saved_ms": 0.0036866250000002765,
+      "descriptive_saved_ms_95": [
+        -0.553253325,
+        0.44945540000000017
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-stimulus-A0",
+        "B": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-stimulus-B",
+        "A1": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-stimulus-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 4.01270285,
+        "median_ms": 3.6990045,
+        "max_ms": 8.044737,
+        "sd_ms": 0.9801639094491597,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 15.8523855,
+        "stages_ms": {
+          "command_ms": 0.0017704,
+          "simulate_fetch_ms": 3.83209155,
+          "completion_ms": 0.1788409
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 4.07317185,
+        "median_ms": 3.7659935,
+        "max_ms": 8.004287,
+        "sd_ms": 0.9790408893423934,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 16.2649595,
+        "stages_ms": {
+          "command_ms": 0.00175275,
+          "simulate_fetch_ms": 3.90299725,
+          "completion_ms": 0.16842185
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 4.1410141,
+        "median_ms": 3.902117,
+        "max_ms": 7.475119,
+        "sd_ms": 0.8318669909666354,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 15.76577895,
+        "stages_ms": {
+          "command_ms": 0.00168415,
+          "simulate_fetch_ms": 3.9828177,
+          "completion_ms": 0.15651225
+        }
+      }
+    },
+    {
+      "scenario": "ladder128-warm",
+      "A": {
+        "n": 40,
+        "mean_ms": 4.9538792,
+        "median_ms": 4.85714,
+        "max_ms": 7.845064,
+        "sd_ms": 0.7038427341070899,
+        "peak_sample_index": 20,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 192,
+          "max": 192,
+          "mean": 192
+        },
+        "restore_mean_ms": 19.6396251,
+        "stages_ms": {
+          "command_ms": 9.735e-05,
+          "simulate_fetch_ms": 4.78614605,
+          "completion_ms": 0.1676358
+        }
+      },
+      "context_setup_ms": {
+        "A0": 427.478837,
+        "B": 442.661111,
+        "A1": 431.002537
+      },
+      "first_tick_ms": {
+        "A0": 7.564123,
+        "B": 8.836189,
+        "A1": 7.845064
+      },
+      "later_tick_mean_ms": {
+        "A0": 4.769735105263158,
+        "B": 5.534338842105263,
+        "A1": 4.848474421052631
+      },
+      "saved_ms": -0.74555215,
+      "descriptive_saved_ms_95": [
+        -1.1841129000000006,
+        -0.3911642500000001
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/ladder128-warm-A0",
+        "B": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/ladder128-warm-B",
+        "A1": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/ladder128-warm-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 4.9094545,
+        "median_ms": 4.7475000000000005,
+        "max_ms": 7.564123,
+        "sd_ms": 0.692987618742401,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 192,
+          "max": 192,
+          "mean": 192
+        },
+        "restore_mean_ms": 19.11535025,
+        "stages_ms": {
+          "command_ms": 8.26e-05,
+          "simulate_fetch_ms": 4.7507265499999995,
+          "completion_ms": 0.15864535
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 5.69943135,
+        "median_ms": 5.5463255,
+        "max_ms": 8.836189,
+        "sd_ms": 0.7493198184086175,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 5.0,
+          "120hz": 5.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 192,
+          "max": 192,
+          "mean": 192
+        },
+        "restore_mean_ms": 19.6219459,
+        "stages_ms": {
+          "command_ms": 0.0001151,
+          "simulate_fetch_ms": 5.50593885,
+          "completion_ms": 0.1933774
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 4.9983039,
+        "median_ms": 4.8774755,
+        "max_ms": 7.845064,
+        "sd_ms": 0.7297094615119016,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 192,
+          "max": 192,
+          "mean": 192
+        },
+        "restore_mean_ms": 20.16389995,
+        "stages_ms": {
+          "command_ms": 0.0001121,
+          "simulate_fetch_ms": 4.82156555,
+          "completion_ms": 0.17662625
+        }
+      }
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "A": {
+        "n": 40,
+        "mean_ms": 58.263835775000004,
+        "median_ms": 58.341145499999996,
+        "max_ms": 82.094496,
+        "sd_ms": 5.830911305615865,
+        "peak_sample_index": 20,
+        "over_8ms": 40,
+        "over_120hz": 40,
+        "over_60hz": 40,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 149.789054275,
+        "stages_ms": {
+          "command_ms": 0.0001326,
+          "simulate_fetch_ms": 58.08070965,
+          "completion_ms": 0.182993525
+        }
+      },
+      "context_setup_ms": {
+        "A0": 1192.30709,
+        "B": 1270.15078,
+        "A1": 1261.834878
+      },
+      "first_tick_ms": {
+        "A0": 67.60475,
+        "B": 59.451038,
+        "A1": 82.094496
+      },
+      "later_tick_mean_ms": {
+        "A0": 54.28730694736842,
+        "B": 55.31998152631579,
+        "A1": 60.494492263157895
+      },
+      "saved_ms": 2.7373014250000054,
+      "descriptive_saved_ms_95": [
+        0.12821245000000658,
+        5.36464445
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-initial-impact-A0",
+        "B": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-initial-impact-B",
+        "A1": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-initial-impact-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 54.9531791,
+        "median_ms": 54.120867000000004,
+        "max_ms": 67.60475,
+        "sd_ms": 4.005256018354604,
+        "peak_sample_index": 0,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 146.4811793,
+        "stages_ms": {
+          "command_ms": 0.00012065,
+          "simulate_fetch_ms": 54.776513,
+          "completion_ms": 0.17654545
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 55.52653435,
+        "median_ms": 55.247169,
+        "max_ms": 61.674112,
+        "sd_ms": 4.664655001329266,
+        "peak_sample_index": 17,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 149.3616438,
+        "stages_ms": {
+          "command_ms": 0.00011745000000000001,
+          "simulate_fetch_ms": 55.33679695,
+          "completion_ms": 0.18961995
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 61.57449245,
+        "median_ms": 59.596723,
+        "max_ms": 82.094496,
+        "sd_ms": 5.538212684501843,
+        "peak_sample_index": 0,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 153.09692925,
+        "stages_ms": {
+          "command_ms": 0.00014455,
+          "simulate_fetch_ms": 61.3849063,
+          "completion_ms": 0.1894416
+        }
+      }
+    },
+    {
+      "scenario": "city64-late-debris",
+      "A": {
+        "n": 40,
+        "mean_ms": 125.541137475,
+        "median_ms": 123.5547265,
+        "max_ms": 169.266593,
+        "sd_ms": 9.786314356313218,
+        "peak_sample_index": 0,
+        "over_8ms": 40,
+        "over_120hz": 40,
+        "over_60hz": 40,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 948,
+          "max": 948,
+          "mean": 948
+        },
+        "restore_mean_ms": 156.401112925,
+        "stages_ms": {
+          "command_ms": 0.000167825,
+          "simulate_fetch_ms": 125.3344345,
+          "completion_ms": 0.20653515
+        }
+      },
+      "context_setup_ms": {
+        "A0": 1268.08711,
+        "B": 1246.032933,
+        "A1": 1278.771173
+      },
+      "first_tick_ms": {
+        "A0": 169.266593,
+        "B": 157.013954,
+        "A1": 141.873829
+      },
+      "later_tick_mean_ms": {
+        "A0": 121.61127705263158,
+        "B": 118.44784610526315,
+        "A1": 126.31004278947368
+      },
+      "saved_ms": 5.164985974999993,
+      "descriptive_saved_ms_95": [
+        -0.3814019250000058,
+        10.013976125000013
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-late-debris-A0",
+        "B": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-late-debris-B",
+        "A1": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-late-debris-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 123.99404285,
+        "median_ms": 119.2228805,
+        "max_ms": 169.266593,
+        "sd_ms": 12.857427627333278,
+        "peak_sample_index": 0,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 948,
+          "max": 948,
+          "mean": 948
+        },
+        "restore_mean_ms": 157.49212375,
+        "stages_ms": {
+          "command_ms": 0.00020445,
+          "simulate_fetch_ms": 123.790584,
+          "completion_ms": 0.2032544
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 120.3761515,
+        "median_ms": 118.65416099999999,
+        "max_ms": 157.013954,
+        "sd_ms": 9.494773209444498,
+        "peak_sample_index": 0,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 948,
+          "max": 948,
+          "mean": 948
+        },
+        "restore_mean_ms": 158.6404132,
+        "stages_ms": {
+          "command_ms": 0.0001264,
+          "simulate_fetch_ms": 120.1813422,
+          "completion_ms": 0.1946829
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 127.0882321,
+        "median_ms": 126.8724065,
+        "max_ms": 141.873829,
+        "sd_ms": 5.121731146196165,
+        "peak_sample_index": 0,
+        "over_8ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 948,
+          "max": 948,
+          "mean": 948
+        },
+        "restore_mean_ms": 155.3101021,
+        "stages_ms": {
+          "command_ms": 0.0001312,
+          "simulate_fetch_ms": 126.878285,
+          "completion_ms": 0.2098159
+        }
+      }
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "chain256-cold",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain256-cold-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain256-cold",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain256-cold-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain256-cold",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain256-cold-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain32-warm",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain32-warm-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain32-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain32-warm",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain32-warm-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain32-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain32-warm",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/chain32-warm-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain32-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-cold",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-cold-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-cold",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-cold",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-cold-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-cold",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-cold",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-cold-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-cold",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-onset",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-onset-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-onset",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-onset",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-onset-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-onset",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-onset",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-onset-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-onset",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-stimulus-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200",
+        "--projectile-impulse"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-stimulus-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200",
+        "--projectile-impulse"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/destruction-stimulus-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200",
+        "--projectile-impulse"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "ladder128-warm",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/ladder128-warm-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "ladder128-warm",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/ladder128-warm-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "ladder128-warm",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/ladder128-warm-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-initial-impact-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-initial-impact-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-initial-impact-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city64-late-debris",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-late-debris-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city64-late-debris",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-late-debris-B",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city64-late-debris",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/impact64-repeat/city64-late-debris-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "runner_sha256": "cd2a50501e6df5bde0da0540607671144a5ceb0c95a3218e223da75ab3cb15e7",
+  "repetition_policy": "Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.",
+  "binaries": {
+    "A": {
+      "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+      "sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61"
+    },
+    "B": {
+      "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+      "sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61"
+    }
+  },
+  "modules": {
+    "A": {
+      "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+    },
+    "B": {
+      "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/B/libPhysXDestructionGpuRuntime_64.so": "30dfa0a024bad00bbb22c35bf56c07a2e33a2679c7fe4452a7828f6274d9c206"
+    }
+  },
+  "checker_sha256": "6f256f04de9fd87774593cba6ef1dc5455bfbb5cbbd909779ec9e3afb0bbab31",
+  "force_scaled_bound": 0.0002,
+  "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Unprofiled comparison with recorded GPU admission; no profiler timings or automatic acceptance.",
+  "harness_seconds": 120.7714722219971
+}

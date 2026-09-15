@@ -1,0 +1,476 @@
+{
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 416.4856879230065,
+  "independent_unit": "Difference of two fresh-process full-step means, in randomized balanced AB/BA order",
+  "method": "Student-t interval on independent pair differences; normal/stable pair-effect assumption. Bonferroni simultaneous intervals across the three measured means.",
+  "limits": "Six pairs provide a pilot variance estimate, not validated coverage under arbitrary VM drift. Sample-size and future seconds estimates are projections, not measured guarantees. Maxima and deadline misses remain separate guardrails.",
+  "same_build_calibration": true,
+  "scenarios": [
+    {
+      "scenario": "city256-late-debris",
+      "mode": "restored",
+      "pairs": 6,
+      "process_mean_ms": 367.5317195,
+      "paired_saved_ms": [
+        7.622694999999965,
+        21.210046499999976,
+        -2.619485499999996,
+        4.100569249999978,
+        -4.764826000000028,
+        0.44935424999999896
+      ],
+      "mean_saved_ms": 4.333058916666649,
+      "pair_sd_ms": 9.401074541289251,
+      "ci95_ms": [
+        -5.532763760281051,
+        14.198881593614349
+      ],
+      "family95_ci_ms": [
+        -9.230761166233709,
+        17.896878999567004
+      ],
+      "family_size": 3,
+      "proposed_equivalence_margin_ms": 3.6753171950000003,
+      "decision": "more_measurement_required_no_promotion",
+      "equivalent_margin_supported_ms": 17.896878999567004,
+      "measured_seconds_per_pair": 31.534870323169645,
+      "order_effect_means_ms": {
+        "AB": 4.05753949999998,
+        "BA": 4.608578333333317
+      },
+      "first_half_saved_ms": 8.73775199999998,
+      "last_half_saved_ms": -0.07163416666668354,
+      "process_means_ms": [
+        {
+          "A": 379.252035,
+          "B": 371.62934
+        },
+        {
+          "A": 367.6877315,
+          "B": 346.477685
+        },
+        {
+          "A": 357.2404135,
+          "B": 359.859899
+        },
+        {
+          "A": 375.66781125,
+          "B": 371.567242
+        },
+        {
+          "A": 367.56275675,
+          "B": 372.32758275000003
+        },
+        {
+          "A": 370.77874575,
+          "B": 370.3293915
+        }
+      ],
+      "process_maxima_ms": [
+        {
+          "A": 437.118066,
+          "B": 392.313826
+        },
+        {
+          "A": 414.091842,
+          "B": 392.53166
+        },
+        {
+          "A": 417.688572,
+          "B": 401.781854
+        },
+        {
+          "A": 419.528373,
+          "B": 419.026528
+        },
+        {
+          "A": 415.178071,
+          "B": 401.82651
+        },
+        {
+          "A": 410.09006,
+          "B": 408.187543
+        }
+      ],
+      "misses_60hz": [
+        {
+          "A": 4,
+          "B": 4
+        },
+        {
+          "A": 4,
+          "B": 4
+        },
+        {
+          "A": 4,
+          "B": 4
+        },
+        {
+          "A": 4,
+          "B": 4
+        },
+        {
+          "A": 4,
+          "B": 4
+        },
+        {
+          "A": 4,
+          "B": 4
+        }
+      ],
+      "projected_fixed_confirmation": [
+        {
+          "resolution": "0.1ms",
+          "margin_ms": 0.1,
+          "pairs": 119400,
+          "seconds": 3765263.5165864555,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "0.5ms",
+          "margin_ms": 0.5,
+          "pairs": 4780,
+          "seconds": 150736.6801447509,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "1ms",
+          "margin_ms": 1.0,
+          "pairs": 1198,
+          "seconds": 37778.77464715723,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "1percent",
+          "margin_ms": 3.6753171950000003,
+          "pairs": 92,
+          "seconds": 2901.2080697316073,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "2percent",
+          "margin_ms": 7.350634390000001,
+          "pairs": 26,
+          "seconds": 819.9066284024108,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        }
+      ],
+      "decision_software_controls": {
+        "shift_ms": 39.46907519413401,
+        "positive": "meaningfully_faster",
+        "negative": "meaningfully_slower"
+      }
+    },
+    {
+      "scenario": "impacts-256",
+      "mode": "continuous",
+      "pairs": 6,
+      "process_mean_ms": 54.78571703935185,
+      "paired_saved_ms": [
+        -0.28871525000000275,
+        0.3823822999999962,
+        0.4296661777777757,
+        -0.4079901611111083,
+        0.6319455444444486,
+        1.0664591833333361
+      ],
+      "mean_saved_ms": 0.30229129907407426,
+      "pair_sd_ms": 0.5601878075626657,
+      "ci95_ms": [
+        -0.2855897512173784,
+        0.8901723493655269
+      ],
+      "family95_ci_ms": [
+        -0.505944674488623,
+        1.1105272726367716
+      ],
+      "family_size": 3,
+      "proposed_equivalence_margin_ms": 0.5478571703935186,
+      "decision": "more_measurement_required_no_promotion",
+      "equivalent_margin_supported_ms": 1.1105272726367716,
+      "measured_seconds_per_pair": 28.24080258966569,
+      "order_effect_means_ms": {
+        "AB": 0.13468610555555452,
+        "BA": 0.469896492592594
+      },
+      "first_half_saved_ms": 0.1744444092592564,
+      "last_half_saved_ms": 0.43013818888889216,
+      "process_means_ms": [
+        {
+          "A": 54.714278,
+          "B": 55.00299325
+        },
+        {
+          "A": 54.933653738888886,
+          "B": 54.55127143888889
+        },
+        {
+          "A": 54.81588385,
+          "B": 54.38621767222222
+        },
+        {
+          "A": 54.764211172222225,
+          "B": 55.172201333333334
+        },
+        {
+          "A": 55.02787113888889,
+          "B": 54.39592559444444
+        },
+        {
+          "A": 55.365278233333335,
+          "B": 54.29881905
+        }
+      ],
+      "process_maxima_ms": [
+        {
+          "A": 154.659921,
+          "B": 182.809989
+        },
+        {
+          "A": 167.417251,
+          "B": 166.124831
+        },
+        {
+          "A": 176.399639,
+          "B": 167.998304
+        },
+        {
+          "A": 179.7515,
+          "B": 179.93983
+        },
+        {
+          "A": 180.215124,
+          "B": 180.934866
+        },
+        {
+          "A": 196.018893,
+          "B": 178.056169
+        }
+      ],
+      "misses_60hz": [
+        {
+          "A": 99,
+          "B": 99
+        },
+        {
+          "A": 99,
+          "B": 99
+        },
+        {
+          "A": 99,
+          "B": 99
+        },
+        {
+          "A": 99,
+          "B": 99
+        },
+        {
+          "A": 99,
+          "B": 99
+        },
+        {
+          "A": 99,
+          "B": 99
+        }
+      ],
+      "projected_fixed_confirmation": [
+        {
+          "resolution": "0.1ms",
+          "margin_ms": 0.1,
+          "pairs": 428,
+          "seconds": 12087.063508376916,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "0.5ms",
+          "margin_ms": 0.5,
+          "pairs": 20,
+          "seconds": 564.8160517933138,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "1ms",
+          "margin_ms": 1.0,
+          "pairs": 8,
+          "seconds": 225.92642071732553,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "1percent",
+          "margin_ms": 0.5478571703935186,
+          "pairs": 18,
+          "seconds": 508.33444661398244,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "2percent",
+          "margin_ms": 1.095714340787037,
+          "pairs": 8,
+          "seconds": 225.92642071732553,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        }
+      ],
+      "decision_software_controls": {
+        "shift_ms": 2.7689117156670617,
+        "positive": "meaningfully_faster",
+        "negative": "meaningfully_slower"
+      }
+    },
+    {
+      "scenario": "idle-256",
+      "mode": "continuous",
+      "pairs": 6,
+      "process_mean_ms": 1.6935311800925925,
+      "paired_saved_ms": [
+        -0.08252462222222223,
+        -0.0659877166666667,
+        -0.04112988333333334,
+        -0.020274788888889006,
+        -0.08152987222222241,
+        -0.08954361111111098
+      ],
+      "mean_saved_ms": -0.06349841574074078,
+      "pair_sd_ms": 0.027350729193897045,
+      "ci95_ms": [
+        -0.0922012457339598,
+        -0.03479558574752175
+      ],
+      "family95_ci_ms": [
+        -0.10295990158396164,
+        -0.024036929897519918
+      ],
+      "family_size": 3,
+      "proposed_equivalence_margin_ms": 0.1,
+      "decision": "more_measurement_required_no_promotion",
+      "equivalent_margin_supported_ms": 0.10295990158396164,
+      "measured_seconds_per_pair": 8.880535899334063,
+      "order_effect_means_ms": {
+        "AB": -0.06288249074074082,
+        "BA": -0.06411434074074074
+      },
+      "first_half_saved_ms": -0.06321407407407409,
+      "last_half_saved_ms": -0.06378275740740746,
+      "process_means_ms": [
+        {
+          "A": 1.5323801222222222,
+          "B": 1.6149047444444444
+        },
+        {
+          "A": 1.5832014333333333,
+          "B": 1.64918915
+        },
+        {
+          "A": 1.7307234777777778,
+          "B": 1.7718533611111111
+        },
+        {
+          "A": 1.8237422888888888,
+          "B": 1.8440170777777778
+        },
+        {
+          "A": 1.6669488055555555,
+          "B": 1.7484786777777779
+        },
+        {
+          "A": 1.6336957055555557,
+          "B": 1.7232393166666666
+        }
+      ],
+      "process_maxima_ms": [
+        {
+          "A": 13.960329,
+          "B": 13.063336
+        },
+        {
+          "A": 12.706787,
+          "B": 13.51113
+        },
+        {
+          "A": 13.766171,
+          "B": 13.18101
+        },
+        {
+          "A": 13.855718,
+          "B": 12.440679
+        },
+        {
+          "A": 13.924657,
+          "B": 14.108809
+        },
+        {
+          "A": 13.668833,
+          "B": 13.69929
+        }
+      ],
+      "misses_60hz": [
+        {
+          "A": 0,
+          "B": 0
+        },
+        {
+          "A": 0,
+          "B": 0
+        },
+        {
+          "A": 0,
+          "B": 0
+        },
+        {
+          "A": 0,
+          "B": 0
+        },
+        {
+          "A": 0,
+          "B": 0
+        },
+        {
+          "A": 0,
+          "B": 0
+        }
+      ],
+      "projected_fixed_confirmation": [
+        {
+          "resolution": "0.1ms",
+          "margin_ms": 0.1,
+          "pairs": 4,
+          "seconds": 35.52214359733625,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "0.5ms",
+          "margin_ms": 0.5,
+          "pairs": 4,
+          "seconds": 35.52214359733625,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "1ms",
+          "margin_ms": 1.0,
+          "pairs": 4,
+          "seconds": 35.52214359733625,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "1percent",
+          "margin_ms": 0.016935311800925924,
+          "pairs": 38,
+          "seconds": 337.4603641746944,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        },
+        {
+          "resolution": "2percent",
+          "margin_ms": 0.03387062360185185,
+          "pairs": 12,
+          "seconds": 106.56643079200876,
+          "assumption": "80% planning probability of equivalence at true zero, stable normal pair variance equal to this six-pair pilot; not a guarantee"
+        }
+      ],
+      "decision_software_controls": {
+        "shift_ms": 0.3059198031679233,
+        "positive": "meaningfully_faster",
+        "negative": "meaningfully_slower"
+      }
+    }
+  ]
+}

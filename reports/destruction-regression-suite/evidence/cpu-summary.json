@@ -1,0 +1,95 @@
+{
+  "status": "passed",
+  "full_run_methods": 125,
+  "distinct_methods_with_followup": 126,
+  "tests": [
+    {
+      "name": "test-destruction-ab",
+      "methods": 6,
+      "status": "passed",
+      "diagnostic_wall_seconds": 0.21528399700764567,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-destruction-ab.log",
+      "sha256": "bdef0e7edf66ce9e851d29b85b997b9cfb1943c44815c548a20ca6b0630ca2d9"
+    },
+    {
+      "name": "test-native-prefix",
+      "methods": 24,
+      "status": "passed",
+      "diagnostic_wall_seconds": 44.02678626899433,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-native-prefix.log",
+      "sha256": "b1dd519b2c07162bd2720639db1bb2b9af21be330a6ffebb784e75ce3455dba5"
+    },
+    {
+      "name": "test-destruction-regression",
+      "methods": 6,
+      "status": "passed",
+      "diagnostic_wall_seconds": 0.11500239199085627,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-destruction-regression.log",
+      "sha256": "65378dcad145da2497120819bebfc3c46534dce9714ce064b3d809a56654aca2"
+    },
+    {
+      "name": "test-destruction-timing",
+      "methods": 37,
+      "status": "passed",
+      "diagnostic_wall_seconds": 0.5162816299998667,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-destruction-timing.log",
+      "sha256": "3bb5895f33f088b5181da6089c2b6006a649636ba2e65a7548b5ebabcfcf8bd2"
+    },
+    {
+      "name": "test-destruction-semantic-suite",
+      "methods": 8,
+      "status": "passed",
+      "diagnostic_wall_seconds": 0.9171837559988489,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-destruction-semantic-suite.log",
+      "sha256": "879738b53a28e7a566550bd20ae23103d58e628a10428ae977d0ac56fc7771fc"
+    },
+    {
+      "name": "test_report_native_publication",
+      "methods": 4,
+      "status": "passed",
+      "diagnostic_wall_seconds": 0.19860635099757928,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test_report_native_publication.log",
+      "sha256": "e6ec182765cd965f2837d8eeaef5a64af48a104f245cd1a0b7281559194c57c1"
+    },
+    {
+      "name": "test-native-stress-solution-audit",
+      "methods": 4,
+      "status": "passed",
+      "diagnostic_wall_seconds": 0.41619351400004234,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-native-stress-solution-audit.log",
+      "sha256": "9d654695c0a90577e252109954dd749137ace81d33f39cf1a31990e7f48cf31d"
+    },
+    {
+      "name": "test-compare-observations",
+      "methods": 19,
+      "status": "passed",
+      "diagnostic_wall_seconds": 1.5051413600012893,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-compare-observations.log",
+      "sha256": "e587c885eb4724487f5961ff7e2b5043a7545d11ccdcf1bc00a716bbc04e368e"
+    },
+    {
+      "name": "test-matched",
+      "methods": 1,
+      "status": "passed",
+      "diagnostic_wall_seconds": 0.31544001400470734,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-matched.log",
+      "sha256": "7d6f3f2b0c75a7272e3e136f4ef3512eefcb357922e433d272431e599c2b9d6e"
+    },
+    {
+      "name": "test-attribution",
+      "methods": 16,
+      "status": "passed",
+      "diagnostic_wall_seconds": 0.1653058170049917,
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-attribution.log",
+      "sha256": "f67aafa5114f64ef456e964aa360b3ae2e1c4b3ac10a1b1620490aea30364e9c"
+    },
+    {
+      "name": "admission final follow-up",
+      "methods": 7,
+      "new_distinct_methods": 1,
+      "status": "passed",
+      "log": "/root/workspace/physx-2/out/regression-suite-20260913/admission-final.log",
+      "sha256": "e586fc0f3bb2a05f4c80f07d1b4c6171e830592f6c7aaf70d4af3b0aa3ebd072"
+    }
+  ]
+}

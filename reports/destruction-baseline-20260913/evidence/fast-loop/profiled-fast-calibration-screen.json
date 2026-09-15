@@ -1,0 +1,220 @@
+{
+  "status": "budget_exceeded",
+  "pid": 1104899,
+  "hypothesis": "Same-build profiled-loop calibration: full-step A/A/A plus large debris Systems and focused stress counters; no optimization gain",
+  "candidate_commit": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf",
+  "baseline": "/root/workspace/physx-2/out/destruction-baseline-20260913/fast-baseline.json",
+  "budget_seconds": 180.0,
+  "scope": "Prioritization screen, not promotion. Unprofiled full ticks; restore/check/export outside latency. Compilation excluded from screen wall time.",
+  "queue_seconds": 7.33359920559451e-05,
+  "command": [
+    "/usr/bin/python3",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-matched.py",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched",
+    "--manifest",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/fast-manifest.json",
+    "--use-case-repetitions",
+    "--binary",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+    "--candidate-binary",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+    "--baseline-artifacts",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+    "--candidate-artifacts",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+    "--candidate-commit",
+    "13b11af2e0aeabf4e0070931fbd8a060f383dfaf"
+  ],
+  "timing_stage_seconds": 132.54201632901095,
+  "signals": [
+    {
+      "scenario": "bridge64-cold",
+      "signal": "inconclusive",
+      "saved_ms": -0.35268956250000016,
+      "control_drift_ms": 0.669911625000001,
+      "means_ms": {
+        "A0": 9.114501125,
+        "B": 9.132234875,
+        "A1": 8.4445895
+      },
+      "peaks_ms": {
+        "A0": 12.050864,
+        "B": 11.927624,
+        "A1": 9.326957
+      },
+      "misses_60hz": {
+        "A0": 0,
+        "B": 0,
+        "A1": 0
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "signal": "inconclusive",
+      "saved_ms": 0.5255198749999996,
+      "control_drift_ms": 0.7271394999999998,
+      "means_ms": {
+        "A0": 7.727852625,
+        "B": 6.838763,
+        "A1": 7.000713125
+      },
+      "peaks_ms": {
+        "A0": 10.192544,
+        "B": 9.237178,
+        "A1": 8.919062
+      },
+      "misses_60hz": {
+        "A0": 0,
+        "B": 0,
+        "A1": 0
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "signal": "inconclusive",
+      "saved_ms": -0.2044103333333318,
+      "control_drift_ms": 0.3513163333333331,
+      "means_ms": {
+        "A0": 31.222025,
+        "B": 31.6020935,
+        "A1": 31.57334133333333
+      },
+      "peaks_ms": {
+        "A0": 31.99045,
+        "B": 32.772279,
+        "A1": 34.139983
+      },
+      "misses_60hz": {
+        "A0": 6,
+        "B": 6,
+        "A1": 6
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "signal": "inconclusive",
+      "saved_ms": -0.2260983750000003,
+      "control_drift_ms": 0.0703655000000003,
+      "means_ms": {
+        "A0": 4.359664375,
+        "B": 4.55058,
+        "A1": 4.289298875
+      },
+      "peaks_ms": {
+        "A0": 7.377274,
+        "B": 8.301423,
+        "A1": 7.812504
+      },
+      "misses_60hz": {
+        "A0": 0,
+        "B": 0,
+        "A1": 0
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "signal": "inconclusive",
+      "saved_ms": -1.055725625000001,
+      "control_drift_ms": 1.74692675,
+      "means_ms": {
+        "A0": 39.480956,
+        "B": 41.410145,
+        "A1": 41.22788275
+      },
+      "peaks_ms": {
+        "A0": 49.794037,
+        "B": 48.791581,
+        "A1": 49.28718
+      },
+      "misses_60hz": {
+        "A0": 4,
+        "B": 4,
+        "A1": 4
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "signal": "inconclusive",
+      "saved_ms": -5.160359333333339,
+      "control_drift_ms": 6.658983333333332,
+      "means_ms": {
+        "A0": 64.712841,
+        "B": 66.54370866666667,
+        "A1": 58.053857666666666
+      },
+      "peaks_ms": {
+        "A0": 79.362598,
+        "B": 77.049564,
+        "A1": 68.373212
+      },
+      "misses_60hz": {
+        "A0": 3,
+        "B": 3,
+        "A1": 3
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "signal": "inconclusive",
+      "saved_ms": 4.839190999999971,
+      "control_drift_ms": 17.31303666666662,
+      "means_ms": {
+        "A0": 395.82320066666665,
+        "B": 382.32749133333334,
+        "A1": 378.51016400000003
+      },
+      "peaks_ms": {
+        "A0": 406.97297,
+        "B": 424.183414,
+        "A1": 407.629785
+      },
+      "misses_60hz": {
+        "A0": 3,
+        "B": 3,
+        "A1": 3
+      }
+    }
+  ],
+  "qualification": "Incomplete screen; preserve partial cases. No complete-suite result or automatic speedup decision.",
+  "profile_commands": [
+    [
+      "/usr/bin/python3",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/profile-cpu-suite.py",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/systems",
+      "--manifest",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/profile-manifest.json",
+      "--binary",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/profile/serialization-probe",
+      "--artifacts",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts"
+    ],
+    [
+      "/usr/bin/python3",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/ncu",
+      "--binary",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/profile/serialization-probe",
+      "--artifacts",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+      "--repetitions",
+      "2",
+      "--profiler",
+      "ncu",
+      "--ncu-kernel",
+      "regex:componentStressSolve",
+      "--ncu-count",
+      "2",
+      "--ncu-metrics",
+      "gpu__time_duration.sum,launch__registers_per_thread,sm__warps_active.avg.pct_of_peak_sustained_active,smsp__issue_active.avg.pct_of_peak_sustained_active,dram__bytes.sum",
+      "--ncu-apply-rules",
+      "no",
+      "--watchdog-seconds",
+      "90"
+    ]
+  ],
+  "systems_seconds": 31.404688112001168,
+  "desktop_restore_exit_code": 0,
+  "wall_seconds_including_admission_restore_checks_reports": 180.03466576400388
+}

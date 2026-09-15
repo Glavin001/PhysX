@@ -105,7 +105,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         // result to the accumulated solution and rebuild the true residual. At
         // most two refinement applications; the loop below still owns
         // acceptance through its unchanged monitor and verification.
-        if(a.m_islandActive[id] && a.hierarchy.direct.enabled && count>=kDirectMinNodes){
+        if(a.m_islandActive[id] && a.hierarchy.direct.enabled && count>=a.hierarchy.direct.minNodes){
             if(a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters,1u);
             for(unsigned attempt=0;attempt<2u;++attempt){
                 // Free components solve on the null-space quotient: project the

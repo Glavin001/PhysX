@@ -1,0 +1,23 @@
+{
+  "recorded_utc": "2026-09-13T02:21:02Z",
+  "continuous200_results_minutes": [
+    30,
+    45
+  ],
+  "full_counter_data_and_report_hours": [
+    8,
+    12
+  ],
+  "basis": {
+    "prior_52_case_ordinary_counter_elapsed_seconds": 24709.231623272022,
+    "prior_replay": "mixed kernel/application",
+    "current_replay": "application",
+    "prior_remaining_six_graph_seconds": 992.1216610500014
+  },
+  "assumptions": [
+    "No new GPU/profiler faults",
+    "No prolonged contention from other authorized users of the shared GPU lock",
+    "Hardware counter replay is separate from real-time simulation cost"
+  ],
+  "scope": "Planning estimate, not a completion guarantee. Small continuous tables publish before full counter replay finishes."
+}

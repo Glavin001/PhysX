@@ -1,0 +1,9 @@
+{
+  "status": "complete",
+  "seconds": [
+    1.395048794001923,
+    1.3096476909995545,
+    1.2998685750062577
+  ],
+  "scope": "Separate calibration of frozen identity/input/config validation before the GPU lease. No GPU use. Excludes Python interpreter/module startup; not retroactively included in the284.088s pipeline timer."
+}

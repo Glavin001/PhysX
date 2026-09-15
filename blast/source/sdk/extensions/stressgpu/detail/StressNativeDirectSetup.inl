@@ -21,6 +21,7 @@
         if (!nativeDirectEnabled() || m_direct.enabled) return;
         const unsigned n = m_nodeCount, m = m_bondCount;
         if (!n || !m) return;
+        const unsigned minNodes = [] { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_MIN_NODES"); const long v = raw ? std::atol(raw) : long(kDirectMinNodes); return unsigned(std::max(2L, v)); }();
         auto isStatic = [&](unsigned v) { return m_hostInertia[v].angular == 0.f && m_hostInertia[v].linear == 0.f; };
         std::vector<unsigned> parent(n);
         for (unsigned i = 0; i < n; ++i) parent[i] = i;
@@ -53,7 +54,7 @@
             const auto& group = members[root];
             const unsigned np = unsigned(group.size());
             // Free groups get patterns too: their solves pin the minimum node.
-            if (np < kDirectMinNodes || np > kResidentComponentMaxNodes) continue;
+            if (np < minNodes || np > kResidentComponentMaxNodes) continue;
             for (unsigned i = 0; i < np; ++i) local[group[i]] = i;
             std::vector<unsigned char> adj(size_t(np) * np, 0);
             std::vector<unsigned> degree(np, 0);
@@ -116,6 +117,9 @@
                 for (const auto& e : rows[j]) lv = std::max(lv, level[e.first] + 1);
                 level[j] = lv; levels = std::max(levels, lv + 1);
             }
+            // A chain-like elimination tree (depth close to the node count) makes
+            // the level-synchronous solve slower than the iteration; leave it to PCG.
+            if (levels * 2u > np) { for (unsigned i = 0; i < np; ++i) local[group[i]] = kNoIsland; continue; }
             std::vector<unsigned> levelCount(levels + 1, 0);
             for (unsigned j = 0; j < np; ++j) ++levelCount[level[j] + 1];
             for (unsigned l = 0; l < levels; ++l) levelCount[l + 1] += levelCount[l];
@@ -169,6 +173,7 @@
         view.slots.slotCount = slotCount; view.slots.stride = stride; view.enabled = 1;
         view.counters = directUpload(std::vector<unsigned>(kDirectCounterCount, 0u));
         view.diagnostics = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG") ? 1u : 0u;
+        view.minNodes = minNodes;
         m_direct = view;
         m_directPatternCount = patterns; m_directMaxBlocks = maxBlocks;
     }

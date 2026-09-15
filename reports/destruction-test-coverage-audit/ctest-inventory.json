@@ -1,0 +1,5358 @@
+{
+  "backtraceGraph": {
+    "commands": [
+      "add_test"
+    ],
+    "files": [
+      "/root/workspace/physx-2/demos/blast-stress-demo/CMakeLists.txt",
+      "/root/workspace/physx-2/physx/source/gpudestruction/CMakeLists.txt"
+    ],
+    "nodes": [
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 121,
+        "parent": 0
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 127,
+        "parent": 2
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 133,
+        "parent": 4
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 139,
+        "parent": 6
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 148,
+        "parent": 8
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 157,
+        "parent": 10
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 166,
+        "parent": 12
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 175,
+        "parent": 14
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 183,
+        "parent": 16
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 267,
+        "parent": 18
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 269,
+        "parent": 20
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 272,
+        "parent": 22
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 292,
+        "parent": 24
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 293,
+        "parent": 26
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 298,
+        "parent": 28
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 300,
+        "parent": 30
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 324,
+        "parent": 32
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 361,
+        "parent": 34
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 362,
+        "parent": 36
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 380,
+        "parent": 38
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 398,
+        "parent": 40
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 415,
+        "parent": 42
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 427,
+        "parent": 44
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 450,
+        "parent": 46
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 468,
+        "parent": 48
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 483,
+        "parent": 50
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 492,
+        "parent": 52
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 503,
+        "parent": 54
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 514,
+        "parent": 56
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 532,
+        "parent": 58
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 540,
+        "parent": 60
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 548,
+        "parent": 62
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 573,
+        "parent": 64
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 586,
+        "parent": 66
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 590,
+        "parent": 68
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 603,
+        "parent": 70
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 609,
+        "parent": 72
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 614,
+        "parent": 74
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 619,
+        "parent": 76
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 620,
+        "parent": 78
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 621,
+        "parent": 80
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 622,
+        "parent": 82
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 628,
+        "parent": 84
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 629,
+        "parent": 86
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 631,
+        "parent": 88
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 633,
+        "parent": 90
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 640,
+        "parent": 92
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 649,
+        "parent": 94
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 692,
+        "parent": 96
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 693,
+        "parent": 98
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 694,
+        "parent": 100
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 695,
+        "parent": 102
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 696,
+        "parent": 104
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 697,
+        "parent": 106
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 705,
+        "parent": 108
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 718,
+        "parent": 110
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 728,
+        "parent": 112
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 737,
+        "parent": 114
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 748,
+        "parent": 116
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 759,
+        "parent": 118
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 760,
+        "parent": 120
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 761,
+        "parent": 122
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 762,
+        "parent": 124
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 763,
+        "parent": 126
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 764,
+        "parent": 128
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 765,
+        "parent": 130
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 766,
+        "parent": 132
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 767,
+        "parent": 134
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 768,
+        "parent": 136
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 772,
+        "parent": 138
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 772,
+        "parent": 140
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 778,
+        "parent": 142
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 779,
+        "parent": 144
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 780,
+        "parent": 146
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 781,
+        "parent": 148
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 782,
+        "parent": 150
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 790,
+        "parent": 152
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 798,
+        "parent": 154
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 807,
+        "parent": 156
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 816,
+        "parent": 158
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 825,
+        "parent": 160
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 832,
+        "parent": 162
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 839,
+        "parent": 164
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 844,
+        "parent": 166
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 848,
+        "parent": 168
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 860,
+        "parent": 170
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 915,
+        "parent": 172
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 917,
+        "parent": 174
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 919,
+        "parent": 176
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 922,
+        "parent": 178
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 925,
+        "parent": 180
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 929,
+        "parent": 182
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 931,
+        "parent": 184
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 942,
+        "parent": 186
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 949,
+        "parent": 188
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 950,
+        "parent": 190
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 951,
+        "parent": 192
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 952,
+        "parent": 194
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 953,
+        "parent": 196
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 954,
+        "parent": 198
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 956,
+        "parent": 200
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 957,
+        "parent": 202
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 958,
+        "parent": 204
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 959,
+        "parent": 206
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 967,
+        "parent": 208
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 977,
+        "parent": 210
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 986,
+        "parent": 212
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 995,
+        "parent": 214
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1000,
+        "parent": 216
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1005,
+        "parent": 218
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1006,
+        "parent": 220
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1008,
+        "parent": 222
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1010,
+        "parent": 224
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1026,
+        "parent": 226
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1064,
+        "parent": 228
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1067,
+        "parent": 230
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1067,
+        "parent": 232
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1073,
+        "parent": 234
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1080,
+        "parent": 236
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1080,
+        "parent": 238
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1080,
+        "parent": 240
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1086,
+        "parent": 242
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1093,
+        "parent": 244
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1093,
+        "parent": 246
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1093,
+        "parent": 248
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1099,
+        "parent": 250
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1102,
+        "parent": 252
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1102,
+        "parent": 254
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1105,
+        "parent": 256
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1112,
+        "parent": 258
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1112,
+        "parent": 260
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 262
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 264
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 266
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 268
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 270
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 272
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 274
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 276
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 278
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 280
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 282
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 284
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 286
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 288
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 290
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 292
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 294
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 296
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 298
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 300
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 302
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 304
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 306
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 308
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 310
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 312
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 314
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1134,
+        "parent": 316
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1150,
+        "parent": 318
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1150,
+        "parent": 320
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1162,
+        "parent": 322
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1188,
+        "parent": 324
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1190,
+        "parent": 326
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1191,
+        "parent": 328
+      },
+      {
+        "file": 0
+      },
+      {
+        "command": 0,
+        "file": 0,
+        "line": 1195,
+        "parent": 330
+      },
+      {
+        "file": 1
+      },
+      {
+        "command": 0,
+        "file": 1,
+        "line": 26,
+        "parent": 332
+      },
+      {
+        "file": 1
+      },
+      {
+        "command": 0,
+        "file": 1,
+        "line": 32,
+        "parent": 334
+      },
+      {
+        "file": 1
+      },
+      {
+        "command": 0,
+        "file": 1,
+        "line": 37,
+        "parent": 336
+      },
+      {
+        "file": 1
+      },
+      {
+        "command": 0,
+        "file": 1,
+        "line": 42,
+        "parent": 338
+      },
+      {
+        "file": 1
+      },
+      {
+        "command": 0,
+        "file": 1,
+        "line": 47,
+        "parent": 340
+      },
+      {
+        "file": 1
+      },
+      {
+        "command": 0,
+        "file": 1,
+        "line": 51,
+        "parent": 342
+      },
+      {
+        "file": 1
+      },
+      {
+        "command": 0,
+        "file": 1,
+        "line": 55,
+        "parent": 344
+      },
+      {
+        "file": 1
+      },
+      {
+        "command": 0,
+        "file": 1,
+        "line": 61,
+        "parent": 346
+      }
+    ]
+  },
+  "kind": "ctestInfo",
+  "tests": [
+    {
+      "backtrace": 1,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_operator_test"
+      ],
+      "name": "blast_stress_six_channel_operator",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 3,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_pcg_test"
+      ],
+      "name": "blast_stress_six_channel_pcg",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 5,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_setup_test"
+      ],
+      "name": "blast_stress_six_channel_setup",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 7,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_components_test"
+      ],
+      "name": "blast_stress_six_channel_components",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 9,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_loads_test"
+      ],
+      "name": "blast_stress_six_channel_loads",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 11,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_partition_test"
+      ],
+      "name": "blast_stress_six_channel_partition",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 13,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_native_graph_test"
+      ],
+      "name": "blast_stress_six_channel_native_graph",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 15,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_load_join_test"
+      ],
+      "name": "blast_stress_six_channel_load_join",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 17,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/stress_elastic_commands_test"
+      ],
+      "name": "blast_stress_six_channel_commands",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 19,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--self-test",
+        "--physics",
+        "cpu"
+      ],
+      "name": "blast_stress_physx_cpu_contract",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 21,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--self-test",
+        "--physics",
+        "cpu",
+        "--resim-passes",
+        "1",
+        "--resim-assert",
+        "penetrate"
+      ],
+      "name": "blast_stress_physx_resim_penetration",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 23,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--self-test",
+        "--physics",
+        "cpu",
+        "--resim-passes",
+        "0",
+        "--resim-assert",
+        "deflect"
+      ],
+      "name": "blast_stress_physx_resim_baseline",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 25,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/resim_snapshot_test"
+      ],
+      "name": "blast_stress_physx_resim_snapshot",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 27,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/resim_snapshot_test",
+        "--gpu"
+      ],
+      "name": "blast_stress_physx_resim_policy_gpu",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 29,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/velocity_fidelity_test",
+        "cpu"
+      ],
+      "name": "blast_stress_velocity_fidelity_cpu",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 31,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/velocity_fidelity_test",
+        "gpu"
+      ],
+      "name": "blast_stress_velocity_fidelity_gpu",
+      "properties": [
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 33,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/load_path_test"
+      ],
+      "name": "blast_stress_load_path",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 35,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/resim_punchthrough_test"
+      ],
+      "name": "blast_stress_physx_resim_punchthrough",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 37,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/resim_punchthrough_test",
+        "--gpu"
+      ],
+      "name": "blast_stress_physx_resim_punchthrough_gpu",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 39,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/resim_scoped_cascade_test"
+      ],
+      "name": "blast_stress_physx_resim_scoped_cascade",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 41,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/direct_gpu_resim_test"
+      ],
+      "name": "blast_stress_physx_direct_gpu_resim",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 43,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_activity_test"
+      ],
+      "name": "blast_stress_physx_gpu_activity",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 45,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--physics",
+        "cpu",
+        "--grid",
+        "1",
+        "--duration",
+        "6",
+        "--settle",
+        "2",
+        "--scene",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/reference-building.json",
+        "--projectile-mass-scale",
+        "0.0001",
+        "--projectile-speed-scale",
+        "0.0001",
+        "--require-min-safety-factor",
+        "2",
+        "--require-max-safety-factor",
+        "2000",
+        "--output-state",
+        ""
+      ],
+      "name": "blast_stress_reference_building_load_path",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 47,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/material_behavior_test"
+      ],
+      "name": "blast_stress_material_behavior",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 49,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/chunk_crush_test"
+      ],
+      "name": "blast_stress_chunk_crush",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 51,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/scene_pack_v3_test",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/reference-building-crush.json"
+      ],
+      "name": "blast_stress_scene_pack_v3",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 53,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--physics",
+        "cpu",
+        "--grid",
+        "1",
+        "--duration",
+        "10",
+        "--settle",
+        "2",
+        "--scene",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/reference-building-crush.json",
+        "--projectile-mass-scale",
+        "0.0001",
+        "--projectile-speed-scale",
+        "0.0001",
+        "--require-crush-fraction-max",
+        "0",
+        "--output-state",
+        ""
+      ],
+      "name": "blast_stress_reference_building_crush_gravity",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 55,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--physics",
+        "cpu",
+        "--grid",
+        "1",
+        "--duration",
+        "10",
+        "--settle",
+        "2",
+        "--scene",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/reference-building-crush.json",
+        "--require-crush-fraction-max",
+        "0",
+        "--output-state",
+        ""
+      ],
+      "name": "blast_stress_reference_building_crush_ordinary_impact",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 57,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--physics",
+        "cpu",
+        "--grid",
+        "1",
+        "--duration",
+        "10",
+        "--settle",
+        "2",
+        "--projectile-mass-scale",
+        "8",
+        "--scene",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/reference-building-crush.json",
+        "--require-crush-fraction-min",
+        "0.01",
+        "--require-crush-fraction-max",
+        "0.25",
+        "--output-state",
+        ""
+      ],
+      "name": "blast_stress_reference_building_crush_hard_impact",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 59,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--physics",
+        "cpu",
+        "--grid",
+        "1",
+        "--duration",
+        "8",
+        "--settle",
+        "2",
+        "--projectile-waves",
+        "1",
+        "--resim-passes",
+        "1",
+        "--scene",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/crush-wall.json",
+        "--require-crush-fraction-min",
+        "0.015",
+        "--require-crush-fraction-max",
+        "0.2",
+        "--output-state",
+        ""
+      ],
+      "name": "blast_stress_crush_wall_bite",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 61,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--physics",
+        "cpu",
+        "--grid",
+        "1",
+        "--duration",
+        "8",
+        "--settle",
+        "2",
+        "--projectile-waves",
+        "1",
+        "--resim-passes",
+        "1",
+        "--no-crush",
+        "--scene",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/crush-wall.json",
+        "--require-crush-fraction-max",
+        "0",
+        "--output-state",
+        ""
+      ],
+      "name": "blast_stress_crush_wall_bond_only",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 63,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/blast_stress_demo",
+        "--physics",
+        "cpu",
+        "--grid",
+        "3",
+        "--duration",
+        "12",
+        "--settle",
+        "2",
+        "--projectile-mass-scale",
+        "8",
+        "--resim-passes",
+        "2",
+        "--scene",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/reference-building-crush.json",
+        "--require-crush-fraction-min",
+        "0.01",
+        "--require-crush-fraction-max",
+        "0.25",
+        "--output-state",
+        ""
+      ],
+      "name": "blast_stress_crush_multi_structure_resim",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 65,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/destruction_quality_test",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/reference-building.json"
+      ],
+      "name": "blast_stress_destruction_quality",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 67,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/scene_pack_conformance_test",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/conformance/structure-conformance-v2.json"
+      ],
+      "name": "blast_stress_scene_pack_conformance",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 69,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/scene_pack_test",
+        "/root/workspace/physx-2/blast/blast-stress-demo-rs/assets/scenes/fractured-tower.json"
+      ],
+      "name": "blast_stress_scene_pack",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 71,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/node_mesh_test",
+        "/root/workspace/physx-2/blast/blast-stress-demo-rs/assets/scenes/fractured-tower.json",
+        "/root/workspace/physx-2/blast/blast-stress-solver/assets/reference/reference-building.json"
+      ],
+      "name": "blast_stress_node_mesh",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 73,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/chunk_crush_test",
+        "--gpu"
+      ],
+      "name": "blast_stress_gpu_crush_correction",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 75,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/direct_gpu_contact_test"
+      ],
+      "name": "blast_stress_physx_direct_gpu_contacts",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 77,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_lazy_readback_test"
+      ],
+      "name": "blast_stress_gpu_lazy_readback",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1",
+            "BLAST_GPU_GATHER=1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 79,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_lazy_readback_test",
+        "--cpu-walk"
+      ],
+      "name": "blast_stress_gpu_lazy_cpu_observer",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1",
+            "BLAST_GPU_GATHER=1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 81,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_lazy_readback_test",
+        "--parallel-cpu-walk"
+      ],
+      "name": "blast_stress_gpu_lazy_parallel_observer",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1",
+            "BLAST_GPU_GATHER=1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 83,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_lazy_readback_test",
+        "--cpu-gpu-walk"
+      ],
+      "name": "blast_stress_gpu_cpu_walk_preparation",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1",
+            "BLAST_GPU_GATHER=1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 85,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_quiet_load_test"
+      ],
+      "name": "blast_stress_gpu_quiet_load",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 87,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_quiet_load_test"
+      ],
+      "name": "blast_stress_gpu_quiet_load_bond_space",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_NODE_SPACE=0"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 89,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_quiet_load_test"
+      ],
+      "name": "blast_stress_gpu_quiet_load_deterministic",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 91,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_quiet_load_test"
+      ],
+      "name": "blast_stress_gpu_quiet_load_unrolled",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_COND_LOOP=0"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 93,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_material_test"
+      ],
+      "name": "physx_native_gpu_material",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 95,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_destruction_test"
+      ],
+      "name": "physx_native_gpu_destruction",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 97,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/persistent_shape_owner_test"
+      ],
+      "name": "physx_persistent_shape_owner",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 99,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--gpu-bounds"
+      ],
+      "name": "physx_persistent_shape_owner_gpu_bounds",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 101,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--gpu-bounds-growth"
+      ],
+      "name": "physx_persistent_shape_owner_gpu_bounds_growth",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 103,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--host-pose-bounds"
+      ],
+      "name": "physx_persistent_shape_owner_host_pose_bounds",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 105,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--overflow"
+      ],
+      "name": "physx_persistent_shape_owner_overflow",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 107,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--overflow-split"
+      ],
+      "name": "physx_persistent_shape_owner_overflow_split",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 109,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_body_test"
+      ],
+      "name": "physx_native_gpu_body_state",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 111,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_allocation_test"
+      ],
+      "name": "physx_native_gpu_body_allocation",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 113,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_incremental_pairs_test"
+      ],
+      "name": "physx_native_gpu_incremental_pairs",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 115,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_pairs_test"
+      ],
+      "name": "physx_native_gpu_pairs",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 117,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_motion_slots_test"
+      ],
+      "name": "physx_native_gpu_motion_slots",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 119,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test"
+      ],
+      "name": "physx_native_gpu_collision_preparation",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 121,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--contact-response"
+      ],
+      "name": "physx_native_gpu_contact_response",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 123,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--retained-registry"
+      ],
+      "name": "physx_native_gpu_retained_registry",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 125,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--lifetime-exhaustion"
+      ],
+      "name": "physx_native_gpu_contact_lifetime_exhaustion",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 127,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--initialization-failure"
+      ],
+      "name": "physx_native_gpu_initialization_failure",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 129,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--preparation-before-compatibility"
+      ],
+      "name": "physx_native_gpu_preparation_before_compatibility",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 131,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--native-node-births"
+      ],
+      "name": "physx_native_gpu_node_births",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 133,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--kinematic-inputs"
+      ],
+      "name": "physx_native_gpu_kinematic_inputs",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 135,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--accepted-properties"
+      ],
+      "name": "physx_native_gpu_accepted_properties",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 137,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--accepted-properties-pgs"
+      ],
+      "name": "physx_native_gpu_accepted_properties_pgs",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 139,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "initcheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--accepted-properties"
+      ],
+      "name": "physx_native_gpu_state_initcheck_accepted-properties",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 141,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "initcheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--accepted-properties-pgs"
+      ],
+      "name": "physx_native_gpu_state_initcheck_accepted-properties-pgs",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 143,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--solver-metadata"
+      ],
+      "name": "physx_native_gpu_solver_metadata",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 145,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--pre-solve-islands"
+      ],
+      "name": "physx_native_gpu_pre_solve_islands",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 147,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--pre-solve-contacts"
+      ],
+      "name": "physx_native_gpu_pre_solve_contacts",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 149,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--pre-solve-support"
+      ],
+      "name": "physx_native_gpu_pre_solve_support",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 151,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test",
+        "--connectivity-owner"
+      ],
+      "name": "physx_native_gpu_connectivity_owner",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 153,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_kinematic_support_test"
+      ],
+      "name": "physx_native_gpu_kinematic_support",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 155,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_checkpoint_test"
+      ],
+      "name": "physx_native_gpu_rigid_checkpoint",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 157,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_command_wake_test"
+      ],
+      "name": "physx_native_command_wake",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 159,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_command_motion_test"
+      ],
+      "name": "physx_native_gpu_command_motion",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 161,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_command_baseline_test"
+      ],
+      "name": "physx_native_gpu_command_baseline",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 163,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_command_inputs_test"
+      ],
+      "name": "physx_native_gpu_command_inputs",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 165,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_input_owners_test"
+      ],
+      "name": "physx_native_gpu_input_owners",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 167,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_correction_body_test"
+      ],
+      "name": "physx_native_gpu_correction_bodies",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 169,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_bombardment_test"
+      ],
+      "name": "physx_native_demo_projectile_launch",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 171,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_visuals_test"
+      ],
+      "name": "physx_native_gpu_visual_consumer",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 173,
+      "command": [
+        "/root/workspace/physx-2/.toolchains/build-env/bin/python3.10",
+        "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_connectivity_fracture_test.py",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_collision_test"
+      ],
+      "name": "physx_native_gpu_connectivity_fracture",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 175,
+      "command": [
+        "/root/workspace/physx-2/.toolchains/build-env/bin/python3.10",
+        "/root/workspace/physx-2/demos/blast-stress-demo/../../tools/scripts/test-native-gpu-profile.py"
+      ],
+      "name": "physx_native_profile_accounting",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 177,
+      "command": [
+        "/root/workspace/physx-2/.toolchains/build-env/bin/python3.10",
+        "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_consumer_test.py",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo"
+      ],
+      "name": "physx_native_gpu_consumer",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 179,
+      "command": [
+        "/root/workspace/physx-2/.toolchains/build-env/bin/python3.10",
+        "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_consumer_test.py",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+        "--render"
+      ],
+      "name": "physx_native_gpu_renderer",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 181,
+      "command": [
+        "/root/workspace/physx-2/.toolchains/build-env/bin/python3.10",
+        "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_retained_contact_test.py",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_resimulation_test"
+      ],
+      "name": "physx_native_gpu_retained_contact_graph",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 183,
+      "command": [
+        "/root/workspace/physx-2/.toolchains/build-env/bin/python3.10",
+        "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_bombardment_contacts_test.py",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo"
+      ],
+      "name": "physx_native_gpu_bombardment_contacts",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 300.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 185,
+      "command": [
+        "/root/workspace/physx-2/.toolchains/build-env/bin/python3.10",
+        "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_bombardment_contacts_test.py",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+        "--standard-scene"
+      ],
+      "name": "physx_native_standard_bombardment_contacts",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 300.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 187,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_resimulation_test"
+      ],
+      "name": "physx_native_gpu_resimulation",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 189,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--reported-reuse"
+      ],
+      "name": "physx_native_standard_reported_reuse",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 191,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--reuse"
+      ],
+      "name": "physx_native_standard_reuse",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 193,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--post-correction"
+      ],
+      "name": "physx_native_post_correction",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 195,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--awake"
+      ],
+      "name": "physx_native_standard_awake",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 197,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test"
+      ],
+      "name": "physx_native_standard_sleep",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 199,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--compound-sleep"
+      ],
+      "name": "physx_native_compound_sleep",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 201,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--sleep-boundary"
+      ],
+      "name": "physx_native_standard_sleep_boundary",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 203,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--device-graph"
+      ],
+      "name": "physx_native_standard_gpu_islands",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 205,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--wake-boundary"
+      ],
+      "name": "physx_native_standard_wake_boundary",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 207,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_standard_scene_test",
+        "--late-impact"
+      ],
+      "name": "physx_native_standard_late_impact",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "integration"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 209,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_group_filter_test"
+      ],
+      "name": "physx_native_gpu_group_filtering",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 211,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_snapshot_test",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/snapshot-test-output",
+        "--require-complete-shapes"
+      ],
+      "name": "physx_native_destruction_snapshot",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 213,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_publication_test"
+      ],
+      "name": "physx_native_gpu_publication",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 215,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_shape_publication_test"
+      ],
+      "name": "physx_native_gpu_shape_publication",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 217,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_device_input_test"
+      ],
+      "name": "blast_stress_gpu_device_input",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 219,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_stress_topology_test"
+      ],
+      "name": "blast_stress_gpu_topology",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 221,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_stress_topology_test"
+      ],
+      "name": "blast_stress_gpu_topology_deterministic",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 223,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_stress_topology_test"
+      ],
+      "name": "blast_stress_gpu_topology_jacobi",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_JACOBI=1"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 225,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_stress_topology_test"
+      ],
+      "name": "blast_stress_gpu_topology_bond_space",
+      "properties": [
+        {
+          "name": "ENVIRONMENT",
+          "value": [
+            "BLAST_GPU_NODE_SPACE=0"
+          ]
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 227,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_stress_test"
+      ],
+      "name": "blast_stress_gpu_equivalence",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 229,
+      "name": "blast_stress_gpu_fine_only_preparation",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 231,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--fine-only"
+      ],
+      "name": "blast_stress_gpu_fine_only_preparation_memcheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 233,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "synccheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--fine-only"
+      ],
+      "name": "blast_stress_gpu_fine_only_preparation_synccheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 235,
+      "name": "blast_stress_gpu_resident_hierarchy",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 237,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--leak-check",
+        "full",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test"
+      ],
+      "name": "blast_stress_gpu_resident_hierarchy_memcheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 239,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "synccheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test"
+      ],
+      "name": "blast_stress_gpu_resident_hierarchy_synccheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 241,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test"
+      ],
+      "name": "blast_stress_gpu_resident_hierarchy_racecheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 243,
+      "name": "blast_stress_gpu_assembled_hierarchy",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 245,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--leak-check",
+        "full",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--assembled"
+      ],
+      "name": "blast_stress_gpu_assembled_hierarchy_memcheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 247,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "synccheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--assembled"
+      ],
+      "name": "blast_stress_gpu_assembled_hierarchy_synccheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 249,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--assembled"
+      ],
+      "name": "blast_stress_gpu_assembled_hierarchy_racecheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 251,
+      "name": "blast_stress_gpu_coarse_long_rows",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 253,
+      "name": "blast_stress_gpu_cycle_coarse-long-rows",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 255,
+      "name": "blast_stress_gpu_cycle_coarse-self-columns",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 257,
+      "name": "blast_stress_gpu_resident_cycle",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 259,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--leak-check",
+        "full",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_memcheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 261,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "synccheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_synccheck",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 263,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "empty"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_empty_all",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 265,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "singleton"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_singleton_all",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 267,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "isolated"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_isolated_all",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 269,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "supported",
+        "0"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_supported_0",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 271,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "supported",
+        "1"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_supported_1",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 273,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "supported",
+        "2"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_supported_2",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 275,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "supported",
+        "3"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_supported_3",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 277,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "supported",
+        "4"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_supported_4",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 279,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "supported",
+        "5"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_supported_5",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 281,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "path",
+        "0"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_path_0",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 283,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "path",
+        "1"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_path_1",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 285,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "self"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_self_all",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 287,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "parallel"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_parallel_all",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 289,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "omitted",
+        "0"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_omitted_0",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 291,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "omitted",
+        "1"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_omitted_1",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 293,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "omitted",
+        "2"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_omitted_2",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 295,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "omitted",
+        "3"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_omitted_3",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 297,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "omitted",
+        "4"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_omitted_4",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 299,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "omitted",
+        "5"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_omitted_5",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 301,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "star"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_star_all",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 303,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "fixed"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_fixed_all",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 305,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "mixed"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_mixed_all",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 307,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "large",
+        "0"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_large_0",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 309,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "large",
+        "1"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_large_1",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 311,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "large",
+        "2"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_large_2",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 313,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "large",
+        "3"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_large_3",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 315,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "large",
+        "4"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_large_4",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 317,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "racecheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test",
+        "--cycle",
+        "large",
+        "5"
+      ],
+      "name": "blast_stress_gpu_resident_cycle_racecheck_large_5",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 319,
+      "name": "blast_stress_component_work_1",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "diagnostic",
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 60.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 321,
+      "name": "blast_stress_component_work_256",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "diagnostic",
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 60.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 323,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_motion_modes_test"
+      ],
+      "name": "blast_stress_gpu_resident_motion_modes",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 325,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_stress_3d_test"
+      ],
+      "name": "blast_stress_gpu_resident_3d",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu"
+          ]
+        },
+        {
+          "name": "RUN_SERIAL",
+          "value": true
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 327,
+      "name": "blast_stress_gpu_resident_cpu_parity",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 329,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_stress_test"
+      ],
+      "name": "blast_stress_gpu_resident_analytic",
+      "properties": [
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 331,
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--leak-check",
+        "full",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_stress_test"
+      ],
+      "name": "blast_stress_gpu_resident_memory",
+      "properties": [
+        {
+          "name": "LABELS",
+          "value": [
+            "gpu",
+            "sanitizer"
+          ]
+        },
+        {
+          "name": "TIMEOUT",
+          "value": 120.0
+        },
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/reference"
+        }
+      ]
+    },
+    {
+      "backtrace": 333,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_motion_slots_test"
+      ],
+      "name": "destruction_gpu_motion_slots",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/topology"
+        }
+      ]
+    },
+    {
+      "backtrace": 335,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_rigid_iteration_limits_test"
+      ],
+      "name": "destruction_gpu_rigid_iteration_limits",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/topology"
+        }
+      ]
+    },
+    {
+      "backtrace": 337,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_registration_test"
+      ],
+      "name": "destruction_gpu_registration",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/topology"
+        }
+      ]
+    },
+    {
+      "backtrace": 339,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_contact_ownership_test"
+      ],
+      "name": "destruction_gpu_contact_ownership",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/topology"
+        }
+      ]
+    },
+    {
+      "backtrace": 341,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_committed_changes_test"
+      ],
+      "name": "destruction_gpu_committed_changes",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/topology"
+        }
+      ]
+    },
+    {
+      "backtrace": 343,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_topology_test"
+      ],
+      "name": "destruction_gpu_topology",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/topology"
+        }
+      ]
+    },
+    {
+      "backtrace": 345,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_body_test"
+      ],
+      "name": "destruction_gpu_body_state",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/topology"
+        }
+      ]
+    },
+    {
+      "backtrace": 347,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_contact_graph_test"
+      ],
+      "name": "destruction_gpu_contact_graph",
+      "properties": [
+        {
+          "name": "WORKING_DIRECTORY",
+          "value": "/root/workspace/physx-2/out/destruction-sdk/topology"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 1,
+    "minor": 0
+  }
+}

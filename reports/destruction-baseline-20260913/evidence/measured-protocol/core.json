@@ -1,0 +1,163 @@
+{
+  "schema": 1,
+  "id": "profiled-five-minute-core",
+  "target_wall_seconds": 300,
+  "status": "measurement-policy proposal; mixed-order/continuous integration not yet calibrated",
+  "scope": "Fixed core plus predeclared primary scenarios and conditional diagnostic companions. Representative prioritization, not full52 promotion.",
+  "snapshot_core": [
+    {
+      "scenario": "bridge64-cold",
+      "repetitions_per_process": 8,
+      "purpose": "Two supports, bending and alternative load paths",
+      "default_order": [
+        "A0",
+        "B0",
+        "A1"
+      ],
+      "primary_order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ]
+    },
+    {
+      "scenario": "chain256-cold",
+      "repetitions_per_process": 8,
+      "purpose": "Long sparse load path and slow equilibrium propagation",
+      "default_order": [
+        "A0",
+        "B0",
+        "A1"
+      ],
+      "primary_order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ]
+    },
+    {
+      "scenario": "dense12-cold",
+      "repetitions_per_process": 6,
+      "purpose": "Dense three-dimensional bond loops",
+      "default_order": [
+        "A0",
+        "B0",
+        "A1"
+      ],
+      "primary_order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ]
+    },
+    {
+      "scenario": "tower64-cold",
+      "repetitions_per_process": 4,
+      "purpose": "Tall looped structure and long-range convergence",
+      "default_order": [
+        "A0",
+        "B0",
+        "A1"
+      ],
+      "primary_order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ]
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "repetitions_per_process": 6,
+      "purpose": "Moderate-scale first fracture, correction and second stress",
+      "default_order": [
+        "A0",
+        "B0",
+        "A1"
+      ],
+      "primary_order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ]
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "repetitions_per_process": 4,
+      "purpose": "Large authored state and first-use equilibrium work",
+      "default_order": [
+        "A0",
+        "B0",
+        "A1"
+      ],
+      "primary_order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ]
+    },
+    {
+      "scenario": "city256-late-debris",
+      "repetitions_per_process": 4,
+      "purpose": "Large fragmented population, contact pressure and further fracture",
+      "default_order": [
+        "A0",
+        "B0",
+        "A1"
+      ],
+      "primary_order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ]
+    }
+  ],
+  "continuous_core": [
+    {
+      "scenario": "idle-256",
+      "steps_per_process": 180,
+      "order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ],
+      "purpose": "Naturally warm intact equilibrium, sleeping and unchanged-input work"
+    },
+    {
+      "scenario": "impacts-256",
+      "steps_per_process": 180,
+      "order": [
+        "A0",
+        "B0",
+        "B1",
+        "A1"
+      ],
+      "purpose": "Current-contact destruction through first impact, repeated fractures and active debris"
+    }
+  ],
+  "primary_snapshot_scenarios": 2,
+  "default_primary": [
+    "city25-initial-impact",
+    "city256-late-debris"
+  ],
+  "profile_policy": {
+    "systems": "One affected full tick with complete CPU/GPU timeline; second only if budget permits",
+    "ncu": "One or two representative launches with hypothesis-specific counters when the mechanism needs them",
+    "reference": "Reuse matching frozen baseline profiles; do not pool profiler timings with production latency"
+  },
+  "noise_policy": {
+    "independent_unit": "Process/block; consecutive ticks are correlated",
+    "confirmation": "Both primary candidate processes must support the same direction against adjacent controls; effects within control/A-A variation remain inconclusive",
+    "no_automatic_significance": "No sample-level bootstrap confidence claim; two candidate blocks do not establish a precise confidence interval",
+    "first_use": "Retain every first-use tick and report first-use versus subsequent samples separately",
+    "adaptive": "Predeclare primary cases; new focused confirmation is a separate complete balanced block, not repeated testing until a favorable p-value"
+  },
+  "finalist": "Full52 plus required continuous, physical, numerical and memory gates; no dropped workloads or relaxed tolerances"
+}

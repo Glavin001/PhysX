@@ -79,8 +79,9 @@ waits for the CPU (`ScPipeline.cpp:3057-3136`,
 Secondary, deterministic costs: island repair 10–12 ms CPU per active tick
 (`observeContactComponents` download plus host processing), `constructMotionModes`
 4.8 ms, cluster-mass accumulation 2.1 ms, `onResetFiltering` over every shape
-after each correction because every benchmark profile leaves
-`preserveUnchangedContactPairs=false`, and 700–900 kernel launches per active tick.
+after each correction whenever `preserveUnchangedContactPairs` is false (the API
+default; the continuous A/B profile enables it, snapshot captures inherit the
+capturing run's setting), and 700–900 kernel launches per active tick.
 
 **Lessons from the previous approach** (`vibe-land-4`, `blast-stress-solver-2`):
 the live game ran an unconverged 32-iteration FP32 CGLS and calibrated materials
@@ -253,6 +254,33 @@ means, peaks, 60 Hz misses and stages; physical gates unchanged unless the chang
 is a declared compromise with its own envelope; finalists also pass full52,
 uninterrupted trajectories, the 600-tick ordinary/sleeping wall, snapshot round
 trips and sanitizers.
+
+## 5. Implementation status (2026-09-15, same day)
+
+R1 is implemented on this branch (commits `2a97d7a6`, `0c5c997c`) in
+`blast/source/sdk/extensions/stressgpu/detail/StressNativeDirect*.{cuh,inl}` and
+wired into the resident solve graph. It keeps the physical contract untouched:
+the direct step only proposes a solution that the unchanged residual monitor and
+verification accept or hand to PCG. Native demo A/B against the frozen selected
+runtime, 3 s, ordinary APIs, sleeping on, one correction, physical histories
+(bonds broken per tick, post-correction breaks, clusters, contacts, corrections)
+identical on every tick:
+
+| scenario (180 ticks) | baseline mean ms | R1 mean ms | max stress iterations |
+|---|---:|---:|---:|
+| city25 bombardment | 12.69 | 9.83 | 640 → 64 |
+| city256 bombardment, all ticks | 55.05 | 37.16 | 788 → 420 (one tick) |
+| city256 cascade window (ticks 100–139) | 93.9 | 63.0 | |
+| city256 late window (ticks 140–179) | 103.1 | 70.0 | |
+
+Kernel profile of the candidate (Nsight Systems, 267 solves): `componentStressSolve`
+5.4 ms per solve (was ≈35 ms per pass at this scale), `factorNativeDirect` 2.95 ms
+per solve with a 27 ms burst on the impact tick when every building refactors.
+The impact peak is unchanged because it is CPU registration (R2). Remaining
+solver work: supernodal treatment of the dense top of each elimination tree
+(refactor latency), Woodbury updates for few-bond removals, and warp-level
+handling of the thousands of tiny free components that still serialize per CTA.
+Official nine-window warm screen (all windows pass contract v3; city25 impact 22.6 → 17.1 ms, city256 cascade 105 → 80 ms, debris 125 → 93 ms, impact 89 → 75 ms, idle unchanged): [warm-screen.md](warm-screen.md).
 
 ## References
 

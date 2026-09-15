@@ -1,0 +1,159 @@
+[
+  {
+    "scenario": "bridge64-cold",
+    "process_means_ms": [
+      8.35703975,
+      8.919386125,
+      8.9233665,
+      9.114501125,
+      9.132234875,
+      8.4445895
+    ],
+    "observed_span_ms": 0.7751951249999998,
+    "comparisons": [
+      {
+        "run": "fast-calibration",
+        "pooled_A_minus_identical_B_ms": -0.2791830000000015,
+        "trailing_control_drift_ms": 0.56632675
+      },
+      {
+        "run": "profiled-fast-calibration",
+        "pooled_A_minus_identical_B_ms": -0.35268956250000016,
+        "trailing_control_drift_ms": -0.669911625000001
+      }
+    ],
+    "scope": "Observed diagnostic noise, not a confidence bound or universal detection threshold"
+  },
+  {
+    "scenario": "chain256-cold",
+    "process_means_ms": [
+      7.43367225,
+      6.9159257499999995,
+      7.606250125,
+      7.727852625,
+      6.838763,
+      7.000713125
+    ],
+    "observed_span_ms": 0.8890896249999996,
+    "comparisons": [
+      {
+        "run": "fast-calibration",
+        "pooled_A_minus_identical_B_ms": 0.6040354375000003,
+        "trailing_control_drift_ms": 0.172577875
+      },
+      {
+        "run": "profiled-fast-calibration",
+        "pooled_A_minus_identical_B_ms": 0.5255198749999996,
+        "trailing_control_drift_ms": -0.7271394999999998
+      }
+    ],
+    "scope": "Observed diagnostic noise, not a confidence bound or universal detection threshold"
+  },
+  {
+    "scenario": "dense12-cold",
+    "process_means_ms": [
+      31.538281166666668,
+      31.47494233333333,
+      32.0197035,
+      31.222025,
+      31.6020935,
+      31.57334133333333
+    ],
+    "observed_span_ms": 0.7976785,
+    "comparisons": [
+      {
+        "run": "fast-calibration",
+        "pooled_A_minus_identical_B_ms": 0.3040500000000037,
+        "trailing_control_drift_ms": 0.48142233333333095
+      },
+      {
+        "run": "profiled-fast-calibration",
+        "pooled_A_minus_identical_B_ms": -0.2044103333333318,
+        "trailing_control_drift_ms": 0.3513163333333331
+      }
+    ],
+    "scope": "Observed diagnostic noise, not a confidence bound or universal detection threshold"
+  },
+  {
+    "scenario": "tower64-cold",
+    "process_means_ms": [],
+    "observed_span_ms": null,
+    "comparisons": [],
+    "scope": "Observed diagnostic noise, not a confidence bound or universal detection threshold"
+  },
+  {
+    "scenario": "city25-initial-impact",
+    "process_means_ms": [
+      43.8076125,
+      37.83669625,
+      38.310163,
+      39.480956,
+      41.410145,
+      41.22788275
+    ],
+    "observed_span_ms": 5.970916249999995,
+    "comparisons": [
+      {
+        "run": "fast-calibration",
+        "pooled_A_minus_identical_B_ms": 3.222191499999994,
+        "trailing_control_drift_ms": -5.497449499999995
+      },
+      {
+        "run": "profiled-fast-calibration",
+        "pooled_A_minus_identical_B_ms": -1.055725625000001,
+        "trailing_control_drift_ms": 1.74692675
+      }
+    ],
+    "scope": "Observed diagnostic noise, not a confidence bound or universal detection threshold"
+  },
+  {
+    "scenario": "city256-intact-idle",
+    "process_means_ms": [
+      74.11038966666666,
+      64.36017733333334,
+      71.51094333333333,
+      64.712841,
+      66.54370866666667,
+      58.053857666666666
+    ],
+    "observed_span_ms": 16.056531999999997,
+    "comparisons": [
+      {
+        "run": "fast-calibration",
+        "pooled_A_minus_identical_B_ms": 8.450489166666657,
+        "trailing_control_drift_ms": -2.599446333333333
+      },
+      {
+        "run": "profiled-fast-calibration",
+        "pooled_A_minus_identical_B_ms": -5.160359333333339,
+        "trailing_control_drift_ms": -6.658983333333332
+      }
+    ],
+    "scope": "Observed diagnostic noise, not a confidence bound or universal detection threshold"
+  },
+  {
+    "scenario": "city256-late-debris",
+    "process_means_ms": [
+      387.925992,
+      373.83572933333335,
+      393.8071336666667,
+      395.82320066666665,
+      382.32749133333334,
+      378.51016400000003
+    ],
+    "observed_span_ms": 21.987471333333303,
+    "comparisons": [
+      {
+        "run": "fast-calibration",
+        "pooled_A_minus_identical_B_ms": 17.03083349999997,
+        "trailing_control_drift_ms": 5.881141666666679
+      },
+      {
+        "run": "profiled-fast-calibration",
+        "pooled_A_minus_identical_B_ms": 4.839190999999971,
+        "trailing_control_drift_ms": -17.31303666666662
+      }
+    ],
+    "scope": "Observed diagnostic noise, not a confidence bound or universal detection threshold"
+  }
+]

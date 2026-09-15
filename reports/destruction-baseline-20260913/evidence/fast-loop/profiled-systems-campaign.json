@@ -1,0 +1,31 @@
+{
+  "status": "complete",
+  "identity": {
+    "binary_sha256": "51742715f7b4060c92d847f176768fb768c4deb23154fd1a1348cdf166f63074",
+    "modules": {
+      "libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354",
+      "libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5"
+    }
+  },
+  "manifest": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/profile-manifest.json",
+  "scenarios": [
+    {
+      "scenario": "city256-late-debris",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/systems/city256-late-debris",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+      },
+      "status": "complete",
+      "cpu_samples": 2431,
+      "engine_scopes": 26959,
+      "kernel_launches": 884,
+      "trace_sha256": "1fd55d4a93e63edceb130a44a0c0afba5c60ffedb2c5a06ec28b7cebf77dafaa",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/systems/city256-late-debris/physical-comparison.json"
+    }
+  ],
+  "profiling_only": true,
+  "elapsed_this_invocation_seconds": 31.280390972009627
+}

@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "status": "audit_expectations_confirmed",
+  "synthetic": true,
+  "runtime_physics_qualified": false,
+  "challenges": [
+    {
+      "challenge": "identical",
+      "checker": "snapshot",
+      "result": "passed"
+    },
+    {
+      "challenge": "generation_only",
+      "checker": "snapshot",
+      "result": "rejected",
+      "reason": "Observation layouts or generations differ"
+    },
+    {
+      "challenge": "load_one_ulp",
+      "checker": "snapshot",
+      "result": "rejected",
+      "reason": "surface-loads: output bytes differ"
+    },
+    {
+      "challenge": "force_small",
+      "checker": "snapshot",
+      "result": "passed"
+    },
+    {
+      "challenge": "force_large",
+      "checker": "snapshot",
+      "result": "rejected",
+      "reason": "bond-forces: existing numerical bound exceeded"
+    },
+    {
+      "challenge": "position_large",
+      "checker": "snapshot",
+      "result": "rejected",
+      "reason": "Object 1 position_m exceeds frozen bound"
+    },
+    {
+      "challenge": "projectile_orientation_90_degrees",
+      "checker": "continuous-prefix-32",
+      "result": "passed",
+      "max_position_error_m": 0.0,
+      "limitation": "Synthetic projectile receipt; proves quaternion is ignored, not an actual dynamics failure."
+    }
+  ]
+}

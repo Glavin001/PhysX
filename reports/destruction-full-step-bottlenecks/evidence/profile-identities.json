@@ -1,0 +1,118 @@
+[
+  {
+    "scenario": "city256-late-debris",
+    "scope": "diagnostic capture, not unprofiled performance qualification",
+    "profiler": {
+      "tool": "nsys",
+      "version": "NVIDIA Nsight Systems version 2026.3.2.313-263238521929v0",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/opt/nvidia/nsight-systems/2026.3.2/bin/nsys",
+        "sha256": "23c0735ea6812f06aa419d15366be93c6ba132924f0e8371612b3c88d882f549"
+      },
+      "cpu_attribution": true,
+      "cpu_sampling_period": 500000,
+      "allocation_trace": false,
+      "raw_timeline_scope": "process"
+    },
+    "binary_sha256": "51742715f7b4060c92d847f176768fb768c4deb23154fd1a1348cdf166f63074",
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+    },
+    "snapshot_inputs": {
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+    },
+    "driver_before": "615.71.09",
+    "devices_before": [
+      {
+        "name": "NVIDIA GeForce RTX 5060 Ti",
+        "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+        "temperature": "35 C",
+        "clock": "180 MHz",
+        "utilization": "0 %",
+        "memory_used": "2 MiB"
+      }
+    ]
+  },
+  {
+    "scenario": "city25-initial-impact",
+    "scope": "diagnostic capture, not unprofiled performance qualification",
+    "profiler": {
+      "tool": "nsys",
+      "version": "NVIDIA Nsight Systems version 2026.3.2.313-263238521929v0",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/opt/nvidia/nsight-systems/2026.3.2/bin/nsys",
+        "sha256": "23c0735ea6812f06aa419d15366be93c6ba132924f0e8371612b3c88d882f549"
+      },
+      "cpu_attribution": true,
+      "cpu_sampling_period": 500000,
+      "allocation_trace": false,
+      "raw_timeline_scope": "process"
+    },
+    "binary_sha256": "51742715f7b4060c92d847f176768fb768c4deb23154fd1a1348cdf166f63074",
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+    },
+    "snapshot_inputs": {
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+    },
+    "driver_before": "615.71.09",
+    "devices_before": [
+      {
+        "name": "NVIDIA GeForce RTX 5060 Ti",
+        "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+        "temperature": "34 C",
+        "clock": "180 MHz",
+        "utilization": "0 %",
+        "memory_used": "2 MiB"
+      }
+    ]
+  },
+  {
+    "scenario": "tower64-cold",
+    "scope": "diagnostic capture, not unprofiled performance qualification",
+    "profiler": {
+      "tool": "nsys",
+      "version": "NVIDIA Nsight Systems version 2026.3.2.313-263238521929v0",
+      "performance_qualification": false,
+      "range": "first restored complete tick; setup excluded",
+      "binary": {
+        "path": "/opt/nvidia/nsight-systems/2026.3.2/bin/nsys",
+        "sha256": "23c0735ea6812f06aa419d15366be93c6ba132924f0e8371612b3c88d882f549"
+      },
+      "cpu_attribution": true,
+      "raw_timeline_scope": "process"
+    },
+    "binary_sha256": "dd2c7a265162d8afdea698dd8e71e2893496d2a42418ce266caaf9ff578e6a2d",
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+    },
+    "snapshot_inputs": {
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-cold.pxbin": "448a5c8ed159fd123c148a2d037ef5107ac992bbc90d29e5d132d7ff91a73e48",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-cold.destruction": "21d1e7d53771e11a8aa6669a83b685e8342f42e0ebe5a6c9427ff9a1435b25b6"
+    },
+    "driver_before": "615.71.09",
+    "devices_before": [
+      {
+        "name": "NVIDIA GeForce RTX 5060 Ti",
+        "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+        "temperature": "41 C",
+        "clock": "2632 MHz",
+        "utilization": "3 %",
+        "memory_used": "1277 MiB"
+      }
+    ]
+  }
+]

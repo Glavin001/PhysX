@@ -1,0 +1,133 @@
+{
+  "scope": "Four independent runs per idle/heavy regime, 600 ticks each; no profiler. Consecutive frames are not independent runs. Work/iteration history qualification does not prove full trajectory equivalence.",
+  "runs": [
+    {
+      "name": "idle-256-A-before-0",
+      "n": 600,
+      "mean_ms": 1.600735675,
+      "max_ms": 13.508373,
+      "sd_ms": 0.5211909006554247,
+      "misses_60hz": 0,
+      "initialization_ms": 2142.472912,
+      "stages_ms": {
+        "command_ms": 0.00020029166666666668,
+        "physics_step_ms": 1.381756835,
+        "completion_ms": 0.21877854833333335
+      },
+      "source": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/warm600/idle-256-A-before-0/native/native.frames.csv",
+      "sha256": "884b5d952dd86c003c0206b048d412d956c6f03d081b157c200303b0fb97e31c"
+    },
+    {
+      "name": "idle-256-A-before-1",
+      "n": 600,
+      "mean_ms": 1.48610935,
+      "max_ms": 12.809593,
+      "sd_ms": 0.48999564610893265,
+      "misses_60hz": 0,
+      "initialization_ms": 2186.450757,
+      "stages_ms": {
+        "command_ms": 0.00025414666666666666,
+        "physics_step_ms": 1.2651035,
+        "completion_ms": 0.22075170333333333
+      },
+      "source": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/warm600/idle-256-A-before-1/native/native.frames.csv",
+      "sha256": "b88b5393a1421139bce158c0ec14425e588bcecff4b3e30199667b72010e6d0a"
+    },
+    {
+      "name": "idle-256-A-after-0",
+      "n": 600,
+      "mean_ms": 1.2711837433333333,
+      "max_ms": 12.037925,
+      "sd_ms": 0.44972223777843306,
+      "misses_60hz": 0,
+      "initialization_ms": 2169.19041,
+      "stages_ms": {
+        "command_ms": 0.00019343,
+        "physics_step_ms": 1.090568075,
+        "completion_ms": 0.18042223833333332
+      },
+      "source": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/warm600/idle-256-A-after-0/native/native.frames.csv",
+      "sha256": "69a5a85a936f2b87f1d4402a84f424054cd1ae109e5a547700eb4a706d27e59d"
+    },
+    {
+      "name": "idle-256-A-after-1",
+      "n": 600,
+      "mean_ms": 1.7035259133333334,
+      "max_ms": 12.069268,
+      "sd_ms": 0.43683246900700623,
+      "misses_60hz": 0,
+      "initialization_ms": 2165.492238,
+      "stages_ms": {
+        "command_ms": 0.00043866,
+        "physics_step_ms": 1.4973483116666666,
+        "completion_ms": 0.20573894166666667
+      },
+      "source": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/warm600/idle-256-A-after-1/native/native.frames.csv",
+      "sha256": "27781baa3cf33d3ea72abd379dfe367d883a10b1da5dbe461133d61856c9cda0"
+    },
+    {
+      "name": "impacts-256-A-before-0",
+      "n": 600,
+      "mean_ms": 51.67579209833333,
+      "max_ms": 194.5708,
+      "sd_ms": 40.131273383859906,
+      "misses_60hz": 519,
+      "initialization_ms": 2259.007956,
+      "stages_ms": {
+        "command_ms": 0.054029585,
+        "physics_step_ms": 51.381287416666666,
+        "completion_ms": 0.2404750966666665
+      },
+      "source": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/warm600/impacts-256-A-before-0/native/native.frames.csv",
+      "sha256": "01839821cd8fd35261d996aa3554d4bd419547e79737e1257975f2ea4105c890"
+    },
+    {
+      "name": "impacts-256-A-before-1",
+      "n": 600,
+      "mean_ms": 51.304192388333334,
+      "max_ms": 189.542164,
+      "sd_ms": 39.60303597255646,
+      "misses_60hz": 519,
+      "initialization_ms": 2172.385107,
+      "stages_ms": {
+        "command_ms": 0.053100021666666664,
+        "physics_step_ms": 51.018123163333335,
+        "completion_ms": 0.23296920333333335
+      },
+      "source": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/warm600/impacts-256-A-before-1/native/native.frames.csv",
+      "sha256": "89c53bb4f4a1302e2c6f6c9e8643807dde9d0f1c2f76ddd3c7aee9a7f2c3978b"
+    },
+    {
+      "name": "impacts-256-A-after-0",
+      "n": 600,
+      "mean_ms": 51.353132071666664,
+      "max_ms": 186.057129,
+      "sd_ms": 39.63580944186735,
+      "misses_60hz": 519,
+      "initialization_ms": 2175.34018,
+      "stages_ms": {
+        "command_ms": 0.06054883333333333,
+        "physics_step_ms": 51.06958232833333,
+        "completion_ms": 0.22300090999999994
+      },
+      "source": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/warm600/impacts-256-A-after-0/native/native.frames.csv",
+      "sha256": "24a3060845ed4ac36db1f08672e3690efda67d664716a60c48fcbc12eaf28625"
+    },
+    {
+      "name": "impacts-256-A-after-1",
+      "n": 600,
+      "mean_ms": 51.02823112666667,
+      "max_ms": 175.622359,
+      "sd_ms": 39.40456312281059,
+      "misses_60hz": 519,
+      "initialization_ms": 2184.448251,
+      "stages_ms": {
+        "command_ms": 0.05540132,
+        "physics_step_ms": 50.732051008333336,
+        "completion_ms": 0.24077879833333324
+      },
+      "source": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/warm600/impacts-256-A-after-1/native/native.frames.csv",
+      "sha256": "ad65da6990670f394541cfa2e5cbbfebec3d11d75779ccdafc76a88092d2d35f"
+    }
+  ]
+}

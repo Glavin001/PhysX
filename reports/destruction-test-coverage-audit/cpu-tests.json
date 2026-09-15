@@ -1,0 +1,91 @@
+{
+  "date": "2026-09-13",
+  "environment": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "PYTHONPATH": "out/elastic-precision-reference-20260910/python",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "runs": [
+    {
+      "command": [
+        "python3",
+        "tools/diagnostics/destruction-snapshot/test-compare-observations.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.1626640709946514,
+      "log": "test-compare-observations.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/diagnostics/destruction-snapshot/test-matched.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.23672544799774187,
+      "log": "test-matched.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/diagnostics/destruction-snapshot/test-attribution.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.13484753500233637,
+      "log": "test-attribution.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/scripts/test-native-prefix.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 20.235370495996904,
+      "log": "test-native-prefix.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/scripts/test-native-stress-solution-audit.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.4232672470025136,
+      "log": "test-native-stress-solution-audit.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/scripts/test-destruction-timing.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.4522441369990702,
+      "log": "test-destruction-timing.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/scripts/test-destruction-ab.py"
+      ],
+      "exit_code": 1,
+      "wall_seconds": 0.13068953600304667,
+      "log": "test-destruction-ab.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/scripts/test-destruction-semantic-suite.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.9242067380037042,
+      "log": "test-destruction-semantic-suite.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/scripts/test_report_native_publication.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.08143738100625342,
+      "log": "test_report_native_publication.log"
+    }
+  ]
+}

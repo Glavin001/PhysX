@@ -1,0 +1,9 @@
+{
+  "reason": "Inter-case shared-lock race: city256 idle did not execute. Parent now holds shared lease across all phases; private child verifies kernel lock owner and ancestry, then holds a private child lease.",
+  "changed": {
+    "out/destruction-baseline-20260913/run-analysis.py": "3ebe1bc09fa081c0d4065985a6b1441fdf4b9c413a07c8d2d37cd04a14113ff2",
+    "out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py": "5d7461ded65c2e69cf7c525851a8660d9bd2360bf0e9d74c663ca338762a6af4"
+  },
+  "failed_campaign": "out/destruction-baseline-20260913/campaign.json",
+  "time_unix": 1789262747.223072
+}

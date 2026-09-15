@@ -1,0 +1,791 @@
+{
+  "status": "complete",
+  "identity": {
+    "binary_sha256": "51742715f7b4060c92d847f176768fb768c4deb23154fd1a1348cdf166f63074",
+    "modules": {
+      "libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354",
+      "libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5"
+    }
+  },
+  "manifest": "/root/workspace/physx-2/out/destruction-baseline-20260913/manifest.json",
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/bridge64-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold.pxbin": "0f6cc6b80f3a283350c788cef1da4e506726fdcb8958679a33821a0fa27870f5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold.destruction": "4e90a286c24c793165569b793d8e729eada9ed71b193399cf78b675841586fd9"
+      },
+      "status": "complete",
+      "cpu_samples": 110,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "3242ea2e77088ce91402932a6af0a7b0e3e0d8bd17a7f7e08d9e94132d515d79",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/bridge64-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "bridge64-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/bridge64-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-warm.pxbin": "74f62cfe32681775c08f5dd0e377b5baaba0d145e8a13b305cd65c6b91012fa4",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-warm.destruction": "f6855ce9c102ead80a59523e6231a2318b47c0be5f7e81950e9dc560375d5695"
+      },
+      "status": "complete",
+      "cpu_samples": 104,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "bdaea733926a9aef8bc914f5d49e4bcd9fbc98d0972962e0fb24e052680a0907",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/bridge64-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "building-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/building-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/building-cold.pxbin": "d8ea97497f7738772ef065f1ba62d2f7916f8ae0c64369e3761365b098a31c8d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/building-cold.destruction": "14210df82ad3a4b1f5a4c3c88fa0c0bd27e6d4e27730492986a992cc1095d079"
+      },
+      "status": "complete",
+      "cpu_samples": 103,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "d61c0f8d42d8e4a82c830882cc7cd5048c03f2eab7b5118a56137b95e86f23e7",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/building-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "building-fragmented",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/building-fragmented",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/building-fragmented.pxbin": "79e8babd16fa3a940231695b7a4eee18e6e0b56ea801a7cb3a095ca414454207",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/building-fragmented.destruction": "7d52cb6a01cda38b76d134f50c03f47a5928ba198a1c15de9892a4b623747e97"
+      },
+      "status": "complete",
+      "cpu_samples": 197,
+      "engine_scopes": 50,
+      "kernel_launches": 242,
+      "trace_sha256": "c8268e6d56a29d1c4028870d989243becaa4a27d5151ee9e6e8af90805448d3a",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/building-fragmented/physical-comparison.json"
+    },
+    {
+      "scenario": "building-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/building-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/building-warm.pxbin": "c71cc6309d9ea353686b03f38990348d597702dd04761e7b17b7ea7a563078ff",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/building-warm.destruction": "774ce0665063e598e7708a8f55b087f6a62830d4f81ff78428281d371a919cbe"
+      },
+      "status": "complete",
+      "cpu_samples": 98,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "e31c13b5f2e183c3e22695e5fe40eae18c7fb2076d5b498c2045a9f306c7c1e1",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/building-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/cantilever64-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/cantilever64-cold.pxbin": "902289cb02d5131a26605689f36008773ab65d50595391af2460547efe1cc497",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/cantilever64-cold.destruction": "9c76d4a814b8e13d18dcf9db18b8130eb7417fb063193fe5c2971066cae0f418"
+      },
+      "status": "complete",
+      "cpu_samples": 48,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "db61a8c45ab31307a99d1ea5538fc2439b5ad0a7752e556ffaca292d4c6ce56f",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/cantilever64-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/cantilever64-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/cantilever64-warm.pxbin": "e885317bfec6b27850786d06c3273e996bfc6003507d2b6ccd6434f64ee1be9a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/cantilever64-warm.destruction": "6b38b75b57e5527402449024bc4a7c63dee70a9e03238e95bcf98b5603998de1"
+      },
+      "status": "complete",
+      "cpu_samples": 90,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "f8ab637a6c0752d296808095fb6f8b1bc1d64d312e9357904960c440a780138f",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/cantilever64-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "chain256-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/chain256-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold.pxbin": "f5f67c9b8e10603997cc26cae27e99b0e2a6801f52161a710eaf834c9360bb63",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold.destruction": "83f60c174b0dc368aa9bf6a318f4426db6168b32f3b11cf62338f5805a18502c"
+      },
+      "status": "complete",
+      "cpu_samples": 102,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "8903ad40409be2b7c56594f5d0cd84999cf0a12cb8c68ffc8b78f4aee3ad06d5",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/chain256-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "chain256-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/chain256-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-warm.pxbin": "233c4026424eac8252dbbdce7f1a86189e35ea923b0ab58a476ff2424bd3cf6d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-warm.destruction": "cd8673bbfd6c75f8f26faf37505d5a16d70942ca44314c7270dcbe199358fb81"
+      },
+      "status": "complete",
+      "cpu_samples": 77,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "7aaf84b334434f77ae6ff60bd23a8b76cd2ced31326e36faaaae1f889982f64f",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/chain256-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "chain32-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/chain32-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain32-cold.pxbin": "49c32acb5a29250fef0cdca5cb5a84e4cfbbacd3f43f7615998f0a795977c469",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain32-cold.destruction": "af7e5ce76757792c3578c5cd16a194502f1612a704976dab9e98636190ee8e5f"
+      },
+      "status": "complete",
+      "cpu_samples": 106,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "d0f0c29570c012253859343397da5dafdbe3e67e9d31522ff6d0586f2a2da653",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/chain32-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "chain32-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/chain32-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain32-warm.pxbin": "876850dd5371325819677a92c2340df5a9584b0a0c2104b37245f8a93545dbba",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain32-warm.destruction": "064145b99d3fdee3c84446a285b40e4333ab1d6654a2ee22eb8033d9d3b1e710"
+      },
+      "status": "complete",
+      "cpu_samples": 88,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "76d8c8b2224464017fe8413b9c858121b01119e93b868ddca7fee5e8f77c79b3",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/chain32-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "dense12-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/dense12-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold.pxbin": "e9919b2d9aa7754f305bf1638f1eb36dab3c8fe9641b3c5d771e1c3d65cb23e9",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold.destruction": "18902de5ff44999e5cbee1cb041a396840899d402684c7977746356ca8b6bf9b"
+      },
+      "status": "complete",
+      "cpu_samples": 115,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "0a2fbc88277ac6190475dba41d0146eb4774052393ed65d4214877632dfec197",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/dense12-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "dense12-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/dense12-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-warm.pxbin": "89b491c78ce5801b0356a9b397f1b4b4f1241aa96ff92dc54c69bf0b572eba8c",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-warm.destruction": "975c8f93d3c334504fb99dbe1a018feafe679d82c1806d20dc54724bd2c96f63"
+      },
+      "status": "complete",
+      "cpu_samples": 106,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "7c4ef01adb5115ce2e1ce32d57dc83c4f07ece5a95367413880b807e09b3abd9",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/dense12-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "destruction-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-cold.pxbin": "4eff41a9a8cdb59b60791087700e8a43c01018ccc1f1d5cc7ee25186cb6e057d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-cold.destruction": "ae5af5bdd0d2b7ce0120195366b5920de3bb3bdbb8bee68ea67ab9fe3a729a5e"
+      },
+      "status": "complete",
+      "cpu_samples": 88,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "f9bc717eabd80b00f1d097c6a34157d7146af795f432e2be447ff07da2740850",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "destruction-damaged",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-damaged",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-damaged.pxbin": "b19049f4d4e6a07a18b51ca1d0a803a1ea42b3ddd312a57692c3e551b6f935f0",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-damaged.destruction": "1a165f6c482f2919d19b2b53ad9250306642cd842b17a9c1d87196c89ec41c04"
+      },
+      "status": "complete",
+      "cpu_samples": 95,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "28501cd1f79076d0215b079f40fa485c10fa9d6eb2e5acd59c77cec947b01b3d",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-damaged/physical-comparison.json"
+    },
+    {
+      "scenario": "destruction-fractured",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-fractured",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-fractured.pxbin": "fd28643145c554f39c88f78974f32514c201c0dc81aff31ac17e74d1fa0e4d71",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-fractured.destruction": "01c9b0933ad2e2ba85ad5064e9de71d48847e1ba3ca6a9967c8788e425618789"
+      },
+      "status": "complete",
+      "cpu_samples": 143,
+      "engine_scopes": 50,
+      "kernel_launches": 209,
+      "trace_sha256": "e4b5fa23a25154c452557437991435a256a99fe971c97e9695f8310f6686c95d",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-fractured/physical-comparison.json"
+    },
+    {
+      "scenario": "destruction-intact",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-intact",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-intact.pxbin": "d1c149352c33c78a59b3247557024ab82aa6db00c7145a6958fa7a5151c9dbe8",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-intact.destruction": "58bdb68ec4c44675c7690ba83d7230b54ab3cfe2ea92a0a5136a6d7dd6d3ef98"
+      },
+      "status": "complete",
+      "cpu_samples": 94,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "fd7c22aecf172c439634b5714b3c09cb717a5ae17f7a1d901205107367672599",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-intact/physical-comparison.json"
+    },
+    {
+      "scenario": "destruction-onset",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-onset",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-onset.pxbin": "81261d4b0d704c47992ec87e295ed894bb916390cec444215eac669fb79bacce",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-onset.destruction": "0df8429b87ff907110030fc4ad30a15154275a38c4b15aa00d59385e1cb700db"
+      },
+      "status": "complete",
+      "cpu_samples": 152,
+      "engine_scopes": 49,
+      "kernel_launches": 186,
+      "trace_sha256": "e970abcc87e5d512ab7eb0ae6363a70a77cbe3365672c94edb25df8509e295b7",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-onset/physical-comparison.json"
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-stimulus",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus.pxbin": "32ebd013092065b0a9f0a2a9b891b7d2e279db41e94190b150c701cd68da83bd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus.destruction": "0df8429b87ff907110030fc4ad30a15154275a38c4b15aa00d59385e1cb700db"
+      },
+      "status": "complete",
+      "cpu_samples": 117,
+      "engine_scopes": 49,
+      "kernel_launches": 188,
+      "trace_sha256": "d7fc947379ea78f91e56ccdd5ff0ff946b9e5e9d5313c7b4a13e29db23233278",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/destruction-stimulus/physical-comparison.json"
+    },
+    {
+      "scenario": "flying",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/flying",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying.pxbin": "3bb7c66b71d4b05c7c38d79d4a75a6a6ab3fcce12c5205f80ef5f40d45c33e05",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying.destruction": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "status": "complete",
+      "cpu_samples": 48,
+      "engine_scopes": 20,
+      "kernel_launches": 72,
+      "trace_sha256": "8970cacf25c39a6c7feaf214b6ecb5891162bf104b50e50fdefcc0da6cc420ad",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/flying/physical-comparison.json"
+    },
+    {
+      "scenario": "ladder128-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/ladder128-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-cold.pxbin": "e62034f2c338d86e8d3c0c5ac3556f0e97953ca2cbb6651a5adc03709f3282af",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-cold.destruction": "96663c7ec0acddc008667edfd58445fcf88864ad3d787a2a3f615b2622c6773e"
+      },
+      "status": "complete",
+      "cpu_samples": 99,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "9544bfe6f1c34fc610853f0a41324d92c0a56834075384eb917b43ee9a447a30",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/ladder128-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "ladder128-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/ladder128-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-warm.pxbin": "1a93fdaefafb213d88f9908c3a4f08dcfcc01ce0fff1e0fb5ce0b33b6c9a0143",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-warm.destruction": "237abbb12d296995391b54e4da63eb2e4dec3fa6c4e49d5d92fd98985eab5a67"
+      },
+      "status": "complete",
+      "cpu_samples": 96,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "1b8d6c51d3fbb6734e666f71645b74a6f8fe2268398865720fcbc5441d16ecea",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/ladder128-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "panel32-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/panel32-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/panel32-cold.pxbin": "cb4bae4958ad0f6a4abdf16f2adb20f3eb08ffb9323b6ea2b295d6caf330fe67",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/panel32-cold.destruction": "46d92b0bab713bc88c0f946e5b15e6c340acef4e5969861c8fa80f66b77ddbb5"
+      },
+      "status": "complete",
+      "cpu_samples": 119,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "8b1c972018234f274382e6d6abf2b556335345190c504deb664f4569cd464b4f",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/panel32-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "panel32-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/panel32-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/panel32-warm.pxbin": "b5689741c245f89c7c86d15dbb64894d03b67743f71ea58ab109331ae04c09d8",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/panel32-warm.destruction": "2f3f7d7ebfd88a4b2e2dd89828d0e8b520343eabb1e03bc2ef72f079ee7f6112"
+      },
+      "status": "complete",
+      "cpu_samples": 85,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "cc4f94861ce8ff161b8dfb961c204a80deba93ba34dcfaef238b8a938e7140c8",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/panel32-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "resting",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/resting",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/resting.pxbin": "aaa27ee159a667c19dc42dfaefbc0369c046bc022a2f8e00025b8e3d63766ed2",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/resting.destruction": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "status": "complete",
+      "cpu_samples": 36,
+      "engine_scopes": 20,
+      "kernel_launches": 43,
+      "trace_sha256": "164abc616d6b56a2edf5563ba1e1aee5a8003c135ee4e53dbe96b02d2689aa58",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/resting/physical-comparison.json"
+    },
+    {
+      "scenario": "sliding",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/sliding",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/sliding.pxbin": "4760690911182f29278871a9abed3a7908ee7f13e98c1e4f73e158908cdb28ba",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/sliding.destruction": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "status": "complete",
+      "cpu_samples": 36,
+      "engine_scopes": 20,
+      "kernel_launches": 93,
+      "trace_sha256": "6c9f73b3270402822396c767a02db5905a5d40e6b2e02bb820b5ad400b01f8b8",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/sliding/physical-comparison.json"
+    },
+    {
+      "scenario": "tower64-cold",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/tower64-cold",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-cold.pxbin": "448a5c8ed159fd123c148a2d037ef5107ac992bbc90d29e5d132d7ff91a73e48",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-cold.destruction": "21d1e7d53771e11a8aa6669a83b685e8342f42e0ebe5a6c9427ff9a1435b25b6"
+      },
+      "status": "complete",
+      "cpu_samples": 123,
+      "engine_scopes": 48,
+      "kernel_launches": 161,
+      "trace_sha256": "6dbc69b3ace01ab1aab37cb731baf9b20e5472940ad0a63c5ed4ec5a0000274d",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/tower64-cold/physical-comparison.json"
+    },
+    {
+      "scenario": "tower64-warm",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/tower64-warm",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-warm.pxbin": "75967657dc7137dcbd9048b2d86c287d0f9d26bad3cf05e7068cbf0f2a5e4e4b",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-warm.destruction": "f20f7f2858fe0e2b10d510da8c9e15503b35a2162dfc757cfed25b85ee81b09a"
+      },
+      "status": "complete",
+      "cpu_samples": 120,
+      "engine_scopes": 48,
+      "kernel_launches": 156,
+      "trace_sha256": "0cd78aef85e9805aab78d50e8b291bffd900a5b7665bb65a696ff35addfc366f",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/tower64-warm/physical-comparison.json"
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-intact-idle",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.pxbin": "9e0e4fb616b2e09fe4c93c0a03ed50a6dbf58d0b555bb5f50ff4cbb976a0c582",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.destruction": "9df4e3cc5a15a1b600cf8f21301b2b4c49751693538a51e56c42666c2b0d84c9",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.metadata.json": "bdf6b77c8f086b7ca71a1eeebe9d9674db21b6212fad3e9da7773064bfb0cb54"
+      },
+      "status": "complete",
+      "cpu_samples": 173,
+      "engine_scopes": 48,
+      "kernel_launches": 157,
+      "trace_sha256": "3d9a25eac4e293dc840dd3f49a8770876a2b7a988a5548ec746a02000b9eb1f3",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-intact-idle/physical-comparison.json"
+    },
+    {
+      "scenario": "city25-airborne",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-airborne",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.pxbin": "002385a55308e543fb395313d8778d79b4aac4eedee41388c1d8f7861878096d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.destruction": "960db094046e47e3e58c1d2b64a2e3b8db3971a7f63b1f2e3674e464b5db439c",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.metadata.json": "1a4090bba42001872dae41decb05930d6234fd8089def53ca8aa58678571bfb6"
+      },
+      "status": "complete",
+      "cpu_samples": 199,
+      "engine_scopes": 49,
+      "kernel_launches": 189,
+      "trace_sha256": "a2fbf7bc52e7812efe95adcc766b3a9054e9adebfdb92ba285d39fa5284393e6",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-airborne/physical-comparison.json"
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-initial-impact",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "status": "complete",
+      "cpu_samples": 501,
+      "engine_scopes": 2611,
+      "kernel_launches": 756,
+      "trace_sha256": "fcb94fd666c629ab1b86a2897d44d27414791a802d7c174d60e89d3e3cb8ddcb",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-initial-impact/physical-comparison.json"
+    },
+    {
+      "scenario": "city25-post-impact",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-post-impact",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.pxbin": "57418bdf1af61cd8a6f18481418de8a13e9af12fa6c1ad9faaa51f2a2e7da37e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.destruction": "0ff5545bc5f0d12dfd5aa6b9cc5d0ea3bf6cfc9c812a92847c0758ac4553b8b5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.metadata.json": "2da612d044e945453737fefc949422ae550e82326bcb161da66e861469958237"
+      },
+      "status": "complete",
+      "cpu_samples": 246,
+      "engine_scopes": 50,
+      "kernel_launches": 248,
+      "trace_sha256": "cf74a17d75a0e869e3cbeee4c0b3fe709406a93a61b828f00d12fec2c307ca41",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-post-impact/physical-comparison.json"
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-cascading-fracture",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.pxbin": "2b696e3d51043007b171fc6a64c4ed6506607659ab01b7cf449befd95ee64fc8",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.destruction": "40ee78271e39a864cd2f0b5ab9529e869cb7147a323452b9700939067bf24d0f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.metadata.json": "b43f97f83968681b1840b218a7ef94e6fb53b84e19f4efc5439ce0019e11b983"
+      },
+      "status": "complete",
+      "cpu_samples": 355,
+      "engine_scopes": 214,
+      "kernel_launches": 702,
+      "trace_sha256": "6494fe558c7969b425584feb0711371907ab7f33f8557fbd164046a225edc102",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-cascading-fracture/physical-comparison.json"
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-fragmented-loaded",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.pxbin": "e4be1340319e84da519ee0c47f6f0178f981b19c5978502c8cfc45046e4a8724",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.destruction": "01306cba441d75be60e168d3d13f4c6d8e796e35157cb44cac50e2b6839bfacd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.metadata.json": "29af17e81a46c034bd0e1b5d60a0d3183273fd3a53328714af1b3d4314345ece"
+      },
+      "status": "complete",
+      "cpu_samples": 547,
+      "engine_scopes": 384,
+      "kernel_launches": 830,
+      "trace_sha256": "07869dbecd4bce4a8db496d3965458ae46f7f42a093143a3a28c59d3760ca829",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-fragmented-loaded/physical-comparison.json"
+    },
+    {
+      "scenario": "city25-late-debris",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-late-debris",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.pxbin": "fb3decfc4c2b7ac7fd7ef7ce46d8eb5c22a8cccc65ef4a3e0e530fecad3ef3a2",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.destruction": "7b94a5454c5353b891997cdeb8dc866bcda5c304ff605cbc41d836cbd6acdc35",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.metadata.json": "0e91d7d26029be88bf2a6f0d8ed59705c1690b5cdc9adf47a662721156ea1eeb"
+      },
+      "status": "complete",
+      "cpu_samples": 726,
+      "engine_scopes": 4633,
+      "kernel_launches": 849,
+      "trace_sha256": "f57fe80ad60fb9f836d4aa245231621175d782eaedab06561ba2768cec1c5b55",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-late-debris/physical-comparison.json"
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-ten-second-debris",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.pxbin": "22f7ccf3c583cb61b2ceaa9edacfb12279e71d0fed2938523ef2e36885f1305a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.destruction": "604981bba37d24d314a0c12ebb66a4861fb95a268d08a4f5e2a69aab7a1f534a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.metadata.json": "09747e0191269cb38d168518719489b770dd45c0b776cde78ff15ee399e1f37f"
+      },
+      "status": "complete",
+      "cpu_samples": 608,
+      "engine_scopes": 1955,
+      "kernel_launches": 840,
+      "trace_sha256": "ca3589c483931e8e711605e20fe490d7fb8469e420c65e47f9f15b58b012e932",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city25-ten-second-debris/physical-comparison.json"
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-intact-idle",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.pxbin": "bfb6fe3fb2bdce9c812c6024e696381c9b8b7b52570efc97efc6b9f04d89e334",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.destruction": "b3b952acc1667186d3d2e26d60909ad72a225262bdf41ab0978a6bc9e206a52f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.metadata.json": "2f32905b5a59117515a349298d813c3a127587df57b2b95aa4b16faf3e4cdbd0"
+      },
+      "status": "complete",
+      "cpu_samples": 244,
+      "engine_scopes": 48,
+      "kernel_launches": 159,
+      "trace_sha256": "54023593a046eb4d77b848ce2127ac4b97855dce8633e21031646b93111fb2a7",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-intact-idle/physical-comparison.json"
+    },
+    {
+      "scenario": "city64-airborne",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-airborne",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.pxbin": "a0c00ccf44b74bcc3b9b3562d01a3513084491cba2fa4863a05b2b002b14f077",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.destruction": "cfd6d87f57b23a10ce53e1c925f7246530090a25acb29f8aaf94b2c541efd0f3",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.metadata.json": "95ae354b871ec3833b874704c226ebdc4202f0d8d00790b13a1adb2963747b63"
+      },
+      "status": "complete",
+      "cpu_samples": 262,
+      "engine_scopes": 49,
+      "kernel_launches": 191,
+      "trace_sha256": "702c8f863a0dc984e9be5ed4c71c165648bce74adcd951fcbb8d1ffa674c8a0d",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-airborne/physical-comparison.json"
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-initial-impact",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.pxbin": "7ff4e921a88da60994bc3d38fe1eb4bf167cf94c71395aa48d863ae9f848227c",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.destruction": "640900939d73af2186cd2712a2fc0f2a2e02bc44247858616e9a838e453f1c67",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.metadata.json": "f981cc88b586e92ca467e0c80831c64b05738d9ab2623f1f421e1836643e94c2"
+      },
+      "status": "complete",
+      "cpu_samples": 640,
+      "engine_scopes": 6416,
+      "kernel_launches": 760,
+      "trace_sha256": "a9261b4865ea388ffcd30d1df0e8f026f50af6721c9095d5febae74132ebd2e2",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-initial-impact/physical-comparison.json"
+    },
+    {
+      "scenario": "city64-post-impact",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-post-impact",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.pxbin": "0ecb1ad8c8aa73c63227e84de2e90447cf8ab7cf03ea3339261eb3e71163f36f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.destruction": "3dcfe32d317ab6b264ff215c806d734288383e0341800e828c25b1ec04a0dd30",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.metadata.json": "9596fde07041ae19eb91410609d8d525790c735933f22925f49efe0ac610ff07"
+      },
+      "status": "complete",
+      "cpu_samples": 440,
+      "engine_scopes": 50,
+      "kernel_launches": 278,
+      "trace_sha256": "8b3ebb3f919f462f09ae3a30714372824be2e4d8434062bc539a0adf7dad63e4",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-post-impact/physical-comparison.json"
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-cascading-fracture-attempt1",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.pxbin": "4e21697b1a968db984d9fd524ce802132925d1d559280d266dee9eb5346ce4bd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.destruction": "0ac6edbb1a59a53d935bba42b954ef18793481bb751ff083ba5a4edb686e5f5a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.metadata.json": "a6f0b12a4d2e6cf38f1c0980607e5468acf24c5fe29b7bade6b9b36077922c3c"
+      },
+      "status": "complete",
+      "cpu_samples": 520,
+      "engine_scopes": 238,
+      "kernel_launches": 706,
+      "trace_sha256": "ca820dd15ce21e03e71acac4a392608b4afa51da91652a6b43705b42823dd664",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-cascading-fracture-attempt1/physical-comparison.json"
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-fragmented-loaded",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.pxbin": "266edac819c12f5746288867c213b63f1ae2cb2457afafb9d0eae034a23cc914",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.destruction": "0d32dd5a68487c5bd3aab361fca6cd00b5711d17f68e9a66bb43a7510390795e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.metadata.json": "7d6e7a2e7b9b641e3902a77d6743c649d7be543fcea6052806e7ec1479260749"
+      },
+      "status": "complete",
+      "cpu_samples": 833,
+      "engine_scopes": 1026,
+      "kernel_launches": 852,
+      "trace_sha256": "fbcfe2d8d87ca613242414246b4c93823a93ecc62d81beaa545f6f9b9b191097",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-fragmented-loaded/physical-comparison.json"
+    },
+    {
+      "scenario": "city64-late-debris",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-late-debris",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.pxbin": "06b57ebb6be355583b981db0d64b201d0c5f0b75d5c8abb4f09ff5b49bb12867",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.destruction": "2f7364dcd95363b71c012b0d0fb8cd549bb44fd7d00c8bffd06c1da43029cab9",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.metadata.json": "78796699afa94c53e637200bdcc97c6321a7978f28051a93260b2ac03de7ce21"
+      },
+      "status": "complete",
+      "cpu_samples": 1154,
+      "engine_scopes": 10216,
+      "kernel_launches": 871,
+      "trace_sha256": "040f33c7262a9b11c30c42f8fa939682b6192a77e8d3512a4b8ad334e1072958",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-late-debris/physical-comparison.json"
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-ten-second-debris",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.pxbin": "3f404309d2d5b122ff7b1c64a57c346592f961d9794c1c3b160110463030ce85",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.destruction": "d8d6928b1eb60a26a5f03ab114c6c4e1eecf37731d4360049a96999c7189b0b5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.metadata.json": "08ea4f509331deb009f664bc20d73da2e86d205769640143941bd75adf62a8c2"
+      },
+      "status": "complete",
+      "cpu_samples": 934,
+      "engine_scopes": 2099,
+      "kernel_launches": 874,
+      "trace_sha256": "91c5443f6d3ee4a19f5e12e0ae2e1023be1a8811147a00000d563e129109bb5c",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city64-ten-second-debris/physical-comparison.json"
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-intact-idle-attempt2",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.pxbin": "f930468625d37115e130cb8b66d11873440ca0838387f25d83444027a93a5824",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.destruction": "e386aa8e52f7e32f75698f8921abd90055425124b5a8a5f4f3a2a135055e61d4",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.metadata.json": "5d3677ec118d6f15925bdbb973357c1d7f4d5f3aa81f95859e1145e2ae0e0b24"
+      },
+      "status": "complete",
+      "cpu_samples": 481,
+      "engine_scopes": 48,
+      "kernel_launches": 160,
+      "trace_sha256": "5b34f9e689865041cae63c3ffa69dfeec6a50ea148b21607e609540e2e0acd7d",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-intact-idle-attempt2/physical-comparison.json"
+    },
+    {
+      "scenario": "city256-airborne",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-airborne",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.pxbin": "4d739c49091ac3e2687b8d29396abdb121dc821d48715ffbcfa8b6f38306b612",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.destruction": "e84c2e94279e1454315c42dce77e48cb6286b3c2d5f309134ab4c56ef4bcabbf",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.metadata.json": "7db8d418a371322b4d203d8d4047a921c4057474264d42eccd6721b89dc01564"
+      },
+      "status": "complete",
+      "cpu_samples": 602,
+      "engine_scopes": 49,
+      "kernel_launches": 192,
+      "trace_sha256": "605605cf0e2c6ecbea8b3eb2d7736d04e3eb2b839942980f8eb1140bbb2c239c",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-airborne/physical-comparison.json"
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-initial-impact",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.pxbin": "876e0bed4ca9b354a96b4c971cf1d5c842682b3c290e367fc84ba3e11d9bb945",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.destruction": "316033bdc3faf7603979463b26c15e52a9fbc87c199a44809e1737ef3cf62c13",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.metadata.json": "30215c64b211142eab5510643ccf48e79db7378ddfb9838298f74d2e047c5809"
+      },
+      "status": "complete",
+      "cpu_samples": 1803,
+      "engine_scopes": 24998,
+      "kernel_launches": 780,
+      "trace_sha256": "9c46301705bc4904c2d81a357d1c4a08a9fc723f5722094f4086e924d4be7a99",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-initial-impact/physical-comparison.json"
+    },
+    {
+      "scenario": "city256-post-impact",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-post-impact",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.pxbin": "801bf9928dbc5d8ec317a000cf5a2a96471849c71386d25c7d6a47a82ccb65ff",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.destruction": "2051ed43d850d49dc400c24ba8e6a8e53c2ea542269d5eb5c1a1fe9304fefede",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.metadata.json": "f05b29c7156636e5abdccc24b59f13e3cf03c78b3b9bb4e610e7e9c7f874a9e7"
+      },
+      "status": "complete",
+      "cpu_samples": 1077,
+      "engine_scopes": 52,
+      "kernel_launches": 279,
+      "trace_sha256": "574570285b1323ef3b66ef88fd67c035a7f0ac17bd2ac58f371925165c9b259c",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-post-impact/physical-comparison.json"
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-cascading-fracture",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.pxbin": "38564b53212897e384c0cd330381f17ed2846206d25ec0f5195748ff024cce9e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.destruction": "8a3f8aa6699ad8d9e1c498a8cac956aaebb9a5ece3aaf33e075fd5f7fe0ee647",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.metadata.json": "fb5408fae895343a86b6f78b0cf1b66437078f53a9489fbfb1c4803fb3c5b7c6"
+      },
+      "status": "complete",
+      "cpu_samples": 1318,
+      "engine_scopes": 338,
+      "kernel_launches": 726,
+      "trace_sha256": "a65ba65d967ec37c6db53d48289d75dbd6805840df60452f70555a4596945b56",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-cascading-fracture/physical-comparison.json"
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-fragmented-loaded",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.pxbin": "d977fa55b6ae0182a46aaf832d8aa465fb75aa37a3b9c26b08973ecd17f9d45a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.destruction": "0525bb111ed7d0d7dea053fdf45f3ef25767a69c3d7fdc9bf9a78dd72f5b0ebd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.metadata.json": "76a740f4dfca38794653fc5287d9c6ed5489c39aa888944417b166417445f5ad"
+      },
+      "status": "complete",
+      "cpu_samples": 1756,
+      "engine_scopes": 3538,
+      "kernel_launches": 861,
+      "trace_sha256": "d26d1864f378a7b5748d5716b271154d0a92250aba401c03d2328e0a63c2ab42",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-fragmented-loaded/physical-comparison.json"
+    },
+    {
+      "scenario": "city256-late-debris",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-late-debris-attempt1",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+      },
+      "status": "complete",
+      "cpu_samples": 2437,
+      "engine_scopes": 26959,
+      "kernel_launches": 884,
+      "trace_sha256": "2b8358eae488add506ae6c0fb8f038c723667ad18617090555da1b2234504210",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-late-debris-attempt1/physical-comparison.json"
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-ten-second-debris",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.pxbin": "7a56fde9552f8dece601c85528cc262e12637ab5f650d5a6af39e741e62b111e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.destruction": "d8b281d6dbe152d9f14fd8b025b544a281c370f51c8e0b6d5d99fc80134e5e89",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.metadata.json": "0512f4505ccb592f48422fe378e8a5614fd5357aae451fc61d47c78289374158"
+      },
+      "status": "complete",
+      "cpu_samples": 1483,
+      "engine_scopes": 4204,
+      "kernel_launches": 873,
+      "trace_sha256": "df8d7045f9428da785612367b2cd55798f17a512413fe91dc3f901c56308fbe9",
+      "physical_comparison": "/root/workspace/physx-2/out/destruction-baseline-20260913/cpu-full/city256-ten-second-debris/physical-comparison.json"
+    }
+  ],
+  "profiling_only": true,
+  "elapsed_this_invocation_seconds": 261.6610516359942
+}

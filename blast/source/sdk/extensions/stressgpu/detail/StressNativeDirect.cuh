@@ -50,7 +50,7 @@ struct NativeDirectView {
     NativeDirectPatternView pattern{};
     NativeDirectSlotView slots{};
     unsigned* counters = nullptr; // diagnostics: [0] eligible [1] applied [2] accepted before iterating [3] no slot [4] slot invalid/failed [5] pinned free applied [6] refactored
-    unsigned enabled = 0, diagnostics = 0;
+    unsigned enabled = 0, diagnostics = 0, minNodes = kDirectMinNodes;
 };
 constexpr unsigned kDirectCounterCount = 8u;
 struct NativeDirectOperator {
@@ -146,7 +146,7 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
     for (unsigned t = blockIdx.x * blockDim.x + threadIdx.x; t < *c.count; t += blockDim.x * gridDim.x) {
         if (t == 0 && v.counters) for (unsigned k = 0; k < kDirectCounterCount; ++k) v.counters[k] = 0;
         const unsigned id = c.ids[t], count = c.end[id] - c.begin[id];
-        if (count > kResidentComponentMaxNodes || count < kDirectMinNodes) continue;
+        if (count > kResidentComponentMaxNodes || count < v.minNodes) continue;
         if (v.pattern.nodeParent[c.nodes[c.begin[id]]] == kNoIsland) continue;
         if (v.slots.componentSlot[id] != kNoIsland) continue;
         const unsigned start = (id * 2654435761u) % v.slots.slotCount;

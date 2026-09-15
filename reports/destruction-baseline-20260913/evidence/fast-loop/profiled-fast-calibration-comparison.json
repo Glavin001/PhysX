@@ -1,0 +1,1416 @@
+{
+  "status": "complete",
+  "candidate_commit": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf",
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "A": {
+        "n": 16,
+        "mean_ms": 8.7795453125,
+        "median_ms": 8.797094,
+        "max_ms": 12.050864,
+        "sd_ms": 1.0370998979893062,
+        "peak_sample_index": 0,
+        "over_8ms": 12,
+        "over_120hz": 11,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 75.0,
+          "120hz": 68.75,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 184,
+          "max": 184,
+          "mean": 184
+        },
+        "restore_mean_ms": 38.430887500000004,
+        "stages_ms": {
+          "command_ms": 0.0001231875,
+          "simulate_fetch_ms": 8.5750674375,
+          "completion_ms": 0.2043546875
+        }
+      },
+      "context_setup_ms": {
+        "A0": 507.070004,
+        "B": 491.873492,
+        "A1": 434.392453
+      },
+      "first_tick_ms": {
+        "A0": 12.050864,
+        "B": 11.927624,
+        "A1": 9.326957
+      },
+      "later_tick_mean_ms": {
+        "A0": 8.695020714285715,
+        "B": 8.732893571428571,
+        "A1": 8.318537
+      },
+      "saved_ms": -0.35268956250000016,
+      "descriptive_saved_ms_95": [
+        -1.3541966250000002,
+        0.44165724999999867
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/bridge64-cold-A0",
+        "B": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/bridge64-cold-B",
+        "A1": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/bridge64-cold-A1"
+      },
+      "A0": {
+        "n": 8,
+        "mean_ms": 9.114501125,
+        "median_ms": 8.8403045,
+        "max_ms": 12.050864,
+        "sd_ms": 1.2736494947947739,
+        "peak_sample_index": 0,
+        "over_8ms": 7,
+        "over_120hz": 7,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 87.5,
+          "120hz": 87.5,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 184,
+          "max": 184,
+          "mean": 184
+        },
+        "restore_mean_ms": 40.3555385,
+        "stages_ms": {
+          "command_ms": 0.000149625,
+          "simulate_fetch_ms": 8.908435375,
+          "completion_ms": 0.205916125
+        }
+      },
+      "B": {
+        "n": 8,
+        "mean_ms": 9.132234875,
+        "median_ms": 8.789978,
+        "max_ms": 11.927624,
+        "sd_ms": 1.149753792050335,
+        "peak_sample_index": 0,
+        "over_8ms": 8,
+        "over_120hz": 8,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 184,
+          "max": 184,
+          "mean": 184
+        },
+        "restore_mean_ms": 39.36642575,
+        "stages_ms": {
+          "command_ms": 0.000105625,
+          "simulate_fetch_ms": 8.9483925,
+          "completion_ms": 0.18373675
+        }
+      },
+      "A1": {
+        "n": 8,
+        "mean_ms": 8.4445895,
+        "median_ms": 8.332995499999999,
+        "max_ms": 9.326957,
+        "sd_ms": 0.652821938724926,
+        "peak_sample_index": 0,
+        "over_8ms": 5,
+        "over_120hz": 4,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 62.5,
+          "120hz": 50.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 184,
+          "max": 184,
+          "mean": 184
+        },
+        "restore_mean_ms": 36.5062365,
+        "stages_ms": {
+          "command_ms": 9.675e-05,
+          "simulate_fetch_ms": 8.2416995,
+          "completion_ms": 0.20279325
+        }
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "A": {
+        "n": 16,
+        "mean_ms": 7.364282875,
+        "median_ms": 7.279835,
+        "max_ms": 10.192544,
+        "sd_ms": 0.9910349559254289,
+        "peak_sample_index": 0,
+        "over_8ms": 2,
+        "over_120hz": 2,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 12.5,
+          "120hz": 12.5,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 492,
+          "max": 492,
+          "mean": 492
+        },
+        "restore_mean_ms": 31.7675245625,
+        "stages_ms": {
+          "command_ms": 0.0001078125,
+          "simulate_fetch_ms": 7.19306275,
+          "completion_ms": 0.1711123125
+        }
+      },
+      "context_setup_ms": {
+        "A0": 470.735319,
+        "B": 470.373519,
+        "A1": 453.930231
+      },
+      "first_tick_ms": {
+        "A0": 10.192544,
+        "B": 9.237178,
+        "A1": 8.919062
+      },
+      "later_tick_mean_ms": {
+        "A0": 7.375753857142857,
+        "B": 6.496132285714286,
+        "A1": 6.726663285714285
+      },
+      "saved_ms": 0.5255198749999996,
+      "descriptive_saved_ms_95": [
+        -0.31279743750000044,
+        1.251632687499999
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/chain256-cold-A0",
+        "B": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/chain256-cold-B",
+        "A1": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/chain256-cold-A1"
+      },
+      "A0": {
+        "n": 8,
+        "mean_ms": 7.727852625,
+        "median_ms": 7.341194,
+        "max_ms": 10.192544,
+        "sd_ms": 1.0103856755857334,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 12.5,
+          "120hz": 12.5,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 492,
+          "max": 492,
+          "mean": 492
+        },
+        "restore_mean_ms": 33.001672375,
+        "stages_ms": {
+          "command_ms": 0.00013275,
+          "simulate_fetch_ms": 7.547339375,
+          "completion_ms": 0.1803805
+        }
+      },
+      "B": {
+        "n": 8,
+        "mean_ms": 6.838763,
+        "median_ms": 6.5233989999999995,
+        "max_ms": 9.237178,
+        "sd_ms": 0.9894467493313046,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 12.5,
+          "120hz": 12.5,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 492,
+          "max": 492,
+          "mean": 492
+        },
+        "restore_mean_ms": 31.538311874999998,
+        "stages_ms": {
+          "command_ms": 9.15e-05,
+          "simulate_fetch_ms": 6.673670375,
+          "completion_ms": 0.165001125
+        }
+      },
+      "A1": {
+        "n": 8,
+        "mean_ms": 7.000713125,
+        "median_ms": 6.7822435,
+        "max_ms": 8.919062,
+        "sd_ms": 0.8840792105873186,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 12.5,
+          "120hz": 12.5,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 492,
+          "max": 492,
+          "mean": 492
+        },
+        "restore_mean_ms": 30.533376750000002,
+        "stages_ms": {
+          "command_ms": 8.2875e-05,
+          "simulate_fetch_ms": 6.838786125,
+          "completion_ms": 0.161844125
+        }
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "A": {
+        "n": 12,
+        "mean_ms": 31.397683166666667,
+        "median_ms": 31.3173025,
+        "max_ms": 34.139983,
+        "sd_ms": 1.010451430394881,
+        "peak_sample_index": 6,
+        "over_8ms": 12,
+        "over_120hz": 12,
+        "over_60hz": 12,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 34,
+          "max": 34,
+          "mean": 34
+        },
+        "restore_mean_ms": 55.889654666666665,
+        "stages_ms": {
+          "command_ms": 0.00015366666666666667,
+          "simulate_fetch_ms": 31.203788250000002,
+          "completion_ms": 0.19374125
+        }
+      },
+      "context_setup_ms": {
+        "A0": 413.086728,
+        "B": 470.96468,
+        "A1": 482.539374
+      },
+      "first_tick_ms": {
+        "A0": 31.99045,
+        "B": 32.772279,
+        "A1": 34.139983
+      },
+      "later_tick_mean_ms": {
+        "A0": 31.06834,
+        "B": 31.3680564,
+        "A1": 31.060013
+      },
+      "saved_ms": -0.2044103333333318,
+      "descriptive_saved_ms_95": [
+        -0.9029045833333313,
+        0.5242464166666672
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/dense12-cold-A0",
+        "B": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/dense12-cold-B",
+        "A1": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/dense12-cold-A1"
+      },
+      "A0": {
+        "n": 6,
+        "mean_ms": 31.222025,
+        "median_ms": 31.367503,
+        "max_ms": 31.99045,
+        "sd_ms": 0.6923986935666475,
+        "peak_sample_index": 0,
+        "over_8ms": 6,
+        "over_120hz": 6,
+        "over_60hz": 6,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 34,
+          "max": 34,
+          "mean": 34
+        },
+        "restore_mean_ms": 53.4975025,
+        "stages_ms": {
+          "command_ms": 0.0001285,
+          "simulate_fetch_ms": 31.055277333333333,
+          "completion_ms": 0.16661916666666668
+        }
+      },
+      "B": {
+        "n": 6,
+        "mean_ms": 31.6020935,
+        "median_ms": 31.553882,
+        "max_ms": 32.772279,
+        "sd_ms": 0.6277505516587774,
+        "peak_sample_index": 0,
+        "over_8ms": 6,
+        "over_120hz": 6,
+        "over_60hz": 6,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 34,
+          "max": 34,
+          "mean": 34
+        },
+        "restore_mean_ms": 55.689909,
+        "stages_ms": {
+          "command_ms": 0.00015916666666666667,
+          "simulate_fetch_ms": 31.387690499999998,
+          "completion_ms": 0.21424383333333333
+        }
+      },
+      "A1": {
+        "n": 6,
+        "mean_ms": 31.57334133333333,
+        "median_ms": 31.233916999999998,
+        "max_ms": 34.139983,
+        "sd_ms": 1.3010598581612864,
+        "peak_sample_index": 0,
+        "over_8ms": 6,
+        "over_120hz": 6,
+        "over_60hz": 6,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 34,
+          "max": 34,
+          "mean": 34
+        },
+        "restore_mean_ms": 58.281806833333334,
+        "stages_ms": {
+          "command_ms": 0.00017883333333333333,
+          "simulate_fetch_ms": 31.35229916666667,
+          "completion_ms": 0.22086333333333333
+        }
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "A": {
+        "n": 16,
+        "mean_ms": 4.324481625,
+        "median_ms": 3.8756365,
+        "max_ms": 7.812504,
+        "sd_ms": 1.294669456253751,
+        "peak_sample_index": 8,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 29.542339000000002,
+        "stages_ms": {
+          "command_ms": 0.0017560625,
+          "simulate_fetch_ms": 4.141747125,
+          "completion_ms": 0.1809784375
+        }
+      },
+      "context_setup_ms": {
+        "A0": 458.909974,
+        "B": 459.060932,
+        "A1": 450.674882
+      },
+      "first_tick_ms": {
+        "A0": 7.377274,
+        "B": 8.301423,
+        "A1": 7.812504
+      },
+      "later_tick_mean_ms": {
+        "A0": 3.9285772857142858,
+        "B": 4.014745285714286,
+        "A1": 3.785983857142857
+      },
+      "saved_ms": -0.2260983750000003,
+      "descriptive_saved_ms_95": [
+        -1.5073363750000004,
+        0.8202584374999997
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/destruction-stimulus-A0",
+        "B": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/destruction-stimulus-B",
+        "A1": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/destruction-stimulus-A1"
+      },
+      "A0": {
+        "n": 8,
+        "mean_ms": 4.359664375,
+        "median_ms": 3.9157885,
+        "max_ms": 7.377274,
+        "sd_ms": 1.2401911090501838,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 30.471674999999998,
+        "stages_ms": {
+          "command_ms": 0.0017045,
+          "simulate_fetch_ms": 4.17286725,
+          "completion_ms": 0.185092625
+        }
+      },
+      "B": {
+        "n": 8,
+        "mean_ms": 4.55058,
+        "median_ms": 4.0301365,
+        "max_ms": 8.301423,
+        "sd_ms": 1.5309001383977616,
+        "peak_sample_index": 0,
+        "over_8ms": 1,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 12.5,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 30.429408249999998,
+        "stages_ms": {
+          "command_ms": 0.001779,
+          "simulate_fetch_ms": 4.36341975,
+          "completion_ms": 0.18538125
+        }
+      },
+      "A1": {
+        "n": 8,
+        "mean_ms": 4.289298875,
+        "median_ms": 3.7716909999999997,
+        "max_ms": 7.812504,
+        "sd_ms": 1.432091970870131,
+        "peak_sample_index": 0,
+        "over_8ms": 0,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "budget_miss_percent": {
+          "8ms": 0.0,
+          "120hz": 0.0,
+          "60hz": 0.0
+        },
+        "stress_iterations": {
+          "min": 1,
+          "max": 1,
+          "mean": 1
+        },
+        "restore_mean_ms": 28.613003000000003,
+        "stages_ms": {
+          "command_ms": 0.001807625,
+          "simulate_fetch_ms": 4.110627,
+          "completion_ms": 0.17686425
+        }
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "A": {
+        "n": 8,
+        "mean_ms": 40.354419375,
+        "median_ms": 39.015151,
+        "max_ms": 49.794037,
+        "sd_ms": 6.207864209814055,
+        "peak_sample_index": 0,
+        "over_8ms": 8,
+        "over_120hz": 8,
+        "over_60hz": 8,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 125.570664,
+        "stages_ms": {
+          "command_ms": 0.000109875,
+          "simulate_fetch_ms": 40.145597625,
+          "completion_ms": 0.208711875
+        }
+      },
+      "context_setup_ms": {
+        "A0": 613.282827,
+        "B": 592.891518,
+        "A1": 547.654164
+      },
+      "first_tick_ms": {
+        "A0": 49.794037,
+        "B": 48.791581,
+        "A1": 49.28718
+      },
+      "later_tick_mean_ms": {
+        "A0": 36.04326233333333,
+        "B": 38.94966633333333,
+        "A1": 38.54145033333333
+      },
+      "saved_ms": -1.055725625000001,
+      "descriptive_saved_ms_95": [
+        -7.013641374999999,
+        4.403038124999995
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city25-initial-impact-A0",
+        "B": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city25-initial-impact-B",
+        "A1": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city25-initial-impact-A1"
+      },
+      "A0": {
+        "n": 4,
+        "mean_ms": 39.480956,
+        "median_ms": 38.2095915,
+        "max_ms": 49.794037,
+        "sd_ms": 7.617216362690639,
+        "peak_sample_index": 0,
+        "over_8ms": 4,
+        "over_120hz": 4,
+        "over_60hz": 4,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 125.17862025,
+        "stages_ms": {
+          "command_ms": 0.0001155,
+          "simulate_fetch_ms": 39.2703945,
+          "completion_ms": 0.210446
+        }
+      },
+      "B": {
+        "n": 4,
+        "mean_ms": 41.410145,
+        "median_ms": 39.1421815,
+        "max_ms": 48.791581,
+        "sd_ms": 4.935284517348586,
+        "peak_sample_index": 0,
+        "over_8ms": 4,
+        "over_120hz": 4,
+        "over_60hz": 4,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 131.42615875,
+        "stages_ms": {
+          "command_ms": 8.75e-05,
+          "simulate_fetch_ms": 41.233371,
+          "completion_ms": 0.1766865
+        }
+      },
+      "A1": {
+        "n": 4,
+        "mean_ms": 41.22788275,
+        "median_ms": 39.1113985,
+        "max_ms": 49.28718,
+        "sd_ms": 5.464844762802043,
+        "peak_sample_index": 0,
+        "over_8ms": 4,
+        "over_120hz": 4,
+        "over_60hz": 4,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 304,
+          "max": 304,
+          "mean": 304
+        },
+        "restore_mean_ms": 125.96270775,
+        "stages_ms": {
+          "command_ms": 0.00010425,
+          "simulate_fetch_ms": 41.02080075,
+          "completion_ms": 0.20697775000000002
+        }
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "A": {
+        "n": 6,
+        "mean_ms": 61.383349333333335,
+        "median_ms": 58.8171945,
+        "max_ms": 79.362598,
+        "sd_ms": 10.97701943226852,
+        "peak_sample_index": 2,
+        "over_8ms": 6,
+        "over_120hz": 6,
+        "over_60hz": 6,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 88,
+          "max": 88,
+          "mean": 88
+        },
+        "restore_mean_ms": 870.6581708333333,
+        "stages_ms": {
+          "command_ms": 0.00019266666666666667,
+          "simulate_fetch_ms": 61.178558333333335,
+          "completion_ms": 0.20459833333333333
+        }
+      },
+      "context_setup_ms": {
+        "A0": 1740.252117,
+        "B": 1775.003147,
+        "A1": 1856.825964
+      },
+      "first_tick_ms": {
+        "A0": 53.961583,
+        "B": 77.049564,
+        "A1": 68.373212
+      },
+      "later_tick_mean_ms": {
+        "A0": 70.08847,
+        "B": 61.290781,
+        "A1": 52.894180500000004
+      },
+      "saved_ms": -5.160359333333339,
+      "descriptive_saved_ms_95": [
+        -17.659478000000007,
+        6.601889833333338
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-intact-idle-A0",
+        "B": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-intact-idle-B",
+        "A1": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-intact-idle-A1"
+      },
+      "A0": {
+        "n": 3,
+        "mean_ms": 64.712841,
+        "median_ms": 60.814342,
+        "max_ms": 79.362598,
+        "sd_ms": 13.14159851758176,
+        "peak_sample_index": 2,
+        "over_8ms": 3,
+        "over_120hz": 3,
+        "over_60hz": 3,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 88,
+          "max": 88,
+          "mean": 88
+        },
+        "restore_mean_ms": 843.3393376666667,
+        "stages_ms": {
+          "command_ms": 0.000194,
+          "simulate_fetch_ms": 64.53004966666667,
+          "completion_ms": 0.18259733333333333
+        }
+      },
+      "B": {
+        "n": 3,
+        "mean_ms": 66.54370866666667,
+        "median_ms": 64.052777,
+        "max_ms": 77.049564,
+        "sd_ms": 9.508331563303436,
+        "peak_sample_index": 0,
+        "over_8ms": 3,
+        "over_120hz": 3,
+        "over_60hz": 3,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 88,
+          "max": 88,
+          "mean": 88
+        },
+        "restore_mean_ms": 878.709062,
+        "stages_ms": {
+          "command_ms": 0.00018933333333333335,
+          "simulate_fetch_ms": 66.31046933333333,
+          "completion_ms": 0.23305
+        }
+      },
+      "A1": {
+        "n": 3,
+        "mean_ms": 58.053857666666666,
+        "median_ms": 56.820047,
+        "max_ms": 68.373212,
+        "sd_ms": 9.761108193667678,
+        "peak_sample_index": 0,
+        "over_8ms": 3,
+        "over_120hz": 3,
+        "over_60hz": 3,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 88,
+          "max": 88,
+          "mean": 88
+        },
+        "restore_mean_ms": 897.9770040000001,
+        "stages_ms": {
+          "command_ms": 0.00019133333333333334,
+          "simulate_fetch_ms": 57.827067,
+          "completion_ms": 0.22659933333333332
+        }
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "A": {
+        "n": 6,
+        "mean_ms": 387.1666823333333,
+        "median_ms": 398.65227500000003,
+        "max_ms": 407.629785,
+        "sd_ms": 28.844185050189417,
+        "peak_sample_index": 3,
+        "over_8ms": 6,
+        "over_120hz": 6,
+        "over_60hz": 6,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 1084,
+          "max": 1084,
+          "mean": 1084
+        },
+        "restore_mean_ms": 944.1100388333333,
+        "stages_ms": {
+          "command_ms": 0.00012616666666666668,
+          "simulate_fetch_ms": 386.91044216666666,
+          "completion_ms": 0.256114
+        }
+      },
+      "context_setup_ms": {
+        "A0": 1878.124618,
+        "B": 1800.352433,
+        "A1": 1762.845771
+      },
+      "first_tick_ms": {
+        "A0": 406.97297,
+        "B": 424.183414,
+        "A1": 407.629785
+      },
+      "later_tick_mean_ms": {
+        "A0": 390.248316,
+        "B": 361.39953,
+        "A1": 363.9503535
+      },
+      "saved_ms": 4.839190999999971,
+      "descriptive_saved_ms_95": [
+        -38.42474366666664,
+        47.02948200000003
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-late-debris-A0",
+        "B": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-late-debris-B",
+        "A1": "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-late-debris-A1"
+      },
+      "A0": {
+        "n": 3,
+        "mean_ms": 395.82320066666665,
+        "median_ms": 401.879037,
+        "max_ms": 406.97297,
+        "sd_ms": 15.116603061526291,
+        "peak_sample_index": 0,
+        "over_8ms": 3,
+        "over_120hz": 3,
+        "over_60hz": 3,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 1084,
+          "max": 1084,
+          "mean": 1084
+        },
+        "restore_mean_ms": 966.7716810000001,
+        "stages_ms": {
+          "command_ms": 0.00011633333333333333,
+          "simulate_fetch_ms": 395.5527886666667,
+          "completion_ms": 0.27029566666666666
+        }
+      },
+      "B": {
+        "n": 3,
+        "mean_ms": 382.32749133333334,
+        "median_ms": 381.835495,
+        "max_ms": 424.183414,
+        "sd_ms": 41.612105957157596,
+        "peak_sample_index": 0,
+        "over_8ms": 3,
+        "over_120hz": 3,
+        "over_60hz": 3,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 1084,
+          "max": 1084,
+          "mean": 1084
+        },
+        "restore_mean_ms": 925.045342,
+        "stages_ms": {
+          "command_ms": 0.00013533333333333333,
+          "simulate_fetch_ms": 382.0419283333333,
+          "completion_ms": 0.2854276666666667
+        }
+      },
+      "A1": {
+        "n": 3,
+        "mean_ms": 378.51016400000003,
+        "median_ms": 395.425513,
+        "max_ms": 407.629785,
+        "sd_ms": 40.33174817607306,
+        "peak_sample_index": 0,
+        "over_8ms": 3,
+        "over_120hz": 3,
+        "over_60hz": 3,
+        "budget_miss_percent": {
+          "8ms": 100.0,
+          "120hz": 100.0,
+          "60hz": 100.0
+        },
+        "stress_iterations": {
+          "min": 1084,
+          "max": 1084,
+          "mean": 1084
+        },
+        "restore_mean_ms": 921.4483966666667,
+        "stages_ms": {
+          "command_ms": 0.000136,
+          "simulate_fetch_ms": 378.2680956666667,
+          "completion_ms": 0.24193233333333333
+        }
+      }
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "bridge64-cold",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/bridge64-cold-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "bridge64-cold",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/bridge64-cold-B",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "bridge64-cold",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/bridge64-cold-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain256-cold",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/chain256-cold-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain256-cold",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/chain256-cold-B",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain256-cold",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/chain256-cold-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "dense12-cold",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/dense12-cold-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+        "--repetitions",
+        "6",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "dense12-cold",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/dense12-cold-B",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+        "--repetitions",
+        "6",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "dense12-cold",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/dense12-cold-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+        "--repetitions",
+        "6",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/destruction-stimulus-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200",
+        "--projectile-impulse"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/destruction-stimulus-B",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200",
+        "--projectile-impulse"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/destruction-stimulus-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+        "--repetitions",
+        "8",
+        "--watchdog-seconds",
+        "1200",
+        "--projectile-impulse"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city25-initial-impact-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "4",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city25-initial-impact-B",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "4",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city25-initial-impact-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "4",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-intact-idle-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+        "--repetitions",
+        "3",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-intact-idle-B",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+        "--repetitions",
+        "3",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-intact-idle-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+        "--repetitions",
+        "3",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-late-debris",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-late-debris-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+        "--repetitions",
+        "3",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-late-debris",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-late-debris-B",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+        "--repetitions",
+        "3",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-late-debris",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/profiled-fast-calibration/matched/city256-late-debris-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+        "--repetitions",
+        "3",
+        "--watchdog-seconds",
+        "1200"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "runner_sha256": "cd2a50501e6df5bde0da0540607671144a5ceb0c95a3218e223da75ab3cb15e7",
+  "repetition_policy": "Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.",
+  "binaries": {
+    "A": {
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+      "sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61"
+    },
+    "B": {
+      "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+      "sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61"
+    }
+  },
+  "modules": {
+    "A": {
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+    },
+    "B": {
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+    }
+  },
+  "checker_sha256": "6f256f04de9fd87774593cba6ef1dc5455bfbb5cbbd909779ec9e3afb0bbab31",
+  "force_scaled_bound": 0.0002,
+  "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Unprofiled comparison with recorded GPU admission; no profiler timings or automatic acceptance.",
+  "harness_seconds": 130.8212267199997
+}

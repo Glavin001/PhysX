@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "tier": "cpu",
+  "status": "passed",
+  "performance_qualification": false,
+  "runs": [
+    {
+      "name": "test-destruction-ab",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/scripts/test-destruction-ab.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 0.21528399700764567
+    },
+    {
+      "name": "test-native-prefix",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/scripts/test-native-prefix.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 44.02678626899433
+    },
+    {
+      "name": "test-destruction-regression",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/scripts/test-destruction-regression.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 0.11500239199085627
+    },
+    {
+      "name": "test-destruction-timing",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/scripts/test-destruction-timing.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 0.5162816299998667
+    },
+    {
+      "name": "test-destruction-semantic-suite",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/scripts/test-destruction-semantic-suite.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 0.9171837559988489
+    },
+    {
+      "name": "test_report_native_publication",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/scripts/test_report_native_publication.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 0.19860635099757928
+    },
+    {
+      "name": "test-native-stress-solution-audit",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/scripts/test-native-stress-solution-audit.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 0.41619351400004234
+    },
+    {
+      "name": "test-compare-observations",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/test-compare-observations.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 1.5051413600012893
+    },
+    {
+      "name": "test-matched",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/test-matched.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 0.31544001400470734
+    },
+    {
+      "name": "test-attribution",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/test-attribution.py"
+      ],
+      "status": "passed",
+      "exit_code": 0,
+      "wall_seconds": 0.1653058170049917
+    }
+  ],
+  "sources": {
+    "/root/workspace/physx-2/tools/scripts/run-destruction-regression.py": "86741c7c410b89686df5bdb7eee5d96ac847db7386f9ce625bf5d7f14c1d78c2",
+    "/root/workspace/physx-2/tools/scripts/destruction_physics_contract.py": "0ac6f399116412c95dec2385b085e9260d732ab788efecd325611900a4241840",
+    "/root/workspace/physx-2/tools/scripts/verify-native-prefix.py": "e16e2aa65c78d0a8369b65e90591fa7265e92b71a5cfe77be8216e1df3f2989e",
+    "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py": "112daa195824346744e35c49b47edf4164b1103279ca64a5d0fc348e78180b4b",
+    "/usr/bin/python3.10": "a2f33a6e006989270f4340528eb61f8f97366e00a5d1b602ac8672ea44fc56ae",
+    "/root/workspace/physx-2/tools/scripts/test-destruction-ab.py": "de6892aaa93fe3c6a4f912e078d618c9d2785cc78cec6216f573963b98903a5e",
+    "/root/workspace/physx-2/tools/scripts/test-native-prefix.py": "481eb4dca073c3a56822ef3624141e4d18e6a4ec4740dc734d786c87026cf054",
+    "/root/workspace/physx-2/tools/scripts/test-destruction-regression.py": "dee05029c20101dee61653a47ce45cfc5717abac4844af271078636c4bef812c",
+    "/root/workspace/physx-2/tools/scripts/test-destruction-timing.py": "21631ca48a87ff2592dbf01ab4ab1833ae2e94459089aa398098f8f45794980c",
+    "/root/workspace/physx-2/tools/scripts/test-destruction-semantic-suite.py": "a445b360536bc9ce7145c5963e6c8ab5a036abfb716e6e3b2ae192c8b99b1e93",
+    "/root/workspace/physx-2/tools/scripts/test_report_native_publication.py": "ce4e70853dab103970aaba62efe4b1f722815cd6dc98e62c304af03e4e086b45",
+    "/root/workspace/physx-2/tools/scripts/test-native-stress-solution-audit.py": "80d9ce38d5aec7602a88158a3cdb9d6d89ed101be374cdd28d66c08b895b6802",
+    "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/test-compare-observations.py": "b79aa0c6a2d752a463afe21ae9b06fb1928bc2c7a55dd9f76aac54cbd19b6dd7",
+    "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/test-matched.py": "8fc2cefde084be12b3074789c1f3ccbb9050d6cb8e87ab4ebb0aabb9b12d2fbb",
+    "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/test-attribution.py": "1c5cfa4f27f53a9cd85bd0604f6cb9c8a78738448fed71c7f464dd74359073b5"
+  },
+  "environment": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "PYTHONOPTIMIZE": "unset",
+    "CUDA_LAUNCH_BLOCKING": "unset",
+    "strict_diagnostics": "unset"
+  }
+}
