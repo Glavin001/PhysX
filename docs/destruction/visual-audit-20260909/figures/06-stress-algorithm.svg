@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img"><title>6. What one stress iteration does</title><desc>Current source: resident component solver &lt;=1,024 nodes; cooperative large-component path above that threshold.</desc><rect width="100%" height="100%" fill="white"/>
+<text x="36" y="54" font-family="DejaVu Sans,sans-serif" font-size="30" font-weight="700" fill="#182A3A">6. What one stress iteration does</text>
+<text x="36" y="85" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#526477">Current source: resident component solver &lt;=1,024 nodes; cooperative large-component path above that threshold.</text>
+<rect x="40" y="120" width="655" height="155" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="120" width="7" height="155" fill="#147D64" stroke="#147D64"/>
+<text x="58" y="153" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">1. Build / project residual</text>
+<text x="58" y="184" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">How far are stored forces from equilibrium?</text>
+<text x="58" y="209" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Remove free-body rigid-motion modes.</text>
+<rect x="740" y="120" width="655" height="155" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="740" y="120" width="7" height="155" fill="#147D64" stroke="#147D64"/>
+<text x="758" y="153" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">2. Apply sparse operator + test</text>
+<text x="758" y="184" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Walk incident bonds; combine force + torque.</text>
+<text x="758" y="209" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Actual-equation verification guards acceptance.</text>
+<rect x="740" y="345" width="655" height="155" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="740" y="345" width="7" height="155" fill="#AD6800" stroke="#AD6800"/>
+<text x="758" y="378" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">3. Precondition</text>
+<text x="758" y="409" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Cached local 6x6 inverse + two-step polynomial.</text>
+<text x="758" y="434" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Extra neighbor traversal; improve correction direction.</text>
+<rect x="40" y="345" width="655" height="155" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="345" width="7" height="155" fill="#AD6800" stroke="#AD6800"/>
+<text x="58" y="378" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">4. Update search direction</text>
+<text x="58" y="409" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Use the previous direction and new correction.</text>
+<text x="58" y="434" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Apply operator again to obtain step size.</text>
+<rect x="40" y="570" width="655" height="155" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="570" width="7" height="155" fill="#147D64" stroke="#147D64"/>
+<text x="58" y="603" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">5. Update solution</text>
+<text x="58" y="634" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Update accumulated forces / residual.</text>
+<text x="58" y="659" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Loop only while this component is unconverged.</text>
+<rect x="740" y="570" width="655" height="155" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="740" y="570" width="7" height="155" fill="#147D64" stroke="#147D64"/>
+<text x="758" y="603" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">Converged component retires</text>
+<text x="758" y="634" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">A block claims another component from GPU queue.</text>
+<text x="758" y="659" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Other components may still need many iterations.</text>
+<polyline points="695,195 740,195" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="730.9955289764732,199.3496553411123 740,195 730.9955289764732,190.6503446588877" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="1060,275 1060,345" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="1055.6503446588877,335.9955289764732 1060,345 1064.3496553411123,335.9955289764732" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="740,420 695,420" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="704.0044710235268,415.6503446588877 695,420 704.0044710235268,424.3496553411123" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="360,500 360,570" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="355.6503446588877,560.9955289764732 360,570 364.3496553411123,560.9955289764732" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="695,645 740,645" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="730.9955289764732,649.3496553411123 740,645 730.9955289764732,640.6503446588877" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="40,645 20,645 20,195 40,195" fill="none" stroke="#AD6800" stroke-width="3"/>
+<polyline points="30.99552897647323,199.3496553411123 40,195 30.99552897647323,190.6503446588877" fill="none" stroke="#AD6800" stroke-width="3"/>
+<text x="40" y="796" font-family="DejaVu Sans,sans-serif" font-size="19" font-weight="700" fill="#182A3A">The loop is inside a running CUDA kernel. An iteration is not a kernel launch, a resimulation, or another tick.</text>
+<text x="40" y="837" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="400" fill="#182A3A">Next solver candidate: factor local interiors, solve only interfaces, recover all bond forces and verify originals.</text>
+<text x="40" y="870" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="400" fill="#526477">That replacement is not implemented/qualified. Setup, changed factors and interface iterations still cost time.</text>
+</svg>

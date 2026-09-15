@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="840" viewBox="0 0 1440 840" role="img"><title>5. Two stress evaluations, many internal numerical iterations</title><desc>A gives milliseconds; B is a separate intrusive work census. Never divide B work by A milliseconds as a measured rate.</desc><rect width="100%" height="100%" fill="white"/>
+<text x="36" y="54" font-family="DejaVu Sans,sans-serif" font-size="30" font-weight="700" fill="#182A3A">5. Two stress evaluations, many internal numerical iterations</text>
+<text x="36" y="85" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#526477">A gives milliseconds; B is a separate intrusive work census. Never divide B work by A milliseconds as a measured rate.</text>
+<rect x="40" y="120" width="655" height="260" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="120" width="7" height="260" fill="#AD6800" stroke="#AD6800"/>
+<text x="58" y="153" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">TRIAL</text>
+<text x="58" y="184" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Stress: 11.509760 ms (A)</text>
+<text x="58" y="209" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Component evaluations: 1,030 (B)</text>
+<text x="58" y="234" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Summed updates: 42,342 (B)</text>
+<text x="58" y="259" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Outer live visits: 108,468,281 (B)</text>
+<text x="58" y="284" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Polynomial visits: 52,977,482 (B)</text>
+<text x="58" y="309" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6x6 inverse applications: 29,293,140 (B)</text>
+<rect x="740" y="120" width="655" height="260" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="740" y="120" width="7" height="260" fill="#AD6800" stroke="#AD6800"/>
+<text x="758" y="153" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">AFTER CORRECTION</text>
+<text x="758" y="184" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Stress: 19.000320 ms (A)</text>
+<text x="758" y="209" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Component evaluations: 1,793 (B)</text>
+<text x="758" y="234" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Summed updates: 64,748 (B)</text>
+<text x="758" y="259" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Outer live visits: 134,005,650 (B)</text>
+<text x="758" y="284" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Polynomial visits: 66,135,676 (B)</text>
+<text x="758" y="309" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6x6 inverse applications: 40,091,884 (B)</text>
+<text x="40" y="437" font-family="DejaVu Sans,sans-serif" font-size="20" font-weight="700" fill="#182A3A">Both evaluations: 107,090 updates; 361,587,089 live adjacency visits; 69,385,024 inverse applications.</text>
+<text x="40" y="482" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Residual preparation / projection</text>
+<rect x="465" y="467" width="80.27210882759528" height="23" fill="#356EC9" stroke="#356EC9"/>
+<text x="1160" y="482" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">8.027%</text>
+<text x="40" y="516" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Residual operator + verification</text>
+<rect x="465" y="501" width="90.31731453545231" height="23" fill="#356EC9" stroke="#356EC9"/>
+<text x="1160" y="516" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">9.032%</text>
+<text x="40" y="550" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Convergence decision</text>
+<rect x="465" y="535" width="4.279515852566943" height="23" fill="#356EC9" stroke="#356EC9"/>
+<text x="1160" y="550" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">0.428%</text>
+<text x="40" y="584" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Preconditioning + reductions</text>
+<rect x="465" y="569" width="661.3930490898651" height="23" fill="#AD6800" stroke="#AD6800"/>
+<text x="1160" y="584" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">66.139%</text>
+<text x="40" y="618" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Direction update</text>
+<rect x="465" y="603" width="18.354668625340317" height="23" fill="#356EC9" stroke="#356EC9"/>
+<text x="1160" y="618" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">1.835%</text>
+<text x="40" y="652" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Direction operator</text>
+<rect x="465" y="637" width="87.78962866040553" height="23" fill="#356EC9" stroke="#356EC9"/>
+<text x="1160" y="652" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">8.779%</text>
+<text x="40" y="686" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Solution update</text>
+<rect x="465" y="671" width="57.517007584283995" height="23" fill="#356EC9" stroke="#356EC9"/>
+<text x="1160" y="686" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">5.752%</text>
+<text x="40" y="720" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Dispatch / other</text>
+<rect x="465" y="705" width="1" height="23" fill="#356EC9" stroke="#356EC9"/>
+<text x="1160" y="720" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">0.008%</text>
+<text x="40" y="786" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="400" fill="#182A3A">Bars: share of summed instrumented block cycles (B), NOT wall-time shares or SM utilization.</text>
+<text x="40" y="820" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="400" fill="#182A3A">Anchored structures account for 99.990% of counted live adjacency work at this census tick.</text>
+</svg>

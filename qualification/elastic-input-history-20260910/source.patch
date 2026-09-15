@@ -1,0 +1,1138 @@
+diff --git a/physx/source/gpudestruction/include/PxgDestructionRuntime.h b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+index 0cc1303b..28732e25 100644
+--- a/physx/source/gpudestruction/include/PxgDestructionRuntime.h
++++ b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+@@ -16,6 +16,7 @@ struct PxgContactManagerInput;
+ struct PxsContactManagerOutput;
+ struct PxgBodySimVelocities;
+ struct PxgRigidBodyAcceleration;
++enum class PxgDestructionCheckpointPurpose : PxU32 { BeforeSolve, CorrectedMotion };
+ // Internal rigid-state portion of the correction checkpoint, captured after
+ // command upload and before solving. This is not a complete scene checkpoint:
+ // island/contact/constraint and articulation state require separate accounting.
+@@ -26,6 +27,7 @@ struct PxgDestructionRigidCheckpointView {
+     PxU32 count = 0;
+     PxU64 generation = 0;
+     CUevent ready = NULL;
++    PxgDestructionCheckpointPurpose purpose = PxgDestructionCheckpointPurpose::BeforeSolve;
+ };
+ // Borrowed producer storage; immutable geometry identities remain independent
+ // from motion. Ordered by the same producer stream supplied to advance.
+@@ -59,8 +61,14 @@ public:
+     virtual const PxU32* correctionBodyIndices() const = 0;
+     virtual bool acceptCorrection(const PxgBodySim* bodies, CUstream stream) = 0;
+     virtual bool captureRigidState(const PxgBodySim* bodies, const PxgBodySimVelocities* previous,
+-        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream) = 0;
++        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream,
++        PxgDestructionCheckpointPurpose purpose = PxgDestructionCheckpointPurpose::BeforeSolve) = 0;
+     virtual PxgDestructionRigidCheckpointView rigidCheckpoint() const = 0;
++    // Original post-command/pre-solve arrays survive the corrected-motion
++    // refresh. Read-only until the next BeforeSolve capture or clear; join
++    // consumers before that boundary. This is raw input history, not a complete
++    // chunk-targeted load ledger or permission to restore an older checkpoint.
++    virtual PxgDestructionRigidCheckpointView inputRigidCheckpoint() const = 0;
+     // Copies only the captured rigid arrays, never CPU/island/contact state.
+     // Candidate bodies must be applied after this restore, including new slots
+     // that reused pre-existing holes. The future correction task owns that order.
+@@ -140,11 +148,11 @@ public:
+ #else
+ #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
+ #endif
+-// Private producer ABI v4 supplies borrowed collision storage for device-controlled preparation.
++// Private producer ABI v11 distinguishes input history from corrected motion.
+ // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
+ // violating lifecycle ordering. Public scene ABI is intact.
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV10(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
++PxCreateDestructionRuntimeV11(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+ 
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
+ PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,
+diff --git a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+index 988c6864..24a057b9 100644
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -542,6 +542,15 @@ class Runtime final : public PxgDestructionRuntime {
+     PxU32 mCheckpointCapacity{},mCheckpointCount{};
+     PxU64 mCheckpointGeneration{};
+     bool mCheckpointHasPrevious=false,mCheckpointHasAccelerations=false,mCheckpointValid=false;
++    PxgDestructionCheckpointPurpose mCheckpointPurpose=PxgDestructionCheckpointPurpose::BeforeSolve;
++    PxgDestructionRigidCheckpointView mInputCheckpoint{};
++    // Rotate storage on the corrected-motion refresh. Retaining the original
++    // input needs a second reusable allocation, not another full-array copy.
++    PxgBodySim* mInputSpareBodies{};
++    PxgBodySimVelocities* mInputSparePrevious{};
++    PxgRigidBodyAcceleration* mInputSpareAccelerations{};
++    PxU32 mInputSpareCapacity{};
++    bool mInputSpareHasPrevious=false,mInputSpareHasAccelerations=false;
+     cudaEvent_t mCheckpointReady{};
+     PxU32* mGraphRetiredMask{};
+     PxU32 *mGraphRetired{},*mGraphHostRetired{};
+@@ -970,6 +979,11 @@ public:
+         cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
+         mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
+         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
++        mInputCheckpoint={};
++        cudaFree(mInputSpareBodies);mInputSpareBodies=nullptr;
++        cudaFree(mInputSparePrevious);mInputSparePrevious=nullptr;
++        cudaFree(mInputSpareAccelerations);mInputSpareAccelerations=nullptr;
++        mInputSpareCapacity=0;mInputSpareHasPrevious=mInputSpareHasAccelerations=false;
+         mCheckpointValid=false;mCheckpointCount=0;mCheckpointCapacity=0;
+         mCheckpointHasPrevious=mCheckpointHasAccelerations=false;
+         cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
+@@ -1528,14 +1542,28 @@ public:
+         mCompatibilityPrepared=allocated;return allocated;
+     }
+     bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
+-        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream) override {
+-        if(!mTopology)return true;
++        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream,
++        PxgDestructionCheckpointPurpose purpose) override {
++        if(purpose!=PxgDestructionCheckpointPurpose::BeforeSolve && purpose!=PxgDestructionCheckpointPurpose::CorrectedMotion)return false;
++        if(!mTopology)return purpose==PxgDestructionCheckpointPurpose::BeforeSolve;
++        if(purpose==PxgDestructionCheckpointPurpose::CorrectedMotion &&
++            (!mCheckpointValid || mCheckpointPurpose!=PxgDestructionCheckpointPurpose::BeforeSolve ||
++             mInputCheckpoint.bodies!=mCheckpointBodies || !mInputCheckpoint.generation))return false;
+         try {
+             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+             if(mFailed || !bodies || !count || !stream || mCheckpointGeneration==std::numeric_limits<PxU64>::max())
+                 throw std::runtime_error("invalid rigid checkpoint boundary");
+             if(mCheckpointValid)check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+             mCheckpointValid=false;mRestoredCheckpointGeneration=0;
++            if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve)mInputCheckpoint={};
++            else {
++                std::swap(mCheckpointBodies,mInputSpareBodies);
++                std::swap(mCheckpointPrevious,mInputSparePrevious);
++                std::swap(mCheckpointAccelerations,mInputSpareAccelerations);
++                std::swap(mCheckpointCapacity,mInputSpareCapacity);
++                std::swap(mCheckpointHasPrevious,mInputSpareHasPrevious);
++                std::swap(mCheckpointHasAccelerations,mInputSpareHasAccelerations);
++            }
+             if(count>mCheckpointCapacity || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations) {
+                 // Grow only at the ordered pre-solve boundary. Allocation failure
+                 // cannot truncate the checkpoint or mutate accepted body state.
+@@ -1557,7 +1585,9 @@ public:
+             if(previous)check(cudaMemcpyAsync(mCheckpointPrevious,previous,size_t(count)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
+             if(accelerations)check(cudaMemcpyAsync(mCheckpointAccelerations,accelerations,size_t(count)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
+             check(cudaEventRecord(mCheckpointReady,stream));
+-            mCheckpointCount=count;++mCheckpointGeneration;mCheckpointValid=true;return true;
++            mCheckpointCount=count;++mCheckpointGeneration;mCheckpointPurpose=purpose;mCheckpointValid=true;
++            if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve)mInputCheckpoint=rigidCheckpoint();
++            return true;
+         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
+     }
+     PxgDestructionRigidCheckpointView rigidCheckpoint() const override {
+@@ -1565,9 +1595,13 @@ public:
+         if(mCheckpointValid) {
+             result.bodies=mCheckpointBodies;result.previous=mCheckpointPrevious;result.accelerations=mCheckpointAccelerations;
+             result.count=mCheckpointCount;result.generation=mCheckpointGeneration;result.ready=mCheckpointReady;
++            result.purpose=mCheckpointPurpose;
+         }
+         return result;
+     }
++    PxgDestructionRigidCheckpointView inputRigidCheckpoint() const override {
++        return mFailed?PxgDestructionRigidCheckpointView{}:mInputCheckpoint;
++    }
+     bool restoreRigidState(PxgBodySim* bodies,PxgBodySimVelocities* previous,
+         PxgRigidBodyAcceleration* accelerations,PxU32 capacity,PxU64 generation,CUstream coreStream) override {
+         // Reject the whole operation before any device write. A generation is
+@@ -1851,7 +1885,7 @@ public:
+ };
+ }}
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV10(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
++PxCreateDestructionRuntimeV11(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
+ }
+ 
+diff --git a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+index 0d61ec6b..94e72c55 100644
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+@@ -636,7 +636,7 @@ namespace physx
+     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
+     {
+         if(!mDestruction) {
+-            mDestruction = PxCreateDestructionRuntimeV10(mCudaContextManager->getContext(), scene, gate, allocator);
++            mDestruction = PxCreateDestructionRuntimeV11(mCudaContextManager->getContext(), scene, gate, allocator);
+             if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
+         }
+         return mDestruction;
+@@ -778,7 +778,8 @@ namespace physx
+             // to the original trial input and never schedule a third physics pass.
+             if(!mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                 mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+-                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream())) {
++                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream(),
++                PxgDestructionCheckpointPurpose::CorrectedMotion)) {
+                 mDestructionError=1;return false;
+             }
+         }
+@@ -4742,4 +4743,3 @@ namespace physx
+ #endif
+ }
+ 
+-
+diff --git a/demos/blast-stress-demo/tests/native_gpu_checkpoint_test.cpp b/demos/blast-stress-demo/tests/native_gpu_checkpoint_test.cpp
+index 1090ac2c..9ce42448 100644
+--- a/demos/blast-stress-demo/tests/native_gpu_checkpoint_test.cpp
++++ b/demos/blast-stress-demo/tests/native_gpu_checkpoint_test.cpp
+@@ -38,6 +38,7 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver) {
+     auto* parent=body(PxVec3(10,20,0),true,true);step(scene);
+     auto* runtime=static_cast<PxgDestructionRuntime*>(scene.getDestructionScene());require(runtime,"native runtime missing");
+     require(!runtime->rigidCheckpoint().count,"disabled destruction created a checkpoint");
++    require(!runtime->inputRigidCheckpoint().count,"disabled destruction exposed input history");
+     PxDestructionStressChunk chunk{PxVec3(0),0,0,0,PX_INVALID_U32};
+     PxDestructionChunkMassProperties mass{};mass.supported=1;
+     PxDestructionStressCluster cluster{parent->getGPUIndex(),PxVec3(0)};
+@@ -52,6 +53,8 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver) {
+     auto view=runtime->rigidCheckpoint();
+     require(view.bodies && view.ready && view.generation && view.count>connected->getGPUIndex(),"ordinary scene participants missing from native checkpoint");
+     require(bool(view.previous)==accelerations && bool(view.accelerations)==accelerations,"optional acceleration checkpoint mismatch");
++    require(view.purpose==PxgDestructionCheckpointPurpose::BeforeSolve &&
++        runtime->inputRigidCheckpoint().generation==view.generation,"input capture purpose/generation mismatch");
+     {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.ready));
+         const auto saved=read(view.bodies,view.count),actual=read(core.getBodySimBufferDevicePtr().getPointer(),view.count);
+         for(auto* actor:{projectile,connected}) {
+@@ -75,15 +78,47 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver) {
+         near(actual[id].linearVelocityXYZ_inverseMassW.x,3.1f,"ordinary force fixture integration mismatch");
+         near(actual[id].externalLinearAcceleration.x,0,"ordinary trial did not consume transient force");
+     }
++    // A corrected-motion refresh must retain the original commands/velocities,
++    // not re-label the already-integrated body state as original input.
++    {PxScopedCudaLock lock(cuda);
++        const auto input=runtime->inputRigidCheckpoint();check(cuEventSynchronize(input.ready));
++        require(input.bodies==view.bodies && input.generation==view.generation,"before-solve input did not share the existing copy");
++        const auto original=read(input.bodies,input.count);
++        const auto originalPrevious=accelerations?read(input.previous,input.count):std::vector<PxgBodySimVelocities>();
++        const auto originalAccel=accelerations?read(input.accelerations,input.count):std::vector<PxgRigidBodyAcceleration>();
++        const auto* bodies=core.getBodySimBufferDevicePtr().getPointer();
++        const auto current=read(bodies,view.count);
++        require(runtime->captureRigidState(bodies,core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
++            core.getRigidBodyAccelerationsDevice(),view.count,core.getStream(),PxgDestructionCheckpointPurpose::CorrectedMotion),
++            "corrected-motion capture failed");
++        view=runtime->rigidCheckpoint();check(cuEventSynchronize(view.ready));
++        const auto retained=runtime->inputRigidCheckpoint();
++        require(view.purpose==PxgDestructionCheckpointPurpose::CorrectedMotion && view.generation>input.generation &&
++            retained.purpose==PxgDestructionCheckpointPurpose::BeforeSolve && retained.generation==input.generation &&
++            retained.bodies==input.bodies && retained.bodies!=view.bodies,"corrected refresh replaced original input identity");
++        same(original,read(retained.bodies,retained.count),"corrected refresh changed original GPU input bytes");
++        same(current,read(view.bodies,view.count),"corrected checkpoint missed current motion");
++        near(read(retained.bodies+commanded->getGPUIndex(),1)[0].externalLinearAcceleration.x,6,"original force history was lost");
++        near(read(view.bodies+commanded->getGPUIndex(),1)[0].externalLinearAcceleration.x,0,"corrected motion reused consumed force");
++        if(accelerations){same(originalPrevious,read(retained.previous,retained.count),"previous input velocities changed");
++            same(originalAccel,read(retained.accelerations,retained.count),"input acceleration history changed");}
++        require(!runtime->captureRigidState(bodies,core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
++            core.getRigidBodyAccelerationsDevice(),view.count,core.getStream(),PxgDestructionCheckpointPurpose::CorrectedMotion),
++            "duplicate corrected refresh accepted");
++        require(runtime->inputRigidCheckpoint().generation==input.generation,"rejected refresh changed input identity");
++    }
+     const PxU32 oldCount=view.count;const PxU64 oldGeneration=view.generation;
+     for(unsigned i=0;i<257;++i)body(PxVec3(100+float(i),20,0),true,false);
+     step(scene);view=runtime->rigidCheckpoint();require(view.count>=oldCount+257,"checkpoint truncated scene body-pool growth");
++    require(view.purpose==PxgDestructionCheckpointPurpose::BeforeSolve &&
++        runtime->inputRigidCheckpoint().generation==view.generation,"next tick retained stale input history");
+     {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.ready));const auto saved=read(view.bodies,view.count);
+         for(size_t i=actors.size()-257;i<actors.size();++i)near(saved[actors[i]->getGPUIndex()].body2World.p.x,100+float(i-(actors.size()-257)),"grown checkpoint lost a native slot");
+     }
+     // Clearing/reinstantiating must invalidate handles even if allocation sizes
+     // and raw addresses are recycled. No old generation can be restored.
+     require(runtime->clearStress(),"checkpoint clear failed");require(!runtime->rigidCheckpoint().count && !runtime->rigidCheckpoint().ready,"clear exposed stale checkpoint");
++    require(!runtime->inputRigidCheckpoint().count && !runtime->inputRigidCheckpoint().ready,"clear exposed stale input history");
+     require(runtime->configureStress(desc),"checkpoint reconfiguration failed");commandForce();step(scene);view=runtime->rigidCheckpoint();require(view.generation>oldGeneration,"reconfiguration recycled checkpoint generation");
+     {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.ready));
+         auto* bodies=core.getBodySimBufferDevicePtr().getPointer();auto* previous=core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer();auto* accel=core.getRigidBodyAccelerationsDevice();
+diff --git a/tools/diagnostics/destruction-load-capture/Capture.cuh b/tools/diagnostics/destruction-load-capture/Capture.cuh
+new file mode 100644
+index 00000000..3d4f0be7
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/Capture.cuh
+@@ -0,0 +1,139 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++// Included only by the isolated diagnostic Runtime translation unit.
++#include "CapturePartition.cuh"
++struct LoadContactRecord {
++    PxU32 chunk;
++    PxVec3 point, impulse;
++    float inverseSeconds;
++};
++static_assert(sizeof(LoadContactRecord)==32,"capture contact ABI");
++__device__ LoadContactRecord* loadCaptureRecords=nullptr;
++__device__ PxU32* loadCaptureCount=nullptr;
++constexpr PxU32 loadCaptureCapacity=2*1024*1024;
++__global__ void setLoadCapture(LoadContactRecord* records,PxU32* count) {
++    loadCaptureRecords=records;loadCaptureCount=count;
++    if(count)*count=0;
++}
++__device__ void recordLoadContact(PxU32 chunk,PxVec3 point,PxVec3 impulse,float invDt) {
++    if(!loadCaptureRecords || chunk==PX_INVALID_U32)return;
++    const auto index=atomicAdd(loadCaptureCount,1u);
++    if(index<loadCaptureCapacity)loadCaptureRecords[index]={chunk,point,impulse,invDt};
++}
++struct LoadBodyRecord {
++    float linear[3],angular[3],externalLinear[3],externalAngular[3];
++    float damping[2];
++    PxU32 body,flags,locks,disableGravity,valid;
++};
++static_assert(sizeof(LoadBodyRecord)==76,"capture body ABI");
++__global__ void gatherLoadBodies(const PxDestructionStressCluster* clusters,PxU32 count,
++    const PxgBodySim* bodies,PxU32 capacity,LoadBodyRecord* records) {
++    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
++    LoadBodyRecord out{};out.body=clusters[i].body;
++    if(bodies && out.body<capacity) {
++        const auto b=bodies[out.body];out.valid=1;
++        const auto v=b.linearVelocityXYZ_inverseMassW,w=b.angularVelocityXYZ_maxPenBiasW;
++        const auto a=b.externalLinearAcceleration,t=b.externalAngularAcceleration;
++        out.linear[0]=v.x;out.linear[1]=v.y;out.linear[2]=v.z;
++        out.angular[0]=w.x;out.angular[1]=w.y;out.angular[2]=w.z;
++        out.externalLinear[0]=a.x;out.externalLinear[1]=a.y;out.externalLinear[2]=a.z;
++        out.externalAngular[0]=t.x;out.externalAngular[1]=t.y;out.externalAngular[2]=t.z;
++        out.damping[0]=b.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW.z;
++        out.damping[1]=b.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW.w;
++        out.flags=b.internalFlags;out.locks=b.lockFlags;out.disableGravity=b.disableGravity;
++    }
++    records[i]=out;
++}
++class LoadCapture {
++    CapturePartition partition;
++    unsigned ordinal=0;
++    bool selected=false;
++    LoadContactRecord* contacts=nullptr;
++    PxU32* count=nullptr;
++    std::string directory;
++    std::ofstream metadata;
++    template<class T> std::vector<T> read(const T* pointer,size_t n,cudaStream_t stream) {
++        std::vector<T> values(n);
++        if(n)check(cudaMemcpyAsync(values.data(),pointer,n*sizeof(T),cudaMemcpyDeviceToHost,stream));
++        check(cudaStreamSynchronize(stream));return values;
++    }
++    template<class T> void blob(const char* name,const T* pointer,size_t n,cudaStream_t stream) {
++        const auto values=read(pointer,n,stream);
++        std::ofstream file(directory+"/"+name+".bin",std::ios::binary);
++        file.write(reinterpret_cast<const char*>(values.data()),values.size()*sizeof(T));
++        if(!file)throw std::runtime_error("load capture write failed");
++        metadata<<",\n  \""<<name<<"\": {\"count\":"<<n<<",\"stride\":"<<sizeof(T)<<"}";
++    }
++public:
++    void clear() { partition.clear(); }
++    void begin(cudaStream_t stream) {
++        const char* root=std::getenv("PHYSX_LOAD_CAPTURE_DIR");
++        // Solve ordinals are only selectors. Device frame/evaluation/generation
++        // are recorded below; never infer those identities from an ordinal.
++        selected=root && (ordinal==0 || ordinal==82 || ordinal==83 || ordinal==130);
++        if(selected) {
++            directory=std::string(root)+"/solve-"+std::to_string(ordinal);
++            if(!std::filesystem::create_directory(directory))throw std::runtime_error("load capture directory exists");
++            allocate(contacts,loadCaptureCapacity);allocate(count,1);
++            setLoadCapture<<<1,1,0,stream>>>(contacts,count);
++        }
++        ++ordinal;
++    }
++    void finish(cudaStream_t stream,float dt,PxVec3 gravity,bool correction,
++        const PxDestructionStageStatus* stage,PxDestructionTopologyDeviceView topology,
++        const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
++        const PxTransform* poses,const PxVec3* angular,const PxDestructionSurfaceLoad* surface,
++        const PxDestructionVectorPair* legacy,PxU32 clusterCount,
++        const PxgBodySim* bodies,PxU32 bodyCapacity,const PxgBodySim* checkpoint,PxU32 checkpointCount,
++        PxU64 checkpointGeneration,PxU64 responseEpoch,
++        PxgDestructionRigidCheckpointView inputCheckpoint,PxgDestructionCheckpointPurpose checkpointPurpose) {
++        if(!selected)return;
++        if(!inputCheckpoint.bodies || !inputCheckpoint.ready || !inputCheckpoint.generation ||
++            inputCheckpoint.purpose!=PxgDestructionCheckpointPurpose::BeforeSolve ||
++            (correction?(inputCheckpoint.generation>=checkpointGeneration || checkpointPurpose!=PxgDestructionCheckpointPurpose::CorrectedMotion):
++                        (inputCheckpoint.generation!=checkpointGeneration || checkpointPurpose!=PxgDestructionCheckpointPurpose::BeforeSolve)))
++            throw std::runtime_error("load capture input-history purpose/generation mismatch");
++        check(cudaStreamWaitEvent(stream,reinterpret_cast<cudaEvent_t>(inputCheckpoint.ready),0));
++        const auto status=read(stage,1,stream)[0];
++        const auto topo=read(topology.status,1,stream)[0];
++        const auto packed=partition.inspect(topology,chunks,stream);
++        const auto records=read(count,1,stream)[0];
++        if(records>loadCaptureCapacity)throw std::runtime_error("load contact capture overflow");
++        metadata.open(directory+"/manifest.json");metadata<<std::setprecision(17);
++        metadata<<"{\n  \"schema\":1,\"diagnostic_only\":true,\"complete_command_ledger\":false"
++            <<",\"ordinal\":"<<ordinal-1<<",\"tick\":"<<status.frame<<",\"evaluation\":"<<unsigned(correction)
++            <<",\"ownership_generation\":"<<topo.generation<<",\"stage_error\":"<<status.error
++            <<",\"cluster_count\":"<<clusterCount<<",\"topology_clusters\":"<<topo.clusterCount
++            <<",\"checkpoint_generation\":"<<checkpointGeneration<<",\"response_epoch\":"<<responseEpoch
++            <<",\"seconds\":"<<double(dt)<<",\"inverse_seconds\":"<<double(1.0f/dt)
++            <<",\"gravity\":["<<gravity.x<<","<<gravity.y<<","<<gravity.z<<"]";
++        metadata<<",\n  \"elastic_partition\": {\"nodes\":"<<packed.groups.nodes<<",\"groups\":"<<packed.groups.count
++            <<",\"builds\":"<<packed.builds<<",\"rebuilt\":"<<packed.rebuild<<",\"error\":"<<packed.error<<"}";
++        metadata<<",\n  \"input_history_generation\":"<<inputCheckpoint.generation
++            <<",\"input_history_count\":"<<inputCheckpoint.count<<",\"input_history_purpose\":"<<unsigned(inputCheckpoint.purpose)
++            <<",\"checkpoint_purpose\":"<<unsigned(checkpointPurpose);
++        blob("original_bodies",inputCheckpoint.bodies,inputCheckpoint.count,stream);
++        if(inputCheckpoint.previous)blob("original_previous",inputCheckpoint.previous,inputCheckpoint.count,stream);
++        if(inputCheckpoint.accelerations)blob("original_accelerations",inputCheckpoint.accelerations,inputCheckpoint.count,stream);
++        const auto n=topology.chunkCount,m=topology.bondCount;
++        blob("chunks",chunks,n,stream);blob("mass",topology.chunks,n,stream);
++        blob("surface",surface,n,stream);blob("legacy",legacy,n,stream);
++        blob("active_chunks",topology.activeChunks,n,stream);blob("chunk_root",topology.chunkCluster,n,stream);
++        blob("ordered_chunks",topology.orderedChunks,n,stream);
++        blob("bond_endpoints",topology.bonds,m,stream);blob("active_bonds",topology.activeBonds,m,stream);
++        blob("active_roots",topology.activeClusters,topo.clusterCount,stream);
++        blob("cluster_mass",topology.clusters,n,stream);blob("root_slot",topology.clusterSlots,n,stream);
++        blob("slot_roots",topology.slotRoots,topology.slotCapacity,stream);
++        blob("slot_generations",topology.slotGenerations,topology.slotCapacity,stream);
++        blob("poses",poses,clusterCount,stream);blob("angular",angular,clusterCount,stream);
++        blob("clusters",clusters,clusterCount,stream);blob("contacts",contacts,records,stream);
++        LoadBodyRecord* deviceBodies=nullptr;allocate(deviceBodies,clusterCount);
++        gatherLoadBodies<<<(clusterCount+127)/128,128,0,stream>>>(clusters,clusterCount,bodies,bodyCapacity,deviceBodies);
++        blob("bodies",deviceBodies,clusterCount,stream);
++        gatherLoadBodies<<<(clusterCount+127)/128,128,0,stream>>>(clusters,clusterCount,checkpoint,checkpointCount,deviceBodies);
++        blob("checkpoint_bodies",deviceBodies,clusterCount,stream);
++        check(cudaFree(deviceBodies));
++        metadata<<"\n}\n";metadata.close();if(!metadata)throw std::runtime_error("load manifest write failed");
++        setLoadCapture<<<1,1,0,stream>>>(nullptr,nullptr);check(cudaStreamSynchronize(stream));
++        check(cudaFree(contacts));check(cudaFree(count));contacts=nullptr;count=nullptr;
++    }
++};
+diff --git a/tools/diagnostics/destruction-load-capture/CapturePartition.cuh b/tools/diagnostics/destruction-load-capture/CapturePartition.cuh
+new file mode 100644
+index 00000000..bd1d40fb
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/CapturePartition.cuh
+@@ -0,0 +1,50 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++// Included inside the isolated runtime after its Context/check helpers.
++namespace PartitionCapture = ::physx::destructionElasticPartition;
++__global__ void captureCanonicalPositions(const PxDestructionStressChunk* chunks,PxU32 n,double3* positions) {
++    const auto i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;
++    const auto p=chunks[i].position;positions[i]=make_double3(p.x,p.y,p.z);
++}
++class CapturePartition {
++    PartitionCapture::State* state=nullptr;
++    PartitionCapture::Storage storage{};
++    double3* canonical=nullptr;
++public:
++    void clear() {
++        void* pointers[]={state,canonical,storage.starts,storage.indices,storage.local,storage.fineToAuthor,
++            storage.authorToFine,storage.chunks,storage.mass,storage.positions};
++        for(auto pointer:pointers)if(pointer)cudaFree(pointer);
++        state=nullptr;canonical=nullptr;storage={};
++    }
++    PartitionCapture::State inspect(PxDestructionTopologyDeviceView topology,
++        const PxDestructionStressChunk* chunks,cudaStream_t stream) {
++        const auto n=topology.chunkCount;
++        if(!state) {
++            storage.capacity=n;
++            allocate(state,1);check(cudaMemsetAsync(state,0,sizeof(*state),stream));
++            allocate(canonical,n);allocate(storage.starts,size_t(n)+1);allocate(storage.indices,n);
++            allocate(storage.local,n);allocate(storage.fineToAuthor,n);allocate(storage.authorToFine,n);
++            allocate(storage.chunks,n);allocate(storage.mass,n);allocate(storage.positions,n);
++            captureCanonicalPositions<<<std::max(1u,(n+127)/128),128,0,stream>>>(chunks,n,canonical);
++        }
++        if(storage.capacity!=n)throw std::runtime_error("capture scene changed without clearing its partition");
++        const PartitionCapture::Source source{topology,chunks,canonical};
++        // This diagnostic scene has immutable authored geometry/mass. Runtime
++        // clear/configure resets this owner. General live revisions remain a
++        // separate producer obligation, not inferred from a copied position.
++        const PartitionCapture::Identity identity{1,1,1};
++        PartitionCapture::begin<<<1,1,0,stream>>>(source,storage,identity,state);
++        PartitionCapture::clear<<<(n+128)/128,128,0,stream>>>(storage,state);
++        PartitionCapture::pack<<<std::max(1u,(n+127)/128),128,0,stream>>>(source,storage,state);
++        PartitionCapture::ranges<<<(n+128)/128,128,0,stream>>>(source,storage,state);
++        PartitionCapture::validate<<<std::max(1u,(n+127)/128),128,0,stream>>>(source,storage,state);
++        PartitionCapture::finish<<<1,1,0,stream>>>(state);
++        check(cudaGetLastError());
++        PartitionCapture::State observed{};
++        check(cudaMemcpyAsync(&observed,state,sizeof(observed),cudaMemcpyDeviceToHost,stream));
++        check(cudaStreamSynchronize(stream));
++        if(observed.status!=PartitionCapture::Status::Ready || observed.error)
++            throw std::runtime_error("live GPU elastic partition rejected");
++        return observed;
++    }
++};
+diff --git a/tools/diagnostics/destruction-load-capture/README.md b/tools/diagnostics/destruction-load-capture/README.md
+new file mode 100644
+index 00000000..04ad027c
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/README.md
+@@ -0,0 +1,25 @@
++# Native load capture and adapter replay
++
++See the [capture evidence and commands](../../../qualification/live-loads-20260910/README.md).
++The [current GPU-partition follow-up](../../../qualification/elastic-partition-20260910/README.md)
++adds native mapping reuse/rebuild receipts and device-count load consumption.
++
++`build.py` injects `Capture.cuh` into an isolated copy of the native runtime,
++using the existing build's compile/link settings. `run.py` executes the matched
++256-building workload and retains actual loaded-module provenance. It records
++four post-contact/pre-stress evaluations, including both sides of the first
++fracture. Installed SDK libraries are not overwritten.
++
++`analyze.py` validates recorded ownership/mass and independently reconstructs
++surface loads from recorded impulses. `Replay.cu` consumes those real inputs as
++an explicitly defined surface-plus-gravity numerical case; it does not certify
++all native force commands or publish fractures. `check_replay.py` independently
++checks Newton–Euler equations. `validate.py` runs replay checks, focused CTests,
++four CUDA sanitizers and one selected hardware-counter capture into a fresh
++directory. Inspect GPU availability before starting it.
++
++Binary records use the captured native ABI. Each capture manifest records count
++and stride; the Python readers reject mismatches. Receipts retain actual float
++input duration, device tick, trial/correction evaluation and topology generation.
++The source-patch/SDK/source hashes belong with the capture; do not treat these
++files as a stable public serialization API.
+diff --git a/tools/diagnostics/destruction-load-capture/Replay.cu b/tools/diagnostics/destruction-load-capture/Replay.cu
+new file mode 100644
+index 00000000..eb5dd2b0
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/Replay.cu
+@@ -0,0 +1,142 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++// Offline numerical replay of exactly the captured surface+gravity load case.
++// This is not a claim that the native command ledger is fully represented.
++#include "PxgDestructionElasticPartition.cuh"
++#include <cuda_runtime.h>
++#include <algorithm>
++#include <fstream>
++#include <iostream>
++#include <stdexcept>
++#include <string>
++#include <vector>
++namespace L=physx::destructionElasticLoads;
++namespace E=Nv::Blast::Elastic;
++namespace P=physx::destructionElasticPartition;
++using namespace physx;
++void check(cudaError_t e) {if(e!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(e));}
++template<class T> std::vector<T> read(const std::string& path) {
++    std::ifstream f(path,std::ios::binary|std::ios::ate);
++    if(!f || f.tellg()<0 || size_t(f.tellg())%sizeof(T))throw std::runtime_error("capture ABI/size: "+path);
++    std::vector<T> v(size_t(f.tellg())/sizeof(T));f.seekg(0);f.read(reinterpret_cast<char*>(v.data()),v.size()*sizeof(T));
++    if(!f)throw std::runtime_error("capture read: "+path);return v;
++}
++template<class T> void write(const std::string& path,const std::vector<T>& v) {
++    std::ofstream f(path,std::ios::binary);f.write(reinterpret_cast<const char*>(v.data()),v.size()*sizeof(T));
++    if(!f)throw std::runtime_error("replay write: "+path);
++}
++template<class T> struct Device {
++    T* p=nullptr;size_t n;
++    explicit Device(size_t count):n(count) {check(cudaMalloc(&p,std::max(size_t(1),n)*sizeof(T)));check(cudaMemset(p,0,n*sizeof(T)));}
++    explicit Device(const std::vector<T>& v):Device(v.size()) {check(cudaMemcpy(p,v.data(),n*sizeof(T),cudaMemcpyHostToDevice));}
++    ~Device(){cudaFree(p);}
++    Device(const Device&)=delete;
++    std::vector<T> get()const {std::vector<T> v(n);check(cudaMemcpy(v.data(),p,n*sizeof(T),cudaMemcpyDeviceToHost));return v;}
++};
++// Keep the host capture ABI explicit. Body flags are evidence, not an invented
++// acceleration history. This replay has only the specified surface+gravity loads.
++struct Body {
++    float linear[3],angular[3],externalLinear[3],externalAngular[3],damping[2];
++    uint32_t body,flags,locks,disableGravity,valid;
++};
++static_assert(sizeof(Body)==76,"native capture body ABI");
++__global__ void canonical(uint32_t n,const PxDestructionStressChunk* chunks,double3* positions) {
++    const auto i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;
++    const auto p=chunks[i].position;positions[i]=make_double3(p.x,p.y,p.z);
++}
++__global__ void restoreAuthored(const P::State* state,const uint32_t* authors,const E::Vector* compact,E::Vector* authored) {
++    const auto j=blockIdx.x*blockDim.x+threadIdx.x;
++    if(state->status==P::Status::Ready && j<state->groups.nodes)authored[authors[j]]=compact[j];
++}
++__global__ void motions(L::DeviceGroups source,const PxDestructionChunkMassProperties* mass,const PxTransform* poses,
++    const Body* bodies,L::Motion* out,uint32_t* error) {
++    const auto g=L::resolve(source);
++    const auto group=blockIdx.x;if(group>=g.count || *error)return;
++    __shared__ unsigned supported; if(!threadIdx.x)supported=0;__syncthreads();
++    for(unsigned j=g.starts[group]+threadIdx.x;j<g.starts[group+1];j+=blockDim.x)
++        if(mass[g.indices[j]].supported)atomicOr(&supported,1u);
++    __syncthreads();if(threadIdx.x)return;
++    const auto pose=poses[group];const auto body=bodies[group];L::Motion motion{};
++    motion.state.origin[0]=pose.p.x;motion.state.origin[1]=pose.p.y;motion.state.origin[2]=pose.p.z;
++    motion.state.orientation[0]=pose.q.x;motion.state.orientation[1]=pose.q.y;
++    motion.state.orientation[2]=pose.q.z;motion.state.orientation[3]=pose.q.w;
++    for(unsigned k=0;k<3;++k) {
++        motion.state.linearVelocity[k]=body.linear[k];motion.state.angularVelocity[k]=body.angular[k];
++        if(body.externalLinear[k]!=0 || body.externalAngular[k]!=0 ||
++            (supported && (body.linear[k]!=0 || body.angular[k]!=0)))atomicOr(error,2u);
++    }
++    if(!body.valid || body.locks || body.disableGravity || body.damping[0]!=0 || body.damping[1]!=0)atomicOr(error,2u);
++    motion.mode=supported?L::MotionMode::EngineAcceleration:L::MotionMode::CompleteFreeWrench;
++    out[group]=motion;
++}
++int main(int argc,char** argv) {
++    try {
++        if(argc!=11)throw std::runtime_error("Replay directory tick evaluation ownership input-generation seconds gx gy gz output-prefix");
++        const std::string directory=argv[1],prefix=argv[10];
++        const auto chunks=read<PxDestructionStressChunk>(directory+"/chunks.bin");
++        const auto mass=read<PxDestructionChunkMassProperties>(directory+"/mass.bin");
++        const auto surface=read<PxDestructionSurfaceLoad>(directory+"/surface.bin");
++        const auto poses=read<PxTransform>(directory+"/poses.bin");
++        const auto order=read<uint32_t>(directory+"/ordered_chunks.bin");
++        const auto active=read<uint32_t>(directory+"/active_chunks.bin");
++        const auto bodies=read<Body>(directory+"/bodies.bin");
++        const uint32_t n=chunks.size(),count=poses.size();
++        if(!n || !count || mass.size()!=n || surface.size()!=n || order.size()!=n || active.size()!=n || bodies.size()!=count)
++            throw std::runtime_error("capture array mismatch");
++        // Check capacities/permutation before any diagnostic indexed kernel.
++        auto sorted=order;std::sort(sorted.begin(),sorted.end());
++        for(uint32_t i=0;i<n;++i)if(sorted[i]!=i || active[i]!=1 || chunks[i].cluster>=count)
++            throw std::runtime_error("replay requires complete active topology permutation");
++        Device<PxDestructionStressChunk> dc(chunks);Device<PxDestructionChunkMassProperties> dm(mass);
++        Device<PxDestructionSurfaceLoad> ds(surface);Device<PxTransform> dp(poses);Device<Body> db(bodies);
++        Device<uint32_t> di(order),da(active),starts(n+1),local(n),error(1),indices(n),fineToAuthor(n),authorToFine(n);
++        Device<uint32_t> roots(read<uint32_t>(directory+"/active_roots.bin")),
++            chunkRoot(read<uint32_t>(directory+"/chunk_root.bin")),rootSlot(read<uint32_t>(directory+"/root_slot.bin")),
++            slotRoot(read<uint32_t>(directory+"/slot_roots.bin"));
++        Device<uint64_t> generations(read<uint64_t>(directory+"/slot_generations.bin"));
++        Device<PxDestructionClusterMassProperties> clusterMass(read<PxDestructionClusterMassProperties>(directory+"/cluster_mass.bin"));
++        if(roots.n!=count || chunkRoot.n!=n || rootSlot.n!=n || clusterMass.n!=n || slotRoot.n!=generations.n)
++            throw std::runtime_error("native topology capture size mismatch");
++        Device<PxDestructionStressChunk> compactChunks(n);Device<PxDestructionChunkMassProperties> compactMass(n);
++        Device<double3> compactPositions(n);Device<PxDestructionSurfaceLoad> compactSurface(n);
++        Device<E::Vector> compactExtra(n),authoredEffective(n);Device<P::State> partition(1);
++        Device<PxDestructionTopologyStatus> topologyStatus(std::vector<PxDestructionTopologyStatus>{{std::stoull(argv[4]),count,0,0,0}});
++        PxDestructionTopologyDeviceView topology{};
++        topology.chunks=dm.p;topology.activeChunks=da.p;topology.chunkCluster=chunkRoot.p;topology.orderedChunks=di.p;
++        topology.activeClusters=roots.p;topology.clusters=clusterMass.p;topology.status=topologyStatus.p;
++        topology.clusterSlots=rootSlot.p;topology.slotRoots=slotRoot.p;topology.slotGenerations=generations.p;
++        topology.slotCapacity=slotRoot.n;topology.chunkCount=n;
++        P::Storage storage{n,starts.p,indices.p,local.p,fineToAuthor.p,authorToFine.p,compactChunks.p,compactMass.p,compactPositions.p};
++        Device<double3> positions(n);Device<L::Motion> motion(count);Device<L::Receipt> receipts(count);
++        Device<E::Vector> effective(n);
++        const L::Interval interval{{std::stoull(argv[2]),std::stoull(argv[5]),std::stoull(argv[4]),uint32_t(std::stoul(argv[3])),1},std::stod(argv[6])};
++        Device<L::Interval> produced(std::vector<L::Interval>{interval});
++        canonical<<<(n+127)/128,128>>>(n,dc.p,positions.p);
++        P::Source partitionSource{topology,dc.p,positions.p};const P::Identity identity{1,1,1};
++        P::begin<<<1,1>>>(partitionSource,storage,identity,partition.p);
++        P::clear<<<(n+128)/128,128>>>(storage,partition.p);
++        P::pack<<<(n+127)/128,128>>>(partitionSource,storage,partition.p);
++        P::ranges<<<(n+128)/128,128>>>(partitionSource,storage,partition.p);
++        P::validate<<<(n+127)/128,128>>>(partitionSource,storage,partition.p);
++        P::finish<<<1,1>>>(partition.p);
++        P::gate<<<1,1>>>(partition.p,identity,topology,error.p);
++        P::scatter<<<(n+127)/128,128>>>(partition.p,storage,ds.p,nullptr,compactSurface.p,compactExtra.p,error.p);
++        const L::DeviceGroups groups{&partition.p->groups};
++        motions<<<count,128>>>(groups,compactMass.p,dp.p,db.p,motion.p,error.p);
++        const L::Inputs inputs{compactPositions.p,compactChunks.p,compactMass.p,compactSurface.p,compactExtra.p,motion.p,produced.p,
++            make_double3(std::stod(argv[7]),std::stod(argv[8]),std::stod(argv[9]))};
++        const L::Profile profile{1e-6,1e-14,1e-11,1e-11,1e-11,1e-11};
++        L::validate<<<(n+127)/128,128>>>(groups,inputs,profile,error.p);
++        L::build<<<count,128>>>(groups,inputs,interval,profile,error.p,effective.p,receipts.p);
++        L::gate<<<(count+127)/128,128>>>(groups,receipts.p,interval,error.p);
++        restoreAuthored<<<(n+127)/128,128>>>(partition.p,fineToAuthor.p,effective.p,authoredEffective.p);
++        check(cudaGetLastError());check(cudaDeviceSynchronize());
++        const auto result=receipts.get();unsigned failures=0;
++        for(unsigned i=0;i<count;++i)if(result[i].status!=L::Status::Ready) {
++            if(failures<8)std::cerr<<"aggregate "<<i<<" status "<<unsigned(result[i].status)<<" force "<<result[i].forceDefect<<" torque "<<result[i].torqueDefect<<"\n";
++            ++failures;
++        }
++        write(prefix+".receipts.bin",result);write(prefix+".effective.bin",authoredEffective.get());
++        if(error.get()[0] || failures)throw std::runtime_error("native load replay rejected");
++        std::cout<<"PASS contacts+gravity numerical replay: "<<n<<" chunks, "<<count<<" aggregates; ownership generation "<<interval.stamp.ownershipGeneration<<"\n";
++    }catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}
++}
+diff --git a/tools/diagnostics/destruction-load-capture/analyze.py b/tools/diagnostics/destruction-load-capture/analyze.py
+new file mode 100644
+index 00000000..b918b599
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/analyze.py
+@@ -0,0 +1,119 @@
++#!/usr/bin/env python3
++"""Audit frozen native contact inputs; these diagnostics do not qualify a solver."""
++import argparse
++import csv
++import json
++from pathlib import Path
++import numpy as np
++
++CHUNK = np.dtype([('position','<f4',(3,)),('mass','<f4'),('inertia','<f4'),('cluster','<u4'),
++                  ('contact','<u4'),('volume','<f4'),('material','<u4')])
++MASS = np.dtype([('center','<f8',(3,)),('mass','<f8'),('inertia','<f8',(6,)),('supported','<u4'),('padding','<u4')])
++CONTACT = np.dtype([('chunk','<u4'),('point','<f4',(3,)),('impulse','<f4',(3,)),('inverse_seconds','<f4')])
++BODY = np.dtype([('linear','<f4',(3,)),('angular','<f4',(3,)),('external_linear','<f4',(3,)),
++                 ('external_angular','<f4',(3,)),('damping','<f4',(2,)),('body','<u4'),
++                 ('flags','<u4'),('locks','<u4'),('disable_gravity','<u4'),('valid','<u4')])
++
++def read(directory, manifest, name, dtype):
++    layout = manifest[name]
++    dtype = np.dtype(dtype)
++    assert dtype.itemsize == layout['stride'], (name, dtype.itemsize, layout)
++    values = np.fromfile(directory/(name+'.bin'), dtype=dtype)
++    assert len(values)==layout['count'], name
++    return values
++
++def rotate_inverse(q, v):
++    # Match the native (possibly slightly nonunit) quaternion polynomial in
++    # double precision. This is independent of the adapter's normalized frame.
++    xyz, w = q[:,:3], q[:,3:4]
++    return 2*(w*w-.5)*v + 2*xyz*np.sum(xyz*v,axis=1)[:,None] - 2*w*np.cross(xyz,v)
++
++def peak(a):
++    return float(np.max(np.abs(a),initial=0))
++
++def audit(directory):
++    m = json.loads((directory/'manifest.json').read_text())
++    get = lambda name, dtype: read(directory,m,name,dtype)
++    chunks, mass = get('chunks',CHUNK), get('mass',MASS)
++    poses = get('poses',('<f4',(7,))).astype(np.float64)
++    surface = get('surface',('<f4',(12,))).astype(np.float64)
++    contacts = get('contacts',CONTACT)
++    active, roots = get('active_chunks','<u4'), get('chunk_root','<u4')
++    active_roots, slots = get('active_roots','<u4'), get('root_slot','<u4')
++    slot_roots = get('slot_roots','<u4')
++    bodies, checkpoint = get('bodies',BODY), get('checkpoint_bodies',BODY)
++    assert m['stage_error']==0 and m['cluster_count']==m['topology_clusters']
++    ids = np.flatnonzero(active)
++    assert np.all(chunks['cluster'][ids]<len(active_roots))
++    assert np.array_equal(active_roots[chunks['cluster'][ids]],roots[ids])
++    assert np.array_equal(slot_roots[slots[active_roots]],active_roots)
++    assert np.array_equal(np.sort(get('ordered_chunks','<u4')[:len(ids)]), ids)
++    assert np.all(mass['mass']>0) and np.all(mass['supported']<=1)
++    assert np.array_equal(mass['supported']!=0,chunks['mass']==0)
++    a = mass['inertia']
++    tensor = np.stack([a[:,0],a[:,3],a[:,4],a[:,3],a[:,1],a[:,5],a[:,4],a[:,5],a[:,2]],axis=1).reshape(-1,3,3)
++    assert np.all(np.linalg.eigvalsh(tensor)>0)
++    assert np.all(bodies['valid'])
++    node = contacts['chunk']
++    assert np.all(node<len(chunks)) and np.all(active[node])
++    q, origin = poses[chunks['cluster'][node],:4], poses[chunks['cluster'][node],4:]
++    assert np.all(contacts['inverse_seconds']==m['inverse_seconds'])
++    force = rotate_inverse(q,contacts['impulse'].astype(float))*m['inverse_seconds']
++    arm = rotate_inverse(q,contacts['point'].astype(float)-origin)-chunks['position'][node]
++    torque = np.cross(arm,force)
++    virial = np.column_stack([arm[:,0]*force[:,0],arm[:,1]*force[:,1],arm[:,2]*force[:,2],
++                             .5*(arm[:,0]*force[:,1]+arm[:,1]*force[:,0]),
++                             .5*(arm[:,0]*force[:,2]+arm[:,2]*force[:,0]),
++                             .5*(arm[:,1]*force[:,2]+arm[:,2]*force[:,1])])
++    reconstructed = np.zeros_like(surface)
++    absolute = np.zeros_like(surface)
++    contributions = np.column_stack([force,torque,virial])
++    np.add.at(reconstructed,node,contributions)
++    np.add.at(absolute,node,np.abs(contributions))
++    counts = np.bincount(node,minlength=len(chunks))
++    result = {k:m[k] for k in ['ordinal','tick','evaluation','ownership_generation','checkpoint_generation','response_epoch','seconds','inverse_seconds','complete_command_ledger']}
++    result.update(chunks=len(chunks),active_chunks=len(ids),bonds=m['bond_endpoints']['count'],
++                  live_bonds=int(np.count_nonzero(get('active_bonds','<u4'))),clusters=len(poses),
++                  contact_sides=len(contacts),loaded_chunks=int(np.count_nonzero(counts)),
++                  max_contact_sides_per_chunk=int(counts.max(initial=0)),
++                  topology_mapping_passed=True,full_mass_spd_passed=True,
++                  quaternion_norm_error=peak(np.linalg.norm(poses[:,:4],axis=1)-1),
++                  checkpoint_missing=int(np.count_nonzero(checkpoint['valid']==0)))
++    result['surface_reconstruction']={}
++    for key, columns in [('force',slice(0,3)),('torque',slice(3,6)),('virial',slice(6,12))]:
++        error = reconstructed[:,columns]-surface[:,columns]
++        scale = absolute[:,columns]
++        result['surface_reconstruction'][key] = dict(max_absolute_error=peak(error),
++            max_absolute_contribution_sum=peak(scale),
++            max_error_over_max_1_abs_contribution_sum=peak(error/np.maximum(1,scale)))
++    for label,b in [('current',bodies),('checkpoint',checkpoint[checkpoint['valid']!=0])]:
++        result[label] = dict(external_linear_max=peak(b['external_linear']),external_angular_max=peak(b['external_angular']),
++            linear_velocity_max=peak(b['linear']),angular_velocity_max=peak(b['angular']),
++            damping_values=np.unique(b['damping'],axis=0).tolist(),locks=int(np.count_nonzero(b['locks'])),
++            gravity_disabled=int(np.count_nonzero(b['disable_gravity'])))
++    # Supported aggregates require supplied accelerations; stationary snapshots
++    # alone do not prove their full prescribed acceleration history.
++    supported = np.zeros(len(poses),dtype=bool)
++    np.logical_or.at(supported,chunks['cluster'][ids],mass['supported'][ids]!=0)
++    result['supported_aggregates']=int(np.count_nonzero(supported))
++    result['supported_velocity_max']=max(peak(bodies['linear'][supported]),peak(bodies['angular'][supported]))
++    return result
++
++def main():
++    p=argparse.ArgumentParser(description=__doc__)
++    p.add_argument('capture',type=Path)
++    p.add_argument('--reference-frames',type=Path)
++    args=p.parse_args()
++    result={'evaluations':[audit(d) for d in sorted(args.capture.glob('solve-*'),key=lambda d:int(d.name.split('-')[1]))]}
++    if args.reference_frames:
++        with (args.capture/'scene/native.frames.csv').open() as f: current=list(csv.DictReader(f))
++        with args.reference_frames.open() as f: old=list(csv.DictReader(f))
++        assert len(current)==len(old)==180
++        assert all(row['stress_converged']=='1' and row['correction_status']=='0' and int(row['resim_passes'])<=1 for row in current)
++        keys=['bonds_broken','logical_clusters','contacts_frame','resim_passes','stress_passes','stress_active_nodes','stress_active_bonds','stress_iterations']
++        result['trajectory_comparison']={key:dict(differing_steps=sum(a[key]!=b[key] for a,b in zip(current,old)),
++            first_differing_step=next((int(a['step']) for a,b in zip(current,old) if a[key]!=b[key]),None)) for key in keys}
++    (args.capture/'analysis.json').write_text(json.dumps(result,indent=2)+'\n')
++    print(json.dumps(result,indent=2))
++
++if __name__=='__main__': main()
+diff --git a/tools/diagnostics/destruction-load-capture/build.py b/tools/diagnostics/destruction-load-capture/build.py
+new file mode 100644
+index 00000000..cc6adff6
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/build.py
+@@ -0,0 +1,75 @@
++#!/usr/bin/env python3
++"""Build an isolated native load-capture runtime; never replace SDK artifacts."""
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import shlex
++import subprocess
++
++root = Path(__file__).resolve().parents[3]
++p = argparse.ArgumentParser(description=__doc__)
++p.add_argument('destination', type=Path)
++a = p.parse_args()
++dst = a.destination.resolve()
++dst.mkdir(parents=True, exist_ok=True)
++source_dir = root / 'physx/source/gpudestruction/src'
++original = source_dir / 'PxgDestructionRuntime.cu'
++s = original.read_text()
++s = '#include \"PxgDestructionElasticPartition.cuh\"\n' + s
++header = Path(__file__).with_name('Capture.cuh').resolve()
++s = s.replace('#include <vector>', '#include <vector>\n#include <fstream>\n#include <iomanip>\n#include <filesystem>\n#include <cstdlib>')
++needle = '#include "PxgRigidIterationLimits.cuh"'
++assert s.count(needle) == 1
++s = s.replace(needle, '#include "' + str(header) + '"\n' + needle)
++needle = '    if(i==PX_INVALID_U32)return;\n    const auto c=chunks[i];'
++assert s.count(needle) == 1
++s = s.replace(needle, '    recordLoadContact(i,point,impulse,invDt);\n' + needle)
++needle = 'class Runtime final : public PxgDestructionRuntime {'
++assert s.count(needle) == 1
++s = s.replace(needle, needle + '\n    LoadCapture mLoadCapture;')
++needle = '        Context current(mContext); cudaStreamSynchronize(mStream);clear();'
++assert s.count(needle) == 1
++s = s.replace(needle, '        Context current(mContext); cudaStreamSynchronize(mStream);mLoadCapture.clear();clear();')
++needle = '    void clear() {\n        cudaEventSynchronize(mPreReady);cudaEventSynchronize(mReady);'
++assert s.count(needle) == 1
++s = s.replace(needle, needle + '\n        mLoadCapture.clear();')
++needle = '            prepareLoads<<<(mN+127)/128,128,0,mStream>>>'
++assert s.count(needle) == 1
++s = s.replace(needle, '            mLoadCapture.begin(mStream);\n' + needle)
++needle = '            check(cudaEventRecord(mReady,mStream));\n            stageMarker(1);'
++assert s.count(needle) == 1
++s = s.replace(needle, '''            if(mTopology)mLoadCapture.finish(mStream,dt,gravity,mPostCorrection,mStatus,mTopology->accepted(),
++                mChunks,mClusters,mPoses,mAngular,mSurface,mInputs,mC,bodyStates,storage.capacity,
++                mCheckpointValid?mCheckpointBodies:nullptr,mCheckpointValid?mCheckpointCount:0,
++                mCheckpointGeneration,contacts.responseEpoch,inputRigidCheckpoint(),mCheckpointPurpose);
++''' + needle)
++source = dst / original.name
++source.write_text(s)
++build = root / 'out/sdk-release/sdk_gpu_source_bin/destruction-runtime'
++flags = {}
++for line in (build / 'CMakeFiles/PhysXDestructionGpuRuntime.dir/flags.make').read_text().splitlines():
++    if ' = ' in line:
++        k, v = line.split(' = ', 1)
++        flags[k] = shlex.split(v)
++obj = dst / 'runtime.o'
++lib = dst / 'libPhysXDestructionGpuRuntime_64.so'
++compile_command = ['/usr/local/cuda-13.4/bin/nvcc', *flags['CUDA_DEFINES'], *flags['CUDA_INCLUDES'],
++                   *flags['CUDA_FLAGS'], '-ccbin', '/usr/bin/g++-12', '-I' + str(source_dir),
++                   '-I' + str(root/'blast/source/sdk/extensions/stressgpu/detail'), '-c', str(source), '-o', str(obj)]
++link = shlex.split((build / 'CMakeFiles/PhysXDestructionGpuRuntime.dir/link.txt').read_text())
++original_obj = next(x for x in link if x.endswith('/PxgDestructionRuntime.cu.o'))
++link[link.index(original_obj)] = str(obj)
++link[link.index('-o') + 1] = str(lib)
++for cmd in (compile_command, link):
++    subprocess.run(cmd, cwd=build, check=True)
++sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
++inputs = {str(original): sha(original), str(source): sha(source), str(header): sha(header)}
++for included in [header.with_name('CapturePartition.cuh'), source_dir/'PxgDestructionElasticPartition.cuh', source_dir/'PxgDestructionElasticLoads.cuh', root/'physx/source/gpudestruction/include/PxgDestructionRuntime.h', root/'blast/source/sdk/extensions/stressgpu/detail/StressElasticOperator.cuh']:
++    inputs[str(included)] = sha(included)
++for arg in link:
++    if arg.endswith(('.o', '.a')) and (build / arg).is_file():
++        inputs[str((build / arg).resolve())] = sha(build / arg)
++(dst / 'build.json').write_text(json.dumps(dict(commands=[compile_command, link], cwd=str(build),
++    inputs_sha256=inputs, library_sha256=sha(lib)), indent=2) + '\n')
++print(lib)
+diff --git a/tools/diagnostics/destruction-load-capture/check_input_history.py b/tools/diagnostics/destruction-load-capture/check_input_history.py
+new file mode 100644
+index 00000000..0244ea0d
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/check_input_history.py
+@@ -0,0 +1,55 @@
++#!/usr/bin/env python3
++"""Check original input retention in the four frozen native evaluations."""
++import argparse
++import hashlib
++import json
++from pathlib import Path
++
++
++def check(capture):
++    records = []
++    for ordinal, tick, evaluation in [(0, 1, 0), (82, 83, 0), (83, 83, 1), (130, 109, 0)]:
++        directory = capture / f'solve-{ordinal}'
++        manifest = json.loads((directory / 'manifest.json').read_text())
++        assert (manifest['tick'], manifest['evaluation']) == (tick, evaluation)
++        assert manifest['input_history_purpose'] == 0
++        assert manifest['checkpoint_purpose'] == evaluation
++        assert manifest['input_history_generation'] > 0
++        if evaluation:
++            assert manifest['input_history_generation'] < manifest['checkpoint_generation']
++        else:
++            assert manifest['input_history_generation'] == manifest['checkpoint_generation']
++        arrays = {}
++        for name in ['original_bodies', 'original_previous', 'original_accelerations']:
++            if name not in manifest:
++                assert name != 'original_bodies'
++                continue
++            layout = manifest[name]
++            data = (directory / (name + '.bin')).read_bytes()
++            assert layout['count'] == manifest['input_history_count'] > 0
++            assert len(data) == layout['count'] * layout['stride']
++            arrays[name] = dict(layout, bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
++        records.append(dict(ordinal=ordinal, tick=tick, evaluation=evaluation,
++                            input_generation=manifest['input_history_generation'],
++                            checkpoint_generation=manifest['checkpoint_generation'], arrays=arrays))
++    trial, corrected = records[1:3]
++    assert trial['input_generation'] == corrected['input_generation']
++    assert trial['arrays'] == corrected['arrays'], 'Original arrays changed across correction'
++    assert records[3]['input_generation'] > corrected['checkpoint_generation']
++    return dict(passed=True, evaluations=records, original_arrays_identical_across_correction=True,
++                complete_command_ledger=False,
++                scope='Raw original body arrays; optional arrays only when present. '
++                      'No ancestry mapping or general applied-command completeness qualification.')
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('capture', type=Path)
++    args = parser.parse_args()
++    result = check(args.capture)
++    (args.capture / 'input-history-check.json').write_text(json.dumps(result, indent=2) + '\n')
++    print(json.dumps(result, indent=2))
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/tools/diagnostics/destruction-load-capture/check_replay.py b/tools/diagnostics/destruction-load-capture/check_replay.py
+new file mode 100644
+index 00000000..448f3911
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/check_replay.py
+@@ -0,0 +1,79 @@
++#!/usr/bin/env python3
++"""Independent Newton–Euler check of native surface+gravity numerical replay."""
++import argparse
++import json
++from pathlib import Path
++import numpy as np
++from analyze import CHUNK, MASS, BODY, read, peak
++
++RECEIPT=np.dtype([('tick','<u8'),('input_generation','<u8'),('ownership_generation','<u8'),
++ ('evaluation','<u4'),('complete','<u4'),('seconds','<f8'),('status','<u4'),('supported','<u4'),
++ ('mass','<f8'),('center','<f8',(3,)),('acceleration','<f8',(3,)),('alpha','<f8',(3,)),
++ ('force_defect','<f8'),('torque_defect','<f8')])
++assert RECEIPT.itemsize==144
++
++def check(directory,prefix):
++ m=json.loads((directory/'manifest.json').read_text())
++ get=lambda name,dtype:read(directory,m,name,dtype)
++ chunks,mass=get('chunks',CHUNK),get('mass',MASS)
++ poses=get('poses',('<f4',(7,))).astype(float)
++ surface=get('surface',('<f4',(12,))).astype(float)
++ bodies=get('bodies',BODY)
++ groups=chunks['cluster'];count=len(poses);n=len(chunks)
++ def sum_groups(x):
++  out=np.zeros((count,*x.shape[1:]),dtype=float);np.add.at(out,groups,x);return out
++ # Explicit normalized rotation matrices, independent of the GPU cross helper.
++ q=poses[:,:4];q=q/np.linalg.norm(q,axis=1)[:,None];x,y,z,w=q.T
++ rotation=np.array([1-2*(y*y+z*z),2*(x*y-z*w),2*(x*z+y*w),
++  2*(x*y+z*w),1-2*(x*x+z*z),2*(y*z-x*w),
++  2*(x*z-y*w),2*(y*z+x*w),1-2*(x*x+y*y)]).T.reshape(-1,3,3)
++ rotate_inv=lambda v:np.einsum('gji,gj->gi',rotation,v)
++ omega=rotate_inv(bodies['angular'].astype(float))
++ gravity=rotate_inv(np.broadcast_to(m['gravity'],(count,3)))
++ M=sum_groups(mass['mass'])
++ anchors=get('active_roots','<u4');origin=mass['center'][anchors]
++ center=origin+sum_groups(mass['mass'][:,None]*(mass['center']-origin[groups]))/M[:,None]
++ r=mass['center']-center[groups]
++ offset=mass['center']-chunks['position']
++ a=mass['inertia'];I=np.stack([a[:,0],a[:,3],a[:,4],a[:,3],a[:,1],a[:,5],a[:,4],a[:,5],a[:,2]],axis=1).reshape(-1,3,3)
++ Ig=sum_groups(I+mass['mass'][:,None,None]*(np.eye(3)*np.sum(r*r,axis=1)[:,None,None]-r[:,:,None]*r[:,None,:]))
++ force=surface[:,:3]+mass['mass'][:,None]*gravity[groups]
++ torque=surface[:,3:6]+np.cross(offset,mass['mass'][:,None]*gravity[groups])
++ net_force=sum_groups(force)
++ net_torque=sum_groups(torque+np.cross(chunks['position']-center[groups],force))
++ supported=sum_groups(mass['supported'])!=0
++ accel=net_force/M[:,None];alpha=np.linalg.solve(Ig,(net_torque-np.cross(omega,np.einsum('gij,gj->gi',Ig,omega)))[...,None])[...,0]
++ accel[supported]=0;alpha[supported]=0
++ wnode,anode=omega[groups],alpha[groups]
++ inertial_force=mass['mass'][:,None]*(accel[groups]+np.cross(anode,r)+np.cross(wnode,np.cross(wnode,r)))
++ inertial_torque=np.einsum('nij,nj->ni',I,anode)+np.cross(wnode,np.einsum('nij,nj->ni',I,wnode))+np.cross(offset,inertial_force)
++ expected=np.column_stack([force-inertial_force,torque-inertial_torque])
++ # An unconstrained one-node aggregate spans only rigid DOFs. The exact
++ # internal response is zero; do not manufacture an oracle subtraction error.
++ singleton=(np.bincount(groups,minlength=count)==1)&~supported
++ expected[singleton[groups]]=0
++ actual=np.fromfile(str(prefix)+'.effective.bin',dtype='<f8').reshape(n,6)
++ receipt=np.fromfile(str(prefix)+'.receipts.bin',dtype=RECEIPT)
++ assert len(receipt)==count and np.all(receipt['status']==0)
++ for name,expected_value in [('tick',m['tick']),('input_generation',m['response_epoch']),('ownership_generation',m['ownership_generation']),
++                             ('evaluation',m['evaluation']),('seconds',m['seconds']),('complete',1)]:
++  assert np.all(receipt[name]==expected_value),name
++ assert np.array_equal(receipt['supported']!=0,supported)
++ result={'tick':m['tick'],'evaluation':m['evaluation'],'clusters':count,'chunks':n,'checks':{}}
++ values=[('effective',actual,expected),('mass',receipt['mass'],M),('center',receipt['center'],center),
++         ('acceleration',receipt['acceleration'],accel),('alpha',receipt['alpha'],alpha)]
++ passed=True
++ for name,observed,reference in values:
++  # Same comparison as the existing independent standalone load test.
++  error=np.abs(observed-reference);limit=2e-11*(1+np.abs(reference))
++  ok=np.isfinite(observed)&(error<=limit);passed &= bool(np.all(ok))
++  result['checks'][name]={'max_absolute_error':peak(error),'max_fraction_of_limit':peak(error/limit),'failed_values':int(np.count_nonzero(~ok))}
++ result['passed']=passed
++ return result
++
++def main():
++ p=argparse.ArgumentParser(description=__doc__);p.add_argument('capture',type=Path);p.add_argument('replays',type=Path)
++ a=p.parse_args();results=[check(a.capture/f'solve-{i}',a.replays/f'solve-{i}') for i in [0,82,83,130]]
++ (a.replays/'reference-check.json').write_text(json.dumps(results,indent=2)+'\n');print(json.dumps(results,indent=2))
++ assert all(r['passed'] for r in results),'Independent native-load numerical comparison failed'
++if __name__=='__main__':main()
+diff --git a/tools/diagnostics/destruction-load-capture/run.py b/tools/diagnostics/destruction-load-capture/run.py
+new file mode 100644
+index 00000000..3c51d28e
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/run.py
+@@ -0,0 +1,74 @@
++#!/usr/bin/env python3
++"""Run one diagnostic native trajectory with an explicitly isolated capture library."""
++import argparse
++import hashlib
++import importlib.util
++import json
++import os
++from pathlib import Path
++import subprocess
++import time
++
++root = Path(__file__).resolve().parents[3]
++p = argparse.ArgumentParser(description=__doc__)
++p.add_argument('destination', type=Path)
++a = p.parse_args()
++dst = a.destination.resolve()
++dst.mkdir()  # Preserve earlier/failed runs.
++spec = importlib.util.spec_from_file_location('timing', root/'tools/scripts/run-destruction-timing.py')
++r = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(r)
++build = dst.parent/'build'
++config_path = root/'qualification/baseline-rtx5060ti-20260910/config.json'
++config = json.loads(config_path.read_text())
++case = next(c for c in config['cases'] if c['id']=='impacts-256')
++binary = root/'out/destruction-sdk/reference/native_destruction_demo'
++command = [str(binary), *config['common'], *case['args'], '--seconds', '3',
++           '--output', str(dst/'scene'), '--profile-phases', '0', '--profile-gpu', '0']
++env = dict(os.environ)
++env['LD_LIBRARY_PATH'] = str(build) + ':' + str(root/'out/install/lib') + ':' + env.get('LD_LIBRARY_PATH', '')
++env['PHYSX_LOAD_CAPTURE_DIR'] = str(dst)
++initial = r.gpu()
++allowed = [p for g in initial['devices'] for p in g['processes'] if p['type']=='G']
++assert not r.competing_processes(initial, allowed), 'Other GPU compute job active'
++receipt = dict(command=command, cwd=str(root), environment={k:env[k] for k in ['LD_LIBRARY_PATH','PHYSX_LOAD_CAPTURE_DIR']},
++               initial_gpu=initial, allowed_graphics=allowed, diagnostic_only=True,
++               binary_sha256=r.sha(binary), config_sha256=r.sha(config_path), samples=[], status='running')
++with (dst/'run.log').open('w') as log:
++    proc = subprocess.Popen(command, cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT)
++    receipt['pid'] = proc.pid
++    started = time.monotonic()
++    try:
++        while proc.poll() is None:
++            sample = r.gpu()
++            receipt['samples'].append(sample)
++            competing = r.competing_processes(sample, allowed)
++            assert all(p['pid']==proc.pid for p in competing), 'Another GPU process appeared'
++            maps = Path(f'/proc/{proc.pid}/maps')
++            if maps.exists():
++                content = maps.read_text()
++                if str(build/'libPhysXDestructionGpuRuntime_64.so') in content:
++                    (dst/'loaded.maps').write_text(content)
++            assert time.monotonic()-started<600, 'Capture watchdog'
++            (dst/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
++            time.sleep(.5)
++        receipt['exit_code'] = proc.returncode
++        receipt['status'] = 'complete' if proc.returncode==0 else 'failed'
++    except BaseException as exc:
++        receipt['error'] = str(exc)
++        receipt['status'] = 'failed'
++        if proc.poll() is None:
++            proc.terminate()
++            proc.wait(timeout=30)
++        raise
++    finally:
++        if (dst/'loaded.maps').exists():
++            paths = {line.split()[-1] for line in (dst/'loaded.maps').read_text().splitlines() if '/' in line}
++            receipt['loaded_modules'] = {s:r.sha(Path(s)) for s in sorted(paths) if Path(s).is_file()}
++        receipt['capture_sha256'] = {str(f.relative_to(dst)):r.sha(f) for f in sorted(dst.glob('solve-*/*')) if f.is_file()}
++        receipt['final_gpu'] = r.gpu()
++        (dst/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
++assert str(build/'libPhysXDestructionGpuRuntime_64.so') in receipt.get('loaded_modules',{}), 'Diagnostic runtime was not observed loaded'
++assert proc.returncode==0, f'Native capture failed: {proc.returncode}'
++assert len(list(dst.glob('solve-*/manifest.json')))==4, 'Missing frozen evaluations'
++print('Native trajectory and four frozen load captures completed.')
+diff --git a/tools/diagnostics/destruction-load-capture/validate.py b/tools/diagnostics/destruction-load-capture/validate.py
+new file mode 100644
+index 00000000..3b76377a
+--- /dev/null
++++ b/tools/diagnostics/destruction-load-capture/validate.py
+@@ -0,0 +1,76 @@
++#!/usr/bin/env python3
++"""Validate/counter-profile an offline replay; retain every command and loaded module."""
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import subprocess
++import time
++
++root=Path(__file__).resolve().parents[3]
++p=argparse.ArgumentParser(description=__doc__)
++p.add_argument('--capture',type=Path,required=True)
++p.add_argument('--replay',type=Path,required=True)
++p.add_argument('--output',type=Path,required=True)
++a=p.parse_args()
++capture=a.capture.resolve();binary=a.replay.resolve();base=a.output.resolve();base.mkdir()
++results=base/'replays';results.mkdir()
++sha=lambda path:hashlib.sha256(path.read_bytes()).hexdigest()
++runs=[]
++
++def run(name,cmd):
++    record={'name':name,'command':list(map(str,cmd)),'maps':{}}
++    with (base/(name+'.log')).open('w') as log:
++        process=subprocess.Popen(record['command'],stdout=log,stderr=subprocess.STDOUT,cwd=root)
++        record['pid']=process.pid
++        while process.poll() is None:
++            for proc in Path('/proc').glob('[0-9]*'):
++                try:
++                    if proc.joinpath('exe').resolve() not in {binary,root/'out/destruction-sdk/reference/stress_elastic_loads_test',
++                                                            root/'out/destruction-sdk/reference/stress_elastic_partition_test'}:
++                        continue
++                    parent=int(proc.name)
++                    while parent>1 and parent!=process.pid:
++                        status=Path(f'/proc/{parent}/status').read_text()
++                        parent=int(next(line.split()[1] for line in status.splitlines() if line.startswith('PPid:')))
++                    if parent!=process.pid:
++                        continue
++                    content=proc.joinpath('maps').read_text()
++                    if 'libcuda.so' in content:
++                        path=base/(name+'-'+proc.name+'.maps');path.write_text(content)
++                        record['maps'][proc.name]=str(path)
++                except (OSError,RuntimeError,StopIteration):
++                    pass
++            time.sleep(.025)
++    record['exit_code']=process.returncode
++    paths=set()
++    for file in record['maps'].values():
++        for line in Path(file).read_text().splitlines():
++            last=line.split()[-1]
++            if last.startswith('/') and Path(last).is_file():
++                paths.add(last)
++    record['loaded_modules']={path:sha(Path(path)) for path in sorted(paths)}
++    runs.append(record)
++    (base/'validation-runs.json').write_text(json.dumps(runs,indent=2)+'\n')
++    print(name,process.returncode,flush=True)
++    if process.returncode:
++        raise RuntimeError(f'{name} failed; preserve its log')
++
++def command(i,prefix):
++    directory=capture/('solve-'+str(i));m=json.loads((directory/'manifest.json').read_text())
++    return [binary,directory,m['tick'],m['evaluation'],m['ownership_generation'],m['response_epoch'],m['seconds'],*m['gravity'],results/prefix]
++
++for i in [0,82,83,130]:
++    run('replay-'+str(i),command(i,'solve-'+str(i)))
++run('ctest',['.toolchains/build-env/bin/ctest','--test-dir','out/destruction-sdk','-R','^blast_stress_six_channel_','--output-on-failure'])
++run('reference-check',[root/'.toolchains/build-env/bin/python',Path(__file__).with_name('check_replay.py'),capture,results])
++for tool in ['memcheck','initcheck','synccheck','racecheck']:
++    run(tool,['/usr/local/cuda-13.4/bin/compute-sanitizer','--tool',tool,'--error-exitcode','99',*command(130,tool)])
++    run('partition-'+tool,['/usr/local/cuda-13.4/bin/compute-sanitizer','--tool',tool,'--error-exitcode','99',
++                          root/'out/destruction-sdk/reference/stress_elastic_partition_test'])
++run('ncu',['/usr/local/cuda-13.4/bin/ncu','--kernel-name-base','function','--kernel-name','regex:pack|build','--launch-count','2',
++    '--section','SpeedOfLight','--section','LaunchStats','--section','Occupancy','--section','MemoryWorkloadAnalysis',
++    '--clock-control','none','--cache-control','all','--export',base/'native-load-counters',*command(130,'ncu')])
++for suffix in ['receipts.bin','effective.bin']:
++    if sha(results/('solve-130.'+suffix))!=sha(results/('ncu.'+suffix)):
++        raise RuntimeError('Counter replay changed numerical output')

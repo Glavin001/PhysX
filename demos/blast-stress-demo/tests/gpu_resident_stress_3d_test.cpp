@@ -92,23 +92,40 @@ public:
             out<<"["<<c.node0<<","<<c.node1<<","<<c.offset0.x<<","<<c.offset0.y<<","<<c.offset0.z<<","<<c.offset1.x<<","<<c.offset1.y<<","<<c.offset1.z<<","<<getColumnScale(i)<<",";six(cpu[i]);out<<",";six(native[i]);out<<"]";}
         out<<"],\"precise\":[";for(unsigned e=0;e<precise.size();++e){if(e)out<<",";out<<"[";six(precise[e]);out<<"]";}out<<"]}\n";require(bool(out),"failed to write residual audit output");
     }
-    void audit(const char* label,const std::vector<AngLin6>& forces,float tolerance)const{
+    bool audit(const char* label,const std::vector<AngLin6>& forces,float tolerance)const{
         std::vector<Six> residual(getNodeCount());long double rhs2=0,residual2=0,gradient2=0;
+        std::vector<Six> roundoff(getNodeCount());long double roundoff2=0;
+        auto ulp=[](float x){return std::max(std::abs((long double)std::nextafter(x,INFINITY)-x),std::abs((long double)x-std::nextafter(x,-INFINITY)));};
+        auto absCross=[](Triple o,Triple e){return Triple{std::abs(o[1])*e[2]+std::abs(o[2])*e[1],std::abs(o[2])*e[0]+std::abs(o[0])*e[2],std::abs(o[0])*e[1]+std::abs(o[1])*e[0]};};
         const long double linearScale=(long double)m_length_scale*m_mass_scale,angularScale=m_length_scale*linearScale;
         for(unsigned e=0;e<getBondCount();++e){const auto& c=m_couplings[e];const auto& f=forces[e];
             const Triple angular{f.ang.x/angularScale,f.ang.y/angularScale,f.ang.z/angularScale};
             const Triple linear{f.lin.x/linearScale,f.lin.y/linearScale,f.lin.z/linearScale};
+            const Triple angularError{ulp(f.ang.x)/angularScale,ulp(f.ang.y)/angularScale,ulp(f.ang.z)/angularScale};
+            const Triple linearError{ulp(f.lin.x)/linearScale,ulp(f.lin.y)/linearScale,ulp(f.lin.z)/linearScale};
             for(unsigned side=0;side<2;++side){const unsigned node=side?c.node1:c.node0;const auto o=side?c.offset1:c.offset0;
                 const auto moment=cross({o.x,o.y,o.z},linear);const long double sign=side?-1:1;
+                const auto momentError=absCross({o.x,o.y,o.z},linearError);
+                for(unsigned k=0;k<3;++k){roundoff[node][k]+=angularError[k]+momentError[k];roundoff[node][k+3]+=linearError[k];}
                 for(unsigned k=0;k<3;++k){residual[node][k]+=sign*(angular[k]-moment[k]);residual[node][k+3]+=sign*linear[k];}}
         }
         for(unsigned i=0;i<getNodeCount();++i){const auto& b=m_rhs[i];const auto d=m_recip_sqrt_I[i];const Six rhs{b.ang.x,b.ang.y,b.ang.z,b.lin.x,b.lin.y,b.lin.z};
-            for(unsigned k=0;k<6;++k){rhs2+=rhs[k]*rhs[k];residual[i][k]=rhs[k]-(k<3?d.I:d.m)*residual[i][k];residual2+=residual[i][k]*residual[i][k];residual[i][k]*=k<3?d.I:d.m;}}
+            for(unsigned k=0;k<6;++k){rhs2+=rhs[k]*rhs[k];residual[i][k]=rhs[k]-(k<3?d.I:d.m)*residual[i][k];residual2+=residual[i][k]*residual[i][k];residual[i][k]*=k<3?d.I:d.m;roundoff[i][k]*=(k<3?d.I:d.m)*(k<3?d.I:d.m);}}
         for(unsigned e=0;e<getBondCount();++e){const auto& c=m_couplings[e];const auto a=residual[c.node0],b=residual[c.node1];
             const auto u=cross({c.offset0.x,c.offset0.y,c.offset0.z},{a[0],a[1],a[2]});
             const auto v=cross({c.offset1.x,c.offset1.y,c.offset1.z},{b[0],b[1],b[2]});const long double scale=getColumnScale(e);
+            const auto ra=roundoff[c.node0],rb=roundoff[c.node1];
+            const auto ua=absCross({c.offset0.x,c.offset0.y,c.offset0.z},{ra[0],ra[1],ra[2]});
+            const auto ub=absCross({c.offset1.x,c.offset1.y,c.offset1.z},{rb[0],rb[1],rb[2]});
+            for(unsigned k=0;k<3;++k){const auto aError=(ra[k]+rb[k])*scale,bError=(ra[k+3]+rb[k+3]+ua[k]+ub[k])*scale;roundoff2+=aError*aError+bError*bError;}
             for(unsigned k=0;k<3;++k){const long double angular=(a[k]-b[k])*scale,linear=(a[k+3]-b[k+3]+u[k]-v[k])*scale;gradient2+=angular*angular+linear*linear;}}
         std::printf("published residual label=%s rhs2=%.12Lg residual2=%.12Lg gradient2=%.12Lg threshold2=%.12Lg\n",label,rhs2,residual2,gradient2,rhs2*tolerance*tolerance);std::fflush(stdout);
+        // Triangle inequality: one FP32 output ULP propagated through |B^T||B|.
+        // This bounds export quantization only; it is not a fitted tolerance or
+        // an allowance for an unconverged solver, missing terms or self-stress.
+        const auto limit=std::sqrt(rhs2)*tolerance+std::sqrt(roundoff2);
+        std::printf("independent gradient label=%s norm=%.12Lg tolerance=%.12Lg export_roundoff_bound=%.12Lg\n",label,std::sqrt(gradient2),std::sqrt(rhs2)*tolerance,std::sqrt(roundoff2));
+        return std::isfinite(gradient2)&&std::isfinite(limit)&&std::sqrt(gradient2)<=limit;
     }
 };
 void run(bool supported,unsigned extent){
@@ -153,7 +170,11 @@ void run(bool supported,unsigned extent){
             const std::array<float,6> reference{e.ang.x,e.ang.y,e.ang.z,e.lin.x,e.lin.y,e.lin.z},candidate{a.angular.x,a.angular.y,a.angular.z,a.linear.x,a.linear.y,a.linear.z};
             for(unsigned k=0;k<6;++k){const double error=std::abs(double(reference[k])-candidate[k])/std::max(1.,std::abs(double(reference[k])));maximum=std::max(maximum,error);require(std::isfinite(error),"3D nonfinite bond force");}}
         std::vector<AngLin6> published(actual.size());for(unsigned i=0;i<actual.size();++i){published[i].ang={actual[i].angular.x,actual[i].angular.y,actual[i].angular.z};published[i].lin={actual[i].linear.x,actual[i].linear.y,actual[i].linear.z};}
-        cpu.audit("legacy CPU",expected,params.tolerance);cpu.audit("precise CPU",precise,params.tolerance);cpu.audit("native",published,params.tolerance);
+        cpu.audit("legacy CPU",expected,params.tolerance);
+        require(cpu.audit("precise CPU",precise,params.tolerance),"independent reference fails published equilibrium gate");
+        require(cpu.audit("native",published,params.tolerance),"native published forces fail independently recomputed equilibrium");
+        if(amplitude==.5f){auto corrupted=published;corrupted[0].lin.x+=1;
+            require(!cpu.audit("deliberate force corruption",corrupted,params.tolerance),"independent equilibrium gate missed force corruption");}
         if(!auditPrefix.empty())cpu.dump(auditPrefix+"-"+std::to_string(n)+"-"+std::to_string(supported)+"-"+std::to_string(amplitude)+".json",expected,published,precise,status.converged);
         require(!topology.error && status.converged && status.iterations<=params.maxIterations,"3D native solve did not converge");
         std::printf("native 3D all-force/moment maximum_relative_error=%.9g\n",maximum);std::fflush(stdout);require(maximum<2e-4,"3D native bond forces differ from independent CPU oracle");

@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Recheck preserved observations with today's gates; never runs the GPU."""
+import argparse
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import time
+ROOT=Path(__file__).resolve().parents[2]
+def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+def module(path):
+    spec=importlib.util.spec_from_file_location(path.stem,path)
+    result=importlib.util.module_from_spec(spec);spec.loader.exec_module(result);return result
+p=argparse.ArgumentParser(description=__doc__)
+p.add_argument('output',type=Path)
+p.add_argument('--report',type=Path,default=ROOT/'out/n20-requalification-20260912/full52/report.json')
+p.add_argument('--wall',type=Path,default=ROOT/'out/n20-requalification-20260912/wall-B')
+p.add_argument('--reference',type=Path,default=ROOT/'out/vm-port-20260910/wall-standard')
+a=p.parse_args();a.output.mkdir(parents=True,exist_ok=False)
+checker=ROOT/'tools/diagnostics/destruction-snapshot/compare-observations.py'
+wall=ROOT/'tools/scripts/verify-native-prefix.py'
+paths=[checker,wall,ROOT/'tools/scripts/destruction_physics_contract.py',Path(__file__),a.report]
+r=dict(status='running',scope='Historical observations revalidated on CPU; no new simulation, timing or runtime qualification',
+       sources={str(x):sha(x) for x in paths},scenarios=[],started_utc=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()))
+def save():(a.output/'results.json').write_text(json.dumps(r,indent=2)+'\n')
+try:
+    source=json.loads(a.report.read_text());compare=module(checker).compare
+    assert len(source['scenarios'])==52 and len({x['scenario'] for x in source['scenarios']})==52
+    for case in source['scenarios']:
+        raw=case['raw'];row=dict(scenario=case['scenario'],arms={})
+        for arm in ('B','A1'):row['arms'][arm]=compare(Path(raw['A0']),Path(raw[arm]))
+        r['scenarios'].append(row);save()
+    r['wall']=module(wall).verify(a.wall,a.reference,600)
+    if r['wall']['status']!='passed':raise ValueError('Historical wall physical comparison failed')
+    for path,digest in r['sources'].items():
+        if sha(Path(path))!=digest:raise ValueError('Source changed: '+path)
+    r['status']='passed'
+except BaseException as error:r.update(status='failed',error=repr(error));raise
+finally:save()

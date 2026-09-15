@@ -1,0 +1,598 @@
+diff --git a/demos/blast-stress-demo/CMakeLists.txt b/demos/blast-stress-demo/CMakeLists.txt
+index 6a289c62..086ce2ca 100644
+--- a/demos/blast-stress-demo/CMakeLists.txt
++++ b/demos/blast-stress-demo/CMakeLists.txt
+@@ -112,6 +112,52 @@ target_link_libraries(NvBlastExtStressPhysX PUBLIC blast_stress_core)
+ 
+ if(BLAST_ENABLE_CUDA_STRESS)
+     find_package(CUDAToolkit REQUIRED)
++    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13.4 AND CMAKE_CUDA_ARCHITECTURES MATCHES "(^|;)120(-real|-virtual)?(;|$)")
++        add_executable(stress_elastic_operator_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_operator_test.cu")
++        target_link_libraries(stress_elastic_operator_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_operator_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_operator_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_operator COMMAND stress_elastic_operator_test)
++        add_executable(stress_elastic_pcg_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_pcg_test.cu")
++        target_link_libraries(stress_elastic_pcg_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_pcg_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_pcg_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_pcg COMMAND stress_elastic_pcg_test)
++        add_executable(stress_elastic_setup_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_setup_test.cu")
++        target_link_libraries(stress_elastic_setup_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_setup_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_setup_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_setup COMMAND stress_elastic_setup_test)
++        add_executable(stress_elastic_loads_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_loads_test.cu")
++        target_include_directories(stress_elastic_loads_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_loads_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_loads_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_loads_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_loads COMMAND stress_elastic_loads_test)
++        add_executable(stress_elastic_partition_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_partition_test.cu")
++        target_include_directories(stress_elastic_partition_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_partition_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_partition_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_partition_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_partition COMMAND stress_elastic_partition_test)
++        add_executable(stress_elastic_commands_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_commands_test.cu")
++        target_include_directories(stress_elastic_commands_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_commands_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_commands_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        add_test(NAME blast_stress_six_channel_commands COMMAND stress_elastic_commands_test)
++    endif()
+     target_sources(NvBlastExtStressPhysX PRIVATE
+         "${BLAST_ROOT}/source/sdk/extensions/stressphysx/NvBlastExtStressPhysXContactGpu.cu")
+     target_compile_definitions(NvBlastExtStressPhysX PRIVATE NVBLAST_ENABLE_DIRECT_GPU_CONTACT_DRAIN)
+@@ -729,6 +775,19 @@ if(BLAST_ENABLE_CUDA_STRESS)
+ 
+     add_executable(native_gpu_correction_body_test tests/native_gpu_correction_body_test.cpp physx_scene.cpp)
+     get_target_property(NATIVE_CHECKPOINT_TEST_INCLUDES native_gpu_checkpoint_test INCLUDE_DIRECTORIES)
++    add_executable(native_command_wake_test tests/native_command_wake_test.cpp physx_scene.cpp)
++    target_include_directories(native_command_wake_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
++    target_compile_definitions(native_command_wake_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
++    target_link_options(native_command_wake_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
++    target_link_libraries(native_command_wake_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
++    add_test(NAME physx_native_command_wake COMMAND native_command_wake_test)
++    add_executable(native_gpu_input_owners_test tests/native_gpu_input_owners_test.cu)
++    target_include_directories(native_gpu_input_owners_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src")
++    target_compile_definitions(native_gpu_input_owners_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_input_owners_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_input_owners_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_input_owners COMMAND native_gpu_input_owners_test)
+     target_include_directories(native_gpu_correction_body_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+     target_compile_definitions(native_gpu_correction_body_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+     target_link_options(native_gpu_correction_body_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+diff --git a/physx/source/gpudestruction/include/PxgDestructionRuntime.h b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+index 0cc1303b..26441690 100644
+--- a/physx/source/gpudestruction/include/PxgDestructionRuntime.h
++++ b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+@@ -16,6 +16,18 @@ struct PxgContactManagerInput;
+ struct PxsContactManagerOutput;
+ struct PxgBodySimVelocities;
+ struct PxgRigidBodyAcceleration;
++enum class PxgDestructionCheckpointPurpose : PxU32 { BeforeSolve, CorrectedMotion };
++// Authored chunk -> original native body and motion handle. Inactive entries
++// have active=0 and invalid body/root/slot. A reused current slot is not this
++// original handle; resolve descendants through the authored chunk index.
++struct PxgDestructionInputOwner {
++    PxU64 slotGeneration;
++    PxU32 body, root, slot, active;
++};
++struct PxgDestructionInputOwnership {
++    PxU64 inputGeneration, topologyGeneration;
++    PxU32 chunkCount, bodyCount, valid, error;
++};
+ // Internal rigid-state portion of the correction checkpoint, captured after
+ // command upload and before solving. This is not a complete scene checkpoint:
+ // island/contact/constraint and articulation state require separate accounting.
+@@ -26,6 +38,12 @@ struct PxgDestructionRigidCheckpointView {
+     PxU32 count = 0;
+     PxU64 generation = 0;
+     CUevent ready = NULL;
++    PxgDestructionCheckpointPurpose purpose = PxgDestructionCheckpointPurpose::BeforeSolve;
++    // Only the inputRigidCheckpoint view supplies this original ownership.
++    // Wait for ready, then require device ownership.valid and matching input
++    // generation before reading owners. No CPU observation is required.
++    const PxgDestructionInputOwner* owners = NULL;
++    const PxgDestructionInputOwnership* ownership = NULL;
+ };
+ // Borrowed producer storage; immutable geometry identities remain independent
+ // from motion. Ordered by the same producer stream supplied to advance.
+@@ -42,6 +60,10 @@ public:
+     // foundation singleton from the CUDA runtime shared library.
+     virtual void setProfiler(PxProfilerCallback* callback, PxU64 context) = 0;
+     virtual bool configured() const = 0;
++    // Current native owner IDs from the GPU command producer, observed only for
++    // ordinary CPU scheduler compatibility. Between accepted steps only; no
++    // command values or numerical state cross this bridge. Not an apply API.
++    virtual bool wakeCommandOwners(const PxU32* indices,PxU32 count) = 0;
+     virtual bool prepareRigidIterationLimits(const PxgBodySim*,PxU32,const PxNodeIndex*,PxU32,PxU32,CUstream) = 0;
+     virtual bool readRigidIterationLimits(PxU32& position,PxU32& velocity) = 0;
+     virtual bool correctionEnabled() const = 0;
+@@ -59,8 +81,14 @@ public:
+     virtual const PxU32* correctionBodyIndices() const = 0;
+     virtual bool acceptCorrection(const PxgBodySim* bodies, CUstream stream) = 0;
+     virtual bool captureRigidState(const PxgBodySim* bodies, const PxgBodySimVelocities* previous,
+-        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream) = 0;
++        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream,
++        PxgDestructionCheckpointPurpose purpose = PxgDestructionCheckpointPurpose::BeforeSolve) = 0;
+     virtual PxgDestructionRigidCheckpointView rigidCheckpoint() const = 0;
++    // Original post-command/pre-solve arrays survive the corrected-motion
++    // refresh. Read-only until the next BeforeSolve capture or clear; join
++    // consumers before that boundary. This is raw input history, not a complete
++    // chunk-targeted load ledger or permission to restore an older checkpoint.
++    virtual PxgDestructionRigidCheckpointView inputRigidCheckpoint() const = 0;
+     // Copies only the captured rigid arrays, never CPU/island/contact state.
+     // Candidate bodies must be applied after this restore, including new slots
+     // that reused pre-existing holes. The future correction task owns that order.
+@@ -140,11 +168,11 @@ public:
+ #else
+ #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
+ #endif
+-// Private producer ABI v4 supplies borrowed collision storage for device-controlled preparation.
++// Private producer ABI v13 adds the between-step command-owner wake bridge.
+ // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
+ // violating lifecycle ordering. Public scene ABI is intact.
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV10(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
++PxCreateDestructionRuntimeV13(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+ 
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
+ PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,
+diff --git a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+index 988c6864..dce6dd37 100644
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -35,6 +35,7 @@ struct Context {
+ void check(cudaError_t e) { if(e!=cudaSuccess) throw std::runtime_error(cudaGetErrorString(e)); }
+ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T)*std::max<size_t>(n,1))); }
+ #include "PxgRigidIterationLimits.cuh"
++#include "PxgDestructionInputOwners.cuh"
+ #include "PxgDestructionMaterial.cuh"
+ #include "PxgDestructionCommittedChanges.cuh"
+ #include "PxgDestructionShapePublication.cuh"
+@@ -542,6 +543,17 @@ class Runtime final : public PxgDestructionRuntime {
+     PxU32 mCheckpointCapacity{},mCheckpointCount{};
+     PxU64 mCheckpointGeneration{};
+     bool mCheckpointHasPrevious=false,mCheckpointHasAccelerations=false,mCheckpointValid=false;
++    PxgDestructionCheckpointPurpose mCheckpointPurpose=PxgDestructionCheckpointPurpose::BeforeSolve;
++    PxgDestructionRigidCheckpointView mInputCheckpoint{};
++    PxgDestructionInputOwner* mInputOwners{};
++    PxgDestructionInputOwnership* mInputOwnership{};
++    // Rotate storage on the corrected-motion refresh. Retaining the original
++    // input needs a second reusable allocation, not another full-array copy.
++    PxgBodySim* mInputSpareBodies{};
++    PxgBodySimVelocities* mInputSparePrevious{};
++    PxgRigidBodyAcceleration* mInputSpareAccelerations{};
++    PxU32 mInputSpareCapacity{};
++    bool mInputSpareHasPrevious=false,mInputSpareHasAccelerations=false;
+     cudaEvent_t mCheckpointReady{};
+     PxU32* mGraphRetiredMask{};
+     PxU32 *mGraphRetired{},*mGraphHostRetired{};
+@@ -970,6 +982,12 @@ public:
+         cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
+         mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
+         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
++        mInputCheckpoint={};
++        cudaFree(mInputOwners);mInputOwners=nullptr;cudaFree(mInputOwnership);mInputOwnership=nullptr;
++        cudaFree(mInputSpareBodies);mInputSpareBodies=nullptr;
++        cudaFree(mInputSparePrevious);mInputSparePrevious=nullptr;
++        cudaFree(mInputSpareAccelerations);mInputSpareAccelerations=nullptr;
++        mInputSpareCapacity=0;mInputSpareHasPrevious=mInputSpareHasAccelerations=false;
+         mCheckpointValid=false;mCheckpointCount=0;mCheckpointCapacity=0;
+         mCheckpointHasPrevious=mCheckpointHasAccelerations=false;
+         cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
+@@ -1101,6 +1119,7 @@ public:
+                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
+             }
+             allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));
++            if(d.chunkMassProperties){allocate(mInputOwners,d.chunkCount);allocate(mInputOwnership,1);}
+             allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,map.size());
+             if(mSolver) mInputs=reinterpret_cast<PxDestructionVectorPair*>(mSolver->deviceView().nodeInputs);
+             else {allocate(mInputs,d.chunkCount);mOwnInputs=true;}
+@@ -1220,6 +1239,10 @@ public:
+         }catch(...){mFailed=true;return false;}
+     }
+     bool configured() const override {return mN && !mFailed;}
++    bool wakeCommandOwners(const PxU32* indices,PxU32 count) override {
++        if(!mWriteAllowed(mScene) || mFailed || !mBodyAllocator)return false;
++        return mBodyAllocator->wakeCommandOwners(indices,count);
++    }
+     PxDestructionDeviceView getDeviceView() const override {
+         PxDestructionDeviceView v;v.nodeAccelerations=mInputs;v.surfaceLoads=mSurface;v.status=mStatus;
+         v.bondForces=mSolver?reinterpret_cast<const PxDestructionVectorPair*>(mSolver->deviceView().bondImpulses):nullptr;
+@@ -1528,16 +1551,30 @@ public:
+         mCompatibilityPrepared=allocated;return allocated;
+     }
+     bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
+-        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream) override {
+-        if(!mTopology)return true;
++        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream,
++        PxgDestructionCheckpointPurpose purpose) override {
++        if(purpose!=PxgDestructionCheckpointPurpose::BeforeSolve && purpose!=PxgDestructionCheckpointPurpose::CorrectedMotion)return false;
++        if(!mTopology)return purpose==PxgDestructionCheckpointPurpose::BeforeSolve;
++        if(purpose==PxgDestructionCheckpointPurpose::CorrectedMotion &&
++            (!mCheckpointValid || mCheckpointPurpose!=PxgDestructionCheckpointPurpose::BeforeSolve ||
++             mInputCheckpoint.bodies!=mCheckpointBodies || !mInputCheckpoint.generation))return false;
+         try {
+             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+             if(mFailed || !bodies || !count || !stream || mCheckpointGeneration==std::numeric_limits<PxU64>::max())
+                 throw std::runtime_error("invalid rigid checkpoint boundary");
+             if(mCheckpointValid)check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+             mCheckpointValid=false;mRestoredCheckpointGeneration=0;
++            if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve)mInputCheckpoint={};
++            else {
++                std::swap(mCheckpointBodies,mInputSpareBodies);
++                std::swap(mCheckpointPrevious,mInputSparePrevious);
++                std::swap(mCheckpointAccelerations,mInputSpareAccelerations);
++                std::swap(mCheckpointCapacity,mInputSpareCapacity);
++                std::swap(mCheckpointHasPrevious,mInputSpareHasPrevious);
++                std::swap(mCheckpointHasAccelerations,mInputSpareHasAccelerations);
++            }
+             if(count>mCheckpointCapacity || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations) {
+-                // Grow only at the ordered pre-solve boundary. Allocation failure
++                // Grow only at an ordered checkpoint boundary. Allocation failure
+                 // cannot truncate the checkpoint or mutate accepted body state.
+                 PxgBodySim* freshBodies=nullptr;PxgBodySimVelocities* freshPrevious=nullptr;
+                 PxgRigidBodyAcceleration* freshAccelerations=nullptr;
+@@ -1556,8 +1593,23 @@ public:
+             check(cudaMemcpyAsync(mCheckpointBodies,bodies,size_t(count)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
+             if(previous)check(cudaMemcpyAsync(mCheckpointPrevious,previous,size_t(count)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
+             if(accelerations)check(cudaMemcpyAsync(mCheckpointAccelerations,accelerations,size_t(count)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
++            if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve) {
++                // The accepted authored mapping still belongs to this input
++                // generation. Freeze it before either material verdict can split
++                // clusters or recycle native slots. Correction retains this map.
++                check(cudaStreamWaitEvent(stream,mReady,0));
++                beginInputOwnership<<<1,1,0,stream>>>(mInputOwnership,mTopology->accepted(),mC,count,mCheckpointGeneration+1);
++                captureInputOwners<<<(mN+127)/128,128,0,stream>>>(mTopology->accepted(),mChunks,mClusters,mC,
++                    mCheckpointBodies,mInputOwners,mInputOwnership);
++                finishInputOwnership<<<1,1,0,stream>>>(mInputOwnership);
++                check(cudaGetLastError());
++            }
+             check(cudaEventRecord(mCheckpointReady,stream));
+-            mCheckpointCount=count;++mCheckpointGeneration;mCheckpointValid=true;return true;
++            mCheckpointCount=count;++mCheckpointGeneration;mCheckpointPurpose=purpose;mCheckpointValid=true;
++            if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve) {
++                mInputCheckpoint=rigidCheckpoint();mInputCheckpoint.owners=mInputOwners;mInputCheckpoint.ownership=mInputOwnership;
++            }
++            return true;
+         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
+     }
+     PxgDestructionRigidCheckpointView rigidCheckpoint() const override {
+@@ -1565,9 +1617,13 @@ public:
+         if(mCheckpointValid) {
+             result.bodies=mCheckpointBodies;result.previous=mCheckpointPrevious;result.accelerations=mCheckpointAccelerations;
+             result.count=mCheckpointCount;result.generation=mCheckpointGeneration;result.ready=mCheckpointReady;
++            result.purpose=mCheckpointPurpose;
+         }
+         return result;
+     }
++    PxgDestructionRigidCheckpointView inputRigidCheckpoint() const override {
++        return mFailed?PxgDestructionRigidCheckpointView{}:mInputCheckpoint;
++    }
+     bool restoreRigidState(PxgBodySim* bodies,PxgBodySimVelocities* previous,
+         PxgRigidBodyAcceleration* accelerations,PxU32 capacity,PxU64 generation,CUstream coreStream) override {
+         // Reject the whole operation before any device write. A generation is
+@@ -1851,7 +1907,7 @@ public:
+ };
+ }}
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV10(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
++PxCreateDestructionRuntimeV13(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
+ }
+ 
+diff --git a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+index 0d61ec6b..ea4a6b9f 100644
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+@@ -636,7 +636,7 @@ namespace physx
+     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
+     {
+         if(!mDestruction) {
+-            mDestruction = PxCreateDestructionRuntimeV10(mCudaContextManager->getContext(), scene, gate, allocator);
++            mDestruction = PxCreateDestructionRuntimeV13(mCudaContextManager->getContext(), scene, gate, allocator);
+             if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
+         }
+         return mDestruction;
+@@ -778,7 +778,8 @@ namespace physx
+             // to the original trial input and never schedule a third physics pass.
+             if(!mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                 mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+-                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream())) {
++                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream(),
++                PxgDestructionCheckpointPurpose::CorrectedMotion)) {
+                 mDestructionError=1;return false;
+             }
+         }
+@@ -4741,5 +4742,3 @@ namespace physx
+ 	}
+ #endif
+ }
+-
+-
+diff --git a/physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h b/physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h
+index 0e1b9af8..c6dcc32c 100644
+--- a/physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h
++++ b/physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h
+@@ -28,6 +28,10 @@ public:
+     virtual bool readRigidBodyData(void*,const PxRigidDynamicGPUIndex*,PxRigidDynamicGPUAPIReadType::Enum,
+         PxU32,CUevent,CUevent) const { return false; }
+     virtual bool needsHostProperties() const { return false; }
++    // Between-step scheduler bridge for current GPU-selected command owners.
++    // IDs only; force/mass/velocity work remains on the GPU. Validate the whole
++    // batch and finish pending sleep writes before waking any dynamic owner.
++    virtual bool wakeCommandOwners(const PxU32*,PxU32) { return false; }
+     // Accepted physical observation only; never a prerequisite of GPU correction.
+     virtual bool publishCorrectionProperties(const PxvDestructionBodyProperties*,PxU32) { return false; }
+     virtual bool supportsGpuIslandRepair() const { return false; }
+diff --git a/physx/source/physx/src/NpDestructionBodyAllocator.h b/physx/source/physx/src/NpDestructionBodyAllocator.h
+index 8b7f820b..3b8d1e1c 100644
+--- a/physx/source/physx/src/NpDestructionBodyAllocator.h
++++ b/physx/source/physx/src/NpDestructionBodyAllocator.h
+@@ -12,7 +12,7 @@
+ #include "foundation/PxHashMap.h"
+ #include "foundation/PxProfiler.h"
+ namespace physx {
+-// Only scene finalization and between-step teardown call this allocator. It
++// Scene finalization, between-step commands and teardown call this allocator. It
+ // never relaxes the application's API access guards or publishes candidates in
+ // the scene actor/query lists. These are real BodySim/node reservations, not
+ // one independent body allocated in advance for every intact chunk.
+@@ -107,6 +107,26 @@ public:
+     bool needsHostProperties() const override {
+         return !(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API);
+     }
++    bool wakeCommandOwners(const PxU32* indices,PxU32 count) override {
++        if(mScene.isAPIWriteForbidden() || !mScene.getScScene().isSimulationResultAccepted() || (count && !indices))return false;
++        for(PxU32 i=0;i<count;++i) {
++            const auto* body=source(indices[i]);
++            if(!body || body->getCore().getActorFlags().isSet(PxActorFlag::eDISABLE_SIMULATION))return false;
++        }
++        // A queued sleep finalization clears native velocities/forces. Complete
++        // it before command producers can write, just as ordinary wakeUp does.
++        for(PxU32 i=0;i<count;++i) {
++            auto* body=source(indices[i]);
++            if(!(body->getCore().getFlags() & PxRigidBodyFlag::eKINEMATIC) &&
++                !mScene.getScScene().finalizeGpuSleep(&body->getCore()))return false;
++        }
++        for(PxU32 i=0;i<count;++i) {
++            auto* body=source(indices[i]);
++            if(!(body->getCore().getFlags() & PxRigidBodyFlag::eKINEMATIC))
++                body->wakeUpInternalNoKinematicTest(true,true);
++        }
++        return true;
++    }
+     bool publishCorrectionProperties(const PxvDestructionBodyProperties* inputs,PxU32 count) override {
+         for(PxU32 i=0;i<count;++i)if(!source(inputs[i].motion.targetBody,true))return false;
+         for(PxU32 i=0;i<count;++i) {
+diff --git a/demos/blast-stress-demo/tests/native_command_wake_test.cpp b/demos/blast-stress-demo/tests/native_command_wake_test.cpp
+new file mode 100644
+index 00000000..42a4ba71
+--- /dev/null
++++ b/demos/blast-stress-demo/tests/native_command_wake_test.cpp
+@@ -0,0 +1,100 @@
++// Native scheduler prerequisite for GPU-produced chunk commands. Command values
++// in this fixture use ordinary APIs; this does not qualify the new GPU apply path.
++#include "../physx_scene.h"
++#include "NpScene.h"
++#include "PxgSimulationController.h"
++#include "PxgSimulationCore.h"
++#include "PxgDestructionRuntime.h"
++#include <cuda.h>
++#include <cmath>
++#include <cstdio>
++#include <stdexcept>
++using namespace physx;
++namespace {
++void require(bool v,const char* message){if(!v)throw std::runtime_error(message);}
++void near(float a,float b,const char* message){require(std::isfinite(a) && std::abs(a-b)<2e-5f,message);}
++void check(CUresult r){require(r==CUDA_SUCCESS,"CUDA observation failed");}
++struct Events : PxSimulationEventCallback {
++    unsigned wakes=0,sleeps=0;
++    void onWake(PxActor**,PxU32 n)override{wakes+=n;}
++    void onSleep(PxActor**,PxU32 n)override{sleeps+=n;}
++    void onConstraintBreak(PxConstraintInfo*,PxU32)override{}
++    void onContact(const PxContactPairHeader&,const PxContactPair*,PxU32)override{}
++    void onTrigger(PxTriggerPair*,PxU32)override{}
++    void onAdvance(const PxRigidBody*const*,const PxTransform*,PxU32)override{}
++};
++void step(PxScene& scene){scene.simulate(1.f/60);PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"native step failed");}
++void run(PxSolverType::Enum solver,bool accelerations,bool correction) {
++    Events events;blast_demo::SceneCapacity capacity;
++    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,false,false,false,false,solver,accelerations);
++    auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();
++    require(!(scene.getFlags()&PxSceneFlag::eENABLE_DIRECT_GPU_API) && !(scene.getFlags()&PxSceneFlag::eDISABLE_SLEEPING),"wrong fixture mode");
++    scene.setGravity(PxVec3(0));
++    auto make=[&](float x,bool kinematic) {
++        auto* body=physics.createRigidDynamic(PxTransform(PxVec3(x,0,0)));require(body,"body allocation failed");
++        body->setMass(2);body->setMassSpaceInertiaTensor(PxVec3(.2f,.3f,.4f));body->setLinearDamping(0);body->setAngularDamping(0);
++        body->setActorFlag(PxActorFlag::eSEND_SLEEP_NOTIFIES,true);
++        if(kinematic)body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
++        auto* shape=physics.createShape(PxSphereGeometry(.25f),context.material(),true);
++        require(shape && body->attachShape(*shape),"shape allocation failed");shape->release();scene.addActor(*body);return body;
++    };
++    auto* target=make(10,false);auto* untouched=make(20,false);auto* support=make(30,true);step(scene);
++    auto* runtime=static_cast<PxgDestructionRuntime*>(scene.getDestructionScene());require(runtime,"runtime unavailable");
++    const PxU32 id=target->getGPUIndex(),other=untouched->getGPUIndex(),supportId=support->getGPUIndex();
++    PxDestructionStressChunk chunk{PxVec3(0),2,.2f,0,PX_INVALID_U32};
++    PxDestructionChunkMassProperties mass{{0,0,0},2,{.2,.3,.4,0,0,0},0};
++    PxDestructionStressCluster cluster{id,PxVec3(0)};PxDestructionStressDesc desc;
++    desc.chunks=&chunk;desc.chunkCount=1;desc.chunkMassProperties=&mass;desc.clusters=&cluster;desc.clusterCount=1;
++    desc.internalCorrectionLimit=correction?1:0;
++    require(runtime->configureStress(desc),"stress configuration failed");
++    target->putToSleep();untouched->putToSleep();step(scene);
++    require(target->isSleeping() && untouched->isSleeping(),"sleep setup failed");
++    const unsigned wakes=events.wakes;
++    const PxU32 invalid[2]={id,PX_INVALID_U32};
++    require(!runtime->wakeCommandOwners(invalid,2) && !runtime->wakeCommandOwners(nullptr,1),"invalid owner batch accepted");
++    require(target->isSleeping() && untouched->isSleeping(),"invalid batch partially woke owners");
++    require(runtime->wakeCommandOwners(nullptr,0),"empty owner batch failed");
++    const PxU32 selected[3]={id,id,supportId};
++    require(runtime->wakeCommandOwners(selected,3),"command owner wake failed");
++    require(!target->isSleeping() && untouched->isSleeping(),"wake changed the wrong owner");
++    // Waking did not apply a wrench or turn a support into a dynamic body.
++    near(target->getLinearVelocity().magnitude(),0,"wake invented velocity");
++    require(support->getRigidBodyFlags()&PxRigidBodyFlag::eKINEMATIC,"wake changed support kind");
++    target->addForce(PxVec3(12,0,0),PxForceMode::eFORCE,false);
++    target->addTorque(PxVec3(0,0,6),PxForceMode::eFORCE,false);
++    scene.simulate(1.f/60);
++    require(!runtime->wakeCommandOwners(&other,1),"owner wake admitted during simulation");
++    PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"command step failed");
++    require(events.wakes==wakes+1,"duplicate owner generated extra wake events");
++    require(untouched->isSleeping(),"command woke untouched body");
++    near(target->getLinearVelocity().x,.1f,"force did not integrate once");
++    near(target->getAngularVelocity().z,.25f,"torque did not integrate once");
++    {
++        PxScopedCudaLock lock(cuda);const auto input=runtime->inputRigidCheckpoint();check(cuEventSynchronize(input.ready));
++        PxgBodySim body{};check(cuMemcpyDtoH(&body,CUdeviceptr(input.bodies+id),sizeof(body)));
++        // Native correction uses GPU velocity deltas for ordinary commands.
++        // Without correction, optional body-acceleration reporting selects
++        // the external-acceleration representation instead (Sc::updateForces).
++        const bool delta=correction || !accelerations;
++        near(body.linearVelocityXYZ_inverseMassW.x,delta?.1f:0,"checkpoint lost command velocity");
++        near(body.angularVelocityXYZ_maxPenBiasW.z,delta?.25f:0,"checkpoint lost command angular velocity");
++        near(body.externalLinearAcceleration.x,delta?0:6,"checkpoint force representation mismatch");
++        near(body.externalAngularAcceleration.z,delta?0:15,"checkpoint torque representation mismatch");
++        near(body.linearVelocityXYZ_inverseMassW.x+body.externalLinearAcceleration.x/60,.1f,"checkpoint command impulse mismatch");
++        near(body.angularVelocityXYZ_maxPenBiasW.z+body.externalAngularAcceleration.z/60,.25f,"checkpoint command angular impulse mismatch");
++        near(body.body2World.p.x,10,"checkpoint was captured after pose integration");
++    }
++    step(scene);near(target->getLinearVelocity().x,.1f,"force repeated next tick");near(target->getAngularVelocity().z,.25f,"torque repeated next tick");
++    // Pending sleep finalization must finish before the next force is submitted.
++    target->putToSleep();require(runtime->wakeCommandOwners(&id,1),"pending-sleep wake failed");
++    target->addForce(PxVec3(12,0,0),PxForceMode::eFORCE,false);step(scene);
++    near(target->getLinearVelocity().x,.1f,"pending sleep erased a new command");
++    target->putToSleep();step(scene);untouched->release();untouched=nullptr;
++    const PxU32 stale[2]={id,other};require(!runtime->wakeCommandOwners(stale,2),"deleted native owner accepted");
++    require(target->isSleeping(),"deleted-owner batch partially woke target");
++    require(runtime->clearStress(),"clear failed");target->release();support->release();
++    require(context.healthy(),"native command wake GPU error");
++    std::printf("command wake: ordinary/sleeping, batch rejection, duplicate events, support, force/torque and pending sleep passed; solver=%u accelerations=%u correction=%u\n",unsigned(solver),unsigned(accelerations),unsigned(correction));
++}
++}
++int main(){try{for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})for(bool accelerations:{false,true})for(bool correction:{false,true})run(solver,accelerations,correction);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+diff --git a/docs/destruction/elastic-command-contract.md b/docs/destruction/elastic-command-contract.md
+new file mode 100644
+index 00000000..d04f4303
+--- /dev/null
++++ b/docs/destruction/elastic-command-contract.md
+@@ -0,0 +1,104 @@
++# Explicit chunk-command evaluation
++
++`PxgDestructionElasticCommands.cuh` converts a frozen, authored-chunk-targeted
++command batch into two consistent outputs: asset-frame wrenches about canonical
++fine-node origins, and world-frame wrenches about physical motion COMs. It runs
++on the GPU using the current [active partition](elastic-partition-contract.md).
++This is a numerical producer, not yet a public command submission/application
++API. The installed V13 runtime does not invoke it or clear its unapportioned-load
++correction guard.
++
++## Physical meaning
++
++Each command supplies an authored chunk ID, a world application point, a world
++force and a free world couple. `Units::Impulse` instead supplies linear/angular
++impulses divided by the batch's explicit positive loading interval. Force-valued
++commands are not divided again. Multiple commands on the same chunk add; an
++empty batch explicitly removes the previous command loads.
++
++For asset-to-world frame `(R,o)`, canonical node position `x`, point `p`, force
++`F` and couple `T`, the node output is:
++
++`F_asset = R^T F`
++
++`T_node = R^T T + (R^T(p-o) - x) × F_asset`.
++
++Body aggregation sums node forces and `T_node + (x-C) × F_asset`, then rotates
++the totals to world axes. `C` is the supplied physical aggregate COM in asset
++axes. It must belong to the same frozen ownership/mass/frame snapshot; the
++native producer remains responsible for supplying it correctly. No unknown
++application point, per-chunk force distribution or support reaction is invented
++from native acceleration accumulators.
++
++The caller owns time sampling of points, wrenches and frames. This evaluator
++does not choose follower-load semantics, reconstruct an impulse already folded
++into velocity, or certify that a frozen world point matches a native integration
++interval. Native submission and trial/correction sampling must be defined and
++qualified before applying these outputs to rigid bodies.
++
++The batch carries tick, original input generation, command generation and loading
++duration. A query additionally identifies current ownership and evaluation 0/1.
++The same batch can be evaluated against a split partition without cloning its
++parent's aggregate wrench onto every child. Re-evaluation is pure: it does not
++apply impulses, advance material history, or establish exactly-once physical
++command execution.
++
++## Device ordering and rejection
++
++Run `begin → clear → resolve → scatter → aggregate → inspect → finish → gate`
++on one stream. Inputs and capacity-bearing storage stay immutable throughout.
++`aggregate` uses exactly 128 threads per block, one block per motion group;
++other kernels use guarded element ranges. Consumers must check the receipt
++against their expected query; outputs from any rejected receipt are unusable.
++
++Generation/partition mismatches, insufficient capacity, inactive/invalid chunks,
++unknown units, invalid frames and nonfinite or overflowed wrenches reject.
++Resolve validates all commands before scatter can publish any contribution.
++Chunk scatter uses FP64 atomics; body totals use grouped block reductions,
++avoiding global atomics shared by all commands on a building. Duplicate-command
++summation order is not promised bitwise deterministic for arbitrary batches.
++
++The command receipt does not set the load adapter's full-ledger completeness
++assertion. Contacts, gravity, damping, locks, prescribed motion and any other
++native channels still require their own accounting. Ordinary body force/torque
++totals cannot reconstruct where forces acted: opposing chunk forces can yield
++zero rigid resultant and nonzero structural response.
++
++## Native scheduler prerequisite (private ABI V13)
++
++`PxgDestructionRuntime::wakeCommandOwners` forwards a compact list of current
++native body IDs to the ordinary actor scheduler between accepted steps. The
++allocator validates the entire list first, completes pending GPU sleep writes,
++then wakes dynamic owners. Kinematic supports remain kinematic. Duplicate IDs
++do not duplicate wake notifications. Null nonempty batches, stale/deleted IDs,
++disabled actors and calls during simulation reject. This private operation does
++not apply forces or expose a new public command submission API. The future
++producer must preserve current ID lifetime and serialize normal scene writes.
++
++Pending sleep completion clears native velocity/force storage, so it must finish
++before a producer applies a new command. Ordinary CPU input upload can also
++replace velocities/accelerations: a future GPU command writer belongs after
++that upload and before the original input checkpoint, ordered on the native
++stream. Waking alone does not establish that application boundary.
++
++The native regression uses **ordinary API** force/torque controls. In the
++correction-enabled path, `Sc::BodySim::updateForces` submits velocity deltas;
++`updateBodyExternalVelocitiesLaunch` folds them into velocity before the original
++checkpoint. They must not be applied again from an inferred acceleration. With
++correction disabled, enabling optional body-acceleration reporting instead
++retains acceleration accumulators at that boundary. The test checks both exact
++representations and their resulting impulse, with TGS and PGS. Direct GPU force
++writes are a third, separately tested input route and cannot define ordinary API
++expectations. Aggregate native inputs still cannot reconstruct chunk application
++points or certify the full structural load ledger.
++
++## Evidence
++
++[Qualification](../../qualification/elastic-commands-20260910/README.md) includes
++independent wrench oracles, a split batch, zero-resultant axial loading, explicit
++expiration, stale/invalid inputs and a device command-to-load-adapter handoff.
++[Native wake bridge evidence](../../qualification/elastic-command-wake-20260910/README.md)
++records the eight scheduler/control combinations, memory check and preserved
++failed test assumptions. Native command production/application and accepted
++trial/correction transactions remain pending; the wake hook alone does not
++complete them.

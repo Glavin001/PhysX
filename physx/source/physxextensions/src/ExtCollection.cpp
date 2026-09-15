@@ -39,6 +39,7 @@
 #include "PxAggregate.h"
 #include "PxPhysics.h"
 #include "PxScene.h"
+#include "PxRigidDynamic.h"
 #include "PxPruningStructure.h"
 
 
@@ -186,6 +187,26 @@ PxCollection* PxCollectionExt::createCollection(PxScene& scene)
 			collection->add(*objects[i]);
 	}
 
+
+	// Accepted native destruction fragments are scene-owned rigid actors but
+	// intentionally absent from the application's actor enumeration. Their
+	// persistent exclusive shapes publish the accepted owner after fetchResults.
+	// Include those owners so a scene collection cannot silently lose fragments.
+	// This is export-time discovery only; it does not instantiate the optional
+	// destruction runtime or change the normal simulation/actor-list contract.
+	if(scene.getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+	{
+		PxPhysics& physics = scene.getPhysics();
+		PxArray<PxShape*> shapes(physics.getNbShapes());
+		const PxU32 count = physics.getShapes(shapes.begin(), shapes.size());
+		for(PxU32 i=0;i<count;++i)
+		{
+			PxRigidActor* owner = shapes[i]->getActor();
+			if(owner && owner->is<PxRigidDynamic>() && owner->getScene()==&scene
+				&& !collection->contains(*owner))
+				collection->add(*owner);
+		}
+	}
 
 	// Collect constraints
 	{

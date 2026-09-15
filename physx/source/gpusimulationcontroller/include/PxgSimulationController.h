@@ -488,6 +488,8 @@ class PxProfilerCallback;
 		virtual bool	getRigidDynamicData(void* data, const PxRigidDynamicGPUIndex* gpuIndices, PxRigidDynamicGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) const PX_OVERRIDE PX_FINAL;
         virtual void removeDynamic(const PxNodeIndex& nodeIndex) PX_OVERRIDE;
         bool finalizeSleepingRigidBodies(const PxU32* indices, PxU32 count, bool rollbackPose) PX_OVERRIDE PX_FINAL;
+    bool exportNativeSnapshot(const PxU32*,PxU32,void*,PxU32) const PX_OVERRIDE PX_FINAL;
+        bool importNativeSnapshot(const PxU32*,PxU32,const void*,PxU32) PX_OVERRIDE PX_FINAL;
         bool publishHostRigidPoses(const PxU32* indices, const PxTransform* poses, PxU32 count) PX_OVERRIDE PX_FINAL;
         bool reserveNativeTransitionBuffers(PxU32 count);
 		virtual bool 	setRigidDynamicData(const void* data, const PxRigidDynamicGPUIndex* gpuIndices, PxRigidDynamicGPUAPIWriteType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;

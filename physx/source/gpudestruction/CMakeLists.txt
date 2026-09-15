@@ -59,6 +59,8 @@ if(BUILD_TESTING)
         ../gpunarrowphase/include ../gpusimulationcontroller/include ../lowlevel/software/include ../lowlevel/api/include)
     set_target_properties(destruction_contact_graph_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     add_test(NAME destruction_gpu_contact_graph COMMAND destruction_contact_graph_test)
+    get_property(DESTRUCTION_TOPOLOGY_TESTS DIRECTORY PROPERTY TESTS)
+    set_tests_properties(${DESTRUCTION_TOPOLOGY_TESTS} PROPERTIES RUN_SERIAL TRUE LABELS "destruction;gpu;native-unit")
 endif()
 
 install(TARGETS PhysXDestructionTopologyGpu EXPORT PhysXDestructionTopologyTargets ARCHIVE DESTINATION lib)

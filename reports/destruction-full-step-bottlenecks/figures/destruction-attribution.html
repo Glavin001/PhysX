@@ -1,0 +1,1441 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Destruction Attribution</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="Destruction Attribution" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Destruction Attribution&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;destruction-attribution-20260912&quot;&gt;
+  &lt;h3&gt;Inside the tick · CPU, GPU and transfer attribution&lt;/h3&gt;
+  &lt;label class=&quot;form-label&quot;&gt;Captured scenario
+    &lt;select class=&quot;form-select&quot;&gt;&lt;option value=&quot;0&quot;&gt;256-building city · late debris&lt;/option&gt;&lt;option value=&quot;1&quot;&gt;25-building city · initial impact&lt;/option&gt;&lt;option value=&quot;2&quot;&gt;Tall tower · single connected structure&lt;/option&gt;&lt;/select&gt;
+  &lt;/label&gt;
+  &lt;div class=&quot;selected-metrics tabular-nums&quot; aria-live=&quot;polite&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;profile-cohort text-small&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;text-small&quot;&gt;Single instrumented tick below · profile overhead included · timings are not added to normal tick measurements&lt;/div&gt;
+  &lt;div class=&quot;wall-plot&quot;&gt;&lt;/div&gt;&lt;div class=&quot;wall-labels&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;timeline-plot&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;cpu-plot&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;gpu-plot&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;table-responsive&quot;&gt;&lt;table class=&quot;table table-sm&quot;&gt;&lt;caption&gt;Transfers within this profiled tick · MB uses decimal units&lt;/caption&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Direction&lt;/th&gt;&lt;th&gt;Copies&lt;/th&gt;&lt;th&gt;MB&lt;/th&gt;&lt;th&gt;Active copy time, ms&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody class=&quot;copies&quot;&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+  &lt;details&gt;&lt;summary&gt;Physical workload, both stress passes and measurement caveats&lt;/summary&gt;
+    &lt;div class=&quot;table-responsive&quot;&gt;&lt;table class=&quot;table table-sm&quot;&gt;&lt;tbody class=&quot;physical&quot;&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+    &lt;div class=&quot;table-responsive&quot;&gt;&lt;table class=&quot;table table-sm&quot;&gt;&lt;caption&gt;CUDA event spans · ordered phases · overlap with CPU work&lt;/caption&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Phase&lt;/th&gt;&lt;th&gt;Device span, ms&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody class=&quot;phases&quot;&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+    &lt;div class=&quot;diagnostics text-small&quot;&gt;&lt;/div&gt;
+  &lt;/details&gt;
+  &lt;style&gt;
+    #destruction-attribution-20260912 .chart {display:block;width:100%}
+    #destruction-attribution-20260912 .chart text {fill:var(--foreground);font-size:12px}
+    #destruction-attribution-20260912 .chart .domain,#destruction-attribution-20260912 .chart .tick line {stroke:var(--border)}
+    #destruction-attribution-20260912 .wall-labels {display:flex;flex-wrap:wrap;gap:8px 20px}
+    #destruction-attribution-20260912 .swatch {display:inline-block;width:14px;height:6px;margin-right:5px}
+  &lt;/style&gt;
+  &lt;script type=&quot;application/json&quot; class=&quot;chart-data&quot;&gt;{&quot;scenarios&quot;:[{&quot;name&quot;:&quot;bridge64-cold&quot;,&quot;mean&quot;:8.74519265,&quot;maximum&quot;:11.702686,&quot;sd&quot;:0.7280592444086339,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001029,&quot;simulate_fetch_ms&quot;:8.537150950000001,&quot;completion_ms&quot;:0.2079388},&quot;samples&quot;:[11.702686,8.65411,8.686673,8.724923,8.968436,8.803238,8.715762,8.700559,8.236724,8.625994,8.066058,8.737,8.477981,8.585737,8.411492,8.578843,8.375752,8.757705,8.358221,8.735959],&quot;physical&quot;:{&quot;stress_iterations&quot;:184,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:744,&quot;stress_active_bonds&quot;:1500,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:545.052344,&quot;restore&quot;:22.17449705},{&quot;name&quot;:&quot;bridge64-warm&quot;,&quot;mean&quot;:8.64408235,&quot;maximum&quot;:10.757592,&quot;sd&quot;:0.575503339825352,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001346,&quot;simulate_fetch_ms&quot;:8.43580555,&quot;completion_ms&quot;:0.2081422},&quot;samples&quot;:[10.757592,8.907508,8.756602,8.716065,8.534546,8.943521,8.593017,8.265982,8.547207,9.048006,8.266715,8.400197,8.056007,8.946503,8.421091,8.297206,8.184954,8.201419,8.329596,8.707913],&quot;physical&quot;:{&quot;stress_iterations&quot;:184,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:744,&quot;stress_active_bonds&quot;:1500,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:545.589233,&quot;restore&quot;:21.23822055},{&quot;name&quot;:&quot;building-cold&quot;,&quot;mean&quot;:4.9840171,&quot;maximum&quot;:7.281529,&quot;sd&quot;:0.5936951765211805,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00016845,&quot;simulate_fetch_ms&quot;:4.8286282,&quot;completion_ms&quot;:0.15522045},&quot;samples&quot;:[7.281529,4.895752,5.05032,4.809458,4.942489,4.618137,4.214715,5.02459,5.217167,4.850171,5.006032,4.705616,4.942387,5.241904,4.621685,4.536129,4.797708,4.97107,4.801606,5.151877],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:380,&quot;stress_active_bonds&quot;:784,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:558.258729,&quot;restore&quot;:25.40462395},{&quot;name&quot;:&quot;building-fragmented&quot;,&quot;mean&quot;:8.2791595,&quot;maximum&quot;:11.951709,&quot;sd&quot;:0.9788530563192982,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001048,&quot;simulate_fetch_ms&quot;:8.078132,&quot;completion_ms&quot;:0.2009227},&quot;samples&quot;:[11.951709,8.03365,8.619537,6.829202,7.560832,8.292011,8.551203,8.302804,8.352862,8.213328,8.346745,7.946855,8.268761,8.332557,8.198822,8.403931,8.487425,7.934177,7.122395,7.834384],&quot;physical&quot;:{&quot;stress_iterations&quot;:4,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:378,&quot;stress_islands&quot;:3,&quot;stress_active_nodes&quot;:6,&quot;stress_active_bonds&quot;:3,&quot;normal_contacts&quot;:4537,&quot;friction_anchors&quot;:762},&quot;setup&quot;:462.143449,&quot;restore&quot;:21.2275748},{&quot;name&quot;:&quot;building-warm&quot;,&quot;mean&quot;:4.8463506,&quot;maximum&quot;:7.238376,&quot;sd&quot;:0.6261689380846371,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:9.04e-05,&quot;simulate_fetch_ms&quot;:4.6389533,&quot;completion_ms&quot;:0.20730690000000002},&quot;samples&quot;:[7.238376,4.884894,5.160192,4.865761,4.763246,4.940791,4.860754,4.775894,4.854372,4.604139,4.92607,5.14836,4.522387,4.920113,4.534298,4.294947,4.184922,4.41495,4.296144,4.736402],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:380,&quot;stress_active_bonds&quot;:784,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:494.395767,&quot;restore&quot;:20.4151603},{&quot;name&quot;:&quot;cantilever64-cold&quot;,&quot;mean&quot;:7.5009569,&quot;maximum&quot;:9.919855,&quot;sd&quot;:0.610464026484332,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001431,&quot;simulate_fetch_ms&quot;:7.3306778,&quot;completion_ms&quot;:0.170136},&quot;samples&quot;:[9.919855,7.522071,7.410154,7.416678,7.567313,7.400648,7.399734,7.372419,7.392484,7.437122,7.531262,7.29908,6.531346,7.341946,7.360593,7.545127,7.359491,7.611547,7.213341,7.386927],&quot;physical&quot;:{&quot;stress_iterations&quot;:984,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:63,&quot;stress_active_bonds&quot;:63,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:493.016588,&quot;restore&quot;:17.384341199999998},{&quot;name&quot;:&quot;cantilever64-warm&quot;,&quot;mean&quot;:7.5465701,&quot;maximum&quot;:12.290601,&quot;sd&quot;:1.1427752863895078,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00013659999999999999,&quot;simulate_fetch_ms&quot;:7.38314295,&quot;completion_ms&quot;:0.16329055},&quot;samples&quot;:[12.290601,7.456644,7.410196,7.426583,7.207168,6.823046,7.079373,7.714623,7.686135,7.166057,7.293785,7.328916,7.354322,7.449297,7.276488,7.066248,7.11369,7.103088,6.963259,7.721883],&quot;physical&quot;:{&quot;stress_iterations&quot;:984,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:63,&quot;stress_active_bonds&quot;:63,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:609.298421,&quot;restore&quot;:18.85338305},{&quot;name&quot;:&quot;chain256-cold&quot;,&quot;mean&quot;:7.31291785,&quot;maximum&quot;:9.049628,&quot;sd&quot;:0.5241665520782569,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00013815,&quot;simulate_fetch_ms&quot;:7.133989,&quot;completion_ms&quot;:0.1787907},&quot;samples&quot;:[9.049628,7.161128,6.654108,6.567258,7.186369,7.017881,7.244746,7.612225,7.449873,7.598847,7.852501,7.656457,7.317709,7.178778,6.759895,7.027524,7.099974,7.153263,7.27625,7.393943],&quot;physical&quot;:{&quot;stress_iterations&quot;:492,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:255,&quot;stress_active_bonds&quot;:255,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:539.36725,&quot;restore&quot;:18.22515325},{&quot;name&quot;:&quot;chain256-warm&quot;,&quot;mean&quot;:7.42793885,&quot;maximum&quot;:9.547437,&quot;sd&quot;:0.5091650442376251,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012715,&quot;simulate_fetch_ms&quot;:7.21779945,&quot;completion_ms&quot;:0.21001225},&quot;samples&quot;:[9.547437,7.458883,7.515208,7.335637,7.353133,7.277699,7.400908,7.403527,7.220005,7.292722,7.274653,7.38569,7.223543,7.429599,7.250361,7.347359,7.298329,7.297545,7.103087,7.143452],&quot;physical&quot;:{&quot;stress_iterations&quot;:492,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:255,&quot;stress_active_bonds&quot;:255,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:466.845335,&quot;restore&quot;:18.1699007},{&quot;name&quot;:&quot;chain32-cold&quot;,&quot;mean&quot;:3.1208949,&quot;maximum&quot;:6.050519,&quot;sd&quot;:0.7211431965897438,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001095,&quot;simulate_fetch_ms&quot;:2.94007785,&quot;completion_ms&quot;:0.18070755},&quot;samples&quot;:[6.050519,3.021863,3.102935,3.056924,2.945572,2.458567,2.954588,2.472473,2.589408,3.039298,3.227663,3.023892,2.977831,3.158891,3.123449,3.07964,2.996598,3.028966,3.045692,3.063129],&quot;physical&quot;:{&quot;stress_iterations&quot;:32,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:31,&quot;stress_active_bonds&quot;:31,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:564.993392,&quot;restore&quot;:18.22918155},{&quot;name&quot;:&quot;chain32-warm&quot;,&quot;mean&quot;:3.2299862,&quot;maximum&quot;:6.283227,&quot;sd&quot;:0.7612531572399898,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012025,&quot;simulate_fetch_ms&quot;:2.9493097,&quot;completion_ms&quot;:0.28055625},&quot;samples&quot;:[6.283227,3.187489,3.040437,3.450566,3.006052,3.128355,3.216734,2.938364,3.360651,3.125115,3.321862,2.972806,3.346845,3.146214,3.10417,2.982435,2.684439,2.78418,2.361473,3.15831],&quot;physical&quot;:{&quot;stress_iterations&quot;:32,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:31,&quot;stress_active_bonds&quot;:31,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:506.143699,&quot;restore&quot;:17.6159606},{&quot;name&quot;:&quot;dense12-cold&quot;,&quot;mean&quot;:31.32921845,&quot;maximum&quot;:33.494582,&quot;sd&quot;:0.6039845379258678,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00023735,&quot;simulate_fetch_ms&quot;:31.1221576,&quot;completion_ms&quot;:0.2068235},&quot;samples&quot;:[33.494582,31.200794,31.320444,31.373525,31.113834,31.260141,31.01471,31.71352,31.293235,31.403041,31.147282,31.880178,31.322687,31.165448,30.260703,31.04291,31.132421,30.96423,30.971693,31.508991],&quot;physical&quot;:{&quot;stress_iterations&quot;:34,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1584,&quot;stress_active_bonds&quot;:4488,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:482.02293,&quot;restore&quot;:34.98128805},{&quot;name&quot;:&quot;dense12-warm&quot;,&quot;mean&quot;:31.32140715,&quot;maximum&quot;:34.018963,&quot;sd&quot;:0.6690252134776916,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00019205,&quot;simulate_fetch_ms&quot;:31.2102009,&quot;completion_ms&quot;:0.1110142},&quot;samples&quot;:[34.018963,31.495413,30.794023,31.216403,31.165773,31.02491,31.082318,31.314605,31.103287,31.193518,31.041829,31.013682,31.142527,31.336397,31.009439,31.685062,31.099595,31.237287,30.938581,31.514531],&quot;physical&quot;:{&quot;stress_iterations&quot;:34,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1584,&quot;stress_active_bonds&quot;:4488,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:609.724266,&quot;restore&quot;:40.143987349999996},{&quot;name&quot;:&quot;destruction-cold&quot;,&quot;mean&quot;:3.66087515,&quot;maximum&quot;:6.41846,&quot;sd&quot;:0.7335622672957859,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001206,&quot;simulate_fetch_ms&quot;:3.4684603,&quot;completion_ms&quot;:0.19229425},&quot;samples&quot;:[6.41846,3.278227,3.359996,3.434048,3.567542,3.313741,4.08139,3.342852,3.385067,3.440325,4.414967,3.314425,3.767871,4.238312,3.310432,3.180205,3.303291,3.34647,3.406476,3.313406],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:519.047465,&quot;restore&quot;:17.435212749999998},{&quot;name&quot;:&quot;destruction-damaged&quot;,&quot;mean&quot;:3.47348035,&quot;maximum&quot;:6.43696,&quot;sd&quot;:0.7151780073692566,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00010005,&quot;simulate_fetch_ms&quot;:3.28088115,&quot;completion_ms&quot;:0.19249915},&quot;samples&quot;:[6.43696,3.191877,3.58754,3.303507,3.391367,3.198087,3.26124,3.372184,3.495309,3.042828,3.593122,3.403873,3.375064,3.382158,3.363592,2.941652,3.278598,3.221578,3.256192,3.372879],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:602.485168,&quot;restore&quot;:17.05389195},{&quot;name&quot;:&quot;destruction-fractured&quot;,&quot;mean&quot;:5.07979395,&quot;maximum&quot;:9.222591,&quot;sd&quot;:1.0257293831179466,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012745,&quot;simulate_fetch_ms&quot;:4.89040535,&quot;completion_ms&quot;:0.18926115},&quot;samples&quot;:[9.222591,5.329681,5.133832,4.916425,4.630147,4.687494,4.871803,5.529163,4.613592,4.92486,5.234559,4.673142,4.572937,5.472165,4.483557,4.664212,4.556607,4.835102,4.545432,4.698578],&quot;physical&quot;:{&quot;stress_iterations&quot;:0,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:2,&quot;stress_islands&quot;:0,&quot;stress_active_nodes&quot;:0,&quot;stress_active_bonds&quot;:0,&quot;normal_contacts&quot;:1,&quot;friction_anchors&quot;:1},&quot;setup&quot;:540.925079,&quot;restore&quot;:16.61890375},{&quot;name&quot;:&quot;destruction-intact&quot;,&quot;mean&quot;:3.63681305,&quot;maximum&quot;:6.12563,&quot;sd&quot;:0.6793357958237765,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00023930000000000002,&quot;simulate_fetch_ms&quot;:3.4126299,&quot;completion_ms&quot;:0.22394385},&quot;samples&quot;:[6.12563,3.456992,3.432833,4.556558,3.36193,3.414407,4.022547,3.588457,2.819323,3.525367,3.650524,3.781227,3.498175,3.460869,3.290843,3.397656,3.462931,3.153394,3.511925,3.224673],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:641.180061,&quot;restore&quot;:18.660968399999998},{&quot;name&quot;:&quot;destruction-onset&quot;,&quot;mean&quot;:4.1884707,&quot;maximum&quot;:7.441915,&quot;sd&quot;:0.8248419964582755,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012855,&quot;simulate_fetch_ms&quot;:3.99928755,&quot;completion_ms&quot;:0.1890546},&quot;samples&quot;:[7.441915,4.125712,4.113275,3.957824,3.879737,3.816095,3.923274,3.874179,4.60437,3.815143,3.941939,3.856202,5.060113,3.783677,3.77661,4.124377,3.92535,3.879322,3.967652,3.902648],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:567.407652,&quot;restore&quot;:16.28995055},{&quot;name&quot;:&quot;destruction-stimulus&quot;,&quot;mean&quot;:4.2507295,&quot;maximum&quot;:7.641247,&quot;sd&quot;:0.8346325182979444,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0030763,&quot;simulate_fetch_ms&quot;:4.0584454,&quot;completion_ms&quot;:0.1892078},&quot;samples&quot;:[7.641247,4.27061,4.146147,4.018962,4.118624,4.003631,3.842346,4.970173,3.911144,4.060798,4.001631,4.212742,3.945828,4.089603,4.03277,4.111093,3.980043,3.883544,3.748424,4.02523],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:681.797013,&quot;restore&quot;:16.4265991},{&quot;name&quot;:&quot;flying&quot;,&quot;mean&quot;:1.75099935,&quot;maximum&quot;:2.35294,&quot;sd&quot;:0.15239015569679062,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:7.615e-05,&quot;simulate_fetch_ms&quot;:1.7503471,&quot;completion_ms&quot;:0.0005761},&quot;samples&quot;:[2.35294,1.740025,1.63232,1.784027,1.748512,1.716433,1.697722,1.753197,1.739328,1.710779,1.826262,1.64621,1.750654,1.715063,1.778077,1.747198,1.690856,1.644607,1.75029,1.595487],&quot;physical&quot;:{&quot;stress_iterations&quot;:0,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:0,&quot;output_clusters&quot;:0,&quot;stress_islands&quot;:0,&quot;stress_active_nodes&quot;:0,&quot;stress_active_bonds&quot;:0,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:541.64025,&quot;restore&quot;:7.651644149999999},{&quot;name&quot;:&quot;ladder128-cold&quot;,&quot;mean&quot;:5.7861782,&quot;maximum&quot;:8.063094,&quot;sd&quot;:0.5575809976516132,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:8.01e-05,&quot;simulate_fetch_ms&quot;:5.58228075,&quot;completion_ms&quot;:0.20381735},&quot;samples&quot;:[8.063094,5.709495,5.76198,5.643627,5.579949,5.325472,5.777631,5.624502,5.657815,5.735794,5.51247,5.640826,5.597137,6.11179,5.678639,5.674811,5.645512,5.620311,5.501287,5.861422],&quot;physical&quot;:{&quot;stress_iterations&quot;:192,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:285,&quot;stress_active_bonds&quot;:316,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:489.82711,&quot;restore&quot;:19.7805119},{&quot;name&quot;:&quot;ladder128-warm&quot;,&quot;mean&quot;:5.7712072,&quot;maximum&quot;:7.908563,&quot;sd&quot;:0.5461949097599154,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001052,&quot;simulate_fetch_ms&quot;:5.5726968,&quot;completion_ms&quot;:0.1984052},&quot;samples&quot;:[7.908563,5.838373,5.793599,5.56464,5.499545,5.690192,5.974009,5.538852,5.885883,5.531798,5.719154,5.632219,5.752648,6.107041,5.691557,5.687085,5.347132,5.18237,5.43013,5.649354],&quot;physical&quot;:{&quot;stress_iterations&quot;:192,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:285,&quot;stress_active_bonds&quot;:316,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:493.266866,&quot;restore&quot;:22.1756046},{&quot;name&quot;:&quot;panel32-cold&quot;,&quot;mean&quot;:21.41548275,&quot;maximum&quot;:23.987102,&quot;sd&quot;:0.6371271942295581,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001944,&quot;simulate_fetch_ms&quot;:21.2924991,&quot;completion_ms&quot;:0.12278925},&quot;samples&quot;:[23.987102,21.421017,21.223284,21.227345,21.249914,21.539823,21.409435,21.120288,21.087009,21.083962,21.225802,21.3272,21.234851,21.634064,21.143028,21.09088,21.107509,21.291566,21.090515,21.815061],&quot;physical&quot;:{&quot;stress_iterations&quot;:492,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1020,&quot;stress_active_bonds&quot;:1984,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:571.596314,&quot;restore&quot;:27.11491405},{&quot;name&quot;:&quot;panel32-warm&quot;,&quot;mean&quot;:21.14057875,&quot;maximum&quot;:23.59266,&quot;sd&quot;:0.604810813527483,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001853,&quot;simulate_fetch_ms&quot;:20.9717899,&quot;completion_ms&quot;:0.16860355},&quot;samples&quot;:[23.59266,21.407224,21.163741,21.14783,21.124966,20.9815,20.796627,20.963271,21.115113,21.067995,20.842805,21.030733,20.756862,20.693756,20.928166,20.828672,21.225911,20.853165,21.097511,21.193067],&quot;physical&quot;:{&quot;stress_iterations&quot;:492,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1020,&quot;stress_active_bonds&quot;:1984,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:478.101137,&quot;restore&quot;:26.75896035},{&quot;name&quot;:&quot;resting&quot;,&quot;mean&quot;:1.4665524,&quot;maximum&quot;:2.272187,&quot;sd&quot;:0.3862943450637773,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012915,&quot;simulate_fetch_ms&quot;:1.4655956,&quot;completion_ms&quot;:0.00082765},&quot;samples&quot;:[2.272187,2.096361,1.456967,2.016741,1.411823,2.168518,1.417076,1.37113,1.421369,1.447822,1.392359,1.424193,1.608018,1.131454,1.012639,1.094192,1.102667,1.140933,1.373718,0.970881],&quot;physical&quot;:{&quot;stress_iterations&quot;:0,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:0,&quot;output_clusters&quot;:0,&quot;stress_islands&quot;:0,&quot;stress_active_nodes&quot;:0,&quot;stress_active_bonds&quot;:0,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:539.481615,&quot;restore&quot;:6.7673847},{&quot;name&quot;:&quot;sliding&quot;,&quot;mean&quot;:2.54276605,&quot;maximum&quot;:3.553911,&quot;sd&quot;:0.37274423208986146,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001051,&quot;simulate_fetch_ms&quot;:2.54185275,&quot;completion_ms&quot;:0.0008082},&quot;samples&quot;:[3.553911,3.496118,2.507668,2.936509,2.593059,2.289144,2.391032,2.404872,2.486582,2.305198,2.703675,2.388899,2.369809,2.318952,2.472329,2.385616,2.279103,2.258016,2.408593,2.306236],&quot;physical&quot;:{&quot;stress_iterations&quot;:0,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:0,&quot;output_clusters&quot;:0,&quot;stress_islands&quot;:0,&quot;stress_active_nodes&quot;:0,&quot;stress_active_bonds&quot;:0,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:479.369813,&quot;restore&quot;:6.7950526},{&quot;name&quot;:&quot;tower64-cold&quot;,&quot;mean&quot;:108.43401675,&quot;maximum&quot;:111.34916,&quot;sd&quot;:0.8627294754596193,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00021965,&quot;simulate_fetch_ms&quot;:108.31577125,&quot;completion_ms&quot;:0.11802585},&quot;samples&quot;:[111.34916,108.294967,108.101112,107.783791,107.956411,108.141355,108.031152,107.86195,108.130253,108.190861,108.617203,107.343746,107.575035,109.353547,109.207325,108.069521,108.23193,108.527252,108.996927,108.916837],&quot;physical&quot;:{&quot;stress_iterations&quot;:137,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:2304,&quot;stress_active_bonds&quot;:4788,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:491.401538,&quot;restore&quot;:41.54531805},{&quot;name&quot;:&quot;tower64-warm&quot;,&quot;mean&quot;:108.49365245,&quot;maximum&quot;:111.316141,&quot;sd&quot;:0.7509379575313225,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00026555,&quot;simulate_fetch_ms&quot;:108.35270685,&quot;completion_ms&quot;:0.14068005},&quot;samples&quot;:[111.316141,108.736117,109.255367,108.65625,108.381781,108.326931,108.153419,108.17488,108.578258,107.774938,107.740298,108.038303,108.328354,108.70897,108.305146,107.968004,108.249766,108.25462,108.357783,108.567723],&quot;physical&quot;:{&quot;stress_iterations&quot;:137,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:2304,&quot;stress_active_bonds&quot;:4788,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:530.523501,&quot;restore&quot;:41.0187701},{&quot;name&quot;:&quot;city25-intact-idle&quot;,&quot;mean&quot;:10.14545675,&quot;maximum&quot;:13.081755,&quot;sd&quot;:0.8012813116116536,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0002427,&quot;simulate_fetch_ms&quot;:9.92924295,&quot;completion_ms&quot;:0.2159711},&quot;samples&quot;:[13.081755,10.721102,10.15863,10.174446,9.788335,10.556858,10.093022,10.125801,10.120274,10.248035,9.792002,9.374451,10.283595,10.268042,9.242265,10.081483,10.134163,9.264475,10.006448,9.393953],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:25,&quot;stress_islands&quot;:25,&quot;stress_active_nodes&quot;:9500,&quot;stress_active_bonds&quot;:19600,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:677.730425,&quot;restore&quot;:67.30446245},{&quot;name&quot;:&quot;city25-airborne&quot;,&quot;mean&quot;:11.59937185,&quot;maximum&quot;:14.435448,&quot;sd&quot;:0.8490627537414895,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001725,&quot;simulate_fetch_ms&quot;:11.3797974,&quot;completion_ms&quot;:0.21940195},&quot;samples&quot;:[14.435448,11.500468,11.461008,12.911835,11.041697,10.842373,11.463,12.360537,11.13674,11.345371,10.952123,11.792554,11.104838,11.181085,11.287457,11.755125,10.853381,12.100784,11.05061,11.411003],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:25,&quot;stress_islands&quot;:25,&quot;stress_active_nodes&quot;:9500,&quot;stress_active_bonds&quot;:19600,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:823.260947,&quot;restore&quot;:72.28931855},{&quot;name&quot;:&quot;city25-initial-impact&quot;,&quot;mean&quot;:39.26356245,&quot;maximum&quot;:48.881067,&quot;sd&quot;:2.5184404286272404,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001276,&quot;simulate_fetch_ms&quot;:39.01797605,&quot;completion_ms&quot;:0.2454588},&quot;samples&quot;:[48.881067,41.070683,37.054283,41.05478,38.887575,37.508882,38.034302,38.226683,37.720617,38.347897,38.565318,39.251438,38.056264,38.147188,37.7643,39.140539,38.671205,39.147316,39.137061,40.603851],&quot;physical&quot;:{&quot;stress_iterations&quot;:304,&quot;broken_bonds&quot;:3412,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:537,&quot;stress_islands&quot;:77,&quot;stress_active_nodes&quot;:9040,&quot;stress_active_bonds&quot;:16188,&quot;normal_contacts&quot;:3931,&quot;friction_anchors&quot;:625},&quot;setup&quot;:723.410196,&quot;restore&quot;:72.784684},{&quot;name&quot;:&quot;city25-post-impact&quot;,&quot;mean&quot;:22.2584447,&quot;maximum&quot;:29.290008,&quot;sd&quot;:1.9629635331592008,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001811,&quot;simulate_fetch_ms&quot;:22.01918085,&quot;completion_ms&quot;:0.23908275},&quot;samples&quot;:[29.290008,24.444757,22.163042,22.704615,20.197033,20.41487,21.941951,22.538105,21.783147,20.772081,24.112369,21.247047,21.410694,22.020323,21.74492,22.008511,21.353127,21.374232,21.124693,22.523369],&quot;physical&quot;:{&quot;stress_iterations&quot;:332,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:526,&quot;stress_islands&quot;:53,&quot;stress_active_nodes&quot;:9027,&quot;stress_active_bonds&quot;:16776,&quot;normal_contacts&quot;:4675,&quot;friction_anchors&quot;:1060},&quot;setup&quot;:768.533865,&quot;restore&quot;:70.92652045},{&quot;name&quot;:&quot;city25-cascading-fracture&quot;,&quot;mean&quot;:38.29698975,&quot;maximum&quot;:42.7586,&quot;sd&quot;:1.9909925047388561,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001313,&quot;simulate_fetch_ms&quot;:38.08032325,&quot;completion_ms&quot;:0.2165352},&quot;samples&quot;:[42.7586,40.63633,40.313035,37.088209,39.227351,40.283641,37.136932,39.627474,37.970264,37.581371,39.571162,35.580566,38.798383,36.233365,35.470604,38.152692,35.874009,38.769542,35.595004,39.271261],&quot;physical&quot;:{&quot;stress_iterations&quot;:388,&quot;broken_bonds&quot;:10,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:610,&quot;stress_islands&quot;:64,&quot;stress_active_nodes&quot;:8954,&quot;stress_active_bonds&quot;:16476,&quot;normal_contacts&quot;:10900,&quot;friction_anchors&quot;:2028},&quot;setup&quot;:684.105811,&quot;restore&quot;:72.70332},{&quot;name&quot;:&quot;city25-fragmented-loaded&quot;,&quot;mean&quot;:54.23621805,&quot;maximum&quot;:63.798094,&quot;sd&quot;:2.902923976292533,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00015925,&quot;simulate_fetch_ms&quot;:53.970071250000004,&quot;completion_ms&quot;:0.26598755},&quot;samples&quot;:[63.798094,54.904603,54.023341,53.706496,53.269482,53.523089,53.246191,59.23953,53.849317,54.172898,53.283969,50.062299,53.348705,52.893773,52.605114,51.871838,56.694031,53.17234,52.313094,54.746157],&quot;physical&quot;:{&quot;stress_iterations&quot;:536,&quot;broken_bonds&quot;:100,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:1321,&quot;stress_islands&quot;:169,&quot;stress_active_nodes&quot;:8348,&quot;stress_active_bonds&quot;:13645,&quot;normal_contacts&quot;:26560,&quot;friction_anchors&quot;:5092},&quot;setup&quot;:681.537806,&quot;restore&quot;:74.100911},{&quot;name&quot;:&quot;city25-late-debris&quot;,&quot;mean&quot;:66.3491621,&quot;maximum&quot;:85.750561,&quot;sd&quot;:6.4527729805192235,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001435,&quot;simulate_fetch_ms&quot;:66.10999525,&quot;completion_ms&quot;:0.23902335},&quot;samples&quot;:[85.750561,70.267328,68.257928,69.020355,64.438339,67.518758,70.531594,65.652494,67.241499,54.728236,63.426133,64.612266,64.094056,63.510722,59.459238,60.402411,60.256741,63.169078,70.97986,73.665645],&quot;physical&quot;:{&quot;stress_iterations&quot;:676,&quot;broken_bonds&quot;:1424,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:2063,&quot;stress_islands&quot;:323,&quot;stress_active_nodes&quot;:7746,&quot;stress_active_bonds&quot;:11825,&quot;normal_contacts&quot;:33694,&quot;friction_anchors&quot;:7643},&quot;setup&quot;:769.177715,&quot;restore&quot;:80.9458443},{&quot;name&quot;:&quot;city25-ten-second-debris&quot;,&quot;mean&quot;:69.18068105,&quot;maximum&quot;:95.080191,&quot;sd&quot;:6.806589985014441,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001575,&quot;simulate_fetch_ms&quot;:68.9433899,&quot;completion_ms&quot;:0.23713365},&quot;samples&quot;:[95.080191,62.376527,67.976623,66.387491,66.376532,71.054085,66.601752,77.719496,66.986543,66.523779,69.228568,67.526028,67.701592,65.680645,65.958571,70.95048,66.263188,67.84367,69.37417,66.00369],&quot;physical&quot;:{&quot;stress_iterations&quot;:716,&quot;broken_bonds&quot;:184,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:1776,&quot;stress_islands&quot;:285,&quot;stress_active_nodes&quot;:8007,&quot;stress_active_bonds&quot;:12556,&quot;normal_contacts&quot;:7349,&quot;friction_anchors&quot;:2317},&quot;setup&quot;:701.699935,&quot;restore&quot;:79.24961285},{&quot;name&quot;:&quot;city64-intact-idle&quot;,&quot;mean&quot;:17.948666,&quot;maximum&quot;:21.129103,&quot;sd&quot;:1.5027585651683164,&quot;misses&quot;:19,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00016605,&quot;simulate_fetch_ms&quot;:17.6954125,&quot;completion_ms&quot;:0.25308745},&quot;samples&quot;:[19.963986,21.129103,18.052575,17.304876,19.997422,20.41619,17.368779,16.820014,18.292806,17.008978,17.074767,17.578643,16.920374,16.935165,17.031796,16.796634,17.429552,20.111414,15.967499,16.772747],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:64,&quot;stress_islands&quot;:64,&quot;stress_active_nodes&quot;:24320,&quot;stress_active_bonds&quot;:50176,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:1292.494601,&quot;restore&quot;:171.8307057},{&quot;name&quot;:&quot;city64-airborne&quot;,&quot;mean&quot;:18.8504978,&quot;maximum&quot;:25.336026,&quot;sd&quot;:2.2518152879833733,&quot;misses&quot;:18,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001401,&quot;simulate_fetch_ms&quot;:18.59842685,&quot;completion_ms&quot;:0.25193085},&quot;samples&quot;:[22.47985,19.087006,18.893024,18.395858,19.663526,18.761114,22.200714,18.467127,18.20089,18.324328,15.538285,18.507181,18.289626,17.139101,15.8879,17.136665,25.336026,18.652493,18.59718,17.452062],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:64,&quot;stress_islands&quot;:64,&quot;stress_active_nodes&quot;:24320,&quot;stress_active_bonds&quot;:50176,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:1470.597455,&quot;restore&quot;:170.58742705},{&quot;name&quot;:&quot;city64-initial-impact&quot;,&quot;mean&quot;:63.33371185,&quot;maximum&quot;:76.530359,&quot;sd&quot;:3.4947764412644156,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.000147,&quot;simulate_fetch_ms&quot;:63.10467205,&quot;completion_ms&quot;:0.2288928},&quot;samples&quot;:[76.530359,66.844913,65.628957,62.660544,61.248336,62.076697,61.324655,61.779754,62.030403,60.801817,63.093913,61.672457,61.733394,62.679654,60.584045,64.935746,62.337084,63.638522,61.803411,63.269576],&quot;physical&quot;:{&quot;stress_iterations&quot;:304,&quot;broken_bonds&quot;:8760,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:1364,&quot;stress_islands&quot;:196,&quot;stress_active_nodes&quot;:23152,&quot;stress_active_bonds&quot;:41416,&quot;normal_contacts&quot;:11977,&quot;friction_anchors&quot;:2040},&quot;setup&quot;:1432.068471,&quot;restore&quot;:168.4003813},{&quot;name&quot;:&quot;city64-post-impact&quot;,&quot;mean&quot;:37.39463465,&quot;maximum&quot;:46.823031,&quot;sd&quot;:3.874822217234778,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00022125,&quot;simulate_fetch_ms&quot;:37.15236355,&quot;completion_ms&quot;:0.24204985},&quot;samples&quot;:[46.823031,37.979049,33.284014,37.324971,37.331067,34.573914,45.032327,42.743434,36.714638,36.532861,31.961181,38.17492,33.389578,32.481,34.458915,37.694339,36.64531,37.872756,39.156386,37.719002],&quot;physical&quot;:{&quot;stress_iterations&quot;:332,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1320,&quot;stress_islands&quot;:132,&quot;stress_active_nodes&quot;:23132,&quot;stress_active_bonds&quot;:42929,&quot;normal_contacts&quot;:13100,&quot;friction_anchors&quot;:3027},&quot;setup&quot;:1373.229577,&quot;restore&quot;:169.88888235},{&quot;name&quot;:&quot;city64-cascading-fracture&quot;,&quot;mean&quot;:59.51843035,&quot;maximum&quot;:71.194481,&quot;sd&quot;:3.4870551991196366,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001375,&quot;simulate_fetch_ms&quot;:59.29643,&quot;completion_ms&quot;:0.22186285},&quot;samples&quot;:[71.194481,64.359663,57.498593,56.586399,61.735746,59.703103,58.968769,57.298828,60.224372,56.370636,61.107592,60.605317,59.019949,58.677961,58.267385,59.299951,54.375175,58.748008,57.45365,58.873029],&quot;physical&quot;:{&quot;stress_iterations&quot;:400,&quot;broken_bonds&quot;:13,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:1473,&quot;stress_islands&quot;:153,&quot;stress_active_nodes&quot;:23000,&quot;stress_active_bonds&quot;:42266,&quot;normal_contacts&quot;:25861,&quot;friction_anchors&quot;:4942},&quot;setup&quot;:1420.585075,&quot;restore&quot;:173.55750875},{&quot;name&quot;:&quot;city64-fragmented-loaded&quot;,&quot;mean&quot;:94.4280476,&quot;maximum&quot;:117.25859,&quot;sd&quot;:6.702538451688846,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012925,&quot;simulate_fetch_ms&quot;:94.1745269,&quot;completion_ms&quot;:0.25339145},&quot;samples&quot;:[117.25859,95.948168,97.537805,95.767392,94.214,96.766263,95.854777,94.518869,95.359204,90.625736,94.326413,91.920335,94.090763,88.777951,92.871406,93.671472,92.149911,79.036238,96.356258,91.509401],&quot;physical&quot;:{&quot;stress_iterations&quot;:644,&quot;broken_bonds&quot;:425,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:3144,&quot;stress_islands&quot;:481,&quot;stress_active_nodes&quot;:21657,&quot;stress_active_bonds&quot;:35407,&quot;normal_contacts&quot;:68873,&quot;friction_anchors&quot;:12553},&quot;setup&quot;:1460.830606,&quot;restore&quot;:190.27802335},{&quot;name&quot;:&quot;city64-late-debris&quot;,&quot;mean&quot;:133.79806565,&quot;maximum&quot;:171.554141,&quot;sd&quot;:10.325675305652828,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00016075,&quot;simulate_fetch_ms&quot;:133.5538587,&quot;completion_ms&quot;:0.2440462},&quot;samples&quot;:[171.554141,142.391442,130.481251,137.778069,132.442898,129.493297,135.902594,121.486888,131.736987,131.991202,124.576874,133.488676,133.276064,131.185821,133.234809,138.074108,134.46311,120.064852,132.168604,130.169626],&quot;physical&quot;:{&quot;stress_iterations&quot;:948,&quot;broken_bonds&quot;:2768,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:5130,&quot;stress_islands&quot;:772,&quot;stress_active_nodes&quot;:19955,&quot;stress_active_bonds&quot;:30912,&quot;normal_contacts&quot;:94508,&quot;friction_anchors&quot;:23594},&quot;setup&quot;:1288.583143,&quot;restore&quot;:197.97570715},{&quot;name&quot;:&quot;city64-ten-second-debris&quot;,&quot;mean&quot;:96.68148,&quot;maximum&quot;:131.262977,&quot;sd&quot;:10.578658963008046,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0006529,&quot;simulate_fetch_ms&quot;:96.44021985,&quot;completion_ms&quot;:0.24060725},&quot;samples&quot;:[131.262977,110.752759,106.418744,104.119298,95.001178,85.532808,87.319441,86.160332,97.025495,100.285569,98.01753,91.868246,94.149145,94.81262,86.820387,88.89943,90.239531,95.723557,94.695763,94.52479],&quot;physical&quot;:{&quot;stress_iterations&quot;:736,&quot;broken_bonds&quot;:202,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:4705,&quot;stress_islands&quot;:823,&quot;stress_active_nodes&quot;:20435,&quot;stress_active_bonds&quot;:31870,&quot;normal_contacts&quot;:17730,&quot;friction_anchors&quot;:5190},&quot;setup&quot;:1343.662348,&quot;restore&quot;:182.0319379},{&quot;name&quot;:&quot;city256-intact-idle&quot;,&quot;mean&quot;:65.99789715,&quot;maximum&quot;:79.530045,&quot;sd&quot;:5.944613736920386,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00019564999999999999,&quot;simulate_fetch_ms&quot;:65.748968,&quot;completion_ms&quot;:0.2487335},&quot;samples&quot;:[73.393962,66.947646,58.751475,64.094796,62.38806,66.894482,62.636881,59.576825,65.56911,61.206837,79.530045,67.376386,57.841371,74.688325,62.353263,64.931437,61.12507,64.451547,74.016911,72.183514],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:256,&quot;stress_islands&quot;:256,&quot;stress_active_nodes&quot;:97280,&quot;stress_active_bonds&quot;:200704,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:1831.025124,&quot;restore&quot;:523.0981057},{&quot;name&quot;:&quot;city256-airborne&quot;,&quot;mean&quot;:72.01993675,&quot;maximum&quot;:83.665572,&quot;sd&quot;:5.632395440969022,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001931,&quot;simulate_fetch_ms&quot;:71.7407942,&quot;completion_ms&quot;:0.27894945},&quot;samples&quot;:[72.70605,83.665572,68.030329,73.943907,75.168152,82.539026,74.324483,77.61239,66.160751,68.311167,71.680607,66.311972,68.731475,67.527114,64.810563,76.982133,68.470448,74.15937,75.670295,63.592931],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:256,&quot;stress_islands&quot;:256,&quot;stress_active_nodes&quot;:97280,&quot;stress_active_bonds&quot;:200704,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:1847.967785,&quot;restore&quot;:522.08685395},{&quot;name&quot;:&quot;city256-initial-impact&quot;,&quot;mean&quot;:240.8933318,&quot;maximum&quot;:288.231896,&quot;sd&quot;:17.81198065034202,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.000199,&quot;simulate_fetch_ms&quot;:240.63868415,&quot;completion_ms&quot;:0.25444865},&quot;samples&quot;:[288.231896,264.717996,210.534761,269.288637,252.415994,238.405043,240.75824,240.807742,227.186168,248.525263,226.234151,228.72144,234.732349,245.593805,230.050604,232.226925,219.231259,243.286611,237.069994,239.847758],&quot;physical&quot;:{&quot;stress_iterations&quot;:312,&quot;broken_bonds&quot;:34802,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:5417,&quot;stress_islands&quot;:776,&quot;stress_active_nodes&quot;:92639,&quot;stress_active_bonds&quot;:165902,&quot;normal_contacts&quot;:42625,&quot;friction_anchors&quot;:6310},&quot;setup&quot;:1910.053723,&quot;restore&quot;:530.1820881},{&quot;name&quot;:&quot;city256-post-impact&quot;,&quot;mean&quot;:145.4214418,&quot;maximum&quot;:170.424551,&quot;sd&quot;:13.600626969086182,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001735,&quot;simulate_fetch_ms&quot;:145.2637298,&quot;completion_ms&quot;:0.1575385},&quot;samples&quot;:[170.424551,149.578582,157.90935,112.581165,124.730164,151.36494,144.971571,156.776724,153.311253,134.475155,152.108715,153.055434,151.969939,148.699526,127.699524,154.306298,148.686383,137.570033,148.084948,130.124581],&quot;physical&quot;:{&quot;stress_iterations&quot;:332,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:5204,&quot;stress_islands&quot;:520,&quot;stress_active_nodes&quot;:92596,&quot;stress_active_bonds&quot;:172108,&quot;normal_contacts&quot;:49093,&quot;friction_anchors&quot;:11093},&quot;setup&quot;:1893.97703,&quot;restore&quot;:557.74558465},{&quot;name&quot;:&quot;city256-cascading-fracture&quot;,&quot;mean&quot;:197.22867145,&quot;maximum&quot;:223.422504,&quot;sd&quot;:16.10001382990053,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0002134,&quot;simulate_fetch_ms&quot;:196.9882178,&quot;completion_ms&quot;:0.24024025},&quot;samples&quot;:[223.422504,209.28959,211.764735,205.76128,203.42098,208.560962,185.708495,203.995804,175.119115,168.505296,186.805375,167.213548,200.524753,196.921811,219.594213,186.620584,215.22321,197.956804,194.552576,183.611794],&quot;physical&quot;:{&quot;stress_iterations&quot;:416,&quot;broken_bonds&quot;:25,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:5852,&quot;stress_islands&quot;:627,&quot;stress_active_nodes&quot;:92055,&quot;stress_active_bonds&quot;:169616,&quot;normal_contacts&quot;:105527,&quot;friction_anchors&quot;:20206},&quot;setup&quot;:1861.833405,&quot;restore&quot;:566.32659875},{&quot;name&quot;:&quot;city256-fragmented-loaded&quot;,&quot;mean&quot;:292.394965,&quot;maximum&quot;:325.612686,&quot;sd&quot;:23.227759153129245,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001788,&quot;simulate_fetch_ms&quot;:292.1694354,&quot;completion_ms&quot;:0.2253508},&quot;samples&quot;:[315.009005,315.858839,316.498538,300.56908,267.778644,253.307355,289.916637,265.553333,258.449404,248.565601,292.511797,285.757507,325.612686,312.908475,307.848859,295.030657,284.661002,289.318107,309.961608,312.782166],&quot;physical&quot;:{&quot;stress_iterations&quot;:604,&quot;broken_bonds&quot;:1229,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:11382,&quot;stress_islands&quot;:1857,&quot;stress_active_nodes&quot;:87755,&quot;stress_active_bonds&quot;:146435,&quot;normal_contacts&quot;:241561,&quot;friction_anchors&quot;:46983},&quot;setup&quot;:1938.867986,&quot;restore&quot;:587.9823449},{&quot;name&quot;:&quot;city256-late-debris&quot;,&quot;mean&quot;:382.88327334999997,&quot;maximum&quot;:452.158173,&quot;sd&quot;:24.770572343171747,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001782,&quot;simulate_fetch_ms&quot;:382.6405998,&quot;completion_ms&quot;:0.24249535},&quot;samples&quot;:[452.158173,359.116994,402.739271,431.295517,354.140202,354.407355,378.348844,383.314397,365.059771,377.959052,365.311514,374.271933,395.771469,372.019282,373.964201,396.013141,398.623256,384.978981,367.56727,370.604844],&quot;physical&quot;:{&quot;stress_iterations&quot;:1084,&quot;broken_bonds&quot;:11051,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:16135,&quot;stress_islands&quot;:2762,&quot;stress_active_nodes&quot;:83885,&quot;stress_active_bonds&quot;:133656,&quot;normal_contacts&quot;:267054,&quot;friction_anchors&quot;:61120},&quot;setup&quot;:1848.491353,&quot;restore&quot;:596.1222775},{&quot;name&quot;:&quot;city256-ten-second-debris&quot;,&quot;mean&quot;:258.8886922,&quot;maximum&quot;:347.191481,&quot;sd&quot;:26.698976844779935,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0002247,&quot;simulate_fetch_ms&quot;:258.6375444,&quot;completion_ms&quot;:0.2509231},&quot;samples&quot;:[347.191481,263.705615,292.062658,257.533111,286.457758,236.812839,257.987474,237.669334,258.874096,241.367877,231.451051,266.056866,272.009155,235.224816,250.984756,256.136671,232.387325,245.986378,260.693202,247.181381],&quot;physical&quot;:{&quot;stress_iterations&quot;:676,&quot;broken_bonds&quot;:819,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:15187,&quot;stress_islands&quot;:3035,&quot;stress_active_nodes&quot;:85126,&quot;stress_active_bonds&quot;:137219,&quot;normal_contacts&quot;:31798,&quot;friction_anchors&quot;:8627},&quot;setup&quot;:1838.574853,&quot;restore&quot;:612.1423647500001}],&quot;profiles&quot;:[{&quot;name&quot;:&quot;city256-late-debris&quot;,&quot;cohort&quot;:&quot;N20 diagnostic build&quot;,&quot;tick&quot;:661.872232,&quot;gpu&quot;:117.939887,&quot;no_gpu&quot;:543.932345,&quot;wall&quot;:{&quot;gpu_and_scheduled_cpu_ms&quot;:53.06949,&quot;gpu_without_scheduled_cpu_ms&quot;:64.870397,&quot;scheduled_cpu_without_gpu_ms&quot;:537.426922,&quot;neither_traced_gpu_nor_scheduled_cpu_ms&quot;:6.505423},&quot;physical&quot;:{&quot;stress_iterations&quot;:1084,&quot;broken_bonds&quot;:11051,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:16135,&quot;stress_islands&quot;:2762,&quot;stress_active_nodes&quot;:83885,&quot;stress_active_bonds&quot;:133656,&quot;normal_contacts&quot;:267054,&quot;friction_anchors&quot;:61120},&quot;lanes&quot;:{&quot;GPU physics&quot;:[[11.853238,11.891606],[94.818898,94.821298],[95.91746,95.936308],[96.033908,96.038644],[96.092628,96.09394],[96.146197,96.147701],[96.190229,96.191445],[96.295221,96.296309],[96.341685,96.344149],[96.386357,96.399477],[97.138455,97.151383],[97.188407,97.203607],[97.216983,97.230135],[97.603992,97.676568],[97.677368,97.688536],[97.689336,97.694008],[97.730968,97.742104],[97.798296,97.802968],[97.846296,97.877496],[97.905432,98.529306],[98.530138,98.58121],[98.58201,98.642202],[98.643066,98.65145],[98.652282,98.65609],[98.656986,101.376096],[101.377024,101.399232],[101.400064,101.411232],[101.412,101.420832],[101.532321,101.627585],[101.639617,101.640897],[220.899502,220.901518],[221.439375,221.440751],[222.948915,222.970323],[222.998835,223.004627],[223.087027,223.088211],[223.203123,223.204787],[223.316147,223.316947],[223.383412,223.386484],[223.44162,223.442676],[223.538388,223.54002],[223.574484,223.575156],[223.606388,223.730452],[223.731124,223.73458],[223.73522,223.74194],[223.849717,223.852565],[257.893441,257.902369],[281.780471,281.781367],[282.81545,282.82329],[282.975162,282.97865],[284.629182,284.631614],[284.72179,284.739902],[284.848574,284.996287],[284.997119,285.004767],[285.005535,285.008159],[285.065951,285.479136],[285.479936,285.4944],[285.590592,285.603072],[285.65856,285.669184],[285.795008,285.80496],[285.937793,285.947777],[286.047041,286.056609],[286.196609,286.205793],[286.329666,286.338914],[286.582818,286.591682],[286.760163,286.769283],[286.810691,286.825603],[286.956579,287.044355],[287.171971,287.174627],[287.355204,287.374404],[287.498436,287.509028],[287.672965,287.683333],[287.727013,287.736901],[287.827845,287.837733],[287.936357,287.945925],[288.126726,288.135718],[288.260198,288.268934],[288.448294,288.457158],[288.576391,288.584967],[288.662471,288.677031],[288.763047,288.857191],[288.866183,288.868647],[288.901959,288.919623],[288.930663,288.939623],[288.957511,288.966664],[288.98404,288.993],[289.010312,289.019144],[289.036712,289.04548],[289.063848,289.072296],[289.13924,289.147272],[289.16868,289.17684],[289.19492,289.203208],[289.220936,289.235112],[289.24836,289.332296],[289.333064,289.33508],[289.33572,289.351336],[289.351976,289.361224],[289.408457,289.417545],[289.437417,289.446313],[289.463977,289.472649],[289.490377,289.498985],[289.517065,289.525289],[289.543369,289.551465],[289.569257,289.577673],[289.595369,289.603625],[289.669161,289.683497],[289.711913,289.796041],[289.796681,289.798761],[289.799241,289.814793],[289.844361,289.848778],[289.910698,289.912234],[289.964874,289.97409],[290.02097,290.030538],[290.098506,290.107786],[290.125706,290.134506],[290.150442,290.159082],[290.175114,290.183722],[290.20113,290.209226],[290.226058,290.23409],[290.251306,290.25953],[290.276426,290.290699],[290.368843,290.451371],[290.452587,290.454603],[290.523275,290.524939],[290.633931,290.668555],[291.08094,291.094156],[291.606861,291.639694],[291.730446,291.73227],[291.823022,291.828718],[291.869582,291.874254],[291.914894,291.915598],[292.168847,292.169839],[293.533554,293.534066],[383.626525,383.627901],[389.054217,389.094281],[389.287626,389.290186],[389.409002,389.424426],[389.533834,389.565994],[389.567978,389.57089],[389.853771,389.872811],[389.873035,389.886667],[389.886891,389.902923],[389.903371,389.971307],[389.971563,389.983403],[389.984043,404.261324],[404.261548,404.281292],[404.550668,404.6235],[404.624332,404.635564],[404.63582,404.64046],[404.641292,404.652428],[404.652684,404.657325],[404.658157,404.688973],[404.689869,405.313102],[405.313934,405.358734],[405.359566,405.420686],[405.42091,405.42923],[405.43003,405.433742],[405.433966,405.669071],[405.669903,405.699375],[405.700207,405.704463],[405.705295,405.709103],[405.762031,405.790607],[405.801903,405.802511],[439.951036,439.952892],[440.427389,440.428733],[441.374239,441.383999],[441.419551,441.425247],[441.476383,441.477535],[441.507232,441.509024],[441.53952,441.540256],[441.622944,441.625632],[441.656352,441.657408],[441.682816,441.68448],[441.728896,441.72944],[441.760352,441.825824],[441.82608,441.827872],[441.840576,441.84384],[441.920256,441.922336],[466.581017,466.583545],[498.75197,498.75277],[500.611911,500.624679],[500.729959,500.734023],[503.797166,503.799374],[504.051791,504.072431],[504.252879,504.462607],[504.533328,504.543056],[504.660208,504.663824],[504.814672,505.335633],[505.338673,505.356978],[505.359858,505.376594],[505.42421,505.435602],[505.490802,505.50197],[506.011539,506.022483],[506.187795,506.198387],[506.320148,506.330036],[506.514132,506.523796],[506.684757,506.693909],[506.828693,506.838101],[506.990613,507.009525],[507.183478,507.284214],[507.347062,507.34975],[507.461878,507.486486],[507.540215,507.554103],[507.729271,507.740855],[507.802999,507.813687],[507.956439,507.966903],[508.044792,508.055288],[508.075032,508.08476],[508.154744,508.164248],[508.183032,508.192216],[508.212024,508.220824],[508.248312,508.266936],[508.285784,508.390872],[508.391128,508.39372],[508.40092,508.423737],[508.434585,508.448089],[508.463673,508.474553],[508.492345,508.502713],[508.520633,508.530649],[508.548505,508.558745],[508.583321,508.593113],[508.611225,508.619929],[508.906906,508.915962],[508.946106,508.954874],[508.973914,508.992378],[509.104474,509.211226],[509.211482,509.21417],[509.214938,509.237946],[509.25497,509.268442],[509.293243,509.303931],[509.321243,509.331643],[509.356091,509.365915],[509.382363,509.392347],[509.409211,509.418683],[509.435355,509.444667],[509.511707,509.520699],[509.540507,509.549339],[509.568091,509.586555],[509.608059,509.716059],[509.716315,509.718779],[509.719579,509.74246],[509.74326,509.748732],[509.851996,509.853468],[509.925052,509.938332],[509.999228,510.010204],[510.031356,510.041756],[510.112668,510.122844],[510.143548,510.153788],[510.169533,510.178877],[510.195101,510.204509],[510.224957,510.233885],[510.251901,510.260605],[510.278813,510.297405],[510.310813,510.416989],[510.432733,510.435389],[510.625246,510.627166],[510.691294,510.747742],[511.147039,511.166943],[511.622432,511.656448],[511.75456,511.75632],[511.909985,511.915617],[511.960257,511.964929],[512.005249,512.005921],[512.260865,512.262177],[513.623236,513.623812],[515.063752,515.066312],[515.208968,515.210088],[515.255592,515.256584],[515.292008,515.29348]],&quot;GPU destruction / utilities&quot;:[[10.229043,10.237203],[49.656876,49.65822],[49.832076,49.833516],[49.986092,49.986988],[50.076653,50.077421],[50.225229,50.226029],[90.423528,92.810157],[92.815149,92.815821],[92.822957,92.824749],[92.830829,92.833549],[92.834189,92.838797],[92.839405,92.841965],[92.842573,92.846861],[92.847469,92.850061],[92.850541,92.854829],[92.855277,92.857869],[92.858349,92.862509],[92.863117,92.865677],[92.866157,92.870189],[92.870637,92.873229],[92.873709,92.877741],[92.878221,92.880781],[92.881229,92.885293],[92.885741,92.888301],[92.888781,92.892877],[92.893325,92.894989],[92.895437,92.898061],[92.898541,92.902573],[92.903053,92.905645],[92.906093,92.910189],[92.910637,92.913293],[92.913773,92.917837],[92.918285,92.920845],[92.921293,92.925357],[92.925805,92.928397],[92.928877,92.932909],[92.933357,92.935949],[92.936397,92.940461],[92.940909,92.943565],[92.944013,92.948045],[92.948493,92.951085],[92.951533,92.955629],[92.963661,92.965997],[93.047598,93.048462],[96.433813,96.441813],[96.541205,96.560341],[96.588566,96.59647],[96.615094,96.635062],[96.642838,96.650806],[96.669174,96.688694],[96.710294,96.718198],[96.738742,96.758518],[96.843478,96.851414],[96.876438,96.896342],[96.903926,96.91183],[96.929334,96.948438],[96.957014,96.96495],[96.985366,97.004726],[97.030647,97.038583],[97.057687,97.076663],[97.280375,97.396343],[97.469784,97.602424],[101.42144,101.44256],[101.4432,101.451456],[101.452256,101.460929],[101.461409,101.470689],[101.471137,101.481249],[101.481729,101.490817],[101.491297,101.500641],[101.501121,101.511201],[101.511649,101.512257],[101.512737,101.513345],[101.513825,101.514433],[101.514881,101.515489],[101.516001,101.516577],[101.517057,101.517665],[101.518113,101.521633],[101.522113,101.523425],[101.523873,101.531841],[110.218964,110.219668],[110.379733,110.380277],[220.417069,220.418253],[221.084334,221.085518],[221.669232,221.673904],[257.12496,257.128384],[257.346848,257.348128],[258.04541,258.04637],[258.36557,258.366402],[259.302213,259.303045],[259.473733,259.498085],[259.586053,259.586565],[259.997766,259.998438],[260.300135,260.301703],[260.454375,260.455335],[280.755637,280.756597],[281.170486,281.171766],[281.326902,281.327702],[281.815575,281.816151],[284.378205,284.379357],[285.984673,285.985633],[286.221569,286.221825],[287.146275,287.147363],[287.434436,287.46042],[287.757925,287.758181],[287.912421,287.913765],[288.098214,288.100486],[288.207206,288.207718],[288.407206,288.447654],[288.518375,288.521799],[291.222765,291.223693],[291.306125,291.307021],[291.325325,291.326189],[291.367821,291.368461],[291.459853,291.460493],[294.088627,294.089843],[294.283444,294.285332],[294.333844,294.3341],[294.358516,294.35874],[294.362164,294.362388],[294.376628,294.377332],[294.432852,294.433396],[294.925397,294.927061],[295.167606,295.171542],[295.30431,295.34991],[295.741815,295.756919],[295.817303,295.817559],[295.860951,295.861495],[296.010327,296.013271],[296.0814,296.082072],[296.122776,296.123384],[296.26892,296.274968],[296.315128,296.315736],[296.349752,296.35548],[296.372472,296.373048],[296.39148,296.396632],[296.402296,296.402904],[296.411096,296.415224],[296.421368,296.421944],[296.429624,296.435352],[296.440376,296.440952],[296.44908,296.454552],[296.45884,296.459448],[296.46764,296.472728],[296.477752,296.478328],[296.537561,296.541657],[296.639833,296.847417],[299.454783,299.455807],[337.96607,337.967094],[338.01727,338.021142],[338.025718,338.026454],[338.029814,338.08735],[338.091286,338.113078],[338.117878,338.14255],[338.147254,338.148182],[338.150358,338.150614],[338.154422,338.159606],[338.16303,338.172439],[338.178199,338.178711],[338.565143,338.566231],[338.566391,338.570839],[338.570999,338.573847],[338.574551,338.579671],[338.579863,338.588759],[338.588919,338.594103],[338.594295,338.599127],[338.599287,338.604471],[338.604663,338.6134],[338.61356,338.623544],[338.623736,338.624248],[338.624408,338.62572],[338.625912,338.660344],[338.660536,338.725144],[338.725304,338.745944],[338.746136,338.746808],[338.746968,338.747608],[338.748248,338.750232],[338.750424,338.751128],[338.75132,338.751992],[338.752184,338.760216],[338.760376,338.761048],[338.761208,338.768888],[338.769048,338.769688],[338.769848,338.777304],[338.777464,338.778136],[338.778296,338.784696],[338.784888,338.787544],[338.787704,338.788216],[338.788376,338.793656],[338.793848,338.794552],[338.794712,339.699802],[339.699962,339.702106],[339.70265,339.705338],[339.705498,339.706138],[339.706298,339.709562],[339.709754,339.710234],[339.710394,339.713498],[339.713658,339.715258],[339.715418,339.717594],[339.717754,339.72649],[339.72665,339.72729],[339.737306,339.73785],[339.740954,339.741722],[339.745018,339.857146],[339.861786,339.862714],[339.867578,339.86857],[339.872026,339.877498],[339.882234,339.88281],[339.88633,339.887898],[339.893466,339.893946],[340.043643,340.045563],[340.40662,340.407132],[340.507868,340.508412],[340.59686,340.598332],[340.662588,340.666236],[340.950205,340.951261],[340.951421,340.952029],[340.952221,340.952637],[340.952829,340.953309],[340.953469,340.953949],[340.954109,340.960957],[341.303678,341.306718],[341.559998,341.560542],[341.857535,341.857791],[341.869823,341.870399],[341.954271,341.955103],[342.140607,342.141631],[342.141791,342.143263],[342.143423,342.145791],[342.145951,342.149119],[342.149311,342.153023],[342.153215,342.159168],[342.159584,342.164032],[342.164192,342.165056],[342.165248,342.186208],[342.1864,342.186784],[342.186944,342.191552],[342.191712,342.19216],[342.19232,342.196256],[342.196448,342.197312],[342.197504,342.197984],[342.198144,342.303072],[342.303264,342.30512],[342.305664,342.306144],[342.306336,342.3472],[342.34736,342.348256],[342.880705,342.884225],[343.012257,343.019233],[347.871916,347.873836],[383.791229,383.791869],[383.868958,383.869534],[388.286472,388.28676],[388.504328,388.50628],[388.57524,388.578088],[388.604232,388.608776],[388.671944,388.674568],[388.689544,388.693768],[388.719785,388.722377],[388.727369,388.731657],[388.734729,388.737353],[388.741449,388.745609],[388.749193,388.751785],[388.756009,388.760073],[388.762409,388.765033],[388.789289,388.793353],[388.807593,388.810185],[388.814953,388.819017],[388.821833,388.824489],[388.828137,388.832233],[388.835337,388.837065],[388.841929,388.844553],[388.848201,388.852297],[388.855177,388.857833],[388.861801,388.865897],[388.867881,388.870505],[388.874857,388.878889],[388.881353,388.884009],[388.888201,388.892297],[388.894569,388.897161],[388.901097,388.905193],[388.971657,388.974249],[388.998921,389.002985],[389.006633,389.009289],[389.013481,389.017577],[389.020169,389.022825],[389.026857,389.030985],[389.034057,389.036105],[389.600267,389.608331],[389.609099,389.628619],[389.628843,389.637035],[389.637291,389.657003],[389.657259,389.665195],[389.665995,389.685515],[389.685739,389.693611],[389.694219,389.713931],[389.714731,389.722763],[389.722987,389.742219],[389.742827,389.750731],[389.751339,389.770539],[389.771147,389.779115],[389.779339,389.798379],[389.800363,389.808267],[389.834635,389.853515],[404.282092,404.411884],[404.413388,404.549196],[405.709743,405.722991],[405.723215,405.727247],[405.728047,405.732047],[405.732271,405.736463],[405.737231,405.740143],[405.740623,405.745327],[405.745775,405.746383],[405.746863,405.747471],[405.747695,405.748335],[405.748943,405.749551],[405.749807,405.750383],[405.750863,405.751503],[405.751951,405.752559],[405.753007,405.753615],[405.753871,405.755855],[405.756335,405.757679],[405.758159,405.761807],[406.354512,406.35512],[406.430129,406.430673],[439.408475,439.409659],[440.129501,440.130525],[440.532317,440.534973],[466.277848,466.279096],[466.972122,466.972698],[467.11337,467.116506],[467.245786,467.246714],[496.753054,496.754494],[496.864894,496.86547],[497.052575,497.053151],[497.163647,497.168767],[497.286783,497.287007],[497.375551,497.387871],[497.530112,497.530784],[497.630816,497.632704],[499.093635,499.094243],[502.633451,502.634251],[503.208333,503.209677],[503.685198,503.686766],[503.877454,503.877998],[504.222799,504.223407],[504.462831,504.501936],[504.597648,504.597904],[504.727376,504.728432],[505.335857,505.337841],[505.358034,505.358802],[505.377842,505.423378],[505.435858,505.44101],[507.324854,507.32575],[507.469334,507.469878],[507.611639,507.612215],[507.810615,507.816055],[507.948471,507.949239],[508.02588,508.026456],[508.073752,508.07868],[508.173624,508.174168],[508.210808,508.21564],[508.24908,508.249688],[508.284216,508.289144],[508.321464,508.322392],[508.353752,508.361016],[508.38172,508.382264],[508.446553,508.451289],[508.478937,508.479513],[508.510265,508.515129],[508.538297,508.538841],[508.554681,508.559097],[508.586265,508.586809],[508.602329,508.606393],[508.645113,508.645785],[508.876442,508.877306],[509.165402,509.16713],[509.168602,509.168922],[509.182906,509.183706],[509.315675,509.318043],[509.364379,509.365147],[509.446267,509.446811],[509.480123,509.484923],[509.510043,509.511131],[509.526491,509.531131],[509.555483,509.556027],[509.585595,509.589723],[509.606587,509.607515],[509.698715,509.704219],[509.711739,509.712283],[509.972028,509.976892],[510.008284,510.00886],[510.042236,510.0471],[510.072444,510.072988],[510.103324,510.107388],[510.131612,510.132156],[510.198397,510.202525],[510.241789,510.242461],[510.273181,510.274077],[511.222655,511.223551],[511.350079,511.350879],[511.394335,511.395167],[511.433279,511.433951],[511.471456,511.472128],[514.992552,514.99348],[515.475593,515.476873],[515.550569,515.567369],[515.603753,515.604169],[515.739017,515.741449],[515.742185,515.747465],[515.747657,515.752873],[515.753065,515.758153],[515.758345,515.763625],[515.763785,515.841417],[515.841609,515.847082],[515.847242,515.852714],[515.852874,515.862346],[515.862506,515.86321],[515.863402,515.87329],[515.87617,515.878442],[515.932394,515.952266],[515.97169,515.977162],[516.072522,516.073066],[516.116426,516.124618],[516.152394,516.160426],[516.187818,516.210538],[516.458155,516.459051],[516.559659,516.560107],[516.560299,516.563819],[516.563979,516.564779],[516.564939,516.565771],[516.565931,516.566347],[516.566539,516.566955],[516.567115,516.569067],[516.569259,516.569995],[516.570155,516.570667],[516.570827,516.578603],[516.578795,516.579307],[516.579467,516.586763],[516.586955,516.587467],[516.587627,516.594571],[516.594731,516.595243],[516.595435,516.601675],[516.605003,516.605387],[516.605579,516.608651],[516.610891,516.611243],[516.611435,516.615211],[516.616619,516.617003],[516.617163,516.621259],[516.621419,516.624747],[516.624907,516.628331],[516.628491,516.631915],[516.632075,516.632939],[516.633099,516.634027],[519.214257,519.214833],[519.218865,519.219889],[519.961427,519.962483],[520.059475,520.059731],[520.087123,520.087379],[520.090899,520.091155],[520.105715,520.106323],[520.243924,520.244532],[520.410772,520.415188],[520.448468,520.49426],[521.023669,521.044885],[521.066965,521.067221],[521.078293,521.078837],[521.12831,521.131286],[521.16319,521.163894],[521.196566,521.197142],[521.263798,521.270262],[521.301334,521.30191],[521.319734,521.32575],[521.332182,521.332758],[521.341142,521.346934],[521.352214,521.35279],[521.36095,521.365206],[521.371254,521.37183],[521.379606,521.385558],[521.390198,521.390806],[521.39855,521.404374],[521.409174,521.409782],[521.417622,521.42303],[521.427414,521.428022],[521.436022,521.440278],[521.450326,521.740407],[522.508281,522.509273],[551.526843,551.527899],[551.548699,551.552699],[551.552923,551.554235],[551.555067,551.613851],[551.615291,551.637275],[551.638779,551.663899],[551.665435,551.666555],[551.668187,551.668443],[551.669435,551.674491],[551.674715,551.686907],[551.689755,551.690267],[552.112444,552.113436],[552.113916,552.117244],[552.117724,552.120636],[552.121372,552.126556],[552.127004,552.136124],[552.136572,552.141788],[552.142236,552.147133],[552.147581,552.152957],[552.153501,552.162269],[552.162749,552.172605],[552.173085,552.173597],[552.174077,552.175357],[552.175837,552.210077],[552.210557,552.273117],[552.273565,552.293725],[552.294205,552.294845],[552.295325,552.295965],[552.297053,552.299005],[552.299485,552.300221],[552.300861,552.301533],[552.302013,552.309981],[552.310461,552.311133],[552.311581,552.319293],[552.319773,552.320445],[552.320925,552.328221],[552.328669,552.329501],[552.329917,552.336381],[552.336829,552.339485],[552.339965,552.340445],[552.340925,552.345309],[552.345789,552.346493],[552.346909,553.329631],[553.330111,553.332287],[553.333343,553.336127],[553.336575,553.337023],[553.337503,553.340767],[553.341215,553.341727],[553.342175,553.345151],[553.345631,553.347231],[553.347807,553.349855],[553.350303,553.359231],[553.359679,553.360319],[553.363007,553.363679],[553.364895,553.365759],[553.366559,553.46992],[553.470752,553.471584],[553.474208,553.4752],[553.476,553.480512],[553.481312,553.481952],[553.482752,553.484416],[553.485888,553.486368],[553.71232,553.71424],[554.067265,554.067873],[554.104737,554.105409],[554.142817,554.144449],[554.224225,554.225313],[554.225825,554.226433],[554.226881,554.227297],[554.227777,554.228257],[554.228705,554.229185],[554.229665,554.236609],[554.806275,554.806531],[554.897027,554.897699],[554.932227,554.933315],[555.031331,555.032323],[555.032643,555.033859],[555.034179,555.036515],[555.036803,555.039747],[555.040035,555.043747],[555.044035,555.049795],[555.050211,555.054659],[555.054947,555.055843],[555.056099,555.074563],[555.074851,555.075267],[555.075555,555.079747],[555.080035,555.080387],[555.080675,555.084771],[555.085059,555.085955],[555.086243,555.086723],[555.087011,555.189667],[555.189955,555.192131],[555.192739,555.193091],[555.193379,555.234212],[555.2345,555.235428],[555.510852,555.51434],[555.638788,555.644101],[558.487691,558.489547],[588.121007,588.122063],[588.175727,588.188495],[588.221519,588.222031],[588.305807,588.308047],[588.308783,588.313967],[588.314415,588.319823],[588.320271,588.325615],[588.326063,588.331599],[588.332047,588.410063],[588.410511,588.415759],[588.416207,588.421679],[588.422127,588.431599],[588.432047,588.432751],[588.433231,588.443407],[588.445359,588.447728],[588.448784,588.465968],[588.466736,588.474064],[588.494064,588.494672],[588.529808,588.538128],[588.565168,588.573328],[588.637872,588.660592],[588.903153,588.904081],[589.005937,589.006417],[589.006897,589.010961],[589.011441,589.012241],[589.012689,589.013521],[589.014161,589.014545],[589.014993,589.015409],[589.015889,589.017873],[589.018321,589.019057],[589.019505,589.020017],[589.020497,589.028465],[589.028881,589.029425],[589.029873,589.037201],[589.037681,589.038193],[589.038673,589.045713],[589.046193,589.046705],[589.047185,589.053425],[589.057585,589.058001],[589.058449,589.061937],[589.064753,589.065105],[589.065585,589.069521],[589.071505,589.071857],[589.072337,589.075729],[589.076177,589.079473],[589.080273,589.083601],[589.084369,589.087697],[589.088177,589.088945],[589.089681,589.090513],[591.723191,591.723799],[591.725175,591.726295],[592.090392,592.090936],[592.228408,592.2334],[592.234168,592.234648],[592.235128,592.237656],[592.238168,592.238648],[592.239128,592.24268],[592.24316,592.24668],[592.421721,592.422265],[592.588409,592.602041],[592.685017,592.698073],[593.191738,593.19225],[593.353275,593.363067],[593.425371,593.427387]],&quot;GPU stress&quot;:[[299.429791,299.434399],[299.434559,299.454623],[299.455967,299.465727],[299.465887,299.467551],[299.467743,299.470687],[299.470879,299.471391],[299.471551,299.502591],[299.502751,299.503295],[299.503455,337.88463],[337.884822,337.886134],[337.886294,337.896758],[337.896918,337.955958],[337.95615,337.964566],[337.977014,337.989078],[337.999862,338.00047],[340.102651,340.103195],[340.156827,340.158235],[340.289531,340.290811],[516.24017,516.24065],[516.340427,516.342027],[516.433771,516.440715],[516.440907,516.441419],[516.444939,516.457995],[516.459243,516.463243],[516.463403,516.465643],[516.465835,516.472427],[516.472587,516.473291],[516.473451,516.478795],[516.478955,516.531147],[516.531307,516.547339],[516.547531,516.557131],[516.557323,516.559467],[516.601835,516.603339],[516.603499,516.604811],[516.608811,516.610699],[516.615403,516.616459],[516.634219,516.635851],[516.636043,518.797008],[518.7972,519.154065],[519.154257,519.188561],[519.188721,519.200465],[519.208721,519.209777],[522.485625,522.493433],[522.493593,522.508121],[522.509433,522.514809],[522.514969,522.516729],[522.516889,522.519577],[522.519769,522.520377],[522.520537,522.550073],[522.550233,522.636089],[522.636249,551.441851],[551.442043,551.443323],[551.443515,551.453915],[551.454075,551.509307],[551.509499,551.524731],[551.528571,551.542267],[551.542523,551.543387],[553.852416,553.852992],[553.898657,553.900033],[553.991777,553.993089],[588.684944,588.685488],[588.751728,588.753328],[588.87848,588.885425],[588.885873,588.886385],[588.890225,588.902705],[588.904561,588.908369],[588.908817,588.911377],[588.911825,588.918033],[588.918769,588.919473],[588.920241,588.925329],[588.926129,588.977105],[588.977585,588.993009],[588.993457,589.002929],[589.003441,589.005457],[589.053873,589.055345],[589.055825,589.057105],[589.062417,589.064305],[589.069969,589.071057],[589.091281,589.092977],[589.093809,591.331702],[591.332182,591.661687],[591.662135,591.698231],[591.698711,591.712055],[591.718999,591.720119]],&quot;CPU \u2192 GPU&quot;:[[10.532019,11.847574],[37.707089,38.161874],[38.16229,38.689523],[38.689907,38.757075],[92.827469,92.827789],[92.829293,92.830061],[93.166414,93.166638],[93.320046,93.32027],[94.157904,94.158576],[94.217264,94.217968],[94.257072,94.257712],[94.350704,94.654321],[94.654705,94.731633],[94.731985,94.808562],[94.808946,94.81221],[95.725908,95.793652],[95.799188,95.800724],[95.839572,95.839828],[95.87506,95.875316],[219.759147,219.759499],[220.551085,220.551533],[220.591021,220.591341],[220.678253,220.678541],[220.732654,220.732942],[220.796142,220.796462],[220.841742,220.84203],[221.024302,221.024686],[221.13771,221.138351],[221.173807,221.174159],[221.262063,221.262415],[221.302255,221.302543],[221.349615,221.349967],[221.396559,221.396847],[221.542511,221.662128],[221.681008,222.034641],[222.035601,222.095985],[222.096369,222.156273],[222.156657,222.187281],[222.187665,222.247825],[222.847986,222.878802],[257.424864,257.886593],[257.888129,257.888961],[257.890081,257.890433],[257.892065,257.892417],[260.095974,260.10887],[281.226742,281.27135],[281.472951,281.516567],[281.516951,281.644023],[281.644695,281.687735],[281.690359,281.690999],[281.692119,281.692823],[281.694167,281.694519],[281.696599,281.696951],[281.705143,281.727479],[281.727863,281.736407],[281.736791,281.744887],[281.745271,281.753655],[281.754039,281.776183],[281.782199,281.782519],[281.784695,281.785015],[283.944028,284.266269],[284.266685,284.273565],[284.273981,284.281181],[284.283261,284.283773],[284.284733,284.285085],[284.293853,284.295357],[284.299613,284.375389],[284.571678,284.571998],[287.527588,287.553508],[291.505549,291.505805],[294.491732,294.491988],[294.528084,294.52834],[295.054549,295.054805],[341.347742,341.347966],[341.643134,341.643358],[341.794911,341.795743],[342.001503,342.001727],[342.071455,342.071711],[388.539464,388.53972],[388.564168,388.564424],[389.133065,389.133321],[389.23441,389.23505],[389.268778,389.269034],[389.352554,389.352842],[389.392074,389.39233],[389.397034,389.39729],[390.537421,390.537709],[390.746957,390.747533],[397.755869,397.761981],[397.763709,397.764029],[397.784189,397.784509],[397.792605,397.796157],[439.168602,439.16889],[439.581915,439.582171],[439.657147,439.657403],[439.708156,439.708412],[439.746588,439.746844],[439.801916,439.802172],[439.89558,439.896092],[440.023996,440.024252],[440.180477,440.180701],[440.216573,440.216829],[440.251453,440.251709],[440.285661,440.285917],[440.323101,440.323357],[440.380797,440.381053],[440.474173,440.531613],[440.554717,440.722878],[440.72323,440.752894],[440.753246,440.782238],[440.78259,440.79763],[440.798014,440.827102],[441.283263,441.298527],[466.392184,466.398552],[466.460345,466.460601],[466.496281,466.496537],[466.531129,466.531353],[467.04521,467.061242],[497.997025,498.062785],[498.180833,498.374818],[498.375202,498.460098],[498.46349,498.463874],[498.465218,498.465602],[498.471458,498.47181],[498.51261,498.512898],[498.551618,498.585186],[498.589282,498.599074],[498.684002,498.699298],[498.927107,498.927363],[499.038115,499.038339],[501.688457,502.101738],[502.102442,502.11185],[502.112266,502.12081],[502.170346,502.170954],[502.548427,502.548683],[502.763244,502.763564],[502.95566,503.057612],[503.516749,503.517005],[503.98827,503.988526],[504.507568,504.51192],[511.49936,511.499616],[514.842247,514.842503],[514.927271,514.928071],[520.369268,520.369812],[554.427714,554.42797],[554.624002,554.624674],[554.973667,554.973923],[554.995363,554.995619]],&quot;GPU \u2192 CPU&quot;:[[101.631745,101.632321],[224.004117,224.004853],[224.120757,224.121493],[224.148085,224.489814],[224.490326,224.491254],[224.934039,224.934743],[224.984727,224.985431],[225.021463,225.022167],[225.056247,225.056983],[225.092471,225.092919],[225.115351,225.115831],[225.124279,225.124695],[225.200792,225.201208],[225.22652,225.256248],[225.256664,225.314584],[225.315,225.335256],[225.335672,225.37804],[234.619917,234.896622],[234.897134,235.240238],[260.593416,260.594504],[290.844716,290.84622],[290.97006,291.03854],[291.038924,291.318029],[291.970414,292.018446],[292.01883,292.064559],[292.105231,292.115375],[292.272687,292.273071],[292.377743,292.384367],[292.413999,292.420047],[292.446863,292.509936],[292.51032,292.57368],[292.574032,293.013681],[293.014033,293.530066],[293.53045,293.532146],[341.009629,341.010717],[342.355776,342.356704],[343.142274,343.151202],[343.379426,343.38045],[347.995117,348.004365],[348.233933,348.243085],[348.379374,348.380014],[405.796175,405.796751],[443.031779,443.033091],[443.176067,443.176483],[443.214595,443.215555],[443.240419,443.240835],[443.264612,443.585924],[443.58634,443.748197],[443.748613,443.749029],[444.028197,444.028869],[444.132198,444.132902],[444.169414,444.170086],[444.202342,444.203014],[444.21079,444.211174],[444.217382,444.217766],[444.224806,444.22519],[444.232646,444.233062],[444.239686,444.240262],[444.24599,444.246598],[444.253254,444.25383],[444.259878,444.260486],[444.268614,444.28327],[444.283654,444.311622],[444.312038,444.32311],[444.323526,444.347366],[451.436502,451.789783],[451.790167,452.30444],[467.314811,467.315931],[505.656818,505.657938],[508.956858,508.965594],[509.009562,509.027226],[510.318461,510.327869],[510.343485,510.360797],[510.92515,510.926526],[510.987646,511.075199],[511.079231,511.499104],[512.061601,512.122561],[512.122945,512.180865],[512.199521,512.213537],[512.356194,512.356834],[512.465314,512.472802],[512.508034,512.515906],[512.544098,512.606786],[512.60717,512.670594],[512.670978,513.110563],[513.110947,513.62042],[513.620868,513.622404],[519.221841,519.222897],[554.310401,554.310945],[555.241764,555.242692],[555.802949,555.808197],[556.030789,556.031781],[558.594251,558.602443],[558.856588,558.861516],[558.99502,558.995564],[591.732087,591.732599],[592.758969,592.863546],[593.466267,593.482587],[593.667451,593.668091],[661.303798,661.304534],[661.669879,661.670263]],&quot;GPU \u2192 GPU&quot;:[[38.759155,38.760115],[49.470603,49.471467],[49.758572,49.759404],[49.939852,49.940684],[50.033197,50.033997],[50.174221,50.174957],[92.816557,92.818317],[92.818925,92.820013],[92.820621,92.822317],[233.681355,233.682443],[233.826635,233.827243],[233.879339,233.880203],[233.924971,233.925579],[233.971531,233.972139],[234.017548,234.018156],[234.120332,234.121068],[234.152684,234.153292],[234.184524,234.185068],[234.215372,234.216044],[234.24622,234.246732],[234.277356,234.27806],[234.360844,234.362956],[234.394476,234.39614],[234.426316,234.434924],[234.471757,234.474189],[234.503981,234.505197],[234.535181,234.537517],[259.158724,259.17082],[281.378678,281.37935],[341.207645,341.218141],[341.528894,341.53059],[342.720897,342.732385],[388.426664,388.430632],[388.468232,388.470952],[388.491656,388.493832],[444.584647,444.585319],[444.675495,444.676039],[444.876071,444.876775],[444.923175,444.923719],[444.972455,444.972967],[445.062408,445.062984],[445.173064,445.173608],[445.223592,445.224104],[445.258696,445.25924],[445.289224,445.289736],[445.318984,445.319656],[445.409,445.409544],[445.441545,445.442057],[445.472073,445.472585],[445.500649,445.501161],[445.820841,445.823721],[445.950346,445.954506],[446.012938,446.022602],[446.07777,446.080106],[446.123722,446.12593],[446.21697,446.218666],[446.266506,446.268938],[446.310539,446.311915],[446.341323,446.342507],[446.373003,446.381707],[446.411467,446.412107],[446.493899,446.495083],[446.542315,446.543403],[446.590763,446.592171],[449.738898,449.742994],[449.960563,449.964563],[450.018643,450.028563],[450.076339,450.078579],[450.195987,450.197747],[450.252628,450.255284],[450.3821,450.382836],[450.484244,450.485012],[450.531732,450.532468],[450.575892,450.576628],[450.619796,450.6205],[450.829237,450.829973],[450.897045,450.897781],[450.928981,450.929813],[450.958901,450.959765],[450.990421,450.991157],[451.021557,451.022325],[451.104917,451.105653],[451.139798,451.148118],[451.179254,451.185846],[451.21551,451.222518],[451.274582,451.27615],[451.312278,451.31359],[451.398422,451.399894],[466.135352,466.139896],[495.15641,495.15801],[496.170589,496.171773],[497.719104,497.720032],[502.865356,502.868972],[503.112204,503.113452],[519.882643,519.894419],[520.214771,520.215955],[555.4465,555.459812]],&quot;CPU scheduled&quot;:[[0.0,0.063255],[0.069677,11.658448],[11.663086,11.732894],[11.776923,12.820068],[12.841687,12.874696],[12.907519,13.925431],[13.932705,14.096752],[14.118588,14.149928],[14.185523,14.863402],[14.880039,15.268765],[15.288737,15.518049],[15.528594,15.655743],[15.683575,18.634538],[18.651019,18.678979],[18.720706,18.740207],[18.766093,19.811462],[19.83025,20.121156],[20.132982,21.042467],[21.064953,21.886868],[21.902845,21.990073],[22.021066,22.027795],[22.616751,22.636185],[22.682989,23.670666],[23.70054,23.71801],[23.739315,23.902268],[23.918532,29.41367],[29.437151,29.806666],[29.832915,30.247675],[30.275436,31.432837],[31.434906,31.451518],[31.472477,31.788884],[31.803026,34.838423],[34.856268,35.217525],[35.248787,37.293578],[37.308926,37.503239],[37.522061,46.669057],[47.229826,47.568753],[47.730004,61.787396],[61.874143,84.485763],[84.511375,91.212279],[91.512583,115.913068],[115.926245,115.933215],[115.94081,115.956374],[115.983866,118.234145],[118.235687,118.24913],[118.268581,118.285206],[118.309334,118.312547],[118.34662,118.349709],[118.382832,118.385974],[118.419673,118.422824],[118.472491,118.475738],[118.514271,118.832155],[118.851172,121.160473],[121.190899,123.256157],[123.279786,127.042888],[127.064665,127.837009],[127.859129,129.87111],[129.890809,130.200249],[130.220832,130.583855],[130.602506,131.445524],[131.451974,132.189455],[132.205398,133.400149],[133.403387,133.441122],[133.459443,133.903406],[133.933504,133.966193],[133.986446,134.198198],[134.217832,134.246487],[134.267289,135.928125],[135.947537,136.164248],[136.195599,136.229372],[136.252289,136.59644],[136.601452,136.629108],[136.646534,143.86473],[143.888518,143.93192],[143.949414,144.283208],[144.289814,144.326021],[144.346258,144.715771],[144.726704,144.814353],[144.829462,144.997431],[144.998034,145.010078],[145.020573,145.505365],[145.517149,145.532992],[145.554642,145.881484],[145.902004,146.187715],[146.209305,146.384169],[146.389088,146.513486],[146.517787,146.53501],[146.555654,146.875154],[146.880701,224.245642],[224.316389,224.432496],[224.604403,224.646533],[224.724312,225.340817],[225.386463,225.437903],[225.465123,225.795904],[225.852804,225.860859],[226.943423,283.803724],[283.845275,298.909789],[298.980876,299.076793],[299.085199,299.278592],[299.314755,299.355413],[299.372216,300.888953],[300.941828,300.989777],[309.767937,309.83411],[311.967788,311.996116],[317.07596,317.144451],[317.18341,319.051484],[322.118957,322.163069],[324.333194,324.366297],[334.527315,334.578375],[336.71516,336.740004],[338.325418,338.419832],[338.458836,339.87932],[339.935692,339.997496],[340.011107,340.7904],[340.819468,342.221209],[342.272472,342.313071],[342.448634,342.487802],[342.507462,343.168443],[343.207428,343.256379],[343.273191,343.397092],[343.429298,343.468946],[343.484009,348.028616],[348.091343,348.161026],[348.175388,348.252396],[348.284,348.322332],[348.326459,348.395118],[348.425422,348.464589],[348.468865,443.454964],[443.519809,443.579503],[443.833746,443.880972],[443.926451,444.331322],[444.35886,505.707469],[505.793186,505.884594],[505.898957,505.979867],[505.98137,506.223361],[506.235099,506.362879],[506.375632,513.830061],[513.850619,520.514152],[520.57627,520.646412],[520.669471,522.292249],[522.342868,522.396774],[522.402517,523.205497],[523.250094,523.286181],[532.153872,532.193699],[534.331284,534.353564],[544.522462,544.555577],[546.71924,546.741418],[551.875604,551.962305],[551.996252,552.7667],[552.817702,552.854969],[553.587169,553.646022],[553.666651,555.15699],[555.216573,555.332133],[555.339444,555.821526],[555.866813,555.914056],[555.930307,556.046382],[556.0805,556.123243],[556.138964,558.632419],[558.704786,558.785373],[558.795571,558.873895],[558.906741,558.944863],[558.949301,559.009498],[559.051994,661.359167],[661.428292,661.711724],[661.736005,661.794571],[661.820915,661.872232]],&quot;Main-thread wait&quot;:[[0.025716,0.043428],[0.054154,600.316515],[661.310593,661.333645],[661.340619,661.545075],[661.672724,661.68431],[661.688244,661.824387]]},&quot;cpu_events&quot;:[{&quot;start&quot;:115.73144,&quot;end&quot;:146.951722,&quot;name&quot;:&quot;trialDetail.preallocateContactManagers&quot;},{&quot;start&quot;:351.453758,&quot;end&quot;:383.388749,&quot;name&quot;:&quot;applyDetail.migrateShapes&quot;},{&quot;start&quot;:408.172484,&quot;end&quot;:411.890538,&quot;name&quot;:&quot;detail.preallocateContactManagers&quot;},{&quot;start&quot;:412.105042,&quot;end&quot;:416.444405,&quot;name&quot;:&quot;detail.registerSceneInteractions&quot;},{&quot;start&quot;:560.604865,&quot;end&quot;:587.814432,&quot;name&quot;:&quot;applyDetail.migrateShapes&quot;},{&quot;start&quot;:147.094251,&quot;end&quot;:168.427407,&quot;name&quot;:&quot;trialDetail.registerSceneInteractions&quot;}],&quot;cpu&quot;:[{&quot;name&quot;:&quot;applyDetail.migrateShapes&quot;,&quot;ms&quot;:59.150728},{&quot;name&quot;:&quot;trialDetail.preallocateContactManagers&quot;,&quot;ms&quot;:25.917804},{&quot;name&quot;:&quot;detail.updateDynamics&quot;,&quot;ms&quot;:24.678285},{&quot;name&quot;:&quot;trialDetail.islandInsertion&quot;,&quot;ms&quot;:22.933754},{&quot;name&quot;:&quot;trialDetail.registerSceneInteractions&quot;,&quot;ms&quot;:21.352058},{&quot;name&quot;:&quot;trialDetail.registerInteractions&quot;,&quot;ms&quot;:16.050146},{&quot;name&quot;:&quot;detail.broadPhaseWait&quot;,&quot;ms&quot;:15.28974},{&quot;name&quot;:&quot;submit&quot;,&quot;ms&quot;:13.663340999999999},{&quot;name&quot;:&quot;task.prepareIslandRepair&quot;,&quot;ms&quot;:12.822856999999999},{&quot;name&quot;:&quot;trialDetail.postNarrowPhase&quot;,&quot;ms&quot;:11.498031000000001}],&quot;kernels&quot;:[{&quot;name&quot;:&quot;stress solver / stress topology&quot;,&quot;ms&quot;:67.85794599999997},{&quot;name&quot;:&quot;physics broad phase&quot;,&quot;ms&quot;:19.483883999999993},{&quot;name&quot;:&quot;stress hierarchy / preconditioner&quot;,&quot;ms&quot;:5.180716},{&quot;name&quot;:&quot;physics constraint preparation / solve / integration&quot;,&quot;ms&quot;:3.7472409999999994},{&quot;name&quot;:&quot;shared physics utilities&quot;,&quot;ms&quot;:3.0521329999999995},{&quot;name&quot;:&quot;destruction connectivity / mass / slots&quot;,&quot;ms&quot;:2.5625030000000004},{&quot;name&quot;:&quot;destruction orchestration / motion&quot;,&quot;ms&quot;:1.4960070000000003},{&quot;name&quot;:&quot;physics narrow phase / contact lifecycle&quot;,&quot;ms&quot;:0.815521},{&quot;name&quot;:&quot;shared CUDA scan / sort primitives&quot;,&quot;ms&quot;:0.3740800000000001},{&quot;name&quot;:&quot;destruction material / damage&quot;,&quot;ms&quot;:0.258432},{&quot;name&quot;:&quot;physics body / shape updates&quot;,&quot;ms&quot;:0.193473},{&quot;name&quot;:&quot;destruction contact graph&quot;,&quot;ms&quot;:0.175233},{&quot;name&quot;:&quot;unclassified&quot;,&quot;ms&quot;:0.14732899999999996},{&quot;name&quot;:&quot;destruction load gathering&quot;,&quot;ms&quot;:0.091392},{&quot;name&quot;:&quot;destruction pre-solve contacts / islands&quot;,&quot;ms&quot;:0.021376}],&quot;copies&quot;:[{&quot;name&quot;:&quot;CPU \u2192 GPU&quot;,&quot;count&quot;:149,&quot;MB&quot;:42.359312,&quot;union_ms&quot;:6.200718999999626},{&quot;name&quot;:&quot;GPU \u2192 CPU&quot;,&quot;count&quot;:101,&quot;MB&quot;:43.20776,&quot;union_ms&quot;:6.075727000000327},{&quot;name&quot;:&quot;GPU \u2192 GPU&quot;,&quot;count&quot;:97,&quot;MB&quot;:50.700524,&quot;union_ms&quot;:0.230207999999962}],&quot;kernel_count&quot;:884,&quot;copy_count&quot;:347,&quot;phases&quot;:[{&quot;name&quot;:&quot;contactLoads&quot;,&quot;ms&quot;:1.754879951},{&quot;name&quot;:&quot;stress&quot;,&quot;ms&quot;:41.15897751},{&quot;name&quot;:&quot;materials&quot;,&quot;ms&quot;:0.1430400014},{&quot;name&quot;:&quot;topologyAndCandidates&quot;,&quot;ms&quot;:1.713152051},{&quot;name&quot;:&quot;commitAndStressTopology&quot;,&quot;ms&quot;:0.7669119835},{&quot;name&quot;:&quot;allocationAndPreparation&quot;,&quot;ms&quot;:0.2756479979},{&quot;name&quot;:&quot;allocationAndPreparationRetry&quot;,&quot;ms&quot;:0.2483199984},{&quot;name&quot;:&quot;rewindState&quot;,&quot;ms&quot;:0.09846399724},{&quot;name&quot;:&quot;installFragments&quot;,&quot;ms&quot;:0.1917439997},{&quot;name&quot;:&quot;installOwners&quot;,&quot;ms&quot;:0.0790719986},{&quot;name&quot;:&quot;contactLoads&quot;,&quot;ms&quot;:1.349568009},{&quot;name&quot;:&quot;stress&quot;,&quot;ms&quot;:29.8055687},{&quot;name&quot;:&quot;materials&quot;,&quot;ms&quot;:0.1208639964},{&quot;name&quot;:&quot;topologyAndCandidates&quot;,&quot;ms&quot;:1.80527997},{&quot;name&quot;:&quot;commitAndStressTopology&quot;,&quot;ms&quot;:0.6992319822},{&quot;name&quot;:&quot;allocationAndPreparation&quot;,&quot;ms&quot;:0.07142399997},{&quot;name&quot;:&quot;allocationAndPreparationRetry&quot;,&quot;ms&quot;:0.2385279983},{&quot;name&quot;:&quot;finalSplitState&quot;,&quot;ms&quot;:0.06470400095},{&quot;name&quot;:&quot;finalSplitFragments&quot;,&quot;ms&quot;:0.08969599754},{&quot;name&quot;:&quot;finalSplitOwners&quot;,&quot;ms&quot;:0.09705600142}],&quot;diagnostics&quot;:[{&quot;severity&quot;:2,&quot;text&quot;:&quot;Not all NVTX events might have been collected.&quot;},{&quot;severity&quot;:2,&quot;text&quot;:&quot;The operating system throttled the collection of sampling data 4161 times.&quot;}],&quot;source&quot;:&quot;/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city256-late-debris/attribution.json&quot;,&quot;trace&quot;:&quot;/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city256-late-debris/trace.sqlite&quot;},{&quot;name&quot;:&quot;city25-initial-impact&quot;,&quot;cohort&quot;:&quot;N20 diagnostic build&quot;,&quot;tick&quot;:139.754571,&quot;gpu&quot;:15.783747,&quot;no_gpu&quot;:123.970824,&quot;wall&quot;:{&quot;gpu_and_scheduled_cpu_ms&quot;:8.108646,&quot;gpu_without_scheduled_cpu_ms&quot;:7.675101,&quot;scheduled_cpu_without_gpu_ms&quot;:122.071277,&quot;neither_traced_gpu_nor_scheduled_cpu_ms&quot;:1.899547},&quot;physical&quot;:{&quot;stress_iterations&quot;:304,&quot;broken_bonds&quot;:3412,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:537,&quot;stress_islands&quot;:77,&quot;stress_active_nodes&quot;:9040,&quot;stress_active_bonds&quot;:16188,&quot;normal_contacts&quot;:3931,&quot;friction_anchors&quot;:625},&quot;lanes&quot;:{&quot;GPU physics&quot;:[[4.439793,4.444945],[17.480014,17.481326],[17.846319,17.848207],[17.954895,17.956143],[18.018256,18.019184],[18.06632,18.067664],[18.1084,18.109328],[18.211216,18.212432],[18.255504,18.257776],[18.295312,18.29736],[18.92741,18.929618],[19.042674,19.046162],[19.085362,19.08741],[19.348371,19.352691],[19.393939,19.395987],[19.465299,19.466707],[19.510099,19.512051],[19.609843,19.611283],[19.656755,19.661651],[19.708531,19.733427],[19.749172,19.752948],[19.875508,19.88306],[19.931444,19.933524],[19.974836,19.976308],[20.016116,20.09922],[20.126036,20.128404],[20.17714,20.17874],[20.231669,20.233749],[20.888758,20.890582],[21.280983,21.282263],[24.733855,24.735295],[24.802367,24.805663],[24.928351,24.929407],[24.983679,24.985311],[25.051808,25.052576],[27.524933,27.526277],[31.568718,31.569582],[31.936591,31.941007],[32.014543,32.016879],[33.352658,33.35413],[33.509971,33.513203],[33.565651,33.571859],[33.673427,33.674899],[33.893331,33.894067],[34.0997,34.105012],[34.493141,34.494549],[34.632021,34.633589],[34.765589,34.767445],[34.880502,34.890998],[34.930902,34.932374],[34.98015,34.982998],[35.082166,35.083446],[35.110902,35.112534],[35.136246,35.142134],[35.160214,35.161366],[35.18447,35.18719],[35.208534,35.209782],[35.233591,35.235191],[35.314295,35.320183],[35.355127,35.356279],[35.381559,35.384311],[35.406711,35.407959],[35.453943,35.455575],[35.480151,35.486071],[35.504407,35.505591],[35.529047,35.531767],[35.606711,35.607799],[35.664503,35.665592],[35.720568,35.722168],[35.775704,35.781656],[35.883672,35.884824],[35.944472,35.945912],[36.003256,36.007224],[36.518329,36.520249],[36.85625,36.861594],[36.906298,36.907226],[36.998235,36.999867],[37.045435,37.047099],[37.128507,37.129371],[37.402619,37.403163],[38.009213,38.009757],[72.761099,72.768363],[73.146892,73.14814],[73.470477,73.473453],[73.622157,73.625133],[73.688941,73.689901],[74.297359,74.299439],[74.356975,74.359343],[74.499567,74.503055],[74.542863,74.550703],[74.589392,74.592112],[74.628016,74.767024],[74.767248,74.770288],[74.9876,74.991696],[75.031441,75.033361],[75.071249,75.072593],[75.111313,75.113233],[75.154513,75.155857],[75.245521,75.250161],[75.301905,75.326897],[75.363281,75.367025],[75.405137,75.412625],[75.476946,75.478962],[75.570546,75.571922],[75.61157,75.623986],[75.653106,75.65525],[75.69701,75.69861],[75.803186,75.805234],[76.471444,76.474612],[76.844981,76.845589],[77.059381,77.060117],[77.111285,77.112277],[77.158581,77.159893],[77.255702,77.25679],[77.321046,77.321782],[83.745316,83.74682],[84.304325,84.306533],[84.484806,84.487974],[84.72231,84.72327],[84.789767,84.791271],[84.848967,84.849639],[85.009959,85.022343],[85.089447,85.090503],[85.136551,85.138247],[85.24324,85.244104],[95.207998,95.208734],[95.801311,95.806783],[95.868608,95.870592],[97.500963,97.502307],[97.657668,97.663716],[97.801188,97.809924],[97.984228,97.985668],[98.151397,98.152229],[98.315077,98.324837],[98.683558,98.685062],[98.834726,98.83847],[99.040135,99.045703],[99.096743,99.101959],[99.123175,99.127815],[99.148647,99.153223],[99.602792,99.60676],[99.743272,99.747944],[99.884073,99.888585],[100.034185,100.037929],[100.177513,100.179945],[100.33089,100.374314],[100.589194,100.591082],[100.782603,100.785355],[100.854411,100.857419],[100.944651,100.949387],[100.979051,100.983755],[101.069515,101.073963],[101.102539,101.106795],[101.368812,101.372332],[101.405324,101.409644],[101.501036,101.505292],[101.529708,101.533036],[101.5555,101.557644],[101.581229,101.606349],[101.615565,101.616909],[101.641037,101.643693],[101.670701,101.673773],[101.703213,101.707885],[101.781005,101.785357],[101.807949,101.812237],[101.834957,101.839309],[101.859885,101.863213],[101.948013,101.952333],[101.975181,101.979437],[101.999661,102.003021],[102.06907,102.07115],[102.102894,102.129582],[102.130222,102.131566],[102.152558,102.15515],[102.177678,102.180686],[102.202382,102.207054],[102.227854,102.232398],[102.25211,102.256558],[102.276558,102.281102],[102.36667,102.37003],[102.392814,102.397358],[102.452366,102.456623],[102.481039,102.484335],[102.505263,102.507471],[102.529103,102.556335],[102.557007,102.558319],[102.575503,102.578095],[102.599087,102.600207],[102.654895,102.656111],[102.759631,102.762863],[102.817807,102.822575],[102.843983,102.848495],[102.867695,102.872015],[102.889839,102.894127],[102.914544,102.917968],[102.987472,102.991856],[103.014384,103.01864],[103.038544,103.041872],[103.06056,103.062704],[103.085648,103.110928],[103.142512,103.143856],[103.2476,103.249072],[103.32088,103.326576],[103.849298,103.852626],[104.252787,104.257651],[104.450963,104.451923],[104.501011,104.502611],[104.543347,104.544947],[104.604339,104.608371],[104.867732,104.868276],[105.506613,105.507157]],&quot;GPU destruction / utilities&quot;:[[3.92328,3.924688],[10.035262,10.035966],[10.215518,10.21619],[10.308766,10.309438],[10.503167,10.503775],[10.592319,10.592895],[14.515336,14.769736],[14.773032,14.773288],[15.073289,15.074185],[15.197225,15.199785],[15.285289,15.289257],[15.347434,15.350058],[15.37473,15.378698],[15.40145,15.403978],[15.46705,15.47089],[15.50609,15.508586],[15.60513,15.60897],[15.635914,15.638378],[15.659978,15.663818],[15.683338,15.685834],[15.706826,15.710666],[15.73041,15.732906],[15.75409,15.75793],[15.778283,15.780779],[15.801515,15.805355],[15.879083,15.879851],[15.928363,15.930859],[15.977419,15.981259],[16.022155,16.024651],[16.046539,16.050411],[16.070091,16.072587],[16.147467,16.151307],[16.174507,16.177003],[16.198219,16.202091],[16.222252,16.224748],[16.245708,16.249612],[16.269164,16.271628],[16.29294,16.296844],[16.315564,16.31806],[16.400556,16.404396],[16.467724,16.470188],[16.493388,16.49726],[16.517324,16.518444],[16.590124,16.590796],[18.3524,18.358032],[18.478609,18.485905],[18.529041,18.534641],[18.556721,18.564081],[18.582641,18.588209],[18.606481,18.613809],[18.630129,18.635729],[18.654001,18.661521],[18.678417,18.684017],[18.752401,18.760081],[18.781361,18.786929],[18.805841,18.813393],[18.830097,18.835697],[18.853809,18.861458],[18.878386,18.883986],[18.902066,18.909554],[19.168914,19.174226],[19.285746,19.290674],[20.271893,20.282293],[20.312725,20.315093],[20.459381,20.459989],[20.490901,20.491509],[20.517109,20.517717],[20.540885,20.541493],[20.565525,20.566133],[20.590709,20.591317],[20.615669,20.616277],[20.640342,20.64095],[20.66527,20.665846],[20.744278,20.746262],[20.793302,20.79455],[20.840502,20.843574],[21.930936,21.931384],[21.995737,21.996217],[24.232126,24.233022],[27.15226,27.152932],[27.224964,27.225604],[27.78487,27.785286],[28.008454,28.008902],[28.330791,28.331655],[28.532999,28.536871],[28.696168,28.696712],[28.962568,28.962824],[29.241129,29.242409],[29.921259,29.921579],[30.71534,30.716492],[30.883021,30.883757],[31.781935,31.782191],[33.023186,33.02341],[33.22853,33.228754],[33.549459,33.549683],[33.840435,33.841011],[33.993332,33.994196],[34.1917,34.192468],[34.567573,34.568757],[36.597178,36.597786],[36.65865,36.659226],[36.75657,36.757146],[36.792026,36.792282],[36.797274,36.79753],[38.650878,38.651582],[38.796863,38.797695],[38.916767,38.917023],[38.981599,38.981855],[38.987839,38.988063],[38.994495,38.994751],[39.043167,39.043423],[39.359008,39.359712],[39.703393,39.704289],[39.897281,39.903073],[40.383426,40.391554],[40.564899,40.577155],[40.806787,40.814339],[45.062253,45.062861],[49.578263,49.579351],[49.619031,49.620087],[49.623447,49.623927],[49.627511,49.633591],[49.637751,49.639927],[49.643927,49.645943],[49.650103,49.650743],[49.651991,49.652247],[49.655895,49.657175],[49.660311,49.661815],[49.667447,49.667863],[50.136312,50.137368],[50.13756,50.140312],[50.140472,50.14316],[50.143896,50.144568],[50.14476,50.146136],[50.146328,50.146968],[50.14716,50.14812],[50.14828,50.149304],[50.149464,50.151064],[50.151224,50.152824],[50.152984,50.153528],[50.153688,50.154712],[50.154872,50.160024],[50.160184,50.182808],[50.182968,50.187192],[50.187352,50.188024],[50.188184,50.188792],[50.189368,50.191064],[50.191256,50.191992],[50.192152,50.192856],[50.193016,50.199448],[50.199608,50.200216],[50.200376,50.206488],[50.20668,50.207256],[50.207416,50.213112],[50.213304,50.213912],[50.214104,50.2198],[50.21996,50.221112],[50.221272,50.221784],[50.221944,50.226136],[50.226328,50.227064],[50.227224,50.265273],[50.265433,50.266457],[50.267033,50.267993],[50.268153,50.268633],[50.268793,50.271513],[50.271705,50.272185],[50.272345,50.274937],[50.275097,50.276057],[50.276217,50.277273],[50.277465,50.281209],[50.281369,50.281977],[50.519961,50.520473],[50.728346,50.72905],[50.956346,50.98041],[51.092314,51.092986],[51.285883,51.286523],[51.437627,51.439259],[51.598268,51.59878],[51.72902,51.729596],[51.928444,51.928924],[52.159837,52.161405],[52.772382,52.772926],[52.904286,52.904798],[53.060383,53.060927],[53.208639,53.210879],[53.390208,53.390944],[53.391104,53.391712],[53.391872,53.39232],[53.392512,53.39296],[53.39312,53.3936],[53.39376,53.397824],[54.055777,54.056385],[54.497474,54.497986],[54.993827,54.994083],[55.082979,55.083427],[55.194052,55.195108],[55.568356,55.569381],[55.569541,55.570757],[55.570949,55.573253],[55.573413,55.576037],[55.576229,55.579749],[55.579941,55.585861],[55.586245,55.587045],[55.587205,55.587845],[55.588005,55.590597],[55.590757,55.591173],[55.591333,55.593157],[55.593349,55.593701],[55.593893,55.595685],[55.595877,55.596613],[55.596773,55.597253],[55.597413,55.620997],[55.621157,55.622565],[55.622949,55.623301],[55.623493,55.631525],[55.631717,55.632517],[56.145382,56.14871],[56.549415,56.550887],[59.904878,59.905774],[70.408486,70.409062],[70.53767,70.537958],[70.917831,70.918087],[71.270152,71.270984],[71.514505,71.517097],[71.557545,71.561673],[71.657353,71.659945],[71.684201,71.688137],[71.707337,71.709833],[71.730249,71.734217],[71.752329,71.754825],[71.775945,71.779785],[71.799113,71.801609],[71.821577,71.825449],[71.893673,71.896169],[71.920809,71.924681],[71.943978,71.946506],[71.96625,71.970154],[71.989162,71.991658],[72.011914,72.015786],[72.035082,72.03585],[72.08369,72.086218],[72.176746,72.180586],[72.22321,72.225738],[72.247402,72.25121],[72.271274,72.273738],[72.293354,72.297194],[72.316842,72.31937],[72.353482,72.357354],[72.460779,72.463307],[72.491627,72.495499],[72.514699,72.517195],[72.539755,72.543595],[72.563243,72.565771],[72.584651,72.588523],[72.607883,72.610379],[72.629131,72.632971],[72.639915,72.641035],[73.739214,73.744814],[73.78635,73.793838],[73.82635,73.83195],[73.905166,73.912558],[73.932462,73.938062],[73.957966,73.965454],[73.98267,73.98827],[74.007854,74.01547],[74.036142,74.041742],[74.06155,74.069166],[74.087854,74.093454],[74.164975,74.172463],[74.193263,74.198831],[74.218959,74.226639],[74.244687,74.250255],[74.269967,74.277231],[74.782736,74.787792],[74.89784,74.902768],[75.849874,75.86069],[75.89109,75.893458],[75.932307,75.934547],[75.956979,75.957587],[75.981459,75.982067],[76.006163,76.006771],[76.083795,76.084403],[76.109011,76.109619],[76.134195,76.134803],[76.158227,76.158835],[76.182067,76.182675],[76.229267,76.231091],[76.276563,76.277875],[76.384244,76.387668],[77.26287,77.263286],[77.454998,77.455446],[83.219523,83.220419],[83.939493,83.940357],[88.86216,88.862768],[89.119728,89.120208],[89.322577,89.323825],[89.605713,89.606577],[93.685723,93.686587],[93.756379,93.756859],[93.959355,93.959835],[94.062172,94.064028],[94.1807,94.180956],[94.294076,94.299836],[94.500285,94.500957],[94.645405,94.646877],[95.652575,95.653023],[96.909442,96.909954],[97.871396,97.871684],[98.763334,98.764038],[98.896742,98.908678],[98.958183,98.959047],[99.083527,99.086215],[100.745579,100.746219],[100.890635,100.903371],[101.042059,101.042699],[101.287084,101.287852],[101.581005,101.581805],[101.631501,101.644237],[101.669293,101.669933],[101.704717,101.705453],[103.948818,103.94949],[104.080146,104.080818],[104.129842,104.130514],[104.165298,104.165778],[104.170962,104.171442],[106.311895,106.312535],[106.406167,106.408535],[106.504728,106.50524],[106.668056,106.670072],[106.670488,106.67132],[106.671608,106.67244],[106.672728,106.673368],[106.673688,106.674392],[106.67468,106.682616],[106.682904,106.683928],[106.684216,106.685048],[106.685336,106.686808],[106.687096,106.687768],[106.688056,106.691832],[106.783352,106.784792],[106.941881,106.943449],[107.059001,107.060345],[107.232281,107.232761],[107.291289,107.293529],[107.485754,107.48809],[107.57049,107.573434],[107.969627,107.970235],[108.007419,108.007963],[108.008411,108.011771],[108.012219,108.012827],[108.013275,108.013851],[108.014299,108.014683],[108.015163,108.015579],[108.016027,108.017755],[108.018203,108.018907],[108.019387,108.019771],[108.020251,108.026619],[108.027067,108.027515],[108.027963,108.034075],[108.034619,108.035035],[108.035515,108.041083],[108.041531,108.041947],[108.042459,108.047995],[108.051099,108.051451],[108.051931,108.054747],[108.056379,108.056763],[108.057211,108.060731],[108.062171,108.062555],[108.063035,108.066203],[108.066651,108.067451],[108.067931,108.068731],[108.069179,108.069947],[108.070427,108.071003],[108.071483,108.072059],[108.572028,108.572636],[108.578588,108.579228],[108.977981,108.978717],[109.072381,109.072637],[109.170686,109.170942],[109.203486,109.203742],[109.210878,109.211358],[109.518462,109.518942],[109.739743,109.740831],[109.801759,109.807935],[110.320832,110.328256],[110.402208,110.402464],[110.492065,110.492577],[110.714017,110.716321],[110.843169,110.843841],[110.958178,110.958626],[111.109282,111.113314],[111.269442,111.26989],[111.318627,111.323107],[111.368579,111.369027],[111.399555,111.403139],[111.451587,111.452035],[111.534531,111.537923],[111.567171,111.567619],[111.596899,111.600963],[111.624163,111.624611],[111.639715,111.643747],[111.667043,111.667491],[111.682403,111.685827],[111.709475,111.709923],[111.724611,111.728035],[111.81882,111.861828],[113.446023,113.446631],[120.296439,120.296663],[120.307895,120.309143],[120.310071,120.310647],[120.311255,120.317079],[120.317719,120.319447],[120.320087,120.322135],[120.322775,120.323511],[120.325559,120.325815],[120.326583,120.327895],[120.328535,120.330903],[120.332823,120.333367],[120.817944,120.818904],[120.819384,120.820856],[120.821336,120.823992],[120.824728,120.825592],[120.826104,120.827224],[120.827704,120.828568],[120.829048,120.830008],[120.830456,120.831352],[120.8318,120.833176],[120.833656,120.838136],[120.838616,120.839256],[120.839736,120.840664],[120.841144,120.846264],[120.846712,120.868632],[120.86908,120.873176],[120.873624,120.874296],[120.874744,120.875384],[120.876504,120.8782],[120.878744,120.879448],[120.879928,120.880568],[120.881016,120.887416],[120.887896,120.888504],[120.888984,120.895192],[120.895736,120.896376],[120.896856,120.902552],[120.903,120.90364],[120.904088,120.909784],[120.910232,120.911352],[120.911832,120.912344],[120.912792,120.917144],[120.917592,120.918168],[120.918616,120.956984],[120.957464,120.958488],[120.959608,120.960568],[120.961048,120.961528],[120.961976,120.964632],[120.96508,120.965592],[120.966072,120.968664],[120.969144,120.970072],[120.970552,120.971608],[120.972056,120.976024],[120.976504,120.977272],[121.149049,121.149657],[121.217209,121.218073],[121.329625,121.360825],[121.406873,121.407641],[121.528538,121.529338],[121.639578,121.640986],[121.694714,121.695354],[121.749786,121.750458],[121.871738,121.872282],[121.993947,121.995355],[122.564092,122.564636],[122.630044,122.630556],[122.738428,122.738972],[122.857277,122.858141],[122.858621,122.859197],[122.859677,122.860125],[122.860605,122.861085],[122.861565,122.862013],[122.862493,122.869725],[123.351454,123.352126],[123.758239,123.758783],[124.51584,124.516096],[124.54848,124.549056],[124.580577,124.581569],[124.914401,124.915393],[124.915681,124.916865],[124.917153,124.919649],[124.919937,124.922337],[124.922625,124.924609],[124.924929,124.930689],[124.931073,124.931873],[124.932161,124.932801],[124.933089,124.936769],[124.937057,124.937441],[124.937729,124.939553],[124.939873,124.940225],[124.940513,124.942273],[124.942561,124.943297],[124.943617,124.944065],[124.944353,124.961985],[124.962273,124.963617],[124.964193,124.964577],[124.964865,124.970465],[124.970753,124.971521],[125.412962,125.41421],[125.631075,125.632355],[126.652901,126.653893],[127.974856,127.975816],[128.109,128.110505],[128.237353,128.237801],[128.397513,128.398889],[128.399305,128.399881],[128.400169,128.400969],[128.401289,128.401801],[128.402089,128.402633],[128.402921,128.407625],[128.407913,128.408457],[128.408745,128.409257],[128.409545,128.410377],[128.410665,128.411145],[128.411433,128.415113],[128.487561,128.488809],[128.541353,128.542761],[128.647594,128.64881],[128.700234,128.700746],[128.755402,128.757674],[128.80593,128.808202],[128.904202,128.905482],[129.225963,129.226571],[129.261867,129.262347],[129.262827,129.265931],[129.266379,129.266987],[129.267435,129.268011],[129.268459,129.268811],[129.269323,129.269739],[129.270219,129.271787],[129.272267,129.272843],[129.273291,129.273707],[129.274187,129.280395],[129.280843,129.281259],[129.281739,129.287787],[129.288267,129.288683],[129.289163,129.294731],[129.295179,129.295595],[129.296075,129.301643],[129.304491,129.304875],[129.305323,129.308139],[129.309739,129.310091],[129.310539,129.313899],[129.315307,129.315659],[129.316139,129.319339],[129.319787,129.320619],[129.321067,129.321867],[129.322315,129.323115],[129.323403,129.323979],[129.324267,129.324843],[129.630604,129.631116],[129.632204,129.632844],[129.885965,129.886477],[130.044461,130.049229],[130.049965,130.050477],[130.050925,130.054285],[130.054733,130.055213],[130.055693,130.058189],[130.058733,130.060525],[130.230029,130.230477],[130.58011,130.58283],[130.753838,130.763406],[131.271888,131.272336],[131.657137,131.665969],[131.799505,131.800817]],&quot;GPU stress&quot;:[[45.057613,45.058445],[45.058605,45.062093],[45.063021,45.064717],[45.064909,45.065709],[45.065869,45.066893],[45.067085,45.067437],[45.067629,45.072013],[45.072173,45.072429],[45.072589,49.560343],[49.560503,49.561783],[49.561975,49.563991],[49.564151,49.574551],[49.574743,49.575991],[49.589207,49.590583],[49.602103,49.602743],[52.244541,52.244989],[52.396029,52.397405],[52.572574,52.573534],[107.648474,107.649114],[107.818235,107.819611],[107.959419,107.960635],[107.961115,107.961627],[107.965435,107.969147],[107.970683,107.972315],[107.972795,107.974331],[107.974811,107.976635],[107.977083,107.977531],[107.977979,107.979579],[107.980027,107.998395],[107.998843,108.002651],[108.003131,108.005339],[108.005915,108.006939],[108.048443,108.049339],[108.049787,108.050587],[108.055195,108.055867],[108.061211,108.061723],[108.072571,108.073499],[108.074011,108.304348],[108.304828,108.539932],[108.54038,108.5559],[108.55638,108.55926],[108.566972,108.567964],[113.441351,113.442631],[113.443175,113.445575],[113.447047,113.448711],[113.449159,113.449959],[113.450439,113.451367],[113.451815,113.452199],[113.452615,113.457127],[113.457543,113.467623],[113.468039,120.280599],[120.281047,120.282231],[120.282647,120.284823],[120.285271,120.292823],[120.293271,120.295063],[120.298615,120.300055],[120.300919,120.301527],[122.068091,122.068571],[122.200635,122.201723],[122.4047,122.405564],[128.97073,128.971178],[129.027499,129.028299],[129.217387,129.218379],[129.218891,129.219563],[129.222795,129.225515],[129.227019,129.228363],[129.228811,129.230283],[129.230731,129.232587],[129.233035,129.233483],[129.233931,129.235275],[129.235723,129.253035],[129.253483,129.257355],[129.257835,129.260075],[129.260523,129.261387],[129.302123,129.302827],[129.303275,129.304043],[129.308587,129.309291],[129.314347,129.314859],[129.325291,129.326123],[129.326603,129.55566],[129.55598,129.601004],[129.601292,129.616268],[129.616524,129.619276],[129.626444,129.627276]],&quot;CPU \u2192 GPU&quot;:[[4.265457,4.395857],[8.275866,8.33433],[8.40313,8.455866],[8.552826,8.56073],[15.122505,15.122761],[15.158089,15.158313],[16.648909,16.649165],[16.836685,16.836941],[17.021325,17.021645],[17.067885,17.068205],[17.10331,17.10363],[17.14395,17.183278],[17.183662,17.194254],[17.279822,17.290734],[17.319214,17.319566],[17.375886,17.376142],[17.716367,17.723919],[17.782703,17.783055],[17.815951,17.816207],[17.824495,17.824847],[23.898973,23.899325],[24.447198,24.447582],[24.487774,24.488062],[24.523486,24.523774],[24.555902,24.556158],[24.636479,24.636767],[24.679679,24.679935],[27.271813,27.272421],[27.308933,27.309157],[27.410117,27.410373],[27.473445,27.473701],[29.049641,29.049897],[30.78718,30.787532],[31.082189,31.082541],[31.160941,31.161517],[31.195405,31.195757],[31.28475,31.285102],[31.320366,31.320622],[31.375918,31.376174],[31.412014,31.41227],[31.472046,31.472302],[31.690991,31.691247],[31.742223,31.742479],[32.111215,32.111471],[32.223728,32.223952],[32.738129,32.738385],[32.855761,32.856113],[33.162802,33.163058],[36.81241,36.812666],[39.085567,39.085791],[39.214496,39.214752],[39.507776,39.508032],[54.121537,54.122081],[54.707043,54.707299],[54.864067,54.864419],[55.321412,55.321668],[55.379716,55.37994],[71.409864,71.41012],[71.471336,71.47156],[72.892332,72.892588],[73.036012,73.0363],[73.087468,73.087724],[73.232268,73.232556],[73.362701,73.362957],[73.399181,73.399437],[76.76018,76.760436],[77.001845,77.002101],[83.054211,83.054531],[83.446052,83.446404],[83.488932,83.489188],[83.526436,83.526724],[83.561604,83.561924],[83.654756,83.655012],[83.692804,83.69306],[83.8233,83.83194],[84.086885,84.109957],[84.120741,84.125797],[84.143813,84.148933],[84.152325,84.155013],[84.161413,84.165893],[84.270821,84.271397],[89.193073,89.193457],[94.903677,94.909501],[94.974078,94.987614],[95.077214,95.082558],[95.11363,95.113854],[95.144254,95.144478],[95.152542,95.152798],[95.158878,95.159134],[95.170302,95.170942],[95.177726,95.178046],[95.188734,95.189342],[95.448415,95.448671],[95.538495,95.538719],[96.025184,96.03264],[96.090144,96.090464],[96.12576,96.12608],[96.16352,96.163776],[96.549089,96.549345],[96.680033,96.680289],[96.794146,96.799682],[97.363715,97.363971],[104.187762,104.187986],[109.627551,109.627775],[123.438014,123.438334],[124.084287,124.084543],[124.197088,124.19744],[124.643265,124.643521],[124.774817,124.775073]],&quot;GPU \u2192 CPU&quot;:[[21.171159,21.171671],[25.26288,25.263456],[25.37296,25.373344],[25.460192,25.460768],[25.562241,25.562625],[25.598689,25.599265],[25.646785,25.647169],[26.265282,26.266338],[26.366274,26.367522],[29.323561,29.324105],[36.197849,36.198777],[36.259705,36.260761],[36.464953,36.466169],[37.187611,37.188059],[37.284603,37.285019],[37.325979,37.326331],[37.520092,37.520604],[37.630332,37.630876],[37.689948,37.690812],[37.742396,37.747612],[37.79366,37.798876],[37.887677,37.943325],[37.943709,37.992957],[37.993341,37.993885],[53.507552,53.507936],[55.717573,55.717957],[56.704071,56.704743],[57.0578,57.058504],[60.048111,60.048655],[60.353647,60.354223],[60.554224,60.554768],[76.679988,76.68066],[85.501384,85.502152],[85.664873,85.684681],[85.692969,85.693321],[85.778185,85.779049],[85.908201,85.908873],[85.931881,85.932489],[85.936745,85.937129],[85.942601,85.943465],[85.947849,85.950057],[85.952521,85.953481],[85.956745,85.958985],[86.928779,86.937067],[86.950411,86.979404],[89.715922,89.716434],[99.282759,99.283431],[101.407916,101.40894],[101.479436,101.479948],[101.738317,101.738797],[101.769677,101.770189],[103.622993,103.623377],[103.690673,103.692241],[103.746609,103.770193],[104.667636,104.66898],[104.77202,104.77346],[104.808628,104.809332],[105.053492,105.053972],[105.117749,105.118261],[105.153173,105.153749],[105.219381,105.224661],[105.253429,105.258645],[105.353557,105.410549],[105.410933,105.462709],[105.463093,105.463637],[108.58134,108.581692],[122.982301,122.982685],[125.052514,125.052898],[125.764419,125.765091],[126.12522,126.125572],[126.718341,126.718981],[126.930246,126.931078],[127.155302,127.155846],[129.639692,129.640044],[130.822415,130.836687],[131.867185,131.867761],[132.256082,132.256466],[139.126817,139.127201],[139.696451,139.696835]],&quot;GPU \u2192 GPU&quot;:[[8.655482,8.65641],[9.968765,9.969405],[10.160254,10.16083],[10.26643,10.26707],[10.447934,10.448702],[10.551647,10.552479],[14.82676,14.827336],[14.891305,14.891849],[15.020969,15.021545],[25.834913,25.835553],[25.942946,25.943554],[26.08461,26.085218],[26.13629,26.136898],[26.182338,26.183106],[26.22589,26.226562],[28.224519,28.225159],[31.011341,31.011885],[53.804673,53.805217],[54.36525,54.365762],[55.992581,55.993125],[71.104264,71.104872],[71.183624,71.184424],[71.224904,71.225832],[86.448714,86.449546],[86.531531,86.532299],[86.566699,86.567467],[86.594923,86.595755],[86.669899,86.670603],[86.698027,86.698763],[86.746507,86.747019],[86.773355,86.773899],[86.781739,86.782251],[86.790603,86.791147],[86.798603,86.799243],[86.806859,86.807371],[86.815243,86.815915],[86.823147,86.823691],[86.831467,86.832075],[86.840267,86.841099],[86.848587,86.849387],[86.896587,86.897483],[88.749072,88.749872],[92.221335,92.222071],[92.67452,92.675224],[94.775485,94.776061],[98.075621,98.076453],[98.245509,98.246277],[108.871229,108.872093],[109.364414,109.36515],[123.152029,123.152733],[123.710111,123.710847],[125.182114,125.182818]],&quot;CPU scheduled&quot;:[[0.0,0.101217],[0.164609,4.704564],[4.726392,4.765468],[4.805276,5.358921],[5.394852,8.043359],[8.056122,8.084111],[8.101994,8.130795],[8.14698,21.777784],[21.849445,26.644976],[26.648302,26.672356],[26.720648,32.601759],[32.63496,38.307634],[38.323334,47.363809],[47.418016,47.506142],[49.817443,49.89686],[49.950846,56.749926],[56.803373,56.876107],[56.908362,57.087143],[57.118544,57.219438],[57.245013,60.096605],[60.163175,60.228321],[60.259404,60.384187],[60.416845,60.469089],[60.487026,60.581134],[60.608459,60.647185],[60.664936,114.684492],[114.767507,114.840248],[116.108236,116.130477],[120.516202,125.811913],[125.872974,125.942086],[125.968743,126.155567],[126.193513,126.239257],[126.266927,126.849508],[126.854115,126.961521],[126.999734,127.046778],[127.078171,127.18427],[127.220051,127.263811],[127.275284,130.867823],[130.975016,131.076399],[131.089431,131.952973],[132.05093,132.156345],[132.172697,133.755084],[133.793136,139.18078],[139.283027,139.411165],[139.463985,139.754571]],&quot;Main-thread wait&quot;:[[0.047759,0.07803],[0.088127,133.835356],[139.133248,139.156293],[139.165341,139.49591]]},&quot;cpu_events&quot;:[{&quot;start&quot;:22.365171,&quot;end&quot;:23.12885,&quot;name&quot;:&quot;trialDetail.preallocateContactManagers&quot;},{&quot;start&quot;:61.497596,&quot;end&quot;:70.223571,&quot;name&quot;:&quot;applyDetail.migrateShapes&quot;},{&quot;start&quot;:127.555969,&quot;end&quot;:127.897029,&quot;name&quot;:&quot;applyDetail.migrateShapes&quot;},{&quot;start&quot;:78.240555,&quot;end&quot;:79.508623,&quot;name&quot;:&quot;detail.preallocateContactManagers&quot;},{&quot;start&quot;:79.614397,&quot;end&quot;:80.268024,&quot;name&quot;:&quot;detail.registerSceneInteractions&quot;},{&quot;start&quot;:23.226101,&quot;end&quot;:23.592296,&quot;name&quot;:&quot;trialDetail.registerSceneInteractions&quot;}],&quot;cpu&quot;:[{&quot;name&quot;:&quot;submit&quot;,&quot;ms&quot;:20.837227},{&quot;name&quot;:&quot;applyDetail.migrateShapes&quot;,&quot;ms&quot;:9.074729},{&quot;name&quot;:&quot;task.prepareIslandRepair&quot;,&quot;ms&quot;:7.361402},{&quot;name&quot;:&quot;finishDetail.growMotionSlots&quot;,&quot;ms&quot;:4.057321},{&quot;name&quot;:&quot;detail.updateDynamicsPostPartitioning&quot;,&quot;ms&quot;:3.472931},{&quot;name&quot;:&quot;acceptCorrection&quot;,&quot;ms&quot;:2.885005},{&quot;name&quot;:&quot;finalPublication&quot;,&quot;ms&quot;:2.6067430000000003},{&quot;name&quot;:&quot;compatibility.allocateNativeBodies&quot;,&quot;ms&quot;:2.3328010000000003},{&quot;name&quot;:&quot;trialDetail.updateDynamicsPostPartitioning&quot;,&quot;ms&quot;:1.976899},{&quot;name&quot;:&quot;applyBindings&quot;,&quot;ms&quot;:1.769451999999999}],&quot;kernels&quot;:[{&quot;name&quot;:&quot;stress solver / stress topology&quot;,&quot;ms&quot;:11.457562000000005},{&quot;name&quot;:&quot;stress hierarchy / preconditioner&quot;,&quot;ms&quot;:0.77565},{&quot;name&quot;:&quot;shared physics utilities&quot;,&quot;ms&quot;:0.6737610000000006},{&quot;name&quot;:&quot;physics constraint preparation / solve / integration&quot;,&quot;ms&quot;:0.515586},{&quot;name&quot;:&quot;physics broad phase&quot;,&quot;ms&quot;:0.41420799999999985},{&quot;name&quot;:&quot;destruction orchestration / motion&quot;,&quot;ms&quot;:0.35913800000000007},{&quot;name&quot;:&quot;destruction connectivity / mass / slots&quot;,&quot;ms&quot;:0.24217699999999998},{&quot;name&quot;:&quot;shared CUDA scan / sort primitives&quot;,&quot;ms&quot;:0.23609600000000008},{&quot;name&quot;:&quot;unclassified&quot;,&quot;ms&quot;:0.05135999999999999},{&quot;name&quot;:&quot;physics body / shape updates&quot;,&quot;ms&quot;:0.039807999999999996},{&quot;name&quot;:&quot;physics narrow phase / contact lifecycle&quot;,&quot;ms&quot;:0.039072},{&quot;name&quot;:&quot;destruction material / damage&quot;,&quot;ms&quot;:0.025184},{&quot;name&quot;:&quot;destruction contact graph&quot;,&quot;ms&quot;:0.022528000000000003},{&quot;name&quot;:&quot;destruction load gathering&quot;,&quot;ms&quot;:0.011968},{&quot;name&quot;:&quot;destruction pre-solve contacts / islands&quot;,&quot;ms&quot;:0.010976}],&quot;copies&quot;:[{&quot;name&quot;:&quot;CPU \u2192 GPU&quot;,&quot;count&quot;:109,&quot;MB&quot;:2.753148,&quot;union_ms&quot;:0.43152000000001056},{&quot;name&quot;:&quot;GPU \u2192 CPU&quot;,&quot;count&quot;:79,&quot;MB&quot;:2.600248,&quot;union_ms&quot;:0.37456100000003545},{&quot;name&quot;:&quot;GPU \u2192 GPU&quot;,&quot;count&quot;:52,&quot;MB&quot;:1.287244,&quot;union_ms&quot;:0.03552000000001598}],&quot;kernel_count&quot;:756,&quot;copy_count&quot;:240,&quot;phases&quot;:[{&quot;name&quot;:&quot;contactLoads&quot;,&quot;ms&quot;:1.315904021},{&quot;name&quot;:&quot;stress&quot;,&quot;ms&quot;:8.70652771},{&quot;name&quot;:&quot;materials&quot;,&quot;ms&quot;:0.04275200143},{&quot;name&quot;:&quot;topologyAndCandidates&quot;,&quot;ms&quot;:1.493919969},{&quot;name&quot;:&quot;commitAndStressTopology&quot;,&quot;ms&quot;:1.968927979},{&quot;name&quot;:&quot;allocationAndPreparation&quot;,&quot;ms&quot;:0.1377280056},{&quot;name&quot;:&quot;allocationAndPreparationRetry&quot;,&quot;ms&quot;:0.2182399929},{&quot;name&quot;:&quot;rewindState&quot;,&quot;ms&quot;:0.203648001},{&quot;name&quot;:&quot;installFragments&quot;,&quot;ms&quot;:0.2722559869},{&quot;name&quot;:&quot;installOwners&quot;,&quot;ms&quot;:0.2147199959},{&quot;name&quot;:&quot;contactLoads&quot;,&quot;ms&quot;:2.245568037},{&quot;name&quot;:&quot;stress&quot;,&quot;ms&quot;:8.397055626},{&quot;name&quot;:&quot;materials&quot;,&quot;ms&quot;:0.01977599971},{&quot;name&quot;:&quot;topologyAndCandidates&quot;,&quot;ms&quot;:1.157376051},{&quot;name&quot;:&quot;commitAndStressTopology&quot;,&quot;ms&quot;:1.307711959},{&quot;name&quot;:&quot;allocationAndPreparation&quot;,&quot;ms&quot;:0.1036159992},{&quot;name&quot;:&quot;allocationAndPreparationRetry&quot;,&quot;ms&quot;:0.1943680048},{&quot;name&quot;:&quot;finalSplitState&quot;,&quot;ms&quot;:0.1714880019},{&quot;name&quot;:&quot;finalSplitFragments&quot;,&quot;ms&quot;:0.1147520021},{&quot;name&quot;:&quot;finalSplitOwners&quot;,&quot;ms&quot;:0.06787200272}],&quot;diagnostics&quot;:[{&quot;severity&quot;:2,&quot;text&quot;:&quot;Not all NVTX events might have been collected.&quot;},{&quot;severity&quot;:2,&quot;text&quot;:&quot;The operating system throttled the collection of sampling data 466 times.&quot;}],&quot;source&quot;:&quot;/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city25-initial-impact/attribution.json&quot;,&quot;trace&quot;:&quot;/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city25-initial-impact/trace.sqlite&quot;},{&quot;name&quot;:&quot;tower64-cold&quot;,&quot;cohort&quot;:&quot;Earlier all-scenario diagnostic capture; separate build&quot;,&quot;tick&quot;:150.776173,&quot;gpu&quot;:115.840291,&quot;no_gpu&quot;:34.93588200000001,&quot;wall&quot;:{&quot;gpu_and_scheduled_cpu_ms&quot;:7.174658,&quot;gpu_without_scheduled_cpu_ms&quot;:108.665633,&quot;scheduled_cpu_without_gpu_ms&quot;:34.245336,&quot;neither_traced_gpu_nor_scheduled_cpu_ms&quot;:0.690546},&quot;physical&quot;:{&quot;stress_iterations&quot;:137,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:2304,&quot;stress_active_bonds&quot;:4788,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;lanes&quot;:{&quot;GPU physics&quot;:[[4.572519,4.574919],[11.630427,11.631547],[12.078748,12.079772],[12.171036,12.17206],[12.228413,12.229309],[12.282333,12.283677],[12.410301,12.411325],[12.488477,12.489629],[12.538941,12.541245],[12.58899,12.590302],[13.393984,13.395264],[13.544768,13.546912],[13.579968,13.581152],[13.824609,13.826465],[13.878593,13.879905],[13.926113,13.927201],[13.972513,13.973793],[14.019074,14.020162],[14.191042,14.193762],[14.253602,14.260258],[14.399395,14.402659],[14.468515,14.471683],[14.528931,14.530051],[14.569347,14.570403],[14.715428,14.743684],[14.764484,14.766084],[14.818788,14.820196],[14.959044,14.960964],[15.692454,15.694022],[16.044519,16.045767],[18.910191,18.911375]],&quot;GPU destruction / utilities&quot;:[[4.150406,4.151398],[6.324748,6.325388],[6.522093,6.522701],[6.629901,6.630541],[6.797069,6.797645],[6.904718,6.905326],[8.35685,8.40789],[8.584242,8.584498],[8.922163,8.922963],[9.18962,9.191828],[9.243764,9.247156],[9.361493,9.363605],[9.396949,9.400149],[9.446389,9.448501],[9.474645,9.477845],[9.499669,9.501813],[9.528629,9.531797],[9.557013,9.559125],[9.583413,9.586645],[9.680598,9.68271],[9.707958,9.711158],[9.735926,9.738038],[9.761974,9.765206],[9.789206,9.79135],[9.817878,9.821078],[9.846742,9.847478],[9.964406,9.966518],[10.019958,10.023158],[10.072887,10.074999],[10.101431,10.104599],[10.220727,10.222839],[10.254711,10.257911],[10.281463,10.283607],[10.305911,10.309111],[10.330839,10.332951],[10.357015,10.360215],[10.385143,10.387255],[10.412856,10.416024],[10.520184,10.522328],[10.551448,10.55468],[10.576472,10.578584],[10.600312,10.60348],[10.626776,10.62764],[10.701592,10.702136],[12.71139,12.717022],[12.772414,12.779422],[12.815486,12.821086],[12.847326,12.854334],[12.940575,12.946207],[12.975135,12.982143],[13.005503,13.011103],[13.035519,13.042495],[13.065087,13.070687],[13.095135,13.102143],[13.147423,13.152991],[13.244479,13.251487],[13.275968,13.281568],[13.3056,13.312608],[13.335136,13.340736],[13.364544,13.371552],[13.642529,13.644257],[13.712097,13.713441],[15.037348,15.04634],[15.082373,15.083077],[15.152741,15.153349],[15.181157,15.181797],[15.272869,15.273477],[15.306533,15.307141],[15.335365,15.335973],[15.365189,15.365797],[15.394437,15.395045],[15.440742,15.44135],[15.47047,15.471686],[15.58359,15.584838],[15.635462,15.636998],[16.414856,16.415144],[16.543785,16.544073],[18.468558,18.468846],[18.607022,18.607278],[19.317296,19.317744],[19.635729,19.636145],[20.218803,20.219539],[20.453459,20.455795],[20.57778,20.578292],[21.643031,21.643287],[21.944344,21.944984],[22.095352,22.096504],[23.267195,23.267963],[23.60854,23.609564],[23.756413,23.756669],[23.796861,23.797085],[23.803645,23.803901],[23.810653,23.810909],[23.898685,23.898909],[24.202078,24.20275],[24.645055,24.645919],[24.792736,24.795296],[29.570989,29.571469],[144.92907,144.929326],[144.954798,144.955758],[144.959182,144.959758],[144.963278,144.966446],[144.969454,144.970958],[144.975566,144.97691],[144.981742,144.982446],[144.98363,144.983886],[144.987566,144.988398],[144.991982,144.993358],[144.99931,144.999758],[145.535055,145.536207],[145.536367,145.537103],[145.537263,145.538671],[145.74232,145.742832],[145.872464,145.872976],[146.232497,146.233009],[146.442226,146.442866],[146.651058,146.65157],[146.848563,146.849075],[147.06274,147.063444],[147.212116,147.212692],[147.521685,147.522101],[147.702453,147.703413],[148.439575,148.440087],[148.689048,148.690104],[148.926841,148.927769],[149.081433,149.084601],[149.085145,149.085593],[149.085753,149.087225],[149.087385,149.087833],[149.088025,149.089433],[149.089625,149.090969],[149.373242,149.373818],[149.373978,149.374554],[149.374746,149.375162],[149.375354,149.37577],[149.375962,149.376378],[149.37657,149.380794]],&quot;GPU stress&quot;:[[29.567117,29.567949],[29.568365,29.570573],[29.572141,29.575757],[29.576205,29.576877],[29.577293,29.578157],[29.578605,29.578957],[29.579405,29.581645],[29.582061,29.582317],[29.582765,29.583917],[29.584365,144.918926],[144.919374,144.920942],[144.921102,144.925518],[144.925678,144.927214],[144.938414,144.939246],[144.944174,144.944686],[147.790774,147.791158],[147.910326,147.911126],[148.082006,148.08287]],&quot;CPU \u2192 GPU&quot;:[[4.480647,4.509543],[5.356073,5.37153],[5.465642,5.477866],[5.524426,5.524938],[9.058804,9.05906],[9.133172,9.133428],[10.833881,10.834137],[10.971929,10.972185],[11.170874,11.17113],[11.223066,11.223322],[11.231994,11.23225],[11.246746,11.257562],[11.293242,11.293946],[11.411418,11.41209],[11.473626,11.473883],[11.550811,11.551067],[11.873468,11.87398],[11.948956,11.949244],[11.98406,11.984316],[11.9919,11.992156],[18.657038,18.657294],[18.728623,18.728879],[18.835215,18.835471],[18.878255,18.878511],[24.046941,24.047165],[24.344094,24.34435]],&quot;GPU \u2192 CPU&quot;:[[15.929287,15.929799],[149.562107,149.562619],[150.228924,150.229532],[150.474141,150.474525]],&quot;GPU \u2192 GPU&quot;:[[5.678858,5.679658],[6.25918,6.259916],[6.3827,6.383436],[6.581229,6.582029],[6.678765,6.679565],[6.856142,6.856878],[8.760659,8.761235],[8.835155,8.835667],[8.878547,8.879091],[19.929522,19.930098]],&quot;CPU scheduled&quot;:[[0.0,0.04796],[0.125842,16.690884],[16.726922,18.024526],[18.031957,18.1129],[18.126131,18.263704],[18.303351,22.151843],[22.236355,32.470097],[32.499315,32.587044],[32.611706,35.559372],[40.93323,40.959708],[43.100199,43.142772],[53.252453,53.350907],[55.476833,55.491305],[65.611232,65.632712],[67.787972,67.812886],[77.934572,77.971622],[78.039228,78.103849],[80.083224,80.097655],[81.787821,81.844284],[81.887679,81.931519],[90.213767,90.234289],[92.351187,92.367475],[102.490534,102.514199],[104.622544,104.637011],[114.755709,114.776455],[116.910451,116.931921],[127.042804,127.062397],[129.17273,129.186715],[132.762554,132.828642],[132.863348,132.934696],[139.302654,139.323734],[141.44255,141.456611],[145.181571,145.227667],[145.293462,149.768922],[149.779076,150.253522],[150.301419,150.366737],[150.371564,150.511611],[150.560943,150.680543],[150.691986,150.776173]],&quot;Main-thread wait&quot;:[[0.017028,0.037055],[0.041557,149.795958],[150.22935,150.24003],[150.243541,150.374699],[150.475838,150.498807],[150.501795,150.695098]]},&quot;cpu_events&quot;:[{&quot;start&quot;:16.640602,&quot;end&quot;:16.777076,&quot;name&quot;:&quot;trialDetail.preallocateContactManagers&quot;},{&quot;start&quot;:17.058301,&quot;end&quot;:17.075828,&quot;name&quot;:&quot;trialDetail.registerSceneInteractions&quot;}],&quot;cpu&quot;:[{&quot;name&quot;:&quot;submit&quot;,&quot;ms&quot;:13.693601},{&quot;name&quot;:&quot;task.prepareIslandRepair&quot;,&quot;ms&quot;:1.46872},{&quot;name&quot;:&quot;checkpoint&quot;,&quot;ms&quot;:0.961583},{&quot;name&quot;:&quot;trialDetail.postNarrowPhase&quot;,&quot;ms&quot;:0.5602919999999999},{&quot;name&quot;:&quot;trialDetail.postBroadPhase&quot;,&quot;ms&quot;:0.5026149999999999},{&quot;name&quot;:&quot;trialDetail.processLostContacts3&quot;,&quot;ms&quot;:0.122252},{&quot;name&quot;:&quot;trialDetail.preallocateContactManagers&quot;,&quot;ms&quot;:0.113108},{&quot;name&quot;:&quot;trialDetail.updateDynamicsPostPartitioning&quot;,&quot;ms&quot;:0.097724},{&quot;name&quot;:&quot;task.afterIntegration&quot;,&quot;ms&quot;:0.077712},{&quot;name&quot;:&quot;trialDetail.postBroadPhaseStage2&quot;,&quot;ms&quot;:0.071696}],&quot;kernels&quot;:[{&quot;name&quot;:&quot;stress solver / stress topology&quot;,&quot;ms&quot;:115.35766500000001},{&quot;name&quot;:&quot;shared physics utilities&quot;,&quot;ms&quot;:0.23968},{&quot;name&quot;:&quot;physics broad phase&quot;,&quot;ms&quot;:0.07529600000000002},{&quot;name&quot;:&quot;destruction orchestration / motion&quot;,&quot;ms&quot;:0.028288},{&quot;name&quot;:&quot;unclassified&quot;,&quot;ms&quot;:0.018592},{&quot;name&quot;:&quot;destruction material / damage&quot;,&quot;ms&quot;:0.006944},{&quot;name&quot;:&quot;destruction connectivity / mass / slots&quot;,&quot;ms&quot;:0.0051199999999999996},{&quot;name&quot;:&quot;physics body / shape updates&quot;,&quot;ms&quot;:0.004704},{&quot;name&quot;:&quot;shared CUDA scan / sort primitives&quot;,&quot;ms&quot;:0.003776},{&quot;name&quot;:&quot;destruction load gathering&quot;,&quot;ms&quot;:0.00256},{&quot;name&quot;:&quot;destruction contact graph&quot;,&quot;ms&quot;:0.0017920000000000002}],&quot;copies&quot;:[{&quot;name&quot;:&quot;CPU \u2192 GPU&quot;,&quot;count&quot;:26,&quot;MB&quot;:0.485152,&quot;union_ms&quot;:0.0744019999999983},{&quot;name&quot;:&quot;GPU \u2192 CPU&quot;,&quot;count&quot;:4,&quot;MB&quot;:0.001288,&quot;union_ms&quot;:0.00201600000001001},{&quot;name&quot;:&quot;GPU \u2192 GPU&quot;,&quot;count&quot;:10,&quot;MB&quot;:0.057876,&quot;union_ms&quot;:0.006816000000002376}],&quot;kernel_count&quot;:161,&quot;copy_count&quot;:40,&quot;phases&quot;:[{&quot;name&quot;:&quot;contactLoads&quot;,&quot;ms&quot;:0.4857600033},{&quot;name&quot;:&quot;stress&quot;,&quot;ms&quot;:120.0176315},{&quot;name&quot;:&quot;materials&quot;,&quot;ms&quot;:0.03235200047},{&quot;name&quot;:&quot;topologyAndCandidates&quot;,&quot;ms&quot;:1.52441597},{&quot;name&quot;:&quot;commitAndStressTopology&quot;,&quot;ms&quot;:2.488127947},{&quot;name&quot;:&quot;allocationAndPreparation&quot;,&quot;ms&quot;:0.1869120002}],&quot;diagnostics&quot;:[{&quot;severity&quot;:2,&quot;text&quot;:&quot;Not all NVTX events might have been collected.&quot;},{&quot;severity&quot;:2,&quot;text&quot;:&quot;The operating system throttled the collection of sampling data 7 times.&quot;}],&quot;source&quot;:&quot;/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/tower64-cold/attribution.json&quot;,&quot;trace&quot;:&quot;/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/tower64-cold/trace.sqlite&quot;}]}&lt;/script&gt;
+&lt;/div&gt;
+&lt;script src=&quot;https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(()=&gt;{
+ const root=document.getElementById(&#x27;destruction-attribution-20260912&#x27;),data=JSON.parse(root.querySelector(&#x27;.chart-data&#x27;).textContent);
+ let selected=0;
+ const fmt=d3.format(&#x27;.2f&#x27;);
+ const wallNames=[[&#x27;scheduled_cpu_without_gpu_ms&#x27;,&#x27;CPU scheduled; GPU inactive&#x27;],[&#x27;gpu_and_scheduled_cpu_ms&#x27;,&#x27;CPU + GPU active&#x27;],[&#x27;gpu_without_scheduled_cpu_ms&#x27;,&#x27;GPU active; CPU not scheduled&#x27;],[&#x27;neither_traced_gpu_nor_scheduled_cpu_ms&#x27;,&#x27;Neither observed active&#x27;]];
+ function base(host,height,title){const w=Math.round(host.getBoundingClientRect().width);if(!w)return null;const s=d3.select(host).selectAll(&#x27;svg&#x27;).data([null]).join(&#x27;svg&#x27;).attr(&#x27;class&#x27;,&#x27;chart&#x27;).attr(&#x27;viewBox&#x27;,`0 0 ${w} ${height}`).attr(&#x27;role&#x27;,&#x27;img&#x27;).attr(&#x27;aria-label&#x27;,title);s.selectAll(&#x27;*&#x27;).remove();const t=s.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,64).attr(&#x27;y&#x27;,22).attr(&#x27;font-weight&#x27;,500);let line=[],span=t.append(&#x27;tspan&#x27;).attr(&#x27;x&#x27;,64);title.split(&#x27; &#x27;).forEach(word=&gt;{line.push(word);span.text(line.join(&#x27; &#x27;));if(span.node().getComputedTextLength()&gt;w-76&amp;&amp;line.length&gt;1){line.pop();span.text(line.join(&#x27; &#x27;));line=[word];span=t.append(&#x27;tspan&#x27;).attr(&#x27;x&#x27;,64).attr(&#x27;dy&#x27;,15).text(word)}});return {s,w,h:height,left:64,right:12};}
+ function frame(b,top,bottom){b.s.append(&#x27;rect&#x27;).attr(&#x27;data-chart-frame&#x27;,&#x27;&#x27;).attr(&#x27;x&#x27;,b.left).attr(&#x27;y&#x27;,top).attr(&#x27;width&#x27;,b.w-b.left-b.right).attr(&#x27;height&#x27;,bottom-top).attr(&#x27;fill&#x27;,&#x27;none&#x27;).attr(&#x27;stroke&#x27;,&#x27;var(--border)&#x27;)}
+ function axis(b,x,bottom,quantity,yLabel,top){b.s.append(&#x27;g&#x27;).attr(&#x27;transform&#x27;,`translate(0,${bottom})`).call(d3.axisBottom(x).ticks(b.w&lt;420?4:6).tickSizeOuter(0));b.s.append(&#x27;text&#x27;).attr(&#x27;class&#x27;,&#x27;axis-title&#x27;).attr(&#x27;data-axis&#x27;,&#x27;x&#x27;).attr(&#x27;x&#x27;,(b.left+b.w-b.right)/2).attr(&#x27;y&#x27;,b.h-8).attr(&#x27;text-anchor&#x27;,&#x27;middle&#x27;).text(quantity);b.s.append(&#x27;text&#x27;).attr(&#x27;class&#x27;,&#x27;axis-title&#x27;).attr(&#x27;data-axis&#x27;,&#x27;y&#x27;).attr(&#x27;transform&#x27;,`translate(18,${(top+bottom)/2}) rotate(-90)`).attr(&#x27;text-anchor&#x27;,&#x27;middle&#x27;).text(yLabel)}
+ function wall(p){const b=base(root.querySelector(&#x27;.wall-plot&#x27;),150,&#x27;Disjoint wall-time partition&#x27;);if(!b)return;const x=d3.scaleLinear().domain(d3.extent([0,p.tick])).range([b.left,b.w-b.right]),top=47,bottom=97;frame(b,top,bottom);let start=0;wallNames.forEach(([k,name],i)=&gt;{const v=p.wall[k];b.s.append(&#x27;rect&#x27;).attr(&#x27;x&#x27;,x(start)).attr(&#x27;y&#x27;,top+10).attr(&#x27;width&#x27;,x(start+v)-x(start)).attr(&#x27;height&#x27;,30).attr(&#x27;fill&#x27;,`var(--viz-series-${i+1})`).attr(&#x27;data-chart-hit&#x27;,&#x27;&#x27;).attr(&#x27;data-tooltip&#x27;,`${name}: ${fmt(v)} ms (${(100*v/p.tick).toFixed(1)}%)`);start+=v});axis(b,x,bottom,&#x27;Elapsed tick time (ms)&#x27;,&#x27;Activity&#x27;,top);}
+ function merge(iv){const out=[];iv.sort((a,b)=&gt;a[0]-b[0]).forEach(v=&gt;{const last=out.at(-1);if(last&amp;&amp;v[0]&lt;=last[1])last[1]=Math.max(last[1],v[1]);else out.push([...v])});return out}
+ function timeline(p){const lanes=[[&#x27;CPU scheduled&#x27;,1],[&#x27;CPU shape migration&#x27;,1],[&#x27;CPU contact setup&#x27;,1],[&#x27;GPU physics&#x27;,3],[&#x27;GPU stress&#x27;,2],[&#x27;GPU destruction / utilities&#x27;,4],[&#x27;CPU → GPU&#x27;,5],[&#x27;GPU → CPU&#x27;,5],[&#x27;GPU → GPU&#x27;,5],[&#x27;Main-thread wait&#x27;,6]];const height=70+lanes.length*40+48,b=base(root.querySelector(&#x27;.timeline-plot&#x27;),height,&#x27;Timeline · overlapping resource lanes&#x27;);if(!b)return;const top=55,bottom=height-48,x=d3.scaleLinear().domain(d3.extent([0,p.tick])).range([b.left,b.w-b.right]);frame(b,top,bottom);const iv={...p.lanes};iv[&#x27;CPU shape migration&#x27;]=merge(p.cpu_events.filter(e=&gt;e.name.endsWith(&#x27;migrateShapes&#x27;)).map(e=&gt;[e.start,e.end]));iv[&#x27;CPU contact setup&#x27;]=merge(p.cpu_events.filter(e=&gt;!e.name.endsWith(&#x27;migrateShapes&#x27;)).map(e=&gt;[e.start,e.end]));lanes.forEach(([name,color],i)=&gt;{const y=top+40*i;const spans=iv[name]||[];b.s.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,b.left+4).attr(&#x27;y&#x27;,y+13).text(name===&#x27;GPU stress&#x27;?&#x27;GPU stress + hierarchy&#x27;:name);const ms=d3.sum(spans,v=&gt;v[1]-v[0]);b.s.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,b.w-b.right-4).attr(&#x27;y&#x27;,y+13).attr(&#x27;text-anchor&#x27;,&#x27;end&#x27;).attr(&#x27;data-optional&#x27;,&#x27;&#x27;).text(`${fmt(ms)} ms`);spans.forEach(v=&gt;b.s.append(&#x27;rect&#x27;).attr(&#x27;x&#x27;,x(v[0])).attr(&#x27;y&#x27;,y+21).attr(&#x27;width&#x27;,Math.max(.12,x(v[1])-x(v[0]))).attr(&#x27;height&#x27;,9).attr(&#x27;fill&#x27;,`var(--viz-series-${color})`));b.s.append(&#x27;rect&#x27;).attr(&#x27;data-chart-hit&#x27;,&#x27;&#x27;).attr(&#x27;x&#x27;,b.left).attr(&#x27;y&#x27;,y).attr(&#x27;width&#x27;,b.w-b.left-b.right).attr(&#x27;height&#x27;,40).attr(&#x27;fill&#x27;,&#x27;transparent&#x27;).attr(&#x27;data-tooltip&#x27;,`${name}: ${fmt(ms)} ms activity union; overlaps other lanes. Main-thread wait includes work running elsewhere.`)});axis(b,x,bottom,&#x27;Time since tick start (ms)&#x27;,&#x27;Resource&#x27;,top);}
+ function short(n){return n.replace(&#x27;trialDetail.&#x27;,&#x27;Trial: &#x27;).replace(&#x27;applyDetail.&#x27;,&#x27;&#x27;).replace(&#x27;detail.&#x27;,&#x27;Correction: &#x27;).replace(&#x27;task.&#x27;,&#x27;&#x27;).replace(&#x27;finishDetail.&#x27;,&#x27;&#x27;).replace(&#x27;compatibility.&#x27;,&#x27;&#x27;).replace(&#x27;preallocateContactManagers&#x27;,&#x27;Reserve contacts&#x27;).replace(&#x27;registerSceneInteractions&#x27;,&#x27;Scene interactions&#x27;).replace(&#x27;registerInteractions&#x27;,&#x27;Register interactions&#x27;).replace(&#x27;migrateShapes&#x27;,&#x27;Move shape ownership&#x27;).replace(&#x27;prepareIslandRepair&#x27;,&#x27;Prepare island repair&#x27;).replace(&#x27;postNarrowPhase&#x27;,&#x27;After contact discovery&#x27;).replace(&#x27;updateDynamics&#x27;,&#x27;Update dynamics&#x27;).replace(&#x27;islandInsertion&#x27;,&#x27;Insert physics islands&#x27;).replace(&#x27;broadPhaseWait&#x27;,&#x27;Broad-phase join&#x27;).replace(&#x27;submit&#x27;,&#x27;Stress submission&#x27;).replace(&#x27;growMotionSlots&#x27;,&#x27;Grow motion storage&#x27;)}
+ function bars(host,rows,title,yTitle,color){const rh=36,height=60+rows.length*rh+48,b=base(host,height,title);if(!b)return;const top=50,bottom=height-48,x=d3.scaleLinear().domain([0,d3.extent([0,...rows.map(r=&gt;r.ms)])[1]*1.03]).range([b.left,b.w-b.right]);frame(b,top,bottom);rows.forEach((r,i)=&gt;{const y=top+i*rh,g=b.s.append(&#x27;g&#x27;);g.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,b.left+4).attr(&#x27;y&#x27;,y+13).text(short(r.name));g.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,b.w-b.right-4).attr(&#x27;y&#x27;,y+13).attr(&#x27;text-anchor&#x27;,&#x27;end&#x27;).text(`${fmt(r.ms)} ms`);g.append(&#x27;rect&#x27;).attr(&#x27;x&#x27;,b.left).attr(&#x27;y&#x27;,y+20).attr(&#x27;width&#x27;,x(r.ms)-b.left).attr(&#x27;height&#x27;,8).attr(&#x27;fill&#x27;,`var(--viz-series-${color})`);g.append(&#x27;rect&#x27;).attr(&#x27;data-chart-hit&#x27;,&#x27;&#x27;).attr(&#x27;x&#x27;,b.left).attr(&#x27;y&#x27;,y).attr(&#x27;width&#x27;,b.w-b.left-b.right).attr(&#x27;height&#x27;,rh).attr(&#x27;fill&#x27;,&#x27;transparent&#x27;).attr(&#x27;data-tooltip&#x27;,`${r.name}: ${r.ms.toFixed(4)} ms`);const texts=g.selectAll(&#x27;text&#x27;).nodes();if(texts[0].getBBox().x+texts[0].getBBox().width+4&gt;texts[1].getBBox().x)texts[1].remove()});axis(b,x,bottom,&#x27;Measured duration (ms)&#x27;,yTitle,top);}
+ const categoryName=n=&gt;({&#x27;stress solver / stress topology&#x27;:&#x27;Stress solving / topology&#x27;,&#x27;physics broad phase&#x27;:&#x27;Collision broad phase&#x27;,&#x27;stress hierarchy / preconditioner&#x27;:&#x27;Stress hierarchy setup&#x27;,&#x27;physics constraint preparation / solve / integration&#x27;:&#x27;Rigid-body constraints&#x27;,&#x27;shared physics utilities&#x27;:&#x27;Shared physics utilities&#x27;,&#x27;destruction connectivity / mass / slots&#x27;:&#x27;Connectivity / mass / slots&#x27;,&#x27;destruction orchestration / motion&#x27;:&#x27;Destruction orchestration&#x27;,&#x27;physics narrow phase / contact lifecycle&#x27;:&#x27;Contact generation&#x27;}[n]||n);
+ function table(cls,rows){const body=root.querySelector(cls);body.replaceChildren();rows.forEach(values=&gt;{const tr=document.createElement(&#x27;tr&#x27;);values.forEach(v=&gt;{const td=document.createElement(&#x27;td&#x27;);td.textContent=v;tr.append(td)});body.append(tr)})}
+ function redraw(){const p=data.profiles[selected],r=data.scenarios.find(r=&gt;r.name===p.name);root.querySelector(&#x27;.profile-cohort&#x27;).textContent=p.cohort;root.querySelector(&#x27;.selected-metrics&#x27;).textContent=`Normal tick: ${fmt(r.mean)} ms mean / ${fmt(r.maximum)} ms max · profile: ${fmt(p.tick)} ms`;wall(p);timeline(p);bars(root.querySelector(&#x27;.cpu-plot&#x27;),p.cpu,&#x27;CPU scopes · exclusive scheduled thread time&#x27;,&#x27;Top CPU scopes&#x27;,1);const cats=p.kernels.slice(0,7).map(k=&gt;({...k,name:categoryName(k.name)}));cats.push({name:&#x27;Other GPU kernels&#x27;,ms:d3.sum(p.kernels.slice(7),k=&gt;k.ms)});bars(root.querySelector(&#x27;.gpu-plot&#x27;),cats,&#x27;GPU kernels · summed launch durations&#x27;,&#x27;Kernel category&#x27;,2);root.querySelector(&#x27;.wall-labels&#x27;).replaceChildren();wallNames.forEach(([k,name],i)=&gt;{const d=document.createElement(&#x27;div&#x27;),s=document.createElement(&#x27;span&#x27;);s.className=&#x27;swatch&#x27;;s.style.background=`var(--viz-series-${i+1})`;d.className=&#x27;text-small&#x27;;d.append(s,document.createTextNode(`${name}: ${fmt(p.wall[k])} ms`));root.querySelector(&#x27;.wall-labels&#x27;).append(d)});table(&#x27;.copies&#x27;,p.copies.map(c=&gt;[c.name,c.count,fmt(c.MB),fmt(c.union_ms)]));table(&#x27;.physical&#x27;,Object.entries(p.physical).map(([k,v])=&gt;[k.replaceAll(&#x27;_&#x27;,&#x27; &#x27;),v]));table(&#x27;.phases&#x27;,p.phases.map(v=&gt;[v.name,fmt(v.ms)]));root.querySelector(&#x27;.diagnostics&#x27;).textContent=`CPU scheduled time can include profiler and API overhead. Thread times are not an additive full-tick wall partition. Kernel sums and copy times overlap; only the first chart partitions wall time. All tick ranges were checked. Collector warnings: ${p.diagnostics.map(d=&gt;d.text).join(&#x27; &#x27;)}`;root.querySelectorAll(&#x27;svg&#x27;).forEach(svg=&gt;{const optional=[...svg.querySelectorAll(&#x27;[data-optional]&#x27;)];optional.forEach(t=&gt;{const previous=t.previousElementSibling;if(previous&amp;&amp;previous.tagName===&#x27;text&#x27;&amp;&amp;previous.getBBox().x+previous.getBBox().width+4&gt;t.getBBox().x)t.remove()})});}
+ root.querySelector(&#x27;select&#x27;).onchange=e=&gt;{selected=Number(e.target.value);redraw()};new ResizeObserver(redraw).observe(root);redraw();
+})();
+&lt;/script&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerdown&quot;, handlePointer);
+    document.removeEventListener(&quot;pointercancel&quot;, handlePointer);
+    document.removeEventListener(&quot;click&quot;, handleTouchClick);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerdown&quot;, handlePointer);
+  document.addEventListener(&quot;pointercancel&quot;, handlePointer);
+  document.addEventListener(&quot;click&quot;, handleTouchClick);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

@@ -1,0 +1,110 @@
+{
+  "scope": "Snapshot reset/harness optimization, not a game tick speedup or N-series experiment",
+  "experiments": [
+    {
+      "id": "R1",
+      "hypothesis": "Reuse live scene and original actors/shapes after remove/reinsert",
+      "evidence": "Scene creation 1254ms in large idle vs65ms tick",
+      "mechanism": "Reuse scene and object storage",
+      "scenarios": "bridge,city256 idle/debris",
+      "estimated_ms_saved": 1250,
+      "confidence": "medium",
+      "cost": "small probe rebuild and three-case screen",
+      "support": "same physical outputs, repeatability, no added tick work",
+      "refute": "changed material/body state or deferred insertion cost in tick",
+      "status": "rejected",
+      "result": "Bridge and idle repeat; debris mass/COM/role changes and idle tick grows to 293\u2013298ms; isolated only",
+      "estimated_application_tick_ms_saved": 0,
+      "commit": "43ee31a2396b2c9e5100183c30cee63108acb465",
+      "profile_locations": [
+        "out/snapshot-reset-20260911/timeline-qualified/large-idle.nsys-rep"
+      ],
+      "measurements": "Frozen baseline three-repeat screens, R2/R3 three-repeat screens, R4 six-repeat screen; full R2+R3 and R2+R3+R4 52x20 results under out/snapshot-reset-20260911/. Historical full baseline is a separate cohort, not interleaved."
+    },
+    {
+      "id": "R2",
+      "hypothesis": "Reuse pinned host storage through existing PhysX allocator callback",
+      "evidence": "Nsight Systems: host allocation/free consumes 85.8% of cumulative CUDA API time in two-repeat large idle capture",
+      "mechanism": "Bounded exact-size/flags lease pool retains storage; fresh scene semantics unchanged",
+      "scenarios": "all52",
+      "estimated_ms_saved": "~1250 per repeated large-city restore; actual screen idle1704\u2192414ms and debris1996\u2192654\u2013734ms",
+      "confidence": "high",
+      "cost": "small helper rebuild; full physical/memory suite",
+      "support": "identical physical state/output; lower setup time; unchanged full tick",
+      "refute": "stale data, allocation lifetime errors, inflated tick or unbounded capacity",
+      "status": "retained_combined_52x20_physical_and_52x2_async_memcheck_pass",
+      "estimated_application_tick_ms_saved": 0,
+      "commit": "b98589e7959c7e6505b6a318e7865bb08a445019",
+      "profile_locations": [
+        "out/snapshot-reset-20260911/timeline-qualified/large-idle.nsys-rep"
+      ],
+      "measurements": "Frozen baseline three-repeat screens, R2/R3 three-repeat screens, R4 six-repeat screen; full R2+R3 and R2+R3+R4 52x20 results under out/snapshot-reset-20260911/. Historical full baseline is a separate cohort, not interleaved."
+    },
+    {
+      "id": "R3",
+      "hypothesis": "Batch physical cluster motion export/import",
+      "evidence": "One synchronous transfer per cluster in both directions; late debris pre-tick re-export ~620ms",
+      "mechanism": "GPU gather/scatter active slots using existing scratch, one compact transfer each direction",
+      "scenarios": "all destructive, greatest effect fragmented cities",
+      "estimated_ms_saved": "100\u2013400 per large fragmented restore/validation, to measure",
+      "confidence": "high",
+      "cost": "runtime compile + physical and sanitizer checks",
+      "support": "byte-identical exported physical snapshot; unchanged full tick outputs; fewer CUDA transfers",
+      "refute": "inactive capacity read, stale/incorrect slot mapping or changed physics",
+      "status": "retained_combined_52x20_physical_and_52x2_async_memcheck_pass",
+      "estimated_application_tick_ms_saved": 0,
+      "commit": "d6045e50cff95aedc44e5255a616004f6d4899c5",
+      "profile_locations": [
+        "out/snapshot-reset-20260911/timeline-qualified/large-idle.nsys-rep"
+      ],
+      "measurements": "Frozen baseline three-repeat screens, R2/R3 three-repeat screens, R4 six-repeat screen; full R2+R3 and R2+R3+R4 52x20 results under out/snapshot-reset-20260911/. Historical full baseline is a separate cohort, not interleaved."
+    },
+    {
+      "id": "R4",
+      "hypothesis": "Reuse immutable decoded input and serialized-object storage",
+      "evidence": "Every repeat reparses/checksums the same31MiB input and allocates a new object buffer",
+      "mechanism": "One aligned reusable object arena; bounded one-entry decoded physical input per thread with exact byte comparison, independent live binding checks",
+      "scenarios": "all52; greatest byte volume in cities",
+      "estimated_application_tick_ms_saved": 0,
+      "estimated_restore_ms_saved": "20\u201360 for large snapshots; confirm repeated suite",
+      "confidence": "medium",
+      "cost": "runtime/probe rebuild and rejection/repeatability checks",
+      "support": "same exported input and output; corrupt/missing/live-state rejects unchanged; reduced reset cost",
+      "refute": "input-aliasing, checksum-collision acceptance, stale live bindings or changed physical state",
+      "status": "retained_combined_52x20_physical_and_52x2_async_memcheck_pass",
+      "commit": "ecde0026eb847e1c6ee444254cb097dd673bea4b",
+      "profile_locations": [
+        "out/snapshot-reset-20260911/timeline-qualified/large-idle.nsys-rep"
+      ],
+      "measurements": "Frozen baseline three-repeat screens, R2/R3 three-repeat screens, R4 six-repeat screen; full R2+R3 and R2+R3+R4 52x20 results under out/snapshot-reset-20260911/. Historical full baseline is a separate cohort, not interleaved."
+    }
+  ],
+  "next_ranked": [
+    {
+      "id": "R5",
+      "hypothesis": "Prepare immutable destruction asset metadata once per physical input",
+      "evidence": "City256 repeated destruction import costs265.7ms idle/310.3ms late debris, after input decode reuse",
+      "mechanism": "Reuse validated bond adjacency and CPU solver asset conversion, retain dynamic binding validation",
+      "scenarios": "all destruction; strongest large cities",
+      "estimated_restore_ms_saved": "20-80, low-confidence subset of import",
+      "estimated_application_tick_ms_saved": 0,
+      "confidence": "medium-low; requires CPU attribution before coding",
+      "cost": "runtime preparation architecture and negative-input/physical/memory qualification",
+      "support": "identical imported state and full tick output with lower import stage",
+      "refute": "static preparation is a small fraction or retained metadata becomes stale"
+    },
+    {
+      "id": "R6",
+      "hypothesis": "Reusable destruction runtime allocations with an explicit fresh-state reset",
+      "evidence": "Current reconstruction still creates/frees solver and topology allocations per repeat; teardown133.7-199.5ms for city256",
+      "mechanism": "Separate allocation ownership from physical/numerical initialization; keep all disposable numerical state invalidated",
+      "scenarios": "all repeated destructive snapshots",
+      "estimated_restore_ms_saved": "50-150 plus teardown, needs Systems attribution",
+      "estimated_application_tick_ms_saved": 0,
+      "confidence": "medium-low",
+      "cost": "larger lifecycle change; complete sanitizer, invalidation, and corrected-fracture qualification",
+      "support": "same cold numerical workload and physical outputs; fewer allocation API calls",
+      "refute": "deferred initialization inflates tick or any stale contact/solver state survives"
+    }
+  ]
+}

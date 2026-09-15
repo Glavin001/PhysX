@@ -1,0 +1,14 @@
+[
+  {
+    "source": "/root/.codex/attachments/8ff86b28-9dca-48aa-be3b-8c6aa1d1edfd/CUDA-Performance-Handbook.md",
+    "file": "CUDA-Performance-Handbook.md",
+    "sha256": "176896254073d41aea2aaa8779351635c01c668ff3fdca58fc5afd26043427b1",
+    "lines": 1736
+  },
+  {
+    "source": "/root/.codex/attachments/8ff86b28-9dca-48aa-be3b-8c6aa1d1edfd/cpu-gpu-cuda-optimization-guide.md",
+    "file": "cpu-gpu-cuda-optimization-guide.md",
+    "sha256": "db7c31b184f584236c6c089272b637d99a7e144f7e8d7ce8fe4e0e403586dd8c",
+    "lines": 1307
+  }
+]

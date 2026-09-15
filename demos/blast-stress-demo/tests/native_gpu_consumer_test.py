@@ -13,7 +13,8 @@ results = []
 try:
     for observe in (False, True):
         capture = work / ("observed" if observe else "resident")
-        command = [sys.argv[1], "--grid", "1", "--waves", "4", "--seconds", "8",
+        # Keep this historical consumer audit's API mode fixed across demo defaults.
+        command = [sys.argv[1], "--standard-scene", "0", "--grid", "1", "--waves", "4", "--seconds", "8",
                    "--stress-iterations", "8192", "--preserve-contact-pairs", "1",
                    "--gpu-island-repair", "1", "--gpu-pre-solve-islands", "1",
                    "--gpu-pre-solve-contacts", "1", "--gpu-pre-solve-support", "1",
@@ -29,7 +30,7 @@ try:
         assert bool(summary["consumer_pose_readback_bytes"]) == observe
         assert summary["consumer_query_readback_bytes"] == 4 * 4 + 8
         assert summary["export_pixel_readback_bytes"] == 0
-        assert summary["max_motion_position_error"] == 0
+        assert 0 <= summary["max_motion_position_error"] < 1e-3  # Same physical gate as the native pose audit.
         assert graph["boundary_audits"] > 0 and graph["boundary_audit_failures"] == 0
         assert not (capture / "native.twstate").exists()
         frames = list(csv.DictReader((capture / "native.frames.csv").open()))

@@ -212,3 +212,27 @@ experiment/report paths. The representative results are in
 `representative-calibration-v2/screen.json`; independent-pair results are in
 `precision-calibration/{calibration,analysis}.json`. These payloads are not bundled
 with this summary. No remote data backup or push is claimed.
+
+## Removal-plan implementation — stopped at user request
+
+Three isolated native candidates were built: localized connectivity, topology-owned operator adjacency, and producer-owned exact load changes. Their nine-case screens pass the physical/work/profile checks but establish no substantial sustained-destruction gain. Adjacency additionally passes 3,120 full52 physical comparisons; mixed performance prevents promotion. The selected runtime remains unchanged.
+
+The final load-producer screen completes in 284.732 seconds. All first-use ticks remain included; restore is excluded from tick latency. Means span separate processes, not confidence intervals. Peak values are observed maxima.
+
+| Scenario | Control mean range, ms | Candidate mean range, ms | Control / candidate peak, ms | Candidate 60 Hz misses / ticks |
+|---|---:|---:|---:|---:|
+| bridge64-cold | 8.911–9.056 | 9.020 | 11.918 / 11.475 | 0/8 |
+| chain256-cold | 7.588–7.627 | 7.751 | 10.769 / 10.552 | 0/8 |
+| dense12-cold | 31.526–31.553 | 31.245 | 33.978 / 33.162 | 6/6 |
+| tower64-cold | 108.433–108.844 | 108.786 | 110.816 / 110.745 | 4/4 |
+| city25-initial-impact | 39.205–39.976 | 39.829–40.981 | 47.882 / 48.651 | 12/12 |
+| city256-intact-idle | 64.358–64.736 | 63.777 | 73.121 / 66.307 | 4/4 |
+| city256-late-debris | 353.548–354.846 | 367.553–373.595 | 406.925 / 419.145 | 8/8 |
+| idle-256 | 1.661–1.676 | 1.673–1.731 | 14.023 / 14.162 | 0/360 |
+| impacts-256 | 54.463–54.781 | 54.505–55.106 | 184.784 / 179.930 | 198/360 |
+
+Prepared-factor prototypes reduce iteration counts but have not delivered a native improvement. Full debris numeric factor rebuilding costs about 48 ms; FP32 factors with ten FP64 corrections are slower. Selective masked factor updates fail correctness. Dense inverse-factor products pass residual checks, but fail the unchanged native force-compatibility gate on all 300 checked systems. Those results cannot qualify a drop-in solver replacement. A separately stored transpose removes padded FMA work but increases DRAM traffic and does not improve complete replay time; it was not retained.
+
+The remaining numerical issue is both factor lifetime/cost and physical-force compatibility. The lifecycle work needs a deeper ownership/registration change; lookup-only work is already refuted. Phase-only debris contact retirement is about 10.23 ms, and first-pass contact-manager preparation about 26.50 ms CPU; these remain instrumented scopes, not additive production-stage estimates.
+
+The five-part plan is incomplete. All owned jobs are terminal and no experiments are queued. Source, tools and evidence remain local; raw data remains ignored. This update is uncommitted. [All experiments, stages, qualification limits and evidence locations](../destruction-removal-implementation-20260913/README.md).

@@ -1,0 +1,543 @@
+diff --git a/demos/blast-stress-demo/tests/native_gpu_correction_body_test.cpp b/demos/blast-stress-demo/tests/native_gpu_correction_body_test.cpp
+index 8c5f21f3..715bb0ac 100644
+--- a/demos/blast-stress-demo/tests/native_gpu_correction_body_test.cpp
++++ b/demos/blast-stress-demo/tests/native_gpu_correction_body_test.cpp
+@@ -26,8 +26,8 @@ PxVec3 vec(float4 p){return PxVec3(p.x,p.y,p.z);}
+ PxQuat quat(const float* p){return PxQuat(p[0],p[1],p[2],p[3]);}
+ template<class T> std::vector<T> read(const T* ptr,unsigned count){std::vector<T> out(count);if(count)check(cuMemcpyDtoH(out.data(),CUdeviceptr(ptr),count*sizeof(T)));return out;}
+ void step(PxScene& scene){scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"ordinary step failed");}
+-void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,bool invalidCheckpoint=false,bool invalidCollision=false,bool invalidInitialization=false) {
+-    blast_demo::SceneCapacity capacity;blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,sleeping,sleeping,solver,accelerations);
++void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,bool invalidCheckpoint=false,bool invalidCollision=false,bool invalidInitialization=false,bool ordinaryApi=false,unsigned commandMode=0) {
++    blast_demo::SceneCapacity capacity;blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,!ordinaryApi,false,sleeping&&!ordinaryApi,sleeping&&!ordinaryApi,solver,accelerations);
+     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();auto& internal=static_cast<NpScene&>(scene);
+     auto& controller=*static_cast<PxgSimulationController*>(internal.getScScene().getSimulationController());auto& core=*controller.getSimulationCore();
+     scene.setGravity(PxVec3(0));const PxVec3 offset(2,1,-.5f),center=offset+PxVec3(.2f,0,0);
+@@ -47,7 +47,7 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
+     PxDestructionStressChunk chunks[3];PxDestructionChunkMassProperties mass[3]{};
+     for(unsigned i=0;i<2;++i) {
+         const float m=i?3.0f:2.0f;const auto point=offset+PxVec3(i?1.0f:-1.0f,0,0);const auto tensor=unitTensor*m;
+-        chunks[i]={point,m,m*unitMoments.z,0,scene.getDirectGPUAPI().getShapeContactIndex(*shapes[i]),.48f,0};
++        chunks[i]={point,m,m*unitMoments.z,0,scene.getDestructionScene()->getShapeContactIndex(*shapes[i]),.48f,0};
+         mass[i].mass=m;for(unsigned k=0;k<3;++k){mass[i].center[k]=point[k];mass[i].inertia[k]=tensor[k][k];}
+         mass[i].inertia[3]=tensor[1][0];mass[i].inertia[4]=tensor[2][0];mass[i].inertia[5]=tensor[2][1];
+     }
+@@ -55,9 +55,52 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
+     PxDestructionStressCluster clusters[2]={{parentId,center},{quietId,PxVec3(0)}};
+     PxDestructionStressBond bond{0,1,offset,PxVec3(1,0,0),1,1,1};PxDestructionMaterial material;
+     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=3;desc.chunkMassProperties=mass;desc.clusters=clusters;desc.clusterCount=2;desc.bonds=&bond;desc.bondCount=1;desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;
++    desc.internalCorrectionLimit=ordinaryApi?1:0;
+     auto* runtime=static_cast<PxgDestructionRuntime*>(scene.getDestructionScene());require(runtime->configureStress(desc),"correction graph configuration failed");
+     auto force=[&](PxU32 id){PxScopedCudaLock lock(cuda);CUdeviceptr index=0,value=0;check(cuMemAlloc(&index,sizeof(id)));check(cuMemAlloc(&value,sizeof(PxVec3)));const PxVec3 f(10,0,0);check(cuMemcpyHtoD(index,&id,sizeof(id)));check(cuMemcpyHtoD(value,&f,sizeof(f)));require(scene.getDirectGPUAPI().setRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIWriteType::eFORCE,1),"force command failed");check(cuCtxSynchronize());check(cuMemFree(index));check(cuMemFree(value));};
+-    force(ordinaryId);if(loaded)force(parentId);
++    if(ordinaryApi) {
++        ordinary->addForce(PxVec3(10,0,0));
++        if(loaded) {
++            if(commandMode!=2)parent->addForce(PxVec3(10,0,0));
++            if(commandMode!=1)parent->addTorque(PxVec3(0,0,3));
++        } else {parent->addForce(PxVec3(0));parent->addTorque(PxVec3(0));}
++    } else {force(ordinaryId);if(loaded)force(parentId);}
++    if(ordinaryApi) {
++        scene.simulate(1.0f/60);PxU32 error=0;const bool accepted=scene.fetchResults(true,&error);
++        std::printf("ordinary correction: loaded=%u mode=%u solver=%u accelerations=%u accepted=%u error=%u stage=%u\n",unsigned(loaded),commandMode,unsigned(solver),unsigned(accelerations),unsigned(accepted),error,runtime->getLastStatus().error);
++        require(accepted!=loaded && bool(error)==loaded,"ordinary loaded source bypassed correction guard");
++        if(!loaded)require(runtime->getLastStatus().correctionPasses==1,"unrelated-command control did not complete a fracture correction");
++        if(loaded) {
++            require(runtime->getLastStatus().error==8,"ordinary command rejection lost correction status");
++            PxScopedCudaLock lock(cuda);auto view=runtime->getDeviceView();check(cuEventSynchronize(view.readyEvent));
++            auto status=read(view.correctionPreparation,1)[0];
++            require(status.valid && !status.error && status.loadedSources==1,"ordinary force/torque source was not counted once");
++            const auto checkpoint=runtime->rigidCheckpoint();const auto source=read(checkpoint.bodies+parentId,1)[0];
++            require(vec(source.externalLinearAcceleration).isZero() && vec(source.externalAngularAcceleration).isZero(),"fixture did not exercise velocity-delta commands");
++            const auto history=runtime->commandInputHistory();require(history.status && history.generation==checkpoint.generation,"ordinary command history missing");
++            bool found=false;for(const auto& command:read(history.records,history.count))if(command.body==parentId && command.kind==1)found=true;
++            require(found,"parent command was not captured");
++            require(runtime->prepareCorrectionBodies(core.getBodySimStorageCapacity(),core.getStream()),"explicit command correction preparation failed");
++            require(runtime->observeCorrectionPreparation(),"explicit command correction observation failed");
++            view=runtime->getDeviceView();check(cuEventSynchronize(view.readyEvent));status=read(view.correctionPreparation,1)[0];
++            require(status.valid && !status.error && status.loadedSources==1,"explicit correction preparation lost ordinary command guard");
++            // Corrupt only the original command receipt. No native motion may
++            // change, and a stale/error receipt must not become an empty load.
++            const auto count=controller.getBodySimManager().mTotalNumBodies;
++            const auto before=read(core.getBodySimBufferDevicePtr().getPointer(),count);
++            auto receipt=read(history.status,1)[0];
++            if(commandMode==1)receipt.error|=4u;else ++receipt.generation;
++            check(cuMemcpyHtoD(CUdeviceptr(history.status),&receipt,sizeof(receipt)));
++            require(runtime->prepareCorrectionBodies(core.getBodySimStorageCapacity(),core.getStream()),"invalid command receipt submission failed");
++            require(!runtime->observeCorrectionPreparation(),"invalid original command receipt accepted");
++            check(cuEventSynchronize(runtime->getDeviceView().readyEvent));status=read(view.correctionPreparation,1)[0];
++            require(!status.valid && (status.error&64u) && !status.loadedSources,"invalid history lost explicit rejection");
++            const auto after=read(core.getBodySimBufferDevicePtr().getPointer(),count);
++            require(!std::memcmp(before.data(),after.data(),before.size()*sizeof(PxgBodySim)),"invalid command history changed native motion");
++        }
++        require(runtime->clearStress(),"ordinary correction cleanup failed");parent->release();quiet->release();ordinary->release();for(auto* shape:shapes)shape->release();
++        require(context.healthy(),"ordinary correction GPU health failed");return;
++    }
+     scene.simulate(1.0f/60);PxU32 error=0;require(!scene.fetchResults(true,&error)&&error&&runtime->getLastStatus().error==8,"native split did not stop at incomplete correction");
+     // Manual installation oracle: explicitly materialize its CPU compatibility
+     // records after the intentionally incomplete scene advance.
+@@ -171,4 +214,4 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
+     std::printf("native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=%u acceleration=%u solver=%u loaded=%u invalid=%u invalidCollision=%u invalidInitialization=%u passed\n",unsigned(sleeping),unsigned(accelerations),unsigned(solver),unsigned(loaded),unsigned(invalidCheckpoint),unsigned(invalidCollision),unsigned(invalidInitialization));
+ }
+ }
+-int main(){try{for(bool sleeping:{false,true})for(bool accelerations:{false,true})for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(sleeping,accelerations,solver,false);run(true,true,PxSolverType::eTGS,true);run(false,false,PxSolverType::eTGS,false,true);run(false,false,PxSolverType::eTGS,false,false,true);for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(false,true,solver,false,false,false,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
++int main(){try{for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})for(bool accelerations:{false,true})for(unsigned mode=0;mode<4;++mode)run(true,accelerations,solver,mode!=3,false,false,false,true,mode%3);for(bool sleeping:{false,true})for(bool accelerations:{false,true})for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(sleeping,accelerations,solver,false);run(true,true,PxSolverType::eTGS,true);run(false,false,PxSolverType::eTGS,false,true);run(false,false,PxSolverType::eTGS,false,false,true);for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(false,true,solver,false,false,false,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+diff --git a/physx/include/PxDestructionTopologyTypes.h b/physx/include/PxDestructionTopologyTypes.h
+index b12326d5..b4436a5e 100644
+--- a/physx/include/PxDestructionTopologyTypes.h
++++ b/physx/include/PxDestructionTopologyTypes.h
+@@ -80,9 +80,12 @@ struct PxDestructionCorrectionPreparationStatus {
+     std::uint32_t count, loadedSources, valid, error;
+     // error: 1 missing/invalid checkpoint source, 2 native mapping,
+     // 4 invalid/unrepresentable motion, 8 nonfinite input load, 16 CUDA failure,
+-    // 32 rejected collision prerequisite (originating collision error is retained).
++    // 32 rejected collision prerequisite (originating collision error is retained),
++    // 64 invalid original command-history receipt.
+     // loadedSources counts affected source bodies with unapportioned external
+-    // accelerations. Those commands cannot be cloned onto every fragment.
++    // accelerations or ordinary additive velocity commands. Count each source
++    // once even when both representations are present. Those commands cannot
++    // be cloned onto every fragment.
+ };
+ // A handle is valid in its asset/scene view only when slotRoots[slot] is live
+ // and slotGenerations[slot] matches. Authored chunk IDs remain independent.
+diff --git a/physx/source/gpudestruction/src/PxgDestructionCorrection.cuh b/physx/source/gpudestruction/src/PxgDestructionCorrection.cuh
+index 960a1b83..221aaefb 100644
+--- a/physx/source/gpudestruction/src/PxgDestructionCorrection.cuh
++++ b/physx/source/gpudestruction/src/PxgDestructionCorrection.cuh
+@@ -65,14 +65,20 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
+ }
+ __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* clusters,const PxU32* affected,PxU32 count,
+     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxDestructionCollisionPreparationStatus* collision,
+-    PxDestructionCorrectionPreparationStatus* status,const NativePreparationInputs* inputs=nullptr) {
+-    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;}
++    PxDestructionCorrectionPreparationStatus* status,CorrectionCommandInputs commands={},const NativePreparationInputs* inputs=nullptr) {
++    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;commands=inputs->commands;}
+     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(!collision->valid || i>=count || !affected[i])return;
+     const PxU32 id=clusters[i].body;if(!checkpoint || id>=checkpointCount){atomicOr(&status->error,1u);return;}
+     const auto body=checkpoint[id];const auto a=body.externalLinearAcceleration,b=body.externalAngularAcceleration;
+     if(!isfinite(a.x) || !isfinite(a.y) || !isfinite(a.z) || !isfinite(b.x) || !isfinite(b.y) || !isfinite(b.z))
+         {atomicOr(&status->error,8u);return;}
+-    if(a.x!=0 || a.y!=0 || a.z!=0 || b.x!=0 || b.y!=0 || b.z!=0)atomicAdd(&status->loadedSources,1u);
++    bool commanded=false;
++    if(commands.status) {
++        if(commands.status->error || commands.status->generation!=commands.generation || !commands.generation
++            || id>=commands.capacity || !commands.loadedGenerations) {atomicOr(&status->error,64u);return;}
++        commanded=commands.loadedGenerations[id]==commands.generation;
++    }
++    if(commanded || a.x!=0 || a.y!=0 || a.z!=0 || b.x!=0 || b.y!=0 || b.z!=0)atomicAdd(&status->loadedSources,1u);
+ }
+ struct HasCorrectionBody {
+     __host__ __device__ bool operator()(const PxDestructionCorrectionBody& b) const {return b.targetBody!=PX_INVALID_U32;}
+diff --git a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+index 988c6864..01540089 100644
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -35,6 +35,8 @@ struct Context {
+ void check(cudaError_t e) { if(e!=cudaSuccess) throw std::runtime_error(cudaGetErrorString(e)); }
+ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T)*std::max<size_t>(n,1))); }
+ #include "PxgRigidIterationLimits.cuh"
++#include "PxgDestructionInputOwners.cuh"
++#include "PxgDestructionCommandInputs.cuh"
+ #include "PxgDestructionMaterial.cuh"
+ #include "PxgDestructionCommittedChanges.cuh"
+ #include "PxgDestructionShapePublication.cuh"
+@@ -320,7 +322,15 @@ __device__ bool initializedBodyAllocation(const PxDestructionBodyAllocationStatu
+     return allocation->valid && !allocation->error && !allocation->initializationError
+         && allocation->initialized==allocation->reserved;
+ }
++struct CorrectionCommandInputs {
++    const PxU64* loadedGenerations=nullptr;
++    const PxgDestructionCommandInputStatus* status=nullptr;
++    PxU64 generation=0;
++    PxU32 capacity=0;
++};
+ struct NativePreparationInputs {
++    CorrectionCommandInputs commands;
++
+     PxgDestructionCollisionStorage collision;
+     const PxgBodySim* checkpoint=nullptr;
+     const PxgBodySimVelocities* previous=nullptr;
+@@ -542,6 +552,22 @@ class Runtime final : public PxgDestructionRuntime {
+     PxU32 mCheckpointCapacity{},mCheckpointCount{};
+     PxU64 mCheckpointGeneration{};
+     bool mCheckpointHasPrevious=false,mCheckpointHasAccelerations=false,mCheckpointValid=false;
++    PxgDestructionCheckpointPurpose mCheckpointPurpose=PxgDestructionCheckpointPurpose::BeforeSolve;
++    PxgDestructionRigidCheckpointView mInputCheckpoint{};
++    PxgDestructionCommandInput* mCommandInputs{};
++    PxgDestructionCommandInputStatus* mCommandInputStatus{};
++    PxU32 mCommandInputCapacity{},mCommandInputCount{};
++    PxU64 mCommandInputGeneration{};
++    PxU64* mCommandLoadedGenerations{};PxU32 mCommandLoadedCapacity{};
++    PxgDestructionInputOwner* mInputOwners{};
++    PxgDestructionInputOwnership* mInputOwnership{};
++    // Rotate storage on the corrected-motion refresh. Retaining the original
++    // input needs a second reusable allocation, not another full-array copy.
++    PxgBodySim* mInputSpareBodies{};
++    PxgBodySimVelocities* mInputSparePrevious{};
++    PxgRigidBodyAcceleration* mInputSpareAccelerations{};
++    PxU32 mInputSpareCapacity{};
++    bool mInputSpareHasPrevious=false,mInputSpareHasAccelerations=false;
+     cudaEvent_t mCheckpointReady{};
+     PxU32* mGraphRetiredMask{};
+     PxU32 *mGraphRetired{},*mGraphHostRetired{};
+@@ -970,6 +996,16 @@ public:
+         cudaFree(mCorrectionBodies);mCorrectionBodies=nullptr;cudaFree(mCompactCorrectionBodies);mCompactCorrectionBodies=nullptr;
+         mCorrectionPreparation=nullptr;cudaFree(mCorrectionScratch);mCorrectionScratch=nullptr;mCorrectionScratchBytes=0;
+         if(mCheckpointValid)cudaEventSynchronize(mCheckpointReady);
++        mInputCheckpoint={};
++        cudaFree(mCommandInputs);mCommandInputs=nullptr;
++        cudaFree(mCommandInputStatus);mCommandInputStatus=nullptr;
++        mCommandInputCapacity=mCommandInputCount=0;mCommandInputGeneration=0;
++        cudaFree(mCommandLoadedGenerations);mCommandLoadedGenerations=nullptr;mCommandLoadedCapacity=0;
++        cudaFree(mInputOwners);mInputOwners=nullptr;cudaFree(mInputOwnership);mInputOwnership=nullptr;
++        cudaFree(mInputSpareBodies);mInputSpareBodies=nullptr;
++        cudaFree(mInputSparePrevious);mInputSparePrevious=nullptr;
++        cudaFree(mInputSpareAccelerations);mInputSpareAccelerations=nullptr;
++        mInputSpareCapacity=0;mInputSpareHasPrevious=mInputSpareHasAccelerations=false;
+         mCheckpointValid=false;mCheckpointCount=0;mCheckpointCapacity=0;
+         mCheckpointHasPrevious=mCheckpointHasAccelerations=false;
+         cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
+@@ -1101,6 +1137,7 @@ public:
+                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
+             }
+             allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));
++            if(d.chunkMassProperties){allocate(mInputOwners,d.chunkCount);allocate(mInputOwnership,1);}
+             allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,map.size());
+             if(mSolver) mInputs=reinterpret_cast<PxDestructionVectorPair*>(mSolver->deviceView().nodeInputs);
+             else {allocate(mInputs,d.chunkCount);mOwnInputs=true;}
+@@ -1192,7 +1229,7 @@ public:
+                     prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,mStream>>>(mTrialBodies,mTrialBodyIndices,mN,trial,mChunks,
+                         mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,inputs);
+                     inspectCorrectionSourceLoads<<<(mN+127)/128,128,0,mStream>>>(mClusters,mAffectedClusters,0,nullptr,0,
+-                        mCollisionPreparation,mCorrectionPreparation,inputs);
++                        mCollisionPreparation,mCorrectionPreparation,{},inputs);
+                     check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
+                         &mCorrectionPreparation->count,mN,HasCorrectionBody{},mStream));
+                     finishCorrectionPreparation<<<1,1,0,mStream>>>(mCorrectionPreparation,mCollisionPreparation,0,mStatus,inputs);
+@@ -1220,6 +1257,10 @@ public:
+         }catch(...){mFailed=true;return false;}
+     }
+     bool configured() const override {return mN && !mFailed;}
++    bool wakeCommandOwners(const PxU32* indices,PxU32 count) override {
++        if(!mWriteAllowed(mScene) || mFailed || !mBodyAllocator)return false;
++        return mBodyAllocator->wakeCommandOwners(indices,count);
++    }
+     PxDestructionDeviceView getDeviceView() const override {
+         PxDestructionDeviceView v;v.nodeAccelerations=mInputs;v.surfaceLoads=mSurface;v.status=mStatus;
+         v.bondForces=mSolver?reinterpret_cast<const PxDestructionVectorPair*>(mSolver->deviceView().bondImpulses):nullptr;
+@@ -1401,6 +1442,13 @@ public:
+             check(cudaEventRecord(mReady,mStream));mPending=true;return true;
+         }catch(...){mFailed=true;return false;}
+     }
++    CorrectionCommandInputs correctionCommandInputs() const {
++        if(!mCorrectionEnabled)return {};
++        // Original command history remains authoritative across corrected refresh.
++        if(!mCommandInputStatus || !mInputCheckpoint.generation || mCommandInputGeneration!=mInputCheckpoint.generation)
++            throw std::runtime_error("missing original correction command history");
++        return {mCommandLoadedGenerations,mCommandInputStatus,mCommandInputGeneration,mCommandLoadedCapacity};
++    }
+     void prepareDeviceInputs() {
+         // Pointer/capacity refresh is ordinary submission metadata. No fracture
+         // count or verdict crosses to the host to decide which stages execute.
+@@ -1413,7 +1461,7 @@ public:
+             check(cudaFree(mShapeOwnerGenerations));mShapeOwnerGenerations=next;mShapeOwnerCapacity=capacity;
+         }
+         check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
+-        NativePreparationInputs inputs{};inputs.collision=mCollisionStorage;
++        NativePreparationInputs inputs{};inputs.collision=mCollisionStorage;inputs.commands=correctionCommandInputs();
+         inputs.checkpoint=mCheckpointValid?mCheckpointBodies:nullptr;inputs.previous=mCheckpointPrevious;
+         inputs.checkpointCount=mCheckpointValid?mCheckpointCount:0;inputs.checkpointGeneration=mCheckpointGeneration;
+         inputs.bodyCapacity=mMotionStorage.capacity;inputs.clusterCount=mC;
+@@ -1527,17 +1575,70 @@ public:
+         }
+         mCompatibilityPrepared=allocated;return allocated;
+     }
++    bool captureCommandInputs(const PxgBodySim* bodies,PxU32 bodyCount,const PxgBodySimVelocityUpdate* updates,
++        PxU32 count,CUstream coreStream) override {
++        if(!mTopology || !mCorrectionEnabled || mFailed || !coreStream || (count && (!bodies || !updates || !bodyCount)) ||
++            mCheckpointGeneration==std::numeric_limits<PxU64>::max())return false;
++        try {
++            Context current(mContext);auto stream=reinterpret_cast<cudaStream_t>(coreStream);
++            if(mCheckpointValid)check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
++            // Consumers of prior history are ordered by the runtime completion.
++            check(cudaStreamWaitEvent(stream,mReady,0));
++            if(count>mCommandInputCapacity) {
++                PxgDestructionCommandInput* fresh=nullptr;
++                const PxU32 capacity=PxU32(std::max<PxU64>(count,std::max<PxU64>(256,
++                    std::min<PxU64>(PxU64(mCommandInputCapacity)*3/2,std::numeric_limits<PxU32>::max()))));
++                allocate(fresh,capacity);cudaFree(mCommandInputs);mCommandInputs=fresh;mCommandInputCapacity=capacity;
++            }
++            if(bodyCount>mCommandLoadedCapacity) {
++                PxU64* fresh=nullptr;
++                const PxU32 capacity=PxU32(std::max<PxU64>(bodyCount,std::max<PxU64>(256,
++                    std::min<PxU64>(PxU64(mCommandLoadedCapacity)*3/2,std::numeric_limits<PxU32>::max()))));
++                allocate(fresh,capacity);
++                try {check(cudaMemsetAsync(fresh,0,size_t(capacity)*sizeof(PxU64),stream));}
++                catch(...) {cudaFree(fresh);throw;}
++                cudaFree(mCommandLoadedGenerations);mCommandLoadedGenerations=fresh;mCommandLoadedCapacity=capacity;
++            }
++            if(!mCommandInputStatus)allocate(mCommandInputStatus,1);
++            const auto generation=mCheckpointGeneration+1;
++            beginCommandInputs<<<1,1,0,stream>>>(mCommandInputStatus,generation,count);
++            if(count)captureCommandInputsKernel<<<(count+127)/128,128,0,stream>>>(bodies,bodyCount,updates,count,mCommandInputs,mCommandInputStatus,mCommandLoadedGenerations);
++            check(cudaGetLastError());mCommandInputCount=count;mCommandInputGeneration=generation;return true;
++        }catch(...){mFailed=true;mCommandInputGeneration=0;return false;}
++    }
++    PxgDestructionCommandInputView commandInputHistory() const override {
++        PxgDestructionCommandInputView view;
++        if(!mFailed && mInputCheckpoint.generation && mCommandInputGeneration==mInputCheckpoint.generation) {
++            view.records=mCommandInputs;view.status=mCommandInputStatus;view.count=mCommandInputCount;
++            view.generation=mCommandInputGeneration;view.ready=mInputCheckpoint.ready;
++        }
++        return view;
++    }
+     bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
+-        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream) override {
+-        if(!mTopology)return true;
++        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream,
++        PxgDestructionCheckpointPurpose purpose) override {
++        if(purpose!=PxgDestructionCheckpointPurpose::BeforeSolve && purpose!=PxgDestructionCheckpointPurpose::CorrectedMotion)return false;
++        if(!mTopology)return purpose==PxgDestructionCheckpointPurpose::BeforeSolve;
++        if(purpose==PxgDestructionCheckpointPurpose::CorrectedMotion &&
++            (!mCheckpointValid || mCheckpointPurpose!=PxgDestructionCheckpointPurpose::BeforeSolve ||
++             mInputCheckpoint.bodies!=mCheckpointBodies || !mInputCheckpoint.generation))return false;
+         try {
+             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+             if(mFailed || !bodies || !count || !stream || mCheckpointGeneration==std::numeric_limits<PxU64>::max())
+                 throw std::runtime_error("invalid rigid checkpoint boundary");
+             if(mCheckpointValid)check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+             mCheckpointValid=false;mRestoredCheckpointGeneration=0;
++            if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve)mInputCheckpoint={};
++            else {
++                std::swap(mCheckpointBodies,mInputSpareBodies);
++                std::swap(mCheckpointPrevious,mInputSparePrevious);
++                std::swap(mCheckpointAccelerations,mInputSpareAccelerations);
++                std::swap(mCheckpointCapacity,mInputSpareCapacity);
++                std::swap(mCheckpointHasPrevious,mInputSpareHasPrevious);
++                std::swap(mCheckpointHasAccelerations,mInputSpareHasAccelerations);
++            }
+             if(count>mCheckpointCapacity || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations) {
+-                // Grow only at the ordered pre-solve boundary. Allocation failure
++                // Grow only at an ordered checkpoint boundary. Allocation failure
+                 // cannot truncate the checkpoint or mutate accepted body state.
+                 PxgBodySim* freshBodies=nullptr;PxgBodySimVelocities* freshPrevious=nullptr;
+                 PxgRigidBodyAcceleration* freshAccelerations=nullptr;
+@@ -1556,8 +1657,23 @@ public:
+             check(cudaMemcpyAsync(mCheckpointBodies,bodies,size_t(count)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
+             if(previous)check(cudaMemcpyAsync(mCheckpointPrevious,previous,size_t(count)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
+             if(accelerations)check(cudaMemcpyAsync(mCheckpointAccelerations,accelerations,size_t(count)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
++            if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve) {
++                // The accepted authored mapping still belongs to this input
++                // generation. Freeze it before either material verdict can split
++                // clusters or recycle native slots. Correction retains this map.
++                check(cudaStreamWaitEvent(stream,mReady,0));
++                beginInputOwnership<<<1,1,0,stream>>>(mInputOwnership,mTopology->accepted(),mC,count,mCheckpointGeneration+1);
++                captureInputOwners<<<(mN+127)/128,128,0,stream>>>(mTopology->accepted(),mChunks,mClusters,mC,
++                    mCheckpointBodies,mInputOwners,mInputOwnership);
++                finishInputOwnership<<<1,1,0,stream>>>(mInputOwnership);
++                check(cudaGetLastError());
++            }
+             check(cudaEventRecord(mCheckpointReady,stream));
+-            mCheckpointCount=count;++mCheckpointGeneration;mCheckpointValid=true;return true;
++            mCheckpointCount=count;++mCheckpointGeneration;mCheckpointPurpose=purpose;mCheckpointValid=true;
++            if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve) {
++                mInputCheckpoint=rigidCheckpoint();mInputCheckpoint.owners=mInputOwners;mInputCheckpoint.ownership=mInputOwnership;
++            }
++            return true;
+         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
+     }
+     PxgDestructionRigidCheckpointView rigidCheckpoint() const override {
+@@ -1565,9 +1681,13 @@ public:
+         if(mCheckpointValid) {
+             result.bodies=mCheckpointBodies;result.previous=mCheckpointPrevious;result.accelerations=mCheckpointAccelerations;
+             result.count=mCheckpointCount;result.generation=mCheckpointGeneration;result.ready=mCheckpointReady;
++            result.purpose=mCheckpointPurpose;
+         }
+         return result;
+     }
++    PxgDestructionRigidCheckpointView inputRigidCheckpoint() const override {
++        return mFailed?PxgDestructionRigidCheckpointView{}:mInputCheckpoint;
++    }
+     bool restoreRigidState(PxgBodySim* bodies,PxgBodySimVelocities* previous,
+         PxgRigidBodyAcceleration* accelerations,PxU32 capacity,PxU64 generation,CUstream coreStream) override {
+         // Reject the whole operation before any device write. A generation is
+@@ -1679,7 +1799,7 @@ public:
+             check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),stream));
+             prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,stream>>>(mTrialBodies,mTrialBodyIndices,mN,mTopology->trial(),mChunks,
+                 mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation);
+-            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation);
++            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation,correctionCommandInputs());
+             check(cudaGetLastError());
+             check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
+                 &mCorrectionPreparation->count,mN,HasCorrectionBody{},stream));
+@@ -1851,7 +1971,7 @@ public:
+ };
+ }}
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV10(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
++PxCreateDestructionRuntimeV14(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
+ }
+ 
+diff --git a/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp b/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp
+index fddff288..ba3a5c9a 100644
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp
+@@ -26,6 +26,7 @@
+ // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
+ // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
+ 
++#include "PxgDestructionRuntime.h"
+ #include "PxgSimulationCore.h"
+ #include "PxDirectGPUAPI.h"
+ #include "cudamanager/PxCudaContextManager.h"
+@@ -2322,10 +2323,12 @@ void PxgSimulationCore::syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnf
+ 	nbUnfrozenShapesThisFrame = mUpdatedCacheAndBoundsDesc.get().mTotalUnfrozenShapes;
+ }
+ 
+-void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies)
++bool PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies, PxgDestructionRuntime* commandInputs, PxU32 bodyCount)
+ {
+     const auto updateVelocities = [&]()
+ 	{
++        if(commandInputs && !commandInputs->captureCommandInputs(getBodySimBufferDevicePtr().getPointer(),bodyCount,
++            reinterpret_cast<const PxgBodySimVelocityUpdate*>(mUpdatedBodySimBuffer.getDevicePtr()),nbUpdatedBodies,mStream))return false;
+ 		if (nbUpdatedBodies > 0)
+ 		{
+ 			CUdeviceptr descptr = mUpdatedBodiesDescBuffer.getDevicePtr();
+@@ -2346,10 +2349,11 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
+ 				PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU update bodies velocities kernel fail!\n");
+ #endif
+ 		}
++        return true;
+ 	};
+     const bool residentDestruction=!mGpuContext->getEnableDirectGPUAPI()
+         && mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs();
+-    if(!mGpuContext->getEnableDirectGPUAPI() && !residentDestruction) updateVelocities();
++    if(!mGpuContext->getEnableDirectGPUAPI() && !residentDestruction && !updateVelocities())return false;
+ 
+ 	{
+ 		if (nbNewBodies > 0)
+@@ -2380,7 +2384,15 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
+ #endif
+ 		}
+ 	}
+-    if(mGpuContext->getEnableDirectGPUHostAccess() || residentDestruction) updateVelocities();
++    if(mGpuContext->getEnableDirectGPUHostAccess() || residentDestruction) {
++        if(!updateVelocities())return false;
++    } else if(mGpuContext->getEnableDirectGPUAPI() && commandInputs) {
++        // This mode admits no ordinary host delta upload. Publish an explicit
++        // empty generation; direct GPU forces remain in checkpoint accumulators.
++        if(!commandInputs->captureCommandInputs(getBodySimBufferDevicePtr().getPointer(),bodyCount,
++            nullptr,0,mStream))return false;
++    }
++    return true;
+ }
+ 
+ void PxgSimulationCore::updateArticulations(const PxU32 nbNewArticulations, PxgArticulationSimUpdate* updates, 
+diff --git a/physx/source/gpudestruction/src/PxgDestructionCommandInputs.cuh b/physx/source/gpudestruction/src/PxgDestructionCommandInputs.cuh
+new file mode 100644
+index 00000000..7836ec80
+--- /dev/null
++++ b/physx/source/gpudestruction/src/PxgDestructionCommandInputs.cuh
+@@ -0,0 +1,37 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++// Included in the runtime CUDA implementation namespace.
++__global__ void beginCommandInputs(PxgDestructionCommandInputStatus* status,PxU64 generation,PxU32 count) {
++    *status={generation,count,0};
++}
++__global__ void captureCommandInputsKernel(const PxgBodySim* bodies,PxU32 bodyCount,
++    const PxgBodySimVelocityUpdate* updates,PxU32 count,PxgDestructionCommandInput* records,
++    PxgDestructionCommandInputStatus* status,PxU64* loadedGenerations=nullptr) {
++    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
++    const auto update=updates[i];PxgDestructionCommandInput record{};
++    record.body=__float_as_uint(update.linearVelocityXYZ_bodySimIndexW.w);
++    record.flags=__float_as_uint(update.externalLinearAccelerationXYZ.w);
++    // Other uploads are not an invertible command history. Never label an
++    // already modified host velocity as a command-free native input.
++    if(!(record.flags&PxsRigidBody::eHOST_VELOCITY_DELTA_GPU)){records[i]=record;return;}
++    if(record.body>=bodyCount){record.kind=2;records[i]=record;atomicOr(&status->error,1u);return;}
++    const auto& body=bodies[record.body];
++    if(__float_as_uint(body.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w)!=record.body) {
++        record.kind=2;records[i]=record;atomicOr(&status->error,2u);return;
++    }
++    const auto linear=body.linearVelocityXYZ_inverseMassW,angular=body.angularVelocityXYZ_maxPenBiasW;
++    const auto dl=update.externalLinearAccelerationXYZ,da=update.externalAngularAccelerationXYZ;
++    const float values[12]={linear.x,linear.y,linear.z,angular.x,angular.y,angular.z,dl.x,dl.y,dl.z,da.x,da.y,da.z};
++    for(PxU32 k=0;k<12;++k)if(!isfinite(values[k])) {
++        record.kind=2;records[i]=record;atomicOr(&status->error,4u);return;
++    }
++    for(PxU32 k=0;k<3;++k) {
++        record.linearBefore[k]=values[k];record.angularBefore[k]=values[k+3];
++        record.linearDelta[k]=values[k+6];record.angularDelta[k]=values[k+9];
++    }
++    record.kind=1;records[i]=record;
++    // Sparse epoch marking: no body-capacity clear on ordinary steps. The
++    // consumer combines this with accumulator loads and counts each source once.
++    if(loadedGenerations && (dl.x!=0 || dl.y!=0 || dl.z!=0 || da.x!=0 || da.y!=0 || da.z!=0))
++        atomicExch(reinterpret_cast<unsigned long long*>(loadedGenerations+record.body),
++            static_cast<unsigned long long>(status->generation));
++}
+diff --git a/demos/blast-stress-demo/tests/native_gpu_command_inputs_test.cu b/demos/blast-stress-demo/tests/native_gpu_command_inputs_test.cu
+new file mode 100644
+index 00000000..5dd5e428
+--- /dev/null
++++ b/demos/blast-stress-demo/tests/native_gpu_command_inputs_test.cu
+@@ -0,0 +1,56 @@
++// Sparse native pre-addition capture, including irreversible float rounding.
++#include "PxgDestructionRuntime.h"
++#include "PxgBodySim.h"
++#include "PxsRigidBody.h"
++#include <cuda_runtime.h>
++#include <cstdio>
++#include <cstring>
++#include <stdexcept>
++#include <vector>
++#include <limits>
++#include <fstream>
++namespace physx { namespace {
++#include "PxgDestructionCommandInputs.cuh"
++}}
++using namespace physx;
++void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(e));}
++void require(bool v,const char* message){if(!v)throw std::runtime_error(message);}
++float bits(PxU32 id){float v;std::memcpy(&v,&id,4);return v;}
++template<class T>struct Buffer {
++    T* p{};size_t n;
++    Buffer(size_t count):n(count){check(cudaMalloc(&p,n*sizeof(T)));}
++    ~Buffer(){cudaFree(p);}
++    void set(const std::vector<T>& v){require(v.size()==n,"upload size");check(cudaMemcpy(p,v.data(),n*sizeof(T),cudaMemcpyHostToDevice));}
++    std::vector<T> get(){std::vector<T> v(n);check(cudaMemcpy(v.data(),p,n*sizeof(T),cudaMemcpyDeviceToHost));return v;}
++};
++int main(int argc,char**argv){try{
++    const PxU32 n=argc>1?113664:257,capacity=2*n+1;
++    Buffer<PxgBodySim> bodies(capacity);Buffer<PxgBodySimVelocityUpdate> updates(n);
++    Buffer<PxU64> loaded(capacity);loaded.set(std::vector<PxU64>(capacity,0));
++    Buffer<PxgDestructionCommandInput> records(n);Buffer<PxgDestructionCommandInputStatus> status(1);
++    std::vector<PxgBodySim> bs(capacity);std::vector<PxgBodySimVelocityUpdate> us(n);
++    for(PxU32 i=0;i<capacity;++i){bs[i].linearVelocityXYZ_inverseMassW={1.25f,2,3,.5f};bs[i].angularVelocityXYZ_maxPenBiasW={4,5,6,0};bs[i].freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w=bits(i);}
++    for(PxU32 i=0;i<n;++i){us[i].linearVelocityXYZ_bodySimIndexW.w=bits(2*i+1);us[i].externalLinearAccelerationXYZ={1e8f,.25f,-.5f,bits(PxsRigidBody::eHOST_VELOCITY_DELTA_GPU)};us[i].externalAngularAccelerationXYZ={7,8,9,0};}
++    bodies.set(bs);updates.set(us);
++    auto run=[&](PxU32 count,PxU64 generation){beginCommandInputs<<<1,1>>>(status.p,generation,count);if(count)captureCommandInputsKernel<<<(count+127)/128,128>>>(bodies.p,capacity,updates.p,count,records.p,status.p,loaded.p);check(cudaGetLastError());check(cudaDeviceSynchronize());return status.get()[0];};
++    auto s=run(n,7);require(!s.error && s.count==n && s.generation==7,"capture receipt");auto rs=records.get();
++    for(PxU32 i=0;i<n;++i){const auto& r=rs[i];require(r.body==2*i+1 && r.kind==1 && r.linearBefore[0]==1.25f && r.linearDelta[0]==1e8f && r.angularBefore[2]==6 && r.angularDelta[2]==9,"capture values");}
++    const auto epochs=loaded.get();for(PxU32 i=0;i<capacity;++i)require(epochs[i]==(i%2?7u:0u),"loaded generation touched wrong native slot");
++    float summed=float(1.25f+us[0].externalLinearAccelerationXYZ.x);
++    require(summed-us[0].externalLinearAccelerationXYZ.x!=rs[0].linearBefore[0],"fixture did not expose irreversible rounded addition");
++    auto after=bodies.get();require(!std::memcmp(after.data(),bs.data(),bs.size()*sizeof(bs[0])),"capture mutated bodies");
++    if(argc>2){std::ofstream out(argv[2],std::ios::binary);out.write(reinterpret_cast<const char*>(rs.data()),rs.size()*sizeof(rs[0]));require(bool(out),"capture output");}
++    if(argc==1){
++        us[0].externalLinearAccelerationXYZ={0,0,0,bits(PxsRigidBody::eHOST_VELOCITY_DELTA_GPU)};
++        us[0].externalAngularAccelerationXYZ={0,0,0,0};updates.set(us);
++        s=run(n,8);require(!s.error && loaded.get()[1]==7 && loaded.get()[3]==8,"zero command marked a new loaded generation");
++        us[0].externalLinearAccelerationXYZ.w=bits(0);us[0].linearVelocityXYZ_bodySimIndexW.w=bits(PX_INVALID_U32);updates.set(us);
++        s=run(n,8);require(!s.error && records.get()[0].kind==0,"non-command upload inspected invalid source");
++        us[0].externalLinearAccelerationXYZ.w=bits(PxsRigidBody::eHOST_VELOCITY_DELTA_GPU);updates.set(us);s=run(n,9);require((s.error&1)&&records.get()[0].kind==2,"out of bounds accepted");
++        us[0].linearVelocityXYZ_bodySimIndexW.w=bits(1);updates.set(us);bs[1].freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w=bits(2);bodies.set(bs);s=run(n,10);require(s.error&2,"native identity mismatch accepted");
++        bs[1].freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w=bits(1);bs[1].angularVelocityXYZ_maxPenBiasW.x=std::numeric_limits<float>::quiet_NaN();bodies.set(bs);s=run(n,11);require(s.error&4,"nonfinite baseline accepted");
++        s=run(0,12);require(!s.error&&!s.count&&s.generation==12,"empty next generation retained old commands");
++        for(auto epoch:loaded.get())require(epoch!=12,"empty generation retained a current loaded source");
++    }
++    std::printf("command inputs: %u sparse uploads, %u body slots; exact pre-addition values and capture nonmutation passed\n",n,capacity);return 0;
++}catch(const std::exception&e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

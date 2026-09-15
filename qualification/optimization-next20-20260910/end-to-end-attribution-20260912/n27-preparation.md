@@ -1,0 +1,11 @@
+# N27: ordered transaction-local contact index
+
+**Confirmation complete; closed without promotion. [Outcome and all measurements](n27-result.md). Historical preparation follows.** Commit `aefce1b6f91ec355c68f6e5f3fcd8cacefe4c683` on isolated `codex/n27-contact-index-20260912`. Main source/index/runtime and installed SDK unchanged. This is further work under the continuing optimization goal; the requested20-experiment batch is already closed.
+
+The candidate scans each source actor once after scheduling, buckets element pairs under their earliest migrating endpoint, and sorts each bucket by current actor index immediately before the original release call. It preserves refilter, callback, wake/lost-touch, owner registration and publication order. Only transaction-local arrays are added; no actor layout, persistent cache, GPU or numerical code changes.
+
+The separate audit build compares every indexed release list against the original reverse iterator and fails on any order/count mismatch. Required sequence: native correction audit; all seven frozen scenarios with physical comparisons; both-arm29-case correction plain/asynchronous memcheck; three both-arm restored memory cases; unprofiled120-tick light A/B/A. Only qualified candidates extend to all52/warm. The control is N26 B to isolate indexing; final retention additionally requires comparison against selected N13+N20.
+
+Coordinator780208/session10256 completed all three builds and is running the native screen. Counter390717 is paused after50/52 ordinary cases; CPU/graph52/52. The29-case order-audit correction regression and all seven order-audit snapshot physical comparisons pass14 ticks. Plain/memory qualification continues before timing. Watcher338813 is preserved. Do not start duplicate jobs, overlap CPU builds/GPU work with capture, or release the pause before terminal review.
+
+[Exact files, hashes, commands, hypothesis, savings estimates and decision gates](n27-preparation.json). [Measured native scan exposure](n26-native-census.md). Estimated0–2ms fracture tick,0–0.3ms heavy mean,0idle; low confidence, not measured gain. All earlier scenario timings remain in [N26 confirmation](n26-confirmation.md); no N27 timing exists yet.

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="480" viewBox="0 0 1000 480">
+<rect width="1000" height="480" fill="white"/>
+<g font-family="sans-serif" fill="#17263c"><text x="28" y="30" font-size="21">Identical code: uncertainty of paired full-step differences</text>
+<text x="28" y="55" font-size="14">Six independent pairs per case; simultaneous 95% t intervals; each panel has its own millisecond scale.</text>
+<text x="28" y="100" font-size="17">city256-late-debris</text>
+<text x="28" y="122" font-size="13">mean difference 4.333 ms</text>
+<rect x="565.24" y="86" width="109.53" height="48" fill="#e2efeb"/>
+<line x1="300.0" x2="940.0" y1="110" y2="110" stroke="#c5cbd3"/>
+<line x1="620" x2="620" y1="83" y2="137" stroke="#555"/>
+<line x1="482.46" x2="886.67" y1="110" y2="110" stroke="#285a9b" stroke-width="5"/>
+<circle cx="684.56" cy="110" r="6" fill="#285a9b"/>
+<text x="482.46" y="154" font-size="13" text-anchor="middle">-9.231 ms</text>
+<text x="620" y="76" font-size="13" text-anchor="middle">0</text>
+<text x="886.67" y="154" font-size="13" text-anchor="middle">17.897 ms</text>
+<text x="28" y="215" font-size="17">impacts-256</text>
+<text x="28" y="237" font-size="13">mean difference 0.302 ms</text>
+<rect x="488.45" y="201" width="263.11" height="48" fill="#e2efeb"/>
+<line x1="300.0" x2="940.0" y1="225" y2="225" stroke="#c5cbd3"/>
+<line x1="620" x2="620" y1="198" y2="252" stroke="#555"/>
+<line x1="498.51" x2="886.67" y1="225" y2="225" stroke="#285a9b" stroke-width="5"/>
+<circle cx="692.59" cy="225" r="6" fill="#285a9b"/>
+<text x="498.51" y="269" font-size="13" text-anchor="middle">-0.506 ms</text>
+<text x="620" y="191" font-size="13" text-anchor="middle">0</text>
+<text x="886.67" y="269" font-size="13" text-anchor="middle">1.111 ms</text>
+<text x="28" y="330" font-size="17">idle-256</text>
+<text x="28" y="352" font-size="13">mean difference -0.063 ms</text>
+<rect x="361.00" y="316" width="518.00" height="48" fill="#e2efeb"/>
+<line x1="300.0" x2="940.0" y1="340" y2="340" stroke="#c5cbd3"/>
+<line x1="620" x2="620" y1="313" y2="367" stroke="#555"/>
+<line x1="353.33" x2="557.74" y1="340" y2="340" stroke="#285a9b" stroke-width="5"/>
+<circle cx="455.54" cy="340" r="6" fill="#285a9b"/>
+<text x="353.33" y="384" font-size="13" text-anchor="middle">-0.103 ms</text>
+<text x="620" y="306" font-size="13" text-anchor="middle">0</text>
+<text x="557.74" y="384" font-size="13" text-anchor="middle">-0.024 ms</text>
+<text x="28" y="464" font-size="13">Green: provisional equivalence margin max(0.1 ms, 1%). Positive means A slower than B; no code changed.</text></g></svg>

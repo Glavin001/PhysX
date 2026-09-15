@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare accepted wall prefixes; never a complete penetration/performance gate."""
+"""Compare mode-matched accepted wall trajectories, including full ordinary runs."""
 import csv
 import gzip
 import hashlib
@@ -10,14 +10,17 @@ import math
 from pathlib import Path
 
 POSITION_TOLERANCE = 1e-3  # Existing native motion/COM audit tolerance, metres.
+_spec = importlib.util.spec_from_file_location('destruction_physics_contract', Path(__file__).with_name('destruction_physics_contract.py'))
+contract = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(contract)
 PHYSICAL_FIELDS = (
     'chunks', 'bonds', 'buildings', 'shot_path', 'projectile_mass_kg',
     'material_strength_scale', 'frame_strength_scale', 'correction_limit',
-    'direct_gpu_mode', 'sleeping', 'gpu_connectivity_owner', 'gpu_island_repair',
-    'gpu_pre_solve_islands', 'gpu_pre_solve_contacts', 'gpu_pre_solve_support',
-    'preserve_contact_pairs', 'spawn_protocol', 'launch_seconds', 'workload',
+    'direct_gpu_mode', 'sleeping', 'spawn_protocol', 'launch_seconds', 'workload',
     'free_bodies', 'crushing_material_enabled', 'record_fps',
 )
+IMPLEMENTATION_FIELDS = ('gpu_connectivity_owner','gpu_island_repair','gpu_pre_solve_islands',
+                         'gpu_pre_solve_contacts','gpu_pre_solve_support','preserve_contact_pairs')
 IDENTITY_FIELDS = ('step', 'chunk', 'root', 'cluster_chunks', 'supported')
 
 
@@ -43,6 +46,8 @@ def frames(path, count):
         require(int(row['stress_converged']) == 1, f'Unconverged stress at step {step}')
         require(0 <= int(row['resim_passes']) <= 1, f'Invalid correction count at step {step}')
         require(1 <= int(row['stress_passes']) <= 2, f'Invalid stress pass count at step {step}')
+        require(int(row['stress_passes']) == 1 + int(row['resim_passes']),
+                f'Missing or extra current-tick stress pass at step {step}')
     return result
 
 
@@ -65,16 +70,32 @@ def motion(path, count):
             yield rows
 
 
-def options(command):
+def options(command, summary, strict_implementation=False):
     require(len(command) % 2 == 1, 'Malformed captured command')
     ignored = {'--seconds', '--steps', '--output', '--motion-path', '--gpu-video', '--gpu-camera', '--color-by-cluster', '--trace-stress'}
-    return {k: v for k, v in zip(command[1::2], command[2::2]) if k not in ignored}
+    if not strict_implementation:
+        ignored.update('--'+field.replace('_','-') for field in IMPLEMENTATION_FIELDS)
+    result = {k: v for k, v in zip(command[1::2], command[2::2]) if k not in ignored}
+    # Compare effective API/sleep settings, including runs exercising defaults.
+    # Explicit options must agree with the actual scene reported by the binary.
+    mode = '0' if summary['direct_gpu_mode'] else '1'
+    sleeping = '1' if summary['sleeping'] else '0'
+    require(result.get('--standard-scene', mode) == mode, 'Captured API option disagrees with scene')
+    if mode == '1':
+        require(result.get('--sleeping', sleeping) == sleeping, 'Captured sleep option disagrees with scene')
+    result.update({'--standard-scene': mode, '--sleeping': sleeping})
+    return result
 
 
-def verify(capture, reference, count):
-    require(count in (32, 128), 'Only approved 32/128-step wall prefixes are supported')
+def verify(capture, reference, count, strict_implementation=False):
+    require(count in (32, 128, 600), 'Only 32/128-step prefixes or a full 600-step wall are supported')
     actual = json.loads((capture / 'native.summary.json').read_text())
     expected = json.loads((reference / 'native.summary.json').read_text())
+    if count == 600:
+        require(not actual['direct_gpu_mode'] and not expected['direct_gpu_mode']
+                and actual['sleeping'] and expected['sleeping'],
+                'Full matched wall requires ordinary APIs and sleeping enabled')
+        require(actual['frames'] == expected['frames'] == count, 'Full wall requires exactly 600 frames')
     require(actual['status'] == expected['status'] == 'completed', 'Incomplete simulation')
     require(actual['frames'] >= count and expected['frames'] >= count, 'Wrong prefix duration')
     require(actual['chunks'] == 444 and actual['bonds'] == 896, 'Wrong wall asset')
@@ -88,12 +109,13 @@ def verify(capture, reference, count):
     cap = json.loads((capture / 'capture.json').read_text())
     ref = json.loads((reference / 'capture.json').read_text())
     require(cap['config_sha256'] == ref['config_sha256'], 'Reference config digest differs')
-    require(options(cap['command']) == options(ref['command']), 'Reference command settings differ')
+    require(options(cap['command'], actual, strict_implementation) == options(ref['command'], expected, strict_implementation), 'Reference command settings differ')
     require(cap['exit_code'] == ref['exit_code'] == 0, 'Invalid capture exit status')
     require(cap.get('artifacts') and ref.get('artifacts'), 'Missing artifact attestation')
     # A reference must already have a physical audit; do not bless an arbitrary
     # trajectory merely because comparing it with itself would pass.
-    quality = json.loads((reference / 'quality.json').read_text())
+    quality_name = 'quality.json' if (reference / 'quality.json').exists() else 'invariants.json'
+    quality = json.loads((reference / quality_name).read_text())
     require(quality.get('all_stress_steps_converged') is True, 'Reference lacks physical quality audit')
     require(quality['max_cluster_com_error'] <= POSITION_TOLERANCE, 'Reference COM audit failed')
     if expected['direct_gpu_mode']:
@@ -106,13 +128,21 @@ def verify(capture, reference, count):
     b_ball = module.projectile(reference / 'native.twstate', 444)
     require(len(a_ball) == actual['frames'] and len(b_ball) == expected['frames'], 'Incomplete projectile observation')
     max_position_error = 0.0
+    motion_maxima = dict(orientation_dot_error=0.0, linear_m_s=0.0, angular_rad_s=0.0)
+    implementation_differences = dict(root_labels=0)
+    for key in IMPLEMENTATION_FIELDS:
+        if actual.get(key)!=expected.get(key):
+            implementation_differences[key]=[actual.get(key),expected.get(key)]
+            require(not strict_implementation, 'Reference implementation setting differs: '+key)
     identity = hashlib.sha256()
-    result = dict(schema=1, status='passed', tier='early' if count == 32 else 'screen',
+    result = dict(schema=1, status='passed', tier={32:'early',128:'screen',600:'full'}[count],
                   compared_steps=count, chunks=444, bonds=896, projectiles=actual['projectiles'],
-                  performance_qualification=False, complete_regression=False,
+                  performance_qualification=False, complete_regression=count == 600,
+                  physical_contract='complete-motion-v1', strict_implementation=strict_implementation,
                   position_tolerance_m=POSITION_TOLERANCE, first_difference=None)
     for step, (a_rows, b_rows) in enumerate(zip(motion(capture, count), motion(reference, count))):
         difference = None
+        partitions = [contract.canonical_partition([int(row['root']) for row in rows]) for rows in (a_rows,b_rows)]
         if not all(math.isfinite(float(v)) for v in (*a_ball[step], *b_ball[step])):
             difference = dict(step=step, kind='nonfinite_projectile')
         else:
@@ -125,10 +155,19 @@ def verify(capture, reference, count):
             if int(a_frames[step][key]) != int(b_frames[step][key]) and difference is None:
                 difference = dict(step=step, kind=key, actual=a_frames[step][key], reference=b_frames[step][key])
         for chunk, (a, b) in enumerate(zip(a_rows, b_rows)):
-            values = [int(a[k]) for k in IDENTITY_FIELDS]
+            values = [int(a[k]) if k != 'root' else partitions[0][chunk] for k in IDENTITY_FIELDS]
             identity.update(json.dumps(values, separators=(',', ':')).encode())
-            if values != [int(b[k]) for k in IDENTITY_FIELDS] and difference is None:
+            expected_values = [int(b[k]) if k != 'root' else partitions[1][chunk] for k in IDENTITY_FIELDS]
+            label_changed = int(a['root']) != int(b['root'])
+            implementation_differences['root_labels'] += label_changed
+            if (values != expected_values or (strict_implementation and label_changed)) and difference is None:
                 difference = dict(step=step, chunk=chunk, kind='topology_identity')
+            errors = contract.full_motion_error(a,b)
+            for key, bound in [('orientation_dot_error', contract.ORIENTATION_DOT_ERROR),
+                               ('linear_m_s', contract.VELOCITY_M_S), ('angular_rad_s', contract.ANGULAR_RAD_S)]:
+                motion_maxima[key] = max(motion_maxima[key], errors[key])
+                if errors[key] >= bound and difference is None:
+                    difference = dict(step=step, chunk=chunk, kind=key, error=errors[key], bound=bound)
             for prefix in ('physics_', 'com_'):
                 error = math.dist([float(a[prefix + axis]) for axis in 'xyz'],
                                   [float(b[prefix + axis]) for axis in 'xyz'])
@@ -139,17 +178,21 @@ def verify(capture, reference, count):
             result.update(status='failed', first_difference=difference, compared_steps=step + 1)
             break
     result['max_position_error_m'] = max_position_error
+    result['maximum_motion_errors'] = motion_maxima
+    result['implementation_differences'] = implementation_differences
     result['compared_identity_sha256'] = identity.hexdigest()
     result['reference'] = str(reference.resolve())
     result['reference_sha256'] = {name: digest(reference / name) for name in
-        ('capture.json', 'quality.json', 'native.summary.json', 'native.frames.csv', 'native.twstate')}
+        ('capture.json', quality_name, 'native.summary.json', 'native.frames.csv', 'native.twstate')}
     motion_name='native.motion.csv' if (reference/'native.motion.csv').exists() else 'native.motion.csv.gz'
     result['reference_sha256'][motion_name]=digest(reference/motion_name)
     # Tier 3 additionally retains the established rear-clearance/two-second-hole
     # checks; it never applies the 600-step final topology golden to a prefix.
-    if result['status'] == 'passed' and count == 128:
+    if result['status'] == 'passed' and count in (128, 600):
         spec = importlib.util.spec_from_file_location('native_penetration', Path(__file__).with_name('verify-native-penetration.py'))
         full = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(full)
         result['penetration_checks'] = full.verify(capture, None)
+        if count == 600:
+            result['reference_penetration_checks'] = full.verify(reference, None)
     return result

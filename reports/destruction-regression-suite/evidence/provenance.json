@@ -1,0 +1,67 @@
+[
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/results.json",
+    "archive": "cpu-v2--results.json",
+    "sha256": "b050d44f2a6d22cc8d8b47701b6fc7426c5580596a9cc64fc98f0a64b5b5ec62"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-destruction-ab.log",
+    "archive": "cpu-v2--test-destruction-ab.log",
+    "sha256": "bdef0e7edf66ce9e851d29b85b997b9cfb1943c44815c548a20ca6b0630ca2d9"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-native-prefix.log",
+    "archive": "cpu-v2--test-native-prefix.log",
+    "sha256": "b1dd519b2c07162bd2720639db1bb2b9af21be330a6ffebb784e75ce3455dba5"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/cpu-v2/test-compare-observations.log",
+    "archive": "cpu-v2--test-compare-observations.log",
+    "sha256": "e587c885eb4724487f5961ff7e2b5043a7545d11ccdcf1bc00a716bbc04e368e"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/admission-final.log",
+    "archive": "admission-final.log",
+    "sha256": "e586fc0f3bb2a05f4c80f07d1b4c6171e830592f6c7aaf70d4af3b0aa3ebd072"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/historical-v2/results.json",
+    "archive": "historical-v2--results.json",
+    "sha256": "a35a0a5d9c3ac45ac9a350ed5e73ffc82a80423fcd36502820939ff7012963b8"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/native-v5-retry/results.json",
+    "archive": "native-v5-retry--results.json",
+    "sha256": "438368bbcac7ba3912cfeca205b3c53b1bcb35901984c68d723a3ff4dbe8d1e7"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/native-v5-retry/physical-outcomes.log",
+    "archive": "native-v5-retry--physical-outcomes.log",
+    "sha256": "1b641e46ceecdd6d21e949b7ada7a812b9726ab1d70fd7dda28a1074a926072a"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/native-v5-retry/independent-equilibrium.log",
+    "archive": "native-v5-retry--independent-equilibrium.log",
+    "sha256": "a3d7ea31f77c892247be694cfdda30991c34a4b8e4d125c0c8e3cb8fc700d84c"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/native-v4/physical-outcomes.log",
+    "archive": "native-v4--physical-outcomes.log",
+    "sha256": "7da23466a16da933272c65dcedd594a4d0eb565def495771e487067ebbfeb951"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/build-v5/build.json",
+    "archive": "build-v5--build.json",
+    "sha256": "dd72c05b16c8f19f0a422a7d1d2080f17d90647032f74d33d85baf6c6db81eef"
+  },
+  {
+    "source": "reports/destruction-regression-suite/revalidate-history.py at historical-v2 execution",
+    "archive": "historical-revalidator-v2.py.txt",
+    "sha256": "35b9a60550dc5e32bff7609a02cf39f22ec157c14b25d45ec92b5836dc9fe4f3"
+  },
+  {
+    "source": "/root/workspace/physx-2/out/regression-suite-20260913/deferred/validation.json",
+    "archive": "deferred--validation.json",
+    "sha256": "b6c348c393b9dd764b61c8151d31ccb140538413f1c8249adf9e5530748571a0"
+  }
+]

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="790" viewBox="0 0 1440 790" role="img"><title>4. Recorded elapsed-time lanes at tick 48</title><desc>A: real host timestamps, aligned to the same 145.463127 ms bracket. Parent/child rows overlap.</desc><rect width="100%" height="100%" fill="white"/>
+<text x="36" y="54" font-family="DejaVu Sans,sans-serif" font-size="30" font-weight="700" fill="#182A3A">4. Recorded elapsed-time lanes at tick 48</text>
+<text x="36" y="85" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#526477">A: real host timestamps, aligned to the same 145.463127 ms bracket. Parent/child rows overlap.</text>
+<text x="36" y="146" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">Whole consumer advance</text>
+<rect x="440.0" y="130" width="929.9999999999998" height="24" fill="#66778B" stroke="#66778B"/>
+<text x="36" y="192" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">Destruction completion + reservation</text>
+<rect x="471.0733901657428" y="176" width="152.95616977902586" height="24" fill="#356EC9" stroke="#356EC9"/>
+<rect x="1121.8991266425887" y="176" width="127.85765501933696" height="24" fill="#356EC9" stroke="#356EC9"/>
+<text x="36" y="238" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">Waiting for destruction result</text>
+<rect x="471.08088319866795" y="222" width="77.23147674393111" height="24" fill="#356EC9" stroke="#356EC9"/>
+<rect x="1121.9098227552881" y="222" width="125.50236205220584" height="24" fill="#356EC9" stroke="#356EC9"/>
+<text x="36" y="284" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">CPU fragment compatibility</text>
+<rect x="549.6383902155492" y="268" width="74.30681556845673" height="24" fill="#B84042" stroke="#B84042"/>
+<rect x="1248.5646925491983" y="268" width="1.1354694031842172" height="24" fill="#B84042" stroke="#B84042"/>
+<text x="36" y="330" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">Ownership/lifecycle bridge</text>
+<rect x="625.9726146269356" y="314" width="142.68704487564054" height="24" fill="#B84042" stroke="#B84042"/>
+<rect x="1251.356640092028" y="314" width="3.1251509532034185" height="24" fill="#B84042" stroke="#B84042"/>
+<text x="36" y="376" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">Corrected physics parent</text>
+<rect x="769.0352637613792" y="360" width="334.78864716004625" height="24" fill="#AD6800" stroke="#AD6800"/>
+<text x="36" y="422" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">  Contact manager allocation</text>
+<rect x="832.06860031271" y="406" width="42.857047545801755" height="24" fill="#B84042" stroke="#B84042"/>
+<text x="36" y="468" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">  Interaction registration</text>
+<rect x="875.2603920717308" y="452" width="41.943396212017355" height="24" fill="#B84042" stroke="#B84042"/>
+<text x="36" y="514" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">  Island insertion</text>
+<rect x="899.6068543886039" y="498" width="25.75864328834344" height="24" fill="#B84042" stroke="#B84042"/>
+<text x="36" y="560" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">  Dynamics submission</text>
+<rect x="1036.7592011823035" y="544" width="30.25895119111525" height="24" fill="#147D64" stroke="#147D64"/>
+<text x="36" y="606" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">Accept corrected state</text>
+<rect x="1103.8334562270202" y="590" width="16.961586079474284" height="24" fill="#147D64" stroke="#147D64"/>
+<polyline points="440.0,115 440.0,650" fill="none" stroke="#DAE1E9" stroke-width="1"/>
+<text x="432.0" y="675" font-family="DejaVu Sans,sans-serif" font-size="15" font-weight="400" fill="#182A3A">0</text>
+<polyline points="567.8674560598439,115 567.8674560598439,650" fill="none" stroke="#DAE1E9" stroke-width="1"/>
+<text x="559.8674560598439" y="675" font-family="DejaVu Sans,sans-serif" font-size="15" font-weight="400" fill="#182A3A">20</text>
+<polyline points="695.7349121196878,115 695.7349121196878,650" fill="none" stroke="#DAE1E9" stroke-width="1"/>
+<text x="687.7349121196878" y="675" font-family="DejaVu Sans,sans-serif" font-size="15" font-weight="400" fill="#182A3A">40</text>
+<polyline points="823.6023681795318,115 823.6023681795318,650" fill="none" stroke="#DAE1E9" stroke-width="1"/>
+<text x="815.6023681795318" y="675" font-family="DejaVu Sans,sans-serif" font-size="15" font-weight="400" fill="#182A3A">60</text>
+<polyline points="951.4698242393757,115 951.4698242393757,650" fill="none" stroke="#DAE1E9" stroke-width="1"/>
+<text x="943.4698242393757" y="675" font-family="DejaVu Sans,sans-serif" font-size="15" font-weight="400" fill="#182A3A">80</text>
+<polyline points="1079.3372802992196,115 1079.3372802992196,650" fill="none" stroke="#DAE1E9" stroke-width="1"/>
+<text x="1071.3372802992196" y="675" font-family="DejaVu Sans,sans-serif" font-size="15" font-weight="400" fill="#182A3A">100</text>
+<polyline points="1207.2047363590636,115 1207.2047363590636,650" fill="none" stroke="#DAE1E9" stroke-width="1"/>
+<text x="1199.2047363590636" y="675" font-family="DejaVu Sans,sans-serif" font-size="15" font-weight="400" fill="#182A3A">120</text>
+<polyline points="1335.0721924189074,115 1335.0721924189074,650" fill="none" stroke="#DAE1E9" stroke-width="1"/>
+<text x="1327.0721924189074" y="675" font-family="DejaVu Sans,sans-serif" font-size="15" font-weight="400" fill="#182A3A">140</text>
+<text x="770" y="710" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Milliseconds since outer bracket began</text>
+<text x="36" y="754" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="400" fill="#182A3A">Blank space on a subphase lane means uninstrumented/other work, not proof the GPU is idle.</text>
+</svg>

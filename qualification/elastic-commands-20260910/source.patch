@@ -1,0 +1,1083 @@
+diff --git a/physx/source/gpudestruction/src/PxgDestructionElasticCommands.cuh b/physx/source/gpudestruction/src/PxgDestructionElasticCommands.cuh
+new file mode 100644
+index 00000000..9b8def1a
+--- /dev/null
++++ b/physx/source/gpudestruction/src/PxgDestructionElasticCommands.cuh
+@@ -0,0 +1,252 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "PxgDestructionElasticPartition.cuh"
++
++#include <math_constants.h>
++
++namespace physx
++{
++namespace destructionElasticCommands
++{
++namespace P = destructionElasticPartition;
++namespace L = destructionElasticLoads;
++namespace E = Nv::Blast::Elastic;
++enum class Units : uint32_t
++{
++    Force,
++    Impulse
++};
++// A frozen world-space wrench: force/impulse at point, plus free couple.
++// The caller owns time sampling; this evaluator does not assume a follower load
++// or infer an application point from a body's six aggregate accelerations.
++struct Command
++{
++    double3 point, force, couple;
++    uint32_t chunk;
++    Units units;
++};
++struct Batch
++{
++    uint64_t tick, inputGeneration, generation;
++    double seconds; // explicit common loading interval, also for impulses
++    uint32_t count, reserved;
++};
++struct Query
++{
++    uint64_t tick, inputGeneration, commandGeneration, ownershipGeneration;
++    double seconds;
++    uint32_t evaluation, reserved;
++};
++struct Resolved
++{
++    E::Vector chunkWrench;
++    uint32_t node, reserved;
++};
++struct Receipt
++{
++    Query query;
++    uint32_t count, nodes, groups, inputValid, error, ready, reserved[2];
++};
++struct Source
++{
++    const Batch* batch;
++    const Command* commands;
++    const P::State* partition;
++    const L::Motion* motions;
++    const double3* centers; // physical motion COMs, asset axes, packed group order
++    P::Identity identity;
++    uint32_t commandCapacity;
++};
++struct Storage
++{
++    E::Vector *chunks, *bodies; // asset/canonical node wrench; world/body-COM wrench
++    Resolved* resolved;
++    uint32_t nodes, groups, commands;
++};
++__device__ bool same(Query a, Query b)
++{
++    return a.tick == b.tick && a.inputGeneration == b.inputGeneration && a.commandGeneration == b.commandGeneration &&
++           a.ownershipGeneration == b.ownershipGeneration && a.seconds == b.seconds && a.evaluation == b.evaluation;
++}
++__device__ bool finite(E::Vector v)
++{
++    for (unsigned k = 0; k < 6; ++k)
++        if (!isfinite(v.v[k]))
++            return false;
++    return true;
++}
++__device__ E::Vector wrench(double3 force, double3 torque)
++{
++    return { { force.x, force.y, force.z, torque.x, torque.y, torque.z } };
++}
++// One stream: begin -> clear -> resolve -> scatter -> aggregate -> inspect -> finish -> gate.
++// Inputs and all capacity-bearing arrays remain immutable for that sequence.
++// This is a pure evaluation: it does not apply commands or advance material time.
++__global__ void begin(Source in, Storage out, Query expected, Receipt* receipt)
++{
++    auto& r = *receipt;
++    r = {};
++    r.query = expected;
++    if (!in.batch || !in.partition || !expected.tick || !expected.inputGeneration || !expected.commandGeneration ||
++        expected.evaluation > 1 || !isfinite(expected.seconds) || expected.seconds <= 0)
++    {
++        r.error = 1;
++        return;
++    }
++    const auto& b = *in.batch;
++    const auto& p = *in.partition;
++    if (b.tick != expected.tick || b.inputGeneration != expected.inputGeneration ||
++        b.generation != expected.commandGeneration || b.seconds != expected.seconds ||
++        p.topology != expected.ownershipGeneration || !P::same(p.identity, in.identity))
++    {
++        r.error = 2;
++        return;
++    }
++    if (p.status != P::Status::Ready || p.error || b.count > in.commandCapacity || b.count > out.commands ||
++        p.groups.nodes > out.nodes || p.groups.count > out.groups || (p.groups.nodes && !out.chunks) ||
++        (p.groups.count && (!out.bodies || !in.motions || !in.centers)) || (b.count && (!in.commands || !out.resolved)))
++    {
++        r.error = 4;
++        return;
++    }
++    r.count = b.count;
++    r.nodes = p.groups.nodes;
++    r.groups = p.groups.count;
++    r.inputValid = 1;
++}
++__global__ void clear(Storage out, const Receipt* receipt)
++{
++    if (!receipt->inputValid)
++        return;
++    const auto i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i < receipt->nodes)
++        out.chunks[i] = {};
++    if (i < receipt->groups)
++        out.bodies[i] = {};
++}
++__global__ void resolve(Source in, Storage out, double quaternionTolerance, Receipt* receipt)
++{
++    const auto i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (!receipt->inputValid || i >= receipt->count)
++        return;
++    const auto c = in.commands[i];
++    const auto& p = *in.partition;
++    if (c.chunk >= p.sourceNodes || (c.units != Units::Force && c.units != Units::Impulse) || !L::finite(c.point) ||
++        !L::finite(c.force) || !L::finite(c.couple))
++    {
++        atomicOr(&receipt->error, 8u);
++        return;
++    }
++    const auto node = p.storage.authorToFine[c.chunk];
++    if (node >= receipt->nodes || p.storage.fineToAuthor[node] != c.chunk)
++    {
++        atomicOr(&receipt->error, 16u);
++        return;
++    }
++    const auto group = p.storage.chunks[node].cluster;
++    if (group >= receipt->groups)
++    {
++        atomicOr(&receipt->error, 16u);
++        return;
++    }
++    const auto& m = in.motions[group].state;
++    const auto* q = m.orientation;
++    const double qn = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
++    if (!isfinite(quaternionTolerance) || quaternionTolerance <= 0 || quaternionTolerance >= 1 || !isfinite(qn) ||
++        fabs(qn - 1) > quaternionTolerance || !L::finite(L::vec(m.origin)) || !L::finite(in.centers[group]) ||
++        !L::finite(p.storage.positions[node]))
++    {
++        atomicOr(&receipt->error, 32u);
++        return;
++    }
++    const double scale = c.units == Units::Impulse ? 1 / receipt->query.seconds : 1;
++    const auto force = L::inverseRotate(q, L::mul(c.force, scale));
++    const auto couple = L::inverseRotate(q, L::mul(c.couple, scale));
++    const auto point = L::inverseRotate(q, L::sub(c.point, L::vec(m.origin)));
++    const auto nodeTorque = E::add(couple, E::cross(L::sub(point, p.storage.positions[node]), force));
++    Resolved value{};
++    value.node = node;
++    value.chunkWrench = wrench(force, nodeTorque);
++    if (!finite(value.chunkWrench))
++    {
++        atomicOr(&receipt->error, 64u);
++        return;
++    }
++    out.resolved[i] = value;
++}
++__global__ void scatter(Storage out, const Receipt* receipt)
++{
++    const auto i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (receipt->error || !receipt->inputValid || i >= receipt->count)
++        return;
++    const auto value = out.resolved[i];
++    for (unsigned k = 0; k < 6; ++k)
++    {
++        atomicAdd(&out.chunks[value.node].v[k], value.chunkWrench.v[k]);
++    }
++}
++// One 128-thread block per motion group. Reduce chunk loads before one body
++// write; do not serialize all commands for an intact building on body atomics.
++__global__ void aggregate(Source in, Storage out, double quaternionTolerance, const Receipt* receipt)
++{
++    const auto group = blockIdx.x, lane = threadIdx.x;
++    if (!receipt->inputValid || receipt->error || group >= receipt->groups || !receipt->count)
++        return;
++    const auto& p = *in.partition;
++    const auto* q = in.motions[group].state.orientation;
++    const double qn = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
++    if (!isfinite(qn) || fabs(qn - 1) > quaternionTolerance || !L::finite(in.centers[group]))
++    {
++        if (!lane)
++            out.bodies[group].v[0] = CUDART_NAN;
++        return;
++    }
++    E::Vector sum{};
++    for (uint32_t j = p.groups.starts[group] + lane; j < p.groups.starts[group + 1]; j += 128)
++    {
++        const auto node = p.groups.indices[j];
++        const auto value = out.chunks[node];
++        const auto f = make_double3(value.v[0], value.v[1], value.v[2]);
++        const auto t = E::add(make_double3(value.v[3], value.v[4], value.v[5]),
++                              E::cross(L::sub(p.storage.positions[node], in.centers[group]), f));
++        const auto v = wrench(f, t);
++        for (unsigned k = 0; k < 6; ++k)
++            sum.v[k] += v.v[k];
++    }
++    __shared__ E::Vector partial[128];
++    partial[lane] = sum;
++    __syncthreads();
++    for (unsigned stride = 64; stride; stride /= 2)
++    {
++        if (lane < stride)
++            for (unsigned k = 0; k < 6; ++k)
++                partial[lane].v[k] += partial[lane + stride].v[k];
++        __syncthreads();
++    }
++    if (!lane)
++    {
++        const double inverse[4] = { -q[0], -q[1], -q[2], q[3] };
++        const auto v = partial[0];
++        out.bodies[group] = wrench(L::inverseRotate(inverse, make_double3(v.v[0], v.v[1], v.v[2])),
++                                   L::inverseRotate(inverse, make_double3(v.v[3], v.v[4], v.v[5])));
++    }
++}
++__global__ void inspect(Storage out, Receipt* receipt)
++{
++    const auto i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (!receipt->inputValid)
++        return;
++    if ((i < receipt->nodes && !finite(out.chunks[i])) || (i < receipt->groups && !finite(out.bodies[i])))
++        atomicOr(&receipt->error, 64u);
++}
++__global__ void finish(Receipt* receipt)
++{
++    receipt->ready = receipt->inputValid && !receipt->error;
++}
++__global__ void gate(const Receipt* receipt, Query expected, uint32_t* downstreamError)
++{
++    if (!receipt->ready || receipt->error || !same(receipt->query, expected))
++        atomicOr(downstreamError, 1u);
++}
++}
++} // namespace physx::destructionElasticCommands
+diff --git a/blast/source/sdk/extensions/stressgpu/test/elastic_commands_test.cu b/blast/source/sdk/extensions/stressgpu/test/elastic_commands_test.cu
+new file mode 100644
+index 00000000..a1b37659
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/test/elastic_commands_test.cu
+@@ -0,0 +1,365 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#include "ElasticPartitionTestFixture.h"
++#include "PxgDestructionElasticCommands.cuh"
++
++#include <fstream>
++#include <limits>
++namespace C = physx::destructionElasticCommands;
++using V = std::array<double, 3>;
++V add(V a, V b)
++{
++    return { a[0] + b[0], a[1] + b[1], a[2] + b[2] };
++}
++V sub(V a, V b)
++{
++    return { a[0] - b[0], a[1] - b[1], a[2] - b[2] };
++}
++V mul(V a, double s)
++{
++    return { a[0] * s, a[1] * s, a[2] * s };
++}
++V cross(V a, V b)
++{
++    return { a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] };
++}
++V vec(double3 a)
++{
++    return { a.x, a.y, a.z };
++}
++V vec(const double* a)
++{
++    return { a[0], a[1], a[2] };
++}
++double3 point(V a)
++{
++    return { a[0], a[1], a[2] };
++}
++// Independent explicit rotation matrix, not the device quaternion formula.
++V rotate(const double* q, V a, bool transpose = false)
++{
++    const double n = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
++    const double x = q[0] / sqrt(n), y = q[1] / sqrt(n), z = q[2] / sqrt(n), w = q[3] / sqrt(n);
++    const double r[9] = { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w),
++                          2 * (x * y + z * w),     1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
++                          2 * (x * z - y * w),     2 * (y * z + x * w),     1 - 2 * (x * x + y * y) };
++    V out{};
++    for (unsigned i = 0; i < 3; ++i)
++        for (unsigned j = 0; j < 3; ++j)
++            out[i] += r[transpose ? 3 * j + i : 3 * i + j] * a[j];
++    return out;
++}
++struct Commands
++{
++    FixturePartition fixture;
++    Upload u;
++    Device<C::Command> commands;
++    Device<C::Batch> batch;
++    Device<C::Receipt> receipt;
++    Device<C::Resolved> resolved;
++    Device<E::Vector> body;
++    Device<double3> centers;
++    std::vector<L::Motion> motion;
++    std::vector<double3> center;
++    std::vector<C::Command> rows;
++    C::Query query{ 9, 20, 30, 1, .02, 0, 0 };
++    C::Source source{};
++    C::Storage output{};
++    Commands(unsigned n, unsigned groups, bool sparse)
++        : fixture(n, groups, sparse),
++          u(fixture),
++          commands(3 * n),
++          batch(1),
++          receipt(1),
++          resolved(3 * n),
++          body(n),
++          centers(n),
++          motion(n),
++          center(n)
++    {
++        u.update(fixture, 1);
++        u.prepare();
++        for (unsigned g = 0; g < groups; ++g)
++        {
++            auto& m = motion[g];
++            m.state.orientation[0] = sin(.07 * g);
++            m.state.orientation[3] = cos(.07 * g);
++            m.state.origin[0] = g * 31;
++            m.state.origin[1] = g * 13;
++            m.state.origin[2] = -7;
++            m.mode = L::MotionMode::CompleteFreeWrench;
++        }
++        updateCenters();
++        source = { batch.p, commands.p, u.state.p, u.motions.p, centers.p, u.identity, unsigned(commands.n) };
++        output = { u.compactExtra.p, body.p, resolved.p, n, n, unsigned(commands.n) };
++    }
++    void updateCenters()
++    {
++        std::fill(center.begin(), center.end(), double3{});
++        std::vector<unsigned> count(fixture.n);
++        for (unsigned i = 0; i < fixture.n; ++i)
++            if (fixture.active[i])
++            {
++                auto g = fixture.chunks[i].cluster;
++                center[g] = point(add(vec(center[g]), vec(fixture.positions[i])));
++                ++count[g];
++            }
++        for (unsigned g = 0; g < fixture.groups; ++g)
++            center[g] = point(mul(vec(center[g]), 1. / count[g]));
++        centers.put(center);
++        u.motions.put(motion);
++    }
++    void upload()
++    {
++        auto all = rows;
++        all.resize(commands.n);
++        commands.put(all);
++        batch.put(
++            { { query.tick, query.inputGeneration, query.commandGeneration, query.seconds, unsigned(rows.size()), 0 } });
++    }
++    void launch()
++    {
++        C::begin<<<1, 1>>>(source, output, query, receipt.p);
++        C::clear<<<(fixture.n + 127) / 128, 128>>>(output, receipt.p);
++        C::resolve<<<(commands.n + 127) / 128, 128>>>(source, output, 1e-6, receipt.p);
++        C::scatter<<<(commands.n + 127) / 128, 128>>>(output, receipt.p);
++        C::aggregate<<<fixture.groups, 128>>>(source, output, 1e-6, receipt.p);
++        C::inspect<<<(fixture.n + 127) / 128, 128>>>(output, receipt.p);
++        C::finish<<<1, 1>>>(receipt.p);
++        check(cudaGetLastError());
++    }
++    void gate(C::Query expected, bool success)
++    {
++        u.error.put({ 0 });
++        C::gate<<<1, 1>>>(receipt.p, expected, u.error.p);
++        require((u.error.get()[0] == 0) == success, "command consumer gate");
++    }
++    void verify()
++    {
++        std::cerr.precision(17);
++        auto r = receipt.get()[0];
++        require(r.ready && !r.error, "command evaluation rejected");
++        gate(query, true);
++        auto map = u.authorToFine.get();
++        std::vector<E::Vector> node(r.nodes);
++        std::vector<std::array<long double, 6>> aggregate(fixture.groups);
++        for (const auto& c : rows)
++        {
++            unsigned g = fixture.chunks[c.chunk].cluster;
++            const auto& m = motion[g].state;
++            double scale = c.units == C::Units::Impulse ? 1 / query.seconds : 1;
++            V f = mul(vec(c.force), scale), t = mul(vec(c.couple), scale);
++            V x = add(vec(m.origin), rotate(m.orientation, vec(fixture.positions[c.chunk])));
++            V fn = rotate(m.orientation, f, true),
++              tn = rotate(m.orientation, add(t, cross(sub(vec(c.point), x), f)), true);
++            // Wide independent oracle avoids cancellation in the reference
++            // when a long aggregate's opposing large moments nearly cancel.
++            const auto* q = m.orientation;
++            const long double qx = q[0], qy = q[1], qz = q[2], qw = q[3];
++            const long double norm = qx * qx + qy * qy + qz * qz + qw * qw;
++            const long double rotation[9] = { 1 - 2 * (qy * qy + qz * qz) / norm, 2 * (qx * qy - qz * qw) / norm,
++                                              2 * (qx * qz + qy * qw) / norm,     2 * (qx * qy + qz * qw) / norm,
++                                              1 - 2 * (qx * qx + qz * qz) / norm, 2 * (qy * qz - qx * qw) / norm,
++                                              2 * (qx * qz - qy * qw) / norm,     2 * (qy * qz + qx * qw) / norm,
++                                              1 - 2 * (qx * qx + qy * qy) / norm };
++            const auto ctr = vec(center[g]), worldPoint = vec(c.point), worldForce = vec(c.force),
++                       worldCouple = vec(c.couple);
++            const long double exactScale = c.units == C::Units::Impulse ? 1.L / query.seconds : 1.L;
++            long double arm[3]{}, wf[3]{}, wt[3]{};
++            for (unsigned k = 0; k < 3; ++k)
++            {
++                arm[k] = static_cast<long double>(worldPoint[k]) - m.origin[k];
++                for (unsigned j = 0; j < 3; ++j)
++                    arm[k] -= rotation[3 * k + j] * ctr[j];
++                wf[k] = worldForce[k] * exactScale;
++                wt[k] = worldCouple[k] * exactScale;
++            }
++            for (unsigned k = 0; k < 3; ++k)
++            {
++                node[map[c.chunk]].v[k] += fn[k];
++                node[map[c.chunk]].v[k + 3] += tn[k];
++                aggregate[g][k] += wf[k];
++                aggregate[g][k + 3] += wt[k] + arm[(k + 1) % 3] * wf[(k + 2) % 3] - arm[(k + 2) % 3] * wf[(k + 1) % 3];
++            }
++        }
++        auto actual = prefix(u.compactExtra, r.nodes), b = prefix(body, fixture.groups);
++        for (unsigned i = 0; i < r.nodes; ++i)
++            for (unsigned k = 0; k < 6; ++k)
++                near(actual[i].v[k], node[i].v[k], "chunk wrench oracle");
++        for (unsigned g = 0; g < fixture.groups; ++g)
++            for (unsigned k = 0; k < 6; ++k)
++            {
++                try
++                {
++                    near(b[g].v[k], double(aggregate[g][k]), "body wrench oracle");
++                }
++                catch (...)
++                {
++                    std::cerr << "group " << g << " channel " << k << '\n';
++                    throw;
++                }
++            }
++    }
++    void adapter()
++    {
++        const L::Interval interval{ { query.tick, query.inputGeneration, query.ownershipGeneration, query.evaluation, 1 },
++                                    query.seconds };
++        u.interval.put({ interval });
++        u.error.put({ 0 });
++        C::gate<<<1, 1>>>(receipt.p, query, u.error.p);
++        // Completeness here is only the fixture's declared command-only/free
++        // body model. It is not a certification of a native scene ledger.
++        check(cudaMemset(u.compactSurface.p, 0, fixture.n * sizeof(PxDestructionSurfaceLoad)));
++        const L::Inputs in{ u.compactPositions.p, u.compactChunks.p, u.compactMass.p, u.compactSurface.p,
++                            u.compactExtra.p,     u.motions.p,       u.interval.p,    { 0, 0, 0 } };
++        const L::DeviceGroups groups{ &u.state.p->groups };
++        const L::Profile profile{ 1e-6, 1e-14, 1e-11, 1e-11, 1e-11, 1e-11 };
++        L::validate<<<(fixture.n + 127) / 128, 128>>>(groups, in, profile, u.error.p);
++        L::build<<<fixture.groups, 128>>>(groups, in, interval, profile, u.error.p, u.effective.p, u.receipts.p);
++        L::gate<<<(fixture.groups + 127) / 128, 128>>>(groups, u.receipts.p, interval, u.error.p);
++        require(!u.error.get()[0], "command-to-load-adapter handoff");
++    }
++};
++void large(const std::string& destination)
++{
++    Commands c(113664, 256, false);
++    for (unsigned i = 0; i < c.fixture.n; ++i)
++    {
++        const auto& m = c.motion[c.fixture.chunks[i].cluster].state;
++        auto p = add(vec(m.origin), rotate(m.orientation, add(vec(c.fixture.positions[i]), V{ .3, -.2, .1 })));
++        c.rows.push_back(
++            { point(p), { .01 * (i % 13), -.03, .07 }, { .02, .01, -.03 }, i, i % 2 ? C::Units::Force : C::Units::Impulse });
++    }
++    c.upload();
++    c.launch();
++    c.verify();
++    const auto r = c.receipt.get()[0];
++    auto save = [&](const std::string& suffix, const Device<E::Vector>& data, unsigned count)
++    {
++        auto values = prefix(data, count);
++        std::ofstream stream(destination + suffix, std::ios::binary);
++        stream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(E::Vector));
++        require(bool(stream), "command output write");
++    };
++    save(".chunks.bin", c.u.compactExtra, r.nodes);
++    save(".bodies.bin", c.body, r.groups);
++    std::cout
++        << "synthetic command batch: 113664 active chunks, 256 motion groups, 113664 commands; independent oracles passed\n";
++}
++int main(int argc, char** argv)
++{
++    try
++    {
++        if (argc > 1)
++        {
++            require(argc == 3 && std::string(argv[1]) == "--large", "expected --large output-prefix");
++            large(argv[2]);
++            return 0;
++        }
++        Commands c(137, 7, true);
++        for (unsigned i = 0; i < c.fixture.n; ++i)
++            if (c.fixture.active[i])
++            {
++                auto g = c.fixture.chunks[i].cluster;
++                const auto& m = c.motion[g].state;
++                auto p = add(vec(m.origin), rotate(m.orientation, add(vec(c.fixture.positions[i]), V{ .3, -.2, .1 })));
++                c.rows.push_back({ point(p), { .01 * i, -.03, .07 }, { .02, .01, -.03 }, i, C::Units::Force });
++                c.rows.push_back({ point(p), { -.001, .002, .003 }, { .001, -.002, .003 }, i, C::Units::Impulse });
++            }
++        c.upload();
++        c.launch();
++        c.verify();
++        c.adapter();
++        c.launch();
++        c.verify(); // pure replay, no duplication
++        auto old = c.query;
++        auto bad = old;
++        bad.commandGeneration++;
++        c.gate(bad, false);
++        c.query = bad;
++        c.launch();
++        require(!c.receipt.get()[0].ready, "stale batch admitted");
++        c.query = old;
++        c.query.ownershipGeneration++;
++        c.launch();
++        require(!c.receipt.get()[0].ready, "stale partition admitted");
++        c.query = old;
++        // Split each group into two children; the same authored command tape follows
++        // current ownership without duplicating a parent's aggregate wrench.
++        c.fixture = FixturePartition(137, 14, true);
++        c.u.update(c.fixture, 2);
++        c.u.prepare();
++        for (unsigned g = 7; g < 14; ++g)
++            c.motion[g] = c.motion[g - 7];
++        c.updateCenters();
++        c.query.ownershipGeneration = 2;
++        c.query.evaluation = 1;
++        c.launch();
++        c.verify();
++        c.adapter();
++        auto saved = c.rows;
++        auto reject = [&]
++        {
++            c.upload();
++            c.launch();
++            require(!c.receipt.get()[0].ready && c.receipt.get()[0].error, "invalid command admitted");
++            c.gate(c.query, false);
++            c.rows = saved;
++        };
++        c.rows[0].chunk = 1;
++        reject(); // inactive authored chunk
++        c.rows[0].chunk = 137;
++        reject();
++        c.rows[0].units = C::Units(99);
++        reject();
++        c.rows[0].force.x = std::numeric_limits<double>::quiet_NaN();
++        reject();
++        c.upload();
++        c.output.commands = 1;
++        c.launch();
++        require(!c.receipt.get()[0].ready, "undersized command storage admitted");
++        c.output.commands = c.commands.n;
++        auto m = c.motion;
++        c.motion[0].state.orientation[3] = 4;
++        c.u.motions.put(c.motion);
++        c.launch();
++        require(!c.receipt.get()[0].ready, "invalid frame admitted");
++        c.motion = m;
++        c.u.motions.put(m);
++        c.rows.clear();
++        c.upload();
++        c.launch();
++        c.verify(); // explicit expiration/removal
++        // Equal/opposite axial loads have zero aggregate wrench but nonzero internal
++        // load. Recovering only the body's net acceleration would lose this case.
++        Commands axial(2, 1, false);
++        V direction = sub(vec(axial.fixture.positions[1]), vec(axial.fixture.positions[0]));
++        for (unsigned i = 0; i < 2; ++i)
++        {
++            auto p = add(vec(axial.motion[0].state.origin), vec(axial.fixture.positions[i]));
++            axial.rows.push_back({ point(p), point(mul(direction, i ? -1 : 1)), {}, i, C::Units::Force });
++        }
++        axial.upload();
++        axial.launch();
++        axial.verify();
++        axial.adapter();
++        auto b = prefix(axial.body, 1);
++        for (double x : b[0].v)
++            near(x, 0, "axial body net wrench");
++        auto effective = prefix(axial.u.effective, 2);
++        near(effective[0].v[0], direction[0], "zero-net load lost internal force");
++        // Finite individual commands can overflow when summed: do not publish them.
++        axial.rows[0].force = { 1e308, 0, 0 };
++        axial.rows[1] = axial.rows[0];
++        axial.upload();
++        axial.launch();
++        require(!axial.receipt.get()[0].ready, "accumulation overflow admitted");
++        std::cout
++            << "commands: independent wrench oracles, split replay, zero-net stress, expiration, stale/invalid inputs and adapter handoff passed\n";
++        return 0;
++    }
++    catch (const std::exception& e)
++    {
++        std::cerr << e.what() << '\n';
++        return 1;
++    }
++}
+diff --git a/blast/source/sdk/extensions/stressgpu/test/ElasticPartitionTestFixture.h b/blast/source/sdk/extensions/stressgpu/test/ElasticPartitionTestFixture.h
+new file mode 100644
+index 00000000..6f1bafa6
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/test/ElasticPartitionTestFixture.h
+@@ -0,0 +1,206 @@
++#pragma once
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++#include "ElasticTestFixture.h"
++#include "PxgDestructionElasticPartition.cuh"
++
++#include <numeric>
++namespace P = physx::destructionElasticPartition;
++namespace L = physx::destructionElasticLoads;
++using namespace physx;
++struct FixturePartition
++{
++    unsigned n, groups;
++    std::vector<uint32_t> active, root, order, roots, rootSlot, slotRoot;
++    std::vector<uint64_t> slotGeneration;
++    std::vector<PxDestructionStressChunk> chunks;
++    std::vector<PxDestructionChunkMassProperties> mass;
++    std::vector<PxDestructionClusterMassProperties> clusterMass;
++    std::vector<double3> positions;
++    FixturePartition(unsigned nodes, unsigned count, bool sparse)
++        : n(nodes),
++          groups(count),
++          active(n),
++          root(n, P::Invalid),
++          rootSlot(n, P::Invalid),
++          slotRoot(n, P::Invalid),
++          slotGeneration(n, 1),
++          chunks(n),
++          mass(n),
++          clusterMass(n),
++          positions(n)
++    {
++        std::vector<std::vector<uint32_t>> members(groups);
++        for (unsigned i = 0; i < n; ++i)
++        {
++            active[i] = !sparse || i % 5 != 1;
++            if (active[i])
++                members[i % groups].push_back(i);
++            positions[i] = make_double3(.1 * i, .2 * (i % 7), .3 * (i % 11));
++            chunks[i].position = PxVec3(positions[i].x, positions[i].y, positions[i].z);
++            chunks[i].mass = 1;
++            chunks[i].inertia = 1;
++            mass[i] = { { positions[i].x, positions[i].y, positions[i].z }, 1, { 1, 2, 3, .1, .2, .1 }, 0 };
++        }
++        for (unsigned g = 0; g < groups; ++g)
++        {
++            require(!members[g].empty(), "empty fixture group");
++            const auto r = members[g][0];
++            roots.push_back(r);
++            rootSlot[r] = groups - 1 - g;
++            slotRoot[groups - 1 - g] = r;
++            clusterMass[r].chunkCount = members[g].size();
++            for (auto i : members[g])
++            {
++                root[i] = r;
++                chunks[i].cluster = g;
++                order.push_back(i);
++            }
++        }
++        for (unsigned i = 0; i < n; ++i)
++            if (!active[i])
++                order.push_back(i);
++    }
++};
++struct Upload
++{
++    Device<uint32_t> active, root, order, roots, rootSlot, slotRoot, starts, indices, local, fineToAuthor, authorToFine,
++        error;
++    Device<uint64_t> slotGeneration;
++    Device<PxDestructionStressChunk> chunks, compactChunks;
++    Device<PxDestructionChunkMassProperties> mass, compactMass;
++    Device<PxDestructionClusterMassProperties> clusterMass;
++    Device<double3> positions, compactPositions;
++    Device<PxDestructionTopologyStatus> topologyStatus;
++    Device<P::State> state;
++    Device<PxDestructionSurfaceLoad> surface, compactSurface;
++    Device<E::Vector> extra, compactExtra, effective;
++    Device<L::Motion> motions;
++    Device<L::Interval> interval;
++    Device<L::Receipt> receipts;
++    PxDestructionTopologyDeviceView view{};
++    P::Storage storage{};
++    P::Source source{};
++    P::Identity identity{ 1, 1, 1 };
++    unsigned n;
++    Upload(const FixturePartition& f)
++        : active(f.n),
++          root(f.n),
++          order(f.n),
++          roots(f.n),
++          rootSlot(f.n),
++          slotRoot(f.n),
++          starts(f.n + 1),
++          indices(f.n),
++          local(f.n),
++          fineToAuthor(f.n),
++          authorToFine(f.n),
++          error(1),
++          slotGeneration(f.n),
++          chunks(f.n),
++          compactChunks(f.n),
++          mass(f.n),
++          compactMass(f.n),
++          clusterMass(f.n),
++          positions(f.n),
++          compactPositions(f.n),
++          topologyStatus(1),
++          state(1),
++          surface(f.n),
++          compactSurface(f.n),
++          extra(f.n),
++          compactExtra(f.n),
++          effective(f.n),
++          motions(f.n),
++          interval(1),
++          receipts(f.n),
++          n(f.n)
++    {
++        state.put({ {} });
++        update(f, 0);
++        error.put({ 0 });
++        view.chunks = mass.p;
++        view.activeChunks = active.p;
++        view.chunkCluster = root.p;
++        view.orderedChunks = order.p;
++        view.activeClusters = roots.p;
++        view.clusters = clusterMass.p;
++        view.clusterSlots = rootSlot.p;
++        view.slotRoots = slotRoot.p;
++        view.slotGenerations = slotGeneration.p;
++        view.slotCapacity = n;
++        view.status = topologyStatus.p;
++        view.chunkCount = n;
++        storage = { n,
++                    starts.p,
++                    indices.p,
++                    local.p,
++                    fineToAuthor.p,
++                    authorToFine.p,
++                    compactChunks.p,
++                    compactMass.p,
++                    compactPositions.p };
++        source = { view, chunks.p, positions.p };
++        surface.put(std::vector<PxDestructionSurfaceLoad>(n));
++        extra.put(std::vector<E::Vector>(n));
++        std::vector<L::Motion> m(n);
++        for (auto& v : m)
++        {
++            v.state.orientation[3] = 1;
++            v.mode = L::MotionMode::CompleteFreeWrench;
++        }
++        motions.put(m);
++    }
++    void update(const FixturePartition& f, uint64_t generation)
++    {
++        require(f.n == n, "fixture capacity changed");
++        active.put(f.active);
++        root.put(f.root);
++        order.put(f.order);
++        rootSlot.put(f.rootSlot);
++        slotRoot.put(f.slotRoot);
++        slotGeneration.put(f.slotGeneration);
++        chunks.put(f.chunks);
++        mass.put(f.mass);
++        positions.put(f.positions);
++        clusterMass.put(f.clusterMass);
++        auto r = f.roots;
++        r.resize(n, P::Invalid);
++        roots.put(r);
++        topologyStatus.put({ { generation, f.groups, 0, 0, 0 } });
++    }
++    void prepare()
++    {
++        P::begin<<<1, 1>>>(source, storage, identity, state.p);
++        P::clear<<<(n + 128) / 128, 128>>>(storage, state.p);
++        P::pack<<<std::max(1u, (n + 127) / 128), 128>>>(source, storage, state.p);
++        P::ranges<<<(n + 128) / 128, 128>>>(source, storage, state.p);
++        P::validate<<<std::max(1u, (n + 127) / 128), 128>>>(source, storage, state.p);
++        P::finish<<<1, 1>>>(state.p);
++        check(cudaGetLastError());
++    }
++    void consume(L::Interval expected)
++    {
++        interval.put({ expected });
++        error.put({ 0 });
++        P::gate<<<1, 1>>>(state.p, identity, view, error.p);
++        P::scatter<<<std::max(1u, (n + 127) / 128), 128>>>(
++            state.p, storage, surface.p, extra.p, compactSurface.p, compactExtra.p, error.p);
++        const L::Inputs input{ compactPositions.p, compactChunks.p, compactMass.p, compactSurface.p,
++                               compactExtra.p,     motions.p,       interval.p,    { 0, 0, 0 } };
++        const L::DeviceGroups groups{ &state.p->groups };
++        const L::Profile profile{ 1e-6, 1e-14, 1e-11, 1e-11, 1e-11, 1e-11 };
++        L::validate<<<std::max(1u, (n + 127) / 128), 128>>>(groups, input, profile, error.p);
++        L::build<<<std::max(1u, n), 128>>>(groups, input, expected, profile, error.p, effective.p, receipts.p);
++        L::gate<<<std::max(1u, (n + 127) / 128), 128>>>(groups, receipts.p, expected, error.p);
++        check(cudaGetLastError());
++    }
++};
++template <class T>
++std::vector<T> prefix(const Device<T>& device, unsigned count)
++{
++    require(count <= device.n, "readback prefix exceeds allocation");
++    std::vector<T> values(count);
++    if (count)
++        check(cudaMemcpy(values.data(), device.p, count * sizeof(T), cudaMemcpyDeviceToHost));
++    return values;
++}
+diff --git a/blast/source/sdk/extensions/stressgpu/test/elastic_partition_test.cu b/blast/source/sdk/extensions/stressgpu/test/elastic_partition_test.cu
+new file mode 100644
+index 00000000..b608ce9e
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/test/elastic_partition_test.cu
+@@ -0,0 +1,165 @@
++#include "ElasticPartitionTestFixture.h"
++
++void verify(Upload& u, const FixturePartition& f)
++{
++    const auto s = u.state.get()[0];
++    require(s.status == P::Status::Ready && !s.error, "partition not ready");
++    const unsigned live = std::count(f.active.begin(), f.active.end(), 1u);
++    require(s.groups.nodes == live && s.groups.count == f.groups, "wrong GPU counts");
++    const auto forward = prefix(u.fineToAuthor, live), inverse = u.authorToFine.get(),
++               starts = prefix(u.starts, f.groups + 1), local = prefix(u.local, live);
++    const auto positions = prefix(u.compactPositions, live);
++    const auto chunks = prefix(u.compactChunks, live);
++    const auto mass = prefix(u.compactMass, live);
++    for (unsigned i = 0; i < f.n; ++i)
++    {
++        if (!f.active[i])
++        {
++            require(inverse[i] == P::Invalid, "inactive chunk retained");
++            continue;
++        }
++        const auto j = inverse[i], g = f.chunks[i].cluster;
++        require(j < live && forward[j] == i && f.order[j] == i, "mapping not bijective");
++        require(starts[g] + local[j] == j && j < starts[g + 1], "wrong group range");
++        require(positions[j].x == f.positions[i].x && positions[j].y == f.positions[i].y &&
++                    positions[j].z == f.positions[i].z,
++                "canonical position changed");
++        require(chunks[j].cluster == g && mass[j].mass == f.mass[i].mass, "physical data mismatch");
++    }
++}
++int main()
++{
++    try
++    {
++        for (auto n : { 137u, 521u })
++        {
++            FixturePartition f(n, 7, true);
++            Upload u(f);
++            u.prepare();
++            verify(u, f);
++            require(u.state.get()[0].builds == 1, "initial build count");
++            u.prepare();
++            verify(u, f);
++            require(!u.state.get()[0].rebuild && u.state.get()[0].builds == 1, "idle rebuilt partition");
++            const L::Interval load{ { 1, 1, 0, 0, 1 }, 1. / 60 };
++            u.consume(load);
++            require(!u.error.get()[0], "GPU-count adapter rejected sparse partition");
++            const auto values = prefix(u.effective, u.state.get()[0].groups.nodes);
++            for (unsigned j = 0; j < u.state.get()[0].groups.nodes; ++j)
++                for (double x : values[j].v)
++                    require(x == 0, "zero-load replay changed");
++            std::vector<PxDestructionSurfaceLoad> channels(n);
++            std::vector<E::Vector> extra(n);
++            for (unsigned i = 0; i < n; ++i)
++            {
++                channels[i].force.x = float(i + 1);
++                extra[i].v[4] = i + .5;
++            }
++            u.surface.put(channels);
++            u.extra.put(extra);
++            u.error.put({ 0 });
++            P::scatter<<<(n + 127) / 128, 128>>>(
++                u.state.p, u.storage, u.surface.p, u.extra.p, u.compactSurface.p, u.compactExtra.p, u.error.p);
++            const auto copied = prefix(u.compactSurface, u.state.get()[0].groups.nodes);
++            const auto applied = prefix(u.compactExtra, u.state.get()[0].groups.nodes);
++            const auto s = u.state.get()[0];
++            for (unsigned j = 0; j < s.groups.nodes; ++j)
++            {
++                require(copied[j].force.x == channels[f.order[j]].force.x, "surface mapped to wrong chunk");
++                require(applied[j].v[4] == extra[f.order[j]].v[4], "command mapped to wrong chunk");
++            }
++            f.positions[0].x += .125;
++            u.positions.put(f.positions);
++            ++u.identity.geometry;
++            u.prepare();
++            verify(u, f);
++            require(u.state.get()[0].builds == 2, "geometry revision not rebuilt");
++            // Replacing any retained output allocation invalidates reuse too.
++            Device<double3> replacement(n);
++            u.storage.positions = replacement.p;
++            u.prepare();
++            require(u.state.get()[0].builds == 3, "output storage replacement reused old data");
++            u.storage.positions = u.compactPositions.p;
++            u.prepare();
++            verify(u, f);
++            FixturePartition split(n, 11, true);
++            u.update(split, 1);
++            u.prepare();
++            verify(u, split);
++            auto wrong = split.order;
++            wrong[1] = wrong[0];
++            u.order.put(wrong);
++            auto status = u.topologyStatus.get();
++            ++status[0].generation;
++            u.topologyStatus.put(status);
++            u.prepare();
++            require(u.state.get()[0].status == P::Status::InvalidInput, "duplicate membership accepted");
++            u.consume(load);
++            require(u.error.get()[0], "failed partition became accepted loads");
++            u.update(split, 3);
++            u.prepare();
++            verify(u, split);
++            status = u.topologyStatus.get();
++            ++status[0].generation;
++            u.topologyStatus.put(status);
++            u.consume(load);
++            require(u.error.get()[0], "stale topology consumed");
++            u.prepare();
++            verify(u, split);
++            u.storage.capacity = n - 1;
++            u.prepare();
++            require(u.state.get()[0].status == P::Status::InvalidInput, "truncated storage accepted");
++        }
++        FixturePartition removed(137, 7, true);
++        removed.groups = 0;
++        removed.roots.clear();
++        removed.active.assign(137, 0);
++        removed.root.assign(137, P::Invalid);
++        Upload noActive(removed);
++        noActive.prepare();
++        verify(noActive, removed);
++        noActive.consume({ { 1, 1, 0, 0, 1 }, 1. / 60 });
++        require(!noActive.error.get()[0], "all-deleted active layout rejected");
++        FixturePartition reused(137, 7, true);
++        Upload slotCheck(reused);
++        slotCheck.prepare();
++        reused.slotGeneration[reused.rootSlot[reused.roots[0]]] = 0;
++        slotCheck.update(reused, 1);
++        slotCheck.prepare();
++        require(slotCheck.state.get()[0].status == P::Status::InvalidInput, "invalid live slot generation accepted");
++        reused.slotGeneration[reused.rootSlot[reused.roots[0]]] = 2;
++        slotCheck.update(reused, 2);
++        slotCheck.prepare();
++        verify(slotCheck, reused);
++        auto invalidTopology = slotCheck.topologyStatus.get();
++        invalidTopology[0].slotError = 1;
++        slotCheck.topologyStatus.put(invalidTopology);
++        slotCheck.prepare();
++        require(slotCheck.state.get()[0].status == P::Status::InvalidInput, "topology producer error hidden by cache");
++        invalidTopology[0].slotError = 0;
++        invalidTopology[0].clusterCount = reused.n + 1;
++        slotCheck.topologyStatus.put(invalidTopology);
++        slotCheck.prepare();
++        slotCheck.consume({ { 1, 1, 2, 0, 1 }, 1. / 60 });
++        require(slotCheck.error.get()[0] && slotCheck.state.get()[0].groups.count == 0,
++                "invalid topology count exposed out-of-capacity entries");
++        FixturePartition empty(0, 0, false);
++        Upload zero(empty);
++        zero.prepare();
++        verify(zero, empty);
++        zero.consume({ { 1, 1, 0, 0, 1 }, 1. / 60 });
++        require(!zero.error.get()[0], "empty scene rejected");
++        zero.identity.scene = 0;
++        zero.prepare();
++        zero.consume({ { 1, 1, 0, 0, 1 }, 1. / 60 });
++        require(zero.error.get()[0], "empty invalid producer escaped gate");
++        check(cudaDeviceSynchronize());
++        std::cout
++            << "PASS GPU topology partition: sparse/empty layouts, canonical data, retained reuse, splits, stale/invalid mapping rejection, device-count load handoff\n";
++    }
++    catch (const std::exception& e)
++    {
++        std::cerr << e.what() << '\n';
++        return 1;
++    }
++}
+diff --git a/demos/blast-stress-demo/CMakeLists.txt b/demos/blast-stress-demo/CMakeLists.txt
+index 6a289c62..e0744b1d 100644
+--- a/demos/blast-stress-demo/CMakeLists.txt
++++ b/demos/blast-stress-demo/CMakeLists.txt
+@@ -112,6 +112,52 @@ target_link_libraries(NvBlastExtStressPhysX PUBLIC blast_stress_core)
+ 
+ if(BLAST_ENABLE_CUDA_STRESS)
+     find_package(CUDAToolkit REQUIRED)
++    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13.4 AND CMAKE_CUDA_ARCHITECTURES MATCHES "(^|;)120(-real|-virtual)?(;|$)")
++        add_executable(stress_elastic_operator_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_operator_test.cu")
++        target_link_libraries(stress_elastic_operator_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_operator_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_operator_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_operator COMMAND stress_elastic_operator_test)
++        add_executable(stress_elastic_pcg_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_pcg_test.cu")
++        target_link_libraries(stress_elastic_pcg_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_pcg_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_pcg_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_pcg COMMAND stress_elastic_pcg_test)
++        add_executable(stress_elastic_setup_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_setup_test.cu")
++        target_link_libraries(stress_elastic_setup_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_setup_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_setup_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_setup COMMAND stress_elastic_setup_test)
++        add_executable(stress_elastic_loads_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_loads_test.cu")
++        target_include_directories(stress_elastic_loads_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_loads_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_loads_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_loads_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_loads COMMAND stress_elastic_loads_test)
++        add_executable(stress_elastic_partition_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_partition_test.cu")
++        target_include_directories(stress_elastic_partition_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_partition_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_partition_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_partition_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_partition COMMAND stress_elastic_partition_test)
++        add_executable(stress_elastic_commands_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_commands_test.cu")
++        target_include_directories(stress_elastic_commands_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_commands_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_commands_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        add_test(NAME blast_stress_six_channel_commands COMMAND stress_elastic_commands_test)
++    endif()
+     target_sources(NvBlastExtStressPhysX PRIVATE
+         "${BLAST_ROOT}/source/sdk/extensions/stressphysx/NvBlastExtStressPhysXContactGpu.cu")
+     target_compile_definitions(NvBlastExtStressPhysX PRIVATE NVBLAST_ENABLE_DIRECT_GPU_CONTACT_DRAIN)
+@@ -729,6 +775,13 @@ if(BLAST_ENABLE_CUDA_STRESS)
+ 
+     add_executable(native_gpu_correction_body_test tests/native_gpu_correction_body_test.cpp physx_scene.cpp)
+     get_target_property(NATIVE_CHECKPOINT_TEST_INCLUDES native_gpu_checkpoint_test INCLUDE_DIRECTORIES)
++    add_executable(native_gpu_input_owners_test tests/native_gpu_input_owners_test.cu)
++    target_include_directories(native_gpu_input_owners_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src")
++    target_compile_definitions(native_gpu_input_owners_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_input_owners_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_input_owners_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_input_owners COMMAND native_gpu_input_owners_test)
+     target_include_directories(native_gpu_correction_body_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+     target_compile_definitions(native_gpu_correction_body_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+     target_link_options(native_gpu_correction_body_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")

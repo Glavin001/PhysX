@@ -1,0 +1,274 @@
+[
+  {
+    "ref": "refs/heads/codex/destruction-fragment-serialization-20260911",
+    "commit": "daa618d197c5a2d24910f2a2041881c3029e02cf"
+  },
+  {
+    "ref": "refs/heads/codex/gpu-destruction",
+    "commit": "471ea8a55bef3d1320a06d65d238f351f9015859"
+  },
+  {
+    "ref": "refs/heads/codex/hierarchy-access-oracle-20260912",
+    "commit": "71a9deab6e4355138117c6b5cc38bb0940b0170e"
+  },
+  {
+    "ref": "refs/heads/codex/hierarchy-oracle-live-ranges-20260912",
+    "commit": "d350ecd447c9c45fec3ed03e49284333c6f0cafc"
+  },
+  {
+    "ref": "refs/heads/codex/insight-reports-20260913",
+    "commit": "676926e071433bebe5c43432207eed973bba1133"
+  },
+  {
+    "ref": "refs/heads/codex/large-snapshot-suite-20260911",
+    "commit": "518787b54da923992b0a901fc0afd0877a615399"
+  },
+  {
+    "ref": "refs/heads/codex/n06-granularity-20260912",
+    "commit": "c76c60678f42e8e62cdfab02d8b317df69b3fbdb"
+  },
+  {
+    "ref": "refs/heads/codex/n06b-warp-components-20260912",
+    "commit": "eca61ee266f91658d7525cd760c36b23bc7a40d2"
+  },
+  {
+    "ref": "refs/heads/codex/n11-projection-reciprocal-20260912",
+    "commit": "5fc43e2e9cf453db880264e9a4a986200a677600"
+  },
+  {
+    "ref": "refs/heads/codex/n14-closure-20260912",
+    "commit": "8e4d46f6919efde1b668e80fa6040cb57d74724a"
+  },
+  {
+    "ref": "refs/heads/codex/n15-anchored-20260912",
+    "commit": "dccbe23f0022b2d3b68c66bb97a877ff5e3532a4"
+  },
+  {
+    "ref": "refs/heads/codex/n16-local-20260912",
+    "commit": "c20f12709eb2d0b012c4e7cd910e4b5cc1c43d53"
+  },
+  {
+    "ref": "refs/heads/codex/n17-empty-launch-20260912",
+    "commit": "d20a2b2b4af386f9224140950dc0435c7ea98fff"
+  },
+  {
+    "ref": "refs/heads/codex/n19-requalification-20260912",
+    "commit": "9c6891f2b30089df3548a32451862374842e9e19"
+  },
+  {
+    "ref": "refs/heads/codex/n20-requalification-20260912",
+    "commit": "b7918affda83942dba04e8626db696cca7fd283a"
+  },
+  {
+    "ref": "refs/heads/codex/n21-factor-reciprocal-20260912",
+    "commit": "1e73e6ce6daaaff2510c09d61d3b0997316e53f0"
+  },
+  {
+    "ref": "refs/heads/codex/n22-mixed-smoother-20260912",
+    "commit": "f76073ebe439763df131649871bbff862faac044"
+  },
+  {
+    "ref": "refs/heads/codex/n22-mixed-smoother-refined-20260912",
+    "commit": "e1da25a60b1a0198498486718df8cf17d3cd0710"
+  },
+  {
+    "ref": "refs/heads/codex/n23-transform-extent-20260912",
+    "commit": "57302b10646ad7c8ad394d82dc5f64974062d3e3"
+  },
+  {
+    "ref": "refs/heads/codex/n24-component-multilevel-20260912",
+    "commit": "c96626dfd43123e667ba0241ef3028c9e37a5c5e"
+  },
+  {
+    "ref": "refs/heads/codex/n24-live-cycle-tail-20260912",
+    "commit": "3e1e39c262149d35ddb66ab05c3ea1b313f41c20"
+  },
+  {
+    "ref": "refs/heads/codex/n24-native-equation-audit-20260912",
+    "commit": "b289d68854621a17f4444d6e818b8ed59765c3b0"
+  },
+  {
+    "ref": "refs/heads/codex/n25-local-row-ownership-20260912",
+    "commit": "37d7a3ddbc871d543419fd1a53b1b5a3b634182f"
+  },
+  {
+    "ref": "refs/heads/codex/n26-binding-plan-20260912",
+    "commit": "e827d0e3382f7c5543e13a090c5d5f659aeec684"
+  },
+  {
+    "ref": "refs/heads/codex/n27-contact-index-20260912",
+    "commit": "aefce1b6f91ec355c68f6e5f3fcd8cacefe4c683"
+  },
+  {
+    "ref": "refs/heads/codex/n28-native-factor-20260912",
+    "commit": "2b1d762645a4728e8ac48fa3369eee1274156927"
+  },
+  {
+    "ref": "refs/heads/codex/n29-exact-component-reuse-20260912",
+    "commit": "91c27a12b5ea5ec308cfe9187a40a84f1b978bd6"
+  },
+  {
+    "ref": "refs/heads/codex/n29b-cheap-rejection-20260913",
+    "commit": "c2644fa00b64f6a3f34ca8ced02b5825803bd860"
+  },
+  {
+    "ref": "refs/heads/codex/n29c-conditional-reuse-20260913",
+    "commit": "441140978c5544fcaeb73749c4842728568ec240"
+  },
+  {
+    "ref": "refs/heads/codex/n30-medium-components-20260913",
+    "commit": "8634c43c975029148b7117bd5cbff6eb763f8fda"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-control",
+    "commit": "371da1ee3c5d22fb08b723185a18c3a2c3102283"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e1",
+    "commit": "7f06ebc63cf983c6cd4154120e541cfe62d625b7"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e10",
+    "commit": "66932099bca387fd6fc234b9b9af21fd5f96b8d5"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e11",
+    "commit": "dcd6d62f4710101c9302d9cdaa55747fe7abccb4"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e12",
+    "commit": "8bde0e228f576fed58fdcb9c4c4ed11da922250a"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e3",
+    "commit": "0f916e36351c991fb8fa107508c44dc77c13f14e"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e3-final",
+    "commit": "14b42c0dc453263dd2f644cdcc30c60fc16e7606"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e4",
+    "commit": "0cae7a8afe9d0aa161d30202de4f024ef538409d"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e4-final",
+    "commit": "88184a83ca07ca4c3bbfa529d96784a3aa4e1a55"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e5",
+    "commit": "526e3e874b7bf65c5a389c1be4067afba7c11534"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e6",
+    "commit": "6de33b7759da5e18a8def150754702b30768f0fd"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e8",
+    "commit": "2a5929dd13b1bb8ea0c1f20729be5b60a54d2680"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-20260910-e9",
+    "commit": "dae6cd94cf8f9b8a06a6180a9a786f4b46832d24"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n01",
+    "commit": "ea6c52118fdb570866e470749a26dcbae0a67a2a"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n02",
+    "commit": "f0effacced0dc8fc04e2cc7c149a4db97d254473"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n05",
+    "commit": "83f6543e4b28f76ce95d3ee84ca2111d0c258e62"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n05-r2",
+    "commit": "7588a85e81b3202ff0ea23dbfa5da02f4bae7d07"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n07",
+    "commit": "4087fb6275b0ff0f0a60bc056bf3df59805f65b2"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n08",
+    "commit": "315c7dab82fc064379948e91aa957fb40e67e8e5"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n10",
+    "commit": "3bd34652413c48611b252878ba7af3b54180eb6b"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n12",
+    "commit": "f9cb01e8d0b53ba4428b836b346e82b04ef7f6a9"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n13",
+    "commit": "c1e6faca7af6cba0e65c215d7a8710c5bf3ebf59"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n14",
+    "commit": "fe8a365857e6ec75976defdba8d7d5708bd0b8b0"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n14-initial-monitor-order",
+    "commit": "1d347a133bf3d1b835837be0100df7069e961078"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n18",
+    "commit": "de68f2d2f177bd1a695df213c111396e1c8e1d08"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n19",
+    "commit": "630886ee52ad4f08fe19e75621a3ed1fe3644004"
+  },
+  {
+    "ref": "refs/heads/codex/optimization-next20-20260910-n20",
+    "commit": "1c98b9efa4dbfc32b548bd8edf0a8bafa08390b9"
+  },
+  {
+    "ref": "refs/heads/codex/physical-snapshot-v20-20260911",
+    "commit": "0d7a4ebd7465262261a8a278cadc2aacc33fa7d9"
+  },
+  {
+    "ref": "refs/heads/codex/removal-work-census-20260912",
+    "commit": "16895e325d2f87e1ff8672825e73024de8e1d1f3"
+  },
+  {
+    "ref": "refs/heads/codex/rtx5060ti-cuda134",
+    "commit": "1155b7ffb60d4d65853f448b00485c21cfd06b99"
+  },
+  {
+    "ref": "refs/heads/codex/selected-n13-n20-20260912",
+    "commit": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf"
+  },
+  {
+    "ref": "refs/heads/codex/semantic-suite-20260911",
+    "commit": "961d08575022ed2b4af92a1807cf27243345db67"
+  },
+  {
+    "ref": "refs/heads/codex/snapshot-cooperative-rejected-20260911",
+    "commit": "2f1286b437fb2c668d3161c33b256627b32eef6f"
+  },
+  {
+    "ref": "refs/heads/codex/snapshot-flat-topology-20260911",
+    "commit": "b966e357374e1790f0396f14f2215fd9b2ba19e8"
+  },
+  {
+    "ref": "refs/heads/codex/snapshot-qualification-finish-20260911",
+    "commit": "71b533b1366cf04e7af6c77ff97d15d7edaf2904"
+  },
+  {
+    "ref": "refs/heads/codex/snapshot-reset-20260911",
+    "commit": "a7c92f8b3e886c32d6f23ed877ba514b74a5eddb"
+  },
+  {
+    "ref": "refs/heads/codex/snapshot-stable-routing-20260911",
+    "commit": "d819531a6bf9163c4707f6bcbb65715e98fda62a"
+  },
+  {
+    "ref": "refs/heads/main",
+    "commit": "4f2103c3a9052906296defb12166753450ef787c"
+  }
+]

@@ -8,7 +8,8 @@ import tempfile
 
 work = Path(tempfile.mkdtemp(prefix="physx-retained-contact-"))
 capture = work / "capture"
-command = [sys.argv[1], "--grid", "1", "--waves", "1", "--seconds", "3",
+# Keep the historical managerless-edge audit's API mode explicit.
+command = [sys.argv[1], "--standard-scene", "0", "--grid", "1", "--waves", "1", "--seconds", "3",
            "--stress-iterations", "8192", "--preserve-contact-pairs", "1",
            "--gpu-island-repair", "1", "--audit-islands", "1", "--audit-motion", "1",
            "--record-state", "0", "--output", str(capture)]

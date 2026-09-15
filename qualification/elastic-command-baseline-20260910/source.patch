@@ -1,0 +1,1185 @@
+diff --git a/demos/blast-stress-demo/CMakeLists.txt b/demos/blast-stress-demo/CMakeLists.txt
+index 6a289c62..34899ced 100644
+--- a/demos/blast-stress-demo/CMakeLists.txt
++++ b/demos/blast-stress-demo/CMakeLists.txt
+@@ -112,6 +112,52 @@ target_link_libraries(NvBlastExtStressPhysX PUBLIC blast_stress_core)
+ 
+ if(BLAST_ENABLE_CUDA_STRESS)
+     find_package(CUDAToolkit REQUIRED)
++    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13.4 AND CMAKE_CUDA_ARCHITECTURES MATCHES "(^|;)120(-real|-virtual)?(;|$)")
++        add_executable(stress_elastic_operator_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_operator_test.cu")
++        target_link_libraries(stress_elastic_operator_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_operator_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_operator_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_operator COMMAND stress_elastic_operator_test)
++        add_executable(stress_elastic_pcg_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_pcg_test.cu")
++        target_link_libraries(stress_elastic_pcg_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_pcg_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_pcg_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_pcg COMMAND stress_elastic_pcg_test)
++        add_executable(stress_elastic_setup_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_setup_test.cu")
++        target_link_libraries(stress_elastic_setup_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_setup_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_setup_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_setup COMMAND stress_elastic_setup_test)
++        add_executable(stress_elastic_loads_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_loads_test.cu")
++        target_include_directories(stress_elastic_loads_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_loads_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_loads_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_loads_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_loads COMMAND stress_elastic_loads_test)
++        add_executable(stress_elastic_partition_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_partition_test.cu")
++        target_include_directories(stress_elastic_partition_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_partition_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_partition_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_partition_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_partition COMMAND stress_elastic_partition_test)
++        add_executable(stress_elastic_commands_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_commands_test.cu")
++        target_include_directories(stress_elastic_commands_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_commands_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_commands_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        add_test(NAME blast_stress_six_channel_commands COMMAND stress_elastic_commands_test)
++    endif()
+     target_sources(NvBlastExtStressPhysX PRIVATE
+         "${BLAST_ROOT}/source/sdk/extensions/stressphysx/NvBlastExtStressPhysXContactGpu.cu")
+     target_compile_definitions(NvBlastExtStressPhysX PRIVATE NVBLAST_ENABLE_DIRECT_GPU_CONTACT_DRAIN)
+@@ -729,6 +775,44 @@ if(BLAST_ENABLE_CUDA_STRESS)
+ 
+     add_executable(native_gpu_correction_body_test tests/native_gpu_correction_body_test.cpp physx_scene.cpp)
+     get_target_property(NATIVE_CHECKPOINT_TEST_INCLUDES native_gpu_checkpoint_test INCLUDE_DIRECTORIES)
++    add_executable(native_command_wake_test tests/native_command_wake_test.cpp physx_scene.cpp)
++    target_include_directories(native_command_wake_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
++    target_compile_definitions(native_command_wake_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
++    target_link_options(native_command_wake_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
++    target_link_libraries(native_command_wake_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
++    add_test(NAME physx_native_command_wake COMMAND native_command_wake_test)
++    add_executable(native_gpu_command_motion_test tests/native_gpu_command_motion_test.cu)
++    target_include_directories(native_gpu_command_motion_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src"
++        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail"
++        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test")
++    target_compile_definitions(native_gpu_command_motion_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_command_motion_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_command_motion_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_command_motion COMMAND native_gpu_command_motion_test)
++    add_executable(native_gpu_command_baseline_test tests/native_gpu_command_baseline_test.cu)
++    target_include_directories(native_gpu_command_baseline_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src"
++        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail"
++        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test")
++    target_compile_definitions(native_gpu_command_baseline_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_command_baseline_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_command_baseline_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_command_baseline COMMAND native_gpu_command_baseline_test)
++    add_executable(native_gpu_command_inputs_test tests/native_gpu_command_inputs_test.cu)
++    target_include_directories(native_gpu_command_inputs_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src")
++    target_compile_definitions(native_gpu_command_inputs_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_command_inputs_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_command_inputs_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_command_inputs COMMAND native_gpu_command_inputs_test)
++    add_executable(native_gpu_input_owners_test tests/native_gpu_input_owners_test.cu)
++    target_include_directories(native_gpu_input_owners_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src")
++    target_compile_definitions(native_gpu_input_owners_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_input_owners_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_input_owners_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_input_owners COMMAND native_gpu_input_owners_test)
+     target_include_directories(native_gpu_correction_body_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+     target_compile_definitions(native_gpu_correction_body_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+     target_link_options(native_gpu_correction_body_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+diff --git a/physx/source/gpudestruction/src/PxgDestructionElasticCommandBaseline.cuh b/physx/source/gpudestruction/src/PxgDestructionElasticCommandBaseline.cuh
+new file mode 100644
+index 00000000..8226176d
+--- /dev/null
++++ b/physx/source/gpudestruction/src/PxgDestructionElasticCommandBaseline.cuh
+@@ -0,0 +1,218 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "PxgBodySim.h"
++#include "PxgDestructionElasticPartition.cuh"
++#include "PxgDestructionRuntime.h"
++#include "PxsRigidBody.h"
++namespace physx
++{
++namespace destructionElasticCommandBaseline
++{
++namespace P = destructionElasticPartition;
++namespace L = destructionElasticLoads;
++// Initialize index storage to zero once (also newly grown capacity). Epochs
++// invalidate untouched entries without clearing the full native body domain.
++struct Index
++{
++    unsigned long long generation;
++    uint32_t record, reserved;
++};
++struct Receipt
++{
++    uint64_t inputGeneration, topologyGeneration;
++    uint32_t groups, records, indexed, ready, error, reserved;
++};
++struct Source
++{
++    const PxgDestructionCommandInput* commands;
++    const PxgDestructionCommandInputStatus* commandStatus;
++    const PxgDestructionInputOwner* owners;
++    const PxgDestructionInputOwnership* ownership;
++    const PxgBodySim* originalBodies;
++    const P::State* partition;
++    const double3* childCenters; // world COMs at the rewound input pose
++    P::Identity identity;
++    uint32_t recordCapacity, bodyCapacity, ownerCapacity, groupCapacity;
++};
++struct Storage
++{
++    Index* index;
++    PxgBodySimVelocities* velocities;
++    uint32_t bodies, groups;
++};
++// Source/partition/poses stay immutable throughout this sequence. A receipt
++// proves the ancestry/ordinary-delta join, not completeness of all commands.
++__global__ void begin(Source in, Storage out, uint64_t input, uint64_t topology, Receipt* receipt)
++{
++    auto& r = *receipt;
++    r = {};
++    r.inputGeneration = input;
++    r.topologyGeneration = topology;
++    if (!input || !in.commandStatus || !in.ownership || !in.partition)
++    {
++        r.error = 1;
++        return;
++    }
++    const auto c = *in.commandStatus;
++    const auto o = *in.ownership;
++    const auto p = *in.partition;
++    if (c.generation != input || o.inputGeneration != input || p.topology != topology ||
++        !P::same(p.identity, in.identity))
++    {
++        r.error = 2;
++        return;
++    }
++    if (c.error || !o.valid || o.error || p.error || p.status != P::Status::Ready || c.count > in.recordCapacity ||
++        o.chunkCount > in.ownerCapacity || o.bodyCount > in.bodyCapacity || o.bodyCount > out.bodies ||
++        p.sourceNodes != o.chunkCount || p.groups.count > in.groupCapacity || p.groups.count > out.groups ||
++        (c.count && !in.commands) || (o.bodyCount && (!in.originalBodies || !out.index)) ||
++        (p.groups.count && (!in.owners || !in.childCenters || !out.velocities)))
++    {
++        r.error = 4;
++        return;
++    }
++    r.groups = p.groups.count;
++    r.records = c.count;
++}
++__global__ void clearSelected(Source in, Storage out, const Receipt* receipt)
++{
++    const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i >= receipt->records)
++        return;
++    const auto c = in.commands[i];
++    if (c.kind == 1 && c.body < in.ownership->bodyCount)
++    {
++        atomicExch(&out.index[c.body].generation, static_cast<unsigned long long>(receipt->inputGeneration));
++        atomicExch(&out.index[c.body].record, P::Invalid);
++    }
++}
++__global__ void indexCommands(Source in, Storage out, Receipt* receipt)
++{
++    const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i >= receipt->records)
++        return;
++    const auto c = in.commands[i];
++    if (!c.kind)
++        return;
++    if (c.kind != 1 || c.body >= in.ownership->bodyCount || !(c.flags & PxsRigidBody::eHOST_VELOCITY_DELTA_GPU))
++    {
++        atomicOr(&receipt->error, 8u);
++        return;
++    }
++    for (unsigned k = 0; k < 3; ++k)
++        if (!isfinite(c.linearBefore[k]) || !isfinite(c.angularBefore[k]) || !isfinite(c.linearDelta[k]) ||
++            !isfinite(c.angularDelta[k]))
++        {
++            atomicOr(&receipt->error, 16u);
++            return;
++        }
++    if (atomicCAS(&out.index[c.body].record, P::Invalid, i) != P::Invalid)
++        atomicOr(&receipt->error, 32u);
++}
++__global__ void finishIndex(Receipt* receipt)
++{
++    receipt->indexed = !receipt->error;
++}
++__device__ bool sameOwner(PxgDestructionInputOwner a, PxgDestructionInputOwner b)
++{
++    return a.active && b.active && a.body == b.body && a.root == b.root && a.slot == b.slot &&
++           a.slotGeneration == b.slotGeneration;
++}
++// Exactly 128 threads per group. Every surviving chunk must come from the same
++// original rigid owner; native fracture splits but does not merge bodies.
++__global__ void resolve(Source in, Storage out, Receipt* receipt)
++{
++    const uint32_t group = blockIdx.x, lane = threadIdx.x;
++    if (!receipt->indexed || group >= receipt->groups)
++        return;
++    const auto& p = *in.partition;
++    const uint32_t start = p.groups.starts[group], end = p.groups.starts[group + 1];
++    if (start >= end || end > p.groups.nodes)
++    {
++        if (!lane)
++            atomicOr(&receipt->error, 64u);
++        return;
++    }
++    const auto first = p.groups.indices[start];
++    if (first >= p.groups.nodes || p.storage.fineToAuthor[first] >= in.ownership->chunkCount)
++    {
++        if (!lane)
++            atomicOr(&receipt->error, 64u);
++        return;
++    }
++    const auto owner = in.owners[p.storage.fineToAuthor[first]];
++    bool bad = !owner.active || !owner.slotGeneration || owner.body >= in.ownership->bodyCount ||
++               owner.root >= in.ownership->chunkCount;
++    for (uint32_t j = start + lane; j < end; j += 128)
++    {
++        const auto node = p.groups.indices[j];
++        if (node >= p.groups.nodes)
++        {
++            bad = true;
++            continue;
++        }
++        const auto author = p.storage.fineToAuthor[node];
++        if (author >= in.ownership->chunkCount || p.storage.chunks[node].cluster != group)
++        {
++            bad = true;
++            continue;
++        }
++        if (!sameOwner(owner, in.owners[author]))
++            bad = true;
++    }
++    if (__syncthreads_or(bad))
++    {
++        if (!lane)
++            atomicOr(&receipt->error, 64u);
++        return;
++    }
++    if (lane)
++        return;
++    const auto& body = in.originalBodies[owner.body];
++    if (__float_as_uint(body.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w) != owner.body)
++    {
++        atomicOr(&receipt->error, 128u);
++        return;
++    }
++    float4 v = body.linearVelocityXYZ_inverseMassW, w = body.angularVelocityXYZ_maxPenBiasW;
++    const auto entry = out.index[owner.body];
++    if (entry.generation == receipt->inputGeneration)
++    {
++        if (entry.record >= receipt->records)
++        {
++            atomicOr(&receipt->error, 128u);
++            return;
++        }
++        const auto c = in.commands[entry.record];
++        if (c.kind != 1 || c.body != owner.body)
++        {
++            atomicOr(&receipt->error, 128u);
++            return;
++        }
++        v = make_float4(c.linearBefore[0], c.linearBefore[1], c.linearBefore[2], 0);
++        w = make_float4(c.angularBefore[0], c.angularBefore[1], c.angularBefore[2], 0);
++    }
++    const auto center = in.childCenters[group];
++    const auto origin = body.body2World.p;
++    const auto offset = make_double3(center.x - origin.x, center.y - origin.y, center.z - origin.z);
++    const auto value = make_double3(v.x + double(w.y) * offset.z - double(w.z) * offset.y,
++                                    v.y + double(w.z) * offset.x - double(w.x) * offset.z,
++                                    v.z + double(w.x) * offset.y - double(w.y) * offset.x);
++    PxgBodySimVelocities result{};
++    result.linearVelocity = make_float4(float(value.x), float(value.y), float(value.z), 0);
++    result.angularVelocity = make_float4(w.x, w.y, w.z, 0);
++    if (!L::finite(center) || !L::finite(value) || !isfinite(result.linearVelocity.x) ||
++        !isfinite(result.linearVelocity.y) || !isfinite(result.linearVelocity.z) || !isfinite(w.x) || !isfinite(w.y) ||
++        !isfinite(w.z))
++    {
++        atomicOr(&receipt->error, 256u);
++        return;
++    }
++    out.velocities[group] = result;
++}
++__global__ void finish(Receipt* receipt)
++{
++    receipt->ready = receipt->indexed && !receipt->error;
++}
++}
++}
+diff --git a/physx/source/gpudestruction/src/PxgDestructionElasticCommandMotion.cuh b/physx/source/gpudestruction/src/PxgDestructionElasticCommandMotion.cuh
+new file mode 100644
+index 00000000..d0b05ab7
+--- /dev/null
++++ b/physx/source/gpudestruction/src/PxgDestructionElasticCommandMotion.cuh
+@@ -0,0 +1,236 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "PxgBodySim.h"
++#include "PxgDestructionElasticCommandBaseline.cuh"
++#include "PxgDestructionElasticCommands.cuh"
++#include "PxvIslandMetadata.h"
++
++namespace physx
++{
++namespace destructionElasticCommandMotion
++{
++namespace C = destructionElasticCommands;
++namespace L = destructionElasticLoads;
++namespace E = Nv::Blast::Elastic;
++// This epoch belongs to the native input-state producer, not to the command
++// evaluator. It advances after fresh input upload or a completed rigid rewind.
++struct Binding
++{
++    uint64_t lifetime;
++    uint32_t body, supported;
++};
++struct History
++{
++    C::Query query;
++    uint64_t nativeEpoch;
++    uint32_t applied, reserved;
++};
++struct Receipt
++{
++    C::Query query;
++    uint64_t nativeEpoch;
++    uint32_t groups, ready, error, duplicate;
++};
++struct Candidate
++{
++    float4 linear, angular;
++    uint32_t body, reserved[3];
++};
++struct Source
++{
++    const C::Receipt* commands;
++    const E::Vector* wrenches; // world force/couple about native physical COM
++    const Binding* bindings; // packed group -> current native ID/lifetime
++    const PxvPreSolveNode* nodes;
++    PxgBodySim* bodies;
++    uint32_t groupCapacity, bodyCapacity;
++    const destructionElasticCommandBaseline::Receipt* baselineReceipt = nullptr;
++    const PxgBodySimVelocities* baseline = nullptr; // optional verified corrected input
++};
++struct Storage
++{
++    Candidate* candidates;
++    uint32_t* claims; // bodyCapacity, touched only for selected IDs; no full clear
++    uint32_t capacity;
++};
++// One exclusive native stream: begin -> clearClaims -> prepare -> seal ->
++// apply -> commit. Source/storage stay immutable, including native body state,
++// until commit. No scene/solver consumer may run between these kernels.
++// Correction input MUST be command-free: the existing post-command checkpoint
++// alone is insufficient. History validates sequencing, not the physical rewind.
++// query.seconds is this application's physical interval, also used by the
++// upstream evaluator to normalize impulses; the native producer must match it.
++__global__ void begin(Source in, Storage out, C::Query expected, uint64_t epoch, const History* history, Receipt* receipt)
++{
++    auto& r = *receipt;
++    r = {};
++    r.query = expected;
++    r.nativeEpoch = epoch;
++    if (!in.commands || !epoch || !expected.tick || !expected.inputGeneration || !expected.commandGeneration ||
++        expected.evaluation > 1 || !isfinite(expected.seconds) || expected.seconds <= 0)
++    {
++        r.error = 1;
++        return;
++    }
++    const auto& c = *in.commands;
++    if (!c.ready || c.error || !C::same(c.query, expected) || c.groups > in.groupCapacity || c.groups > out.capacity ||
++        (c.groups && (!in.wrenches || !in.bindings || !in.nodes || !in.bodies || !out.candidates || !out.claims)))
++    {
++        r.error = 2;
++        return;
++    }
++    if (in.baselineReceipt || in.baseline)
++    {
++        if (!in.baselineReceipt || !in.baseline || expected.evaluation != 1)
++        {
++            r.error = 2;
++            return;
++        }
++        const auto b = *in.baselineReceipt;
++        if (!b.ready || b.error || b.inputGeneration != expected.inputGeneration ||
++            b.topologyGeneration != expected.ownershipGeneration || b.groups != c.groups)
++        {
++            r.error = 2;
++            return;
++        }
++    }
++    const auto& h = *history;
++    if (h.applied)
++    {
++        if (epoch == h.nativeEpoch && C::same(expected, h.query))
++        {
++            r.duplicate = 1;
++            return;
++        }
++        const bool correction = expected.tick == h.query.tick && expected.evaluation == 1 && h.query.evaluation == 0 &&
++                                expected.inputGeneration == h.query.inputGeneration &&
++                                expected.commandGeneration == h.query.commandGeneration &&
++                                expected.seconds == h.query.seconds;
++        const bool next = expected.tick > h.query.tick && expected.evaluation == 0 &&
++                          expected.inputGeneration > h.query.inputGeneration &&
++                          expected.commandGeneration > h.query.commandGeneration;
++        if (epoch <= h.nativeEpoch || !(correction || next))
++        {
++            r.error = 4;
++            return;
++        }
++    }
++    else if (expected.evaluation)
++    {
++        r.error = 4;
++        return;
++    }
++    // An expired/empty command batch has no native motion work.
++    r.groups = c.count ? c.groups : 0;
++}
++__global__ void clearClaims(Source in, Storage out, const Receipt* receipt)
++{
++    const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (receipt->error || receipt->duplicate || i >= receipt->groups)
++        return;
++    const auto id = in.bindings[i].body;
++    if (id < in.bodyCapacity)
++        atomicExch(out.claims + id, ~uint32_t(0));
++}
++__device__ bool finite3(float4 a)
++{
++    return isfinite(a.x) && isfinite(a.y) && isfinite(a.z);
++}
++__device__ bool velocity(double3 delta, float4 previous, float4& output)
++{
++    const float x = float(delta.x), y = float(delta.y), z = float(delta.z);
++    output = make_float4(previous.x + x, previous.y + y, previous.z + z, previous.w);
++    return isfinite(x) && isfinite(y) && isfinite(z) && finite3(output);
++}
++__global__ void prepare(Source in, Storage out, Receipt* receipt)
++{
++    const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
++    // Do not read concurrently accumulated error here. Every row validates;
++    // seal gates the whole batch after this kernel completes.
++    if (receipt->duplicate || i >= receipt->groups)
++        return;
++    const auto b = in.bindings[i];
++    if (b.body >= in.bodyCapacity || !b.lifetime)
++    {
++        atomicOr(&receipt->error, 8u);
++        return;
++    }
++    const auto node = in.nodes[b.body];
++    if (!node.live || node.lifetime != b.lifetime || atomicCAS(out.claims + b.body, ~uint32_t(0), i) != ~uint32_t(0))
++    {
++        atomicOr(&receipt->error, 8u);
++        return;
++    }
++    const auto body = in.bodies[b.body];
++    const auto load = in.wrenches[i];
++    auto v = body.linearVelocityXYZ_inverseMassW, w = body.angularVelocityXYZ_maxPenBiasW;
++    if (in.baseline)
++    {
++        const auto base = in.baseline[i];
++        v.x = base.linearVelocity.x;
++        v.y = base.linearVelocity.y;
++        v.z = base.linearVelocity.z;
++        w.x = base.angularVelocity.x;
++        w.y = base.angularVelocity.y;
++        w.z = base.angularVelocity.z;
++    }
++    const auto inertia = body.inverseInertiaXYZ_contactReportThresholdW;
++    if (__float_as_uint(body.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w) != b.body ||
++        !C::finite(load) || !finite3(v) || !finite3(w) || !isfinite(v.w) || v.w < 0 || !finite3(inertia) ||
++        inertia.x < 0 || inertia.y < 0 || inertia.z < 0 || b.supported > 1 ||
++        (b.supported && (v.w != 0 || inertia.x != 0 || inertia.y != 0 || inertia.z != 0)))
++    {
++        atomicOr(&receipt->error, 16u);
++        return;
++    }
++    Candidate candidate{};
++    candidate.body = b.body;
++    candidate.linear = v;
++    candidate.angular = w;
++    // Kinematic supports retain the applied structural wrench but no dynamic
++    // velocity response. Zero inverse axes likewise remain locked/infinite.
++    if (!b.supported)
++    {
++        const auto q = body.body2World.q.q;
++        const double rotation[4] = { q.x, q.y, q.z, q.w };
++        const double norm = double(q.x) * q.x + double(q.y) * q.y + double(q.z) * q.z + double(q.w) * q.w;
++        if (!isfinite(norm) || fabs(norm - 1) > 1e-5)
++        {
++            atomicOr(&receipt->error, 16u);
++            return;
++        }
++        const auto local = L::inverseRotate(rotation, make_double3(load.v[3], load.v[4], load.v[5]));
++        const double inverse[4] = { -q.x, -q.y, -q.z, q.w };
++        const auto angular =
++            L::inverseRotate(inverse, make_double3(local.x * inertia.x, local.y * inertia.y, local.z * inertia.z));
++        const double dt = receipt->query.seconds;
++        if (!velocity(
++                make_double3(load.v[0] * v.w * dt, load.v[1] * v.w * dt, load.v[2] * v.w * dt), v, candidate.linear) ||
++            !velocity(L::mul(angular, dt), w, candidate.angular))
++        {
++            atomicOr(&receipt->error, 32u);
++            return;
++        }
++    }
++    out.candidates[i] = candidate;
++}
++__global__ void seal(Receipt* receipt)
++{
++    receipt->ready = !receipt->error && !receipt->duplicate;
++}
++__global__ void apply(Source in, Storage out, const Receipt* receipt)
++{
++    const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (!receipt->ready || receipt->error || i >= receipt->groups)
++        return;
++    const auto c = out.candidates[i];
++    in.bodies[c.body].linearVelocityXYZ_inverseMassW = c.linear;
++    in.bodies[c.body].angularVelocityXYZ_maxPenBiasW = c.angular;
++}
++__global__ void commit(const Receipt* receipt, History* history)
++{
++    if (receipt->ready && !receipt->error)
++        *history = { receipt->query, receipt->nativeEpoch, 1, 0 };
++}
++}
++}
+diff --git a/demos/blast-stress-demo/tests/native_gpu_command_baseline_test.cu b/demos/blast-stress-demo/tests/native_gpu_command_baseline_test.cu
+new file mode 100644
+index 00000000..24ddfe74
+--- /dev/null
++++ b/demos/blast-stress-demo/tests/native_gpu_command_baseline_test.cu
+@@ -0,0 +1,389 @@
++// Independent rigid transfer and momentum oracle for the correction input join.
++#include "ElasticPartitionTestFixture.h"
++#include "PxgDestructionElasticCommandBaseline.cuh"
++#include "PxgDestructionElasticCommandMotion.cuh"
++
++#include <cstring>
++#include <fstream>
++#include <limits>
++namespace B = physx::destructionElasticCommandBaseline;
++namespace M = physx::destructionElasticCommandMotion;
++namespace C = physx::destructionElasticCommands;
++float bits(uint32_t id)
++{
++    float f;
++    std::memcpy(&f, &id, 4);
++    return f;
++}
++void close(double a, double b)
++{
++    require(std::isfinite(a) && std::abs(a - b) < 2e-6 * (1 + std::abs(b)), "baseline/momentum oracle");
++}
++struct BaselineFixture
++{
++    unsigned n, groups, parents, bodyCount;
++    FixturePartition fixture;
++    Upload u;
++    Device<PxgDestructionCommandInput> commands;
++    Device<PxgDestructionCommandInputStatus> commandStatus;
++    Device<PxgDestructionInputOwner> owners;
++    Device<PxgDestructionInputOwnership> ownership;
++    Device<PxgBodySim> bodies;
++    Device<double3> centers;
++    Device<B::Index> index;
++    Device<PxgBodySimVelocities> velocities;
++    Device<B::Receipt> receipt;
++    std::vector<PxgDestructionCommandInput> command;
++    std::vector<PxgDestructionInputOwner> owner;
++    std::vector<PxgBodySim> body;
++    std::vector<double3> center;
++    B::Source source{};
++    B::Storage storage{};
++    uint64_t generation = 7;
++    BaselineFixture(unsigned count, unsigned clusterCount)
++        : n(count),
++          groups(clusterCount),
++          parents(groups / 2),
++          bodyCount(2 * parents + 1),
++          fixture(n, groups, false),
++          u(fixture),
++          commands(parents),
++          commandStatus(1),
++          owners(n),
++          ownership(1),
++          bodies(bodyCount),
++          centers(groups),
++          index(bodyCount),
++          velocities(groups),
++          receipt(1),
++          command(parents),
++          owner(n),
++          body(bodyCount),
++          center(groups)
++    {
++        require(groups % 2 == 0, "paired fixture");
++        u.update(fixture, 1);
++        u.prepare();
++        for (unsigned p = 0; p < parents; ++p)
++        {
++            const unsigned id = 2 * p + 1;
++            auto& b = body[id];
++            auto& c = command[p];
++            b.linearVelocityXYZ_inverseMassW = { 1.25f, .5f, -.25f, .25f };
++            b.angularVelocityXYZ_maxPenBiasW = { .2f, -.3f, .4f, 0 };
++            b.body2World.p = make_float4(13 * p, -5, 3, 0);
++            b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w = bits(id);
++            if (p % 3 != 2)
++            {
++                c.body = id;
++                c.kind = 1;
++                c.flags = PxsRigidBody::eHOST_VELOCITY_DELTA_GPU;
++                c.linearBefore[0] = 1.25f;
++                c.linearBefore[1] = .5f;
++                c.linearBefore[2] = -.25f;
++                c.angularBefore[0] = .2f;
++                c.angularBefore[1] = -.3f;
++                c.angularBefore[2] = .4f;
++                c.linearDelta[0] = 1e8f;
++                c.linearDelta[1] = 2;
++                c.linearDelta[2] = 3;
++                c.angularDelta[0] = .5f;
++                c.angularDelta[1] = .6f;
++                c.angularDelta[2] = .7f;
++                for (unsigned k = 0; k < 3; ++k)
++                {
++                    (&b.linearVelocityXYZ_inverseMassW.x)[k] = c.linearBefore[k] + c.linearDelta[k];
++                    (&b.angularVelocityXYZ_maxPenBiasW.x)[k] = c.angularBefore[k] + c.angularDelta[k];
++                }
++            }
++            for (unsigned side = 0; side < 2; ++side)
++            {
++                double sign = side ? 1 : -1;
++                center[2 * p + side] = { 13. * p + sign * .5, -5 + sign * .25, 3 - sign * .1 };
++            }
++        }
++        for (unsigned i = 0; i < n; ++i)
++        {
++            unsigned p = (i % groups) / 2;
++            owner[i] = { uint64_t(100 + p), uint32_t(2 * p + 1), uint32_t(2 * p), uint32_t(p), 1 };
++        }
++        index.put(std::vector<B::Index>(bodyCount));
++        commands.put(command);
++        owners.put(owner);
++        bodies.put(body);
++        centers.put(center);
++        publish();
++        source = { commands.p, commandStatus.p, owners.p, ownership.p, bodies.p, u.state.p,
++                   centers.p,  u.identity,      parents,  bodyCount,   n,        groups };
++        storage = { index.p, velocities.p, bodyCount, groups };
++    }
++    void publish()
++    {
++        commandStatus.put({ { generation, parents, 0 } });
++        ownership.put({ { generation, 0, n, bodyCount, 1, 0 } });
++    }
++    B::Receipt run()
++    {
++        B::begin<<<1, 1>>>(source, storage, generation, 1, receipt.p);
++        B::clearSelected<<<(parents + 127) / 128, 128>>>(source, storage, receipt.p);
++        B::indexCommands<<<(parents + 127) / 128, 128>>>(source, storage, receipt.p);
++        B::finishIndex<<<1, 1>>>(receipt.p);
++        B::resolve<<<groups, 128>>>(source, storage, receipt.p);
++        B::finish<<<1, 1>>>(receipt.p);
++        check(cudaGetLastError());
++        check(cudaDeviceSynchronize());
++        return receipt.get()[0];
++    }
++    void oracle()
++    {
++        auto values = velocities.get();
++        for (unsigned p = 0; p < parents; ++p)
++        {
++            double totalP[3]{}, totalL[3]{};
++            const double v[3] = { 1.25, .5, -.25 }, w[3] = { double(.2f), double(-.3f), double(.4f) };
++            const double r[3] = { .5, .25, -.1 };
++            double inertia[3][3]{};
++            for (unsigned a = 0; a < 3; ++a)
++                for (unsigned b = 0; b < 3; ++b)
++                    inertia[a][b] = (a == b ? 2 + 4 * (r[0] * r[0] + r[1] * r[1] + r[2] * r[2]) : 0) - 4 * r[a] * r[b];
++            for (unsigned side = 0; side < 2; ++side)
++            {
++                unsigned g = 2 * p + side;
++                double x[3] = { center[g].x - 13. * p, center[g].y + 5, center[g].z - 3 };
++                double expected[3] = { v[0] + w[1] * x[2] - w[2] * x[1], v[1] + w[2] * x[0] - w[0] * x[2],
++                                       v[2] + w[0] * x[1] - w[1] * x[0] };
++                for (unsigned k = 0; k < 3; ++k)
++                {
++                    close((&values[g].linearVelocity.x)[k], expected[k]);
++                    close((&values[g].angularVelocity.x)[k], w[k]);
++                    totalP[k] += 2 * (&values[g].linearVelocity.x)[k];
++                    totalL[k] += (&values[g].angularVelocity.x)[k];
++                }
++                totalL[0] += 2 * (x[1] * values[g].linearVelocity.z - x[2] * values[g].linearVelocity.y);
++                totalL[1] += 2 * (x[2] * values[g].linearVelocity.x - x[0] * values[g].linearVelocity.z);
++                totalL[2] += 2 * (x[0] * values[g].linearVelocity.y - x[1] * values[g].linearVelocity.x);
++            }
++            for (unsigned k = 0; k < 3; ++k)
++            {
++                close(totalP[k], 4 * v[k]);
++                double angular = 0;
++                for (unsigned j = 0; j < 3; ++j)
++                    angular += inertia[k][j] * w[j];
++                close(totalL[k], angular);
++            }
++        }
++    }
++};
++void failures()
++{
++    BaselineFixture f(258, 6);
++    require(f.run().ready, "initial baseline");
++    f.oracle();
++    auto original = f.owner;
++    f.owner[6].body = 3;
++    f.owners.put(f.owner);
++    require(f.run().error & 64, "mixed original ancestry accepted");
++    f.owner = original;
++    f.owners.put(original);
++    f.owner[6].slotGeneration++;
++    f.owners.put(f.owner);
++    require(f.run().error & 64, "mixed original slot lifetime accepted");
++    f.owners.put(original);
++    auto c = f.command;
++    f.command[1] = f.command[0];
++    f.commands.put(f.command);
++    require(f.run().error & 32, "duplicate original command accepted");
++    f.command = c;
++    f.commands.put(c);
++    auto s = f.commandStatus.get();
++    s[0].generation--;
++    f.commandStatus.put(s);
++    require(f.run().error & 2, "stale history accepted");
++    f.publish();
++    auto centers = f.center;
++    f.center[0].x = std::numeric_limits<double>::quiet_NaN();
++    f.centers.put(f.center);
++    require(f.run().error & 256, "nonfinite center accepted");
++    f.center = centers;
++    f.centers.put(centers);
++    // New input generation with an empty upload must not use a stale index.
++    ++f.generation;
++    f.publish();
++    s = f.commandStatus.get();
++    s[0].count = 0;
++    f.commandStatus.put(s);
++    require(f.run().ready, "empty refreshed history failed");
++    auto result = f.velocities.get();
++    require(result[0].linearVelocity.x > 1e7, "stale pre-command baseline survived a new generation");
++}
++void chain()
++{
++    BaselineFixture f(2, 2);
++    // Align canonical geometry, chunk mass, aggregate COM and native child
++    // properties for the complete device handoff (two mass-2 children).
++    for (unsigned i = 0; i < 2; ++i)
++    {
++        const auto c = f.center[i];
++        f.fixture.positions[i] = c;
++        f.fixture.chunks[i].position = PxVec3(float(c.x), float(c.y), float(c.z));
++        f.fixture.chunks[i].mass = 2;
++        f.fixture.mass[i] = { { c.x, c.y, c.z }, 2, { 1, 1, 1, 0, 0, 0 }, 0 };
++    }
++    ++f.u.identity.geometry;
++    ++f.u.identity.mass;
++    f.u.update(f.fixture, 1);
++    f.u.prepare();
++    f.source.identity = f.u.identity;
++    // Match the parent's trial impulse to the very same spatial force replayed
++    // below. I_parent = 2 I + 4 (|r|² I - r rᵀ), r=(-.5,-.25,.1).
++    // r×F is perpendicular to r, so its inverse-inertia factor is 1/3.29.
++    auto& submitted = f.command[0];
++    submitted.linearDelta[0] = .05f;
++    submitted.linearDelta[1] = submitted.linearDelta[2] = 0;
++    submitted.angularDelta[0] = 0;
++    submitted.angularDelta[1] = float(1.2 / (3.29 * 60));
++    submitted.angularDelta[2] = float(3 / (3.29 * 60));
++    for (unsigned k = 0; k < 3; ++k)
++    {
++        (&f.body[1].linearVelocityXYZ_inverseMassW.x)[k] = submitted.linearBefore[k] + submitted.linearDelta[k];
++        (&f.body[1].angularVelocityXYZ_maxPenBiasW.x)[k] = submitted.angularBefore[k] + submitted.angularDelta[k];
++    }
++    f.commands.put(f.command);
++    f.bodies.put(f.body);
++    require(f.run().ready, "baseline chain preparation");
++    f.oracle();
++    Device<C::Command> command(1);
++    Device<C::Batch> batch(1);
++    Device<C::Receipt> commandReceipt(1);
++    Device<C::Resolved> resolved(1);
++    Device<E::Vector> wrench(2);
++    Device<L::Motion> motion(2);
++    Device<double3> centers(2);
++    std::vector<L::Motion> motions(2);
++    for (auto& m : motions)
++        m.state.orientation[3] = 1;
++    motion.put(motions);
++    centers.put(f.center);
++    command.put({ { f.center[0], { 12, 0, 0 }, { 0, 0, 0 }, 0, C::Units::Force } });
++    C::Query query{ 10, 7, 8, 1, 1. / 60, 1, 0 };
++    batch.put({ { 10, 7, 8, 1. / 60, 1, 0 } });
++    C::Source source{ batch.p, command.p, f.u.state.p, motion.p, centers.p, f.u.identity, 1 };
++    C::Storage out{ f.u.compactExtra.p, wrench.p, resolved.p, 2, 2, 1 };
++    C::begin<<<1, 1>>>(source, out, query, commandReceipt.p);
++    C::clear<<<1, 128>>>(out, commandReceipt.p);
++    C::resolve<<<1, 128>>>(source, out, 1e-5, commandReceipt.p);
++    C::scatter<<<1, 128>>>(out, commandReceipt.p);
++    C::aggregate<<<2, 128>>>(source, out, 1e-5, commandReceipt.p);
++    C::inspect<<<1, 128>>>(out, commandReceipt.p);
++    C::finish<<<1, 1>>>(commandReceipt.p);
++    Device<PxgBodySim> bodies(2);
++    Device<PxvPreSolveNode> nodes(2);
++    Device<M::Binding> bindings(2);
++    Device<M::Candidate> candidate(2);
++    Device<uint32_t> claims(2);
++    Device<M::History> history(1);
++    Device<M::Receipt> receipt(1);
++    std::vector<PxgBodySim> bs(2);
++    for (unsigned i = 0; i < 2; ++i)
++    {
++        const auto v = f.body[1].linearVelocityXYZ_inverseMassW, w = f.body[1].angularVelocityXYZ_maxPenBiasW;
++        const double x = f.center[i].x, y = f.center[i].y + 5, z = f.center[i].z - 3;
++        bs[i].linearVelocityXYZ_inverseMassW = { float(v.x + w.y * z - w.z * y), float(v.y + w.z * x - w.x * z),
++                                                 float(v.z + w.x * y - w.y * x), .5f };
++        bs[i].angularVelocityXYZ_maxPenBiasW = { w.x, w.y, w.z, 19 };
++        bs[i].inverseInertiaXYZ_contactReportThresholdW = { 1, 1, 1, 0 };
++        bs[i].body2World.q = PxAlignedQuat(0, 0, 0, 1);
++        bs[i].body2World.p = make_float4(float(f.center[i].x), float(f.center[i].y), float(f.center[i].z), 0);
++        bs[i].freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w = bits(i);
++    }
++    bodies.put(bs);
++    nodes.put({ { 20, 0, 1 }, { 21, 0, 1 } });
++    bindings.put({ { 20, 0, 0 }, { 21, 1, 0 } });
++    auto trial = query;
++    trial.evaluation = 0;
++    history.put({ { trial, 1, 1, 0 } });
++    M::Source input{ commandReceipt.p, wrench.p, bindings.p, nodes.p, bodies.p, 2, 2, f.receipt.p, f.velocities.p };
++    M::Storage storage{ candidate.p, claims.p, 2 };
++    auto apply = [&]
++    {
++        M::begin<<<1, 1>>>(input, storage, query, 2, history.p, receipt.p);
++        M::clearClaims<<<1, 128>>>(input, storage, receipt.p);
++        M::prepare<<<1, 128>>>(input, storage, receipt.p);
++        M::seal<<<1, 1>>>(receipt.p);
++        M::apply<<<1, 128>>>(input, storage, receipt.p);
++        M::commit<<<1, 1>>>(receipt.p, history.p);
++        check(cudaGetLastError());
++        check(cudaDeviceSynchronize());
++        return receipt.get()[0];
++    };
++    require(apply().ready, "device baseline/command/motion chain");
++    auto result = bodies.get();
++    auto base = f.velocities.get();
++    for (unsigned i = 0; i < 2; ++i)
++        for (unsigned k = 0; k < 3; ++k)
++        {
++            close((&result[i].linearVelocityXYZ_inverseMassW.x)[k],
++                  (&base[i].linearVelocity.x)[k] + (i == 0 && k == 0 ? .1 : 0));
++            close((&result[i].angularVelocityXYZ_maxPenBiasW.x)[k], (&base[i].angularVelocity.x)[k]);
++        }
++    // Total replay momentum change equals the parent's trial force impulse
++    // and its moment about the original COM; no command is cloned to child 1.
++    double dp[3]{}, dl[3]{};
++    for (unsigned i = 0; i < 2; ++i)
++    {
++        double d[3];
++        for (unsigned k = 0; k < 3; ++k)
++        {
++            d[k] = 2 * (double((&result[i].linearVelocityXYZ_inverseMassW.x)[k]) - (&base[i].linearVelocity.x)[k]);
++            dp[k] += d[k];
++        }
++        const double x = f.center[i].x, y = f.center[i].y + 5, z = f.center[i].z - 3;
++        dl[0] += y * d[2] - z * d[1];
++        dl[1] += z * d[0] - x * d[2];
++        dl[2] += x * d[1] - y * d[0];
++    }
++    close(dp[0], .2);
++    close(dp[1], 0);
++    close(dp[2], 0);
++    close(dl[0], 0);
++    close(dl[1], .02);
++    close(dl[2], .05);
++    require(apply().duplicate, "chain duplicate replay");
++    auto bad = f.receipt.get();
++    bad[0].inputGeneration--;
++    f.receipt.put(bad);
++    require(apply().error, "stale baseline accepted");
++    auto unchanged = bodies.get();
++    require(!std::memcmp(result.data(), unchanged.data(), result.size() * sizeof(result[0])),
++            "stale baseline mutated motion");
++}
++int main(int argc, char** argv)
++{
++    try
++    {
++        if (argc == 1)
++        {
++            failures();
++            chain();
++        }
++        BaselineFixture f(argc > 1 ? 113664 : 774, argc > 1 ? 512 : 6);
++        require(f.run().ready, "baseline fixture failed");
++        f.oracle();
++        if (argc > 2)
++        {
++            auto v = f.velocities.get();
++            std::ofstream out(argv[2], std::ios::binary);
++            out.write(reinterpret_cast<const char*>(v.data()), v.size() * sizeof(v[0]));
++            require(bool(out), "output");
++        }
++        std::printf(
++            "command baseline: %u authored chunks, %u children, %u original parents; independent transfer/momentum passed; adversarial/device chain=%s\n",
++            f.n, f.groups, f.parents, argc == 1 ? "passed" : "not run");
++        return 0;
++    }
++    catch (const std::exception& e)
++    {
++        std::fprintf(stderr, "%s\n", e.what());
++        return 1;
++    }
++}
+diff --git a/docs/destruction/elastic-command-contract.md b/docs/destruction/elastic-command-contract.md
+new file mode 100644
+index 00000000..7c67d418
+--- /dev/null
++++ b/docs/destruction/elastic-command-contract.md
+@@ -0,0 +1,216 @@
++# Explicit chunk-command evaluation
++
++`PxgDestructionElasticCommands.cuh` converts a frozen, authored-chunk-targeted
++command batch into two consistent outputs: asset-frame wrenches about canonical
++fine-node origins, and world-frame wrenches about physical motion COMs. It runs
++on the GPU using the current [active partition](elastic-partition-contract.md).
++This is a numerical producer, not yet a public command submission/application
++API. The installed V14 runtime does not invoke it or clear its unapportioned-load
++correction guard.
++
++## Physical meaning
++
++Each command supplies an authored chunk ID, a world application point, a world
++force and a free world couple. `Units::Impulse` instead supplies linear/angular
++impulses divided by the batch's explicit positive loading interval. Force-valued
++commands are not divided again. Multiple commands on the same chunk add; an
++empty batch explicitly removes the previous command loads.
++
++For asset-to-world frame `(R,o)`, canonical node position `x`, point `p`, force
++`F` and couple `T`, the node output is:
++
++`F_asset = R^T F`
++
++`T_node = R^T T + (R^T(p-o) - x) × F_asset`.
++
++Body aggregation sums node forces and `T_node + (x-C) × F_asset`, then rotates
++the totals to world axes. `C` is the supplied physical aggregate COM in asset
++axes. It must belong to the same frozen ownership/mass/frame snapshot; the
++native producer remains responsible for supplying it correctly. No unknown
++application point, per-chunk force distribution or support reaction is invented
++from native acceleration accumulators.
++
++The caller owns time sampling of points, wrenches and frames. This evaluator
++does not choose follower-load semantics, reconstruct an impulse already folded
++into velocity, or certify that a frozen world point matches a native integration
++interval. Native submission and trial/correction sampling must be defined and
++qualified before applying these outputs to rigid bodies.
++
++The batch carries tick, original input generation, command generation and loading
++duration. A query additionally identifies current ownership and evaluation 0/1.
++The same batch can be evaluated against a split partition without cloning its
++parent's aggregate wrench onto every child. Re-evaluation is pure: it does not
++apply impulses, advance material history, or establish exactly-once physical
++command execution.
++
++## Device ordering and rejection
++
++Run `begin → clear → resolve → scatter → aggregate → inspect → finish → gate`
++on one stream. Inputs and capacity-bearing storage stay immutable throughout.
++`aggregate` uses exactly 128 threads per block, one block per motion group;
++other kernels use guarded element ranges. Consumers must check the receipt
++against their expected query; outputs from any rejected receipt are unusable.
++
++Generation/partition mismatches, insufficient capacity, inactive/invalid chunks,
++unknown units, invalid frames and nonfinite or overflowed wrenches reject.
++Resolve validates all commands before scatter can publish any contribution.
++Chunk scatter uses FP64 atomics; body totals use grouped block reductions,
++avoiding global atomics shared by all commands on a building. Duplicate-command
++summation order is not promised bitwise deterministic for arbitrary batches.
++
++The command receipt does not set the load adapter's full-ledger completeness
++assertion. Contacts, gravity, damping, locks, prescribed motion and any other
++native channels still require their own accounting. Ordinary body force/torque
++totals cannot reconstruct where forces acted: opposing chunk forces can yield
++zero rigid resultant and nonzero structural response.
++
++## Native scheduler prerequisite (private ABI V13)
++
++`PxgDestructionRuntime::wakeCommandOwners` forwards a compact list of current
++native body IDs to the ordinary actor scheduler between accepted steps. The
++allocator validates the entire list first, completes pending GPU sleep writes,
++then wakes dynamic owners. Kinematic supports remain kinematic. Duplicate IDs
++do not duplicate wake notifications. Null nonempty batches, stale/deleted IDs,
++disabled actors and calls during simulation reject. This private operation does
++not apply forces or expose a new public command submission API. The future
++producer must preserve current ID lifetime and serialize normal scene writes.
++
++Pending sleep completion clears native velocity/force storage, so it must finish
++before a producer applies a new command. Ordinary CPU input upload can also
++replace velocities/accelerations: a future GPU command writer belongs after
++that upload and before the original input checkpoint, ordered on the native
++stream. Waking alone does not establish that application boundary.
++
++The native regression uses **ordinary API** force/torque controls. In the
++correction-enabled path, `Sc::BodySim::updateForces` submits velocity deltas;
++`updateBodyExternalVelocitiesLaunch` folds them into velocity before the original
++checkpoint. They must not be applied again from an inferred acceleration. With
++correction disabled, enabling optional body-acceleration reporting instead
++retains acceleration accumulators at that boundary. The test checks both exact
++representations and their resulting impulse, with TGS and PGS. Direct GPU force
++writes are a third, separately tested input route and cannot define ordinary API
++expectations. Aggregate native inputs still cannot reconstruct chunk application
++points or certify the full structural load ledger.
++
++## Native pre-addition history (private ABI V14)
++
++`commandInputHistory()` supplies sparse `PxgDestructionCommandInput` records
++from correction-enabled ordinary native uploads. The producer is called inside
++`PxgSimulationCore::updateBodies`, after body initialization/property upload and
++immediately before `updateBodyExternalVelocitiesLaunch` adds velocity deltas.
++Each 64-byte record carries body ID, upload flags, exact pre-addition linear and
++angular velocities, and the submitted linear/angular deltas. Kind zero is an
++upload without an additive velocity command; kind one is valid; kind two marks
++an invalid source. A 16-byte device status provides count, input generation and
++error bits. Consumers wait on the original checkpoint ready event and require a
++matching generation and zero status error before using valid records.
++
++This avoids trying to recover a small initial velocity by subtracting a large
++rounded delta. It writes only the uploaded list, with retained geometrically
++grown storage; there is no new full body-pool checkpoint copy. A corrected-motion
++refresh retains the history, the next original input boundary replaces it, and
++clear invalidates it. Borrowed-reader lifetime rules match the original checkpoint.
++
++The record is command-free **relative to that ordinary additive upload**, not a
++complete command-free scene snapshot. Direct GPU commands, spatial application
++points, force/impulse modes and the physical interval must still be supplied by
++an authoritative producer. Non-additive host velocity uploads are not relabeled
++as invertible force histories. Body IDs join the same generation's original
++chunk ancestry; they must not be mistaken for current recycled fragment IDs.
++The production correction still uses its existing checkpoint and rejection guard;
++this history is not permission to redistribute unknown body-level loads.
++
++[Native capture evidence](../../qualification/elastic-command-inputs-20260910/README.md)
++includes native force/torque controls, correction refresh retention, the rounding
++counterexample, memory/sanitizer results and hardware counters from both an
++actual native scene and a large standalone producer fixture.
++
++## Checked native velocity transaction
++
++`PxgDestructionElasticCommandMotion.cuh` consumes the command evaluator's device
++receipt and world/body-COM wrenches. Its checked binding records carry native
++body ID, node lifetime and prescribed-support status. It computes native
++velocity candidates from current inverse mass and rotated principal inverse
++inertia, validates the whole batch, then writes only the two velocity vectors.
++Native pose, inverse properties, acceleration accumulators, sleep flags and all
++unselected slots remain unchanged. Structural loads on prescribed supports stay
++in the command evaluator even though their dynamic response is zero. Infinite
++translation mass does not suppress a dynamic body's finite rotational response.
++
++Sequence on one exclusive native stream:
++`begin → clearClaims → prepare → seal → apply → commit`.
++Duplicate native IDs, stale/deleted lifetimes, invalid support/mass combinations,
++nonfinite wrenches or velocity overflow reject before any body mutation. Sparse
++claim clearing touches selected IDs only. The caller supplies capacities and
++keeps source arrays and native motion immutable throughout the transaction.
++History and receipt allocations are mandatory; initialize history once to zero.
++
++An exact duplicate query/native epoch is an explicit no-op. A correction may
++follow evaluation zero only with the same tick/input/command generation and
++interval, evaluation one and a newer native input epoch. A later trial requires
++newer tick/input/command/native epochs. The native producer owns those epochs;
++changing a number does not establish physical rewind correctness.
++
++**The correction input must be command-free.** The existing original checkpoint
++is post-command, so it cannot simply be restored and receive these deltas again.
++The native integration must retain an uncommanded baseline or exactly account
++for original command contributions before distributing them to changed owners.
++The application interval must equal the evaluator's impulse-normalization
++interval and the intended native advance. This transaction cannot infer either
++requirement from body velocities. Gravity, damping, gyroscopic integration,
++locks, contacts and constraints remain ordinary PhysX work.
++
++[Standalone transaction evidence](../../qualification/elastic-command-motion-20260910/README.md)
++uses actual `PxgBodySim` storage, a device evaluator handoff and an explicit
++one-to-two synthetic rewind. The installed runtime does not invoke these kernels.
++It remains protected by its loaded-source guard; live post-upload/pre-checkpoint
++application, command-free correction input and complete stress/material ledger
++publication remain required integration work.
++
++## Corrected child baseline join
++
++`PxgDestructionElasticCommandBaseline.cuh` joins V14 sparse upload history,
++original authored-chunk ancestry and the current partition. A persistent native
++body index is initialized once; input generations invalidate untouched entries.
++Only recorded command IDs are reset/indexed. Every child validates that all its
++chunks have the same original body/root/slot/generation, then transfers the
++original rigid velocity field to its supplied rewound world COM:
++
++`v_child = v_before + omega_before × (COM_child - COM_original)`.
++
++If that original body has a captured ordinary delta, the saved pre-addition
++velocity is used directly. Otherwise the matching original checkpoint supplies
++the baseline. A missing record is not evidence that every other command channel
++was absent. The join does not subtract rounded velocity changes and does not
++invent how a body-level force was distributed among chunks.
++
++Run `begin → clearSelected → indexCommands → finishIndex → resolve → finish`
++on one stream; `resolve` uses exactly 128 threads per child. Initialize index
++storage (including newly grown capacity) to zero once. Inputs are immutable for
++their generation. Child COMs must be at the rewound input pose, not end-of-trial
++positions. Status errors, stale generations, duplicate command records, mixed
++ancestry and nonfinite transfer reject. Intermediate output is unusable unless
++the final receipt is ready and error-free.
++
++The command-motion consumer accepts this optional corrected baseline only for
++evaluation one, with matching original input, topology and group count. It
++preserves the current target's inverse mass and native metadata while using the
++validated baseline velocities. It rejects a failed/stale baseline before native
++writes. The combined receipt checks still do not prove that all spatial commands
++match the ordinary upload history; the live producer must establish that ledger.
++
++[Join and replay evidence](../../qualification/elastic-command-baseline-20260910/README.md)
++includes rigid-transfer/linear/angular-momentum oracles, invalid input checks and
++a device baseline→spatial command→native write chain. Runtime V14 provides input
++history but does not invoke this join or the new command-motion application yet.
++
++## Evidence
++
++[Qualification](../../qualification/elastic-commands-20260910/README.md) includes
++independent wrench oracles, a split batch, zero-resultant axial loading, explicit
++expiration, stale/invalid inputs and a device command-to-load-adapter handoff.
++[Native wake bridge evidence](../../qualification/elastic-command-wake-20260910/README.md)
++records the eight scheduler/control combinations, memory check and preserved
++failed test assumptions. Native command production/application and accepted
++trial/correction transactions remain pending; the wake hook alone does not
++complete them.

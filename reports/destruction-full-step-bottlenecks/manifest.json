@@ -1,0 +1,171 @@
+{
+  "schema": 1,
+  "title": "Destruction full-step bottlenecks",
+  "published_date": "2026-09-13",
+  "analysis_date": "2026-09-12",
+  "archived_existing_evidence": true,
+  "new_gpu_runs": 0,
+  "cohort": "N20 capacity candidate on corrected snapshot baseline; not final N13+N20 composition",
+  "candidate_commit": "b7918affda83942dba04e8626db696cca7fd283a",
+  "binaries": {
+    "A": {
+      "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+      "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+    },
+    "B": {
+      "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/B/serialization-probe",
+      "sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61"
+    }
+  },
+  "modules": {
+    "A": {
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+    },
+    "B": {
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-reset-20260911/local-artifacts/libPhysXDestructionGpuRuntime_64.so": "4e1318cb17b5620b833f137e44f9fd924e31c0df0f1763af886500e9884dc786"
+    }
+  },
+  "checker_sha256": "790e6c488889bacbd18e498bcb206c7fbcec23f91af98068aa32582bf55b76c2",
+  "repetition_policy": "Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.",
+  "scope": "Complete step, no profiler; restore/validation/teardown excluded. 20 independent one-tick restores each.",
+  "original_source_sha256": {
+    "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-full52.json": "4e71505f9beffc55253202f527f6e06b8acaab19bbfc46c5aeeb06da88436fe9",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/bridge64-cold-B/replay.json": "5c07f3d4d1e7b4270011a75a126c577ebc83040ab50b7355810318d0eba4e1aa",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/bridge64-warm-B/replay.json": "0750650f0460554636e4b19acaa560b9b0719b2f922abfd2cbb59657adbe24cd",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/building-cold-B/replay.json": "6add4f38b60133c5d8da54940649cecfbf11d7751c7813680496dca74b535da8",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/building-fragmented-B/replay.json": "3fc6438dfd16340647c43efd3e158f8f4e4ec2edd1384093e1e09da376565c3d",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/building-warm-B/replay.json": "23eb7c63cc1607e30c07f92ae8e07ab0fb726aad021f2fc757b2579152617fa8",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/cantilever64-cold-B/replay.json": "2f42d65739b8c2549d80dd6be7ff2f1578cca711b4fcf7570c8812096b88ad11",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/cantilever64-warm-B/replay.json": "0833f2e44cea634547d023f500feca20b6ceb242aeeb40d0cb17830d67cb5f1c",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/chain256-cold-B/replay.json": "2c9a8eb6146260266dbe80b7e9f84ef5a99d1987943ddbdc35e0f42c96791096",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/chain256-warm-B/replay.json": "8312137e12761db43a936938a3eaa43f3b4130c4eafed180ac23f8726960c57d",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/chain32-cold-B/replay.json": "52b7d0b95e47948f40feaa7fd0a4cf80accd3983b90fe59d4409c297ad295682",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/chain32-warm-B/replay.json": "08435880e3cc69e6d90ff1049339c2db6d023421a39232a8a3d141b451e7f2a0",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/dense12-cold-B/replay.json": "6c8aa4673aeda6f86e462f21b3f3f2544accab437060d006cb82932ca2243d8d",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/dense12-warm-B/replay.json": "dc1336e55c658f15f1d3c96aa2c200746249d153aa6699db641077c1458dc991",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/destruction-cold-B/replay.json": "2c8bf7fed874166df260a7ad5c74db390c8521be9482c1f1df64233515aee317",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/destruction-damaged-B/replay.json": "e32e5eee9fc40d1870097dbddda0808480d107664206b6592ffc1b7e1a800ecd",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/destruction-fractured-B/replay.json": "e9bf1ccac498abbdd3fade23e50419b4f9de0ac91e0869760922ff6d67752323",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/destruction-intact-B/replay.json": "3437a6fc4dd02a202718415bc74185021b81408f24c73cc7268f444471d75fd1",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/destruction-onset-B/replay.json": "16153bee4a86d45f39fe35fb74ee940ac74813fa032ff8910032fa161e790458",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/destruction-stimulus-B/replay.json": "69215afb09cb6c60f4ef0097569af7a4de14f2a5bb31b545748c7887183201bf",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/flying-B/replay.json": "dfbd0a4838e56ea5db9f80a712421412f61046f5c82a12bb4ca05b433ed95c34",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/ladder128-cold-B/replay.json": "7b04522dd351f65e092b92a642572d573245f92c301a91468a1ab71c387cf320",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/ladder128-warm-B/replay.json": "785ce687413a797919395662d072656f05773a7cec11a62924c14945e5f1d394",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/panel32-cold-B/replay.json": "27ce8df7fec9030a92514c949cf7fbd9bcc80cf1cc3afc7f16f31285d07ac753",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/panel32-warm-B/replay.json": "5fa7b1e7e74e1d46893bcc3613b2733e52c039fc0f08790ddb46d35954f766f1",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/resting-B/replay.json": "524705943083fe7a69f5e62cd0219df48ab4da8feba9e1438652ff00fd82102b",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/sliding-B/replay.json": "c8b4e26cb44bb28d0cb70771c301da7cfc701cfa0aa56eb53bbc701bc8fd0419",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/tower64-cold-B/replay.json": "07cd3d2bbc0d277d8e65ef214b24d7bf8435255ca855abe4642e63a172f66b4f",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/tower64-warm-B/replay.json": "f8baac728d887a1d0b8423fad28732fede72f77c31c552cbdce47ac6d637fdd1",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city25-intact-idle-B/replay.json": "9c56e3a0224ea8e5bf65faf48d7d74ca608de7009a44be6003eb015834d0fb8e",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city25-airborne-B/replay.json": "751095463fb0c37dbce308ea15530df898ded9a709c1b04e8d82b392f2bbfe8b",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city25-initial-impact-B/replay.json": "f94602f088d0f7a258a697d2b8315eacb97ddf6f9f3427478d19c929726d9eb1",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city25-post-impact-B/replay.json": "a0a04c834d5a845db9fce3d530b47307a5e5f3ce83fcbc45492c08c18f5e7c48",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city25-cascading-fracture-B/replay.json": "63013f8f40599a5de02b1d8ea3c0e7c9a431bdd3024fd566d8a3f431efa060ce",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city25-fragmented-loaded-B/replay.json": "0ade0c238ef5194d79137cd3742a9e66239501d36dceee411549b445c8f2c210",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city25-late-debris-B/replay.json": "2820836a5b01d986840511c315e14e0342aa0f5ea0bf4d25cc2c375597e8570e",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city25-ten-second-debris-B/replay.json": "fb17db5a54e27954d1b81fbd0be5e13c557affeaf0ac0938ca6c41a0101a19bb",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city64-intact-idle-B/replay.json": "7da1a26bb98128faf527464dcf791fff03373e103c3b90db89318a64b6094cfd",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city64-airborne-B/replay.json": "6034abefd704f451842f9e1e8578c79d1fe173c458c73478d756b7f225ff636a",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city64-initial-impact-B/replay.json": "a599173e3ffb6b7cf2d77becddaf264ea8124328cbfabdfcedc53d8b1ccdd897",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city64-post-impact-B/replay.json": "a194bb5f81cb1847fec7a2528bdc042ef2b08ca108acdfd7ebef5d2c6b2a9a66",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city64-cascading-fracture-B/replay.json": "f60330eae7b589d0e4928c99b1e12f7e3f364314583f1fa16fa7028969c2316a",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city64-fragmented-loaded-B/replay.json": "a1de836a709fc265bc1ce20f90b4a4fa6a351435f7aedeb10b6580b29d8451f0",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city64-late-debris-B/replay.json": "9bd40a85fd83d394b0afa720223293345486f2faaf2e8b2c2688e0441c0c940c",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city64-ten-second-debris-B/replay.json": "1467b2d56f055a995a855bd2bb449cfc60bbbfa0f3be82355b6fa50cc70d18d0",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city256-intact-idle-B/replay.json": "2e201f75a787d70a412221d5d5afe5562d1832a4eb72e004b7897188dc78906e",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city256-airborne-B/replay.json": "4881e2a54b1fb3516d0e5b4628caefdf104c684e18af505a68615f0cd42f2cfd",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city256-initial-impact-B/replay.json": "c8f1d0deb545c12e4ca1c976729ad056516a52599d427127d41b7c7a8bad2f74",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city256-post-impact-B/replay.json": "34411fb246d4ff055486409820e0af8ab04f6df8dc523f1b10a81498679d5bda",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city256-cascading-fracture-B/replay.json": "47f62a6e85902bd172c8d2184de4b024291806489eaa5997d2180ee3df8864dd",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city256-fragmented-loaded-B/replay.json": "12edcf87a7cdbc87623cc2377b46c9e98659526f07e6dc535087317acea2d01f",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city256-late-debris-B/replay.json": "096db2a703331ada59bd42a9b1bcd22db80697e4b2bc6dd67810387f2b8e2921",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/full52/city256-ten-second-debris-B/replay.json": "7d9780cac6bf766e7e4e651266fd82c917136695e089095b3d18e0fdac650268",
+    "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n20-followup.json": "224fb991459cace07ca5c6b98608b760b261240a1971b722ec2b0c5d58f5c18e",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/warm600/idle-256-B-0/native/native.frames.csv": "9ac26773980cc2c8eec5856ab4b64e9fd5e6a424a69754b2e9db41de9e01e6db",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/warm600/idle-256-B-1/native/native.frames.csv": "5f7e0b747ac14acc059adca7a4a04613b7ff33a9c96075b2b98dbfbfec9cf2d2",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/warm600/impacts-256-B-0/native/native.frames.csv": "d5c3d8f11acefbb6755eba6d2935b7695c9f4510cedc63cdd8d91060a24a54b4",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/warm600/impacts-256-B-1/native/native.frames.csv": "f269563ac8ef06a35bbfa9523d32d81fe606604a6265a4e3bb7534c5f86e3213",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city256-late-debris/attribution.json": "4c3bf82ada9ba1bf902b4f1255977622fd9747426bc73679f54ad810e2be6cd6",
+    "/root/workspace/physx-2/out/n20-requalification-20260912/cpu-attribution-v2/B/city25-initial-impact/attribution.json": "ea3cd80d32bf9f4bd2437527bd4b60d14f5262eff5a6740171ad3ea0cfa8ad04",
+    "/root/workspace/physx-2/out/end-to-end-attribution-20260912/cpu-full/tower64-cold/attribution.json": "2c650810061dca89767235e7eea65ebb22fd0ce655be2dccaca06479abf03802"
+  },
+  "original_source_hashes_rechecked_during_packaging": false,
+  "scope_note": "Original hashes preserved; portable sample arithmetic and copied summary identity were checked. Heavy original traces were not rehashed during the active GPU screen.",
+  "profile_identity_file": "evidence/profile-identities.json",
+  "limitations": [
+    "HTML plots require pinned D3 CDN access; CSV/JSON and Markdown tables are offline-readable.",
+    "Exported documents were structurally checked; no browser rendering check in this packaging task.",
+    "Profiler timings and the earlier tower diagnostic build remain separate from unprofiled N20 timings."
+  ],
+  "validation": {
+    "snapshot_scenarios": 52,
+    "snapshot_ticks": 1040,
+    "continuous_ticks": 2400,
+    "profile_partitions": 3,
+    "relative_links_checked": 22,
+    "skill_validation": "passed",
+    "portable_data_checks": "passed"
+  },
+  "files": {
+    "README.md": {
+      "sha256": "716704edc37501c95974aa21047c95981ce5e08adc4e86eb1d4a1db1f8aa6276",
+      "bytes": 16542
+    },
+    "data/continuous-frames.csv": {
+      "sha256": "ea5762a7231f9727a15a22b7bbe7e6b67736f83919790c4b7542f9edd77b9931",
+      "bytes": 216878
+    },
+    "data/measurements.json": {
+      "sha256": "8a851e7c96afdead97a1d962ccc24887991e96fdf46ad7d1367048972cd82ada",
+      "bytes": 687335
+    },
+    "data/scenarios.csv": {
+      "sha256": "2817a01a54cc6f55f429f103c52f38bd41866fcce266ee50d18a07b92d8b3322",
+      "bytes": 8216
+    },
+    "data/snapshot-samples.csv": {
+      "sha256": "b85d99f0f4b2995289a82972057d574df0fe53a9c4612273b48a729b7421a422",
+      "bytes": 31355
+    },
+    "evidence/n20-followup.json": {
+      "sha256": "224fb991459cace07ca5c6b98608b760b261240a1971b722ec2b0c5d58f5c18e",
+      "bytes": 62027
+    },
+    "evidence/n20-full52.json": {
+      "sha256": "4e71505f9beffc55253202f527f6e06b8acaab19bbfc46c5aeeb06da88436fe9",
+      "bytes": 311576
+    },
+    "evidence/original-analysis.md": {
+      "sha256": "e96da6254f757f4e2eb675bd8987c0ecc3c2bb28306dabf6d1eac92d03da8e14",
+      "bytes": 13959
+    },
+    "evidence/profile-identities.json": {
+      "sha256": "8466470514211f11ff9ea40c7b251e42490f5951beceabeef8d97b69f8b24bb9",
+      "bytes": 6135
+    },
+    "figures/data-flow.mmd": {
+      "sha256": "d327c26db42c582c5ed83646d0770aab2e6cd34099ae603380a33eacb894ca8e",
+      "bytes": 913
+    },
+    "figures/destruction-attribution.html": {
+      "sha256": "e2c382b046cdaaa90a1ad02cb9406ba47a3e614d59c2892d7d6d45308d4daeb1",
+      "bytes": 187705
+    },
+    "figures/destruction-continuous.html": {
+      "sha256": "5b7d535a2fbd0357947e608a2475cbc0e7feafb1d38ddb7882dea20bae098aec",
+      "bytes": 199733
+    },
+    "figures/destruction-scenarios.html": {
+      "sha256": "dff4d77ffd385054ba6ea4d6d98984f035d9ab7f51983f53ffa318ed9401ce53",
+      "bytes": 95006
+    },
+    "rebuild-tables.py": {
+      "sha256": "027607485b5789870ae5c7c49ce90429caf592922d524ea117e301f944cc1918",
+      "bytes": 2822
+    }
+  }
+}

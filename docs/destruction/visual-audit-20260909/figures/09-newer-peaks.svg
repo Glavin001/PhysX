@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="535" viewBox="0 0 1440 535" role="img"><title>9. Newer 131-133 ms peaks: what is actually measured</title><desc>C: 256 buildings / 113,664 chunks / 229,376 bonds / 256 shots; two 96-step runs, Direct GPU off, sleep on.</desc><rect width="100%" height="100%" fill="white"/>
+<text x="36" y="54" font-family="DejaVu Sans,sans-serif" font-size="30" font-weight="700" fill="#182A3A">9. Newer 131-133 ms peaks: what is actually measured</text>
+<text x="36" y="85" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#526477">C: 256 buildings / 113,664 chunks / 229,376 bonds / 256 shots; two 96-step runs, Direct GPU off, sleep on.</text>
+<text x="40" y="157" font-family="DejaVu Sans,sans-serif" font-size="22" font-weight="700" fill="#182A3A">Run 1, tick 48: 133.376325 ms</text>
+<rect x="40" y="177" width="1150.0932865714285" height="40" fill="#66778B" stroke="#66778B"/>
+<rect x="1190.0932865714285" y="177" width="107.452752" height="40" fill="#B84042" stroke="#B84042"/>
+<rect x="1297.5460385714284" y="177" width="0.0015085714285714288" height="40" fill="#147D64" stroke="#147D64"/>
+<rect x="1297.547547142857" y="177" width="0.0006600000000000001" height="40" fill="#147D64" stroke="#147D64"/>
+<text x="40" y="243" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="400" fill="#182A3A">Native engine: 121.979591 ms | accepted consumer: 11.396504 ms</text>
+<text x="40" y="268" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">Commands: 0.000160 ms | final status: 0.000070 ms</text>
+<text x="40" y="307" font-family="DejaVu Sans,sans-serif" font-size="22" font-weight="700" fill="#182A3A">Run 2, tick 48: 131.157991 ms</text>
+<rect x="40" y="327" width="1131.4099782857143" height="40" fill="#66778B" stroke="#66778B"/>
+<rect x="1171.4099782857143" y="327" width="105.22118828571428" height="40" fill="#B84042" stroke="#B84042"/>
+<rect x="1276.6311665714286" y="327" width="0.0007542857142857144" height="40" fill="#147D64" stroke="#147D64"/>
+<rect x="1276.6319208571429" y="327" width="0.0005657142857142856" height="40" fill="#147D64" stroke="#147D64"/>
+<text x="40" y="393" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="400" fill="#182A3A">Native engine: 119.998028 ms | accepted consumer: 11.159823 ms</text>
+<text x="40" y="418" font-family="DejaVu Sans,sans-serif" font-size="16" font-weight="400" fill="#182A3A">Commands: 0.000080 ms | final status: 0.000060 ms</text>
+<text x="40" y="472" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Same peak counts: 10,449 fragments / 10,193 awake / 216,220 normal-contact count / 28,530 new broken bonds.</text>
+<text x="40" y="512" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="400" fill="#182A3A">Gray native bars have NO current detailed decomposition. Dataset A cannot fill them without a new capture.</text>
+</svg>

@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1160" viewBox="0 0 1440 1160" role="img"><title>11. Downtown: 27 independent graphs, different solve sizes</title><desc>24,105 chunks / 74,543 bonds / 445 fixed supports. Each row is one authored connected structure.</desc><rect width="100%" height="100%" fill="white"/>
+<text x="36" y="54" font-family="DejaVu Sans,sans-serif" font-size="30" font-weight="700" fill="#182A3A">11. Downtown: 27 independent graphs, different solve sizes</text>
+<text x="36" y="85" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#526477">24,105 chunks / 74,543 bonds / 445 fixed supports. Each row is one authored connected structure.</text>
+<text x="45" y="130" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="700" fill="#182A3A">Chunks / dynamic nodes</text>
+<text x="395" y="130" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="700" fill="#182A3A">Dynamic component size</text>
+<text x="990" y="130" font-family="DejaVu Sans,sans-serif" font-size="18" font-weight="700" fill="#182A3A">Longest support path</text>
+<text x="45" y="169" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 1. 5,972 / 5,936</text>
+<rect x="395" y="152" width="510.0" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="152" width="270.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="169" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">60</text>
+<text x="45" y="201" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 2. 3,105 / 3,080</text>
+<rect x="395" y="184" width="264.62264150943395" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="184" width="193.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="201" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">43</text>
+<text x="45" y="233" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 3. 1,312 / 1,296</text>
+<rect x="395" y="216" width="111.3477088948787" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="216" width="126.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="233" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">28</text>
+<text x="45" y="265" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 4. 1,312 / 1,296</text>
+<rect x="395" y="248" width="111.3477088948787" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="248" width="121.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="265" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">27</text>
+<text x="45" y="297" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 5. 1,312 / 1,296</text>
+<rect x="395" y="280" width="111.3477088948787" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="280" width="117.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="297" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">26</text>
+<text x="45" y="329" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 6. 1,312 / 1,296</text>
+<rect x="395" y="312" width="111.3477088948787" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="312" width="121.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="329" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">27</text>
+<text x="45" y="361" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 7. 1,312 / 1,296</text>
+<rect x="395" y="344" width="111.3477088948787" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="344" width="121.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="361" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">27</text>
+<text x="45" y="393" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 8. 1,096 / 1,060</text>
+<rect x="395" y="376" width="91.07142857142857" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="376" width="63.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="393" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">14</text>
+<text x="45" y="425" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A"> 9. 1,096 / 1,060</text>
+<rect x="395" y="408" width="91.07142857142857" height="23" fill="#AD6800" stroke="#AD6800"/>
+<rect x="990" y="408" width="63.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="425" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">14</text>
+<text x="45" y="457" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">10. 664 / 648</text>
+<rect x="395" y="440" width="55.67385444743935" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="440" width="63.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="457" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">14</text>
+<text x="45" y="489" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">11. 664 / 648</text>
+<rect x="395" y="472" width="55.67385444743935" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="472" width="67.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="489" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">15</text>
+<text x="45" y="521" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">12. 664 / 648</text>
+<rect x="395" y="504" width="55.67385444743935" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="504" width="67.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="521" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">15</text>
+<text x="45" y="553" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">13. 664 / 648</text>
+<rect x="395" y="536" width="55.67385444743935" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="536" width="67.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="553" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">15</text>
+<text x="45" y="585" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">14. 664 / 648</text>
+<rect x="395" y="568" width="55.67385444743935" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="568" width="67.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="585" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">15</text>
+<text x="45" y="617" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">15. 340 / 324</text>
+<rect x="395" y="600" width="27.836927223719677" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="600" width="36.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="617" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">8</text>
+<text x="45" y="649" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">16. 340 / 324</text>
+<rect x="395" y="632" width="27.836927223719677" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="632" width="40.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="649" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">9</text>
+<text x="45" y="681" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">17. 340 / 324</text>
+<rect x="395" y="664" width="27.836927223719677" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="664" width="40.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="681" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">9</text>
+<text x="45" y="713" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">18. 340 / 324</text>
+<rect x="395" y="696" width="27.836927223719677" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="696" width="40.5" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="713" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">9</text>
+<text x="45" y="745" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">19. 340 / 324</text>
+<rect x="395" y="728" width="27.836927223719677" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="728" width="36.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="745" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">8</text>
+<text x="45" y="777" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">20. 157 / 148</text>
+<rect x="395" y="760" width="12.715633423180593" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="760" width="27.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="777" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6</text>
+<text x="45" y="809" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">21. 157 / 148</text>
+<rect x="395" y="792" width="12.715633423180593" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="792" width="27.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="809" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6</text>
+<text x="45" y="841" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">22. 157 / 148</text>
+<rect x="395" y="824" width="12.715633423180593" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="824" width="27.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="841" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6</text>
+<text x="45" y="873" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">23. 157 / 148</text>
+<rect x="395" y="856" width="12.715633423180593" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="856" width="27.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="873" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6</text>
+<text x="45" y="905" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">24. 157 / 148</text>
+<rect x="395" y="888" width="12.715633423180593" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="888" width="27.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="905" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6</text>
+<text x="45" y="937" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">25. 157 / 148</text>
+<rect x="395" y="920" width="12.715633423180593" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="920" width="27.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="937" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6</text>
+<text x="45" y="969" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">26. 157 / 148</text>
+<rect x="395" y="952" width="12.715633423180593" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="952" width="27.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="969" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6</text>
+<text x="45" y="1001" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">27. 157 / 148</text>
+<rect x="395" y="984" width="12.715633423180593" height="23" fill="#356EC9" stroke="#356EC9"/>
+<rect x="990" y="984" width="27.0" height="23" fill="#147D64" stroke="#147D64"/>
+<text x="1280" y="1001" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">6</text>
+<polyline points="482.9784366576819,145 482.9784366576819,1015" fill="none" stroke="#B84042" stroke-width="2"/>
+<text x="395" y="1050" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#B84042">Red line: 1,024 dynamic nodes</text>
+<text x="45" y="1100" font-family="DejaVu Sans,sans-serif" font-size="20" font-weight="700" fill="#182A3A">18 block-local components (blue) | 9 cooperative components (amber) | support hops (green)</text>
+<text x="45" y="1136" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">GPU route inferred from current size threshold. These are offline graph counts, not a new timed simulation.</text>
+</svg>

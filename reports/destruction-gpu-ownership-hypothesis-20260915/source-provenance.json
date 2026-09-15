@@ -1,0 +1,85 @@
+{
+  "baseline_commit": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf",
+  "scope": "isolated ownership transaction foundation; main migration incomplete",
+  "patch": "ownership-transaction-v3.patch",
+  "patch_sha256": "a7bec6329f65a39f42691745134f47ed0dc8055abe3538789fa6dc6fdf88bf88",
+  "restored_source_sha256": {
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "6a2e5428c8adba25c7701d8ec979630493de9cd71180bb6f2925e47da08be892",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "e6f33955b2fbe3c1690d2daadddebd243daa55977ec406a4b0a78b4d6c8b1d1d",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "11f8126c0d416254672d370c2e171964a6c37e0cb333ca183d01a78657200e6f",
+    "demos/blast-stress-demo/tests/native_preparation_order_check.h": "dc6fe96cb6f55645d6e776e4934bbf83fcde89146a86080bdb283239debaa46a"
+  },
+  "built_artifact_sha256": {
+    "/root/workspace/physx-2/out/ownership-migration-20260915/transaction-build-v3/native_gpu_collision_test": "9c357b11d860b71e2eb1a617b24a8b5d1a9592a0f5d513f0a9fcb0d7b6b517bc",
+    "/root/workspace/physx-2/out/ownership-migration-20260915/transaction-build-v3/libPhysXDestructionGpuRuntime_64.so": "f60093d477b13a4f8ac292009aa733e5648c6eadc5e677b506609057e2b2fa40",
+    "/root/workspace/physx-2/out/ownership-migration-20260915/transaction-build-v3/libPhysXGpuActivity_64.so": "425403041926897f4aff24de8ef593268d2e3a525574e1801c2ad8aee50a1d08"
+  },
+  "selected_artifacts_unchanged": {
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5"
+  },
+  "validation": {
+    "native-v1": {
+      "status": "complete",
+      "invocations": 10,
+      "elapsed_seconds": 55.46132822698564,
+      "checks": [
+        "A-births",
+        "A-response",
+        "A-retained",
+        "A-correction",
+        "A-checkpoint",
+        "B-births",
+        "B-response",
+        "B-retained",
+        "B-correction",
+        "B-checkpoint"
+      ]
+    },
+    "native-v3": {
+      "status": "complete",
+      "invocations": 4,
+      "elapsed_seconds": 13.432315259007737,
+      "checks": [
+        "ordinary",
+        "preparation",
+        "ordinary-memory",
+        "ordinary-sync"
+      ]
+    },
+    "native-v3-regression": {
+      "status": "complete",
+      "invocations": 7,
+      "elapsed_seconds": 31.903499638021458,
+      "checks": [
+        "response",
+        "retained",
+        "initialization-rejection",
+        "slot-exhaustion",
+        "accepted-properties",
+        "correction",
+        "checkpoint"
+      ]
+    }
+  },
+  "portable_patch_round_trip": "pass: every patched file equals tested source hash",
+  "limitations": [
+    "Mixed main worktree is not the tested candidate",
+    "No complete CPU-independent fracture-to-correction path",
+    "No application speedup qualification",
+    "No full52 qualification for this candidate",
+    "Existing initialization-check failures unresolved"
+  ],
+  "raw_evidence": "out/ownership-migration-20260915/ (local only; ignored)",
+  "portable_selected_base": {
+    "reachable_ancestor": "b481d3b55d751742c2c3d8f8ac0f15ecd4c7ad92",
+    "paths": [
+      "physx",
+      "blast",
+      "demos/blast-stress-demo"
+    ],
+    "patch": "selected-source-from-b481d3b5.patch",
+    "patch_sha256": "396ebec10ab8fb324fd38c1e2ea0c7157777abf21b04023f1ba002943fcd9090",
+    "verification": "all 89 changed selected-base source files reconstructed exactly; selected commit itself is on a separate local branch"
+  }
+}

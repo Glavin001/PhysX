@@ -1,0 +1,97 @@
+{
+  "status": "diagnostic hypotheses; no implementation experiment or measured gain",
+  "scope": "Preserve current-tick contact/stress, at most one correction, equilibrium, ordinary APIs and sleep. Screen light7 then full52 and continuous warm idle/heavy. Savings below are non-additive hypotheses, not counter-derived predictions.",
+  "experiments": [
+    {
+      "rank": 1,
+      "hypothesis": "Remove duplicate fragment compatibility/lifecycle preparation at existing producer boundaries",
+      "evidence": "First-impact and late-debris timelines have substantially more launches, copies and host decisions than idle. Prior dataflow audit identifies compatibility allocation/registration on the critical path; its older warm timings require revalidation.",
+      "mechanism": "Identify one redundant owner/shape preparation pass and eliminate it or make the final consumer own the data; retain required CPU PhysX registration.",
+      "scenarios": [
+        "city25/64/256 initial-impact",
+        "cascading-fracture",
+        "late-debris",
+        "destruction-stimulus"
+      ],
+      "estimated_application_ms_saved": {
+        "first_fracture": [
+          0,
+          10
+        ],
+        "late_debris": [
+          0,
+          5
+        ],
+        "idle": [
+          0,
+          0.2
+        ]
+      },
+      "confidence": "low on savings, medium on target relevance",
+      "experiment_cost": "one focused source/timeline attribution pass, then a coherent lifecycle change and focused physical checks",
+      "support": "Fewer duplicate allocations/scans/joins and lower unprofiled full-step time; exact import/topology/load state and accepted correction/motion quality across full suite and warm runs.",
+      "refute": "Preparation is required once, CPU cost overlaps necessary GPU work, or full-step time fails to improve. A neutral architectural change needs a concrete removed dependency/follow-up."
+    },
+    {
+      "rank": 2,
+      "hypothesis": "Transfer only changed compatibility data and batch metadata at mandatory joins",
+      "evidence": "Large idle first tick uploads about20 MB but reads back only1288 bytes; late debris transfers about42 MB H2D and43 MB D2H. These include ordinary physics and cold initialization, so attribution is required.",
+      "mechanism": "Remove redundant host mirrors or whole-capacity transfers in destruction integration; publish dirty owner/chunk ranges and combine small receipts without deferring data.",
+      "scenarios": [
+        "all city scales/stages",
+        "fragmented-building",
+        "destruction-stimulus",
+        "warm intact idle and warm heavy trajectory"
+      ],
+      "estimated_application_ms_saved": {
+        "cold_idle": [
+          0,
+          1
+        ],
+        "active_destruction": [
+          0,
+          2
+        ],
+        "warm_idle": [
+          0,
+          0.5
+        ]
+      },
+      "confidence": "low until destruction ownership and warm persistence established",
+      "experiment_cost": "copy-site attribution plus one changed-data or receipt-batching change",
+      "support": "Lower required transfer count/bytes or blocking latency and lower full-step time in matched unprofiled runs, with unchanged current-tick contacts/queries and sleep.",
+      "refute": "Transfers originate in necessary PhysX state uploads, disappear naturally after cold restore, overlap other work, or savings do not reach full-step time."
+    },
+    {
+      "rank": 3,
+      "hypothesis": "Remove repeated stress setup or decompose necessary component work before parameter tuning",
+      "evidence": "Stress dominates selected large-debris kernel time. Dense structures use a distinct persistent solver family; sparse chains and cities use component stress kernels. Low sampled DRAM rates alone do not establish the bottleneck.",
+      "mechanism": "Attribute current topology/revision setup versus recurrence, then eliminate one redundant setup/reduction or rebalance independent components while preserving convergence within the tick.",
+      "scenarios": [
+        "dense12-cold",
+        "chain256-cold",
+        "bridge64-cold",
+        "city256-initial-impact",
+        "city256-late-debris"
+      ],
+      "estimated_application_ms_saved": {
+        "large_destruction": [
+          0,
+          8
+        ],
+        "dense_structure": [
+          0,
+          2
+        ],
+        "idle": [
+          0,
+          0.5
+        ]
+      },
+      "confidence": "low on mechanism/savings, high that stress is a material GPU cost",
+      "experiment_cost": "targeted source/counter attribution, one algorithmic hypothesis, solver quality checks and full application A/B",
+      "support": "Less necessary work or shorter critical stress launches with unchanged convergence/material/motion gates and verified application savings across semantic scenarios.",
+      "refute": "Setup is already reused, dependency changes alter equilibrium, gains regress other structures, or GPU-only improvement fails to reduce full-step time."
+    }
+  ]
+}

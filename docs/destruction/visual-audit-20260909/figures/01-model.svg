@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="720" viewBox="0 0 1440 720" role="img"><title>1. Geometry, motion and three different graphs</title><desc>Conceptual current model; counts below refer to dataset A, tick 48.</desc><rect width="100%" height="100%" fill="white"/>
+<text x="36" y="54" font-family="DejaVu Sans,sans-serif" font-size="30" font-weight="700" fill="#182A3A">1. Geometry, motion and three different graphs</text>
+<text x="36" y="85" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#526477">Conceptual current model; counts below refer to dataset A, tick 48.</text>
+<rect x="40" y="115" width="425" height="180" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="115" width="7" height="180" fill="#147D64" stroke="#147D64"/>
+<text x="58" y="148" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">Persistent chunks + bonds</text>
+<text x="58" y="179" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">113,664 authored chunks</text>
+<text x="58" y="204" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">229,376 authored bonds</text>
+<text x="58" y="229" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Geometry identity survives splitting</text>
+<text x="58" y="254" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Chunks are not independent motions</text>
+<rect x="505" y="115" width="425" height="180" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="505" y="115" width="7" height="180" fill="#147D64" stroke="#147D64"/>
+<text x="523" y="148" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">Rigid motion clusters</text>
+<text x="523" y="179" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Initially 256 building clusters</text>
+<text x="523" y="204" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Tick 48: 10,705 logical clusters</text>
+<text x="523" y="229" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">10,449 reported fragment bodies</text>
+<text x="523" y="254" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">10,193 awake fragment bodies</text>
+<rect x="970" y="115" width="425" height="180" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="970" y="115" width="7" height="180" fill="#147D64" stroke="#147D64"/>
+<text x="988" y="148" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">Stress components</text>
+<text x="988" y="179" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Connected unknowns in equations</text>
+<text x="988" y="204" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Fixed supports are boundaries</text>
+<text x="988" y="229" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Different partition from motion</text>
+<text x="988" y="254" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">B: 1,030 trial / 1,793 corrected</text>
+<polyline points="465,195 505,195" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="495.9955289764732,199.3496553411123 505,195 495.9955289764732,190.6503446588877" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="930,195 970,195" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="960.9955289764732,199.3496553411123 970,195 960.9955289764732,190.6503446588877" fill="none" stroke="#526477" stroke-width="3"/>
+<rect x="40" y="365" width="650" height="155" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="365" width="7" height="155" fill="#AD6800" stroke="#AD6800"/>
+<text x="58" y="398" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">Contact / constraint dependencies</text>
+<text x="58" y="429" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Projectile &lt;-&gt; wall &lt;-&gt; debris &lt;-&gt; ordinary actor / joint</text>
+<text x="58" y="454" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Can connect several separate stress components</text>
+<text x="58" y="479" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Needed for a correct selective rewind and replay</text>
+<rect x="730" y="365" width="665" height="155" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="730" y="365" width="7" height="155" fill="#B84042" stroke="#B84042"/>
+<text x="748" y="398" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">Why the distinction matters</text>
+<text x="748" y="429" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Sleeping is a motion state, not proof of unchanged stress</text>
+<text x="748" y="454" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">One shared floor must not merge the entire stress world</text>
+<text x="748" y="479" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Current full correction remains; selective closure is TODO</text>
+<text x="40" y="592" font-family="DejaVu Sans,sans-serif" font-size="22" font-weight="700" fill="#182A3A">A body count does not measure sparse stress work. A bond count does not measure collision work.</text>
+<text x="40" y="642" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Colors: green retain | amber optimize | red replace/migrate | gray unresolved scope | blue GPU timing</text>
+</svg>

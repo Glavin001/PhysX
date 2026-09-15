@@ -65,14 +65,20 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
 }
 __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* clusters,const PxU32* affected,PxU32 count,
     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxDestructionCollisionPreparationStatus* collision,
-    PxDestructionCorrectionPreparationStatus* status,const NativePreparationInputs* inputs=nullptr) {
-    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;}
+    PxDestructionCorrectionPreparationStatus* status,CorrectionCommandInputs commands={},const NativePreparationInputs* inputs=nullptr) {
+    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;commands=inputs->commands;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(!collision->valid || i>=count || !affected[i])return;
     const PxU32 id=clusters[i].body;if(!checkpoint || id>=checkpointCount){atomicOr(&status->error,1u);return;}
     const auto body=checkpoint[id];const auto a=body.externalLinearAcceleration,b=body.externalAngularAcceleration;
     if(!isfinite(a.x) || !isfinite(a.y) || !isfinite(a.z) || !isfinite(b.x) || !isfinite(b.y) || !isfinite(b.z))
         {atomicOr(&status->error,8u);return;}
-    if(a.x!=0 || a.y!=0 || a.z!=0 || b.x!=0 || b.y!=0 || b.z!=0)atomicAdd(&status->loadedSources,1u);
+    bool commanded=false;
+    if(commands.status) {
+        if(commands.status->error || commands.status->generation!=commands.generation || !commands.generation
+            || id>=commands.capacity || !commands.loadedGenerations) {atomicOr(&status->error,64u);return;}
+        commanded=commands.loadedGenerations[id]==commands.generation;
+    }
+    if(commanded || a.x!=0 || a.y!=0 || a.z!=0 || b.x!=0 || b.y!=0 || b.z!=0)atomicAdd(&status->loadedSources,1u);
 }
 struct HasCorrectionBody {
     __host__ __device__ bool operator()(const PxDestructionCorrectionBody& b) const {return b.targetBody!=PX_INVALID_U32;}

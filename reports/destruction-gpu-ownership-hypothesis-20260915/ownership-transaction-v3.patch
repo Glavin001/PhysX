@@ -1,0 +1,273 @@
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+@@ -637,7 +637,7 @@
+     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
+     {
+         if(!mDestruction) {
+-            mDestruction = PxCreateDestructionRuntimeV20(mCudaContextManager->getContext(), scene, gate, allocator);
++            mDestruction = PxCreateDestructionRuntimeV21(mCudaContextManager->getContext(), scene, gate, allocator);
+             if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
+         }
+         return mDestruction;
+@@ -846,13 +846,12 @@
+                 auto* previous=mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer();
+                 auto* acceleration=mSimulationCore->getRigidBodyAccelerationsDevice();
+                 const auto capacity=mSimulationCore->getBodySimStorageCapacity();const auto stream=mSimulationCore->getStream();
+-                ok=mDestruction->restoreRigidState(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
+-                    && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
+-                    && mDestruction->installCollisionOwners(
++                ok=mDestruction->commitPreparedOwnership({bodies,previous,acceleration,capacity},
+                         mSimulationCore->mPxgShapeSimManager.getMutableShapeSimsDeviceTypedPtr(),
+                         mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),
+                         reinterpret_cast<PxNodeIndex*>(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
+-                        PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),stream);
++                        PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),
++                        checkpoint.generation,stream);
+                 }
+                 // GPU motion and persistent shape ownership now precede CPU
+                 // BodySim construction. The existing solver still requires CPU
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -606,6 +606,7 @@
+     PxU32 mCorrectionBodyCapacity{};
+     bool mCollisionPreparationSubmitted=false,mCorrectionPreparationSubmitted=false;
+     PxU64 mRestoredCheckpointGeneration{};
++    PxU64 mOwnershipCommitGeneration{};
+     PxgBodySim* mCheckpointBodies{};
+     PxgBodySimVelocities* mCheckpointPrevious{};
+     PxgRigidBodyAcceleration* mCheckpointAccelerations{};
+@@ -1031,6 +1032,7 @@
+         mGraphView={};mGraphPairCapacity=0;mGraphNodeCapacity=0;
+         mHostCompletion->correction={};mCorrectionBodyCapacity=0;
+         mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;mRestoredCheckpointGeneration=0;
++        mOwnershipCommitGeneration=0;
+         if(mGraphRetainedCounts) {
+             PxU32 counts[2];
+             if(cudaMemcpy(counts,mGraphRetainedCounts,sizeof(counts),cudaMemcpyDeviceToHost)==cudaSuccess)
+@@ -1826,6 +1828,7 @@
+         }
+     }
+     bool prepareCollisionBindings(const PxgShapeSim* shapes,PxU32 shapeCapacity,const PxNodeIndex* shapeToBody,PxU32 remapCapacity,CUstream coreStream) override {
++        mCollisionStorage={shapes,shapeToBody,shapeCapacity,remapCapacity};
+         if(!mTopology || mHostStatus->error!=8u || !mHostBodyAllocation.valid)return true;
+         mPreparationObserved=false;mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;
+         mHostCompletion->collision={};mHostCompletion->correction={};
+@@ -1966,6 +1969,62 @@
+             mInstalledOwnerGeneration=count?mCheckpointGeneration:0;return true;
+         }catch(...){mFailed=true;return false;}
+     }
++    PxgDestructionOwnershipTransaction ownershipTransaction() const override {
++        if(mFailed || !mCheckpointValid || !mPreparationObserved || mHostStatus->error!=8u
++            || !mHostCompletion->collision.valid || !mHostCompletion->correction.valid
++            || mHostCompletion->collision.removed || mHostCompletion->correction.loadedSources
++            || mHostCompletion->correction.checkpointGeneration!=mCheckpointGeneration)
++            return {};
++        return {mCompactCorrectionBodies,mCompactCollisionBindings,mPreNodes,
++            mHostCompletion->correction.count,mHostCompletion->collision.count,mPreRegistryCapacity,
++            mCheckpointGeneration,mHostCompletion->collision.generation,mReady};
++    }
++    bool commitPreparedOwnership(const PxgDestructionMotionStorage& motion,
++        PxgShapeSim* shapes,PxU32 shapeCapacity,PxNodeIndex* shapeToBody,
++        PxU32 remapCapacity,PxU64 generation,CUstream coreStream) override {
++        const auto transaction=ownershipTransaction();
++        // Validate every storage domain before enqueueing the first mutation.
++        // In the old three-call interface invalid shape storage was detected
++        // only after the rigid checkpoint and fragment bodies had been written.
++        if(!transaction.ready || !generation || generation!=transaction.checkpointGeneration
++            || generation==mOwnershipCommitGeneration
++            || !coreStream || !motion.bodies || motion.capacity<mCheckpointCount
++            || motion.capacity<mCorrectionBodyCapacity
++            || bool(motion.previous)!=mCheckpointHasPrevious
++            || bool(motion.accelerations)!=mCheckpointHasAccelerations
++            || (transaction.shapeCount && (!shapes || !shapeToBody || !shapeCapacity
++                || remapCapacity<shapeCapacity || !mShapeOwnerGenerations
++                || shapes!=mCollisionStorage.shapes || shapeToBody!=mCollisionStorage.shapeToBody
++                || shapeCapacity!=mCollisionStorage.shapeCapacity || remapCapacity!=mCollisionStorage.remapCapacity
++                || mShapeOwnerCapacity<shapeCapacity)))return false;
++        try {
++            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
++            check(cudaStreamWaitEvent(stream,transaction.ready,0));
++            check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
++            correctionMarker(0,stream);
++            check(cudaMemcpyAsync(motion.bodies,mCheckpointBodies,size_t(mCheckpointCount)*sizeof(*motion.bodies),cudaMemcpyDeviceToDevice,stream));
++            if(motion.previous)check(cudaMemcpyAsync(motion.previous,mCheckpointPrevious,size_t(mCheckpointCount)*sizeof(*motion.previous),cudaMemcpyDeviceToDevice,stream));
++            if(motion.accelerations)check(cudaMemcpyAsync(motion.accelerations,mCheckpointAccelerations,size_t(mCheckpointCount)*sizeof(*motion.accelerations),cudaMemcpyDeviceToDevice,stream));
++            correctionMarker(1,stream);
++            correctionMarker(2,stream);
++            if(transaction.bodyCount)installCorrectionBodyInputs<<<(transaction.bodyCount+127)/128,128,0,stream>>>(
++                transaction.bodies,transaction.bodyCount,mCheckpointBodies,mCheckpointPrevious,
++                motion.bodies,motion.previous,motion.accelerations);
++            correctionMarker(3,stream);
++            correctionMarker(4,stream);
++            if(transaction.shapeCount)installNativeCollisionOwners<<<(transaction.shapeCount+127)/128,128,0,stream>>>(
++                transaction.shapes,transaction.shapeCount,shapes,shapeCapacity,shapeToBody,remapCapacity,
++                mShapeOwnerGenerations,generation,mShapePublicationEpochs,mShapePublicationTargets,mStatus);
++            correctionMarker(5,stream);
++            check(cudaGetLastError());
++            // Publish one completion boundary for every body/shape consumer.
++            // Checkpoint storage is also protected from reuse until this point.
++            check(cudaEventRecord(mCheckpointReady,stream));check(cudaEventRecord(mReady,stream));
++            mRestoredCheckpointGeneration=generation;mOwnershipCommitGeneration=generation;
++            mInstalledOwnerGeneration=transaction.shapeCount?generation:0;
++            return true;
++        }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
++    }
+     PxgDestructionOwnershipView collisionOwnershipView() const override {
+         return {mShapeOwnerGenerations,mInstalledOwnerGeneration,mShapeOwnerCapacity};
+     }
+@@ -2054,7 +2113,7 @@
+ };
+ }}
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV20(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
++PxCreateDestructionRuntimeV21(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
+ }
+ 
+--- a/physx/source/gpudestruction/include/PxgDestructionRuntime.h
++++ b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+@@ -67,6 +67,18 @@
+     const PxgShapeSim* shapes = nullptr;
+     const PxNodeIndex* shapeToBody = nullptr;
+     PxU32 shapeCapacity = 0, remapCapacity = 0;
++};
++// One validated native ownership transaction. All pointers refer to resident
++// immutable preparation, not CPU body objects. The producer owns their lifetime
++// through correction acceptance. A consumer must join ready before using rows;
++// clear/reconfigure/next prepareFrame invalidates the borrowed view.
++struct PxgDestructionOwnershipTransaction {
++    const PxDestructionCorrectionBody* bodies = nullptr;
++    const PxDestructionCollisionBinding* shapes = nullptr;
++    const PxvPreSolveNode* nodes = nullptr;
++    PxU32 bodyCount = 0, shapeCount = 0, nodeCapacity = 0;
++    PxU64 checkpointGeneration = 0, topologyGeneration = 0;
++    CUevent ready = nullptr;
+ };
+ // Private bridge between PhysX's kernel-wrangler module and the runtime CUDA
+ // stress module. Both share the scene's CUDA context; no physics API replay.
+@@ -181,6 +193,13 @@
+     // readyEvent orders this borrowed view after GPU ownership installation.
+     virtual PxgDestructionOwnershipView collisionOwnershipView() const = 0;
+     virtual bool preserveUnchangedContactPairs() const = 0;
++    // The native scene path submits one complete body/shape transaction. Host
++    // admission rejects the whole request before any restore/installation write.
++    // Success means enqueued; readyEvent remains the device completion boundary.
++    virtual bool commitPreparedOwnership(const PxgDestructionMotionStorage& motion,
++        PxgShapeSim* shapes, PxU32 shapeCapacity, PxNodeIndex* shapeToBody,
++        PxU32 remapCapacity, PxU64 checkpointGeneration, CUstream stream) = 0;
++    virtual PxgDestructionOwnershipTransaction ownershipTransaction() const = 0;
+ };
+ }
+ #if defined(_WIN32)
+@@ -188,11 +207,11 @@
+ #else
+ #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
+ #endif
+-// Private producer ABI v16 adds destruction snapshot export/import.
++// Private producer ABI v21 adds the prepared ownership transaction boundary.
+ // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
+ // violating lifecycle ordering. Public scene ABI is intact.
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV20(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
++PxCreateDestructionRuntimeV21(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+ 
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
+ PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,
+--- a/demos/blast-stress-demo/tests/native_preparation_order_check.h
++++ b/demos/blast-stress-demo/tests/native_preparation_order_check.h
+@@ -6,6 +6,7 @@
+         std::atomic<bool> observed{false},failed{false},constructed{false};
+         unsigned expectedNew=1,expectedOwners=2,expectedShapes=4,growths=0;
+         bool normalBoundary=false,checkOwnedBirths=false;unsigned ownedBirths=0;
++        unsigned transactionChecks=0;
+         std::string error;
+         Observe(){require(!PxGetProfilerCallback(),"ordering profiler already occupied");PxSetProfilerCallback(this);}
+         ~Observe()override{PxSetProfilerCallback(nullptr);}
+@@ -50,7 +51,70 @@
+                 normalBoundary=normal;observed=true;
+             }catch(const std::exception& e){error=e.what();failed=true;}
+         }
++        void inspectTransaction(bool committed) {
++            if(!fixture)return;
++            try {
++                auto* runtime=static_cast<PxgDestructionRuntime*>(fixture->stage);
++                const auto transaction=runtime->ownershipTransaction();
++                require(transaction.ready && transaction.bodyCount==expectedOwners
++                    && transaction.shapeCount==expectedShapes && transaction.nodes,
++                    "ownership transaction lost prepared inputs");
++                auto& core=fixture->core;
++                auto& np=*static_cast<PxgNphaseImplementationContext*>(static_cast<NpScene&>(fixture->scene)
++                    .getScScene().getLowLevelContext()->getNphaseImplementationContext())->getGpuNarrowphaseCore();
++                const PxgDestructionMotionStorage motion={core.getBodySimBufferDevicePtr().getPointer(),
++                    core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),core.getRigidBodyAccelerationsDevice(),
++                    core.getBodySimStorageCapacity()};
++                auto* shapes=core.mPxgShapeSimManager.getMutableShapeSimsDeviceTypedPtr();
++                const PxU32 shapeCapacity=core.mPxgShapeSimManager.getNbTotalShapeSims();
++                auto* remap=reinterpret_cast<PxNodeIndex*>(np.mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr());
++                const PxU32 remapCapacity=PxU32(np.mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex));
++                PxScopedCudaLock lock(fixture->cuda);check(cuEventSynchronize(transaction.ready));
++                // Compare every byte of live storage before and after rejection,
++                // including previous motion and acceleration when enabled.
++                auto bytes=[](const void* ptr,size_t size) {
++                    std::vector<unsigned char> result(ptr?size:0);
++                    if(!result.empty())check(cuMemcpyDtoH(result.data(),CUdeviceptr(ptr),result.size()));
++                    return result;
++                };
++                const auto bodyBefore=bytes(motion.bodies,motion.capacity*sizeof(*motion.bodies));
++                const auto previousBefore=bytes(motion.previous,motion.capacity*sizeof(*motion.previous));
++                const auto accelerationBefore=bytes(motion.accelerations,motion.capacity*sizeof(*motion.accelerations));
++                const auto shapeBefore=bytes(shapes,shapeCapacity*sizeof(*shapes));
++                const auto remapBefore=bytes(remap,remapCapacity*sizeof(*remap));
++                auto commit=[&](const PxgDestructionMotionStorage& storage,PxgShapeSim* shapeStorage,
++                    PxU32 capacity,PxNodeIndex* mapping,PxU32 mappingCapacity,PxU64 generation) {
++                    return runtime->commitPreparedOwnership(storage,shapeStorage,capacity,mapping,mappingCapacity,
++                        generation,core.getStream());
++                };
++                if(committed) {
++                    require(!commit(motion,shapes,shapeCapacity,remap,remapCapacity,transaction.checkpointGeneration),
++                        "ownership transaction was committed twice");
++                } else {
++                    require(!commit(motion,shapes,shapeCapacity,remap,remapCapacity,transaction.checkpointGeneration+1),
++                        "stale ownership checkpoint accepted");
++                    require(!commit(motion,nullptr,shapeCapacity,remap,remapCapacity,transaction.checkpointGeneration),
++                        "missing ownership storage accepted");
++                    require(!commit(motion,shapes,shapeCapacity-1,remap,remapCapacity,transaction.checkpointGeneration),
++                        "undersized shape domain accepted");
++                    require(!commit(motion,shapes,shapeCapacity,remap,remapCapacity-1,transaction.checkpointGeneration),
++                        "mismatched remap domain accepted");
++                    auto badMotion=motion;badMotion.capacity=0;
++                    require(!commit(badMotion,shapes,shapeCapacity,remap,remapCapacity,transaction.checkpointGeneration),
++                        "missing body domain accepted");
++                }
++                check(cuStreamSynchronize(core.getStream()));
++                require(bodyBefore==bytes(motion.bodies,motion.capacity*sizeof(*motion.bodies))
++                    && previousBefore==bytes(motion.previous,motion.capacity*sizeof(*motion.previous))
++                    && accelerationBefore==bytes(motion.accelerations,motion.capacity*sizeof(*motion.accelerations))
++                    && shapeBefore==bytes(shapes,shapeCapacity*sizeof(*shapes))
++                    && remapBefore==bytes(remap,remapCapacity*sizeof(*remap)),
++                    "rejected ownership transaction mutated native storage");
++                ++transactionChecks;
++            }catch(const std::exception& e){error=e.what();failed=true;}
++        }
+         void* zoneStart(const char* name,bool,PxU64)override {
++            if(!std::strcmp(name,"GpuDestruction.restoreInstall"))inspectTransaction(false);
+             if(!std::strcmp(name,"GpuDestruction.finishAndReserve"))inspect(true);
+             if(fixture && !std::strcmp(name,"GpuDestruction.compatibility.allocateNativeBodies")) {
+                 if(!observed || failed)failed=true;
+@@ -79,6 +143,7 @@
+             return nullptr;
+         }
+         void zoneEnd(void*,const char* name,bool,PxU64)override {
++            if(!std::strcmp(name,"GpuDestruction.restoreInstall"))inspectTransaction(true);
+             if(fixture && checkOwnedBirths && !std::strcmp(name,"GpuDestruction.publishReservedMetadata")) {
+                 auto& islands=*static_cast<NpScene&>(fixture->scene).getScScene().getSimpleIslandManager();
+                 auto* runtime=static_cast<PxgDestructionRuntime*>(fixture->stage);
+@@ -123,5 +188,8 @@
+         require(gpu.getCudaPreSolvePasses()>0,"ordinary API did not consume the GPU birth roster by default");
+         nativePreSolveTest::verify(gpu,f.cuda);
+     }
++    require(observe.transactionChecks==4,"both prepared transactions were not tested before and after commit");
++    require(f.stage->clearStress(),"transaction clear failed");
++    require(!static_cast<PxgDestructionRuntime*>(f.stage)->ownershipTransaction().ready,"clear retained an ownership transaction");
+     std::puts("6 chunks / 3 bonds plus one ordinary body: growth then no-growth fracture; complete GPU preparation before CPU completion/construction; one correction/two stress evaluations per step passed");
+ }

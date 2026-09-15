@@ -12,7 +12,7 @@
 #include "foundation/PxHashMap.h"
 #include "foundation/PxProfiler.h"
 namespace physx {
-// Only scene finalization and between-step teardown call this allocator. It
+// Scene finalization, between-step commands and teardown call this allocator. It
 // never relaxes the application's API access guards or publishes candidates in
 // the scene actor/query lists. These are real BodySim/node reservations, not
 // one independent body allocated in advance for every intact chunk.
@@ -107,6 +107,26 @@ public:
     bool needsHostProperties() const override {
         return !(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API);
     }
+    bool wakeCommandOwners(const PxU32* indices,PxU32 count) override {
+        if(mScene.isAPIWriteForbidden() || !mScene.getScScene().isSimulationResultAccepted() || (count && !indices))return false;
+        for(PxU32 i=0;i<count;++i) {
+            const auto* body=source(indices[i]);
+            if(!body || body->getCore().getActorFlags().isSet(PxActorFlag::eDISABLE_SIMULATION))return false;
+        }
+        // A queued sleep finalization clears native velocities/forces. Complete
+        // it before command producers can write, just as ordinary wakeUp does.
+        for(PxU32 i=0;i<count;++i) {
+            auto* body=source(indices[i]);
+            if(!(body->getCore().getFlags() & PxRigidBodyFlag::eKINEMATIC) &&
+                !mScene.getScScene().finalizeGpuSleep(&body->getCore()))return false;
+        }
+        for(PxU32 i=0;i<count;++i) {
+            auto* body=source(indices[i]);
+            if(!(body->getCore().getFlags() & PxRigidBodyFlag::eKINEMATIC))
+                body->wakeUpInternalNoKinematicTest(true,true);
+        }
+        return true;
+    }
     bool publishCorrectionProperties(const PxvDestructionBodyProperties* inputs,PxU32 count) override {
         for(PxU32 i=0;i<count;++i)if(!source(inputs[i].motion.targetBody,true))return false;
         for(PxU32 i=0;i<count;++i) {
@@ -142,6 +162,62 @@ public:
     explicit NpDestructionBodyAllocator(NpScene& scene):mScene(scene) {}
     ~NpDestructionBodyAllocator() override {clear();}
     bool isValidSource(PxU32 body) const override {return source(body)!=NULL;}
+    bool exportNativeSnapshot(const PxU32* indices,PxU32 count,void* data,PxU32 stride) const override {
+        for(PxU32 i=0;i<count;++i)if(!source(indices[i]))return false;
+        if(!mScene.getScScene().getSimulationController()->exportNativeSnapshot(indices,count,data,stride))return false;
+        auto* values=static_cast<PxvDestructionSnapshotBody*>(data);
+        for(PxU32 i=0;i<count;++i){const auto& core=source(indices[i])->getCore();
+            values[i].active=core.getSim()->isActive();
+            // Ordinary wakeUp/addForce may update the logical wake counter
+            // between steps even when its force is subsequently cleared. This
+            // is public physical state, not the GPU's previous sleep filter.
+            values[i].wakeCounter=core.getWakeCounter();
+        }
+        return true;
+    }
+    bool importNativeSnapshot(const PxU32* indices,PxU32 count,const void* data,PxU32 stride) override {
+        for(PxU32 i=0;i<count;++i)if(!source(indices[i]))return false;
+        if(!mScene.getScScene().getSimulationController()->importNativeSnapshot(indices,count,data,stride))return false;
+        const auto* values=static_cast<const PxvDestructionSnapshotBody*>(data);
+        for(PxU32 i=0;i<count;++i){auto& actor=*source(indices[i]);auto& core=actor.getCore();auto& sim=*core.getSim();
+            const auto& v=values[i];
+            // Ordinary pose notification rebuilds collision/query transforms.
+            actor.setGlobalPose(v.bodyToWorld*v.bodyToActor.getInverse(),false);
+            core.setBody2World(v.bodyToWorld);
+            if(sim.isActive()!=bool(v.active))sim.setActive(v.active!=0);
+            auto& ll=sim.getLowLevelBody();ll.mLastTransform=v.bodyToWorld;
+            // Import is the initial physical state, not an unconsumed command.
+            ll.mGpuHostDirty=0;
+        }
+        return true;
+    }
+    bool stateExportAllowed() const override {
+        if(mScene.isAPIWriteForbidden() || !mScene.getScScene().isSimulationResultAccepted())return false;
+        // The collection captures accepted rigid state, not unconsumed force
+        // accumulators or kinematic commands. Submit the next stimulus after
+        // restore; reject pending commands instead of silently dropping them.
+        auto clean=[](const NpRigidDynamic& body){
+            const auto* sim=body.getCore().getSim();if(!sim)return false;
+            const PxU32 host=PxU32(sim->getLowLevelBody().mGpuHostDirty)<<16;
+            if(host & (PxsRigidBody::eHOST_POSE_COPY_GPU|PxsRigidBody::eHOST_LINEAR_COPY_GPU
+                |PxsRigidBody::eHOST_ANGULAR_COPY_GPU|PxsRigidBody::eHOST_MASS_COPY_GPU
+                |PxsRigidBody::eHOST_INERTIA_COPY_GPU|PxsRigidBody::eHOST_COM_COPY_GPU))return false;
+            if(const auto* data=sim->getSimStateData(true))if(data->getKinematicData()->targetValid)return false;
+            if(const auto* data=sim->getSimStateData(false)){
+                const auto* v=data->getVelocityModData();
+                if(!v->linearPerSec.isZero() || !v->angularPerSec.isZero()
+                    || !v->linearPerStep.isZero() || !v->angularPerStep.isZero())return false;
+            }
+            return true;
+        };
+        PxActor* actors[128];PxU32 offset=0,count;
+        while((count=mScene.getActors(PxActorTypeFlag::eRIGID_DYNAMIC,actors,128,offset))!=0){
+            for(PxU32 i=0;i<count;++i)if(!clean(*static_cast<NpRigidDynamic*>(actors[i])))return false;
+            offset+=count;
+        }
+        for(const auto& entry:mAcceptedBodies)if(!clean(*entry.body))return false;
+        return true;
+    }
     bool reserveNodeCapacity(PxU32 capacity,const PxU32*& indices) override {
         const PxU32 old=mGrantedNodes.size();
         if(capacity>old) {

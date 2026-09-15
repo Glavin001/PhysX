@@ -1,0 +1,1449 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Destruction Scenarios</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="Destruction Scenarios" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Destruction Scenarios&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;destruction-scenarios-20260912&quot;&gt;
+  &lt;h3&gt;52 restored scenarios · full tick against the 60 Hz budget&lt;/h3&gt;
+  &lt;div class=&quot;text-small&quot;&gt;20 independent ticks per scenario · N20 qualified cohort · restore excluded&lt;/div&gt;
+  &lt;div class=&quot;text-small&quot;&gt;Bars = mean · end marks = observed maximum · labels = mean / maximum, ms&lt;/div&gt;
+  &lt;div class=&quot;city-plot&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;structural-plot&quot;&gt;&lt;/div&gt;
+  &lt;details&gt;&lt;summary&gt;All measurements, stage timings and physical workload counters&lt;/summary&gt;
+    &lt;div class=&quot;table-responsive&quot;&gt;&lt;table class=&quot;table table-sm&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Scenario&lt;/th&gt;&lt;th&gt;Mean / max ms&lt;/th&gt;&lt;th&gt;SD ms&lt;/th&gt;&lt;th&gt;60 Hz misses&lt;/th&gt;&lt;th&gt;Integrated simulate/fetch ms&lt;/th&gt;&lt;th&gt;Commands / completion ms&lt;/th&gt;&lt;th&gt;Stress iterations&lt;/th&gt;&lt;th&gt;Corrections / stress passes&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+  &lt;/details&gt;
+  &lt;div class=&quot;text-small&quot;&gt;“Cold/warm” names describe the saved physical history; disposable caches are rebuilt in every restore.&lt;/div&gt;
+  &lt;style&gt;
+    #destruction-scenarios-20260912 .chart text {fill:var(--foreground);font-size:12px}
+    #destruction-scenarios-20260912 .chart .domain,#destruction-scenarios-20260912 .chart .tick line {stroke:var(--border)}
+    #destruction-scenarios-20260912 .chart {display:block;width:100%;overflow:visible}
+  &lt;/style&gt;
+  &lt;script type=&quot;application/json&quot; class=&quot;chart-data&quot;&gt;[{&quot;name&quot;:&quot;bridge64-cold&quot;,&quot;mean&quot;:8.74519265,&quot;maximum&quot;:11.702686,&quot;sd&quot;:0.7280592444086339,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001029,&quot;simulate_fetch_ms&quot;:8.537150950000001,&quot;completion_ms&quot;:0.2079388},&quot;samples&quot;:[11.702686,8.65411,8.686673,8.724923,8.968436,8.803238,8.715762,8.700559,8.236724,8.625994,8.066058,8.737,8.477981,8.585737,8.411492,8.578843,8.375752,8.757705,8.358221,8.735959],&quot;physical&quot;:{&quot;stress_iterations&quot;:184,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:744,&quot;stress_active_bonds&quot;:1500,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:545.052344,&quot;restore&quot;:22.17449705},{&quot;name&quot;:&quot;bridge64-warm&quot;,&quot;mean&quot;:8.64408235,&quot;maximum&quot;:10.757592,&quot;sd&quot;:0.575503339825352,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001346,&quot;simulate_fetch_ms&quot;:8.43580555,&quot;completion_ms&quot;:0.2081422},&quot;samples&quot;:[10.757592,8.907508,8.756602,8.716065,8.534546,8.943521,8.593017,8.265982,8.547207,9.048006,8.266715,8.400197,8.056007,8.946503,8.421091,8.297206,8.184954,8.201419,8.329596,8.707913],&quot;physical&quot;:{&quot;stress_iterations&quot;:184,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:744,&quot;stress_active_bonds&quot;:1500,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:545.589233,&quot;restore&quot;:21.23822055},{&quot;name&quot;:&quot;building-cold&quot;,&quot;mean&quot;:4.9840171,&quot;maximum&quot;:7.281529,&quot;sd&quot;:0.5936951765211805,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00016845,&quot;simulate_fetch_ms&quot;:4.8286282,&quot;completion_ms&quot;:0.15522045},&quot;samples&quot;:[7.281529,4.895752,5.05032,4.809458,4.942489,4.618137,4.214715,5.02459,5.217167,4.850171,5.006032,4.705616,4.942387,5.241904,4.621685,4.536129,4.797708,4.97107,4.801606,5.151877],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:380,&quot;stress_active_bonds&quot;:784,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:558.258729,&quot;restore&quot;:25.40462395},{&quot;name&quot;:&quot;building-fragmented&quot;,&quot;mean&quot;:8.2791595,&quot;maximum&quot;:11.951709,&quot;sd&quot;:0.9788530563192982,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001048,&quot;simulate_fetch_ms&quot;:8.078132,&quot;completion_ms&quot;:0.2009227},&quot;samples&quot;:[11.951709,8.03365,8.619537,6.829202,7.560832,8.292011,8.551203,8.302804,8.352862,8.213328,8.346745,7.946855,8.268761,8.332557,8.198822,8.403931,8.487425,7.934177,7.122395,7.834384],&quot;physical&quot;:{&quot;stress_iterations&quot;:4,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:378,&quot;stress_islands&quot;:3,&quot;stress_active_nodes&quot;:6,&quot;stress_active_bonds&quot;:3,&quot;normal_contacts&quot;:4537,&quot;friction_anchors&quot;:762},&quot;setup&quot;:462.143449,&quot;restore&quot;:21.2275748},{&quot;name&quot;:&quot;building-warm&quot;,&quot;mean&quot;:4.8463506,&quot;maximum&quot;:7.238376,&quot;sd&quot;:0.6261689380846371,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:9.04e-05,&quot;simulate_fetch_ms&quot;:4.6389533,&quot;completion_ms&quot;:0.20730690000000002},&quot;samples&quot;:[7.238376,4.884894,5.160192,4.865761,4.763246,4.940791,4.860754,4.775894,4.854372,4.604139,4.92607,5.14836,4.522387,4.920113,4.534298,4.294947,4.184922,4.41495,4.296144,4.736402],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:380,&quot;stress_active_bonds&quot;:784,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:494.395767,&quot;restore&quot;:20.4151603},{&quot;name&quot;:&quot;cantilever64-cold&quot;,&quot;mean&quot;:7.5009569,&quot;maximum&quot;:9.919855,&quot;sd&quot;:0.610464026484332,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001431,&quot;simulate_fetch_ms&quot;:7.3306778,&quot;completion_ms&quot;:0.170136},&quot;samples&quot;:[9.919855,7.522071,7.410154,7.416678,7.567313,7.400648,7.399734,7.372419,7.392484,7.437122,7.531262,7.29908,6.531346,7.341946,7.360593,7.545127,7.359491,7.611547,7.213341,7.386927],&quot;physical&quot;:{&quot;stress_iterations&quot;:984,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:63,&quot;stress_active_bonds&quot;:63,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:493.016588,&quot;restore&quot;:17.384341199999998},{&quot;name&quot;:&quot;cantilever64-warm&quot;,&quot;mean&quot;:7.5465701,&quot;maximum&quot;:12.290601,&quot;sd&quot;:1.1427752863895078,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00013659999999999999,&quot;simulate_fetch_ms&quot;:7.38314295,&quot;completion_ms&quot;:0.16329055},&quot;samples&quot;:[12.290601,7.456644,7.410196,7.426583,7.207168,6.823046,7.079373,7.714623,7.686135,7.166057,7.293785,7.328916,7.354322,7.449297,7.276488,7.066248,7.11369,7.103088,6.963259,7.721883],&quot;physical&quot;:{&quot;stress_iterations&quot;:984,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:63,&quot;stress_active_bonds&quot;:63,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:609.298421,&quot;restore&quot;:18.85338305},{&quot;name&quot;:&quot;chain256-cold&quot;,&quot;mean&quot;:7.31291785,&quot;maximum&quot;:9.049628,&quot;sd&quot;:0.5241665520782569,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00013815,&quot;simulate_fetch_ms&quot;:7.133989,&quot;completion_ms&quot;:0.1787907},&quot;samples&quot;:[9.049628,7.161128,6.654108,6.567258,7.186369,7.017881,7.244746,7.612225,7.449873,7.598847,7.852501,7.656457,7.317709,7.178778,6.759895,7.027524,7.099974,7.153263,7.27625,7.393943],&quot;physical&quot;:{&quot;stress_iterations&quot;:492,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:255,&quot;stress_active_bonds&quot;:255,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:539.36725,&quot;restore&quot;:18.22515325},{&quot;name&quot;:&quot;chain256-warm&quot;,&quot;mean&quot;:7.42793885,&quot;maximum&quot;:9.547437,&quot;sd&quot;:0.5091650442376251,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012715,&quot;simulate_fetch_ms&quot;:7.21779945,&quot;completion_ms&quot;:0.21001225},&quot;samples&quot;:[9.547437,7.458883,7.515208,7.335637,7.353133,7.277699,7.400908,7.403527,7.220005,7.292722,7.274653,7.38569,7.223543,7.429599,7.250361,7.347359,7.298329,7.297545,7.103087,7.143452],&quot;physical&quot;:{&quot;stress_iterations&quot;:492,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:255,&quot;stress_active_bonds&quot;:255,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:466.845335,&quot;restore&quot;:18.1699007},{&quot;name&quot;:&quot;chain32-cold&quot;,&quot;mean&quot;:3.1208949,&quot;maximum&quot;:6.050519,&quot;sd&quot;:0.7211431965897438,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001095,&quot;simulate_fetch_ms&quot;:2.94007785,&quot;completion_ms&quot;:0.18070755},&quot;samples&quot;:[6.050519,3.021863,3.102935,3.056924,2.945572,2.458567,2.954588,2.472473,2.589408,3.039298,3.227663,3.023892,2.977831,3.158891,3.123449,3.07964,2.996598,3.028966,3.045692,3.063129],&quot;physical&quot;:{&quot;stress_iterations&quot;:32,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:31,&quot;stress_active_bonds&quot;:31,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:564.993392,&quot;restore&quot;:18.22918155},{&quot;name&quot;:&quot;chain32-warm&quot;,&quot;mean&quot;:3.2299862,&quot;maximum&quot;:6.283227,&quot;sd&quot;:0.7612531572399898,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012025,&quot;simulate_fetch_ms&quot;:2.9493097,&quot;completion_ms&quot;:0.28055625},&quot;samples&quot;:[6.283227,3.187489,3.040437,3.450566,3.006052,3.128355,3.216734,2.938364,3.360651,3.125115,3.321862,2.972806,3.346845,3.146214,3.10417,2.982435,2.684439,2.78418,2.361473,3.15831],&quot;physical&quot;:{&quot;stress_iterations&quot;:32,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:31,&quot;stress_active_bonds&quot;:31,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:506.143699,&quot;restore&quot;:17.6159606},{&quot;name&quot;:&quot;dense12-cold&quot;,&quot;mean&quot;:31.32921845,&quot;maximum&quot;:33.494582,&quot;sd&quot;:0.6039845379258678,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00023735,&quot;simulate_fetch_ms&quot;:31.1221576,&quot;completion_ms&quot;:0.2068235},&quot;samples&quot;:[33.494582,31.200794,31.320444,31.373525,31.113834,31.260141,31.01471,31.71352,31.293235,31.403041,31.147282,31.880178,31.322687,31.165448,30.260703,31.04291,31.132421,30.96423,30.971693,31.508991],&quot;physical&quot;:{&quot;stress_iterations&quot;:34,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1584,&quot;stress_active_bonds&quot;:4488,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:482.02293,&quot;restore&quot;:34.98128805},{&quot;name&quot;:&quot;dense12-warm&quot;,&quot;mean&quot;:31.32140715,&quot;maximum&quot;:34.018963,&quot;sd&quot;:0.6690252134776916,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00019205,&quot;simulate_fetch_ms&quot;:31.2102009,&quot;completion_ms&quot;:0.1110142},&quot;samples&quot;:[34.018963,31.495413,30.794023,31.216403,31.165773,31.02491,31.082318,31.314605,31.103287,31.193518,31.041829,31.013682,31.142527,31.336397,31.009439,31.685062,31.099595,31.237287,30.938581,31.514531],&quot;physical&quot;:{&quot;stress_iterations&quot;:34,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1584,&quot;stress_active_bonds&quot;:4488,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:609.724266,&quot;restore&quot;:40.143987349999996},{&quot;name&quot;:&quot;destruction-cold&quot;,&quot;mean&quot;:3.66087515,&quot;maximum&quot;:6.41846,&quot;sd&quot;:0.7335622672957859,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001206,&quot;simulate_fetch_ms&quot;:3.4684603,&quot;completion_ms&quot;:0.19229425},&quot;samples&quot;:[6.41846,3.278227,3.359996,3.434048,3.567542,3.313741,4.08139,3.342852,3.385067,3.440325,4.414967,3.314425,3.767871,4.238312,3.310432,3.180205,3.303291,3.34647,3.406476,3.313406],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:519.047465,&quot;restore&quot;:17.435212749999998},{&quot;name&quot;:&quot;destruction-damaged&quot;,&quot;mean&quot;:3.47348035,&quot;maximum&quot;:6.43696,&quot;sd&quot;:0.7151780073692566,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00010005,&quot;simulate_fetch_ms&quot;:3.28088115,&quot;completion_ms&quot;:0.19249915},&quot;samples&quot;:[6.43696,3.191877,3.58754,3.303507,3.391367,3.198087,3.26124,3.372184,3.495309,3.042828,3.593122,3.403873,3.375064,3.382158,3.363592,2.941652,3.278598,3.221578,3.256192,3.372879],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:602.485168,&quot;restore&quot;:17.05389195},{&quot;name&quot;:&quot;destruction-fractured&quot;,&quot;mean&quot;:5.07979395,&quot;maximum&quot;:9.222591,&quot;sd&quot;:1.0257293831179466,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012745,&quot;simulate_fetch_ms&quot;:4.89040535,&quot;completion_ms&quot;:0.18926115},&quot;samples&quot;:[9.222591,5.329681,5.133832,4.916425,4.630147,4.687494,4.871803,5.529163,4.613592,4.92486,5.234559,4.673142,4.572937,5.472165,4.483557,4.664212,4.556607,4.835102,4.545432,4.698578],&quot;physical&quot;:{&quot;stress_iterations&quot;:0,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:2,&quot;stress_islands&quot;:0,&quot;stress_active_nodes&quot;:0,&quot;stress_active_bonds&quot;:0,&quot;normal_contacts&quot;:1,&quot;friction_anchors&quot;:1},&quot;setup&quot;:540.925079,&quot;restore&quot;:16.61890375},{&quot;name&quot;:&quot;destruction-intact&quot;,&quot;mean&quot;:3.63681305,&quot;maximum&quot;:6.12563,&quot;sd&quot;:0.6793357958237765,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00023930000000000002,&quot;simulate_fetch_ms&quot;:3.4126299,&quot;completion_ms&quot;:0.22394385},&quot;samples&quot;:[6.12563,3.456992,3.432833,4.556558,3.36193,3.414407,4.022547,3.588457,2.819323,3.525367,3.650524,3.781227,3.498175,3.460869,3.290843,3.397656,3.462931,3.153394,3.511925,3.224673],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:641.180061,&quot;restore&quot;:18.660968399999998},{&quot;name&quot;:&quot;destruction-onset&quot;,&quot;mean&quot;:4.1884707,&quot;maximum&quot;:7.441915,&quot;sd&quot;:0.8248419964582755,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012855,&quot;simulate_fetch_ms&quot;:3.99928755,&quot;completion_ms&quot;:0.1890546},&quot;samples&quot;:[7.441915,4.125712,4.113275,3.957824,3.879737,3.816095,3.923274,3.874179,4.60437,3.815143,3.941939,3.856202,5.060113,3.783677,3.77661,4.124377,3.92535,3.879322,3.967652,3.902648],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:567.407652,&quot;restore&quot;:16.28995055},{&quot;name&quot;:&quot;destruction-stimulus&quot;,&quot;mean&quot;:4.2507295,&quot;maximum&quot;:7.641247,&quot;sd&quot;:0.8346325182979444,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0030763,&quot;simulate_fetch_ms&quot;:4.0584454,&quot;completion_ms&quot;:0.1892078},&quot;samples&quot;:[7.641247,4.27061,4.146147,4.018962,4.118624,4.003631,3.842346,4.970173,3.911144,4.060798,4.001631,4.212742,3.945828,4.089603,4.03277,4.111093,3.980043,3.883544,3.748424,4.02523],&quot;physical&quot;:{&quot;stress_iterations&quot;:1,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1,&quot;stress_active_bonds&quot;:1,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:681.797013,&quot;restore&quot;:16.4265991},{&quot;name&quot;:&quot;flying&quot;,&quot;mean&quot;:1.75099935,&quot;maximum&quot;:2.35294,&quot;sd&quot;:0.15239015569679062,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:7.615e-05,&quot;simulate_fetch_ms&quot;:1.7503471,&quot;completion_ms&quot;:0.0005761},&quot;samples&quot;:[2.35294,1.740025,1.63232,1.784027,1.748512,1.716433,1.697722,1.753197,1.739328,1.710779,1.826262,1.64621,1.750654,1.715063,1.778077,1.747198,1.690856,1.644607,1.75029,1.595487],&quot;physical&quot;:{&quot;stress_iterations&quot;:0,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:0,&quot;output_clusters&quot;:0,&quot;stress_islands&quot;:0,&quot;stress_active_nodes&quot;:0,&quot;stress_active_bonds&quot;:0,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:541.64025,&quot;restore&quot;:7.651644149999999},{&quot;name&quot;:&quot;ladder128-cold&quot;,&quot;mean&quot;:5.7861782,&quot;maximum&quot;:8.063094,&quot;sd&quot;:0.5575809976516132,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:8.01e-05,&quot;simulate_fetch_ms&quot;:5.58228075,&quot;completion_ms&quot;:0.20381735},&quot;samples&quot;:[8.063094,5.709495,5.76198,5.643627,5.579949,5.325472,5.777631,5.624502,5.657815,5.735794,5.51247,5.640826,5.597137,6.11179,5.678639,5.674811,5.645512,5.620311,5.501287,5.861422],&quot;physical&quot;:{&quot;stress_iterations&quot;:192,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:285,&quot;stress_active_bonds&quot;:316,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:489.82711,&quot;restore&quot;:19.7805119},{&quot;name&quot;:&quot;ladder128-warm&quot;,&quot;mean&quot;:5.7712072,&quot;maximum&quot;:7.908563,&quot;sd&quot;:0.5461949097599154,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001052,&quot;simulate_fetch_ms&quot;:5.5726968,&quot;completion_ms&quot;:0.1984052},&quot;samples&quot;:[7.908563,5.838373,5.793599,5.56464,5.499545,5.690192,5.974009,5.538852,5.885883,5.531798,5.719154,5.632219,5.752648,6.107041,5.691557,5.687085,5.347132,5.18237,5.43013,5.649354],&quot;physical&quot;:{&quot;stress_iterations&quot;:192,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:285,&quot;stress_active_bonds&quot;:316,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:493.266866,&quot;restore&quot;:22.1756046},{&quot;name&quot;:&quot;panel32-cold&quot;,&quot;mean&quot;:21.41548275,&quot;maximum&quot;:23.987102,&quot;sd&quot;:0.6371271942295581,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001944,&quot;simulate_fetch_ms&quot;:21.2924991,&quot;completion_ms&quot;:0.12278925},&quot;samples&quot;:[23.987102,21.421017,21.223284,21.227345,21.249914,21.539823,21.409435,21.120288,21.087009,21.083962,21.225802,21.3272,21.234851,21.634064,21.143028,21.09088,21.107509,21.291566,21.090515,21.815061],&quot;physical&quot;:{&quot;stress_iterations&quot;:492,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1020,&quot;stress_active_bonds&quot;:1984,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:571.596314,&quot;restore&quot;:27.11491405},{&quot;name&quot;:&quot;panel32-warm&quot;,&quot;mean&quot;:21.14057875,&quot;maximum&quot;:23.59266,&quot;sd&quot;:0.604810813527483,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001853,&quot;simulate_fetch_ms&quot;:20.9717899,&quot;completion_ms&quot;:0.16860355},&quot;samples&quot;:[23.59266,21.407224,21.163741,21.14783,21.124966,20.9815,20.796627,20.963271,21.115113,21.067995,20.842805,21.030733,20.756862,20.693756,20.928166,20.828672,21.225911,20.853165,21.097511,21.193067],&quot;physical&quot;:{&quot;stress_iterations&quot;:492,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:1020,&quot;stress_active_bonds&quot;:1984,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:478.101137,&quot;restore&quot;:26.75896035},{&quot;name&quot;:&quot;resting&quot;,&quot;mean&quot;:1.4665524,&quot;maximum&quot;:2.272187,&quot;sd&quot;:0.3862943450637773,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012915,&quot;simulate_fetch_ms&quot;:1.4655956,&quot;completion_ms&quot;:0.00082765},&quot;samples&quot;:[2.272187,2.096361,1.456967,2.016741,1.411823,2.168518,1.417076,1.37113,1.421369,1.447822,1.392359,1.424193,1.608018,1.131454,1.012639,1.094192,1.102667,1.140933,1.373718,0.970881],&quot;physical&quot;:{&quot;stress_iterations&quot;:0,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:0,&quot;output_clusters&quot;:0,&quot;stress_islands&quot;:0,&quot;stress_active_nodes&quot;:0,&quot;stress_active_bonds&quot;:0,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:539.481615,&quot;restore&quot;:6.7673847},{&quot;name&quot;:&quot;sliding&quot;,&quot;mean&quot;:2.54276605,&quot;maximum&quot;:3.553911,&quot;sd&quot;:0.37274423208986146,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001051,&quot;simulate_fetch_ms&quot;:2.54185275,&quot;completion_ms&quot;:0.0008082},&quot;samples&quot;:[3.553911,3.496118,2.507668,2.936509,2.593059,2.289144,2.391032,2.404872,2.486582,2.305198,2.703675,2.388899,2.369809,2.318952,2.472329,2.385616,2.279103,2.258016,2.408593,2.306236],&quot;physical&quot;:{&quot;stress_iterations&quot;:0,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:0,&quot;output_clusters&quot;:0,&quot;stress_islands&quot;:0,&quot;stress_active_nodes&quot;:0,&quot;stress_active_bonds&quot;:0,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:479.369813,&quot;restore&quot;:6.7950526},{&quot;name&quot;:&quot;tower64-cold&quot;,&quot;mean&quot;:108.43401675,&quot;maximum&quot;:111.34916,&quot;sd&quot;:0.8627294754596193,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00021965,&quot;simulate_fetch_ms&quot;:108.31577125,&quot;completion_ms&quot;:0.11802585},&quot;samples&quot;:[111.34916,108.294967,108.101112,107.783791,107.956411,108.141355,108.031152,107.86195,108.130253,108.190861,108.617203,107.343746,107.575035,109.353547,109.207325,108.069521,108.23193,108.527252,108.996927,108.916837],&quot;physical&quot;:{&quot;stress_iterations&quot;:137,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:2304,&quot;stress_active_bonds&quot;:4788,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:491.401538,&quot;restore&quot;:41.54531805},{&quot;name&quot;:&quot;tower64-warm&quot;,&quot;mean&quot;:108.49365245,&quot;maximum&quot;:111.316141,&quot;sd&quot;:0.7509379575313225,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00026555,&quot;simulate_fetch_ms&quot;:108.35270685,&quot;completion_ms&quot;:0.14068005},&quot;samples&quot;:[111.316141,108.736117,109.255367,108.65625,108.381781,108.326931,108.153419,108.17488,108.578258,107.774938,107.740298,108.038303,108.328354,108.70897,108.305146,107.968004,108.249766,108.25462,108.357783,108.567723],&quot;physical&quot;:{&quot;stress_iterations&quot;:137,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1,&quot;stress_islands&quot;:1,&quot;stress_active_nodes&quot;:2304,&quot;stress_active_bonds&quot;:4788,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:530.523501,&quot;restore&quot;:41.0187701},{&quot;name&quot;:&quot;city25-intact-idle&quot;,&quot;mean&quot;:10.14545675,&quot;maximum&quot;:13.081755,&quot;sd&quot;:0.8012813116116536,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0002427,&quot;simulate_fetch_ms&quot;:9.92924295,&quot;completion_ms&quot;:0.2159711},&quot;samples&quot;:[13.081755,10.721102,10.15863,10.174446,9.788335,10.556858,10.093022,10.125801,10.120274,10.248035,9.792002,9.374451,10.283595,10.268042,9.242265,10.081483,10.134163,9.264475,10.006448,9.393953],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:25,&quot;stress_islands&quot;:25,&quot;stress_active_nodes&quot;:9500,&quot;stress_active_bonds&quot;:19600,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:677.730425,&quot;restore&quot;:67.30446245},{&quot;name&quot;:&quot;city25-airborne&quot;,&quot;mean&quot;:11.59937185,&quot;maximum&quot;:14.435448,&quot;sd&quot;:0.8490627537414895,&quot;misses&quot;:0,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001725,&quot;simulate_fetch_ms&quot;:11.3797974,&quot;completion_ms&quot;:0.21940195},&quot;samples&quot;:[14.435448,11.500468,11.461008,12.911835,11.041697,10.842373,11.463,12.360537,11.13674,11.345371,10.952123,11.792554,11.104838,11.181085,11.287457,11.755125,10.853381,12.100784,11.05061,11.411003],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:25,&quot;stress_islands&quot;:25,&quot;stress_active_nodes&quot;:9500,&quot;stress_active_bonds&quot;:19600,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:823.260947,&quot;restore&quot;:72.28931855},{&quot;name&quot;:&quot;city25-initial-impact&quot;,&quot;mean&quot;:39.26356245,&quot;maximum&quot;:48.881067,&quot;sd&quot;:2.5184404286272404,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001276,&quot;simulate_fetch_ms&quot;:39.01797605,&quot;completion_ms&quot;:0.2454588},&quot;samples&quot;:[48.881067,41.070683,37.054283,41.05478,38.887575,37.508882,38.034302,38.226683,37.720617,38.347897,38.565318,39.251438,38.056264,38.147188,37.7643,39.140539,38.671205,39.147316,39.137061,40.603851],&quot;physical&quot;:{&quot;stress_iterations&quot;:304,&quot;broken_bonds&quot;:3412,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:537,&quot;stress_islands&quot;:77,&quot;stress_active_nodes&quot;:9040,&quot;stress_active_bonds&quot;:16188,&quot;normal_contacts&quot;:3931,&quot;friction_anchors&quot;:625},&quot;setup&quot;:723.410196,&quot;restore&quot;:72.784684},{&quot;name&quot;:&quot;city25-post-impact&quot;,&quot;mean&quot;:22.2584447,&quot;maximum&quot;:29.290008,&quot;sd&quot;:1.9629635331592008,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001811,&quot;simulate_fetch_ms&quot;:22.01918085,&quot;completion_ms&quot;:0.23908275},&quot;samples&quot;:[29.290008,24.444757,22.163042,22.704615,20.197033,20.41487,21.941951,22.538105,21.783147,20.772081,24.112369,21.247047,21.410694,22.020323,21.74492,22.008511,21.353127,21.374232,21.124693,22.523369],&quot;physical&quot;:{&quot;stress_iterations&quot;:332,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:526,&quot;stress_islands&quot;:53,&quot;stress_active_nodes&quot;:9027,&quot;stress_active_bonds&quot;:16776,&quot;normal_contacts&quot;:4675,&quot;friction_anchors&quot;:1060},&quot;setup&quot;:768.533865,&quot;restore&quot;:70.92652045},{&quot;name&quot;:&quot;city25-cascading-fracture&quot;,&quot;mean&quot;:38.29698975,&quot;maximum&quot;:42.7586,&quot;sd&quot;:1.9909925047388561,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001313,&quot;simulate_fetch_ms&quot;:38.08032325,&quot;completion_ms&quot;:0.2165352},&quot;samples&quot;:[42.7586,40.63633,40.313035,37.088209,39.227351,40.283641,37.136932,39.627474,37.970264,37.581371,39.571162,35.580566,38.798383,36.233365,35.470604,38.152692,35.874009,38.769542,35.595004,39.271261],&quot;physical&quot;:{&quot;stress_iterations&quot;:388,&quot;broken_bonds&quot;:10,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:610,&quot;stress_islands&quot;:64,&quot;stress_active_nodes&quot;:8954,&quot;stress_active_bonds&quot;:16476,&quot;normal_contacts&quot;:10900,&quot;friction_anchors&quot;:2028},&quot;setup&quot;:684.105811,&quot;restore&quot;:72.70332},{&quot;name&quot;:&quot;city25-fragmented-loaded&quot;,&quot;mean&quot;:54.23621805,&quot;maximum&quot;:63.798094,&quot;sd&quot;:2.902923976292533,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00015925,&quot;simulate_fetch_ms&quot;:53.970071250000004,&quot;completion_ms&quot;:0.26598755},&quot;samples&quot;:[63.798094,54.904603,54.023341,53.706496,53.269482,53.523089,53.246191,59.23953,53.849317,54.172898,53.283969,50.062299,53.348705,52.893773,52.605114,51.871838,56.694031,53.17234,52.313094,54.746157],&quot;physical&quot;:{&quot;stress_iterations&quot;:536,&quot;broken_bonds&quot;:100,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:1321,&quot;stress_islands&quot;:169,&quot;stress_active_nodes&quot;:8348,&quot;stress_active_bonds&quot;:13645,&quot;normal_contacts&quot;:26560,&quot;friction_anchors&quot;:5092},&quot;setup&quot;:681.537806,&quot;restore&quot;:74.100911},{&quot;name&quot;:&quot;city25-late-debris&quot;,&quot;mean&quot;:66.3491621,&quot;maximum&quot;:85.750561,&quot;sd&quot;:6.4527729805192235,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001435,&quot;simulate_fetch_ms&quot;:66.10999525,&quot;completion_ms&quot;:0.23902335},&quot;samples&quot;:[85.750561,70.267328,68.257928,69.020355,64.438339,67.518758,70.531594,65.652494,67.241499,54.728236,63.426133,64.612266,64.094056,63.510722,59.459238,60.402411,60.256741,63.169078,70.97986,73.665645],&quot;physical&quot;:{&quot;stress_iterations&quot;:676,&quot;broken_bonds&quot;:1424,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:2063,&quot;stress_islands&quot;:323,&quot;stress_active_nodes&quot;:7746,&quot;stress_active_bonds&quot;:11825,&quot;normal_contacts&quot;:33694,&quot;friction_anchors&quot;:7643},&quot;setup&quot;:769.177715,&quot;restore&quot;:80.9458443},{&quot;name&quot;:&quot;city25-ten-second-debris&quot;,&quot;mean&quot;:69.18068105,&quot;maximum&quot;:95.080191,&quot;sd&quot;:6.806589985014441,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001575,&quot;simulate_fetch_ms&quot;:68.9433899,&quot;completion_ms&quot;:0.23713365},&quot;samples&quot;:[95.080191,62.376527,67.976623,66.387491,66.376532,71.054085,66.601752,77.719496,66.986543,66.523779,69.228568,67.526028,67.701592,65.680645,65.958571,70.95048,66.263188,67.84367,69.37417,66.00369],&quot;physical&quot;:{&quot;stress_iterations&quot;:716,&quot;broken_bonds&quot;:184,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:1776,&quot;stress_islands&quot;:285,&quot;stress_active_nodes&quot;:8007,&quot;stress_active_bonds&quot;:12556,&quot;normal_contacts&quot;:7349,&quot;friction_anchors&quot;:2317},&quot;setup&quot;:701.699935,&quot;restore&quot;:79.24961285},{&quot;name&quot;:&quot;city64-intact-idle&quot;,&quot;mean&quot;:17.948666,&quot;maximum&quot;:21.129103,&quot;sd&quot;:1.5027585651683164,&quot;misses&quot;:19,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00016605,&quot;simulate_fetch_ms&quot;:17.6954125,&quot;completion_ms&quot;:0.25308745},&quot;samples&quot;:[19.963986,21.129103,18.052575,17.304876,19.997422,20.41619,17.368779,16.820014,18.292806,17.008978,17.074767,17.578643,16.920374,16.935165,17.031796,16.796634,17.429552,20.111414,15.967499,16.772747],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:64,&quot;stress_islands&quot;:64,&quot;stress_active_nodes&quot;:24320,&quot;stress_active_bonds&quot;:50176,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:1292.494601,&quot;restore&quot;:171.8307057},{&quot;name&quot;:&quot;city64-airborne&quot;,&quot;mean&quot;:18.8504978,&quot;maximum&quot;:25.336026,&quot;sd&quot;:2.2518152879833733,&quot;misses&quot;:18,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001401,&quot;simulate_fetch_ms&quot;:18.59842685,&quot;completion_ms&quot;:0.25193085},&quot;samples&quot;:[22.47985,19.087006,18.893024,18.395858,19.663526,18.761114,22.200714,18.467127,18.20089,18.324328,15.538285,18.507181,18.289626,17.139101,15.8879,17.136665,25.336026,18.652493,18.59718,17.452062],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:64,&quot;stress_islands&quot;:64,&quot;stress_active_nodes&quot;:24320,&quot;stress_active_bonds&quot;:50176,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:1470.597455,&quot;restore&quot;:170.58742705},{&quot;name&quot;:&quot;city64-initial-impact&quot;,&quot;mean&quot;:63.33371185,&quot;maximum&quot;:76.530359,&quot;sd&quot;:3.4947764412644156,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.000147,&quot;simulate_fetch_ms&quot;:63.10467205,&quot;completion_ms&quot;:0.2288928},&quot;samples&quot;:[76.530359,66.844913,65.628957,62.660544,61.248336,62.076697,61.324655,61.779754,62.030403,60.801817,63.093913,61.672457,61.733394,62.679654,60.584045,64.935746,62.337084,63.638522,61.803411,63.269576],&quot;physical&quot;:{&quot;stress_iterations&quot;:304,&quot;broken_bonds&quot;:8760,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:1364,&quot;stress_islands&quot;:196,&quot;stress_active_nodes&quot;:23152,&quot;stress_active_bonds&quot;:41416,&quot;normal_contacts&quot;:11977,&quot;friction_anchors&quot;:2040},&quot;setup&quot;:1432.068471,&quot;restore&quot;:168.4003813},{&quot;name&quot;:&quot;city64-post-impact&quot;,&quot;mean&quot;:37.39463465,&quot;maximum&quot;:46.823031,&quot;sd&quot;:3.874822217234778,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00022125,&quot;simulate_fetch_ms&quot;:37.15236355,&quot;completion_ms&quot;:0.24204985},&quot;samples&quot;:[46.823031,37.979049,33.284014,37.324971,37.331067,34.573914,45.032327,42.743434,36.714638,36.532861,31.961181,38.17492,33.389578,32.481,34.458915,37.694339,36.64531,37.872756,39.156386,37.719002],&quot;physical&quot;:{&quot;stress_iterations&quot;:332,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:1320,&quot;stress_islands&quot;:132,&quot;stress_active_nodes&quot;:23132,&quot;stress_active_bonds&quot;:42929,&quot;normal_contacts&quot;:13100,&quot;friction_anchors&quot;:3027},&quot;setup&quot;:1373.229577,&quot;restore&quot;:169.88888235},{&quot;name&quot;:&quot;city64-cascading-fracture&quot;,&quot;mean&quot;:59.51843035,&quot;maximum&quot;:71.194481,&quot;sd&quot;:3.4870551991196366,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001375,&quot;simulate_fetch_ms&quot;:59.29643,&quot;completion_ms&quot;:0.22186285},&quot;samples&quot;:[71.194481,64.359663,57.498593,56.586399,61.735746,59.703103,58.968769,57.298828,60.224372,56.370636,61.107592,60.605317,59.019949,58.677961,58.267385,59.299951,54.375175,58.748008,57.45365,58.873029],&quot;physical&quot;:{&quot;stress_iterations&quot;:400,&quot;broken_bonds&quot;:13,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:1473,&quot;stress_islands&quot;:153,&quot;stress_active_nodes&quot;:23000,&quot;stress_active_bonds&quot;:42266,&quot;normal_contacts&quot;:25861,&quot;friction_anchors&quot;:4942},&quot;setup&quot;:1420.585075,&quot;restore&quot;:173.55750875},{&quot;name&quot;:&quot;city64-fragmented-loaded&quot;,&quot;mean&quot;:94.4280476,&quot;maximum&quot;:117.25859,&quot;sd&quot;:6.702538451688846,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00012925,&quot;simulate_fetch_ms&quot;:94.1745269,&quot;completion_ms&quot;:0.25339145},&quot;samples&quot;:[117.25859,95.948168,97.537805,95.767392,94.214,96.766263,95.854777,94.518869,95.359204,90.625736,94.326413,91.920335,94.090763,88.777951,92.871406,93.671472,92.149911,79.036238,96.356258,91.509401],&quot;physical&quot;:{&quot;stress_iterations&quot;:644,&quot;broken_bonds&quot;:425,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:3144,&quot;stress_islands&quot;:481,&quot;stress_active_nodes&quot;:21657,&quot;stress_active_bonds&quot;:35407,&quot;normal_contacts&quot;:68873,&quot;friction_anchors&quot;:12553},&quot;setup&quot;:1460.830606,&quot;restore&quot;:190.27802335},{&quot;name&quot;:&quot;city64-late-debris&quot;,&quot;mean&quot;:133.79806565,&quot;maximum&quot;:171.554141,&quot;sd&quot;:10.325675305652828,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00016075,&quot;simulate_fetch_ms&quot;:133.5538587,&quot;completion_ms&quot;:0.2440462},&quot;samples&quot;:[171.554141,142.391442,130.481251,137.778069,132.442898,129.493297,135.902594,121.486888,131.736987,131.991202,124.576874,133.488676,133.276064,131.185821,133.234809,138.074108,134.46311,120.064852,132.168604,130.169626],&quot;physical&quot;:{&quot;stress_iterations&quot;:948,&quot;broken_bonds&quot;:2768,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:5130,&quot;stress_islands&quot;:772,&quot;stress_active_nodes&quot;:19955,&quot;stress_active_bonds&quot;:30912,&quot;normal_contacts&quot;:94508,&quot;friction_anchors&quot;:23594},&quot;setup&quot;:1288.583143,&quot;restore&quot;:197.97570715},{&quot;name&quot;:&quot;city64-ten-second-debris&quot;,&quot;mean&quot;:96.68148,&quot;maximum&quot;:131.262977,&quot;sd&quot;:10.578658963008046,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0006529,&quot;simulate_fetch_ms&quot;:96.44021985,&quot;completion_ms&quot;:0.24060725},&quot;samples&quot;:[131.262977,110.752759,106.418744,104.119298,95.001178,85.532808,87.319441,86.160332,97.025495,100.285569,98.01753,91.868246,94.149145,94.81262,86.820387,88.89943,90.239531,95.723557,94.695763,94.52479],&quot;physical&quot;:{&quot;stress_iterations&quot;:736,&quot;broken_bonds&quot;:202,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:4705,&quot;stress_islands&quot;:823,&quot;stress_active_nodes&quot;:20435,&quot;stress_active_bonds&quot;:31870,&quot;normal_contacts&quot;:17730,&quot;friction_anchors&quot;:5190},&quot;setup&quot;:1343.662348,&quot;restore&quot;:182.0319379},{&quot;name&quot;:&quot;city256-intact-idle&quot;,&quot;mean&quot;:65.99789715,&quot;maximum&quot;:79.530045,&quot;sd&quot;:5.944613736920386,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.00019564999999999999,&quot;simulate_fetch_ms&quot;:65.748968,&quot;completion_ms&quot;:0.2487335},&quot;samples&quot;:[73.393962,66.947646,58.751475,64.094796,62.38806,66.894482,62.636881,59.576825,65.56911,61.206837,79.530045,67.376386,57.841371,74.688325,62.353263,64.931437,61.12507,64.451547,74.016911,72.183514],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:256,&quot;stress_islands&quot;:256,&quot;stress_active_nodes&quot;:97280,&quot;stress_active_bonds&quot;:200704,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:1831.025124,&quot;restore&quot;:523.0981057},{&quot;name&quot;:&quot;city256-airborne&quot;,&quot;mean&quot;:72.01993675,&quot;maximum&quot;:83.665572,&quot;sd&quot;:5.632395440969022,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001931,&quot;simulate_fetch_ms&quot;:71.7407942,&quot;completion_ms&quot;:0.27894945},&quot;samples&quot;:[72.70605,83.665572,68.030329,73.943907,75.168152,82.539026,74.324483,77.61239,66.160751,68.311167,71.680607,66.311972,68.731475,67.527114,64.810563,76.982133,68.470448,74.15937,75.670295,63.592931],&quot;physical&quot;:{&quot;stress_iterations&quot;:88,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:256,&quot;stress_islands&quot;:256,&quot;stress_active_nodes&quot;:97280,&quot;stress_active_bonds&quot;:200704,&quot;normal_contacts&quot;:0,&quot;friction_anchors&quot;:0},&quot;setup&quot;:1847.967785,&quot;restore&quot;:522.08685395},{&quot;name&quot;:&quot;city256-initial-impact&quot;,&quot;mean&quot;:240.8933318,&quot;maximum&quot;:288.231896,&quot;sd&quot;:17.81198065034202,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.000199,&quot;simulate_fetch_ms&quot;:240.63868415,&quot;completion_ms&quot;:0.25444865},&quot;samples&quot;:[288.231896,264.717996,210.534761,269.288637,252.415994,238.405043,240.75824,240.807742,227.186168,248.525263,226.234151,228.72144,234.732349,245.593805,230.050604,232.226925,219.231259,243.286611,237.069994,239.847758],&quot;physical&quot;:{&quot;stress_iterations&quot;:312,&quot;broken_bonds&quot;:34802,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:5417,&quot;stress_islands&quot;:776,&quot;stress_active_nodes&quot;:92639,&quot;stress_active_bonds&quot;:165902,&quot;normal_contacts&quot;:42625,&quot;friction_anchors&quot;:6310},&quot;setup&quot;:1910.053723,&quot;restore&quot;:530.1820881},{&quot;name&quot;:&quot;city256-post-impact&quot;,&quot;mean&quot;:145.4214418,&quot;maximum&quot;:170.424551,&quot;sd&quot;:13.600626969086182,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001735,&quot;simulate_fetch_ms&quot;:145.2637298,&quot;completion_ms&quot;:0.1575385},&quot;samples&quot;:[170.424551,149.578582,157.90935,112.581165,124.730164,151.36494,144.971571,156.776724,153.311253,134.475155,152.108715,153.055434,151.969939,148.699526,127.699524,154.306298,148.686383,137.570033,148.084948,130.124581],&quot;physical&quot;:{&quot;stress_iterations&quot;:332,&quot;broken_bonds&quot;:0,&quot;correction_passes&quot;:0,&quot;stress_passes&quot;:1,&quot;output_clusters&quot;:5204,&quot;stress_islands&quot;:520,&quot;stress_active_nodes&quot;:92596,&quot;stress_active_bonds&quot;:172108,&quot;normal_contacts&quot;:49093,&quot;friction_anchors&quot;:11093},&quot;setup&quot;:1893.97703,&quot;restore&quot;:557.74558465},{&quot;name&quot;:&quot;city256-cascading-fracture&quot;,&quot;mean&quot;:197.22867145,&quot;maximum&quot;:223.422504,&quot;sd&quot;:16.10001382990053,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0002134,&quot;simulate_fetch_ms&quot;:196.9882178,&quot;completion_ms&quot;:0.24024025},&quot;samples&quot;:[223.422504,209.28959,211.764735,205.76128,203.42098,208.560962,185.708495,203.995804,175.119115,168.505296,186.805375,167.213548,200.524753,196.921811,219.594213,186.620584,215.22321,197.956804,194.552576,183.611794],&quot;physical&quot;:{&quot;stress_iterations&quot;:416,&quot;broken_bonds&quot;:25,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:5852,&quot;stress_islands&quot;:627,&quot;stress_active_nodes&quot;:92055,&quot;stress_active_bonds&quot;:169616,&quot;normal_contacts&quot;:105527,&quot;friction_anchors&quot;:20206},&quot;setup&quot;:1861.833405,&quot;restore&quot;:566.32659875},{&quot;name&quot;:&quot;city256-fragmented-loaded&quot;,&quot;mean&quot;:292.394965,&quot;maximum&quot;:325.612686,&quot;sd&quot;:23.227759153129245,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001788,&quot;simulate_fetch_ms&quot;:292.1694354,&quot;completion_ms&quot;:0.2253508},&quot;samples&quot;:[315.009005,315.858839,316.498538,300.56908,267.778644,253.307355,289.916637,265.553333,258.449404,248.565601,292.511797,285.757507,325.612686,312.908475,307.848859,295.030657,284.661002,289.318107,309.961608,312.782166],&quot;physical&quot;:{&quot;stress_iterations&quot;:604,&quot;broken_bonds&quot;:1229,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:11382,&quot;stress_islands&quot;:1857,&quot;stress_active_nodes&quot;:87755,&quot;stress_active_bonds&quot;:146435,&quot;normal_contacts&quot;:241561,&quot;friction_anchors&quot;:46983},&quot;setup&quot;:1938.867986,&quot;restore&quot;:587.9823449},{&quot;name&quot;:&quot;city256-late-debris&quot;,&quot;mean&quot;:382.88327334999997,&quot;maximum&quot;:452.158173,&quot;sd&quot;:24.770572343171747,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0001782,&quot;simulate_fetch_ms&quot;:382.6405998,&quot;completion_ms&quot;:0.24249535},&quot;samples&quot;:[452.158173,359.116994,402.739271,431.295517,354.140202,354.407355,378.348844,383.314397,365.059771,377.959052,365.311514,374.271933,395.771469,372.019282,373.964201,396.013141,398.623256,384.978981,367.56727,370.604844],&quot;physical&quot;:{&quot;stress_iterations&quot;:1084,&quot;broken_bonds&quot;:11051,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:16135,&quot;stress_islands&quot;:2762,&quot;stress_active_nodes&quot;:83885,&quot;stress_active_bonds&quot;:133656,&quot;normal_contacts&quot;:267054,&quot;friction_anchors&quot;:61120},&quot;setup&quot;:1848.491353,&quot;restore&quot;:596.1222775},{&quot;name&quot;:&quot;city256-ten-second-debris&quot;,&quot;mean&quot;:258.8886922,&quot;maximum&quot;:347.191481,&quot;sd&quot;:26.698976844779935,&quot;misses&quot;:20,&quot;n&quot;:20,&quot;stages&quot;:{&quot;command_ms&quot;:0.0002247,&quot;simulate_fetch_ms&quot;:258.6375444,&quot;completion_ms&quot;:0.2509231},&quot;samples&quot;:[347.191481,263.705615,292.062658,257.533111,286.457758,236.812839,257.987474,237.669334,258.874096,241.367877,231.451051,266.056866,272.009155,235.224816,250.984756,256.136671,232.387325,245.986378,260.693202,247.181381],&quot;physical&quot;:{&quot;stress_iterations&quot;:676,&quot;broken_bonds&quot;:819,&quot;correction_passes&quot;:1,&quot;stress_passes&quot;:2,&quot;output_clusters&quot;:15187,&quot;stress_islands&quot;:3035,&quot;stress_active_nodes&quot;:85126,&quot;stress_active_bonds&quot;:137219,&quot;normal_contacts&quot;:31798,&quot;friction_anchors&quot;:8627},&quot;setup&quot;:1838.574853,&quot;restore&quot;:612.1423647500001}]&lt;/script&gt;
+&lt;/div&gt;
+&lt;script src=&quot;https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(()=&gt;{
+ const root=document.getElementById(&#x27;destruction-scenarios-20260912&#x27;);
+ const data=JSON.parse(root.querySelector(&#x27;.chart-data&#x27;).textContent),budget=1000/60;
+ const f=d3.format(&#x27;.1f&#x27;);
+ const city=data.filter(x=&gt;x.name.startsWith(&#x27;city&#x27;));
+ const structural=data.filter(x=&gt;!x.name.startsWith(&#x27;city&#x27;)).sort((a,b)=&gt;b.mean-a.mean);
+ function label(n){return n.replace(/^city(\d+)-/,&#x27;$1 · &#x27;).replaceAll(&#x27;-&#x27;,&#x27; &#x27;)}
+ function draw(host,rows,title,domainMax){
+  const width=Math.round(host.getBoundingClientRect().width);if(!width)return;
+  const left=64,right=10,top=65,bottom=52,rowHeight=matchMedia(&#x27;(pointer: coarse)&#x27;).matches?44:34;
+  const height=top+rows.length*rowHeight+bottom;
+  const svg=d3.select(host).selectAll(&#x27;svg&#x27;).data([null]).join(&#x27;svg&#x27;).attr(&#x27;class&#x27;,&#x27;chart&#x27;).attr(&#x27;viewBox&#x27;,`0 0 ${width} ${height}`).attr(&#x27;role&#x27;,&#x27;img&#x27;).attr(&#x27;aria-label&#x27;,title+&#x27;; full-step means and observed maxima in milliseconds&#x27;);svg.selectAll(&#x27;*&#x27;).remove();
+  svg.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,left).attr(&#x27;y&#x27;,18).attr(&#x27;font-weight&#x27;,500).text(title);
+  const x=d3.scaleLinear().domain([0,d3.extent([0,budget,domainMax])[1]*1.02]).range([left,width-right]);
+  svg.append(&#x27;rect&#x27;).attr(&#x27;data-chart-frame&#x27;,&#x27;&#x27;).attr(&#x27;x&#x27;,left).attr(&#x27;y&#x27;,top).attr(&#x27;width&#x27;,width-left-right).attr(&#x27;height&#x27;,height-top-bottom).attr(&#x27;fill&#x27;,&#x27;none&#x27;).attr(&#x27;stroke&#x27;,&#x27;var(--border)&#x27;);
+  svg.append(&#x27;line&#x27;).attr(&#x27;x1&#x27;,x(budget)).attr(&#x27;x2&#x27;,x(budget)).attr(&#x27;y1&#x27;,top).attr(&#x27;y2&#x27;,height-bottom).attr(&#x27;stroke&#x27;,&#x27;var(--foreground)&#x27;).attr(&#x27;stroke-dasharray&#x27;,&#x27;3 3&#x27;).attr(&#x27;opacity&#x27;,.65);
+  svg.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,left).attr(&#x27;y&#x27;,43).text(&#x27;60 Hz: 16.67 ms&#x27;);
+  rows.forEach((r,i)=&gt;{
+   const y=top+i*rowHeight,color=r.name.startsWith(&#x27;city25-&#x27;)?1:r.name.startsWith(&#x27;city64-&#x27;)?2:r.name.startsWith(&#x27;city256-&#x27;)?3:1;
+   const g=svg.append(&#x27;g&#x27;);
+   g.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,left+4).attr(&#x27;y&#x27;,y+13).text(label(r.name));
+   g.append(&#x27;text&#x27;).attr(&#x27;x&#x27;,width-right-3).attr(&#x27;y&#x27;,y+13).attr(&#x27;text-anchor&#x27;,&#x27;end&#x27;).attr(&#x27;data-optional-value&#x27;,&#x27;&#x27;).text(`${f(r.mean)} / ${f(r.maximum)}`);
+   g.append(&#x27;rect&#x27;).attr(&#x27;x&#x27;,left).attr(&#x27;y&#x27;,y+19).attr(&#x27;width&#x27;,x(r.mean)-left).attr(&#x27;height&#x27;,5).attr(&#x27;fill&#x27;,`var(--viz-series-${color})`);
+   g.append(&#x27;line&#x27;).attr(&#x27;x1&#x27;,x(r.mean)).attr(&#x27;x2&#x27;,x(r.maximum)).attr(&#x27;y1&#x27;,y+21.5).attr(&#x27;y2&#x27;,y+21.5).attr(&#x27;stroke&#x27;,`var(--viz-series-${color})`);
+   g.append(&#x27;line&#x27;).attr(&#x27;x1&#x27;,x(r.maximum)).attr(&#x27;x2&#x27;,x(r.maximum)).attr(&#x27;y1&#x27;,y+17).attr(&#x27;y2&#x27;,y+26).attr(&#x27;stroke&#x27;,`var(--viz-series-${color})`).attr(&#x27;stroke-width&#x27;,2);
+   g.append(&#x27;rect&#x27;).attr(&#x27;data-chart-hit&#x27;,&#x27;&#x27;).attr(&#x27;x&#x27;,left).attr(&#x27;y&#x27;,y).attr(&#x27;width&#x27;,width-left-right).attr(&#x27;height&#x27;,rowHeight).attr(&#x27;fill&#x27;,&#x27;transparent&#x27;).attr(&#x27;data-tooltip&#x27;,`${r.name}: mean ${r.mean.toFixed(3)} ms; maximum ${r.maximum.toFixed(3)} ms; standard deviation ${r.sd.toFixed(3)} ms; ${r.misses}/${r.n} ticks exceed 16.67 ms; ${r.physical.stress_iterations} stress iterations; ${r.physical.correction_passes} correction(s).`);
+   const texts=g.selectAll(&#x27;text&#x27;).nodes();if(texts[0].getBBox().x+texts[0].getBBox().width+4&gt;texts[1].getBBox().x)texts[1].remove();
+  });
+  svg.append(&#x27;g&#x27;).attr(&#x27;transform&#x27;,`translate(0,${height-bottom})`).call(d3.axisBottom(x).ticks(width&lt;420?4:6).tickSizeOuter(0));
+  svg.append(&#x27;text&#x27;).attr(&#x27;class&#x27;,&#x27;axis-title&#x27;).attr(&#x27;data-axis&#x27;,&#x27;x&#x27;).attr(&#x27;x&#x27;,(left+width-right)/2).attr(&#x27;y&#x27;,height-9).attr(&#x27;text-anchor&#x27;,&#x27;middle&#x27;).text(&#x27;Complete step (ms)&#x27;);
+  svg.append(&#x27;text&#x27;).attr(&#x27;class&#x27;,&#x27;axis-title&#x27;).attr(&#x27;data-axis&#x27;,&#x27;y&#x27;).attr(&#x27;transform&#x27;,`translate(19,${(top+height-bottom)/2}) rotate(-90)`).attr(&#x27;text-anchor&#x27;,&#x27;middle&#x27;).text(&#x27;Saved scenario&#x27;);
+ }
+ function redraw(){draw(root.querySelector(&#x27;.city-plot&#x27;),city,&#x27;Cities · 25 / 64 / 256 buildings&#x27;,d3.max(city,d=&gt;d.maximum));draw(root.querySelector(&#x27;.structural-plot&#x27;),structural,&#x27;Structural cases · slowest first&#x27;,d3.max(structural,d=&gt;d.maximum));}
+ const body=root.querySelector(&#x27;tbody&#x27;);data.forEach(r=&gt;{const tr=document.createElement(&#x27;tr&#x27;);[r.name,`${r.mean.toFixed(3)} / ${r.maximum.toFixed(3)}`,r.sd.toFixed(3),`${r.misses}/20`,r.stages.simulate_fetch_ms.toFixed(3),`${r.stages.command_ms.toFixed(4)} / ${r.stages.completion_ms.toFixed(3)}`,r.physical.stress_iterations,`${r.physical.correction_passes} / ${r.physical.stress_passes}`].forEach(v=&gt;{const td=document.createElement(&#x27;td&#x27;);td.textContent=v;tr.append(td)});body.append(tr)});
+ new ResizeObserver(redraw).observe(root);redraw();
+})();
+&lt;/script&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerdown&quot;, handlePointer);
+    document.removeEventListener(&quot;pointercancel&quot;, handlePointer);
+    document.removeEventListener(&quot;click&quot;, handleTouchClick);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerdown&quot;, handlePointer);
+  document.addEventListener(&quot;pointercancel&quot;, handlePointer);
+  document.addEventListener(&quot;click&quot;, handleTouchClick);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

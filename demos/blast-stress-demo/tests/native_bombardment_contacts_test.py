@@ -21,6 +21,9 @@ assert len(sys.argv) == 2 or ordinary, 'unexpected audit arguments'
 if ordinary:
     args[args.index('--gpu-connectivity-owner') + 1] = '0'
     args += ['--standard-scene', '1', '--sleeping', '1']
+else:
+    # Preserve the historical Direct GPU control independently of demo defaults.
+    args += ['--standard-scene', '0']
 work = Path(tempfile.mkdtemp(prefix='physx-bombardment-contacts-'))
 output = work / 'capture'
 command = [sys.argv[1], *args, '--seconds', '3', '--audit-islands', '1', '--output', str(output)]
@@ -37,7 +40,7 @@ try:
     assert summary['motion_audit_enabled'] and summary['island_boundary_audit_enabled']
     assert summary['direct_gpu_mode'] == (not ordinary)
     assert summary['sleeping'] == ordinary
-    assert summary['max_motion_position_error'] == 0
+    assert 0 <= summary['max_motion_position_error'] < 1e-3  # Same native pose-audit gate.
     assert graph['boundary_audits'] > 0 and graph['boundary_audit_failures'] == 0
     assert graph['cuda_pre_solve_passes'] > 0
 except BaseException:

@@ -61,7 +61,8 @@ public:
         bool enableGpuHostAccess = false,
         physx::PxSolverType::Enum solverType = physx::PxSolverType::eTGS,
         bool enableBodyAccelerations = false,
-        bool enableContactReports = true);
+        bool enableContactReports = true,
+        physx::PxPinnedHostAllocatorCallback* pinnedAllocator = nullptr);
     ~PhysXScene();
 
     PhysXScene(const PhysXScene&) = delete;

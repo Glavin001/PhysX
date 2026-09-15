@@ -120,7 +120,8 @@ PhysXScene::PhysXScene(
     bool enableGpuHostAccess,
     physx::PxSolverType::Enum solverType,
     bool enableBodyAccelerations,
-    bool enableContactReports)
+    bool enableContactReports,
+    physx::PxPinnedHostAllocatorCallback* pinnedAllocator)
     : m_mode(mode)
     , m_requireGpu(requireGpu)
     , m_directGpuApiRequested(enableDirectGpuApi)
@@ -160,6 +161,7 @@ PhysXScene::PhysXScene(
     if (m_mode == PhysicsMode::Gpu)
     {
         physx::PxCudaContextManagerDesc cudaDesc;
+        cudaDesc.pinnedHostAllocator=pinnedAllocator;
         m_cuda = PxCreateCudaContextManager(*m_foundation, cudaDesc, PxGetProfilerCallback());
         if (!m_cuda || !m_cuda->contextIsValid())
         {

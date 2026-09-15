@@ -26,6 +26,9 @@ def stats(v):
     return dict(n=len(v),min=v[0],mean=statistics.mean(v),p50=v[max(0,math.ceil(.50*len(v))-1)],
                 p95=v[max(0,math.ceil(.95*len(v))-1)],p99=v[max(0,math.ceil(.99*len(v))-1)],max=v[-1])
 
+def budget_misses(count,total):
+    return f'{count}/{total} ({100*count/total:.2f}%)'
+
 def subtract(base,removed):
     result=[];cut=a.union(removed)
     for lo,hi in a.union(base):
@@ -298,9 +301,10 @@ def render(manifest,runs,out):
         complete_rows=[]
         for i,r in enumerate(plain):
             metric=complete_step_metrics(r);frames=r['frames'];peak=max(frames,key=lambda f:float(f['complete_step_ms']))
-            complete_rows.append([i+1,len(frames),fmt(metric['mean']),fmt(metric['max']),sum(float(f['complete_step_ms'])>8 for f in frames),peak['step'],fmt(float(peak['command_ms'])),fmt(float(peak['physics_step_ms'])),fmt(float(peak['completion_ms']))])
-        d.table(['Untraced repeat','Steps','Mean ms','Peak ms','>8 ms','Peak step','CPU commands at peak ms','PhysX/destruction at peak ms','Completion at peak ms'],complete_rows)
+            complete_rows.append([i+1,len(frames),fmt(metric['mean']),fmt(metric['max']),sum(float(f['complete_step_ms'])>8 for f in frames),budget_misses(metric['misses_120hz'],len(frames)),budget_misses(metric['misses_60hz'],len(frames)),peak['step'],fmt(float(peak['command_ms'])),fmt(float(peak['physics_step_ms'])),fmt(float(peak['completion_ms']))])
+        d.table(['Untraced repeat','Steps','Mean ms','Peak ms','>8 ms','>8.33 ms (120 Hz)','>16.67 ms (60 Hz)','Peak step','CPU commands at peak ms','PhysX/destruction at peak ms','Completion at peak ms'],complete_rows)
         d.text('This is the deadline timer. It includes commands, insertion and mandatory completion in addition to simulate/fetch. The detailed CPU/GPU tables below subdivide simulate/fetch in separate profiling captures. These short runs do not establish the five × 60-second gate.')
+    d.text('Frame-budget exceedances use exact 1000/120 and 1000/60 ms thresholds, strictly greater than the deadline. They measure the cost of the existing 60 Hz physical steps; they do not qualify a 120 Hz simulation.')
     d.title('Measurement contract and validity')
     matches=all(all(r['signature_rows']==runs[c['id']]['plain'][0]['signature_rows'][:len(r['frames'])] for mode in ['plain','phases','gpu'] for r in runs[c['id']][mode]) for c in cases)
     d.table(['Check','Result'],[
@@ -324,8 +328,8 @@ def render(manifest,runs,out):
     rows=[]
     for case in cases:
         rr=runs[case['id']]['plain'];values=[float(f['physics_step_ms']) for r in rr for f in r['frames']];v=stats(values)
-        rows.append([case['label'],rr[0]['summary']['chunks'],rr[0]['summary']['bonds'],len(values),*[fmt(v[k]) for k in ['min','mean','p50','p95','p99','max']],sum(x>=1 for x in values),sum(x>1000/60 for x in values)])
-    d.table(['Scene','Chunks','Bonds','Steps','Min ms','Mean ms','p50 ms','p95 ms','p99 ms','Max ms','≥1 ms','>16.67 ms'],rows)
+        rows.append([case['label'],rr[0]['summary']['chunks'],rr[0]['summary']['bonds'],len(values),*[fmt(v[k]) for k in ['min','mean','p50','p95','p99','max']],sum(x>=1 for x in values),budget_misses(sum(x>1000/120 for x in values),len(values)),budget_misses(sum(x>1000/60 for x in values),len(values))])
+    d.table(['Scene','Chunks','Bonds','Steps','Min ms','Mean ms','p50 ms','p95 ms','p99 ms','Max ms','≥1 ms','>8.33 ms (120 Hz)','>16.67 ms (60 Hz)'],rows)
     rows=[]
     for j,r in enumerate(plain):
         q=r['metrics']['all'];i=r['worst_step'];f=r['frames'][i]
@@ -428,7 +432,8 @@ def complete_step_metrics(run):
         values.append(total)
     require(sum(v>8.0 for v in values)==run['summary']['missed_8ms'],'Deadline counter mismatch')
     require(abs(max(values)-run['summary']['complete_step_ms_max'])<0.0002,'Peak counter mismatch')
-    return stats(values)
+    return dict(stats(values),misses_120hz=sum(v>1000/120 for v in values),
+                misses_60hz=sum(v>1000/60 for v in values))
 
 def render_physics_task_details(doc,data,peak):
     # These task spans can nest and overlap. They explain their parent physics
@@ -454,6 +459,9 @@ def render_physics_task_details(doc,data,peak):
 def render_complete_gate(manifest,runs,out):
     doc=Document();doc.title('🎯 Complete PhysX destruction advance — 8 ms gate',1)
     doc.text('60 Hz physical timestep. Timer includes commands, projectile insertion, simulate/fetch, destruction/correction and mandatory completion. All measured steps, including startup, remain. Rendering and report output are outside the bracket.')
+    doc.text('Frame-budget exceedances use exact 1000/120 and 1000/60 ms thresholds, strictly greater than the deadline. The separate 8 ms gate remains. These are costs of 60 Hz physical steps, not a qualification of simulation at 120 Hz.')
+    if manifest.get('allow_existing_graphics'):
+        doc.text('Diagnostic shared-GPU capture: pre-existing desktop graphics processes remained active. These results do not establish isolated performance qualification. Full process samples and allowed identities are retained in campaign.json.')
     rows=[];workloads=[];failures=0;gates=[];quality_failures=[];history_changes=[]
     for case in manifest['config']['cases']:
         case_runs=runs[case['id']]['plain']
@@ -476,8 +484,8 @@ def render_complete_gate(manifest,runs,out):
                 if summary['workload']=='bombardment':history_changes.append(change)
                 else:quality_failures.append(change)
             previous=run['signature_rows']
-            rows.append([case['label'],i+1,len(frames),fmt(metric['min']),fmt(metric['mean']),fmt(metric['p95']),fmt(metric['p99']),fmt(metric['max']),misses,worst,fmt(float(f['command_ms'])),fmt(float(f['physics_step_ms'])),fmt(float(f['completion_ms']))])
-            gates.append(dict(case=case['id'],repeat=i+1,metrics=metric,misses=misses,worst_step=worst))
+            rows.append([case['label'],i+1,len(frames),fmt(metric['min']),fmt(metric['mean']),fmt(metric['p95']),fmt(metric['p99']),fmt(metric['max']),misses,budget_misses(metric['misses_120hz'],len(frames)),budget_misses(metric['misses_60hz'],len(frames)),worst,fmt(float(f['command_ms'])),fmt(float(f['physics_step_ms'])),fmt(float(f['completion_ms']))])
+            gates.append(dict(case=case['id'],repeat=i+1,metrics=metric,misses=misses,misses_120hz=metric['misses_120hz'],misses_60hz=metric['misses_60hz'],worst_step=worst))
     enough=manifest['seconds']>=60 and manifest['trials']>=5
     doc.text(('❌ Deadline failed' if failures else '✅ Measured deadlines passed')+f': {failures} steps exceeded 8.0 ms. '+('Five × 60-second duration requirement met.' if enough else 'Diagnostic only: five × 60-second qualification duration not met.'))
     doc.text('This timing gate checks convergence, correction limit, frozen wall counters and repeated counter histories. It does not substitute for the independent trajectory/hole/momentum audit or the 10-minute endurance gate; overall plan qualification remains incomplete until those pass.')
@@ -485,7 +493,7 @@ def render_complete_gate(manifest,runs,out):
     for message in history_changes:doc.text('⚠️ Chaotic workload variation: '+message+'. Convergence and correction-limit checks passed, but exact trajectories and full physical quality are not qualified.')
     doc.table(['Scene','Chunks','Bonds','Projectiles','Peak destruction clusters','Seconds per run','Correction limit','Sleeping'],workloads)
     doc.text('Stress chunks are geometry/connectivity units, not independently solved rigid bodies while bonded. Peak destruction clusters is the maximum across all measured repeats and excludes ordinary actors such as the projectile and ground. Idle controls measure retained geometry, not concurrent destruction.')
-    doc.table(['Scene','Repeat','Steps','Min ms','Mean ms','p95 ms','p99 ms','Peak ms','Misses','Peak step','Commands at peak ms','Physics/destruction at peak ms','Completion at peak ms'],rows)
+    doc.table(['Scene','Repeat','Steps','Min ms','Mean ms','p95 ms','p99 ms','Peak ms','>8 ms','>8.33 ms (120 Hz)','>16.67 ms (60 Hz)','Peak step','Commands at peak ms','Physics/destruction at peak ms','Completion at peak ms'],rows)
     doc.text('Commands and completion timings are disjoint from simulate/fetch. Detailed CPU/GPU subdivisions require a separate profiling capture; they must not be inferred from another run’s maximum. No percentile or outlier removal changes the deadline verdict.')
     scoped=[]
     for case in manifest['config']['cases']:
@@ -517,7 +525,7 @@ def render_complete_gate(manifest,runs,out):
             doc.text(f"Scoped versus first untraced counter history: complete run {'matches' if full_match else 'differs'}; through the scoped peak {'matches' if prefix_match else 'differs'}. Broken bonds: scoped {run['summary']['broken_bonds']}, first untraced {reference['summary']['broken_bonds']}. These are separate trajectories, not a decomposition of the same measured peak.")
             scoped.append({'case':case['id'],'peak_step':peak,'profile':data})
     doc.save(out)
-    payload=dict(schema=1,deadline_ms=8.0,deadline_pass=failures==0,duration_pass=enough,quality_endurance_qualified=False,runs=gates,phase_captures=scoped,controlled_quality_failures=quality_failures,chaotic_history_changes=history_changes,manifest=manifest)
+    payload=dict(schema=1,deadline_ms=8.0,frame_deadlines_ms={'120hz':1000/120,'60hz':1000/60},deadline_pass=failures==0,duration_pass=enough,quality_endurance_qualified=False,runs=gates,phase_captures=scoped,controlled_quality_failures=quality_failures,chaotic_history_changes=history_changes,manifest=manifest)
     with (out/'report.json.gz').open('wb') as raw:
         with gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0) as z:z.write((json.dumps(payload,indent=2,sort_keys=True)+'\n').encode())
     return failures==0 and enough and not quality_failures

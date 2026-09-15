@@ -5,3 +5,53 @@
 /.toolchains/
 /physx/bin/
 /physx/install/
+
+# Local experiment output: retain readable reports and reproduction source,
+# but never add new raw measurements/capture dumps to Git.
+/qualification/**
+!/qualification/**/
+!/qualification/**/*.md
+!/qualification/**/*.py
+!/qualification/**/*.c
+!/qualification/**/*.cpp
+!/qualification/**/*.cu
+!/qualification/**/*.h
+!/qualification/**/*.cuh
+!/qualification/**/*.inl
+!/qualification/**/*.patch
+!/qualification/**/queue.json
+!/qualification/**/next-ranked-experiments.json
+
+# Report packages may keep these files locally; Git holds the prose/plots/tools.
+/reports/**/data/
+/reports/**/evidence/**
+!/reports/**/evidence/**/
+!/reports/**/evidence/**/*.md
+!/reports/**/evidence/**/*.py
+!/reports/**/evidence/**/provenance.json
+!/reports/**/evidence/**/capture-locators.json
+!/reports/**/evidence/**/files-sha256.json
+/reports/**/*.log
+/reports/**/*.csv
+/reports/**/*.jsonl
+/reports/**/*.jsonl.gz
+/reports/**/*.ncu-rep
+/reports/**/*.ncu-repz
+/reports/**/*.nsys-rep
+/reports/**/*.sqlite
+/reports/**/*.bin
+/reports/**/scenario-baseline.json
+/reports/**/campaign-status.json
+/reports/**/baseline-summary.json
+/reports/**/*.json
+!/reports/**/provenance.json
+!/reports/**/source-provenance.json
+!/reports/**/manifest.json
+!/reports/**/capture-locators.json
+!/reports/**/files-sha256.json
+!/reports/destruction-workspace-checkpoint-20260913/preservation.json
+!/reports/destruction-workspace-checkpoint-20260913/git-refs-before-checkpoint.json
+
+# Local numerical inputs behind the historical visual audit; plots/prose stay tracked.
+/docs/destruction/visual-audit-20260909/audit-data.json
+/docs/destruction/visual-audit-20260909/graph-shape-data.json

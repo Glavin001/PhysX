@@ -1,0 +1,48 @@
+--- production/PxgDestructionTransaction.cuh
++++ diagnostic/PxgDestructionTransaction.cuh
+@@ -11,16 +11,17 @@
+ __global__ void setTransactionBatch(TransactionBatch* out, TransactionBatch batch) {*out=batch;}
+ __global__ void setTransactionAccept(TransactionBatch* out, const unsigned* accept) {out->accept=accept;}
+ __global__ void beginTransaction(const TransactionBatch* batch,
+-    PxDestructionTopologyTransactionStatus* status, cudaGraphConditionalHandle handle) {
++    PxDestructionTopologyTransactionStatus* status) {
+     status->prepared=0;status->error=0;status->changed=0;
+     status->editCount=*batch->count;
+     if(status->editCount>batch->capacity)status->error|=2u;
+     if(batch->abort && (*batch->abort & batch->abortMask))status->error|=4u;
+-    cudaGraphSetConditional(handle,!status->error && status->editCount?1:0);
++
+ }
+ __global__ void validateTransaction(const TransactionBatch* batch,
+     const unsigned* activeChunks, const unsigned* activeBonds, unsigned n, unsigned m,
+     PxDestructionTopologyTransactionStatus* status) {
++    if(status->editCount>batch->capacity || (batch->abort && (*batch->abort & batch->abortMask)))return;
+     for(unsigned i=blockIdx.x*blockDim.x+threadIdx.x;i<status->editCount;i+=blockDim.x*gridDim.x) {
+         const auto e=batch->edits[i];
+         if(e.kind==PxgDestructionEditKind::BreakBond && e.index<m) {
+@@ -108,19 +109,16 @@
+         return !count || cudaMemcpyAsync(destination,source,count*sizeof(T),cudaMemcpyDeviceToDevice,mTrial->mStream)==cudaSuccess;
+     }
+     bool buildPrepare() {
+-        cudaGraphConditionalHandle work=0,rebuild=0;
++        cudaGraphConditionalHandle rebuild=0;
+         if(cudaGraphCreate(&mPrepareGraph,0)!=cudaSuccess
+-            || cudaGraphConditionalHandleCreate(&work,mPrepareGraph,0,cudaGraphCondAssignDefault)!=cudaSuccess
+             || cudaGraphConditionalHandleCreate(&rebuild,mPrepareGraph,0,cudaGraphCondAssignDefault)!=cudaSuccess)return false;
+-        cudaGraphNode_t previous=nullptr;cudaGraph_t validation=nullptr,body=nullptr;
+-        if(!kernel(mPrepareGraph,previous,(void*)beginTransaction,1,1,mBatch,mStatus,work)
+-            || !conditional(mPrepareGraph,previous,work,validation))return false;
+-        previous=nullptr;
++        cudaGraphNode_t previous=nullptr;cudaGraph_t body=nullptr;
++        if(!kernel(mPrepareGraph,previous,(void*)beginTransaction,1,1,mBatch,mStatus))return false;
+         const unsigned blocks=std::min(2560u,(std::max(mAccepted->mN,mAccepted->mM)+BLOCK-1)/BLOCK);
+-        if(!kernel(validation,previous,(void*)validateTransaction,blocks,BLOCK,mBatch,
++        if(!kernel(mPrepareGraph,previous,(void*)validateTransaction,blocks,BLOCK,mBatch,
+             mAccepted->mActiveChunks,mAccepted->mActiveBonds,mAccepted->mN,mAccepted->mM,mStatus)
+-            || !kernel(validation,previous,(void*)chooseRebuild,1,1,mStatus,rebuild)
+-            || !conditional(validation,previous,rebuild,body))return false;
++            || !kernel(mPrepareGraph,previous,(void*)chooseRebuild,1,1,mStatus,rebuild)
++            || !conditional(mPrepareGraph,previous,rebuild,body))return false;
+         if(!capture(body,[&] {
+             const unsigned n=mTrial->mN,m=mTrial->mM;
+             if(!copy(mTrial->mActiveChunks,mAccepted->mActiveChunks,n)

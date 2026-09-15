@@ -1,0 +1,639 @@
+{
+  "created_utc": "2026-09-13T03:49:54.572314+00:00",
+  "parent_head": "1155b7ffb60d4d65853f448b00485c21cfd06b99",
+  "branch": "codex/rtx5060ti-cuda134",
+  "raw_inventory": {
+    "root": "/root/workspace/physx-2/out/destruction-baseline-20260913",
+    "files": 4916,
+    "bytes": 6904006166,
+    "by_directory": {
+      "allocation-driver-before-range-1789264510095739648.py": {
+        "files": 1,
+        "bytes": 4652
+      },
+      "bounded-stop.json": {
+        "files": 1,
+        "bytes": 437
+      },
+      "campaign-before-resume-1789262756174688629.json": {
+        "files": 1,
+        "bytes": 1515
+      },
+      "campaign-before-resume-1789262916822989278.json": {
+        "files": 1,
+        "bytes": 3577
+      },
+      "campaign-before-resume-1789264041382299482.json": {
+        "files": 1,
+        "bytes": 5637
+      },
+      "campaign-before-user-budget-reclassification.json": {
+        "files": 1,
+        "bytes": 7412
+      },
+      "campaign-lock-fix.json": {
+        "files": 1,
+        "bytes": 634
+      },
+      "campaign-status-budget.json": {
+        "files": 1,
+        "bytes": 7611
+      },
+      "campaign.json": {
+        "files": 1,
+        "bytes": 7611
+      },
+      "child-capture.lock": {
+        "files": 1,
+        "bytes": 0
+      },
+      "config-runner-before-continuous.py": {
+        "files": 1,
+        "bytes": 15987
+      },
+      "continuous-boundary-hook.json": {
+        "files": 1,
+        "bytes": 336
+      },
+      "cpu-full-driver-1789263362637245699.log": {
+        "files": 1,
+        "bytes": 2100
+      },
+      "cpu-full-driver-1789264042113372568.log": {
+        "files": 1,
+        "bytes": 514
+      },
+      "cpu-light-driver-1789262499748561363.log": {
+        "files": 1,
+        "bytes": 995
+      },
+      "cpu-light-driver-1789262756902457547.log": {
+        "files": 1,
+        "bytes": 80
+      },
+      "cpu-range-mitigation.json": {
+        "files": 1,
+        "bytes": 587
+      },
+      "environment-1789262499512137594.txt": {
+        "files": 1,
+        "bytes": 2797
+      },
+      "environment-1789262756707414176.txt": {
+        "files": 1,
+        "bytes": 2705
+      },
+      "environment-1789262922525351496.txt": {
+        "files": 1,
+        "bytes": 2705
+      },
+      "environment-1789264041890825272.txt": {
+        "files": 1,
+        "bytes": 2705
+      },
+      "fast-baseline.json": {
+        "files": 1,
+        "bytes": 1763
+      },
+      "fast-calibration-driver.log": {
+        "files": 1,
+        "bytes": 4989
+      },
+      "fast-manifest.json": {
+        "files": 1,
+        "bytes": 6069
+      },
+      "finalization-before-budget-stop.json": {
+        "files": 1,
+        "bytes": 59
+      },
+      "finalization.json": {
+        "files": 1,
+        "bytes": 97
+      },
+      "finalize-analysis.py": {
+        "files": 1,
+        "bytes": 3732
+      },
+      "finalizer-requeue.json": {
+        "files": 1,
+        "bytes": 204
+      },
+      "finalizer-with-continuous.log": {
+        "files": 1,
+        "bytes": 0
+      },
+      "graph-inventory-fix.json": {
+        "files": 1,
+        "bytes": 977
+      },
+      "graphs-full-driver-1789264390000717367.log": {
+        "files": 1,
+        "bytes": 1427
+      },
+      "graphs-light-driver-1789262824721044294.log": {
+        "files": 1,
+        "bytes": 885
+      },
+      "graphs-light-driver-1789262922745253760.log": {
+        "files": 1,
+        "bytes": 324
+      },
+      "manifest.json": {
+        "files": 1,
+        "bytes": 45090
+      },
+      "profiled-fast-calibration-driver.log": {
+        "files": 1,
+        "bytes": 0
+      },
+      "provenance.json": {
+        "files": 1,
+        "bytes": 32986
+      },
+      "run-allocation-pilots.py": {
+        "files": 1,
+        "bytes": 4680
+      },
+      "run-analysis.py": {
+        "files": 1,
+        "bytes": 7709
+      },
+      "run-continuous200.py": {
+        "files": 1,
+        "bytes": 6775
+      },
+      "run-supplemental.py": {
+        "files": 1,
+        "bytes": 4296
+      },
+      "warm-driver-1789264303912544303.log": {
+        "files": 1,
+        "bytes": 142
+      },
+      "allocation-pilots": {
+        "files": 3,
+        "bytes": 873
+      },
+      "artifacts": {
+        "files": 2,
+        "bytes": 58603640
+      },
+      "continuous200": {
+        "files": 3,
+        "bytes": 9115
+      },
+      "cpu-full": {
+        "files": 1711,
+        "bytes": 1945518202
+      },
+      "fast-calibration": {
+        "files": 292,
+        "bytes": 282990977
+      },
+      "graphs-full": {
+        "files": 1390,
+        "bytes": 2658760899
+      },
+      "harness": {
+        "files": 135,
+        "bytes": 968324
+      },
+      "native": {
+        "files": 1,
+        "bytes": 7235448
+      },
+      "phase-only": {
+        "files": 3,
+        "bytes": 938
+      },
+      "plain": {
+        "files": 1,
+        "bytes": 7174536
+      },
+      "precision-calibration": {
+        "files": 394,
+        "bytes": 683035782
+      },
+      "preflight-calibration": {
+        "files": 7,
+        "bytes": 20973
+      },
+      "profile": {
+        "files": 2,
+        "bytes": 7208788
+      },
+      "profiled-fast-calibration": {
+        "files": 347,
+        "bytes": 495513242
+      },
+      "references": {
+        "files": 52,
+        "bytes": 4419
+      },
+      "representative-calibration": {
+        "files": 3,
+        "bytes": 8456
+      },
+      "representative-calibration-v2": {
+        "files": 471,
+        "bytes": 560342247
+      },
+      "timelines": {
+        "files": 1,
+        "bytes": 60768
+      },
+      "warm": {
+        "files": 55,
+        "bytes": 196354315
+      },
+      "warm-args": {
+        "files": 2,
+        "bytes": 1423
+      }
+    },
+    "sha256": "3e17412e7154b8cac7f5d75825a988dbff0eac309fe71d2c4ac3e7d8963182f6",
+    "excluded": [
+      "recovery/ (private service configuration)",
+      "__pycache__/"
+    ],
+    "verification": "Filesystem existence/type/size/mtime inventory, not a new hash audit of all raw payloads. Existing capture hashes and receipts remain authoritative. Symlink targets recorded, not recursively copied."
+  },
+  "selected_control": {
+    "commit": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf",
+    "reachable_refs": [
+      "refs/heads/codex/hierarchy-access-oracle-20260912",
+      "refs/heads/codex/n24-component-multilevel-20260912",
+      "refs/heads/codex/n24-live-cycle-tail-20260912",
+      "refs/heads/codex/n24-native-equation-audit-20260912",
+      "refs/heads/codex/n25-local-row-ownership-20260912",
+      "refs/heads/codex/n26-binding-plan-20260912",
+      "refs/heads/codex/n27-contact-index-20260912",
+      "refs/heads/codex/n28-native-factor-20260912",
+      "refs/heads/codex/n29-exact-component-reuse-20260912",
+      "refs/heads/codex/n29b-cheap-rejection-20260913",
+      "refs/heads/codex/n29c-conditional-reuse-20260913",
+      "refs/heads/codex/n30-medium-components-20260913",
+      "refs/heads/codex/removal-work-census-20260912",
+      "refs/heads/codex/selected-n13-n20-20260912"
+    ]
+  },
+  "checkpoint_scope": "Git-eligible source, skills, readable documentation/reports, plots and concise provenance. New raw experimental evidence, logs, observations, counter dumps and generated datasets are ignored and remain local. Installed SDK and selected artifacts are unchanged. Existing historical commits are not rewritten; no remote push or backup.",
+  "all_output_inventory": {
+    "files": 66443,
+    "bytes": 78915886714,
+    "sha256": "8482e39b9ccf615eb2eddde854826a341470b146aba38bfed605de229adf481e",
+    "by_directory": {
+      "destruction-ab.lock": [
+        1,
+        0
+      ],
+      "destruction-analysis.lock": [
+        1,
+        0
+      ],
+      "sdk-artifacts.json": [
+        1,
+        1210011
+      ],
+      "baseline-20260910-ordinary-sleeping": [
+        267,
+        223280453
+      ],
+      "destruction-baseline-20260913": [
+        4916,
+        6904006166
+      ],
+      "destruction-pm-sampling-20260910": [
+        28,
+        1782127
+      ],
+      "destruction-sdk": [
+        1468,
+        357263364
+      ],
+      "elastic-command-baseline-20260910": [
+        54,
+        1097081
+      ],
+      "elastic-command-inputs-20260910": [
+        55,
+        105941886
+      ],
+      "elastic-command-motion-20260910": [
+        72,
+        350540254
+      ],
+      "elastic-command-wake-20260910": [
+        55,
+        91029174
+      ],
+      "elastic-commands-20260910": [
+        57,
+        22469223
+      ],
+      "elastic-components-20260910": [
+        135,
+        19910866
+      ],
+      "elastic-gravity-cancellation-20260910": [
+        288,
+        1762950816
+      ],
+      "elastic-input-history-20260910": [
+        143,
+        315158563
+      ],
+      "elastic-input-owners-20260910": [
+        185,
+        324043772
+      ],
+      "elastic-load-join-20260910": [
+        645,
+        4068258136
+      ],
+      "elastic-native-graph-20260910": [
+        48,
+        11464391
+      ],
+      "elastic-partition-20260910": [
+        294,
+        468765940
+      ],
+      "elastic-precision-reference-20260910": [
+        2654,
+        198635795
+      ],
+      "end-to-end-attribution-20260912": [
+        8696,
+        27727405208
+      ],
+      "hierarchy-oracle-live-ranges-20260912": [
+        115,
+        20215488
+      ],
+      "install": [
+        473,
+        318491110
+      ],
+      "integrated-polynomial-barrier-20260910": [
+        143,
+        188816626
+      ],
+      "live-loads-20260910": [
+        197,
+        305295539
+      ],
+      "n06-granularity-20260912": [
+        367,
+        194614789
+      ],
+      "n06b-warp-components-20260912": [
+        649,
+        657133655
+      ],
+      "n11-projection-reciprocal-20260912": [
+        254,
+        267773606
+      ],
+      "n14-closure-20260912": [
+        753,
+        640880498
+      ],
+      "n15-anchored-20260912": [
+        649,
+        639169057
+      ],
+      "n16-local-20260912": [
+        653,
+        638573552
+      ],
+      "n17-empty-launch-20260912": [
+        9,
+        88689
+      ],
+      "n19-requalification-20260912": [
+        980,
+        818122798
+      ],
+      "n20-requalification-20260912": [
+        3915,
+        3350222074
+      ],
+      "n21-factor-reciprocal-20260912": [
+        421,
+        310124598
+      ],
+      "n22-mixed-smoother-20260912": [
+        10,
+        88009
+      ],
+      "n22-mixed-smoother-refined-20260912": [
+        269,
+        290933530
+      ],
+      "n23-transform-extent-20260912": [
+        234,
+        249685608
+      ],
+      "n24-component-multilevel-20260912": [
+        347,
+        299732696
+      ],
+      "n24-live-cycle-tail-20260912": [
+        727,
+        450313177
+      ],
+      "n24-native-equation-audit-20260912": [
+        209,
+        184923884
+      ],
+      "n24-native-equation-worlds-20260912": [
+        503,
+        219286611
+      ],
+      "n25-local-row-ownership-20260912": [
+        836,
+        496782216
+      ],
+      "n26-binding-plan-20260912": [
+        756,
+        947392222
+      ],
+      "n27-contact-index-20260912": [
+        1425,
+        1053943454
+      ],
+      "n28-duplicate-census-20260912": [
+        191,
+        610249367
+      ],
+      "n28-native-factor-20260912": [
+        35,
+        7082800
+      ],
+      "n29-exact-component-reuse-20260912": [
+        1358,
+        1375822165
+      ],
+      "n29b-cheap-rejection-20260913": [
+        3321,
+        2238305807
+      ],
+      "n29c-conditional-reuse-20260913": [
+        195,
+        1865189
+      ],
+      "n30-medium-components-20260913": [
+        427,
+        168000919
+      ],
+      "native-contact-retirement-design-20260912": [
+        136,
+        182485734
+      ],
+      "native-shared-factor-gpu-20260912": [
+        50,
+        3453656
+      ],
+      "native-shared-factor-hybrid-20260912": [
+        23,
+        202412
+      ],
+      "native-shared-factor-hybrid-serial-20260912": [
+        21,
+        1953699
+      ],
+      "native-shared-factor-setup-20260912": [
+        50,
+        13165436
+      ],
+      "ncu-city-20260910": [
+        93,
+        584606049
+      ],
+      "ncu-fix-20260912": [
+        1827,
+        3037890834
+      ],
+      "next20-final-comparison-20260912": [
+        12,
+        93809
+      ],
+      "nsight-context-20260910": [
+        5,
+        1143484
+      ],
+      "nsight-small-context-20260910": [
+        221,
+        65337360
+      ],
+      "optimization-20260910": [
+        3918,
+        2180244598
+      ],
+      "optimization-next20-20260910": [
+        3460,
+        2502285833
+      ],
+      "ordinary-command-correction-20260910": [
+        97,
+        33080487
+      ],
+      "performance-visuals-20260912": [
+        4,
+        700235
+      ],
+      "regression-suite-20260913": [
+        144,
+        494826867
+      ],
+      "removal-work-census-20260912": [
+        241,
+        303609412
+      ],
+      "sdk-release": [
+        1565,
+        114329864
+      ],
+      "selected-n13-n20-20260912": [
+        12,
+        146044107
+      ],
+      "semantic-suite-20260911": [
+        1546,
+        127500064
+      ],
+      "six-channel-loads-20260910": [
+        35,
+        594731
+      ],
+      "six-channel-operator-20260910": [
+        12,
+        19396
+      ],
+      "six-channel-pcg-20260910": [
+        40,
+        916343
+      ],
+      "six-channel-setup-20260910": [
+        24,
+        2455080
+      ],
+      "snapshot-20260911": [
+        1572,
+        1279391362
+      ],
+      "snapshot-counters-20260911": [
+        1787,
+        660736345
+      ],
+      "snapshot-finish-20260911": [
+        3783,
+        2700600043
+      ],
+      "snapshot-large-20260911": [
+        1736,
+        1740395165
+      ],
+      "snapshot-light-20260911": [
+        116,
+        1029627
+      ],
+      "snapshot-reset-20260911": [
+        2698,
+        2592551554
+      ],
+      "sparse-factor-exposure-20260912": [
+        11,
+        157153358
+      ],
+      "vm-port-20260910": [
+        59,
+        39986677
+      ],
+      "vm-runtime-artifacts": [
+        1,
+        10415056
+      ],
+      "vm-runtime-build": [
+        315,
+        24091438
+      ],
+      "vm-topology": [
+        345,
+        13453640
+      ]
+    },
+    "excluded": [
+      ".git/",
+      "node_modules/",
+      "__pycache__/",
+      "recovery/",
+      ".env*",
+      "*.pem",
+      "*.key"
+    ],
+    "scope": "Metadata only; existing local files remain in place. No remote backup or raw-payload hash audit. Symlinks recorded without following."
+  }
+}

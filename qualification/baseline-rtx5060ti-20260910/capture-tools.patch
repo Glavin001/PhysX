@@ -1,0 +1,132 @@
+diff --git a/tools/scripts/report-destruction-timing.py b/tools/scripts/report-destruction-timing.py
+index 5d29c7b1..398cee10 100644
+--- a/tools/scripts/report-destruction-timing.py
++++ b/tools/scripts/report-destruction-timing.py
+@@ -454,6 +454,8 @@ def render_physics_task_details(doc,data,peak):
+ def render_complete_gate(manifest,runs,out):
+     doc=Document();doc.title('🎯 Complete PhysX destruction advance — 8 ms gate',1)
+     doc.text('60 Hz physical timestep. Timer includes commands, projectile insertion, simulate/fetch, destruction/correction and mandatory completion. All measured steps, including startup, remain. Rendering and report output are outside the bracket.')
++    if manifest.get('allow_existing_graphics'):
++        doc.text('Diagnostic shared-GPU capture: pre-existing desktop graphics processes remained active. These results do not establish isolated performance qualification. Full process samples and allowed identities are retained in campaign.json.')
+     rows=[];workloads=[];failures=0;gates=[];quality_failures=[];history_changes=[]
+     for case in manifest['config']['cases']:
+         case_runs=runs[case['id']]['plain']
+diff --git a/tools/scripts/run-destruction-timing.py b/tools/scripts/run-destruction-timing.py
+index 6384478c..8ecb2793 100644
+--- a/tools/scripts/run-destruction-timing.py
++++ b/tools/scripts/run-destruction-timing.py
+@@ -38,6 +38,11 @@ def gpu():
+     if len(devices)!=1:raise RuntimeError('This campaign requires exactly one visible physical GPU; select/adapt the device explicitly')
+     return {'unix_seconds':time.time(),'driver':ET.fromstring(xml).findtext('driver_version'),'devices':devices}
+ 
++def competing_processes(sample, allowed_graphics):
++    """Only explicitly recorded graphics-only identities may share a diagnostic run."""
++    return [p for g in sample['devices'] for p in g['processes']
++            if p not in allowed_graphics or p['type']!='G']
++
+ def main():
+     p=argparse.ArgumentParser(description=__doc__);p.add_argument('output',type=Path)
+     p.add_argument('--config',type=Path,default=ROOT/'tools/profiles/wall-penetration-timing.json')
+@@ -45,6 +50,7 @@ def main():
+     p.add_argument('--resume',action='store_true');p.add_argument('--trials',type=int,default=5);p.add_argument('--seconds',type=int,default=10);p.add_argument('--gpu-trials',type=int,default=3);p.add_argument('--gpu-trace-buffer-mb',type=int,default=512)
+     p.add_argument('--gate-only',action='store_true',help='Untraced complete-step deadline runs, without expensive profiler captures')
+     p.add_argument('--phase-scopes',action='store_true',help='Add a separate CPU-scope/CUDA-event capture to --gate-only; no CUPTI trace')
++    p.add_argument('--allow-existing-graphics',action='store_true',help='Diagnostic only: retain pre-existing graphics-only GPU processes and record their interference')
+     p.add_argument('--case',help='Select a fixture ID from the versioned configuration')
+     p.add_argument('--report-output',type=Path,help='Generated report directory (default: CAPTURE/report)')
+     p.add_argument('--failure-campaign',type=Path,help='Retain failed earlier capture attempts as explicit report evidence')
+@@ -63,6 +69,13 @@ def main():
+       'runner_sha256':sha(Path(__file__)),'runs':[],'status':'running',
+       'warmup':'One separate process per case is discarded. All measured frames, including first impact and first allocation, are retained.',
+       'monitor':'Require no GPU process before/after and at most one stable GPU PID during each run. GPU PIDs are in the host namespace; ownership is inferred from this lifecycle, not a container PID comparison. Clocks are observed, not locked.'}
++    manifest['allow_existing_graphics']=args.allow_existing_graphics
++    manifest['allowed_graphics']=[]
++    if args.allow_existing_graphics:
++        initial=gpu();manifest['initial_gpu_sample']=initial
++        manifest['allowed_graphics']=[p for g in initial['devices'] for p in g['processes'] if p['type']=='G']
++        manifest['isolated_performance_qualification']=False
++        manifest['monitor']='Diagnostic shared GPU: allow only the recorded pre-existing graphics-only identities; reject other GPU processes before/after and multiple compute processes during each run. Preserve all GPU samples. Clocks are observed, not locked.'
+     if args.failure_campaign:
+         previous=json.loads(args.failure_campaign.read_text())
+         manifest['prior_failure_evidence']={'manifest':str(args.failure_campaign.resolve()),'sha256':sha(args.failure_campaign),
+@@ -72,6 +85,7 @@ def main():
+         previous=json.loads(manifest_path.read_text())
+         if any(previous[k]!=manifest[k] for k in ['config','seconds','gpu_seconds','gpu_trials','gpu_trace_buffer_mb','trials','gate_only','artifacts']):raise RuntimeError('Resume inputs or executable artifacts changed')
+         if previous.get('phase_scopes',False)!=manifest['phase_scopes']:raise RuntimeError('Resume phase capture mode changed')
++        if previous.get('allow_existing_graphics',False)!=args.allow_existing_graphics:raise RuntimeError('Resume graphics policy changed')
+         previous.setdefault('runner_revisions',[]).append(manifest['runner_sha256'])
+         failed=[r for r in previous['runs'] if r.get('exit_code')!=0]
+         for r in failed:
+@@ -84,6 +98,7 @@ def main():
+             for f,h in r['files'].items():
+                 if sha(args.output/r['name']/f)!=h:raise RuntimeError('Completed capture changed before resume')
+         previous['status']='running';previous.pop('error',None);manifest=previous
++        manifest.setdefault('allowed_graphics',[])
+     def save():manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
+     modes=[('warmup',0,c) for c in config['cases']]
+     modes += [('plain',i,c) for i in range(args.trials) for c in config['cases']]
+@@ -105,19 +120,28 @@ def main():
+             record={'name':name,'case':case['id'],'mode':mode,'trial':trial,'command':cmd,'samples':[]};manifest['runs'].append(record);save()
+             print('RUN',name,flush=True)
+             before=gpu();record['samples'].append(before)
+-            if any(g['processes'] for g in before['devices']):raise RuntimeError('GPU has another process; no services were stopped')
++            if competing_processes(before,manifest['allowed_graphics']):raise RuntimeError('GPU has another process; no services were stopped')
+             with (args.output/(name+'.log')).open('w') as log:
+                 process=subprocess.Popen(cmd,cwd=ROOT,stdout=log,stderr=subprocess.STDOUT)
+                 record['pid']=process.pid
+                 try:
+                     while process.poll() is None:
+                         sample=gpu();record['samples'].append(sample)
+-                        observed=[v for g in sample['devices'] for v in g['processes']]
++                        observed=competing_processes(sample,manifest['allowed_graphics'])
+                         if len(observed)>1:raise RuntimeError(f'Multiple GPU processes appeared: {observed}')
+                         if observed:
+                             pid=observed[0]['pid']
+                             if 'gpu_pid' in record and record['gpu_pid']!=pid:raise RuntimeError('GPU process identity changed during run')
+                             record['gpu_pid']=pid
++                        if 'loaded_modules' not in record:
++                            maps=Path(f'/proc/{process.pid}/maps')
++                            if maps.exists():
++                                mapped=maps.read_text()
++                                if 'libPhysXGpuActivity_64.so' in mapped and 'libPhysXDestructionGpuRuntime_64.so' in mapped:
++                                    maps_path=args.output/(name+'.maps');maps_path.write_text(mapped)
++                                    modules=sorted({line.split()[-1] for line in mapped.splitlines() if '/' in line and '.so' in line})
++                                    record['loaded_modules']={p:None for p in modules if Path(p).is_file()}
++                                    record['maps_sha256']=sha(maps_path)
+                         if len(record['samples'])>1200:raise RuntimeError('Capture exceeded watchdog')
+                         time.sleep(.25)
+                     record['exit_code']=process.returncode
+@@ -126,7 +150,8 @@ def main():
+                     raise
+             record['samples'].append(gpu());save()
+             if record['exit_code']:raise RuntimeError(f'Capture failed: {name}; inspect its log')
+-            if any(g['processes'] for g in record['samples'][-1]['devices']):raise RuntimeError('Foreign GPU process observed at capture end')
++            if competing_processes(record['samples'][-1],manifest['allowed_graphics']):raise RuntimeError('Foreign GPU process observed at capture end')
++            record['loaded_modules']={p:sha(Path(p)) for p in record.get('loaded_modules',{})}
+             compress_csv(out)
+             record['csv_storage']='lossless gzip, mtime=0, after simulation'
+             record['files']={str(f.relative_to(out)):sha(f) for f in sorted(out.iterdir()) if f.is_file()}
+diff --git a/tools/scripts/test-destruction-timing.py b/tools/scripts/test-destruction-timing.py
+index f68636d1..e05eb894 100644
+--- a/tools/scripts/test-destruction-timing.py
++++ b/tools/scripts/test-destruction-timing.py
+@@ -4,8 +4,19 @@ import gzip,importlib.util,tempfile,unittest
+ from pathlib import Path
+ spec=importlib.util.spec_from_file_location('report',Path(__file__).with_name('report-destruction-timing.py'))
+ r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
++runner_spec=importlib.util.spec_from_file_location('runner',Path(__file__).with_name('run-destruction-timing.py'))
++runner=importlib.util.module_from_spec(runner_spec);runner_spec.loader.exec_module(runner)
+ 
+ class TimingAccounting(unittest.TestCase):
++    def test_diagnostic_graphics_policy_keeps_compute_and_new_identities_visible(self):
++        desktop={'pid':10,'name':'desktop','type':'G'}
++        compute={'pid':20,'name':'simulation','type':'C'}
++        new_desktop={'pid':11,'name':'desktop','type':'G'}
++        changed_type=dict(desktop,type='C+G')
++        sample={'devices':[{'processes':[desktop,compute,new_desktop,changed_type]}]}
++        self.assertEqual(runner.competing_processes(sample,[desktop]),[compute,new_desktop,changed_type])
++        self.assertEqual(runner.competing_processes(sample,[]),sample['devices'][0]['processes'])
++
+     def test_full_profile_focus_accepts_bombardment(self):
+         scene={'id':'impacts-256','label':'256-building bombardment'}
+         captures={'plain':[object()],'phases':[object()],'gpu':[object()]}

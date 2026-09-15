@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "date": "2026-09-13",
+  "scope": "Audit artifacts only; no new GPU qualification",
+  "files_sha256": {
+    "README.md": "9808e7ae0fde4294a13d9539011b0b9aeec3753335e9b8ed04c84727f923c8b2",
+    "assertion-index.json": "787b613e7e9cdf87755ed0112d278d1b7654ef44f216d324cd5209e2ebd6e7ad",
+    "challenge-checkers.py": "0912489c7c92a49457741c9b558ebbda6bcdcc6db165dead4bd89c321fa6cf33",
+    "checker-challenges.json": "1884b85474a7e04f6a40d43d9f1665ab5ea62722c3ba5ec61bf986705aa7905d",
+    "cpu-tests.json": "1a7c7d3a3192556f0898f52e9abf3a0147a61282a509ff2bb51a7e647b2cf59e",
+    "ctest-inventory.json": "dfc4caf12fec3628fb64b26fa8adf05029f1a58f41a8c93d6c03f39a0bb03f7d",
+    "inventory-summary.json": "0cb126e1047dadec1475e6dc6ee19beb1c640237185ad2a50d809d6b8432ea46",
+    "inventory.py": "36ed655491a5f227258ffe43c78fa32bc41e53e4fb9d85278f3ad7639902f63b",
+    "source-inventory.csv": "068dde2ed5d53f66b752408501641eaf066add074f95380b6b5ce5b83c58d373",
+    "source-provenance.json": "6b6f125f71fc2ecd1dc198e3a18daa014af6d6fb777ba98dd8e2d4a8a41003e3",
+    "test-attribution.log": "f67aafa5114f64ef456e964aa360b3ae2e1c4b3ac10a1b1620490aea30364e9c",
+    "test-compare-observations.log": "79df89c1275396d97b472c355017fe5c3369eacc7d16c42ed8963bcd5a4391c3",
+    "test-destruction-ab.log": "7a3126cdbcff2fd760b38d5aab3c9237e44d73cc532030a0d38117cc7e6361df",
+    "test-destruction-semantic-suite.log": "62f85ca28c25eb9037f95f8d5b9f3d4d507ad1601060f7622282f2137922bfd9",
+    "test-destruction-timing.log": "4fbf847bc0c10c029b7212e4ef9645c9772516f0c3e9103caa390cfe6dde05c5",
+    "test-matched.log": "850dd2ad664733a87edc5f1ec0ae6cb32b2612ae19d19544869205df20429acb",
+    "test-native-prefix.log": "6630da361ad2aaa7dddac3f8ac07a830d99165650e799ec6d10c81856866813b",
+    "test-native-stress-solution-audit.log": "7137eeba0f1475e79f6dce65a349431fdd4c73ecad493315cc596f599d3a273f",
+    "test_report_native_publication.log": "e6ec182765cd965f2837d8eeaef5a64af48a104f245cd1a0b7281559194c57c1"
+  }
+}

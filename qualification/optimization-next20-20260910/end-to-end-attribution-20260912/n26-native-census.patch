@@ -1,0 +1,44 @@
+--- a/physx/source/physx/src/NpDestructionBodyAllocator.h
++++ b/physx/source/physx/src/NpDestructionBodyAllocator.h
+@@ -11,6 +11,7 @@
+ #include "PxsSimulationController.h"
+ #include "foundation/PxHashMap.h"
+ #include "foundation/PxProfiler.h"
++#include <cstdio>
+ namespace physx {
+ // Scene finalization, between-step commands and teardown call this allocator. It
+ // never relaxes the application's API access guards or publishes candidates in
+@@ -354,14 +355,31 @@
+             }
+         }
+         }
++        PxU64 actorVisits=0,retiredPairs=0,indexVisits=0;
++        PxU32 emptyRetirements=0;
++        PxHashMap<Sc::ActorSim*,bool> indexedActors;
++        for(PxU32 i=0;i<count;++i) {
++            auto* actor=resolvedBindings[i].from->getCore().getSim();
++            if(indexedActors.insert(actor,true))indexVisits+=actor->getActorInteractionCount();
++        }
+         {
+         PxProfileScoped profile(profiler,"GpuDestruction.applyDetail.migrateShapes",false,profileContext);
+         for(PxU32 i=0;i<count;++i) {
+             const auto& binding=resolvedBindings[i];
++            auto* actor=binding.from->getCore().getSim();
++            const PxU32 before=actor->getActorInteractionCount();actorVisits+=before;
+             if(!NpShapeManager::rebindShapeInternal(*binding.from,*binding.to,
+                 *binding.shape,binding.shape->getLocalPoseFast(),true,needsHostProperties()))return false;
+-        }
+-        }
++            const PxU32 after=actor->getActorInteractionCount();
++            if(after>before)return false;
++            retiredPairs+=before-after;if(after==before)++emptyRetirements;
++        }
++        }
++        if(count || bodies)std::printf("native-binding-census bodies=%u bindings=%u source_actors=%u actor_visits=%llu index_visits=%llu retired_pairs=%llu empty_retirements=%u removed_body_resolutions=%llu plan_bytes=%llu\n",
++            bodies,count,indexedActors.size(),static_cast<unsigned long long>(actorVisits),
++            static_cast<unsigned long long>(indexVisits),static_cast<unsigned long long>(retiredPairs),emptyRetirements,
++            static_cast<unsigned long long>(bodies)+2ull*count,
++            static_cast<unsigned long long>(bodies)*sizeof(NpRigidDynamic*)+static_cast<unsigned long long>(count)*sizeof(ResolvedBinding));
+         return true;
+     }
+     bool publishShapeOwners(const PxDestructionCollisionBinding* bindings,PxU32 count) override {

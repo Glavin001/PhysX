@@ -7,7 +7,8 @@ from pathlib import Path
 
 with tempfile.TemporaryDirectory(prefix='physx-connectivity-fracture-') as root:
     output = Path(root)/'capture'
-    subprocess.run([sys.argv[1], '--output', str(output), '--grid', '1', '--waves', '2',
+    # This legacy connectivity-owner fixture explicitly exercises Direct GPU mode.
+    subprocess.run([sys.argv[1], '--standard-scene', '0', '--output', str(output), '--grid', '1', '--waves', '2',
         '--seconds', '6', '--launch-seconds', '1', '--stress-iterations', '8192',
         '--preserve-contact-pairs', '1', '--gpu-island-repair', '1', '--gpu-pre-solve-islands', '1',
         '--gpu-pre-solve-contacts', '1', '--gpu-pre-solve-support', '1', '--gpu-connectivity-owner', '1',

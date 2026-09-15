@@ -4,8 +4,27 @@ import gzip,importlib.util,tempfile,unittest
 from pathlib import Path
 spec=importlib.util.spec_from_file_location('report',Path(__file__).with_name('report-destruction-timing.py'))
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
+runner_spec=importlib.util.spec_from_file_location('runner',Path(__file__).with_name('run-destruction-timing.py'))
+runner=importlib.util.module_from_spec(runner_spec);runner_spec.loader.exec_module(runner)
 
 class TimingAccounting(unittest.TestCase):
+    def test_compute_sharing_requires_exact_explicit_identity(self):
+        allowed={'pid':20,'name':'authorized-server','type':'C'}
+        changed=dict(allowed,name='replacement')
+        other={'pid':21,'name':'unlisted','type':'C'}
+        sample={'devices':[{'processes':[allowed,changed,other]}]}
+        self.assertEqual(runner.competing_processes(sample,[],[allowed]),[changed,other])
+        self.assertEqual(runner.competing_processes(sample,[]),[allowed,changed,other])
+
+    def test_diagnostic_graphics_policy_keeps_compute_and_new_identities_visible(self):
+        desktop={'pid':10,'name':'desktop','type':'G'}
+        compute={'pid':20,'name':'simulation','type':'C'}
+        new_desktop={'pid':11,'name':'desktop','type':'G'}
+        changed_type=dict(desktop,type='C+G')
+        sample={'devices':[{'processes':[desktop,compute,new_desktop,changed_type]}]}
+        self.assertEqual(runner.competing_processes(sample,[desktop]),[compute,new_desktop,changed_type])
+        self.assertEqual(runner.competing_processes(sample,[]),sample['devices'][0]['processes'])
+
     def test_full_profile_focus_accepts_bombardment(self):
         scene={'id':'impacts-256','label':'256-building bombardment'}
         captures={'plain':[object()],'phases':[object()],'gpu':[object()]}
@@ -199,6 +218,12 @@ class TimingAccounting(unittest.TestCase):
     def test_complete_peak_keeps_every_spike(self):
         run=self.complete_run([1]*599+[8.00001]);metric=r.complete_step_metrics(run)
         self.assertEqual(metric['max'],8.00001);self.assertEqual(run['summary']['missed_8ms'],1)
+    def test_frame_budget_exceedances_use_exact_thresholds(self):
+        run=self.complete_run([8.1,1000/120,1000/120+1e-6,1000/60,1000/60+1e-6])
+        metric=r.complete_step_metrics(run)
+        self.assertEqual(run['summary']['missed_8ms'],5)
+        self.assertEqual(metric['misses_120hz'],3)
+        self.assertEqual(metric['misses_60hz'],1)
     def test_profiler_serialization_must_be_outside_complete_steps(self):
         run=self.complete_run([1,1]);run['summary']['phase_output_timing_schema']=1
         run['frames'][0].update(phase_output_start_ns=4,phase_output_end_ns=5)

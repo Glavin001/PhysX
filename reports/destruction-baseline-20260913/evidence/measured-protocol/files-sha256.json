@@ -1,0 +1,9 @@
+{
+  "run-paired-calibration.py": "855c98812195c6cf0e5faf7598be7a0dc750947e51e388560f9b15d4c5006efe",
+  "screen.json": "a42a1755ad3227f8115b54a045037d077ac3ac3b44839b3109deccb7c468c0a9",
+  "paired-calibration.json": "38cb1f30510ba05201e08baeeb3f0556ca0f3a10cbf39bc0443719a0982c9bca",
+  "analyze-paired-calibration.py": "bd1d0f679a6bc305f69948037ca4a2d583aa6f3f662124d79f92792a62c3a0c2",
+  "capture-locators.json": "079d801e3d7ca7179947d5ceaf8f2867ca66473553ac703b1145afaadec28ee5",
+  "core.json": "83de8753bac46acae9f8f9af4bd5ed15d4b78cc3452df1655a0b8b55c03744e7",
+  "run-representative-screen.py": "5147f0ac567f1774e13e9de7cbdce727cb55a04ef1bb0b34a5c4915ea16d9306"
+}

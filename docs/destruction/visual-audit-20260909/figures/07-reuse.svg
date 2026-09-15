@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="830" viewBox="0 0 1440 830" role="img"><title>7. Can an unchanged stress component skip work?</title><desc>Current source at 471ea8a5. Historical dataset A predates these exact component-local certificates.</desc><rect width="100%" height="100%" fill="white"/>
+<text x="36" y="54" font-family="DejaVu Sans,sans-serif" font-size="30" font-weight="700" fill="#182A3A">7. Can an unchanged stress component skip work?</text>
+<text x="36" y="85" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#526477">Current source at 471ea8a5. Historical dataset A predates these exact component-local certificates.</text>
+<rect x="40" y="115" width="640" height="195" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="115" width="7" height="195" fill="#147D64" stroke="#147D64"/>
+<text x="58" y="148" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">GPU reuse eligibility</text>
+<text x="58" y="179" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Warm start + valid stored-output certificate?</text>
+<text x="58" y="204" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Same operator generation / no affected bond removals?</text>
+<text x="58" y="229" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Same tolerance and maximum-iteration settings?</text>
+<text x="58" y="254" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">All six input-load components bit-identical?</text>
+<rect x="750" y="115" width="640" height="195" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="750" y="115" width="7" height="195" fill="#147D64" stroke="#147D64"/>
+<text x="768" y="148" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">How a certificate becomes valid</text>
+<text x="768" y="179" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Stored bond forces passed a zero-update warm solve.</text>
+<text x="768" y="204" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Converged high-precision internal state alone is insufficient.</text>
+<text x="768" y="229" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">New split roots do not inherit the old certificate.</text>
+<text x="768" y="254" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Unrelated old components can retain certificates.</text>
+<polyline points="360,310 360,370" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="355.6503446588877,360.9955289764732 360,370 364.3496553411123,360.9955289764732" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="680,235 715,235 715,440 750,440" fill="none" stroke="#526477" stroke-width="3"/>
+<polyline points="740.9955289764732,444.3496553411123 750,440 740.9955289764732,435.6503446588877" fill="none" stroke="#526477" stroke-width="3"/>
+<rect x="40" y="370" width="640" height="150" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="370" width="7" height="150" fill="#147D64" stroke="#147D64"/>
+<text x="58" y="403" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">YES: skip iterative solve</text>
+<text x="58" y="434" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Reuse stored forces; still run material/damage logic.</text>
+<text x="58" y="459" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Still pay eligibility input scan and graph dispatch.</text>
+<text x="58" y="484" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Eligible nodes bypass supported preparation/recovery.</text>
+<rect x="750" y="370" width="640" height="150" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="750" y="370" width="7" height="150" fill="#AD6800" stroke="#AD6800"/>
+<text x="768" y="403" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">NO: recompute and verify</text>
+<text x="768" y="434" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">No contact is not sufficient proof of unchanged input.</text>
+<text x="768" y="459" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Support, gravity/centrifugal load or settings can change.</text>
+<text x="768" y="484" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Unconverged state must not be frozen for speed.</text>
+<rect x="40" y="600" width="1350" height="145" fill="#F6F8FB" stroke="#F6F8FB"/>
+<rect x="40" y="600" width="7" height="145" fill="#B84042" stroke="#B84042"/>
+<text x="58" y="633" font-family="DejaVu Sans,sans-serif" font-size="21" font-weight="700" fill="#182A3A">Remaining replacement: producer-maintained dirty components</text>
+<text x="58" y="664" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Current certificate check still visits candidate component inputs; storage remains capacity-sized.</text>
+<text x="58" y="689" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Maintain dirtiness where loads/topology change, then schedule only required components.</text>
+<text x="58" y="714" font-family="DejaVu Sans,sans-serif" font-size="17" font-weight="400" fill="#182A3A">Preserve all invalidation sources and ongoing material evolution; sleeping alone never grants reuse.</text>
+</svg>

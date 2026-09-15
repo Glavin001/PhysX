@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "capture_directory": "out/vm-port-20260910/wall-standard",
+  "source_commit": "795f9c0c24cbb2b2d85b97c3aabdd1fa2ff1624a",
+  "description": "Frozen ordinary-API sleeping baseline captured before snapshot and contact-order work on RTX 5060 Ti/CUDA 13.4. Exact trajectory comparison plus unchanged physical invariants; the older Direct GPU golden remains separate.",
+  "direct_gpu_mode": false,
+  "sleeping": true,
+  "frames": 600,
+  "sha256": {
+    "capture.json": "b883f642926ad5a3d649ac973cb899f6fadc5a9bfd0f7554ed1461ab37f8ba7d",
+    "invariants.json": "2c2f264195f64636f2154a148bbe6f7ff655c2ec78d2636db396d5f5f7922e04",
+    "native.summary.json": "3af134450bd2c72f7dfda61e1678ac7ea897074a1bae496208d87711e501fc40",
+    "native.frames.csv": "a39e9aa9970d2164de005f9574cc0657430de49da39d2a55e9cfa484d449fa5b",
+    "native.twstate": "2c4557a6e871fc041b0a4ccddf2302af353c1920299ea36c6034d7536e1cf830",
+    "native.motion.csv.gz": "d4fdeb399c2ef0726074f544ded665ca7a31c4d6273160fd0f0d00178b4245e7"
+  }
+}

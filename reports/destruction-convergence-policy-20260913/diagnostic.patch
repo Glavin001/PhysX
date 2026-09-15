@@ -1,0 +1,107 @@
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -29,6 +29,7 @@
+ #include <limits>
+ #include <stdexcept>
+ #include <vector>
++#include "convergence-diagnostic.h"
+ 
+ namespace physx { namespace {
+ using namespace Nv::Blast;
+@@ -75,8 +76,8 @@
+     const auto b=bodies[clusters[i].body];poses[i]=b.body2World.getTransform()*b.body2Actor_maxImpulseW.getTransform().getInverse();
+     angular[i]=PxVec3(b.angularVelocityXYZ_maxPenBiasW.x,b.angularVelocityXYZ_maxPenBiasW.y,b.angularVelocityXYZ_maxPenBiasW.z);
+ }
+-__global__ void requireNativeConvergence(PxDestructionStageStatus* status) {
+-    if(!status->converged)status->error|=4096u;
++__global__ void requireNativeConvergence(PxDestructionStageStatus* status,bool acceptCapped) {
++    if(!status->converged && !acceptCapped)status->error|=4096u;
+ }
+ __global__ void finishNativeCorrection(PxDestructionStageStatus* status) {status->error&=~8u;status->correctionPasses=1;}
+ // The descriptor's pair identities are persistent transform-cache/shape IDs.
+@@ -1306,6 +1307,8 @@
+             if(mTopology)mChanges.initialize(mTopology->accepted(),mStatus,
+                 mSolver?mSolver->deviceView().topologyStatus:nullptr,mStream);
+             mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.warmStart=d.warmStart;
++            if(convergenceDiagnosticArm()&1u)mParams.tolerance=1e-3f;
++            if(acceptCappedDiagnosticResult())mParams.maxIterations=32;
+             check(cudaMemset(mStatus,0,sizeof(*mStatus)));*mHostStatus={};
+             mSnapshotAsset.authored(d);
+             check(cudaEventRecord(mReady,mStream));return true;
+@@ -1451,7 +1454,7 @@
+             // Detached chunks still receive contact loads and may crush; a
+             // graph without bonds has no stiffness solve to allocate or run.
+             finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM);
+-            if(mCorrectionEnabled)requireNativeConvergence<<<1,1,0,mStream>>>(mStatus);
++            if(mCorrectionEnabled)requireNativeConvergence<<<1,1,0,mStream>>>(mStatus,acceptCappedDiagnosticResult());
+             if(mMaterials) {
+                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
+                     dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus);
+--- a/demos/blast-stress-demo/native_destruction_main.cpp
++++ b/demos/blast-stress-demo/native_destruction_main.cpp
+@@ -6,6 +6,9 @@
+ #include "native_bombardment.h"
+ #include "native_scenario_geometry.h"
+ #include "native_phase_profiler.h"
++#include <cstring>
++#include <stdexcept>
++#include "convergence-diagnostic.h"
+ #include "native_graph_diagnostics.h"
+ #include "native_graph_boundary_audit.h"
+ #include "native_gpu_consumer.h"
+@@ -285,7 +288,7 @@
+         if(auditIslands){graphBoundaryAudit.check();requireNativeGraphAudit(scene,output+"/native.graph-diagnostics.json");}
+         const auto status=destruction->getLastStatus();
+         if(!complete || error || status.error){std::fprintf(stderr,"INCOMPLETE native step %u: fetch=%u stage=%u broken=%u crushed=%u\n",frame,error,status.error,status.brokenBonds,status.crushedChunks);throw std::runtime_error("native demo correction incomplete");}
+-        require(status.converged,"native demo accepted an unconverged stress solve");
++        require(status.converged || acceptCappedDiagnosticResult(),"native demo accepted an unconverged stress solve");
+         require(status.correctionPasses<=1,"native demo exceeded one internal correction");require(status.stressPasses==1+status.correctionPasses,"native demo missed/exceeded stress evaluations");require(status.frame==frame+1,"native demo duplicated timestep");
+         require(status.brokenBonds==0 || totalContacts+status.normalContacts>0,"authored building fractured before any actual impact");
+         totalCorrections+=status.correctionPasses;totalBroken+=status.brokenBonds;totalContacts+=status.normalContacts;
+--- a/probe/serialization-probe.cpp
++++ b/probe/serialization-probe.cpp
+@@ -26,6 +26,7 @@
+ #include <stdexcept>
+ #include <vector>
+ #include "profile-markers.h"
++#include "convergence-diagnostic.h"
+ using namespace physx;
+ namespace {
+ bool requireCompleteShapes=true;
+--- a/probe/file-replay.inl
++++ b/probe/file-replay.inl
+@@ -68,7 +68,7 @@
+                 CUcontext prior;require(cuCtxPopCurrent(&prior)==CUDA_SUCCESS,"replay stats context pop");}
+             // Match the native application's mandatory completion boundary.
+             require(!topology.slotError,"incomplete GPU cluster slot allocation");
+-            if(destructive)require(!status.error && status.converged && status.frame==frame+1
++            if(destructive)require(!status.error && (status.converged || acceptCappedDiagnosticResult()) && status.frame==frame+1
+                     && status.correctionPasses<=1 && status.stressPasses==1+status.correctionPasses,"file replay quality/correction failed");
+             const auto completeEnd=std::chrono::steady_clock::now();
+             profileTick.finish();
+@@ -97,7 +97,7 @@
+                 <<",\"pre_tick_validation_ms\":"<<std::chrono::duration<double,std::milli>(start-restoreEnd).count()
+                 <<",\"post_tick_validation_ms\":"<<std::chrono::duration<double,std::milli>(validationEnd-completeEnd).count()
+                 <<",\"command_ms\":"<<commandMs<<",\"simulate_fetch_ms\":"<<simulationMs<<",\"completion_ms\":"<<completionMs
+-                <<",\"stress_iterations\":"<<status.iterations<<",\"broken_bonds\":"<<status.brokenBonds
++                <<",\"stress_converged\":"<<status.converged<<",\"stress_iterations\":"<<status.iterations<<",\"broken_bonds\":"<<status.brokenBonds
+                 <<",\"correction_passes\":"<<status.correctionPasses<<",\"stress_passes\":"<<status.stressPasses
+                 <<",\"output_clusters\":"<<topology.clusterCount<<",\"stress_islands\":"<<stressTopology.islandCount
+                 <<",\"stress_active_nodes\":"<<stressTopology.activeNodeCount<<",\"stress_active_bonds\":"<<stressTopology.activeBondCount
+--- /dev/null
++++ b/convergence-diagnostic.h
+@@ -0,0 +1,14 @@
++// Diagnostic only. Not a production policy or a convergence certificate.
++#include <cstdlib>
++inline unsigned convergenceDiagnosticArm() {
++    static const unsigned arm=[]() {
++        const char* p=std::getenv("PHYSX_CONVERGENCE_ARM");
++        if(!p || !std::strcmp(p,"strict"))return 0u;
++        if(!std::strcmp(p,"tolerance"))return 1u;
++        if(!std::strcmp(p,"cap32"))return 2u;
++        if(!std::strcmp(p,"vibe32"))return 3u;
++        throw std::runtime_error("invalid PHYSX_CONVERGENCE_ARM");
++    }();
++    return arm;
++}
++inline bool acceptCappedDiagnosticResult(){return convergenceDiagnosticArm()>=2;}

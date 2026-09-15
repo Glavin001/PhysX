@@ -38,6 +38,7 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver) {
     auto* parent=body(PxVec3(10,20,0),true,true);step(scene);
     auto* runtime=static_cast<PxgDestructionRuntime*>(scene.getDestructionScene());require(runtime,"native runtime missing");
     require(!runtime->rigidCheckpoint().count,"disabled destruction created a checkpoint");
+    require(!runtime->inputRigidCheckpoint().count,"disabled destruction exposed input history");
     PxDestructionStressChunk chunk{PxVec3(0),0,0,0,PX_INVALID_U32};
     PxDestructionChunkMassProperties mass{};mass.supported=1;
     PxDestructionStressCluster cluster{parent->getGPUIndex(),PxVec3(0)};
@@ -52,6 +53,8 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver) {
     auto view=runtime->rigidCheckpoint();
     require(view.bodies && view.ready && view.generation && view.count>connected->getGPUIndex(),"ordinary scene participants missing from native checkpoint");
     require(bool(view.previous)==accelerations && bool(view.accelerations)==accelerations,"optional acceleration checkpoint mismatch");
+    require(view.purpose==PxgDestructionCheckpointPurpose::BeforeSolve &&
+        runtime->inputRigidCheckpoint().generation==view.generation,"input capture purpose/generation mismatch");
     {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.ready));
         const auto saved=read(view.bodies,view.count),actual=read(core.getBodySimBufferDevicePtr().getPointer(),view.count);
         for(auto* actor:{projectile,connected}) {
@@ -75,15 +78,57 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver) {
         near(actual[id].linearVelocityXYZ_inverseMassW.x,3.1f,"ordinary force fixture integration mismatch");
         near(actual[id].externalLinearAcceleration.x,0,"ordinary trial did not consume transient force");
     }
+    // A corrected-motion refresh must retain the original commands/velocities,
+    // not re-label the already-integrated body state as original input.
+    {PxScopedCudaLock lock(cuda);
+        const auto input=runtime->inputRigidCheckpoint();check(cuEventSynchronize(input.ready));
+        require(input.bodies==view.bodies && input.generation==view.generation,"before-solve input did not share the existing copy");
+        require(input.owners && input.ownership,"missing original authored ownership");
+        const auto ownership=read(input.ownership,1);
+        require(ownership[0].valid && !ownership[0].error && ownership[0].inputGeneration==input.generation &&
+            ownership[0].bodyCount==input.count && ownership[0].chunkCount==1,"invalid original ownership receipt");
+        const auto originalOwners=read(input.owners,ownership[0].chunkCount);
+        require(originalOwners[0].active && originalOwners[0].body==parent->getGPUIndex() && originalOwners[0].root==0,
+            "original chunk did not resolve its native parent");
+        const auto original=read(input.bodies,input.count);
+        const auto originalPrevious=accelerations?read(input.previous,input.count):std::vector<PxgBodySimVelocities>();
+        const auto originalAccel=accelerations?read(input.accelerations,input.count):std::vector<PxgRigidBodyAcceleration>();
+        const auto* bodies=core.getBodySimBufferDevicePtr().getPointer();
+        const auto current=read(bodies,view.count);
+        require(runtime->captureRigidState(bodies,core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+            core.getRigidBodyAccelerationsDevice(),view.count,core.getStream(),PxgDestructionCheckpointPurpose::CorrectedMotion),
+            "corrected-motion capture failed");
+        view=runtime->rigidCheckpoint();check(cuEventSynchronize(view.ready));
+        const auto retained=runtime->inputRigidCheckpoint();
+        require(view.purpose==PxgDestructionCheckpointPurpose::CorrectedMotion && view.generation>input.generation &&
+            retained.purpose==PxgDestructionCheckpointPurpose::BeforeSolve && retained.generation==input.generation &&
+            retained.bodies==input.bodies && retained.bodies!=view.bodies,"corrected refresh replaced original input identity");
+        same(original,read(retained.bodies,retained.count),"corrected refresh changed original GPU input bytes");
+        same(ownership,read(retained.ownership,1),"corrected refresh changed original ownership receipt");
+        same(originalOwners,read(retained.owners,ownership[0].chunkCount),"corrected refresh changed original authored ownership");
+        same(current,read(view.bodies,view.count),"corrected checkpoint missed current motion");
+        near(read(retained.bodies+commanded->getGPUIndex(),1)[0].externalLinearAcceleration.x,6,"original force history was lost");
+        near(read(view.bodies+commanded->getGPUIndex(),1)[0].externalLinearAcceleration.x,0,"corrected motion reused consumed force");
+        if(accelerations){same(originalPrevious,read(retained.previous,retained.count),"previous input velocities changed");
+            same(originalAccel,read(retained.accelerations,retained.count),"input acceleration history changed");}
+        require(!runtime->captureRigidState(bodies,core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+            core.getRigidBodyAccelerationsDevice(),view.count,core.getStream(),PxgDestructionCheckpointPurpose::CorrectedMotion),
+            "duplicate corrected refresh accepted");
+        require(runtime->inputRigidCheckpoint().generation==input.generation,"rejected refresh changed input identity");
+    }
     const PxU32 oldCount=view.count;const PxU64 oldGeneration=view.generation;
     for(unsigned i=0;i<257;++i)body(PxVec3(100+float(i),20,0),true,false);
     step(scene);view=runtime->rigidCheckpoint();require(view.count>=oldCount+257,"checkpoint truncated scene body-pool growth");
+    require(view.purpose==PxgDestructionCheckpointPurpose::BeforeSolve &&
+        runtime->inputRigidCheckpoint().generation==view.generation,"next tick retained stale input history");
     {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.ready));const auto saved=read(view.bodies,view.count);
         for(size_t i=actors.size()-257;i<actors.size();++i)near(saved[actors[i]->getGPUIndex()].body2World.p.x,100+float(i-(actors.size()-257)),"grown checkpoint lost a native slot");
     }
     // Clearing/reinstantiating must invalidate handles even if allocation sizes
     // and raw addresses are recycled. No old generation can be restored.
     require(runtime->clearStress(),"checkpoint clear failed");require(!runtime->rigidCheckpoint().count && !runtime->rigidCheckpoint().ready,"clear exposed stale checkpoint");
+    require(!runtime->inputRigidCheckpoint().count && !runtime->inputRigidCheckpoint().ready,"clear exposed stale input history");
+    require(!runtime->inputRigidCheckpoint().owners && !runtime->inputRigidCheckpoint().ownership,"clear exposed stale original owners");
     require(runtime->configureStress(desc),"checkpoint reconfiguration failed");commandForce();step(scene);view=runtime->rigidCheckpoint();require(view.generation>oldGeneration,"reconfiguration recycled checkpoint generation");
     {PxScopedCudaLock lock(cuda);check(cuEventSynchronize(view.ready));
         auto* bodies=core.getBodySimBufferDevicePtr().getPointer();auto* previous=core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer();auto* accel=core.getRigidBodyAccelerationsDevice();

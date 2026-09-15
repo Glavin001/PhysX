@@ -3,6 +3,7 @@
 // grant; request counts, stable selection and assignment belong to the GPU.
 // Reverse address ownership is produced only when the resource grant/storage
 // grows. Ordinary allocation reads it; spare addresses are not simulated bodies.
+#include "PxgDestructionDeviceGraph.cuh"
 struct NativeMotionAddresses {
     const PxU32* indices;PxU32 capacity;PxgDestructionMotionStorage storage;
     PxU32* ordinals;PxU32* error;
@@ -40,15 +41,15 @@ struct NativeMotionAllocationView {
     PxDestructionStageStatus* stage;
     PxU32 requestCapacity,blocks;
     const PxDestructionClusterBodyState* candidates;
-    cudaGraphConditionalHandle continuation{};
+    PxU32* continuation{};
     NativeNodeBirthTransaction* births{};
 };
-__global__ void beginNativeMotionAllocation(NativeMotionAllocationView v,cudaGraphConditionalHandle work) {
+__global__ void beginNativeMotionAllocation(NativeMotionAllocationView v,PxU32* work) {
     const auto p=*v.preparation;const auto addresses=*v.addresses;
     *v.allocation={};v.allocation->generation=p.generation;v.allocation->count=p.count;
     v.pool->capacity=addresses.capacity;v.pool->pending=0;v.pool->error=0;
-    cudaGraphSetConditional(work,0);
-    if(v.continuation)cudaGraphSetConditional(v.continuation,0);
+    *work=0;
+    if(v.continuation)*v.continuation=0;
     if(v.stage->error!=8u)return;
     if(!p.valid || p.count>v.requestCapacity || p.allocationRequests>p.count) {
         v.allocation->error=v.pool->error=2u;v.stage->error|=256u;return;
@@ -67,8 +68,8 @@ __global__ void beginNativeMotionAllocation(NativeMotionAllocationView v,cudaGra
         if(addressError&16u){v.allocation->initializationError=1;v.stage->error|=512u;}
         return;
     }
-    if(!p.allocationRequests){v.allocation->valid=1;if(v.continuation)cudaGraphSetConditional(v.continuation,1);return;}
-    cudaGraphSetConditional(work,1);
+    if(!p.allocationRequests){v.allocation->valid=1;if(v.continuation)*v.continuation=1;return;}
+    *work=1;
 }
 __device__ void nativeMotionTileRange(NativeMotionAllocationView v,PxU32& first,PxU32& last) {
     const PxU32 count=v.preparation->count,tiles=count/128+(count%128!=0);
@@ -176,18 +177,28 @@ __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
             v.births->first=v.pool->committed;v.births->count=v.preparation->allocationRequests;
             v.pool->pending=v.preparation->allocationRequests;
             v.allocation->reserved=v.pool->pending;v.allocation->initialized=v.pool->pending;v.allocation->valid=1;
-            if(v.continuation)cudaGraphSetConditional(v.continuation,1);
+            if(v.continuation)*v.continuation=1;
         }
     }
 }
 
-__global__ void allocateNativeMotionRequests(NativeMotionAllocationView v) {
-    const auto grid=cooperative_groups::this_grid();
-    countNativeMotionRequests(v);grid.sync();
-    if(!grid.thread_rank())prefixNativeMotionRequests(v);
-    grid.sync();
-    compactNativeMotionRequests(v);grid.sync();
-    assignNativeMotionOwners(v);
+// Graph dependencies provide the four global phase boundaries. Each phase
+// consults the same immutable GPU work flag; invalid batches never assign owners.
+__global__ void countNativeMotionPhase(NativeMotionAllocationView v,const PxU32* work) {
+    if(*work)countNativeMotionRequests(v);
+}
+__global__ void prefixNativeMotionPhase(NativeMotionAllocationView v,const PxU32* work) {
+    if(*work)prefixNativeMotionRequests(v);
+}
+__global__ void compactNativeMotionPhase(NativeMotionAllocationView v,const PxU32* work) {
+    if(*work)compactNativeMotionRequests(v);
+}
+__global__ void assignNativeMotionPhase(NativeMotionAllocationView v,const PxU32* work) {
+    if(*work)assignNativeMotionOwners(v);
+}
+
+__global__ void selectNativeMotionGraphBody(const PxU32* enabled,DeviceGraphBodyView body) {
+    setDeviceGraphBodyEnabled(body,*enabled!=0);
 }
 
 // One graph instantiated at scene setup. Growth updates one address descriptor;
@@ -200,6 +211,10 @@ class NativeMotionAllocation {
     cudaGraphExec_t mExecutable{};
     PxU32 mOrdinalCapacity{};
     NativeNodeBirthTransaction* mBirths{};
+    NativeMotionAllocationView mView{};
+    PxU32* mFlags{};
+    DeviceGraphBody mContinuationBody;
+    bool mHasContinuation=false;
     cudaError_t registerAddresses(cudaStream_t stream) {
         auto& v=mHostAddresses;
         if(v.capacity && v.storage.capacity!=mOrdinalCapacity) {
@@ -236,6 +251,8 @@ public:
         if(mExecutable)cudaGraphExecDestroy(mExecutable);if(mGraph)cudaGraphDestroy(mGraph);
         cudaFree(mHostAddresses.ordinals);cudaFree(mHostAddresses.error);cudaFree(mBirths);mBirths=nullptr;
         mHostAddresses={};mOrdinalCapacity=0;
+        mContinuationBody.clear();cudaFree(mFlags);
+        mFlags=nullptr;mView={};mHasContinuation=false;
         cudaFree(mAddresses);cudaFree(mOffsets);mExecutable=nullptr;mGraph=nullptr;mAddresses=nullptr;mOffsets=nullptr;
     }
     const NativeMotionAddresses* addressView() const {return mAddresses;}
@@ -270,12 +287,8 @@ public:
         e=cudaDeviceGetAttribute(&major,cudaDevAttrComputeCapabilityMajor,device);if(e!=cudaSuccess)return e;
         e=cudaDeviceGetAttribute(&minor,cudaDevAttrComputeCapabilityMinor,device);if(e!=cudaSuccess)return e;
         if(!((major==8 && minor==9) || (major==12 && minor==0)))return cudaErrorNotSupported;
-        int cooperative=0,sms=0,resident=0;
-        e=cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device);if(e!=cudaSuccess)return e;
-        e=cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device);if(e!=cudaSuccess)return e;
-        e=cudaOccupancyMaxActiveBlocksPerMultiprocessor(&resident,allocateNativeMotionRequests,128,0);if(e!=cudaSuccess)return e;
-        if(!cooperative || !resident)return cudaErrorNotSupported;
-        v.blocks=std::min(PxU32(sms*resident),std::min(128u,std::max(1u,v.requestCapacity/128+(v.requestCapacity%128!=0))));
+        // Fixed bounded decomposition no longer requires cooperative residency.
+        v.blocks=std::min(128u,std::max(1u,v.requestCapacity/128+(v.requestCapacity%128!=0)));
         e=cudaMalloc(&mAddresses,sizeof(*mAddresses));if(e!=cudaSuccess)return e;
         e=cudaMalloc(&mHostAddresses.error,sizeof(PxU32));if(e!=cudaSuccess)return e;
         e=cudaMalloc(&mOffsets,v.blocks*sizeof(*mOffsets));if(e!=cudaSuccess)return e;
@@ -284,30 +297,28 @@ public:
         v.addresses=mAddresses;v.blockOffsets=mOffsets;v.births=mBirths;
         e=setCapacity(nullptr,0,stream);if(e!=cudaSuccess)return e;
         e=cudaGraphCreate(&mGraph,0);if(e!=cudaSuccess)return e;
-        if(continuation){e=cudaGraphConditionalHandleCreate(&v.continuation,mGraph,0,cudaGraphCondAssignDefault);if(e!=cudaSuccess)return e;}
-        cudaGraphConditionalHandle work{};
-        e=cudaGraphConditionalHandleCreate(&work,mGraph,0,cudaGraphCondAssignDefault);if(e!=cudaSuccess)return e;
-        cudaGraphNode_t prior{};
-        e=add(mGraph,prior,beginNativeMotionAllocation,1,1,v,work);if(e!=cudaSuccess)return e;
-        cudaGraphNodeParams condition{};condition.type=cudaGraphNodeTypeConditional;
-        condition.conditional.handle=work;condition.conditional.type=cudaGraphCondTypeIf;condition.conditional.size=1;
-        cudaGraphNode_t branch{};e=cudaGraphAddNode(&branch,mGraph,&prior,nullptr,1,&condition);if(e!=cudaSuccess)return e;
-        const auto body=condition.conditional.phGraph_out[0];prior=nullptr;
-        e=add(body,prior,allocateNativeMotionRequests,v.blocks,128,v);if(e!=cudaSuccess)return e;
-        cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
-        e=cudaGraphKernelNodeSetAttribute(prior,cudaKernelNodeAttributeCooperative,&attribute);if(e!=cudaSuccess)return e;
-        if(continuation) {
-            cudaGraphNodeParams next{};next.type=cudaGraphNodeTypeConditional;
-            next.conditional.handle=v.continuation;next.conditional.type=cudaGraphCondTypeIf;next.conditional.size=1;
-            cudaGraphNode_t node{};e=cudaGraphAddNode(&node,mGraph,&branch,nullptr,1,&next);if(e!=cudaSuccess)return e;
-            *continuation=next.conditional.phGraph_out[0];return cudaSuccess;
-        }
+        e=cudaMalloc(&mFlags,2*sizeof(PxU32));if(e!=cudaSuccess)return e;
+        mHasContinuation=continuation!=nullptr;
+        v.continuation=mHasContinuation?mFlags+1:nullptr;mView=v;
+        // The caller captures its preparation body into this empty flat graph.
+        // Instantiate adds the selection prefix only after capture is complete.
+        if(continuation){*continuation=mGraph;return cudaSuccess;}
         return instantiate(stream);
     }
-    // The standalone allocation oracle needs no continuation. Production fills
-    // the same graph's preparation branch before this single instantiation.
     cudaError_t instantiate(cudaStream_t stream) {
-        const auto e=cudaGraphInstantiate(&mExecutable,mGraph,0);if(e!=cudaSuccess)return e;
+        std::vector<cudaGraphNode_t> roots;
+        if(mHasContinuation && !mContinuationBody.initialize(mGraph,roots))return cudaErrorInvalidValue;
+        cudaGraphNode_t prior{};
+        auto e=add(mGraph,prior,beginNativeMotionAllocation,1,1,mView,mFlags);if(e!=cudaSuccess)return e;
+        e=add(mGraph,prior,countNativeMotionPhase,mView.blocks,128,mView,mFlags);if(e!=cudaSuccess)return e;
+        e=add(mGraph,prior,prefixNativeMotionPhase,1,1,mView,mFlags);if(e!=cudaSuccess)return e;
+        e=add(mGraph,prior,compactNativeMotionPhase,mView.blocks,128,mView,mFlags);if(e!=cudaSuccess)return e;
+        e=add(mGraph,prior,assignNativeMotionPhase,mView.blocks,128,mView,mFlags);if(e!=cudaSuccess)return e;
+        if(mHasContinuation) {
+            e=add(mGraph,prior,selectNativeMotionGraphBody,1,1,mFlags+1,mContinuationBody.view());if(e!=cudaSuccess)return e;
+            if(!mContinuationBody.connectBody(mGraph,prior,roots))return cudaErrorInvalidValue;
+        }
+        e=cudaGraphInstantiate(&mExecutable,mGraph,0);if(e!=cudaSuccess)return e;
         return cudaGraphUpload(mExecutable,stream);
     }
     cudaError_t launch(cudaStream_t stream) {return cudaGraphLaunch(mExecutable,stream);}

@@ -1,0 +1,11 @@
+# GPU capture failure and recovery — 2026-09-13
+
+At01:42:11UTC the kernel logged Xid120, a GSP store access page fault in the CUPTI worker for PID1055742, while city64-cascading-fracture finished profiler teardown. Both restored ticks had completed. The health gate rejected the capture; it is not counted as qualified.
+
+NVIDIA classifies Xid120 as a GSP error that can require a GPU reset and software investigation: [Xid catalog](https://docs.nvidia.com/deploy/xid-errors/analyzing-xid-catalog.html). Public Blackwell reports also describe GSP faults, including [a supported-clock query failure](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1239), but that command and control ID differ from this failure. No matching public root cause or proven collector fix has been established here.
+
+The ordinary nvidia-smi reset returned Not Supported. Under the existing authorization, the recovery held the shared benchmark lock, privately preserved the active web server's command/environment, stopped it and desktop/persistence services, verified no remaining GPU handles, unloaded the NVIDIA modules, performed the supported PCI function-level reset, reloaded the modules, verified healthy GPU telemetry, and restored services. No reboot, driver upgrade, permanent configuration change or runtime SDK change was made. [Recovery receipt](evidence/campaign/gpu-recovery-receipt.json). Private restart material stays outside the report.
+
+Pending/retried CPU cases now use --capture-range=cudaProfilerApi and stop recording at the end of the marked full tick. Restore and teardown are outside this window. The first40 good captures retain their original full-process recordings, with attribution still restricted to that same full tick. Compare receipt options explicitly. Successful retries support this as an operational workaround only; they do not identify the corrupting operation or establish that the fault cannot recur.
+
+Failed raw capture: out/destruction-baseline-20260913/cpu-full/city64-cascading-fracture/. Successful retry uses an attempt suffix. Kernel fault evidence and recovery commands remain in out/destruction-baseline-20260913/recovery/. No suspect capture, invalid metric or physical failure was waived.

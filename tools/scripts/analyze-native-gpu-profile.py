@@ -49,6 +49,8 @@ def source_catalog():
     return catalog
 
 def classify(name,catalog):
+    if name.startswith(('_ZN2Nv5Blast15StressHierarchy','Nv::Blast::StressHierarchy::')):
+        return 'stress hierarchy / preconditioner','blast/source/sdk/extensions/stressgpu/detail/'
     # Mangled anonymous-namespace names embed the CUDA translation unit.
     if 'NvBlastExtStressGpu' in name:return 'stress solver / stress topology','blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu'
     if 'PxgDestructionTopology' in name:return 'destruction connectivity / mass / slots','physx/source/gpudestruction/src/PxgDestructionTopology.cu'

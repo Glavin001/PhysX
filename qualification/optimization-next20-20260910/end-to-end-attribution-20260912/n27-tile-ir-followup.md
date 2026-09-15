@@ -1,0 +1,13 @@
+# Tile IR assessment of the supplied NVIDIA documentation
+
+Checked 2026-09-12. No Tile simulation implementation or speedup is claimed.
+
+The supplied [Tile IR specification](https://docs.nvidia.com/cuda/tile-ir/latest/index.html) describes the compiler target, while Tile C++ provides a native frontend. The [optimization guide](https://docs.nvidia.com/cuda/tile-ir/latest/sections/optimization_guide.html) confirms automatic instruction selection, pipelining and resource management, with advisory architecture-specific controls. We still choose algorithms, tile decomposition, data ownership and invalidation. Existing SIMT kernels are not automatically rewritten into tile programs.
+
+Our installed CUDA 13.4.59 already compiled an FP64 Tile C++ probe for sm_120; exact command and hashes are in `out/end-to-end-attribution-20260912/tile-availability/receipt.json`. This is compile-only. Native solver/build sources do not currently enable Tile. [CUDA 13.4 compiler documentation](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/tile-compilation-in-cuda.html) specifies opt-in `--enable-tile`, C++20, coexistence with SIMT, and the current restriction that Tile device definitions must remain within their translation unit. A separate C++20 helper can preserve the surrounding engine build.
+
+The likely fit is batched block operations or multi-load factor application after reducing the amount of solving. Sparse gather/scatter is supported, so irregular topology alone does not rule Tile out. Small blocks, packing cost, divergent convergence and compiler lowering still require measurement. The compiler cannot determine whether equilibrium is reusable while damage advances or whether a changed contact invalidates an island.
+
+FP64 support does not establish FP64 Tensor Core acceleration. Tile can use alternative implementations where the hardware or tile shape requires them. Numeric results may change across shapes, targets and compiler versions; retain equilibrium, recovered forces, material health and integrated fracture checks. [Versioned compatibility and numerical contract](https://docs.nvidia.com/cuda/tile-ir/13.4/sections/stability.html).
+
+Priority remains removal and algorithmic reuse. The [shared-factor probe](n27-shared-factor-gpu.md) tests that algorithmic opportunity with cuDSS, a separate sparse-solver library, not Tile. A Tile candidate must preserve exactly the same native inputs and account for assembly, packing, launches, transfers, synchronization and correction in full-step measurements. The relevant initial screen is the frozen seven-case light suite; any finalist requires all 52 cases and continuous sleeping/ordinary trajectories. No predicted compiler speedup is credited.

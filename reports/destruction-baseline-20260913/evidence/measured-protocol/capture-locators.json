@@ -1,0 +1,15 @@
+{
+  "screen": {
+    "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/representative-calibration-v2/screen.json",
+    "sha256": "a42a1755ad3227f8115b54a045037d077ac3ac3b44839b3109deccb7c468c0a9"
+  },
+  "ncu": {
+    "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/representative-calibration-v2/ncu/counters.ncu-rep",
+    "sha256": "f4c35b3bccaf97fb95ae1d940d3e0486bcd9516c8b00bec3fa0114675ece2b90"
+  },
+  "systems": {
+    "path": "/root/workspace/physx-2/out/destruction-baseline-20260913/representative-calibration-v2/systems/city256-late-debris/trace.nsys-rep",
+    "sha256": "0006bcdc4bb29a5d42dbc67d58bea117476e1d326e828ecc16f94ff01163a4ab"
+  },
+  "availability": "Large original captures remain in out/; this report archives compact JSON/CSV and exact source locators."
+}

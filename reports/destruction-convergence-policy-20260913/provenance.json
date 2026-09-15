@@ -1,0 +1,17 @@
+{
+  "baseline_source": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf",
+  "baseline_runtime_sha256": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354",
+  "build_receipt": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/build/build.json",
+  "build_sha256": "a15db6de14423ccc4503215061791170c0491120f68df697810a0d3d7abfba1a",
+  "artifacts": {
+    "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/build/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+    "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/build/libPhysXDestructionGpuRuntime_64.so": "9334bb97c3b16f2456c1bd2f5f35e74f1df426512353fc4b07717459ae76083b",
+    "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/build/native_destruction_demo": "c991307f77ea91c3875048634c448943214518482c2b66c4f40c83cadc588b51",
+    "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/build/serialization-probe": "1e93cbe0b480d3e82c142b2e04e7fc496691c2c71773b1d1aed5c0e56a6ba1dc"
+  },
+  "patch_sha256": "fb0541ac59e0bff2aeca40b176ed8d3bed773f751a22d2cfc12c541e42d533c9",
+  "gpu_collection_seconds": 203.55986025900347,
+  "runtime_promoted": false,
+  "precision": "Unchanged selected solver arithmetic; only stopping and nonconvergence acceptance change",
+  "raw_location": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen"
+}

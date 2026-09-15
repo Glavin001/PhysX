@@ -22,8 +22,8 @@ def report(capture):
         '# Native destruction timing report', '',
         f'Capture: `{capture}`. {count:,} accepted steps; {result["corrected_steps"]:,} steps used one resimulation.', '',
         'These are host-wall timings including GPU waits, measured with profiling on a shared GPU. Audit settings are recorded in `native.summary.json`. '
-        'They are not isolated CUDA kernel timings or a whole-game performance qualification.', '',
-        '| Complete step | Minimum ms | Average ms | Maximum ms | p95 ms |',
+        'They are not isolated CUDA kernel timings or a whole-game performance qualification. The simulation/destruction row is `physics_step_ms`, including integrated destruction; it is not stock PhysX alone or the authoritative unprofiled `complete_step_ms`.', '',
+        '| Measured scope | Minimum ms | Average ms | Maximum ms | p95 ms |',
         '| --- | ---: | ---: | ---: | ---: |',
     ]
     for title, key in [('Simulation/destruction', 'physics_timing'), ('Capture tick including observation and I/O', 'capture_tick_timing')]:

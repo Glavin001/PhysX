@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant C as CPU orchestration and compatibility
+    participant P as PhysX CPU and GPU
+    participant D as GPU destruction
+    C->>P: Current-tick commands; simulate
+    P->>D: Current solved contacts, device buffers
+    D->>D: Loads → equilibrium stress → material verdict
+    alt Fracture needs one physics correction
+        D->>D: Connectivity, mass, fragment motion preparation
+        D->>C: Allocation and ownership metadata, GPU → CPU
+        C->>C: Native bodies, shape owners, contact registration
+        C->>D: Binding receipts and capacity, CPU → GPU
+        D->>P: Rewind affected participants; install fragment state
+        P->>D: Corrected physics contacts, device buffers
+        D->>D: Second stress and material verdict; final topology
+    end
+    D->>C: Accepted state and required completion transfers
+    C->>C: Finish accepted actor and query publication

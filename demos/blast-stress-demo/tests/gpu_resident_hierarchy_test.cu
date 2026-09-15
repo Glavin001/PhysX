@@ -1,3 +1,4 @@
+#include "native_regression_policy.h"
 // Independent connectivity and B^T P / Galerkin checks for GPU construction.
 #include "StressHierarchyGraph.cuh"
 #include "StressHierarchyOperator.cuh"

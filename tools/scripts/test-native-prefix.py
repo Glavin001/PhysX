@@ -6,6 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 import struct
+import shutil
 import tempfile
 import unittest
 
@@ -16,11 +17,11 @@ prefix=importlib.util.module_from_spec(spec);spec.loader.exec_module(prefix)
 def write_json(path,data):path.write_text(json.dumps(data))
 
 
-def fixture(path):
+def fixture(path,count=32,ordinary=False):
     path.mkdir()
     summary={name:False for name in prefix.PHYSICAL_FIELDS}
-    summary.update(status='completed',frames=32,chunks=444,bonds=896,projectiles=1,
-                   record_fps=60,correction_limit=1,direct_gpu_mode=True,
+    summary.update(status='completed',frames=count,chunks=444,bonds=896,projectiles=1,
+                   record_fps=60,correction_limit=1,direct_gpu_mode=not ordinary,sleeping=ordinary,
                    motion_audit_enabled=True,motion_trace_enabled=True,
                    max_motion_position_error=0,max_cluster_com_error=0)
     write_json(path/'native.summary.json',summary)
@@ -29,16 +30,16 @@ def fixture(path):
     fields=['step','resim_passes','stress_converged','stress_passes','bonds_broken','post_correction_bonds_broken']
     with (path/'native.frames.csv').open('w') as f:
         writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader()
-        for step in range(32):writer.writerow(dict(step=step,resim_passes=0,stress_converged=1,stress_passes=1,bonds_broken=0,post_correction_bonds_broken=0))
-    fields=list(prefix.IDENTITY_FIELDS)+[p+a for p in ['render_','physics_','com_'] for a in 'xyz']
+        for step in range(count):writer.writerow(dict(step=step,resim_passes=0,stress_converged=1,stress_passes=1,bonds_broken=0,post_correction_bonds_broken=0))
+    fields=list(prefix.IDENTITY_FIELDS)+[p+a for p in ['render_','physics_','com_'] for a in 'xyz']+['qx','qy','qz','qw','vx','vy','vz','wx','wy','wz']
     with (path/'native.motion.csv').open('w') as f:
         writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader()
-        for step in range(32):
+        for step in range(count):
             for chunk in range(444):
-                row={k:0 for k in fields};row.update(step=step,chunk=chunk,root=0,cluster_chunks=444,supported=1);writer.writerow(row)
+                row={k:0 for k in fields};row.update(step=step,chunk=chunk,root=0,cluster_chunks=444,supported=1,qw=1);writer.writerow(row)
     with (path/'native.twstate').open('wb') as f:
-        f.write(b'TWSTATE1'+struct.pack('<7I2f',2,60,32,960,540,1,0,32/60,0))
-        for step in range(32):f.write(struct.pack('<B3I7fB',2,step,1,444,0,0,0,0,0,0,1,0))
+        f.write(b'TWSTATE1'+struct.pack('<7I2f',2,60,count,960,540,1,0,count/60,0))
+        for step in range(count):f.write(struct.pack('<B3I7fB',2,step,1,444,0,0,0,0,0,0,1,0))
         f.write(b'\xff')
 
 
@@ -56,6 +57,25 @@ class PrefixTests(unittest.TestCase):
     def tearDown(self):self.temp.cleanup()
     def verify(self):return prefix.verify(self.actual,self.reference,32)
     def test_unchanged(self):self.assertEqual(self.verify()['status'],'passed')
+    def test_explicit_and_default_effective_modes_match(self):
+        for path in (self.actual, self.reference):
+            summary=json.loads((path/'native.summary.json').read_text())
+            summary.update(direct_gpu_mode=False,sleeping=True)
+            write_json(path/'native.summary.json',summary)
+        path=self.reference/'capture.json';data=json.loads(path.read_text())
+        data['command']+=['--standard-scene','1','--sleeping','1'];write_json(path,data)
+        self.assertEqual(self.verify()['status'],'passed')
+    def test_explicit_mode_must_match_actual_scene(self):
+        path=self.actual/'capture.json';data=json.loads(path.read_text())
+        data['command']+=['--standard-scene','1'];write_json(path,data)
+        with self.assertRaisesRegex(ValueError,'API option disagrees'):self.verify()
+    def test_explicit_sleep_must_match_actual_scene(self):
+        for path in (self.actual,self.reference):
+            summary=json.loads((path/'native.summary.json').read_text())
+            summary.update(direct_gpu_mode=False,sleeping=True);write_json(path/'native.summary.json',summary)
+        path=self.actual/'capture.json';data=json.loads(path.read_text())
+        data['command']+=['--sleeping','0'];write_json(path,data)
+        with self.assertRaisesRegex(ValueError,'sleep option disagrees'):self.verify()
     def test_exact_identity(self):
         mutate_row(self.actual/'native.motion.csv',29*444+12,'root',12)
         self.assertEqual(self.verify()['first_difference'],dict(step=29,chunk=12,kind='topology_identity'))
@@ -63,6 +83,35 @@ class PrefixTests(unittest.TestCase):
         mutate_row(self.actual/'native.motion.csv',17*444+9,'physics_x',.002)
         mutate_row(self.actual/'native.motion.csv',17*444+9,'render_x',.002)
         self.assertEqual(self.verify()['first_difference']['step'],17)
+    def test_velocity_regression_without_position_change(self):
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'vx',.01)
+        self.assertEqual(self.verify()['first_difference']['kind'],'linear_m_s')
+    def test_spin_regression_without_position_change(self):
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'wz',.01)
+        self.assertEqual(self.verify()['first_difference']['kind'],'angular_rad_s')
+    def test_orientation_regression(self):
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'qz',.70710678)
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'qw',.70710678)
+        self.assertEqual(self.verify()['first_difference']['kind'],'orientation_dot_error')
+    def test_quaternion_sign_is_not_a_regression(self):
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'qw',-1)
+        self.assertEqual(self.verify()['status'],'passed')
+    def test_invalid_quaternion_rejected(self):
+        mutate_row(self.actual/'native.motion.csv',2,'qw',0)
+        with self.assertRaisesRegex(ValueError,'quaternion'):self.verify()
+    def test_internal_root_renaming_is_diagnostic(self):
+        path=self.actual/'native.motion.csv'
+        with path.open() as f:rows=list(csv.DictReader(f));fields=list(rows[0])
+        for row in rows:row['root']='23'
+        with path.open('w') as f:
+            writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader();writer.writerows(rows)
+        result=self.verify()
+        self.assertEqual(result['status'],'passed')
+        self.assertEqual(result['implementation_differences']['root_labels'],32*444)
+        self.assertEqual(prefix.verify(self.actual,self.reference,32,strict_implementation=True)['status'],'failed')
+    def test_missing_second_stress_rejected(self):
+        mutate_row(self.actual/'native.frames.csv',5,'resim_passes',1)
+        with self.assertRaisesRegex(ValueError,'current-tick stress'):self.verify()
     def test_nonfinite(self):
         mutate_row(self.actual/'native.motion.csv',10,'com_x','nan')
         with self.assertRaisesRegex(ValueError,'Non-finite'):self.verify()
@@ -75,6 +124,13 @@ class PrefixTests(unittest.TestCase):
     def test_mode_mismatch(self):
         path=self.reference/'native.summary.json';data=json.loads(path.read_text());data['sleeping']=True;write_json(path,data)
         with self.assertRaisesRegex(ValueError,'physical setting'):self.verify()
+    def test_implementation_owner_can_change_without_changing_physics(self):
+        for directory,value in ((self.actual,True),(self.reference,False)):
+            path=directory/'native.summary.json';data=json.loads(path.read_text());data['gpu_island_repair']=value;write_json(path,data)
+            path=directory/'capture.json';data=json.loads(path.read_text());data['command']+=['--gpu-island-repair',str(int(value))];write_json(path,data)
+        self.assertEqual(self.verify()['status'],'passed')
+        with self.assertRaisesRegex(ValueError,'settings differ'):
+            prefix.verify(self.actual,self.reference,32,strict_implementation=True)
     def test_changed_solver_settings(self):
         path=self.reference/'capture.json';data=json.loads(path.read_text());data['command'][-1]='4096';write_json(path,data)
         with self.assertRaisesRegex(ValueError,'command settings'):self.verify()
@@ -87,6 +143,23 @@ class PrefixTests(unittest.TestCase):
     def test_unqualified_reference(self):
         path=self.reference/'quality.json';data=json.loads(path.read_text());data['frozen_identity_gate_passed']=False;write_json(path,data)
         with self.assertRaisesRegex(ValueError,'frozen identity'):self.verify()
+    def test_full_requires_ordinary_sleeping(self):
+        with self.assertRaisesRegex(ValueError,'ordinary APIs and sleeping'):
+            prefix.verify(self.actual,self.reference,600)
+    def test_full_rejects_short_run(self):
+        for path in (self.actual,self.reference):
+            summary=json.loads((path/'native.summary.json').read_text())
+            summary.update(direct_gpu_mode=False,sleeping=True)
+            write_json(path/'native.summary.json',summary)
+        with self.assertRaisesRegex(ValueError,'exactly 600'):
+            prefix.verify(self.actual,self.reference,600)
+    def test_full_checks_last_tick(self):
+        for path in (self.actual,self.reference):
+            shutil.rmtree(path);fixture(path,600,ordinary=True)
+        mutate_row(self.actual/'native.motion.csv',599*444+3,'com_x',.002)
+        result=prefix.verify(self.actual,self.reference,600)
+        self.assertEqual(result['status'],'failed')
+        self.assertEqual(result['first_difference']['step'],599)
 
 
 if __name__=='__main__':unittest.main()

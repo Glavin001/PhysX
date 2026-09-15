@@ -1,0 +1,1892 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressElasticComponents.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressElasticComponents.cuh
+new file mode 100644
+index 00000000..02114c34
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressElasticComponents.cuh
+@@ -0,0 +1,178 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "StressElasticPcgBlock.cuh"
++#include <cub/device/device_radix_sort.cuh>
++
++namespace Nv { namespace Blast { namespace Elastic { namespace Partition {
++// Rebuild at an explicit topology/support edit boundary. No host convergence
++// loop or device count readback. All buffers and scratch are caller-owned and
++// exclusive until completion on stream. A rebuild requires fresh layout keys.
++struct State { uint32_t count, nodes, error, ready; };
++struct Storage {
++    uint32_t capacity;
++    uint32_t *parents, *roots, *ids, *sortedRoots, *sortedNodes, *flags, *prefix;
++    uint32_t *starts, *owner, *local; // starts: capacity+1; others: capacity
++    double* length;
++    SetupKey* keys;
++};
++__global__ void begin(Graph g, State* state, const uint32_t* graphError, double length) {
++    *state = {0, g.nodes, *graphError, 0};
++    if (!isfinite(length) || length <= 0) state->error |= InvalidValue;
++}
++__global__ void initialize(Graph g, Storage s, const State* state) {
++    const auto i=blockIdx.x*blockDim.x+threadIdx.x;
++    if (i>=g.nodes) return;
++    // Sorting always receives initialized input, including a rejected graph.
++    s.parents[i]=!state->error && !g.prescribed[i] ? i : Unowned;
++    s.ids[i]=i;s.owner[i]=s.local[i]=Unowned;
++}
++__device__ uint32_t root(uint32_t* parent,uint32_t i) {
++    for (;;) {
++        const auto next=atomicAdd(parent+i,0u);
++        if(next==i) return i;
++        // All links decrease toward the minimum ID. Atomically skip a stable
++        // ancestor; concurrent root linking can only shorten it further.
++        const auto ancestor=atomicAdd(parent+next,0u);
++        if(ancestor==next)return next;
++        atomicCAS(parent+i,next,ancestor);
++        i=ancestor;
++    }
++}
++__global__ void unite(Graph g,Storage s,const State* state) {
++    const auto i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i>=g.bonds || state->error) return;
++    const auto& e=g.interfaces[i];
++    if(!e.live || g.prescribed[e.first] || g.prescribed[e.second]) return;
++    auto a=e.first,b=e.second;
++    for (;;) {
++        a=root(s.parents,a);b=root(s.parents,b);
++        if(a==b) return;
++        const auto low=min(a,b),high=max(a,b);
++        if(atomicCAS(s.parents+high,high,low)==high) return;
++    }
++}
++__global__ void labels(Graph g,Storage s) {
++    const auto i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i>=g.nodes) return;
++    auto r=s.parents[i];
++    if(r!=Unowned) while(s.parents[r]!=r) r=s.parents[r];
++    s.roots[i]=r;
++}
++__global__ void mark(Graph g,Storage s,State* state) {
++    const auto i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i>=g.nodes) return;
++    const auto r=s.sortedRoots[i];
++    s.flags[i]=r!=Unowned && (!i || s.sortedRoots[i-1]!=r);
++    if(r==Unowned && (!i || s.sortedRoots[i-1]!=Unowned)) state->nodes=i;
++}
++__global__ void ranges(Graph g,Storage s,State* state,double length,SetupKey key) {
++    const auto i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(!i) {
++        const auto count=g.nodes?s.prefix[g.nodes-1]:0;
++        state->count=count;s.starts[count]=state->nodes;
++    }
++    if(i<g.nodes && s.flags[i]) {
++        const auto group=s.prefix[i]-1;
++        s.starts[group]=i;s.length[group]=length;s.keys[group]=key;
++    }
++}
++__global__ void inverse(Graph g,Storage s,const State* state) {
++    const auto i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i>=state->nodes || state->error) return;
++    const auto node=s.sortedNodes[i],group=s.prefix[i]-1;
++    s.owner[node]=group;s.local[node]=i-s.starts[group];
++}
++__global__ void finish(State* state) {
++    state->ready=!state->error;
++    if(state->error) state->count=state->nodes=0;
++}
++inline Components view(Storage s,const State* state) {
++    return {s.capacity,s.starts,s.sortedNodes,s.owner,s.local,s.length,&state->count};
++}
++// Fixed-size inclusive block scan. Every lane participates; out-of-range lanes
++// contribute zero. Block totals are scanned recursively at geometry-known sizes,
++// so neither a CPU count readback nor a data-dependent host loop is needed.
++__global__ void scanBlock(const uint32_t* input,uint32_t* output,uint32_t n,uint32_t* totals) {
++    __shared__ uint32_t warps[4];
++    const auto i=blockIdx.x*128+threadIdx.x,lane=threadIdx.x%32,warp=threadIdx.x/32;
++    uint32_t value=i<n?input[i]:0;
++    for(unsigned offset=1;offset<32;offset*=2) {
++        const auto previous=__shfl_up_sync(0xffffffffu,value,offset);
++        if(lane>=offset)value+=previous;
++    }
++    if(lane==31)warps[warp]=value;
++    __syncthreads();
++    if(!warp) {
++        uint32_t sum=lane<4?warps[lane]:0;
++        for(unsigned offset=1;offset<4;offset*=2) {
++            const auto previous=__shfl_up_sync(0xffffffffu,sum,offset);
++            if(lane>=offset)sum+=previous;
++        }
++        __syncwarp(); // all shared loads finish before any lane overwrites them
++        if(lane<4)warps[lane]=sum;
++    }
++    __syncthreads();
++    if(i<n)output[i]=value+(warp?warps[warp-1]:0);
++    if(totals && !threadIdx.x)totals[blockIdx.x]=warps[3];
++}
++__global__ void addScanOffsets(uint32_t* output,uint32_t n,const uint32_t* totals) {
++    const auto i=blockIdx.x*128+threadIdx.x;
++    if(i<n && blockIdx.x)output[i]+=totals[blockIdx.x-1];
++}
++inline size_t scanBytes(uint32_t n) {
++    size_t bytes=0;
++    for(uint64_t blocks=(uint64_t(n)+127)/128;blocks>1;blocks=(blocks+127)/128)
++        bytes+=2*blocks*sizeof(uint32_t);
++    return bytes;
++}
++inline cudaError_t scan(const uint32_t* input,uint32_t* output,uint32_t n,uint32_t* scratch,cudaStream_t stream) {
++    if(!n)return cudaSuccess;
++    const auto blocks=uint32_t((uint64_t(n)+127)/128);
++    scanBlock<<<blocks,128,0,stream>>>(input,output,n,blocks>1?scratch:nullptr);
++    auto result=cudaGetLastError();if(result!=cudaSuccess || blocks==1)return result;
++    auto* sums=scratch+blocks;
++    result=scan(scratch,sums,blocks,scratch+2*blocks,stream);if(result!=cudaSuccess)return result;
++    addScanOffsets<<<blocks,128,0,stream>>>(output,n,sums);
++    return cudaGetLastError();
++}
++// Scratch query does not execute GPU work. Sort is stable: initial ascending
++// node IDs therefore give deterministic order within each minimum-root label.
++inline cudaError_t scratchBytes(Graph g,Storage s,size_t& bytes,cudaStream_t stream=nullptr) {
++    bytes=0;
++    if(!g.nodes) return cudaSuccess;
++    size_t sort=0;
++    const auto result=cub::DeviceRadixSort::SortPairs(nullptr,sort,s.roots,s.sortedRoots,s.ids,s.sortedNodes,g.nodes,0,32,stream);
++    const size_t prefix=scanBytes(g.nodes);
++    if(result==cudaSuccess)bytes=sort>prefix?sort:prefix;
++    return result;
++}
++inline cudaError_t build(Graph g,Storage s,State* state,const uint32_t* graphError,double length,
++                         SetupKey key,void* scratch,size_t bytes,cudaStream_t stream=nullptr) {
++    if(g.nodes>s.capacity || !state || !graphError || !s.starts ||
++       (g.nodes && (!s.parents || !s.roots || !s.ids || !s.sortedRoots || !s.sortedNodes ||
++                    !s.flags || !s.prefix || !s.owner || !s.local || !s.length || !s.keys)))
++        return cudaErrorInvalidValue;
++    size_t required=0;
++    auto result=scratchBytes(g,s,required,stream);
++    if(result!=cudaSuccess) return result;
++    if(required && (!scratch || bytes<required)) return cudaErrorInvalidValue;
++    begin<<<1,1,0,stream>>>(g,state,graphError,length);
++    const auto blocks=uint32_t((uint64_t(g.nodes)+127)/128);
++    if(g.nodes) {
++        initialize<<<blocks,128,0,stream>>>(g,s,state);
++        if(g.bonds) unite<<<uint32_t((uint64_t(g.bonds)+127)/128),128,0,stream>>>(g,s,state);
++        labels<<<blocks,128,0,stream>>>(g,s);
++        result=cudaGetLastError();if(result!=cudaSuccess) return result;
++        size_t available=bytes;
++        result=cub::DeviceRadixSort::SortPairs(scratch,available,s.roots,s.sortedRoots,s.ids,s.sortedNodes,g.nodes,0,32,stream);
++        if(result!=cudaSuccess) return result;
++        mark<<<blocks,128,0,stream>>>(g,s,state);
++        result=scan(s.flags,s.prefix,g.nodes,reinterpret_cast<uint32_t*>(scratch),stream);
++        if(result!=cudaSuccess) return result;
++    }
++    ranges<<<blocks?blocks:1,128,0,stream>>>(g,s,state,length,key);
++    if(g.nodes) inverse<<<blocks,128,0,stream>>>(g,s,state);
++    finish<<<1,1,0,stream>>>(state);
++    return cudaGetLastError();
++}
++}}}}
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressElasticPcgBlock.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressElasticPcgBlock.cuh
+new file mode 100644
+index 00000000..8d79e787
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressElasticPcgBlock.cuh
+@@ -0,0 +1,317 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "StressElasticOperator.cuh"
++
++// Private executable baseline, one cooperative block per connected component.
++// All vectors, reductions and stopping decisions remain on the GPU. This is a
++// linear solve receipt, not permission to commit material/engine state.
++namespace Nv
++{
++namespace Blast
++{
++namespace Elastic
++{
++enum class SolveStatus : uint32_t
++{
++    LinearConverged,
++    PendingIterationLimit,
++    InvalidInput,
++    ModelUnsupported,
++    IncompatibleLoad,
++    Nonfinite,
++    Breakdown,
++    NeedsSetup
++};
++struct Components
++{
++    uint32_t count;
++    const uint32_t* starts; // count+1, all unknowns; prescribed rows may be omitted
++    const uint32_t* nodes; // unique owned rows; omitted prescribed rows are read-only
++    const uint32_t* owner; // graph.nodes, inverse component index
++    const uint32_t* local; // graph.nodes, inverse offset within component
++    const double* length; // count; q = diag(1,1,1,1/L,1/L,1/L) x
++    const uint32_t* activeCount = nullptr; // optional device count; count is allocation capacity
++};
++constexpr uint32_t Unowned = ~uint32_t(0);
++__device__ uint32_t componentCount(Components c)
++{
++    return c.activeCount ? *c.activeCount : c.count;
++}
++struct SolveProfile
++{
++    double absoluteTolerance, relativeTolerance;
++    double forceScale, torqueScale, forceTolerance, torqueTolerance;
++    double compatibilityAbsolute, compatibilityRelative;
++    double rankTolerance, nullspaceTolerance, pivotTolerance, driftTolerance;
++    uint32_t checkInterval, maxIterations;
++};
++struct SetupKey
++{
++    uint64_t identity, generation, topology, geometry, stiffness, supports, layout;
++};
++enum class SetupStatus : uint32_t
++{
++    Unprepared,
++    Ready,
++    InvalidInput,
++    ModelUnsupported
++};
++struct SetupState
++{
++    SetupKey key;
++    double length, rankTolerance, nullspaceTolerance, pivotTolerance;
++    SetupStatus status;
++    uint32_t free, builds, factorsValid;
++};
++static_assert(sizeof(SetupState) == 7 * sizeof(uint64_t) + 4 * sizeof(double) + 4 * sizeof(uint32_t), "setup layout");
++__device__ bool setupMatches(const SetupState& s, const SetupKey& k, double length, const SolveProfile& p)
++{
++    return s.status == SetupStatus::Ready && s.key.identity == k.identity && s.key.generation == k.generation &&
++           s.key.topology == k.topology && s.key.geometry == k.geometry && s.key.stiffness == k.stiffness &&
++           s.key.supports == k.supports && s.key.layout == k.layout && s.length == length &&
++           s.rankTolerance == p.rankTolerance && s.nullspaceTolerance == p.nullspaceTolerance &&
++           s.pivotTolerance == p.pivotTolerance;
++}
++struct SolveReceipt
++{
++    SolveStatus status;
++    uint32_t iterations, restarts, residualChecks;
++    double residualNorm, maxForce, maxTorque, compatibilityNorm;
++};
++// Every transferred byte has a named, initialized field (no padding to read).
++static_assert(sizeof(SolveReceipt) == 4 * sizeof(uint32_t) + 4 * sizeof(double), "receipt layout");
++struct SolveWorkspace
++{
++    Vector *x, *r, *p, *z, *v, *truth; // disjoint arrays of graph.nodes entries
++    Matrix *basis, *factors;
++    uint32_t *reached, *nextReached;
++};
++// Stream after graph validators. The caller supplies actual pointer capacities.
++// This inverse-map check establishes unique complete ownership without atomics
++// on vector data. Connectedness is separately checked inside each solve block.
++__global__ void validateComponents(Graph g, Components c, const uint32_t* graphError, uint32_t* error)
++{
++    const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
++    if (i >= g.nodes || *graphError)
++        return;
++    const auto count = componentCount(c);
++    if (count > c.count || c.starts[0] || c.starts[count] > g.nodes)
++    {
++        atomicOr(error, uint32_t(InvalidGraph));
++        return;
++    }
++    // Check both directions: omitting prescribed rows must not permit holes,
++    // duplicate packed entries or an unowned unknown.
++    if (i < c.starts[count])
++    {
++        const auto node = c.nodes[i];
++        if (node >= g.nodes || c.owner[node] >= count)
++            atomicOr(error, uint32_t(InvalidGraph));
++        else
++        {
++            const auto group = c.owner[node];
++            if (c.starts[group] > i || i >= c.starts[group + 1] || c.local[node] != i - c.starts[group])
++                atomicOr(error, uint32_t(InvalidGraph));
++        }
++    }
++    const auto owner = c.owner[i];
++    if (g.prescribed[i] && owner == Unowned)
++    {
++        if (c.local[i] != Unowned)
++            atomicOr(error, uint32_t(InvalidGraph));
++        return;
++    }
++    if (owner >= count)
++    {
++        atomicOr(error, uint32_t(InvalidGraph));
++        return;
++    }
++    const auto begin = c.starts[owner], end = c.starts[owner + 1];
++    if (begin >= end || end > c.starts[count] || c.local[i] >= end - begin || c.nodes[begin + c.local[i]] != i)
++    {
++        atomicOr(error, uint32_t(InvalidGraph));
++        return;
++    }
++    for (uint32_t k = g.starts[i]; k < g.starts[i + 1]; ++k)
++    {
++        const auto& e = g.interfaces[g.references[k]];
++        if (e.live && !g.prescribed[e.first] && !g.prescribed[e.second] && c.owner[e.first] != c.owner[e.second])
++            atomicOr(error, uint32_t(InvalidGraph));
++    }
++}
++__device__ double blockSum(double value, double* scratch)
++{
++    scratch[threadIdx.x] = value;
++    __syncthreads();
++    for (unsigned stride = 64; stride; stride >>= 1)
++    {
++        if (threadIdx.x < stride)
++            scratch[threadIdx.x] += scratch[threadIdx.x + stride];
++        __syncthreads();
++    }
++    const double result = scratch[0];
++    __syncthreads();
++    return result;
++}
++__device__ double blockMax(double value, double* scratch)
++{
++    scratch[threadIdx.x] = value;
++    __syncthreads();
++    for (unsigned stride = 64; stride; stride >>= 1)
++    {
++        if (threadIdx.x < stride)
++            scratch[threadIdx.x] = fmax(scratch[threadIdx.x], scratch[threadIdx.x + stride]);
++        __syncthreads();
++    }
++    const double result = scratch[0];
++    __syncthreads();
++    return result;
++}
++struct ComponentBlock
++{
++    Graph g;
++    Components c;
++    uint32_t begin, end;
++    double length;
++    double* scratch;
++    __device__ uint32_t node(uint32_t slot) const
++    {
++        return c.nodes[slot];
++    }
++    __device__ double dot(const Vector* a, const Vector* b) const
++    {
++        double value = 0;
++        for (uint32_t j = begin + threadIdx.x; j < end; j += 128)
++        {
++            const auto i = node(j);
++            for (unsigned k = 0; k < 6; ++k)
++                value += a[i].v[k] * b[i].v[k];
++        }
++        return blockSum(value, scratch);
++    }
++    __device__ Vector scaled(Vector a) const
++    {
++        for (unsigned k = 3; k < 6; ++k)
++            a.v[k] /= length;
++        return a;
++    }
++    __device__ void apply(const Vector* x, Vector* y) const
++    {
++        for (uint32_t j = begin + threadIdx.x; j < end; j += 128)
++        {
++            const auto i = node(j);
++            Vector value{};
++            if (!g.prescribed[i])
++                for (uint32_t k = g.starts[i]; k < g.starts[i + 1]; ++k)
++                {
++                    const auto& e = g.interfaces[g.references[k]];
++                    if (!e.live)
++                        continue;
++                    auto d = endpoint(e, g.positions[e.first], g.prescribed[e.first] ? Vector{} : scaled(x[e.first]), -1);
++                    accumulate(d, endpoint(e, g.positions[e.second],
++                                           g.prescribed[e.second] ? Vector{} : scaled(x[e.second]), 1));
++                    accumulate(
++                        value, transposeEndpoint(e, g.positions[i], multiply(e.stiffness, d), e.first == i ? -1 : 1));
++                }
++            y[i] = scaled(value);
++        }
++        __syncthreads();
++    }
++    __device__ void project(Vector* x, const Matrix* basis, bool free) const
++    {
++        if (!free)
++            return;
++        // Two passes control loss of orthogonality when warm starts contain a
++        // large rigid component. No incompatible load is hidden by this step.
++        for (unsigned pass = 0; pass < 2; ++pass)
++            for (unsigned mode = 0; mode < 6; ++mode)
++            {
++                double local = 0;
++                for (uint32_t j = begin + threadIdx.x; j < end; j += 128)
++                {
++                    const auto i = node(j);
++                    for (unsigned k = 0; k < 6; ++k)
++                        local += basis[i].v[6 * k + mode] * x[i].v[k];
++                }
++                const double coefficient = blockSum(local, scratch);
++                for (uint32_t j = begin + threadIdx.x; j < end; j += 128)
++                {
++                    const auto i = node(j);
++                    for (unsigned k = 0; k < 6; ++k)
++                        x[i].v[k] -= coefficient * basis[i].v[6 * k + mode];
++                }
++                __syncthreads();
++            }
++    }
++    __device__ bool residual(
++        const Vector* rhs, SolveWorkspace w, const SolveProfile& p, double rhsNorm, SolveReceipt& receipt) const
++    {
++        apply(w.x, w.truth);
++        double force = 0, torque = 0;
++        bool bad = false;
++        for (uint32_t j = begin + threadIdx.x; j < end; j += 128)
++        {
++            const auto i = node(j);
++            auto b = scaled(rhs[i]);
++            double f = 0, t = 0;
++            for (unsigned k = 0; k < 6; ++k)
++            {
++                const double value = b.v[k] - w.truth[i].v[k];
++                w.truth[i].v[k] = value;
++                bad |= !isfinite(value);
++                if (k < 3)
++                    f += value * value;
++                else
++                    t += value * value * length * length;
++            }
++            bad |= !isfinite(f) || !isfinite(t);
++            force = fmax(force, sqrt(f) / p.forceScale);
++            torque = fmax(torque, sqrt(t) / p.torqueScale);
++        }
++        const bool nonfinite = __syncthreads_or(bad);
++        const double norm = sqrt(dot(w.truth, w.truth)), maxForce = blockMax(force, scratch),
++                     maxTorque = blockMax(torque, scratch);
++        if (!threadIdx.x)
++        {
++            ++receipt.residualChecks;
++            receipt.residualNorm = norm;
++            receipt.maxForce = maxForce;
++            receipt.maxTorque = maxTorque;
++        }
++        __syncthreads();
++        if (nonfinite || !isfinite(norm) || !isfinite(maxForce) || !isfinite(maxTorque))
++        {
++            if (!threadIdx.x)
++                receipt.status = SolveStatus::Nonfinite;
++            __syncthreads();
++            return false;
++        }
++        return norm <= p.absoluteTolerance + p.relativeTolerance * rhsNorm && maxForce <= p.forceTolerance &&
++               maxTorque <= p.torqueTolerance;
++    }
++};
++__device__ bool validProfile(const SolveProfile& p, double length)
++{
++    const double values[] = { p.absoluteTolerance,
++                              p.relativeTolerance,
++                              p.forceScale,
++                              p.torqueScale,
++                              p.forceTolerance,
++                              p.torqueTolerance,
++                              p.compatibilityAbsolute,
++                              p.compatibilityRelative,
++                              p.rankTolerance,
++                              p.nullspaceTolerance,
++                              p.pivotTolerance,
++                              p.driftTolerance,
++                              length };
++    for (double v : values)
++        if (!isfinite(v) || v < 0)
++            return false;
++    return length > 0 && p.forceScale > 0 && p.torqueScale > 0 && p.rankTolerance > 0 && p.rankTolerance < 1 &&
++           p.pivotTolerance > 0 && p.pivotTolerance < 1 && p.nullspaceTolerance > 0 && p.driftTolerance > 0 &&
++           (p.absoluteTolerance > 0 || p.relativeTolerance > 0) && p.checkInterval > 0;
++}
++}
++}
++} // Nv::Blast::Elastic
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressElasticSetup.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressElasticSetup.cuh
+new file mode 100644
+index 00000000..4d458179
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressElasticSetup.cuh
+@@ -0,0 +1,266 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "StressElasticPcgBlock.cuh"
++namespace Nv
++{
++namespace Blast
++{
++namespace Elastic
++{
++// Producer revisions must advance before mutating corresponding device inputs.
++// Initialize states once; phase-order edits, validation, setup and solve.
++__device__ __forceinline__ void prepareComponent(uint32_t component, double* scratch, Graph g,
++                                                         Components c,
++                                                         SolveWorkspace w,
++                                                         SolveProfile profile,
++                                                         const SetupKey* keys,
++                                                         SetupState* states,
++                                                         const uint32_t* graphError,
++                                                         const uint32_t* partitionError)
++{
++    if (component >= componentCount(c) || component >= c.count)
++        return;
++    auto& state = states[component];
++    if (blockDim.x != 128 || blockDim.y != 1 || blockDim.z != 1 || *graphError || *partitionError)
++    {
++        if (!threadIdx.x)
++            state.status = SetupStatus::InvalidInput;
++        return;
++    }
++    ComponentBlock b{ g, c, c.starts[component], c.starts[component + 1], c.length[component], scratch };
++    if (b.begin >= b.end || b.end > g.nodes || !validProfile(profile, b.length))
++    {
++        if (!threadIdx.x)
++            state.status = SetupStatus::InvalidInput;
++        return;
++    }
++    const bool cached = __syncthreads_and(setupMatches(state, keys[component], b.length, profile));
++    if (cached)
++        return;
++    if (!threadIdx.x)
++    {
++        const uint32_t builds = state.builds + 1;
++        state = { keys[component],
++                  b.length,
++                  profile.rankTolerance,
++                  profile.nullspaceTolerance,
++                  profile.pivotTolerance,
++                  SetupStatus::InvalidInput,
++                  0,
++                  builds,
++                  0 };
++    }
++    __syncthreads();
++    double supports = 0;
++    bool bad = false;
++    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++    {
++        const auto i = b.node(j);
++        supports += g.prescribed[i];
++        // An eliminated support still anchors every incident unknown component.
++        for (uint32_t k = g.starts[i]; k < g.starts[i + 1]; ++k)
++        {
++            const auto& e = g.interfaces[g.references[k]];
++            const auto other = e.first == i ? e.second : e.first;
++            supports += e.live && g.prescribed[other];
++        }
++        w.reached[i] = uint32_t(j == b.begin);
++    }
++    __syncthreads();
++    const bool free = blockSum(supports, scratch) == 0;
++    // Verify connectedness of owned rows only. Shared, eliminated supports
++    // never connect independent unknown components. Temporary baseline check; persistent topology will supply this
++    // proof at its producer boundary during engine integration.
++    for (uint32_t pass = 0; pass < b.end - b.begin; ++pass)
++    {
++        bool changed = false;
++        for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++        {
++            const auto i = b.node(j);
++            uint32_t seen = w.reached[i];
++            for (uint32_t k = g.starts[i]; k < g.starts[i + 1]; ++k)
++            {
++                const auto& e = g.interfaces[g.references[k]];
++                const auto other = e.first == i ? e.second : e.first;
++                if (e.live && c.owner[other] == component)
++                    seen |= w.reached[other];
++            }
++            w.nextReached[i] = seen;
++            changed |= seen != w.reached[i];
++        }
++        const bool any = __syncthreads_or(changed);
++        for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++        {
++            const auto i = b.node(j);
++            w.reached[i] = w.nextReached[i];
++        }
++        __syncthreads();
++        if (!any)
++            break;
++    }
++    bad = false;
++    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++        bad |= !w.reached[b.node(j)];
++    if (__syncthreads_or(bad))
++        return;
++    if (free)
++    {
++        const auto origin = g.positions[b.node(b.begin)];
++        double center[3]{};
++        for (unsigned axis = 0; axis < 3; ++axis)
++        {
++            double local = 0;
++            for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++            {
++                const auto x = g.positions[b.node(j)];
++                local += axis == 0 ? x.x - origin.x : axis == 1 ? x.y - origin.y : x.z - origin.z;
++            }
++            center[axis] = blockSum(local, scratch) / (b.end - b.begin);
++        }
++        for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++        {
++            const auto i = b.node(j);
++            const auto x = g.positions[i];
++            const double r[3] = { x.x - origin.x - center[0], x.y - origin.y - center[1], x.z - origin.z - center[2] };
++            Matrix n{};
++            for (unsigned k = 0; k < 3; ++k)
++            {
++                n.v[6 * k + k] = 1;
++                n.v[6 * (k + 3) + k + 3] = b.length;
++            }
++            n.v[4] = r[2];
++            n.v[5] = -r[1];
++            n.v[9] = -r[2];
++            n.v[11] = r[0];
++            n.v[15] = r[1];
++            n.v[16] = -r[0];
++            w.basis[i] = n;
++        }
++        __syncthreads();
++        // Twice-modified Gram-Schmidt of analytical scaled six-variable modes.
++        for (unsigned mode = 0; mode < 6; ++mode)
++        {
++            double original = 0;
++            for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++            {
++                const auto i = b.node(j);
++                for (unsigned k = 0; k < 6; ++k)
++                {
++                    const double v = w.basis[i].v[6 * k + mode];
++                    original += v * v;
++                }
++            }
++            original = blockSum(original, scratch);
++            for (unsigned pass = 0; pass < 2; ++pass)
++                for (unsigned previous = 0; previous < mode; ++previous)
++                {
++                    double local = 0;
++                    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++                    {
++                        const auto i = b.node(j);
++                        for (unsigned k = 0; k < 6; ++k)
++                            local += w.basis[i].v[6 * k + previous] * w.basis[i].v[6 * k + mode];
++                    }
++                    const double coefficient = blockSum(local, scratch);
++                    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++                    {
++                        const auto i = b.node(j);
++                        for (unsigned k = 0; k < 6; ++k)
++                            w.basis[i].v[6 * k + mode] -= coefficient * w.basis[i].v[6 * k + previous];
++                    }
++                    __syncthreads();
++                }
++            double norm = 0;
++            for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++            {
++                const auto i = b.node(j);
++                for (unsigned k = 0; k < 6; ++k)
++                {
++                    const double v = w.basis[i].v[6 * k + mode];
++                    norm += v * v;
++                }
++            }
++            norm = blockSum(norm, scratch);
++            if (!isfinite(norm) || !isfinite(original) ||
++                !(norm > profile.rankTolerance * profile.rankTolerance * original))
++            {
++                if (!threadIdx.x)
++                    state.status = SetupStatus::ModelUnsupported;
++                return;
++            }
++            for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++            {
++                const auto i = b.node(j);
++                for (unsigned k = 0; k < 6; ++k)
++                    w.p[i].v[k] = w.basis[i].v[6 * k + mode] /= sqrt(norm);
++            }
++            __syncthreads();
++            b.apply(w.p, w.v);
++            const double defect = sqrt(b.dot(w.v, w.v));
++            if (!isfinite(defect) || defect > profile.nullspaceTolerance)
++            {
++                if (!threadIdx.x)
++                    state.status = SetupStatus::ModelUnsupported;
++                return;
++            }
++        }
++    }
++    bool singular = false;
++    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++    {
++        const auto i = b.node(j);
++        Matrix a{}, l{};
++        if (!g.prescribed[i] && !(free && b.end - b.begin == 1))
++        {
++            for (uint32_t k = g.starts[i]; k < g.starts[i + 1]; ++k)
++            {
++                const auto& e = g.interfaces[g.references[k]];
++                if (!e.live)
++                    continue;
++                for (unsigned column = 0; column < 6; ++column)
++                {
++                    Vector unit{};
++                    unit.v[column] = column < 3 ? 1 : 1 / b.length;
++                    const double sign = e.first == i ? -1 : 1;
++                    const auto v = b.scaled(transposeEndpoint(
++                        e, g.positions[i], multiply(e.stiffness, endpoint(e, g.positions[i], unit, sign)), sign));
++                    for (unsigned row = 0; row < 6; ++row)
++                        a.v[6 * row + column] += v.v[row];
++                }
++            }
++            singular |= !cholesky(a, l, profile.pivotTolerance);
++        }
++        w.factors[i] = l;
++    }
++
++    const bool anySingular = __syncthreads_or(singular);
++    if (!threadIdx.x)
++    {
++        state.free = free;
++        state.factorsValid = !anySingular && !(free && b.end - b.begin == 1);
++        state.status = SetupStatus::Ready;
++    }
++}
++// A bounded caller-chosen grid walks the device count. Components retain
++// independent convergence; no host count readback or capacity-sized grid is needed.
++__global__ __launch_bounds__(128) void prepareComponents(Graph g,
++                                                         Components c,
++                                                         SolveWorkspace w,
++                                                         SolveProfile profile,
++                                                         const SetupKey* keys,
++                                                         SetupState* states,
++                                                         const uint32_t* graphError,
++                                                         const uint32_t* partitionError)
++{
++    __shared__ double scratch[128];
++    const auto count = min(componentCount(c), c.count);
++    for (uint64_t component = blockIdx.x; component < count; component += gridDim.x)
++    {
++        prepareComponent(uint32_t(component), scratch, g, c, w, profile, keys, states, graphError, partitionError);
++        __syncthreads(); // all users finish shared scratch before the next component
++    }
++}
++
++}
++}
++}
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressElasticPcg.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressElasticPcg.cuh
+new file mode 100644
+index 00000000..f0bed171
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressElasticPcg.cuh
+@@ -0,0 +1,269 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "StressElasticSetup.cuh"
++
++namespace Nv
++{
++namespace Blast
++{
++namespace Elastic
++{
++// Exactly 128 threads. Graph/partition validation statuses are immutable during
++// this launch and both must be checked. Distinct components never share nodes.
++__device__ __forceinline__ void solveComponent(uint32_t component, double* scratch, Graph g,
++                                                       Components c,
++                                                       const Vector* rhs,
++                                                       const Vector* initial,
++                                                       Vector* solution,
++                                                       SolveWorkspace w,
++                                                       SolveProfile profile,
++                                                       const SetupKey* keys,
++                                                       const SetupState* states,
++                                                       const uint32_t* graphError,
++                                                       const uint32_t* partitionError,
++                                                       SolveReceipt* receipts)
++{
++    if (component >= componentCount(c) || component >= c.count)
++        return;
++    auto& receipt = receipts[component];
++    if (!threadIdx.x)
++        receipt = { SolveStatus::InvalidInput, 0, 0, 0, 0, 0, 0, 0 };
++    if (blockDim.x != 128 || blockDim.y != 1 || blockDim.z != 1 || *graphError || *partitionError)
++        return;
++    ComponentBlock b{ g, c, c.starts[component], c.starts[component + 1], c.length[component], scratch };
++    if (b.begin >= b.end || b.end > g.nodes || !validProfile(profile, b.length))
++        return;
++    const auto& state = states[component];
++    if (!setupMatches(state, keys[component], b.length, profile))
++    {
++        if (!threadIdx.x)
++            receipt.status = state.status == SetupStatus::ModelUnsupported ? SolveStatus::ModelUnsupported :
++                             state.status == SetupStatus::InvalidInput     ? SolveStatus::InvalidInput :
++                                                                             SolveStatus::NeedsSetup;
++        return;
++    }
++    const bool free = state.free;
++    bool bad = false;
++    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++    {
++        const auto i = b.node(j);
++        solution[i] = {};
++        w.x[i] = initial[i];
++        for (unsigned k = 0; k < 6; ++k)
++        {
++            bad |= !isfinite(rhs[i].v[k]) || !isfinite(initial[i].v[k]);
++            if (g.prescribed[i])
++            {
++                bad |= rhs[i].v[k] != 0;
++                w.x[i].v[k] = 0;
++            }
++            else if (k >= 3)
++                w.x[i].v[k] *= b.length;
++        }
++    }
++    if (__syncthreads_or(bad))
++        return;
++    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++    {
++        const auto i = b.node(j);
++        w.r[i] = b.scaled(rhs[i]);
++    }
++    __syncthreads();
++    const double rhsNorm = sqrt(b.dot(w.r, w.r));
++    if (!isfinite(rhsNorm))
++    {
++        if (!threadIdx.x)
++            receipt.status = SolveStatus::Nonfinite;
++        return;
++    }
++    b.project(w.r, w.basis, free);
++    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++    {
++        const auto i = b.node(j);
++        const auto value = b.scaled(rhs[i]);
++        for (unsigned k = 0; k < 6; ++k)
++            w.v[i].v[k] = value.v[k] - w.r[i].v[k];
++    }
++    __syncthreads();
++    const double incompatibility = sqrt(b.dot(w.v, w.v));
++    if (!threadIdx.x)
++        receipt.compatibilityNorm = incompatibility;
++    if (!isfinite(incompatibility) ||
++        incompatibility > profile.compatibilityAbsolute + profile.compatibilityRelative * rhsNorm)
++    {
++        if (!threadIdx.x)
++            receipt.status = SolveStatus::IncompatibleLoad;
++        return;
++    }
++    b.project(w.x, w.basis, free);
++    if (!threadIdx.x)
++        receipt.status = SolveStatus::PendingIterationLimit;
++    __syncthreads();
++    bool accepted = b.residual(rhs, w, profile, rhsNorm, receipt);
++    // A single free node has no admissible deformation. If its original rows
++    // fail the requested balance tolerance, no iteration or diagonal can fix it.
++    if (!accepted && free && b.end - b.begin == 1 && receipt.status != SolveStatus::Nonfinite)
++    {
++        if (!threadIdx.x)
++            receipt.status = SolveStatus::IncompatibleLoad;
++        return;
++    }
++    if (!accepted && receipt.status != SolveStatus::Nonfinite && profile.maxIterations)
++    {
++        // Only require factors after the true-residual check. Trivial free
++        // fragments and exact warm starts require no local preconditioner.
++        if (!state.factorsValid)
++        {
++            if (!threadIdx.x)
++                receipt.status = SolveStatus::ModelUnsupported;
++            return;
++        }
++        for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++        {
++            const auto i = b.node(j);
++            w.r[i] = w.truth[i];
++        }
++        __syncthreads();
++        b.project(w.r, w.basis, free);
++        double rho = 0;
++        bool restart = true;
++        for (uint32_t iteration = 0; iteration < profile.maxIterations; ++iteration)
++        {
++            for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++            {
++                const auto i = b.node(j);
++                Vector z = w.r[i];
++                const auto& l = w.factors[i];
++                if (!g.prescribed[i])
++                {
++                    for (unsigned row = 0; row < 6; ++row)
++                    {
++                        for (unsigned k = 0; k < row; ++k)
++                            z.v[row] -= l.v[6 * row + k] * z.v[k];
++                        z.v[row] /= l.v[6 * row + row];
++                    }
++                    for (int row = 5; row >= 0; --row)
++                    {
++                        for (unsigned k = row + 1; k < 6; ++k)
++                            z.v[row] -= l.v[6 * k + row] * z.v[k];
++                        z.v[row] /= l.v[6 * row + row];
++                    }
++                }
++                w.z[i] = z;
++            }
++            __syncthreads();
++            b.project(w.z, w.basis, free);
++            const double nextRho = b.dot(w.r, w.z);
++            if (!isfinite(nextRho) || !(nextRho > 0))
++            {
++                accepted = b.residual(rhs, w, profile, rhsNorm, receipt);
++                if (!accepted && !threadIdx.x && receipt.status != SolveStatus::Nonfinite)
++                    receipt.status = SolveStatus::Breakdown;
++                break;
++            }
++            const double beta = restart ? 0 : nextRho / rho;
++            rho = nextRho;
++            for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++            {
++                const auto i = b.node(j);
++                for (unsigned k = 0; k < 6; ++k)
++                    w.p[i].v[k] = w.z[i].v[k] + (restart ? 0 : beta * w.p[i].v[k]);
++            }
++            __syncthreads();
++            b.project(w.p, w.basis, free);
++            b.apply(w.p, w.v);
++            b.project(w.v, w.basis, free);
++            const double sigma = b.dot(w.p, w.v), alpha = rho / sigma;
++            if (!isfinite(sigma) || !(sigma > 0) || !isfinite(alpha))
++            {
++                accepted = b.residual(rhs, w, profile, rhsNorm, receipt);
++                if (!accepted && !threadIdx.x && receipt.status != SolveStatus::Nonfinite)
++                    receipt.status = SolveStatus::Breakdown;
++                break;
++            }
++            for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++            {
++                const auto i = b.node(j);
++                for (unsigned k = 0; k < 6; ++k)
++                {
++                    w.x[i].v[k] += alpha * w.p[i].v[k];
++                    w.r[i].v[k] -= alpha * w.v[i].v[k];
++                }
++            }
++            __syncthreads();
++            b.project(w.x, w.basis, free);
++            b.project(w.r, w.basis, free);
++            const double norm = sqrt(b.dot(w.r, w.r));
++            restart = false;
++            if (!threadIdx.x)
++                receipt.iterations = iteration + 1;
++            __syncthreads();
++            if ((iteration + 1) % profile.checkInterval == 0 || iteration + 1 == profile.maxIterations ||
++                !isfinite(norm) || norm <= profile.absoluteTolerance + profile.relativeTolerance * rhsNorm)
++            {
++                accepted = b.residual(rhs, w, profile, rhsNorm, receipt);
++                if (accepted || receipt.status == SolveStatus::Nonfinite)
++                    break;
++                b.project(w.truth, w.basis, free);
++                for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++                {
++                    const auto i = b.node(j);
++                    for (unsigned k = 0; k < 6; ++k)
++                        w.z[i].v[k] = w.truth[i].v[k] - w.r[i].v[k];
++                }
++                __syncthreads();
++                const double drift = sqrt(b.dot(w.z, w.z)), truthNorm = sqrt(b.dot(w.truth, w.truth));
++                restart = !isfinite(norm) ||
++                          drift > profile.driftTolerance *
++                                      fmax(truthNorm, profile.absoluteTolerance + profile.relativeTolerance * rhsNorm);
++                if (restart)
++                {
++                    for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++                    {
++                        const auto i = b.node(j);
++                        w.r[i] = w.truth[i];
++                    }
++                    if (!threadIdx.x)
++                        ++receipt.restarts;
++                    __syncthreads();
++                }
++            }
++        }
++    }
++    if (accepted && !threadIdx.x)
++        receipt.status = SolveStatus::LinearConverged;
++    __syncthreads();
++    if (receipt.status == SolveStatus::LinearConverged || receipt.status == SolveStatus::PendingIterationLimit)
++        for (uint32_t j = b.begin + threadIdx.x; j < b.end; j += 128)
++        {
++            const auto i = b.node(j);
++            solution[i] = b.scaled(w.x[i]);
++        }
++}
++// A bounded caller-chosen grid walks the device count. Components retain
++// independent convergence; no host count readback or capacity-sized grid is needed.
++__global__ __launch_bounds__(128) void solveComponents(Graph g,
++                                                       Components c,
++                                                       const Vector* rhs,
++                                                       const Vector* initial,
++                                                       Vector* solution,
++                                                       SolveWorkspace w,
++                                                       SolveProfile profile,
++                                                       const SetupKey* keys,
++                                                       const SetupState* states,
++                                                       const uint32_t* graphError,
++                                                       const uint32_t* partitionError,
++                                                       SolveReceipt* receipts)
++{
++    __shared__ double scratch[128];
++    const auto count = min(componentCount(c), c.count);
++    for (uint64_t component = blockIdx.x; component < count; component += gridDim.x)
++    {
++        solveComponent(uint32_t(component), scratch, g, c, rhs, initial, solution, w, profile, keys, states, graphError, partitionError, receipts);
++        __syncthreads(); // all users finish shared scratch before the next component
++    }
++}
++
++}
++}
++} // Nv::Blast::Elastic
+diff --git a/blast/source/sdk/extensions/stressgpu/test/elastic_components_test.cu b/blast/source/sdk/extensions/stressgpu/test/elastic_components_test.cu
+new file mode 100644
+index 00000000..99eb9824
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/test/elastic_components_test.cu
+@@ -0,0 +1,194 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#include "ElasticPcgTestFixture.h"
++#include "../detail/StressElasticComponents.cuh"
++#include <fstream>
++#include <memory>
++#include <queue>
++namespace P=E::Partition;
++template<class T> std::vector<T> prefixRead(const Device<T>& buffer,size_t count) {
++    require(count<=buffer.n,"readback prefix exceeds capacity");std::vector<T> result(count);
++    if(count)check(cudaMemcpy(result.data(),buffer.p,count*sizeof(T),cudaMemcpyDeviceToHost));
++    return result;
++}
++std::vector<uint32_t> offsets(unsigned n) {
++    std::vector<uint32_t> v(n+1);std::iota(v.begin(),v.end(),0);return v;
++}
++void adjacency(Fixture& f) {
++    std::vector<std::vector<uint32_t>> edges(f.x.size());
++    for(unsigned e=0;e<f.bonds.size();++e) {edges[f.bonds[e].first].push_back(e);edges[f.bonds[e].second].push_back(e);}
++    f.starts.clear();f.refs.clear();
++    for(const auto& list:edges) {f.starts.push_back(f.refs.size());f.refs.insert(f.refs.end(),list.begin(),list.end());}
++    f.starts.push_back(f.refs.size());
++}
++void edge(Fixture& f,unsigned a,unsigned b,const E::Bond& model) {
++    auto e=model;e.first=a;e.second=b;
++    e.point[0]=(f.x[a].x+f.x[b].x)/2;e.point[1]=(f.x[a].y+f.x[b].y)/2;e.point[2]=(f.x[a].z+f.x[b].z)/2;
++    f.bonds.push_back(e);
++}
++Fixture sharedSupports() {
++    Fixture f;const auto model=f.bonds.front();
++    f.x={{0,0,0},{1,0,.2},{2,0,.3},{3,0,0},{1,2,.1},{2,2,.5},{3,2,0},{0,2,0}};
++    f.fixed={1,0,0,0,0,0,0,1};f.bonds.clear();
++    for(auto pair:std::vector<std::pair<unsigned,unsigned>>{{0,1},{1,2},{2,3},{7,4},{4,5},{5,6},{0,7}})
++        edge(f,pair.first,pair.second,model);
++    f.external.resize(8);f.prescribed.resize(8);
++    for(unsigned i=0;i<8;++i)for(unsigned k=0;k<6;++k) {
++        f.external[i].v[k]=sin(6*i+k+.2);f.prescribed[i].v[k]=.04*cos(6*i+k+.7);
++    }
++    adjacency(f);return f;
++}
++struct Partition {
++    Solver solve;
++    Device<uint32_t> parents,roots,ids,sortedRoots,flags,prefix;
++    Device<P::State> state;
++    P::Storage storage{};
++    std::unique_ptr<Device<char>> scratch;
++    E::SetupKey key{1,1,1,1,1,1,1};
++    explicit Partition(const Fixture& f):solve(f,offsets(f.x.size()),std::vector<double>(f.x.size(),1)),
++        parents(f.x.size()),roots(f.x.size()),ids(f.x.size()),sortedRoots(f.x.size()),flags(f.x.size()),prefix(f.x.size()),state(1) {
++        const auto n=unsigned(f.x.size());
++        storage={n,parents.p,roots.p,ids.p,sortedRoots.p,solve.nodes.p,flags.p,prefix.p,solve.starts.p,solve.owner.p,solve.local.p,solve.length.p,solve.keys.p};
++        size_t bytes=0;check(P::scratchBytes(solve.graph.graph,storage,bytes));scratch.reset(new Device<char>(bytes));
++        solve.components=P::view(storage,state.p);
++        solve.solution.put(std::vector<E::Vector>(n));
++    }
++    void rebuild(const Fixture& f) {
++        solve.graph.fixed.put(f.fixed);solve.graph.bonds.put(f.bonds);
++        require(!solve.graph.validate(),"edited graph invalid");
++        ++key.layout;
++        check(P::build(solve.graph.graph,storage,state.p,solve.graph.error.p,1,key,scratch->p,scratch->n));
++        check(cudaDeviceSynchronize());
++    }
++    unsigned oracle(const Fixture& f) {
++        auto s=state.get()[0];require(s.ready && !s.error,"partition not ready");
++        std::vector<uint32_t> expected(f.x.size(),E::Unowned),order;
++        unsigned groups=0;
++        // Independent serial graph traversal, excluding every prescribed node.
++        for(unsigned seed=0;seed<f.x.size();++seed)if(!f.fixed[seed] && expected[seed]==E::Unowned) {
++            std::queue<unsigned> queue;queue.push(seed);expected[seed]=groups;
++            while(!queue.empty()) {
++                const auto i=queue.front();queue.pop();
++                for(auto k=f.starts[i];k<f.starts[i+1];++k) {
++                    const auto& e=f.bonds[f.refs[k]];const auto j=e.first==i?e.second:e.first;
++                    if(e.live && !f.fixed[j] && expected[j]==E::Unowned){expected[j]=groups;queue.push(j);}
++                }
++            }
++            ++groups;
++        }
++        require(groups==s.count,"component count disagrees with traversal");
++        const auto owners=solve.owner.get(),nodes=solve.nodes.get(),starts=prefixRead(solve.starts,s.count+1),local=solve.local.get();
++        require(owners==expected,"unknown owner disagrees with traversal");
++        unsigned total=0;
++        for(unsigned group=0;group<groups;++group) {
++            require(starts[group]==total,"component start");
++            for(unsigned i=0;i<f.x.size();++i)if(expected[i]==group) {
++                require(nodes[total]==i && local[i]==total-starts[group],"unstable sorted node/local order");++total;
++            }
++        }
++        require(total==s.nodes && starts[groups]==total,"unknown count");
++        for(unsigned i=0;i<f.x.size();++i)if(f.fixed[i])require(local[i]==E::Unowned,"prescribed local ownership");
++        return groups;
++    }
++    void run(const Fixture& f,const std::vector<E::Vector>& rhs) {
++        const auto count=oracle(f);
++        // No host read of count participates in dispatch: Solver launches its
++        // allocation capacity and every kernel reads the device active count.
++        const auto result=solve.run(rhs);
++        require(!solve.error.get()[0],"component inverse validation failed");
++        for(unsigned i=0;i<count;++i) require(result[i].status==E::SolveStatus::LinearConverged,"partitioned solve failed");
++        auto q=solve.solution.get();
++        for(unsigned i=0;i<f.x.size();++i)if(f.fixed[i])q[i]={};
++        residualCheck(f,rhs,q);
++    }
++};
++void scans() {
++    for(unsigned n:{0u,1u,31u,32u,33u,127u,128u,129u,255u,256u,257u,275u,1023u,16385u,113664u}) {
++        Device<uint32_t> in(n),out(n);Device<char> scratch(P::scanBytes(n));
++        std::vector<uint32_t> values(n),expected(n);
++        for(unsigned i=0;i<n;++i)values[i]=(i*13+i/17)%8;
++        std::partial_sum(values.begin(),values.end(),expected.begin());in.put(values);
++        check(P::scan(in.p,out.p,n,reinterpret_cast<uint32_t*>(scratch.p),nullptr));
++        require(out.get()==expected,"hierarchical scan differs from independent prefix sum");
++    }
++}
++void changes() {
++    auto f=sharedSupports();Partition p(f);p.rebuild(f);
++    require(p.oracle(f)==2,"shared supports merged unknown components");
++    const auto rhs=referenceRhs(f);p.run(f,rhs);
++    // Independent dense constrained solve with nonzero prescribed transforms,
++    // coupled bond stiffness and inelastic interface terms.
++    const auto matrix=f.matrix();Dense a(36*36),b(36);
++    for(unsigned i=0;i<36;++i){b[i]=rhs[1+i/6].v[i%6];for(unsigned j=0;j<36;++j)a[36*i+j]=matrix[(6+i)*48+6+j];}
++    const auto ref=::solve(a,b);const auto q=p.solve.solution.get();
++    for(unsigned i=0;i<36;++i)require(std::abs(q[1+i/6].v[i%6]-ref[i])<2e-8,"shared support dense solution");
++    // Support release must JOIN the previously independent unknown systems.
++    f.fixed[0]=f.fixed[7]=0;++p.key.supports;p.rebuild(f);require(p.oracle(f)==1,"released supports did not join components");
++    std::vector<E::Vector> target(8);for(unsigned i=0;i<8;++i)for(unsigned k=0;k<6;++k)target[i].v[k]=sin(i*6+k);
++    p.run(f,denseProduct(f,f.matrix(),target));require(p.solve.setup.get()[0].free,"released component has no free modes");
++    // Re-impose supports, then cut a dynamic edge: one newly free fragment.
++    f.fixed[0]=f.fixed[7]=1;f.bonds[4].live=0;++p.key.supports;++p.key.topology;p.rebuild(f);
++    require(p.oracle(f)==3,"fracture did not split unknown graph");p.run(f,denseProduct(f,f.matrix(),target));
++    auto state=p.solve.setup.get();require(state[2].free,"detached fragment not free");
++    f.fixed.assign(8,1);++p.key.supports;p.rebuild(f);require(p.oracle(f)==0,"all-prescribed graph has iterative components");
++    p.run(f,std::vector<E::Vector>(8));
++    f.fixed.assign(8,0);for(auto& e:f.bonds)e.live=0;++p.key.supports;++p.key.topology;p.rebuild(f);
++    require(p.oracle(f)==8,"isolated dynamic singleton missing");p.run(f,std::vector<E::Vector>(8));
++    // Bad inverse entries must reject even with eliminated support holes.
++    f=sharedSupports();++p.key.supports;++p.key.topology;p.rebuild(f);
++    auto owner=p.solve.owner.get();owner[2]=E::Unowned;p.solve.owner.put(owner);
++    for(auto r:p.solve.run(referenceRhs(f))) if(r.status!=E::SolveStatus::LinearConverged)
++        require(r.status==E::SolveStatus::InvalidInput,"wrong invalid partition status");
++    require(p.solve.error.get()[0],"missing unknown accepted");
++    p.rebuild(f);owner=p.solve.owner.get();owner[0]=0;p.solve.owner.put(owner);
++    p.solve.run(rhs);require(p.solve.error.get()[0],"unsupported prescribed ownership accepted");
++    p.rebuild(f);p.solve.graph.error.put({E::InvalidGraph});
++    check(P::build(p.solve.graph.graph,p.storage,p.state.p,p.solve.graph.error.p,1,p.key,p.scratch->p,p.scratch->n));
++    const auto failed=p.state.get()[0];require(failed.error && !failed.ready && !failed.count && !failed.nodes,"bad graph exposed usable partition");
++    Fixture empty;empty.x.clear();empty.fixed.clear();empty.bonds.clear();empty.external.clear();empty.prescribed.clear();adjacency(empty);
++    Partition none(empty);none.rebuild(empty);require(none.oracle(empty)==0,"empty graph partition");
++    std::cout<<"shared supports, release/join, fracture, isolated, empty and invalid mapping checks passed\n";
++}
++void cyclicComponent() {
++    Fixture f;Partition p(f);p.rebuild(f);
++    require(p.oracle(f)==1,"cyclic unknown component split");p.run(f,referenceRhs(f));
++    f.bonds.back().live=0;++p.key.topology;p.rebuild(f);p.run(f,referenceRhs(f));
++}
++void wideComponents() {
++    Fixture f;const auto model=f.bonds.front();const unsigned n=275;
++    f.x.resize(n);f.fixed.assign(n,0);f.fixed[0]=1;f.bonds.clear();
++    f.external.resize(n);f.prescribed.resize(n);
++    for(unsigned i=0;i<n;++i)f.x[i]={.01*double(i%137),sin(.13*i),cos(.17*i)};
++    for(unsigned center:{1u,138u}) {
++        edge(f,0,center,model);
++        for(unsigned i=center+1;i<center+137;++i)edge(f,center,i,model);
++    }
++    adjacency(f);Partition p(f);p.rebuild(f);require(p.oracle(f)==2,"wide shared support merged components");
++    std::vector<E::Vector> target(n),sentinel(n);
++    for(unsigned i=0;i<n;++i)for(unsigned k=0;k<6;++k)target[i].v[k]=sin(.2*i+k);
++    sentinel[0].v[0]=NAN;p.solve.solution.put(sentinel);
++    const auto rhs=sparseOracle(f,target);const auto receipts=p.solve.run(rhs);
++    require(receipts.size()==2 && !p.solve.error.get()[0],"wide component validation");
++    for(auto r:receipts)require(r.status==E::SolveStatus::LinearConverged,"wide component convergence");
++    const auto q=p.solve.solution.get(),actual=sparseOracle(f,q);
++    require(std::isnan(q[0].v[0]),"eliminated support output was traversed/written");
++    for(unsigned i=0;i<n;++i)for(unsigned k=0;k<6;++k)
++        require(std::abs(actual[i].v[k]-rhs[i].v[k])<2e-8*(1+std::abs(rhs[i].v[k])),"wide original equation");
++    std::cout<<"two 137-unknown components sharing one prescribed support passed independent equations\n";
++}
++void large(const char* path) {
++    Fixture f;const auto model=f.bonds.front();const unsigned n=113664;
++    f.x.resize(n);f.fixed.assign(n,0);f.external.resize(n);f.prescribed.resize(n);f.bonds.clear();
++    for(unsigned i=0;i<n;++i){f.x[i]={double(i%444),double(i/444),.1*double(i%7)};f.fixed[i]=i%444==0;}
++    for(unsigned i=0;i<n;++i)if(i%444)edge(f,i-1,i,model);else if(i)edge(f,i-444,i,model);
++    for(unsigned i=0;i<n;++i)if(i%444>=3)edge(f,i-2,i,model); // cyclic dynamic graphs, not only trees
++    adjacency(f);Partition p(f);p.rebuild(f);require(p.oracle(f)==256,"large shared-support graph merged");
++    p.solve.error.put({0});E::validateComponents<<<(n+127)/128,128>>>(p.solve.graph.graph,p.solve.components,p.solve.graph.error.p,p.solve.error.p);
++    require(!p.solve.error.get()[0],"large partition validator");
++    if(path){std::ofstream out(path,std::ios::binary);const auto state=p.state.get()[0];out.write(reinterpret_cast<const char*>(&state),sizeof(state));
++        for(const auto& v:{p.solve.owner.get(),p.solve.local.get(),p.solve.nodes.get(),prefixRead(p.solve.starts,state.count+1)})out.write(reinterpret_cast<const char*>(v.data()),v.size()*sizeof(uint32_t));require(bool(out),"partition output write");}
++    std::cout<<"large partition: "<<n<<" nodes, "<<f.bonds.size()<<" bonds, 256 components, 113408 unknowns; no physics steps\n";
++}
++int main(int argc,char** argv) {
++    try {if(argc>1 && std::string(argv[1])=="--large")large(argc>2?argv[2]:nullptr);else {scans();changes();cyclicComponent();wideComponents();}return 0;}
++    catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}
++}
+diff --git a/blast/source/sdk/extensions/stressgpu/test/ElasticPcgTestFixture.h b/blast/source/sdk/extensions/stressgpu/test/ElasticPcgTestFixture.h
+new file mode 100644
+index 00000000..15667696
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/test/ElasticPcgTestFixture.h
+@@ -0,0 +1,174 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#include "../detail/StressElasticPcg.cuh"
++#include "ElasticTestFixture.h"
++
++#include <numeric>
++#pragma once
++
++struct Solver
++{
++    Uploaded graph;
++    Device<uint32_t> starts, nodes, owner, local, error, reached, nextReached;
++    Device<double> length;
++    Device<E::Vector> rhs, initial, solution, x, r, p, z, v, truth;
++    Device<E::Matrix> basis, factors;
++    Device<E::SolveReceipt> receipts;
++    Device<E::SetupKey> keys;
++    Device<E::SetupState> setup;
++    E::Components components{};
++    E::SolveWorkspace workspace{};
++    E::SolveProfile profile{ 1e-12, 1e-10, 1, 1, 1e-9, 1e-9, 1e-12, 1e-11, 1e-12, 1e-10, 1e-14, .1, 7, 300 };
++    Solver(const Fixture& f, const std::vector<uint32_t>& offsets, const std::vector<double>& scales)
++        : graph(f),
++          starts(offsets.size()),
++          nodes(f.x.size()),
++          owner(f.x.size()),
++          local(f.x.size()),
++          error(1),
++          reached(f.x.size()),
++          nextReached(f.x.size()),
++          length(scales.size()),
++          rhs(f.x.size()),
++          initial(f.x.size()),
++          solution(f.x.size()),
++          x(f.x.size()),
++          r(f.x.size()),
++          p(f.x.size()),
++          z(f.x.size()),
++          v(f.x.size()),
++          truth(f.x.size()),
++          basis(f.x.size()),
++          factors(f.x.size()),
++          receipts(scales.size()),
++          keys(scales.size()),
++          setup(scales.size())
++    {
++        require(offsets.size() == scales.size() + 1, "partition shape");
++        require(!graph.validate(), "solver graph validation");
++        starts.put(offsets);
++        length.put(scales);
++        std::vector<uint32_t> indices(f.x.size()), owners(f.x.size()), locals(f.x.size());
++        std::iota(indices.begin(), indices.end(), 0);
++        for (unsigned c = 0; c < scales.size(); ++c)
++            for (unsigned j = offsets[c]; j < offsets[c + 1]; ++j)
++            {
++                owners[j] = c;
++                locals[j] = j - offsets[c];
++            }
++        nodes.put(indices);
++        owner.put(owners);
++        local.put(locals);
++        error.put({ 0 });
++        components = { uint32_t(scales.size()), starts.p, nodes.p, owner.p, local.p, length.p };
++        workspace = { x.p, r.p, p.p, z.p, v.p, truth.p, basis.p, factors.p, reached.p, nextReached.p };
++        initial.put(std::vector<E::Vector>(f.x.size()));
++        std::vector<E::SetupKey> versions(scales.size());
++        for (unsigned c = 0; c < scales.size(); ++c)
++            versions[c] = { c + 1, 1, 1, 1, 1, 1, 1 };
++        keys.put(versions);
++        setup.put(std::vector<E::SetupState>(scales.size()));
++        // Poison workspace: no result may depend on allocator contents.
++        for (auto buffer : { x.p, r.p, p.p, z.p, v.p, truth.p })
++            check(cudaMemset(buffer, 0xff, f.x.size() * sizeof(E::Vector)));
++        check(cudaMemset(factors.p, 0xff, f.x.size() * sizeof(E::Matrix)));
++    }
++    std::vector<E::SolveReceipt> run(const std::vector<E::Vector>& b, bool prepare = true)
++    {
++        rhs.put(b);
++        error.put({ 0 });
++        E::validateComponents<<<(graph.graph.nodes + 127) / 128, 128>>>(graph.graph, components, graph.error.p, error.p);
++        // Two blocks deliberately exercise scratch reuse across device-count
++        // components in the producer tests. Existing fixed-count tests stay unchanged.
++        const auto blocks = components.activeCount ? std::min(components.count, 2u) : components.count;
++        if (prepare)
++            E::prepareComponents<<<blocks, 128>>>(
++                graph.graph, components, workspace, profile, keys.p, setup.p, graph.error.p, error.p);
++        E::solveComponents<<<blocks, 128>>>(graph.graph, components, rhs.p, initial.p, solution.p, workspace,
++                                                      profile, keys.p, setup.p, graph.error.p, error.p, receipts.p);
++        check(cudaGetLastError());
++        if (components.activeCount)
++        {
++            uint32_t count = 0;
++            check(cudaMemcpy(&count, components.activeCount, sizeof(count), cudaMemcpyDeviceToHost));
++            require(count <= receipts.n, "device component count exceeds receipt capacity");
++            std::vector<E::SolveReceipt> result(count);
++            if (count)
++                check(cudaMemcpy(result.data(), receipts.p, count * sizeof(E::SolveReceipt), cudaMemcpyDeviceToHost));
++            return result; // never read unused allocation tail; count did not drive dispatch
++        }
++        return receipts.get();
++    }
++};
++std::vector<E::Vector> denseProduct(const Fixture& f, const Dense& a, const std::vector<E::Vector>& q)
++{
++    std::vector<E::Vector> b(f.x.size());
++    const auto n = f.size();
++    for (unsigned i = 0; i < n; ++i)
++        if (!f.fixed[i / 6])
++            for (unsigned j = 0; j < n; ++j)
++                if (!f.fixed[j / 6])
++                    b[i / 6].v[i % 6] += a[i * n + j] * q[j / 6].v[j % 6];
++    return b;
++}
++void residualCheck(const Fixture& f,
++                   const std::vector<E::Vector>& b,
++                   const std::vector<E::Vector>& q,
++                   double tolerance = 2e-8)
++{
++    const auto value = denseProduct(f, f.matrix(), q);
++    for (unsigned i = 0; i < f.x.size(); ++i)
++        for (unsigned k = 0; k < 6; ++k)
++            require(std::isfinite(q[i].v[k]) &&
++                        std::abs(value[i].v[k] - b[i].v[k]) <= tolerance * (1 + std::abs(b[i].v[k])),
++                    "independent original-row residual");
++}
++std::vector<E::Vector> referenceRhs(const Fixture& f)
++{
++    const auto a = f.matrix();
++    const auto n = f.size();
++    auto b = f.external;
++    for (unsigned i = 0; i < n; ++i)
++    {
++        if (f.fixed[i / 6])
++        {
++            b[i / 6].v[i % 6] = 0;
++            continue;
++        }
++        for (unsigned j = 0; j < n; ++j)
++            if (f.fixed[j / 6])
++                b[i / 6].v[i % 6] -= a[i * n + j] * f.prescribed[j / 6].v[j % 6];
++        for (const auto& bond : f.bonds)
++            if (bond.live)
++            {
++                const auto g = f.G(bond);
++                for (unsigned u = 0; u < 6; ++u)
++                    for (unsigned v = 0; v < 6; ++v)
++                        b[i / 6].v[i % 6] += g[u * n + i] * bond.stiffness.v[6 * u + v] * bond.inelastic.v[v];
++            }
++    }
++    return b;
++}
++
++std::vector<E::Vector> sparseOracle(const Fixture& f, const std::vector<E::Vector>& q)
++{
++    std::vector<E::Vector> output(f.x.size());
++    const unsigned n = f.size();
++    for (const auto& e : f.bonds)
++        if (e.live)
++        {
++            const auto g = f.G(e);
++            double d[6]{}, s[6]{};
++            for (unsigned u = 0; u < 6; ++u)
++                for (unsigned j = 0; j < n; ++j)
++                    if (!f.fixed[j / 6])
++                        d[u] += g[u * n + j] * q[j / 6].v[j % 6];
++            for (unsigned u = 0; u < 6; ++u)
++                for (unsigned v = 0; v < 6; ++v)
++                    s[u] += e.stiffness.v[6 * u + v] * d[v];
++            for (unsigned i = 0; i < n; ++i)
++                if (!f.fixed[i / 6])
++                    for (unsigned u = 0; u < 6; ++u)
++                        output[i / 6].v[i % 6] += g[u * n + i] * s[u];
++        }
++    return output;
++}
+diff --git a/blast/source/sdk/extensions/stressgpu/test/elastic_pcg_test.cu b/blast/source/sdk/extensions/stressgpu/test/elastic_pcg_test.cu
+new file mode 100644
+index 00000000..2b7aee65
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/test/elastic_pcg_test.cu
+@@ -0,0 +1,344 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#include "ElasticPcgTestFixture.h"
++void supportedCase(double length, bool deletion)
++{
++    Fixture f;
++    if (deletion)
++        f.bonds.back().live = 0;
++    const auto b = referenceRhs(f);
++    Solver s(f, { 0, 6 }, { length });
++    auto result = s.run(b)[0];
++    require(result.status == E::SolveStatus::LinearConverged, "supported PCG convergence");
++    require(result.iterations > 0, "supported iterations missing");
++    const auto q = s.solution.get();
++    residualCheck(f, b, q);
++    const auto matrix = f.matrix();
++    Dense a(30 * 30), load(30);
++    for (unsigned i = 0; i < 30; ++i)
++    {
++        load[i] = b[1 + i / 6].v[i % 6];
++        for (unsigned j = 0; j < 30; ++j)
++            a[30 * i + j] = matrix[(6 + i) * 36 + 6 + j];
++    }
++    const auto ref = solve(a, load);
++    for (unsigned i = 0; i < 30; ++i)
++        require(std::abs(q[1 + i / 6].v[i % 6] - ref[i]) < 2e-8, "dense supported solution");
++    s.initial.put(q);
++    result = s.run(b)[0];
++    require(
++        result.status == E::SolveStatus::LinearConverged && !result.iterations, "exact warm start does numerical work");
++}
++void freeCase(double length)
++{
++    Fixture f;
++    f.fixed.assign(6, 0);
++    std::vector<E::Vector> target(6), warm(6);
++    for (unsigned i = 0; i < 6; ++i)
++        for (unsigned k = 0; k < 6; ++k)
++            target[i].v[k] = std::sin(6 * i + k + .3);
++    const auto a = f.matrix();
++    const auto b = denseProduct(f, a, target);
++    Solver s(f, { 0, 6 }, { length });
++    // Large arbitrary rigid warm start, including rotational lever arms.
++    for (unsigned i = 0; i < 6; ++i)
++    {
++        const auto p = f.x[i];
++        warm[i] = { { 1000 - 13 * p.y, -300 + 13 * p.x, 70, 0, 0, 13 } };
++    }
++    s.initial.put(warm);
++    const auto result = s.run(b)[0];
++    require(result.status == E::SolveStatus::LinearConverged, "projected free convergence");
++    const auto q = s.solution.get();
++    residualCheck(f, b, q);
++    // Independent orthogonality check using the analytical S^-1 N, no GPU QR.
++    double3 center{};
++    for (auto p : f.x)
++    {
++        center.x += p.x / 6;
++        center.y += p.y / 6;
++        center.z += p.z / 6;
++    }
++    double translation[3]{}, rotation[3]{};
++    for (unsigned i = 0; i < 6; ++i)
++    {
++        const auto p = f.x[i];
++        const auto v = q[i];
++        for (unsigned k = 0; k < 3; ++k)
++        {
++            translation[k] += v.v[k];
++            rotation[k] += length * length * v.v[k + 3];
++        }
++        rotation[0] += (p.y - center.y) * v.v[2] - (p.z - center.z) * v.v[1];
++        rotation[1] += (p.z - center.z) * v.v[0] - (p.x - center.x) * v.v[2];
++        rotation[2] += (p.x - center.x) * v.v[1] - (p.y - center.y) * v.v[0];
++    }
++    for (unsigned k = 0; k < 3; ++k)
++    {
++        require(std::abs(translation[k]) < 1e-8, "free translational gauge");
++        require(std::abs(rotation[k]) < 1e-8, "free rotational gauge");
++    }
++    for (const auto& bond : f.bonds)
++    {
++        const auto g = f.G(bond);
++        for (unsigned row = 0; row < 6; ++row)
++        {
++            double delta = 0;
++            for (unsigned i = 0; i < 36; ++i)
++                delta += g[row * 36 + i] * (q[i / 6].v[i % 6] - target[i / 6].v[i % 6]);
++            require(std::abs(delta) < 2e-8, "free interface response uniqueness");
++        }
++    }
++    for (unsigned channel = 0; channel < 6; ++channel)
++    {
++        auto incompatible = b;
++        incompatible[0].v[channel] += 1;
++        require(s.run(incompatible)[0].status == E::SolveStatus::IncompatibleLoad,
++                "incompatible force/torque projected away");
++    }
++}
++void failuresAndTrivial()
++{
++    Fixture f;
++    auto b = referenceRhs(f);
++    Solver s(f, { 0, 6 }, { 1 });
++    s.profile.maxIterations = 1;
++    auto receipt = s.run(b)[0];
++    require(receipt.status == E::SolveStatus::PendingIterationLimit && receipt.iterations == 1,
++            "iteration limit falsely accepted");
++    s.profile.maxIterations = 0;
++    receipt = s.run(b)[0];
++    require(receipt.status == E::SolveStatus::PendingIterationLimit && receipt.iterations == 0, "zero budget status");
++    s.profile.maxIterations = 300;
++    b[1].v[0] = NAN;
++    require(s.run(b)[0].status == E::SolveStatus::InvalidInput, "NaN load accepted");
++    b = referenceRhs(f);
++    s.profile.relativeTolerance = NAN;
++    require(s.run(b)[0].status == E::SolveStatus::InvalidInput, "NaN profile accepted");
++    Solver scales(f, { 0, 6 }, { 0 });
++    require(scales.run(b)[0].status == E::SolveStatus::InvalidInput, "zero length accepted");
++    scales.length.put({ INFINITY });
++    require(scales.run(b)[0].status == E::SolveStatus::InvalidInput, "infinite length accepted");
++    Solver balance(f, { 0, 6 }, { 1 });
++    balance.profile.relativeTolerance = 10;
++    balance.profile.maxIterations = 1;
++    require(balance.run(b)[0].status == E::SolveStatus::PendingIterationLimit,
++            "loose global norm bypassed node force/torque gate");
++    auto badInitial = std::vector<E::Vector>(6);
++    badInitial[2].v[5] = INFINITY;
++    balance.initial.put(badInitial);
++    require(balance.run(b)[0].status == E::SolveStatus::InvalidInput, "infinite warm start accepted");
++    Solver invalid(f, { 0, 6 }, { 1 });
++    invalid.local.put({ 0, 0, 2, 3, 4, 5 });
++    require(invalid.run(b)[0].status == E::SolveStatus::InvalidInput, "invalid permutation accepted");
++    Solver permuted(f, { 0, 6 }, { 1 });
++    permuted.nodes.put({ 4, 3, 0, 1, 5, 2 });
++    permuted.local.put({ 2, 3, 5, 1, 0, 4 });
++    require(permuted.run(b)[0].status == E::SolveStatus::LinearConverged, "valid permutation rejected");
++    residualCheck(f, b, permuted.solution.get());
++    auto enormous = b;
++    enormous[1].v[0] = 1e308;
++    require(permuted.run(enormous)[0].status == E::SolveStatus::Nonfinite, "overflowing reduction accepted");
++    Solver split(f, { 0, 3, 6 }, { 1, 1 });
++    for (auto r : split.run(b))
++        require(r.status == E::SolveStatus::InvalidInput, "cross-component live edge accepted");
++    f.fixed.assign(6, 1);
++    Solver fixed(f, { 0, 6 }, { 1 });
++    require(fixed.run(std::vector<E::Vector>(6))[0].status == E::SolveStatus::LinearConverged,
++            "fully prescribed system rejected");
++    f = Fixture{};
++    for (auto& edge : f.bonds)
++        edge.live = 0;
++    f.fixed.assign(6, 0);
++    Solver disconnected(f, { 0, 6 }, { 1 });
++    require(disconnected.run(std::vector<E::Vector>(6))[0].status == E::SolveStatus::InvalidInput,
++            "disconnected free graph accepted as one component");
++    Solver isolated(f, { 0, 1, 2, 3, 4, 5, 6 }, { 1, 2, 3, 4, 5, 6 });
++    const auto statuses = isolated.run(std::vector<E::Vector>(6));
++    for (auto r : statuses)
++        require(r.status == E::SolveStatus::LinearConverged && r.iterations == 0, "isolated zero-load node factored");
++    auto loaded = std::vector<E::Vector>(6);
++    loaded[3].v[4] = 1;
++    const auto states = isolated.run(loaded);
++    for (unsigned i = 0; i < 6; ++i)
++        require(states[i].status == (i == 3 ? E::SolveStatus::IncompatibleLoad : E::SolveStatus::LinearConverged),
++                "component error contaminated neighbors");
++    f.x.resize(1);
++    f.fixed = { 0 };
++    f.bonds.clear();
++    f.starts = { 0, 0 };
++    f.refs.clear();
++    Solver empty(f, { 0, 1 }, { 1 });
++    require(empty.run(std::vector<E::Vector>(1))[0].status == E::SolveStatus::LinearConverged,
++            "bondless free node rejected");
++    empty.profile.absoluteTolerance = 0;
++    std::vector<E::Vector> tinyLoad(1);
++    tinyLoad[0].v[0] = 1e-13;
++    require(empty.run(tinyLoad)[0].status == E::SolveStatus::IncompatibleLoad,
++            "zero-dimensional residual failure reached a singular preconditioner");
++}
++void largeComponent(bool free)
++{
++    Fixture f;
++    const auto prototype = f.bonds[0];
++    f.x.clear();
++    f.bonds.clear();
++    f.fixed.assign(137, 0);
++    if (!free)
++        f.fixed[0] = 1;
++    f.starts.clear();
++    f.refs.clear();
++    for (unsigned i = 0; i < 137; ++i)
++        f.x.push_back({ .03 * i, std::sin(.13 * i), std::cos(.27 * i) });
++    for (unsigned i = 1; i < 137; ++i)
++    {
++        auto bond = prototype;
++        bond.first = 0;
++        bond.second = i;
++        bond.point[0] = .5 * (f.x[0].x + f.x[i].x);
++        bond.point[1] = .5 * (f.x[0].y + f.x[i].y);
++        bond.point[2] = .5 * (f.x[0].z + f.x[i].z);
++        f.bonds.push_back(bond);
++    }
++    for (unsigned i = 0; i < 137; ++i)
++    {
++        f.starts.push_back(f.refs.size());
++        for (unsigned e = 0; e < f.bonds.size(); ++e)
++            if (f.bonds[e].first == i || f.bonds[e].second == i)
++                f.refs.push_back(e);
++    }
++    f.starts.push_back(f.refs.size());
++    std::vector<E::Vector> target(137);
++    for (unsigned i = 0; i < 137; ++i)
++        for (unsigned k = 0; k < 6; ++k)
++            target[i].v[k] = std::sin(i * .2 + k);
++    const auto b = sparseOracle(f, target);
++    Solver s(f, { 0, 137 }, { 2 });
++    const auto receipt = s.run(b)[0];
++    require(receipt.status == E::SolveStatus::LinearConverged, "strided component convergence");
++    const auto q = s.solution.get(), actual = sparseOracle(f, q);
++    for (unsigned i = 0; i < 137; ++i)
++        for (unsigned k = 0; k < 6; ++k)
++            require(std::abs(actual[i].v[k] - b[i].v[k]) < 2e-8 * (1 + std::abs(b[i].v[k])),
++                    "strided component original equation");
++    if (!free)
++        require(receipt.iterations == 1, "block-diagonal star not solved in one Jacobi step");
++}
++void batchCase()
++{
++    Fixture asset, batch;
++    batch.x.clear();
++    batch.bonds.clear();
++    batch.fixed.clear();
++    batch.starts.clear();
++    batch.refs.clear();
++    std::vector<E::Vector> rhs;
++    std::vector<uint32_t> offsets{ 0 };
++    std::vector<double> scales;
++    std::vector<Fixture> fixtures;
++    std::vector<std::vector<E::Vector>> loads;
++    for (unsigned copy = 0; copy < 129; ++copy)
++    {
++        Fixture f;
++        if (copy % 2)
++            f.fixed.assign(6, 0);
++        if (copy % 3 == 0)
++            f.bonds.back().live = 0;
++        const auto firstNode = batch.x.size(), firstBond = batch.bonds.size();
++        std::vector<E::Vector> target(6);
++        for (unsigned i = 0; i < 6; ++i)
++            for (unsigned k = 0; k < 6; ++k)
++                target[i].v[k] = copy % 7 ? std::sin(6 * i + k + copy) : 0;
++        const auto load = denseProduct(f, f.matrix(), target);
++        loads.push_back(load);
++        fixtures.push_back(f);
++        rhs.insert(rhs.end(), load.begin(), load.end());
++        for (auto p : f.x)
++        {
++            p.x += 16 * copy;
++            batch.x.push_back(p);
++        }
++        for (auto bond : f.bonds)
++        {
++            bond.first += firstNode;
++            bond.second += firstNode;
++            bond.point[0] += 16 * copy;
++            batch.bonds.push_back(bond);
++        }
++        for (unsigned i = 0; i < 6; ++i)
++        {
++            batch.fixed.push_back(f.fixed[i]);
++            batch.starts.push_back(batch.refs.size());
++            for (unsigned j = f.starts[i]; j < f.starts[i + 1]; ++j)
++                batch.refs.push_back(firstBond + f.refs[j]);
++        }
++        offsets.push_back(batch.x.size());
++        scales.push_back(copy % 2 ? .25 : 4);
++    }
++    batch.starts.push_back(batch.refs.size());
++    Solver s(batch, offsets, scales);
++    const auto status = s.run(rhs);
++    const auto q = s.solution.get();
++    for (unsigned copy = 0; copy < 129; ++copy)
++    {
++        require(status[copy].status == E::SolveStatus::LinearConverged, "batch convergence");
++        if (copy % 7 == 0)
++            require(status[copy].iterations == 0, "idle component not retired");
++        residualCheck(
++            fixtures[copy], loads[copy], std::vector<E::Vector>(q.begin() + 6 * copy, q.begin() + 6 * copy + 6));
++    }
++    const auto repeated = s.run(rhs);
++    const auto reused = s.solution.get();
++    const auto setup = s.setup.get();
++    for (unsigned copy = 0; copy < 129; ++copy)
++    {
++        require(repeated[copy].status == E::SolveStatus::LinearConverged &&
++                    repeated[copy].iterations == status[copy].iterations,
++                "cached batch changed recurrence");
++        require(setup[copy].builds == 1, "cached batch rebuilt setup");
++        for (unsigned i = 0; i < 6; ++i)
++            for (unsigned k = 0; k < 6; ++k)
++                near(reused[6 * copy + i].v[k], q[6 * copy + i].v[k], "cached batch solution");
++    }
++    uint32_t iterations = 0, maximum = 0, active = 0;
++    for (auto r : status)
++    {
++        iterations += r.iterations;
++        maximum = std::max(maximum, r.iterations);
++        active += r.iterations != 0;
++    }
++    std::cout << "BATCH: 129 components, 774 nodes, 1032 bonds (989 live), " << active << " iterating components, "
++              << iterations << " summed iterations, " << maximum << " maximum\n";
++}
++int main(int argc, char** argv)
++{
++    try
++    {
++        if (argc == 2 && std::string(argv[1]) == "--batch-only")
++        {
++            batchCase();
++            check(cudaGetLastError());
++            check(cudaDeviceSynchronize());
++            return 0;
++        }
++        require(argc == 1, "usage: stress_elastic_pcg_test [--batch-only]");
++        for (double length : { .25, 1., 4. })
++        {
++            supportedCase(length, false);
++            supportedCase(length, true);
++            freeCase(length);
++        }
++        failuresAndTrivial();
++        batchCase();
++        largeComponent(false);
++        largeComponent(true);
++        check(cudaGetLastError());
++        check(cudaDeviceSynchronize());
++        std::cout
++            << "PASS: GPU projected block-PCG, dense supported/free solutions, scaled six-mode gauge, original-row balance, warm/zero starts, deletion, 129 independent components, 137-node strided components, invalid inputs and incompatible loads, iteration-limit receipts\n";
++    }
++    catch (const std::exception& e)
++    {
++        std::cerr << e.what() << '\n';
++        return 1;
++    }
++}
+diff --git a/demos/blast-stress-demo/CMakeLists.txt b/demos/blast-stress-demo/CMakeLists.txt
+index 6a289c62..878955e5 100644
+--- a/demos/blast-stress-demo/CMakeLists.txt
++++ b/demos/blast-stress-demo/CMakeLists.txt
+@@ -112,6 +112,58 @@ target_link_libraries(NvBlastExtStressPhysX PUBLIC blast_stress_core)
+ 
+ if(BLAST_ENABLE_CUDA_STRESS)
+     find_package(CUDAToolkit REQUIRED)
++    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13.4 AND CMAKE_CUDA_ARCHITECTURES MATCHES "(^|;)120(-real|-virtual)?(;|$)")
++        add_executable(stress_elastic_operator_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_operator_test.cu")
++        target_link_libraries(stress_elastic_operator_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_operator_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_operator_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_operator COMMAND stress_elastic_operator_test)
++        add_executable(stress_elastic_pcg_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_pcg_test.cu")
++        target_link_libraries(stress_elastic_pcg_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_pcg_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_pcg_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_pcg COMMAND stress_elastic_pcg_test)
++        add_executable(stress_elastic_setup_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_setup_test.cu")
++        target_link_libraries(stress_elastic_setup_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_setup_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_setup_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_setup COMMAND stress_elastic_setup_test)
++        add_executable(stress_elastic_components_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_components_test.cu")
++        target_link_libraries(stress_elastic_components_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_components_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_components_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_components COMMAND stress_elastic_components_test)
++        add_executable(stress_elastic_loads_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_loads_test.cu")
++        target_include_directories(stress_elastic_loads_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_loads_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_loads_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_loads_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_loads COMMAND stress_elastic_loads_test)
++        add_executable(stress_elastic_partition_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_partition_test.cu")
++        target_include_directories(stress_elastic_partition_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_partition_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_partition_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        set_target_properties(stress_elastic_partition_test PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
++        add_test(NAME blast_stress_six_channel_partition COMMAND stress_elastic_partition_test)
++        add_executable(stress_elastic_commands_test
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test/elastic_commands_test.cu")
++        target_include_directories(stress_elastic_commands_test PRIVATE
++            "${PHYSX_ROOT}/include" "${PHYSX_ROOT}/source/gpudestruction/src"
++            "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
++        target_link_libraries(stress_elastic_commands_test PRIVATE CUDA::cudart)
++        target_compile_options(stress_elastic_commands_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++        add_test(NAME blast_stress_six_channel_commands COMMAND stress_elastic_commands_test)
++    endif()
+     target_sources(NvBlastExtStressPhysX PRIVATE
+         "${BLAST_ROOT}/source/sdk/extensions/stressphysx/NvBlastExtStressPhysXContactGpu.cu")
+     target_compile_definitions(NvBlastExtStressPhysX PRIVATE NVBLAST_ENABLE_DIRECT_GPU_CONTACT_DRAIN)
+@@ -729,6 +781,44 @@ if(BLAST_ENABLE_CUDA_STRESS)
+ 
+     add_executable(native_gpu_correction_body_test tests/native_gpu_correction_body_test.cpp physx_scene.cpp)
+     get_target_property(NATIVE_CHECKPOINT_TEST_INCLUDES native_gpu_checkpoint_test INCLUDE_DIRECTORIES)
++    add_executable(native_command_wake_test tests/native_command_wake_test.cpp physx_scene.cpp)
++    target_include_directories(native_command_wake_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
++    target_compile_definitions(native_command_wake_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
++    target_link_options(native_command_wake_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
++    target_link_libraries(native_command_wake_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
++    add_test(NAME physx_native_command_wake COMMAND native_command_wake_test)
++    add_executable(native_gpu_command_motion_test tests/native_gpu_command_motion_test.cu)
++    target_include_directories(native_gpu_command_motion_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src"
++        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail"
++        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test")
++    target_compile_definitions(native_gpu_command_motion_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_command_motion_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_command_motion_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_command_motion COMMAND native_gpu_command_motion_test)
++    add_executable(native_gpu_command_baseline_test tests/native_gpu_command_baseline_test.cu)
++    target_include_directories(native_gpu_command_baseline_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src"
++        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail"
++        "${BLAST_ROOT}/source/sdk/extensions/stressgpu/test")
++    target_compile_definitions(native_gpu_command_baseline_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_command_baseline_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_command_baseline_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_command_baseline COMMAND native_gpu_command_baseline_test)
++    add_executable(native_gpu_command_inputs_test tests/native_gpu_command_inputs_test.cu)
++    target_include_directories(native_gpu_command_inputs_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src")
++    target_compile_definitions(native_gpu_command_inputs_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_command_inputs_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_command_inputs_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_command_inputs COMMAND native_gpu_command_inputs_test)
++    add_executable(native_gpu_input_owners_test tests/native_gpu_input_owners_test.cu)
++    target_include_directories(native_gpu_input_owners_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
++        "${PHYSX_ROOT}/source/gpudestruction/src")
++    target_compile_definitions(native_gpu_input_owners_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
++    target_compile_options(native_gpu_input_owners_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_link_libraries(native_gpu_input_owners_test PRIVATE CUDA::cudart)
++    add_test(NAME physx_native_gpu_input_owners COMMAND native_gpu_input_owners_test)
+     target_include_directories(native_gpu_correction_body_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+     target_compile_definitions(native_gpu_correction_body_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+     target_link_options(native_gpu_correction_body_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")

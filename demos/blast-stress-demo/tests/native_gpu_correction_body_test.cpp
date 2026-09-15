@@ -15,6 +15,7 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#include <type_traits>
 using namespace physx;
 namespace {
 void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
@@ -26,8 +27,8 @@ PxVec3 vec(float4 p){return PxVec3(p.x,p.y,p.z);}
 PxQuat quat(const float* p){return PxQuat(p[0],p[1],p[2],p[3]);}
 template<class T> std::vector<T> read(const T* ptr,unsigned count){std::vector<T> out(count);if(count)check(cuMemcpyDtoH(out.data(),CUdeviceptr(ptr),count*sizeof(T)));return out;}
 void step(PxScene& scene){scene.simulate(1.0f/60);PxU32 error=0;require(scene.fetchResults(true,&error)&&!error,"ordinary step failed");}
-void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,bool invalidCheckpoint=false,bool invalidCollision=false,bool invalidInitialization=false) {
-    blast_demo::SceneCapacity capacity;blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,sleeping,sleeping,solver,accelerations);
+void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,bool invalidCheckpoint=false,bool invalidCollision=false,bool invalidInitialization=false,bool ordinaryApi=false,unsigned commandMode=0) {
+    blast_demo::SceneCapacity capacity;blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,!ordinaryApi,false,sleeping&&!ordinaryApi,sleeping&&!ordinaryApi,solver,accelerations);
     auto& scene=context.scene();auto& physics=context.physics();auto& cuda=*context.cudaContextManager();auto& internal=static_cast<NpScene&>(scene);
     auto& controller=*static_cast<PxgSimulationController*>(internal.getScScene().getSimulationController());auto& core=*controller.getSimulationCore();
     scene.setGravity(PxVec3(0));const PxVec3 offset(2,1,-.5f),center=offset+PxVec3(.2f,0,0);
@@ -47,7 +48,7 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
     PxDestructionStressChunk chunks[3];PxDestructionChunkMassProperties mass[3]{};
     for(unsigned i=0;i<2;++i) {
         const float m=i?3.0f:2.0f;const auto point=offset+PxVec3(i?1.0f:-1.0f,0,0);const auto tensor=unitTensor*m;
-        chunks[i]={point,m,m*unitMoments.z,0,scene.getDirectGPUAPI().getShapeContactIndex(*shapes[i]),.48f,0};
+        chunks[i]={point,m,m*unitMoments.z,0,scene.getDestructionScene()->getShapeContactIndex(*shapes[i]),.48f,0};
         mass[i].mass=m;for(unsigned k=0;k<3;++k){mass[i].center[k]=point[k];mass[i].inertia[k]=tensor[k][k];}
         mass[i].inertia[3]=tensor[1][0];mass[i].inertia[4]=tensor[2][0];mass[i].inertia[5]=tensor[2][1];
     }
@@ -55,9 +56,70 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
     PxDestructionStressCluster clusters[2]={{parentId,center},{quietId,PxVec3(0)}};
     PxDestructionStressBond bond{0,1,offset,PxVec3(1,0,0),1,1,1};PxDestructionMaterial material;
     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=3;desc.chunkMassProperties=mass;desc.clusters=clusters;desc.clusterCount=2;desc.bonds=&bond;desc.bondCount=1;desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-5f;
+    desc.internalCorrectionLimit=ordinaryApi?1:0;
     auto* runtime=static_cast<PxgDestructionRuntime*>(scene.getDestructionScene());require(runtime->configureStress(desc),"correction graph configuration failed");
     auto force=[&](PxU32 id){PxScopedCudaLock lock(cuda);CUdeviceptr index=0,value=0;check(cuMemAlloc(&index,sizeof(id)));check(cuMemAlloc(&value,sizeof(PxVec3)));const PxVec3 f(10,0,0);check(cuMemcpyHtoD(index,&id,sizeof(id)));check(cuMemcpyHtoD(value,&f,sizeof(f)));require(scene.getDirectGPUAPI().setRigidDynamicData(reinterpret_cast<void*>(value),reinterpret_cast<const PxU32*>(index),PxRigidDynamicGPUAPIWriteType::eFORCE,1),"force command failed");check(cuCtxSynchronize());check(cuMemFree(index));check(cuMemFree(value));};
-    force(ordinaryId);if(loaded)force(parentId);
+    if(ordinaryApi) {
+        ordinary->addForce(PxVec3(10,0,0));
+        if(loaded) {
+            if(commandMode!=2)parent->addForce(PxVec3(10,0,0));
+            if(commandMode!=1)parent->addTorque(PxVec3(0,0,3));
+        } else {parent->addForce(PxVec3(0));parent->addTorque(PxVec3(0));}
+    } else {force(ordinaryId);if(loaded)force(parentId);}
+    if(ordinaryApi) {
+        scene.simulate(1.0f/60);PxU32 error=0;const bool accepted=scene.fetchResults(true,&error);
+        std::printf("ordinary correction: loaded=%u mode=%u solver=%u accelerations=%u accepted=%u error=%u stage=%u\n",unsigned(loaded),commandMode,unsigned(solver),unsigned(accelerations),unsigned(accepted),error,runtime->getLastStatus().error);
+        require(accepted!=loaded && bool(error)==loaded,"ordinary loaded source bypassed correction guard");
+        if(!loaded)require(runtime->getLastStatus().correctionPasses==1,"unrelated-command control did not complete a fracture correction");
+        if(loaded) {
+            require(runtime->getLastStatus().error==8,"ordinary command rejection lost correction status");
+            PxScopedCudaLock lock(cuda);auto view=runtime->getDeviceView();check(cuEventSynchronize(view.readyEvent));
+            auto status=read(view.correctionPreparation,1)[0];
+            require(status.valid && !status.error && status.loadedSources==1,"ordinary force/torque source was not counted once");
+            const auto checkpoint=runtime->rigidCheckpoint();const auto source=read(checkpoint.bodies+parentId,1)[0];
+            require(vec(source.externalLinearAcceleration).isZero() && vec(source.externalAngularAcceleration).isZero(),"fixture did not exercise velocity-delta commands");
+            const auto history=runtime->commandInputHistory();require(history.status && history.generation==checkpoint.generation,"ordinary command history missing");
+            bool found=false;for(const auto& command:read(history.records,history.count))if(command.body==parentId && command.kind==1)found=true;
+            require(found,"parent command was not captured");
+            // Recreate the post-fracture address-space growth that a fresh
+            // restored scene exposes. Existing original commands must survive
+            // history growth; newly addressable (unused) slots have no command.
+            const PxU32 grownCount=PxMax(4096u,checkpoint.count*2);
+            auto padded=[&](auto* original)->CUdeviceptr {
+                if(!original)return 0;
+                using T=typename std::remove_const<typename std::remove_pointer<decltype(original)>::type>::type;
+                CUdeviceptr result=0;check(cuMemAlloc(&result,size_t(grownCount)*sizeof(T)));
+                check(cuMemsetD8(result,0,size_t(grownCount)*sizeof(T)));
+                check(cuMemcpyDtoD(result,CUdeviceptr(original),size_t(checkpoint.count)*sizeof(T)));return result;
+            };
+            const auto grownBodies=padded(checkpoint.bodies),grownPrevious=padded(checkpoint.previous),grownAccelerations=padded(checkpoint.accelerations);
+            require(runtime->captureRigidState(reinterpret_cast<const PxgBodySim*>(grownBodies),
+                reinterpret_cast<const PxgBodySimVelocities*>(grownPrevious),reinterpret_cast<const PxgRigidBodyAcceleration*>(grownAccelerations),
+                grownCount,core.getStream(),PxgDestructionCheckpointPurpose::CorrectedMotion),"grown corrected checkpoint failed");
+            check(cuEventSynchronize(runtime->rigidCheckpoint().ready));
+            check(cuMemFree(grownBodies));if(grownPrevious)check(cuMemFree(grownPrevious));if(grownAccelerations)check(cuMemFree(grownAccelerations));
+
+            require(runtime->prepareCorrectionBodies(core.getBodySimStorageCapacity(),core.getStream()),"explicit command correction preparation failed");
+            require(runtime->observeCorrectionPreparation(),"explicit command correction observation failed");
+            view=runtime->getDeviceView();check(cuEventSynchronize(view.readyEvent));status=read(view.correctionPreparation,1)[0];
+            require(status.valid && !status.error && status.loadedSources==1,"explicit correction preparation lost ordinary command guard");
+            // Corrupt only the original command receipt. No native motion may
+            // change, and a stale/error receipt must not become an empty load.
+            const auto count=controller.getBodySimManager().mTotalNumBodies;
+            const auto before=read(core.getBodySimBufferDevicePtr().getPointer(),count);
+            auto receipt=read(history.status,1)[0];
+            if(commandMode==1)receipt.error|=4u;else ++receipt.generation;
+            check(cuMemcpyHtoD(CUdeviceptr(history.status),&receipt,sizeof(receipt)));
+            require(runtime->prepareCorrectionBodies(core.getBodySimStorageCapacity(),core.getStream()),"invalid command receipt submission failed");
+            require(!runtime->observeCorrectionPreparation(),"invalid original command receipt accepted");
+            check(cuEventSynchronize(runtime->getDeviceView().readyEvent));status=read(view.correctionPreparation,1)[0];
+            require(!status.valid && (status.error&64u) && !status.loadedSources,"invalid history lost explicit rejection");
+            const auto after=read(core.getBodySimBufferDevicePtr().getPointer(),count);
+            require(!std::memcmp(before.data(),after.data(),before.size()*sizeof(PxgBodySim)),"invalid command history changed native motion");
+        }
+        require(runtime->clearStress(),"ordinary correction cleanup failed");parent->release();quiet->release();ordinary->release();for(auto* shape:shapes)shape->release();
+        require(context.healthy(),"ordinary correction GPU health failed");return;
+    }
     scene.simulate(1.0f/60);PxU32 error=0;require(!scene.fetchResults(true,&error)&&error&&runtime->getLastStatus().error==8,"native split did not stop at incomplete correction");
     // Manual installation oracle: explicitly materialize its CPU compatibility
     // records after the intentionally incomplete scene advance.
@@ -171,4 +233,4 @@ void run(bool sleeping,bool accelerations,PxSolverType::Enum solver,bool loaded,
     std::printf("native correction bodies: rotated inertia/COM, original motion, momentum, retained/new installation, load guard; sleep=%u acceleration=%u solver=%u loaded=%u invalid=%u invalidCollision=%u invalidInitialization=%u passed\n",unsigned(sleeping),unsigned(accelerations),unsigned(solver),unsigned(loaded),unsigned(invalidCheckpoint),unsigned(invalidCollision),unsigned(invalidInitialization));
 }
 }
-int main(){try{for(bool sleeping:{false,true})for(bool accelerations:{false,true})for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(sleeping,accelerations,solver,false);run(true,true,PxSolverType::eTGS,true);run(false,false,PxSolverType::eTGS,false,true);run(false,false,PxSolverType::eTGS,false,false,true);for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(false,true,solver,false,false,false,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+int main(){try{for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})for(bool accelerations:{false,true})for(unsigned mode=0;mode<4;++mode)run(true,accelerations,solver,mode!=3,false,false,false,true,mode%3);for(bool sleeping:{false,true})for(bool accelerations:{false,true})for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(sleeping,accelerations,solver,false);run(true,true,PxSolverType::eTGS,true);run(false,false,PxSolverType::eTGS,false,true);run(false,false,PxSolverType::eTGS,false,false,true);for(auto solver:{PxSolverType::eTGS,PxSolverType::ePGS})run(false,true,solver,false,false,false,true);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
