@@ -461,3 +461,14 @@ fewer components refactor concurrently at impact, and the roughly 450 cluster
 barriers per component cost more than the parallel pair updates save. The
 default stays single-CTA; the remaining levers are a partitioner with
 refinement for the ordering, or Woodbury updates that avoid refactoring.
+
+## Incremental motion modes (R6, lossless)
+
+`constructMotionModes` rebuilt every component's Euler tour, closure, axes and
+mode factor on each topology transaction. A per-node changed mask taken from
+the old component labels before relabeling (`markChangedStressNodes`) now
+restricts every phase to changed components; unchanged ones keep their tour,
+positions, closure, axes and factor. Kernel 1.86 → 0.43 ms per launch (about
+157 launches per 180 ticks), histories identical, resident motion-mode and
+native tests pass. `BLAST_GPU_NATIVE_MOTION_INCREMENTAL=0` restores the full
+rebuild.

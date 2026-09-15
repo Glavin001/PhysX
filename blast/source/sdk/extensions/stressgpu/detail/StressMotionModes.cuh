@@ -22,7 +22,7 @@ __device__ void reduceMotionValues(double (&values)[Count],double (&partial)[Cou
     __syncthreads();
 }
 __device__ void buildMotionFactor(Input a,MotionBuffers b,Status* status,unsigned id){
-    auto& c=b.components[id];if(c.anchored)return;
+    auto& c=b.components[id];if(c.anchored || !motionChanged(b,id))return;
     __shared__ double centers[4][Threads/32],blocks[21][Threads/32];
     const unsigned begin=a.partition.begin[id],end=a.partition.end[id],dimension=motionDimension(c);
     double sums[4]{};
@@ -63,9 +63,9 @@ __global__ void constructMotionModes(Input a,const unsigned* forest,MotionBuffer
     if(!thread)beginBuild(a,status,work);grid.sync();if(!work->active)return;
     initializeMotionForest(a,forest,b,status,thread,stride);grid.sync();
     if(!thread)work->pending=!status->error;grid.sync();if(!work->pending)return;
-    for(unsigned node=thread/32;node<a.nodes;node+=stride/32)buildMotionTour(a,forest,b,status,node);grid.sync();
+    for(unsigned node=thread/32;node<a.nodes;node+=stride/32)if(motionChanged(b,node))buildMotionTour(a,forest,b,status,node);grid.sync();
     // Every tree component must have exactly one broken Euler-tour link.
-    for(unsigned arc=thread;arc<2*a.bonds;arc+=stride)if(forest[arc/2]){
+    for(unsigned arc=thread;arc<2*a.bonds;arc+=stride)if(forest[arc/2] && motionEdgeChanged(a,b,arc/2)){
         auto& c=b.components[a.component[a.node0[arc/2]]];
         if(b.previous[0][arc]==Invalid)atomicAdd(&c.cuts,1u);if(!(arc&1u))atomicAdd(&c.edges,1u);
     }
@@ -132,6 +132,8 @@ public:
         check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attr));return node;
     }
     MotionModeView view()const{return {mBuffers.position,mBuffers.components,mStatus,mForest};}
+    // Must be set before append(): the captured kernel parameters carry the pointer.
+    void setChangedMask(const unsigned* mask){mBuffers.changed=mask;}
     const Status* status()const{return mStatus;}
 };
 }}}

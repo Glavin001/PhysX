@@ -193,7 +193,7 @@ class DeviceStressTopology
 #ifdef PHYSX_RESIDENT_DESTRUCTION
     std::unique_ptr<NativeStressHierarchy> nativeHierarchy;
 #endif
-    unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr, *forest=nullptr;
+    unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr, *forest=nullptr, *nodeChanged=nullptr;
     unsigned *rangeBegin=nullptr, *rangeEnd=nullptr, *tileCounts=nullptr;
     unsigned* liveIslands=nullptr;
     unsigned *componentNodes=nullptr, *largeIslands=nullptr, *largeCount=nullptr;
@@ -272,6 +272,7 @@ class DeviceStressTopology
         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
         nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,ownerStream));
         nativeHierarchy->setDirect(b.direct);
+        if(nativeMotionIncremental())nativeHierarchy->setChangedMask(nodeChanged);
 #endif
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
@@ -289,6 +290,9 @@ class DeviceStressTopology
         // Direct factor slots follow the same changed-old-component rule.
         if(b.direct.enabled)refreshNativeDirectSlots<<<nodeBlocks,kBlockSize,0,captureStream>>>(b.direct,components(),state,batch,rootFlags);
         clearChangedStressWarmStart<<<bondBlocks,kBlockSize,0,captureStream>>>(state,b.bondIsland,rootFlags,b.impulses,b.m);
+        // Per-node changed mask for the incremental motion-mode rebuild, from the
+        // OLD labels before relabeling (a full mask on the first build).
+        markChangedStressNodes<<<nodeBlocks,kBlockSize,0,captureStream>>>(rootFlags,b.nodeIsland,b.inertia,nodeChanged,state,b.n);
 #endif
         beginDeviceStressRebuild<<<1,1,0,captureStream>>>(state);
         initializeDeviceStressTopology<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(batch,b.inertia,parent,identity,rootFlags,b.health,b.n,b.m,forest);
@@ -353,7 +357,7 @@ public:
         nativeHierarchy.reset();
 #endif
         if (captureStream) cudaStreamDestroy(captureStream);
-        cudaFree(parent); cudaFree(forest); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys);
+        cudaFree(parent); cudaFree(forest); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys); cudaFree(nodeChanged); nodeChanged=nullptr;
         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
         cudaFree(componentNodes); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
@@ -361,7 +365,7 @@ public:
     }
     void init(cudaStream_t stream)
     {
-        allocate(parent,b.n); allocate(rootFlags,b.n); allocate(identity,std::max(b.n,b.m));
+        allocate(parent,b.n); allocate(rootFlags,b.n); allocate(identity,std::max(b.n,b.m)); allocate(nodeChanged,b.n);
         allocate(batch,1); allocate(state,1);
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         allocate(forest,b.m); allocate(liveIslands,b.n); allocate(componentNodes,b.n);

@@ -56,6 +56,7 @@ public:
     }
     ~NativeStressHierarchy(){cudaStreamSynchronize(mStream);mCycle.reset();release();}
     NativeStressHierarchy(const NativeStressHierarchy&)=delete;NativeStressHierarchy& operator=(const NativeStressHierarchy&)=delete;
+    void setChangedMask(const unsigned* mask){mModes.setChangedMask(mask);}
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
         prior=mModes.append(graph,prior);prior=mHierarchy.append(graph,prior);mCycle.reset(new StressHierarchy::ResidentCycle(mHierarchy));mView.cycle=mCycle->deviceView();return prior;
     }

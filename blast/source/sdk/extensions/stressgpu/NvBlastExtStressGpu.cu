@@ -359,6 +359,13 @@ unsigned nativeDirectClusterSize()
     static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_CLUSTER"); return raw ? unsigned(std::max(0L, std::atol(raw))) : 0u; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_MOTION_INCREMENTAL=0 rebuilds every component's motion
+/// modes on each topology transaction (default: only changed components).
+bool nativeMotionIncremental()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_MOTION_INCREMENTAL"); return !raw || std::string(raw) != "0"; }();
+    return value;
+}
 bool nativeDirectEnabled()
 {
     static const bool enabled = []() {
