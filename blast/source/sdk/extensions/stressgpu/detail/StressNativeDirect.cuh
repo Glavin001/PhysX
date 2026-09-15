@@ -46,6 +46,7 @@ struct NativeDirectSlotView {
     unsigned* slotValid = nullptr;         // factor values are current for the component's operator
     unsigned* slotFailed = nullptr;        // numeric factorization failed; PCG handles the component
     unsigned long long* slotGeneration = nullptr;
+    unsigned* freeList = nullptr;          // scratch for deterministic assignment (slotCount entries)
     unsigned slotCount = 0, stride = 0;
 };
 struct NativeDirectView {
@@ -140,28 +141,54 @@ __global__ void releaseNativeDirectSlots(NativeDirectView v, const unsigned* nod
         }
     }
 }
-// Solve entry: every eligible live component without a slot claims one. Pool
-// exhaustion leaves the component on PCG; nothing physical changes.
+// Solve entry: every eligible live component without a slot claims one, in
+// component-list order from the free slots in ascending order. One CTA runs
+// this deterministically: identical inputs always produce identical slot
+// assignments, so pool exhaustion never makes the fallback set run-dependent.
+__device__ __forceinline__ unsigned directBlockScanInclusive(unsigned* scan, unsigned value) {
+    scan[threadIdx.x] = value; __syncthreads();
+    for (unsigned o = 1; o < kBlockSize; o <<= 1) { const unsigned x = threadIdx.x >= o ? scan[threadIdx.x - o] : 0u; __syncthreads(); scan[threadIdx.x] += x; __syncthreads(); }
+    return scan[threadIdx.x];
+}
 __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressComponentView c,
     const StressHierarchy::MotionComponent* modes, const ExtStressGpuDeviceTopologyStatus* state) {
-    if (!v.enabled) return;
-    for (unsigned t = blockIdx.x * blockDim.x + threadIdx.x; t < *c.count; t += blockDim.x * gridDim.x) {
-        if (t == 0 && v.counters) for (unsigned k = 0; k < kDirectCounterCount; ++k) v.counters[k] = 0;
-        const unsigned id = c.ids[t], count = c.end[id] - c.begin[id];
-        if (count > kResidentComponentMaxNodes || count < v.minNodes) continue;
-        if (v.pattern.nodeParent[c.nodes[c.begin[id]]] == kNoIsland) continue;
-        if (v.slots.componentSlot[id] != kNoIsland) continue;
-        const unsigned start = (id * 2654435761u) % v.slots.slotCount;
-        for (unsigned k = 0; k < v.slots.slotCount; ++k) {
-            const unsigned s = (start + k) % v.slots.slotCount;
-            if (atomicCAS(v.slots.slotComponent + s, kNoIsland, id) == kNoIsland) {
-                v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0;
-                v.slots.slotGeneration[s] = state->generation;
-                __threadfence();
-                v.slots.componentSlot[id] = s;
-                break;
-            }
+    __shared__ unsigned scan[kBlockSize];
+    __shared__ unsigned freeTotal, needTotal;
+    if (!v.enabled || blockIdx.x) return;
+    if (!threadIdx.x) { freeTotal = 0; needTotal = 0; if (v.counters) for (unsigned k = 0; k < kDirectCounterCount; ++k) v.counters[k] = 0; }
+    __syncthreads();
+    // Pass 1: ascending list of free slots (snapshot, no writes to slot state).
+    for (unsigned base = 0; base < v.slots.slotCount; base += kBlockSize) {
+        const unsigned k = base + threadIdx.x;
+        const unsigned isFree = (k < v.slots.slotCount && v.slots.slotComponent[k] == kNoIsland) ? 1u : 0u;
+        const unsigned inclusive = directBlockScanInclusive(scan, isFree);
+        if (isFree) v.slots.freeList[freeTotal + inclusive - 1u] = k;
+        __syncthreads();
+        if (threadIdx.x == kBlockSize - 1) freeTotal += inclusive;
+        __syncthreads();
+    }
+    // Pass 2: k-th needing component (component-list order) takes freeList[k].
+    const unsigned total = *c.count;
+    for (unsigned base = 0; base < total; base += kBlockSize) {
+        const unsigned t = base + threadIdx.x;
+        unsigned need = 0u, id = kNoIsland;
+        if (t < total) {
+            id = c.ids[t];
+            const unsigned count = c.end[id] - c.begin[id];
+            need = (count <= kResidentComponentMaxNodes && count >= v.minNodes
+                && v.pattern.nodeParent[c.nodes[c.begin[id]]] != kNoIsland
+                && v.slots.componentSlot[id] == kNoIsland) ? 1u : 0u;
         }
+        const unsigned inclusive = directBlockScanInclusive(scan, need);
+        const unsigned rank = needTotal + inclusive - need;
+        if (need && rank < freeTotal) {
+            const unsigned s = v.slots.freeList[rank];
+            v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0; v.slots.slotGeneration[s] = state->generation;
+            v.slots.componentSlot[id] = s; v.slots.slotComponent[s] = id;
+        }
+        __syncthreads();
+        if (threadIdx.x == kBlockSize - 1) needTotal += inclusive;
+        __syncthreads();
     }
 }
 // Numeric block Cholesky of every assigned-but-invalid slot: one CTA per

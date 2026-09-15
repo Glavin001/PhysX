@@ -86,3 +86,43 @@ component when device topology is enabled: in a 256-building rerun the
 candidate initialized in 2.11 s versus 2.49 s for the control, the first idle
 tick took 11.6 ms versus 12.5 ms, idle stayed within 0.1 ms, and the heavy
 3 s mean was 54.8 → 36.5 ms with identical histories.
+
+## Full52 warm physical qualification (contract v3, 52/52 pass)
+
+Plan `out/direct-warm-screen-20260915/full52-plan.json` (the 52 windows and hash-checked
+preserved controls of the 2026-09-14 full52 baseline), results `full52-v2/`, 297 s.
+Every window passes contract v3 and its warm-window repeatability gate. A first
+run failed only city64 late debris on repeatability (health differing by 4e-7
+between two restores of the same input): slot assignment raced on atomics, so
+when the pool was exhausted the set of components falling back to PCG depended on
+the race. Assignment is now a deterministic component-order scan (`b6u3jdttk`
+build; committed below). Control means below are the historical 2026-09-14
+timings, not paired measurements.
+
+| window | control mean | candidate mean | control max | candidate max | 60 Hz misses ctrl/cand |
+|---|---:|---:|---:|---:|---:|
+| building-fragmented | 3.86 | 3.73 | 4.5 | 4.0 | 0/0 |
+| city25-initial-impact | 22.76 | 16.78 | 36.9 | 32.3 | 10/10 |
+| city25-post-impact | 19.67 | 14.66 | 29.4 | 24.4 | 8/8 |
+| city25-cascading-fracture | 23.39 | 16.24 | 29.5 | 21.2 | 12/12 |
+| city25-fragmented-loaded | 15.85 | 8.41 | 28.0 | 17.6 | 2/2 |
+| city25-late-debris | 29.77 | 32.63 | 35.6 | 40.9 | 16/16 |
+| city25-ten-second-debris | 20.44 | 9.06 | 33.2 | 16.0 | 9/0 |
+| city64-initial-impact | 28.64 | 24.22 | 57.8 | 54.6 | 11/12 |
+| city64-post-impact | 23.71 | 19.40 | 35.4 | 35.3 | 9/10 |
+| city64-cascading-fracture | 20.65 | 16.72 | 31.0 | 27.5 | 6/6 |
+| city64-fragmented-loaded | 22.95 | 12.69 | 39.4 | 25.2 | 16/2 |
+| city64-late-debris | 49.35 | 48.67 | 51.8 | 56.3 | 16/16 |
+| city64-ten-second-debris | 22.98 | 10.69 | 37.8 | 20.7 | 16/4 |
+| city256-airborne | 3.78 | 4.12 | 4.1 | 4.4 | 0/0 |
+| city256-initial-impact | 88.77 | 71.25 | 175.8 | 158.8 | 16/16 |
+| city256-post-impact | 73.20 | 55.59 | 117.1 | 104.8 | 16/16 |
+| city256-cascading-fracture | 77.41 | 53.96 | 99.8 | 82.2 | 16/16 |
+| city256-fragmented-loaded | 82.20 | 45.65 | 103.1 | 59.6 | 16/16 |
+| city256-late-debris | 124.66 | 92.30 | 129.2 | 96.7 | 16/16 |
+| city256-ten-second-debris | 41.38 | 26.59 | 58.9 | 38.9 | 16/10 |
+
+The 32 small/idle windows average 1.56 ms (candidate) versus 1.52 ms (control).
+Open: city25 late debris (29.8 → 32.6 ms) and city64 late debris (49.4 → 48.7 ms) show
+no gain against their unpaired controls; both are small-city late-debris windows and
+need a paired A/B and a per-component diagnostic before drawing a conclusion.

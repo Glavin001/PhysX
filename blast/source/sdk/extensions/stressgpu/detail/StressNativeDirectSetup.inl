@@ -193,6 +193,7 @@
         view.slots.values = directUpload(values); view.slots.slotComponent = directUpload(slotComponent);
         view.slots.componentSlot = directUpload(componentSlot); view.slots.slotValid = directUpload(zeros);
         view.slots.slotFailed = directUpload(zeros); view.slots.slotGeneration = directUpload(generations);
+        view.slots.freeList = directUpload(zeros);
         view.slots.slotCount = slotCount; view.slots.stride = stride; view.enabled = 1;
         view.counters = directUpload(std::vector<unsigned>(kDirectCounterCount, 0u));
         view.diagnostics = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG") ? 1u : 0u;
@@ -209,7 +210,7 @@
         checkCuda(cudaGetDevice(&device), "prefactor device");
         checkCuda(cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, device), "prefactor multiprocessors");
         const NativeDirectOperator op{m_node0, m_node1, m_nodeBondBegin, m_nodeBondRef, m_nodeIsland, m_offset0, m_offset1, m_inertia, m_health, m_colScales};
-        assignNativeDirectSlots<<<(m_nodeCount + kBlockSize - 1) / kBlockSize, kBlockSize, 0, m_stream>>>(m_direct, components, view.modes.components, m_deviceTopology->status());
+        assignNativeDirectSlots<<<1, kBlockSize, 0, m_stream>>>(m_direct, components, view.modes.components, m_deviceTopology->status());
         factorNativeDirect<<<std::min(m_nodeCount, unsigned(std::max(1, sms) * 2)), kBlockSize, 0, m_stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status());
         checkCuda(cudaGetLastError(), "prefactor native direct launch");
         checkCuda(cudaStreamSynchronize(m_stream), "prefactor native direct");

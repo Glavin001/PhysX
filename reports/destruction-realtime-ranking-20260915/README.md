@@ -291,7 +291,7 @@ peak and ~15 ms per sustained tick of GPU-idle CPU time) are the next targets.
 Routing components smaller than eight nodes through the direct path was measured
 worse (39.7 vs 37.2 ms) and is not enabled.
 
-Continuous 600-tick heavy run: 51.4 → 33.8 ms mean, 60 Hz misses 519 → 328 of 600, identical physical work counters every tick. Official nine-window warm screen (all windows pass contract v3; city25 impact 22.6 → 17.1 ms, city256 cascade 105 → 80 ms, debris 125 → 93 ms, impact 89 → 75 ms, idle unchanged): [warm-screen.md](warm-screen.md).
+Full52 warm qualification passes 52/52 under contract v3 (city256 late debris 124.7 → 92.3 ms, fragmented 82.2 → 45.7). Continuous 600-tick heavy run: 51.4 → 33.8 ms mean, 60 Hz misses 519 → 328 of 600, identical physical work counters every tick. Official nine-window warm screen (all windows pass contract v3; city25 impact 22.6 → 17.1 ms, city256 cascade 105 → 80 ms, debris 125 → 93 ms, impact 89 → 75 ms, idle unchanged): [warm-screen.md](warm-screen.md).
 
 ## References
 
