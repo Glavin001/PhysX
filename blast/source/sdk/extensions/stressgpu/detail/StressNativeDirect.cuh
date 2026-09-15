@@ -52,6 +52,17 @@ struct NativeDirectSlotView {
     unsigned* slotPinned = nullptr;        // pinned node the factor was built with (kNoIsland for anchored); a stale factor is only applied to the same pinning
     unsigned long long* slotGeneration = nullptr;
     unsigned* freeList = nullptr;          // scratch for deterministic assignment (slotCount entries)
+    // Woodbury updates (StressNativeWoodbury.cuh).
+    unsigned* slotRemovedCount = nullptr;   // removed bonds since the factor (per slot)
+    unsigned* slotRemoved = nullptr;        // slot * kWoodburyMaxBonds edges
+    unsigned* slotPresent = nullptr;        // slot * kWoodburyPresentWords: rows present when the factor was built
+    unsigned* slotWoodbury = nullptr;       // 2: W/C valid for the current removed set
+    unsigned* slotWoodburyBuffer = nullptr; // pool index or kNoIsland
+    float* woodburyPool = nullptr;          // buffers * woodburyStride (W, row-major, m columns)
+    float* woodburyCap = nullptr;           // buffers * kWoodburyCapFloats (capacitance work areas and C^+)
+    unsigned* woodburyOwner = nullptr;      // scratch (buffers)
+    unsigned* woodburyFree = nullptr;       // scratch (buffers)
+    unsigned woodburyBuffers = 0, woodburyStride = 0;
     unsigned slotCount = 0, stride = 0;
 };
 struct NativeDirectView {
@@ -68,8 +79,10 @@ struct NativeDirectView {
     // (the dense top): rank-6 updates spread over the CTA instead of one
     // gather per target block over every finished column.
     unsigned rightLooking = 1;
+    // Woodbury factor updates for slots that lost few bonds (default on).
+    unsigned woodbury = 1;
 };
-constexpr unsigned kDirectCounterCount = 9u;
+constexpr unsigned kDirectCounterCount = 11u; // [9] Woodbury builds [10] Woodbury applications
 struct NativeDirectOperator {
     const unsigned *node0, *node1, *nodeBondBegin, *nodeBondRef, *nodeIsland;
     const Vec4 *offset0, *offset1;
@@ -129,6 +142,7 @@ __device__ __forceinline__ NativeDirectPatternRefs directPatternRefs(const Nativ
     return r;
 }
 
+#include "StressNativeWoodbury.cuh"
 // Topology rebuild, before relabeling: consume the OLD component ids and the
 // exact changed-old-component flags. Unchanged components keep their factor
 // and advance to the batch generation; changed ones need a refactorization.
@@ -139,7 +153,7 @@ __global__ void refreshNativeDirectSlots(NativeDirectView v, ResidentStressCompo
         const unsigned id = c.ids[t], s = v.slots.componentSlot[id];
         if (s == kNoIsland) continue;
         if (!state->initialized || changed[id] || v.slots.slotGeneration[s] != state->generation) {
-            if (v.deferred && state->initialized && v.slots.slotValid[s] && !v.slots.slotFailed[s]) {
+            if ((v.deferred || v.woodbury) && state->initialized && v.slots.slotValid[s] && !v.slots.slotFailed[s]) {
                 // Bond removal never adds fill: the old factor is an exact factor of a
                 // nearby operator on a superset pattern, i.e. a preconditioner.
                 v.slots.slotStale[s] = 1; v.slots.slotGeneration[s] = batch->generation ? *batch->generation : 0ull;
@@ -157,6 +171,7 @@ __global__ void releaseNativeDirectSlots(NativeDirectView v, const unsigned* nod
         if (id >= n || nodeIsland[id] != id) {
             v.slots.componentSlot[id] = kNoIsland; v.slots.slotComponent[s] = kNoIsland;
             v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0; v.slots.slotStale[s] = 0;
+            v.slots.slotRemovedCount[s] = 0; v.slots.slotWoodbury[s] = 0;
         }
     }
 }
@@ -174,7 +189,7 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
     __shared__ unsigned scan[kBlockSize];
     __shared__ unsigned freeTotal, needTotal;
     if (!v.enabled || blockIdx.x) return;
-    if (!threadIdx.x) { freeTotal = 0; needTotal = 0; if (v.counters) for (unsigned k = 0; k < kDirectCounterCount; ++k) v.counters[k] = 0; }
+    if (!threadIdx.x) { freeTotal = 0; needTotal = 0; if (v.counters) for (unsigned k = 0; k < kDirectCounterCount; ++k) if (k != 6u && k != 9u) v.counters[k] = 0; } // [6] and [9] accumulate across launches until the solve prints them
     __syncthreads();
     // Pass 1: ascending list of free slots (snapshot, no writes to slot state).
     for (unsigned base = 0; base < v.slots.slotCount; base += kBlockSize) {
@@ -203,13 +218,57 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
         if (need && rank < freeTotal) {
             const unsigned s = v.slots.freeList[rank];
             v.slots.slotValid[s] = 0; v.slots.slotFailed[s] = 0; v.slots.slotStale[s] = 0; v.slots.slotGeneration[s] = state->generation;
+            v.slots.slotRemovedCount[s] = 0; v.slots.slotWoodbury[s] = 0;
             v.slots.componentSlot[id] = s; v.slots.slotComponent[s] = id;
         }
         __syncthreads();
         if (threadIdx.x == kBlockSize - 1) needTotal += inclusive;
         __syncthreads();
     }
+    // Woodbury pool: a buffer stays with a slot while its update is valid or
+    // pending; free buffers go (ascending) to stale slots with 1..K removals in
+    // component-list order. A stale slot that gets no buffer refactors.
+    if (v.woodbury && v.slots.woodburyBuffers) {
+        for (unsigned b = threadIdx.x; b < v.slots.woodburyBuffers; b += kBlockSize) v.slots.woodburyOwner[b] = kNoIsland;
+        __syncthreads();
+        for (unsigned k = threadIdx.x; k < v.slots.slotCount; k += kBlockSize) {
+            const unsigned b = v.slots.slotWoodburyBuffer[k];
+            if (b == kNoIsland) continue;
+            const bool keep = v.slots.slotComponent[k] != kNoIsland && v.slots.slotValid[k] && !v.slots.slotFailed[k]
+                && (v.slots.slotWoodbury[k] == 2u || v.slots.slotStale[k]);
+            if (keep) v.slots.woodburyOwner[b] = k; else v.slots.slotWoodburyBuffer[k] = kNoIsland;
+        }
+        __syncthreads();
+        if (!threadIdx.x) { freeTotal = 0; needTotal = 0; }
+        __syncthreads();
+        for (unsigned base = 0; base < v.slots.woodburyBuffers; base += kBlockSize) {
+            const unsigned b = base + threadIdx.x;
+            const unsigned isFree = (b < v.slots.woodburyBuffers && v.slots.woodburyOwner[b] == kNoIsland) ? 1u : 0u;
+            const unsigned inclusive = directBlockScanInclusive(scan, isFree);
+            if (isFree) v.slots.woodburyFree[freeTotal + inclusive - 1u] = b;
+            __syncthreads();
+            if (threadIdx.x == kBlockSize - 1) freeTotal += inclusive;
+            __syncthreads();
+        }
+        for (unsigned base = 0; base < total; base += kBlockSize) {
+            const unsigned t = base + threadIdx.x;
+            unsigned need = 0u, s = kNoIsland;
+            if (t < total) {
+                s = v.slots.componentSlot[c.ids[t]];
+                need = (s != kNoIsland && v.slots.slotValid[s] && !v.slots.slotFailed[s] && v.slots.slotStale[s]
+                    && v.slots.slotWoodburyBuffer[s] == kNoIsland
+                    && v.slots.slotRemovedCount[s] >= 1u && v.slots.slotRemovedCount[s] <= kWoodburyMaxBonds) ? 1u : 0u;
+            }
+            const unsigned inclusive = directBlockScanInclusive(scan, need);
+            const unsigned rank = needTotal + inclusive - need;
+            if (need) { if (rank < freeTotal) v.slots.slotWoodburyBuffer[s] = v.slots.woodburyFree[rank]; else v.slots.slotValid[s] = 0; }
+            __syncthreads();
+            if (threadIdx.x == kBlockSize - 1) needTotal += inclusive;
+            __syncthreads();
+        }
+    }
 }
+
 // Numeric block Cholesky of every assigned-but-invalid slot: one CTA per
 // component, warp per column, columns of one elimination-tree level in
 // parallel, left-looking updates gathered in a fixed order (deterministic).
@@ -229,6 +288,23 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         // component id) makes the reduced operator SPD; any particular solution
         // of the compatible projected residual yields the same bond forces.
         const unsigned pinned = modes[id].anchored ? kNoIsland : id;
+        // Stale factor with few removed bonds and the same pinning: Woodbury
+        // update instead of a refactor (StressNativeWoodbury.cuh).
+        if (v.woodbury && v.slots.slotValid[s] && v.slots.slotStale[s] && v.slots.slotPinned[s] == pinned
+            && v.slots.slotRemovedCount[s] >= 1u && v.slots.slotRemovedCount[s] <= kWoodburyMaxBonds
+            && v.slots.slotWoodburyBuffer[s] != kNoIsland) {
+            const bool ok = woodburyBuild(v, op, P, p, pinned, s, val, &failed);
+            __syncthreads();
+            if (ok && v.diagnostics >= 2u) woodburyCheck(v, op, P, p, pinned, id, s);
+            if (!threadIdx.x) {
+                if (ok) { v.slots.slotWoodbury[s] = 2u; v.slots.slotStale[s] = 0; v.slots.slotGeneration[s] = state->generation; if (v.counters) atomicAdd(v.counters + 9, 1u); }
+                else { v.slots.slotValid[s] = 0; v.slots.slotWoodbury[s] = 0; }
+            }
+            __syncthreads();
+            if (ok) continue;
+        }
+        __syncthreads();
+        if (!threadIdx.x) { v.slots.slotRemovedCount[s] = 0; v.slots.slotWoodbury[s] = 0; }
         // Levels below T use the level-parallel left-looking scheme; levels
         // from T on (the narrow tail) are eliminated one column at a time with
         // right-looking updates. Both give each target block one writer per
@@ -416,6 +492,17 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                 }
             }
             __syncthreads();
+        }
+        if (v.woodbury) {
+            unsigned* present = v.slots.slotPresent + size_t(s) * kWoodburyPresentWords;
+            for (unsigned wd = threadIdx.x; wd < kWoodburyPresentWords; wd += blockDim.x) {
+                unsigned bits = 0;
+                for (unsigned bit = 0; bit < 32; ++bit) {
+                    const unsigned i = wd * 32u + bit;
+                    if (i < P.nodes && op.nodeIsland[P.order[i]] == id && P.order[i] != pinned) bits |= 1u << bit;
+                }
+                present[wd] = bits;
+            }
         }
         if (!threadIdx.x) {
             if (failed) { v.slots.slotFailed[s] = 1; v.slots.slotValid[s] = 0; }

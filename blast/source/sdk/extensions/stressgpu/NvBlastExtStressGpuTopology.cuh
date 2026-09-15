@@ -289,6 +289,10 @@ class DeviceStressTopology
             inverse.settled,components(),state,batch,rootFlags);
         // Direct factor slots follow the same changed-old-component rule.
         if(b.direct.enabled)refreshNativeDirectSlots<<<nodeBlocks,kBlockSize,0,captureStream>>>(b.direct,components(),state,batch,rootFlags);
+        if(b.direct.enabled&&b.direct.woodbury){
+            trackNativeDirectRemovedBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(b.direct,batch,state,b.health,b.bondIsland,b.m);
+            sortNativeDirectRemovedBonds<<<(b.direct.slots.slotCount+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(b.direct);
+        }
         clearChangedStressWarmStart<<<bondBlocks,kBlockSize,0,captureStream>>>(state,b.bondIsland,rootFlags,b.impulses,b.m);
         // Per-node changed mask for the incremental motion-mode rebuild, from the
         // OLD labels before relabeling (a full mask on the first build).

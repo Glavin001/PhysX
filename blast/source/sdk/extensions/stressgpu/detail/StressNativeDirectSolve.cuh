@@ -24,7 +24,7 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     const unsigned pinned = StressHierarchy::motionDimension(a.hierarchy.modes.components[id]) ? id : kNoIsland;
     // A stale factor built under a different pinning is not a preconditioner
     // for this operator (the null space changed); leave the component to PCG.
-    if (v.slots.slotStale[s] && v.slots.slotPinned[s] != pinned) { if (v.counters && !threadIdx.x) atomicAdd(v.counters + 4, 1u); return false; }
+    if ((v.slots.slotStale[s] || v.slots.slotWoodbury[s] == 2u) && v.slots.slotPinned[s] != pinned) { if (v.counters && !threadIdx.x) atomicAdd(v.counters + 4, 1u); return false; }
     const auto P = directPatternRefs(v.pattern, p);
     const float* val = v.slots.values + size_t(s) * v.slots.stride;
     const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
@@ -92,6 +92,11 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
             }
         }
         __syncthreads();
+    }
+    if (v.woodbury && v.slots.slotWoodbury[s] == 2u) {
+        const NativeDirectOperator op{a.m_node0, a.m_node1, a.m_nodeBondBegin, a.m_nodeBondRef, a.m_nodeIsland, a.m_offset0, a.m_offset1, a.m_inertia, a.m_health, a.m_colScales};
+        woodburyApply(v, op, P, p, pinned, s, x);
+        if (v.counters && !threadIdx.x) atomicAdd(v.counters + 10, 1u);
     }
     for (unsigned i = threadIdx.x; i < P.nodes; i += blockDim.x) {
         const unsigned node = P.order[i];

@@ -373,6 +373,20 @@ bool nativeDirectEager()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_EAGER"); return !raw || std::string(raw) != "0"; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_WOODBURY=0 disables Woodbury updates of cached direct
+/// factors (default on): a slot that lost at most kWoodburyMaxBonds bonds keeps
+/// its factor and applies a dense low-rank correction instead of refactoring.
+bool nativeDirectWoodbury()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_WOODBURY"); return !raw || std::string(raw) != "0"; }();
+    return value;
+}
+/// BLAST_GPU_NATIVE_WOODBURY_BUDGET_MB: device budget for Woodbury W/C buffers (default 256).
+size_t nativeWoodburyBudgetBytes()
+{
+    static const size_t bytes = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_WOODBURY_BUDGET_MB"); const long mb = raw ? std::atol(raw) : 256L; return size_t(std::max(1L, mb)) << 20; }();
+    return bytes;
+}
 /// BLAST_GPU_NATIVE_SOLVE_BLOCKS: resident CTAs per SM for the per-component
 /// stress solve's persistent grid. Default 4 (2026-09-15: city256 bombardment
 /// 31.1 -> 30.0 ms versus 2, identical histories; thousands of tiny components

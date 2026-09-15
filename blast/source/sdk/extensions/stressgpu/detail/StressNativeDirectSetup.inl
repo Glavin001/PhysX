@@ -266,8 +266,27 @@
         view.slots.slotFailed = directUpload(zeros); view.slots.slotGeneration = directUpload(generations);
         view.slots.freeList = directUpload(zeros); view.slots.slotStale = directUpload(zeros); view.slots.slotPinned = directUpload(std::vector<unsigned>(slotCount, kNoIsland));
         view.slots.slotCount = slotCount; view.slots.stride = stride; view.enabled = 1;
+        // Woodbury pool (StressNativeWoodbury.cuh): W is 6 np x m floats per
+        // buffer; buffers come from BLAST_GPU_NATIVE_WOODBURY_BUDGET_MB.
+        view.woodbury = (nativeDirectWoodbury() && !nativeDirectDeferred() && nativeDirectClusterSize() <= 1u) ? 1u : 0u;
+        if (view.woodbury) {
+            unsigned maxNodes = 0;
+            for (unsigned p = 0; p < patterns; ++p) maxNodes = std::max(maxNodes, patternNodeBegin[p + 1] - patternNodeBegin[p]);
+            const unsigned wStride = ((6u * maxNodes * kWoodburyMaxColumns + 31u) / 32u) * 32u;
+            const size_t perBuffer = size_t(wStride) * sizeof(float) + size_t(kWoodburyCapFloats) * sizeof(float);
+            const unsigned buffers = unsigned(std::min<size_t>(slotCount, std::max<size_t>(1, nativeWoodburyBudgetBytes() / perBuffer)));
+            view.slots.slotRemovedCount = directUpload(zeros); view.slots.slotRemoved = directUpload(std::vector<unsigned>(size_t(slotCount) * kWoodburyMaxBonds, 0u));
+            view.slots.slotPresent = directUpload(std::vector<unsigned>(size_t(slotCount) * kWoodburyPresentWords, 0u));
+            view.slots.slotWoodbury = directUpload(zeros); view.slots.slotWoodburyBuffer = directUpload(std::vector<unsigned>(slotCount, kNoIsland));
+            view.slots.woodburyPool = directUpload(std::vector<float>(size_t(buffers) * wStride, 0.f));
+            view.slots.woodburyCap = directUpload(std::vector<float>(size_t(buffers) * kWoodburyCapFloats, 0.f));
+            view.slots.woodburyOwner = directUpload(std::vector<unsigned>(buffers, kNoIsland)); view.slots.woodburyFree = directUpload(std::vector<unsigned>(buffers, 0u));
+            view.slots.woodburyBuffers = buffers; view.slots.woodburyStride = wStride;
+            if (std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG"))
+                std::fprintf(stderr, "native direct woodbury: buffers=%u stride=%u floats maxNodes=%u maxBonds=%u\n", buffers, wStride, maxNodes, kWoodburyMaxBonds);
+        }
         view.counters = directUpload(std::vector<unsigned>(kDirectCounterCount, 0u));
-        view.diagnostics = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG") ? 1u : 0u;
+        view.diagnostics = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG") ? std::max(1u, unsigned(std::atoi(std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG")))) : 0u;
         view.minNodes = minNodes;
         view.deferred = nativeDirectDeferred() ? 1u : 0u;
         view.rightLooking = nativeDirectRightLooking() ? 1u : 0u;
