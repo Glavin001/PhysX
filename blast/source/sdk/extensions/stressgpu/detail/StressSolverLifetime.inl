@@ -61,7 +61,11 @@ uploadIslands();
 #ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
         m_workCapture.reset();
 #endif
+
         delete m_deviceTopology;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        releaseNativeDirect();
+#endif
         if (m_graphExec)
         {
             cudaGraphExecDestroy(m_graphExec);

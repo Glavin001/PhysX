@@ -48,7 +48,9 @@ void nativeSettledReuse(){
     auto split=solve();require(split.first.converged && split.second[height+1],"unrelated cut discarded exact component certificate");
     for(unsigned e=0;e<m;++e){const float expected=e<height-1?0.f:float(height-1-e%(height-1));
         require(std::abs(std::abs(actual[e].linear.y)-expected)<2e-4f*std::max(1.f,expected),"settled split force incorrect");}
-    params.maxIterations=1;
+    // An unreachable tolerance keeps this fixture unconverged even when the
+    // cached direct factorization would otherwise solve it before iterating.
+    params.maxIterations=1;params.tolerance=1e-30f;
     for(unsigned i=height+1;i<n;++i)loads[i].linear.y=-3.f;
     auto incomplete=solve();require(!incomplete.first.converged && !incomplete.second[height+1],"incomplete fixture unexpectedly converged/reused");
     auto retry=solve();require(!retry.second[height+1],"unconverged output was cached");

@@ -86,6 +86,8 @@
                 m_selectScratch,m_selectScratchBytes,m_reductionOrder};
 #ifdef PHYSX_RESIDENT_DESTRUCTION
             buffers.positions=m_positions;
+            prepareNativeDirect();
+            buffers.direct=m_direct;
 #endif
             m_deviceTopology = new DeviceStressTopology(buffers);
             m_deviceTopology->init(m_stream);

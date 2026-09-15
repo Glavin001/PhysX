@@ -319,6 +319,26 @@ std::uint32_t conditionalLoopChunk()
 /// Default OFF: derivation says it costs 2 matvecs/iteration against a 1.5-3x
 /// iteration reduction, i.e. a wash, and this flag exists to MEASURE that
 /// rather than assume it. Also the smoother a multigrid V-cycle would need.
+/// Cached direct factorization for anchored resident components (R1).
+/// BLAST_GPU_NATIVE_DIRECT=0 disables it; the PCG path is then unchanged.
+bool nativeDirectEnabled()
+{
+    static const bool enabled = []() {
+        const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT");
+        return raw == nullptr || std::string(raw) != "0";
+    }();
+    return enabled;
+}
+/// Device budget for numeric factor slots, BLAST_GPU_NATIVE_DIRECT_BUDGET_MB (default 768).
+size_t nativeDirectSlotBudgetBytes()
+{
+    static const size_t bytes = []() {
+        const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_BUDGET_MB");
+        const long mb = raw ? std::atol(raw) : 768L;
+        return size_t(std::max(1L, mb)) << 20;
+    }();
+    return bytes;
+}
 bool jacobiEnabled()
 {
 #ifdef PHYSX_RESIDENT_DESTRUCTION
@@ -540,6 +560,7 @@ using SolveStatus = ExtStressGpuDeviceStatus;
 /// Bonds/nodes that belong to no solvable island (static-static bonds, and
 /// static nodes, which are fixed boundaries carrying no coupling).
 static constexpr std::uint32_t kNoIsland = 0xFFFFFFFFu;
+static constexpr unsigned kDirectMaxBlocks = 32768u;
 
 /// Padded per-island reduction accumulators, as a power-of-two shift. The
 /// stride is fixed at compile time so the indexing is a shift rather than a
@@ -849,6 +870,9 @@ public:
     }
 
 #include "detail/StressResidentAPI.inl"
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+#include "detail/StressNativeDirectSetup.inl"
+#endif
     bool solveInputs(
         const ExtStressGpuImpulse* nodeVelocities,
         const ExtStressGpuSolveParams& params,

@@ -160,6 +160,9 @@ struct ResidentStressComponentView
 };
 
 
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+#include "detail/StressNativeDirect.cuh"
+#endif
 #include "detail/StressNativeHierarchy.cuh"
 struct DeviceStressTopologyBuffers
 {
@@ -176,6 +179,9 @@ struct DeviceStressTopologyBuffers
     size_t selectBytes;
     IslandReductionOrder* orders;
     const float4* positions=nullptr;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    NativeDirectView direct{};
+#endif
 };
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 #include "detail/StressTopologyWarmStart.cuh"
@@ -264,6 +270,7 @@ class DeviceStressTopology
             b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->generation,nullptr};
         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
         nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,ownerStream));
+        nativeHierarchy->setDirect(b.direct);
 #endif
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
@@ -278,6 +285,8 @@ class DeviceStressTopology
         markChangedStressComponents<<<bondBlocks,kBlockSize,0,captureStream>>>(batch,state,b.health,b.bondIsland,rootFlags,b.m);
         refreshNativeSettledCertificates<<<nodeBlocks,kBlockSize,0,captureStream>>>(
             inverse.settled,components(),state,batch,rootFlags);
+        // Direct factor slots follow the same changed-old-component rule.
+        if(b.direct.enabled)refreshNativeDirectSlots<<<nodeBlocks,kBlockSize,0,captureStream>>>(b.direct,components(),state,batch,rootFlags);
         clearChangedStressWarmStart<<<bondBlocks,kBlockSize,0,captureStream>>>(state,b.bondIsland,rootFlags,b.impulses,b.m);
 #endif
         beginDeviceStressRebuild<<<1,1,0,captureStream>>>(state);
@@ -286,6 +295,9 @@ class DeviceStressTopology
         flattenDeviceStressTopology<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,b.n);
         labelDeviceStressBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,parent,rootFlags,b.bondIsland,b.m);
         labelDeviceStressNodes<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,rootFlags,b.nodeIsland,b.n,state);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(b.direct.enabled)releaseNativeDirectSlots<<<(b.direct.slots.slotCount+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(b.direct,b.nodeIsland,b.n);
+#endif
         thrust::counting_iterator<unsigned> indices(0u);
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         // Stable minimum-node IDs remain the connectivity truth. Iteration

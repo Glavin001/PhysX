@@ -261,6 +261,13 @@
             captureStressProblem<<<(std::max(m_nodeCount,m_bondCount)+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(args,m_nodeCount,m_bondCount);
 #endif
             components=m_deviceTopology->components();
+            if(m_direct.enabled){
+                // Cached direct factors: claim slots for eligible components,
+                // then refactor only the invalid ones before the iterative kernel.
+                const NativeDirectOperator op{m_node0,m_node1,m_nodeBondBegin,m_nodeBondRef,m_nodeIsland,m_offset0,m_offset1,m_inertia,m_health,m_colScales};
+                assignNativeDirectSlots<<<nodeBlocks,kBlockSize,0,m_stream>>>(m_direct,components,args.hierarchy.modes.components,m_deviceTopology->status());
+                factorNativeDirect<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(m_direct,op,components,m_deviceTopology->status());
+            }
             // The device list controls the live work; a bounded persistent
             // grid distributes independent components without a host count.
             componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);

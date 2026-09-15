@@ -31,7 +31,10 @@ void unaffectedWarmColumn(){
             const float error=std::max({std::abs(std::abs(f.linear.y)-target),std::abs(f.linear.x),std::abs(f.linear.z),std::abs(f.angular.x),std::abs(f.angular.y),std::abs(f.angular.z)})/std::max(1.f,target);
             require(std::isfinite(error) && error<2e-4f,"unaffected warm column physical response changed");}
     }
-    require(preserved<cold,"unrelated fracture discarded the surviving column warm start");
+    // The cached direct factorization solves an anchored column exactly at cold
+    // start, so both counts can be zero; a preserved warm start must never cost
+    // more iterations than the cold solve did.
+    require(preserved<cold || (preserved==0 && cold==0),"unrelated fracture discarded the surviving column warm start");
     check(cudaFree(mask));check(cudaFree(generation));check(cudaEventDestroy(ready));check(cudaStreamDestroy(stream));
     std::printf("resident unaffected warm column: 64 nodes, 62 bonds, two supported columns; cold=%u preserved=%u; fracture/doubled/zero loads passed\n",cold,preserved);
 }

@@ -1,5 +1,6 @@
 #include "StressComponentPhaseProbe.cuh"
 #include "StressComponentWorkProbe.cuh"
+#include "StressNativeDirectSolve.cuh"
 // Private native specialization, included after the shared resident arguments.
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 // Every warp produces one fully overwritten partial. No floating atomics
@@ -37,11 +38,28 @@ __device__ __forceinline__ void cacheNativeOperatorNeighbors(const PersistentStr
     }
     __syncthreads();
 }
+// Sparse bond-gradient norm of the component's current residual: the same
+// monitor the iteration uses, evaluated outside the loop for the direct step.
+__device__ __forceinline__ float nativeComponentResidualNorm(const PersistentStressArgs& a,const unsigned* nodes,unsigned count,unsigned id,
+    unsigned nodeBlocks,unsigned* counts,unsigned* iteration,float* reduceValue){
+    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const auto node=nodes[i];cacheNativeOperatorInput(a,node,a.m_residual[node]);}
+    __syncthreads();
+    float squared=0;
+    for(unsigned block=0;block<nodeBlocks;++block){float contribution=0;
+        nodeSpaceMatvecBody<true>(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
+            nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,nodes,counts,iteration,0u,block,&contribution,a.m_nsW,a.hierarchy.operatorOther);
+        squared+=contribution;}
+    const float numerator=componentSquaredNorm(squared);
+    if(!threadIdx.x)*reduceValue=numerator;
+    __syncthreads();
+    return *reduceValue;
+}
 __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
 {
-    __shared__ unsigned counts[2], iteration, activeCount, slot;
+    __shared__ unsigned counts[2], iteration, activeCount, slot, directApplied;
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
+    __shared__ float directX[6*kResidentComponentMaxNodes];
     COMPONENT_PROBE_BEGIN
     // Components have very different convergence costs after fracture. A CTA
     // claims its next independent component only when its previous one finishes;
@@ -81,6 +99,22 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         __syncthreads();
         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
+        if(!threadIdx.x)directApplied=0;
+        __syncthreads();
+        // Direct step: apply the cached factor to the current residual, add the
+        // result to the accumulated solution and rebuild the true residual. At
+        // most two refinement applications; the loop below still owns
+        // acceptance through its unchanged monitor and verification.
+        if(a.m_islandActive[id] && a.hierarchy.direct.enabled && !StressHierarchy::motionDimension(a.hierarchy.modes.components[id])){
+            for(unsigned attempt=0;attempt<2u;++attempt){
+                const float norm=nativeComponentResidualNorm(a,c.nodes+begin,count,id,nodeBlocks,counts,&iteration,&reduceValue);
+                if(!(norm>a.m_deltaSquared[id]) || !isfinite(norm))break;
+                if(!directSolveNativeComponent(a,c.nodes+begin,count,id,directX))break;
+                for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
+                if(!threadIdx.x)directApplied=1;
+                __syncthreads();
+            }
+        }
         do {
             const bool scheduledMonitor=(iteration%4u)==0u || iteration+1u>=a.maxIterations;
             if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id,scheduledMonitor);
@@ -113,7 +147,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
             const float numerator=componentSquaredNorm(squared);
             if(threadIdx.x==0)reduceValue=numerator;
             __syncthreads();
-            if((iteration || a.warmStart) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]){
+            if((iteration || a.warmStart || directApplied) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]){
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                 if(!threadIdx.x)a.hierarchy.previous[id]=0;__syncthreads();
                 prepareNativeResidualComponent(a,c.nodes+begin,count,id);
@@ -184,7 +218,7 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
 #endif
             COMPONENT_WORK_END(id,status)
             c.results[id]=status;
-            a.hierarchy.settled.verifiedStoredOutput[id]=a.warmStart && status.converged && status.iterations==0;
+            a.hierarchy.settled.verifiedStoredOutput[id]=a.warmStart && status.converged && status.iterations==0 && !directApplied;
             // The cooperative stage must never update a small component,
             // including one that exhausted its iteration budget. Its failed
             // status survives separately and rejects the complete solve.

@@ -18,6 +18,7 @@ struct NativeStressCycleView {
     unsigned *verification=nullptr,*verificationCount=nullptr,*warmRangeKnown=nullptr;
     std::uint64_t* warmRangeGeneration=nullptr;
     const ExtStressGpuDeviceTopologyStatus* topology=nullptr;
+    NativeDirectView direct{};
 };
 __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hierarchy,const StressHierarchy::Status* modes,ExtStressGpuDeviceTopologyStatus* topology){
     if(!hierarchy->initialized || hierarchy->error || hierarchy->generation!=topology->generation || !modes->initialized || modes->error || modes->generation!=topology->generation)topology->error|=8u;
@@ -57,6 +58,7 @@ public:
         prior=mModes.append(graph,prior);prior=mHierarchy.append(graph,prior);mCycle.reset(new StressHierarchy::ResidentCycle(mHierarchy));mView.cycle=mCycle->deviceView();return prior;
     }
     NativeStressCycleView view()const{return mView;}
+    void setDirect(const NativeDirectView& direct){mView.direct=direct;}
     const StressHierarchy::Status* status()const{return mHierarchy.status();}
     const StressHierarchy::Status* modeStatus()const{return mModes.status();}
 };
