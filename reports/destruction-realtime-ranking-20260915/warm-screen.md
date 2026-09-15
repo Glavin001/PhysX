@@ -564,3 +564,12 @@ device work cursor; it launched two CTAs per SM. With thousands of tiny
 components per solve, more resident CTAs simply keep more of them in flight:
 `BLAST_GPU_NATIVE_SOLVE_BLOCKS` 2 → 4 measures 31.1 → 30.0 ms on the city256
 bombardment (3 → 29.95), histories identical. Four is the new default.
+
+## Refactor grid: more CTAs for the impact burst (lossless)
+
+The batched refactor also launched `sms*2` CTAs, so the impact tick's 256
+refactors ran in four rounds. `BLAST_GPU_NATIVE_FACTOR_BLOCKS` 2 → 4 → 8 on
+the city256 bombardment: peak tick 194.6 → 185.8 → 177.9 ms, mean
+31.0 → 30.7 → 30.2 ms, profiled burst 24.6 → 19.5 ms at four; histories
+identical. Eight is the new default. This is the first change on this branch
+that moves the impact peak; the rest of that tick is CPU registration (R2).

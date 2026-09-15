@@ -301,7 +301,7 @@
             int device = 0, sms = 0;
             checkCuda(cudaGetDevice(&device), "prefactor device");
             checkCuda(cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, device), "prefactor multiprocessors");
-            m_directGrid = std::min(m_nodeCount, unsigned(std::max(1, sms) * 2));
+            m_directGrid = std::min(m_nodeCount, unsigned(std::max(1, sms)) * nativeFactorBlocksPerSm());
         }
         const NativeDirectOperator op{m_node0, m_node1, m_nodeBondBegin, m_nodeBondRef, m_nodeIsland, m_offset0, m_offset1, m_inertia, m_health, m_colScales};
         assignNativeDirectSlots<<<1, kBlockSize, 0, m_stream>>>(m_direct, components, view.modes.components, m_deviceTopology->status());

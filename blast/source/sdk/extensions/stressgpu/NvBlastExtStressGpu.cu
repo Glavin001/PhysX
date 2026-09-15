@@ -382,6 +382,15 @@ unsigned nativeSolveBlocksPerSm()
     static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_SOLVE_BLOCKS"); const long v = raw ? std::atol(raw) : 4; return unsigned(std::min(16L, std::max(1L, v))); }();
     return value;
 }
+/// BLAST_GPU_NATIVE_FACTOR_BLOCKS: CTAs per SM for the batched refactor grid.
+/// Default 8 (2026-09-15): the impact tick refactors hundreds of components at
+/// once; city256 peak tick 194.6 -> 177.9 ms (2 -> 8), mean 31.0 -> 30.2,
+/// identical histories. Idle launches are a cheap slot scan.
+unsigned nativeFactorBlocksPerSm()
+{
+    static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_FACTOR_BLOCKS"); const long v = raw ? std::atol(raw) : 8; return unsigned(std::min(16L, std::max(1L, v))); }();
+    return value;
+}
 bool nativeDirectEnabled()
 {
     static const bool enabled = []() {
