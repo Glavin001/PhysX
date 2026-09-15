@@ -588,3 +588,14 @@ solves over 74 levels plus residual matvecs), and the tiny components already
 ran in their shadow. The remaining solve-side lever is therefore the remnant
 latency: a CTA-cooperative triangular solve for the narrow levels, where three
 of four warps now idle.
+
+## Direct solve, CTA-cooperative narrow rows (negative result, not kept)
+
+Putting the whole CTA on each row of the narrow levels of the block
+triangular solves (instead of one warp per row with the other warps idle)
+made the solve kernel slower: 3.3 → 4.2 ms per launch, city256 bombardment
+30.1 → 31.9 ms, histories identical. The one-to-three rows of a narrow level
+then run sequentially behind two block barriers each, which costs more than
+the wider dot product saves. The direct solve's latency is barrier-bound, not
+bandwidth-bound; shortening it needs fewer levels (ordering), not more lanes
+per row.
