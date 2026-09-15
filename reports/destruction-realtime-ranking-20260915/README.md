@@ -427,3 +427,25 @@ in `r2-consumer-inventory.md`. Recommended first milestone: device-owned
 contact-manager preallocation and island insertion for native pairs, gated by
 the existing `mPreSolveSleepingDisabled` path, measured on this tick.
 
+### R2 milestone 1 (found, not yet built): the device island producer falls back in 59 % of passes
+
+`native.graph-diagnostics.json` for the profiled bombardment: `cuda_pre_solve_passes`
+110, `cuda_pre_solve_fallbacks` 157, `same_pass_reuses` 110, `graph_builds` 424.
+`buildPreSolveIslands` (`PxgDestructionRuntime.cu`) only seeds from the previous
+components when `mGraphView.generation == mPreSourceGraphGeneration + 1`; a pass
+builds the contact graph twice (`prepareIslandRepair.contactGraph`, then
+`task.contactGraph` before submit), and when the retained-contact revision
+changed in between the second build is not a same-pass reuse, the generation
+advances by two, `usable` is false, no labels are produced, and the solver
+falls back to CPU island insertion and maintenance for that pass. The 110
+successful passes are exactly the 110 same-pass reuses.
+
+Options, in order of safety: (a) run the producer after every graph build so
+the seed is always one generation old (one extra producer launch per pass,
+device-only cost); (b) make the second build fold its retained-edge delta into
+the roster the producer will seed from, so a +2 jump with only retained
+changes is accepted; (c) keep a per-generation component snapshot ring so
+seeds can skip generations. Expected effect: island insertion and maintenance
+(about 12 ms per sustained tick, 20 ms at impact) leave the CPU path in those
+passes; the sleeping gate (`mPreSolveSleepingDisabled`) is a separate step.
+
