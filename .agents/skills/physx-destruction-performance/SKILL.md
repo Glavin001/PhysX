@@ -5,9 +5,31 @@ description: Reproduce, interpret and improve complete-step performance of this 
 
 # PhysX destruction performance
 
+## Fast measurement entrypoint
+
+For running or resuming a benchmark, read
+[fast warm measurement](references/fast-warm-measurement.md) first. It contains
+verified commands, frozen-window selection, candidate/control setup, escalation
+rules and the lessons from full52 collection. Reuse compatible saved evidence;
+reserve full coverage expansion for a demonstrated gap or finalist qualification.
+The measured warm A0/A1 screen took205.850s including exports. A0/B/A1 adds a
+candidate arm; that turnaround is not yet calibrated. Cold solves and uninterrupted
+idle/heavy remain required companions when the proposed mechanism affects them.
+After each experiment, record actual turnaround and the smallest reusable lesson
+in the existing history/skill; never describe an estimated harness saving as measured.
+
+Follow the user-approved [removal-first workflow](../../../docs/destruction/REMOVAL_FIRST_WORKFLOW.md)
+for current optimization work. Prioritize substantial application savings through
+removal, conditional execution, data ownership and algorithm changes. Use work
+counts to prove intermediate mechanism changes; do not demand a statistically
+resolved tiny timing win at every edit. Confirm completed bets with matched
+full-step timings and selected profiles, then qualify finalists across full52
+and the required continuous/numerical/memory/trajectory gates. The measured
+five-minute screen is not mandatory for every intermediate commit.
+
 Current VM/toolchain and validation status are in [AGENTS.md](../../../AGENTS.md).
-Use the [VM validation skill](../../../.agent/skills/physx-vm-validation/SKILL.md)
-and [hardware-counter workflow](../../../.agent/skills/physx-destruction-profiling/SKILL.md)
+Use the [VM validation skill](../../../.agents/skills/physx-vm-validation/SKILL.md)
+and [hardware-counter workflow](../../../.agents/skills/physx-destruction-profiling/SKILL.md)
 for the RTX 5060 Ti / CUDA 13.4 port. Older 4090/no-counter statements in dated
 playbooks describe historical evidence, not this machine.
 
@@ -16,7 +38,7 @@ workload is 256-building bombardment; sustained/staggered bombardment is a
 separate capacity axis. The physical timestep remains 1/60 second, with at most
 one internal correction. The targets are every step <=8 ms, and separately
 real-time at <=1000/60 ms. A low mean or a real-time-looking video is insufficient.
-Every campaign must measure both fresh intact idle (no destruction) and peak
+Every application-performance qualification must measure fresh intact idle and peak
 complete-step cost during destruction on matched scenes/settings. Keep startup
 spikes; zero awake debris after damage is not an intact-idle sample. Report
 missing regimes as incomplete qualification.
@@ -51,6 +73,9 @@ resolve the documentation below relative to this skill, not the shell cwd.
    predicting breakage or spending the stress iteration budget across frames.
    The last policy exists in the historical source but changes the frozen
    native within-step-convergence contract; discuss/qualify it separately.
+   The user's permission to explore precision tradeoffs is preserved: establish
+   and document the physical-quality budget first, independently qualify it,
+   and never waive a failed current gate or call changed quality an equal-quality win.
 5. Build all affected ABI consumers before execution. Run focused checks and the
    frozen penetration regression. Screen candidates on matched untraced inputs;
    profile separately. Judge whole-step improvement in the declared target regime
@@ -85,10 +110,11 @@ resolve the documentation below relative to this skill, not the shell cwd.
 - Staggering changes input history and possibly the total fracture. It measures
   capacity; it is not an equal-input implementation speedup. Include late rubble
   and actual broken bonds/new clusters, not just projectile rate.
-- Hardware counters are available on the new VM, but only the probe and a motion-
-  slot fixture have been captured so far. Profile actual peak kernels before
-  asserting bandwidth/compute/occupancy bottlenecks; use timelines and controlled
-  matched experiments to establish end-to-end benefit.
+- Hardware counters and extensive saved profiles are available. Read the current
+  report's identity/coverage before reusing them; historical policies differ.
+  Use targeted counters to test a mechanism and timelines to establish exposed
+  critical-path work. Do not restart exhaustive capture to test each edit or
+  equate fewer launches/instructions with a complete-step gain.
 - Timing report exit 2 can mean a completed run failed the deadline/duration
   gate. Inspect `campaign.json` and logs before retrying. Never hide that exit
   with an unconditional success wrapper.

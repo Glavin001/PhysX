@@ -249,6 +249,7 @@ void roundTrip(const char* name,unsigned prefix,const char* directory,blast_demo
 }
 #include "file-replay-observation.inl"
 #include "file-replay.inl"
+#include "warm-replay.inl"
 void run(const char* name,unsigned prefix,const char* directory) {
     if(!selectedCase(name))return;
     blast_demo::SceneCapacity capacity;
@@ -356,14 +357,20 @@ void runGeometry(const char* kind,unsigned prefix,const char* directory,bool imp
 int main(int argc,char** argv){try{
     require(argc>=2,"usage: serialization-probe OUTPUT_DIRECTORY [--replay PREFIX --repetitions N] [--projectile-impulse]");
     SnapshotProfileSession profileSession(argv[1]);
-    std::string replayPrefix;unsigned repetitions=10;bool impulse=false;
+    std::string replayPrefix;unsigned repetitions=10,warmupTicks=0,measureTicks=1;bool impulse=false,warmReplay=false;
     for(int i=2;i<argc;++i){const std::string option=argv[i];
         if(option=="--require-complete-shapes")requireCompleteShapes=true;
         else if(option=="--replay"){require(++i<argc,"missing replay prefix");replayPrefix=argv[i];}
         else if(option=="--repetitions"){require(++i<argc,"missing repetitions");repetitions=unsigned(std::stoul(argv[i]));}
+        else if(option=="--warmup-ticks"){require(++i<argc,"missing warmup ticks");warmupTicks=unsigned(std::stoul(argv[i]));warmReplay=true;}
+        else if(option=="--measure-ticks"){require(++i<argc,"missing measured ticks");measureTicks=unsigned(std::stoul(argv[i]));warmReplay=true;}
         else if(option=="--projectile-impulse")impulse=true;
         else require(false,"unknown snapshot argument");}
-    if(!replayPrefix.empty()){replayFiles(replayPrefix,argv[1],repetitions,impulse);return 0;}
+    require(!warmReplay || !replayPrefix.empty(),"warm replay requires --replay");
+    if(!replayPrefix.empty()){
+        if(warmReplay)replayWarmFiles(replayPrefix,argv[1],repetitions,impulse,warmupTicks,measureTicks);
+        else replayFiles(replayPrefix,argv[1],repetitions,impulse);
+        return 0;}
 
     run("flying",5,argv[1]);run("sliding",5,argv[1]);run("resting",180,argv[1]);run("destruction-intact",5,argv[1]);run("destruction-fractured",20,argv[1]);run("destruction-onset",1,argv[1]);run("destruction-cold",0,argv[1]);run("destruction-damaged",5,argv[1]);run("destruction-stimulus",1,argv[1]);
     for(const char* geometry:{"building","chain32","chain256","cantilever64","dense12","tower64","panel32","bridge64","ladder128"}){

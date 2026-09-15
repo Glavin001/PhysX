@@ -25,7 +25,7 @@ def skew(v):
     x,y,z=v
     return np.array([[0,-z,y],[z,0,-x],[-y,x,0]],dtype=np.float64)
 
-def assemble(nodes,bonds,identity):
+def assemble(nodes,bonds,identity,*,require_anchored=True):
     members=np.flatnonzero(nodes['component']==identity)
     require(len(members)>0,'empty selected component')
     labels=nodes['component']
@@ -57,8 +57,9 @@ def assemble(nodes,bonds,identity):
     thresholds=nodes['threshold'][members]
     require(np.all(thresholds==thresholds[0]) and thresholds[0]>=0,'inconsistent component acceptance threshold')
     A=(B@B.T).tocsr();A.eliminate_zeros()
-    require(anchored,'this work screen currently requires an anchored/SPD component')
-    return A,B,residual,float(thresholds[0]),dict(nodes=len(members),bonds=len(selected),capture_residual_scaled_error=error)
+    if require_anchored:
+        require(anchored,'this work screen currently requires an anchored/SPD component')
+    return A,B,residual,float(thresholds[0]),dict(nodes=len(members),bonds=len(selected),capture_residual_scaled_error=error,anchored=anchored)
 
 def block_graph(A):
     b=A.tobsr(blocksize=(6,6));n=A.shape[0]//6

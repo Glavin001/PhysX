@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """CPU-only negative controls for A/B provenance and admission."""
 import importlib.util
+import fcntl
 import json
 from pathlib import Path
 import tempfile
@@ -17,6 +18,8 @@ class Evidence(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(dir=ab.ROOT/'out')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        (self.root/'out').mkdir()
+        self.config = ab.ROOT/'tools/profiles/destruction-ordinary-ab.json'
         self.arm = self.root/'A'
         self.arm.mkdir()
         for name in ('native_destruction_demo', *ab.MODULES):
@@ -48,7 +51,8 @@ class Evidence(unittest.TestCase):
     def test_foreign_compute_never_launches_child(self):
         output = self.root/'blocked'
         gpu = {'devices': [{'processes': [{'pid': 123, 'name': 'foreign', 'type': 'C'}]}]}
-        with patch('sys.argv', ['ab', str(output), '--baseline', str(self.arm)]), \
+        with patch.object(ab, 'ROOT', self.root), \
+             patch('sys.argv', ['ab', str(output), '--baseline', str(self.arm), '--config', str(self.config)]), \
              patch.object(ab.runner, 'gpu', return_value=gpu), \
              patch.object(ab.subprocess, 'check_output', side_effect=['test-commit', b'', b'']), \
              patch.object(ab.subprocess, 'run') as launch:
@@ -56,6 +60,21 @@ class Evidence(unittest.TestCase):
             launch.assert_not_called()
         receipt = json.loads((output/'experiment.json').read_text())
         self.assertEqual(receipt['status'], 'blocked_gpu')
+        self.assertEqual(receipt['experiments_completed'], 0)
+
+    def test_busy_lock_never_launches_or_checks_gpu(self):
+        output = self.root/'locked'
+        with (self.root/'out/destruction-ab.lock').open('a') as owned:
+            fcntl.flock(owned, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with patch.object(ab, 'ROOT', self.root), \
+                 patch('sys.argv', ['ab', str(output), '--baseline', str(self.arm), '--config', str(self.config)]), \
+                 patch.object(ab.runner, 'gpu') as gpu, patch.object(ab.subprocess, 'run') as launch:
+                with self.assertRaises(BlockingIOError):
+                    ab.main()
+                gpu.assert_not_called()
+                launch.assert_not_called()
+        receipt = json.loads((output/'experiment.json').read_text())
+        self.assertEqual(receipt['status'], 'failed')
         self.assertEqual(receipt['experiments_completed'], 0)
 
 

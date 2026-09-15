@@ -10,14 +10,17 @@ import math
 from pathlib import Path
 
 POSITION_TOLERANCE = 1e-3  # Existing native motion/COM audit tolerance, metres.
+_spec = importlib.util.spec_from_file_location('destruction_physics_contract', Path(__file__).with_name('destruction_physics_contract.py'))
+contract = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(contract)
 PHYSICAL_FIELDS = (
     'chunks', 'bonds', 'buildings', 'shot_path', 'projectile_mass_kg',
     'material_strength_scale', 'frame_strength_scale', 'correction_limit',
-    'direct_gpu_mode', 'sleeping', 'gpu_connectivity_owner', 'gpu_island_repair',
-    'gpu_pre_solve_islands', 'gpu_pre_solve_contacts', 'gpu_pre_solve_support',
-    'preserve_contact_pairs', 'spawn_protocol', 'launch_seconds', 'workload',
+    'direct_gpu_mode', 'sleeping', 'spawn_protocol', 'launch_seconds', 'workload',
     'free_bodies', 'crushing_material_enabled', 'record_fps',
 )
+IMPLEMENTATION_FIELDS = ('gpu_connectivity_owner','gpu_island_repair','gpu_pre_solve_islands',
+                         'gpu_pre_solve_contacts','gpu_pre_solve_support','preserve_contact_pairs')
 IDENTITY_FIELDS = ('step', 'chunk', 'root', 'cluster_chunks', 'supported')
 
 
@@ -43,6 +46,8 @@ def frames(path, count):
         require(int(row['stress_converged']) == 1, f'Unconverged stress at step {step}')
         require(0 <= int(row['resim_passes']) <= 1, f'Invalid correction count at step {step}')
         require(1 <= int(row['stress_passes']) <= 2, f'Invalid stress pass count at step {step}')
+        require(int(row['stress_passes']) == 1 + int(row['resim_passes']),
+                f'Missing or extra current-tick stress pass at step {step}')
     return result
 
 
@@ -65,9 +70,11 @@ def motion(path, count):
             yield rows
 
 
-def options(command, summary):
+def options(command, summary, strict_implementation=False):
     require(len(command) % 2 == 1, 'Malformed captured command')
     ignored = {'--seconds', '--steps', '--output', '--motion-path', '--gpu-video', '--gpu-camera', '--color-by-cluster', '--trace-stress'}
+    if not strict_implementation:
+        ignored.update('--'+field.replace('_','-') for field in IMPLEMENTATION_FIELDS)
     result = {k: v for k, v in zip(command[1::2], command[2::2]) if k not in ignored}
     # Compare effective API/sleep settings, including runs exercising defaults.
     # Explicit options must agree with the actual scene reported by the binary.
@@ -80,7 +87,7 @@ def options(command, summary):
     return result
 
 
-def verify(capture, reference, count):
+def verify(capture, reference, count, strict_implementation=False):
     require(count in (32, 128, 600), 'Only 32/128-step prefixes or a full 600-step wall are supported')
     actual = json.loads((capture / 'native.summary.json').read_text())
     expected = json.loads((reference / 'native.summary.json').read_text())
@@ -102,7 +109,7 @@ def verify(capture, reference, count):
     cap = json.loads((capture / 'capture.json').read_text())
     ref = json.loads((reference / 'capture.json').read_text())
     require(cap['config_sha256'] == ref['config_sha256'], 'Reference config digest differs')
-    require(options(cap['command'], actual) == options(ref['command'], expected), 'Reference command settings differ')
+    require(options(cap['command'], actual, strict_implementation) == options(ref['command'], expected, strict_implementation), 'Reference command settings differ')
     require(cap['exit_code'] == ref['exit_code'] == 0, 'Invalid capture exit status')
     require(cap.get('artifacts') and ref.get('artifacts'), 'Missing artifact attestation')
     # A reference must already have a physical audit; do not bless an arbitrary
@@ -121,13 +128,21 @@ def verify(capture, reference, count):
     b_ball = module.projectile(reference / 'native.twstate', 444)
     require(len(a_ball) == actual['frames'] and len(b_ball) == expected['frames'], 'Incomplete projectile observation')
     max_position_error = 0.0
+    motion_maxima = dict(orientation_dot_error=0.0, linear_m_s=0.0, angular_rad_s=0.0)
+    implementation_differences = dict(root_labels=0)
+    for key in IMPLEMENTATION_FIELDS:
+        if actual.get(key)!=expected.get(key):
+            implementation_differences[key]=[actual.get(key),expected.get(key)]
+            require(not strict_implementation, 'Reference implementation setting differs: '+key)
     identity = hashlib.sha256()
     result = dict(schema=1, status='passed', tier={32:'early',128:'screen',600:'full'}[count],
                   compared_steps=count, chunks=444, bonds=896, projectiles=actual['projectiles'],
                   performance_qualification=False, complete_regression=count == 600,
+                  physical_contract='complete-motion-v1', strict_implementation=strict_implementation,
                   position_tolerance_m=POSITION_TOLERANCE, first_difference=None)
     for step, (a_rows, b_rows) in enumerate(zip(motion(capture, count), motion(reference, count))):
         difference = None
+        partitions = [contract.canonical_partition([int(row['root']) for row in rows]) for rows in (a_rows,b_rows)]
         if not all(math.isfinite(float(v)) for v in (*a_ball[step], *b_ball[step])):
             difference = dict(step=step, kind='nonfinite_projectile')
         else:
@@ -140,10 +155,19 @@ def verify(capture, reference, count):
             if int(a_frames[step][key]) != int(b_frames[step][key]) and difference is None:
                 difference = dict(step=step, kind=key, actual=a_frames[step][key], reference=b_frames[step][key])
         for chunk, (a, b) in enumerate(zip(a_rows, b_rows)):
-            values = [int(a[k]) for k in IDENTITY_FIELDS]
+            values = [int(a[k]) if k != 'root' else partitions[0][chunk] for k in IDENTITY_FIELDS]
             identity.update(json.dumps(values, separators=(',', ':')).encode())
-            if values != [int(b[k]) for k in IDENTITY_FIELDS] and difference is None:
+            expected_values = [int(b[k]) if k != 'root' else partitions[1][chunk] for k in IDENTITY_FIELDS]
+            label_changed = int(a['root']) != int(b['root'])
+            implementation_differences['root_labels'] += label_changed
+            if (values != expected_values or (strict_implementation and label_changed)) and difference is None:
                 difference = dict(step=step, chunk=chunk, kind='topology_identity')
+            errors = contract.full_motion_error(a,b)
+            for key, bound in [('orientation_dot_error', contract.ORIENTATION_DOT_ERROR),
+                               ('linear_m_s', contract.VELOCITY_M_S), ('angular_rad_s', contract.ANGULAR_RAD_S)]:
+                motion_maxima[key] = max(motion_maxima[key], errors[key])
+                if errors[key] >= bound and difference is None:
+                    difference = dict(step=step, chunk=chunk, kind=key, error=errors[key], bound=bound)
             for prefix in ('physics_', 'com_'):
                 error = math.dist([float(a[prefix + axis]) for axis in 'xyz'],
                                   [float(b[prefix + axis]) for axis in 'xyz'])
@@ -154,6 +178,8 @@ def verify(capture, reference, count):
             result.update(status='failed', first_difference=difference, compared_steps=step + 1)
             break
     result['max_position_error_m'] = max_position_error
+    result['maximum_motion_errors'] = motion_maxima
+    result['implementation_differences'] = implementation_differences
     result['compared_identity_sha256'] = identity.hexdigest()
     result['reference'] = str(reference.resolve())
     result['reference_sha256'] = {name: digest(reference / name) for name in

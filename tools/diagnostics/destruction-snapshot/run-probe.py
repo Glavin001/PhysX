@@ -20,6 +20,8 @@ parser.add_argument('--allow-existing-graphics',action='store_true')
 parser.add_argument('--allow-compute-pid',type=int,action='append',default=[])
 parser.add_argument('--require-complete-shapes',action='store_true')
 parser.add_argument('--sanitizer',choices=['memcheck','initcheck','synccheck'])
+parser.add_argument('--sanitizer-check-api-memory-access',choices=['yes','no'],default='yes',
+                    help='Initcheck diagnostic scope: retain API copy checks by default; no checks device kernel reads only')
 parser.add_argument('--profiler',choices=['nsys','ncu','pm'],help='Diagnostic first-tick capture; requires a --profile-built probe')
 parser.add_argument('--ncu-kernel',default='regex:componentStressSolve',help='Target kernel function filter')
 parser.add_argument('--ncu-count',type=int,default=2)
@@ -45,9 +47,13 @@ parser.add_argument('--watchdog-seconds',type=float,default=120)
 parser.add_argument('--replay-prefix',type=Path)
 parser.add_argument('--repetitions',type=int,default=10)
 parser.add_argument('--projectile-impulse',action='store_true')
+parser.add_argument('--warmup-ticks',type=int,help='Real ticks after restore, excluded from measured window; advances physical time')
+parser.add_argument('--measure-ticks',type=int,default=1,help='Consecutive measured ticks per restored trajectory')
 parser.add_argument('--native-args-json',type=Path,help='Capture with native demo arguments from a JSON array; output added by wrapper')
 parser.add_argument('--test-args-json',type=Path,help='Run an existing native correctness command with exact JSON arguments; no output argument appended')
 args=parser.parse_args()
+if args.warmup_ticks is not None and (not args.replay_prefix or not 0<=args.warmup_ticks<=10000 or not 1<=args.measure_ticks<=10000):parser.error('Warm mode requires replay, warmup 0..10000 and measured 1..10000')
+if args.measure_ticks!=1 and args.warmup_ticks is None:parser.error('--measure-ticks requires --warmup-ticks')
 if args.test_args_json and (args.native_args_json or args.replay_prefix or args.profiler or args.require_complete_shapes or args.projectile_impulse):
     parser.error('--test-args-json is exclusive with demo, snapshot and profiler options')
 test_arguments=None
@@ -66,6 +72,8 @@ if build_receipt.exists():
 
 if args.sanitizer_blocking_launches and not args.sanitizer:
     parser.error('--sanitizer-blocking-launches requires --sanitizer')
+if args.sanitizer_check_api_memory_access=='no' and args.sanitizer!='initcheck':
+    parser.error('--sanitizer-check-api-memory-access no requires --sanitizer initcheck')
 if args.sanitizer_sync_limit is not None:
     if not args.sanitizer or args.sanitizer_blocking_launches or args.sanitizer_sync_limit < 1:
         parser.error('--sanitizer-sync-limit requires --sanitizer, a positive limit, and no blocking-launch option')
@@ -85,10 +93,14 @@ if args.replay_prefix:
     record['snapshot_inputs']={str(prefix)+suffix:c.sha(Path(str(prefix)+suffix)) for suffix in ('.pxbin','.destruction','.scene','.metadata.json') if Path(str(prefix)+suffix).exists()}
     record['command'] += ['--replay',str(prefix),'--repetitions',str(args.repetitions)]
     if args.projectile_impulse:record['command'].append('--projectile-impulse')
+    if args.warmup_ticks is not None:
+        record['command'] += ['--warmup-ticks',str(args.warmup_ticks),'--measure-ticks',str(args.measure_ticks)]
+        record['warm_window']=dict(warmup_ticks=args.warmup_ticks,measure_ticks=args.measure_ticks,advances_physics=True)
 if args.profiler:
     tool=Path('/opt/nvidia/nsight-systems/2026.3.2/bin/nsys') if args.profiler in ('nsys','pm') else args.ncu_binary.resolve()
     record['profiler']={'tool':args.profiler,'version':subprocess.check_output([str(tool),'--version'],text=True).strip(),
         'performance_qualification':False,'range':'first restored complete tick; setup excluded'}
+    if args.warmup_ticks is not None:record['profiler']['range']='First measured complete tick after '+str(args.warmup_ticks)+' real warmup ticks; first trajectory only'
     if args.native_args_json:record['profiler']['range']='Continuous native process; full tick bounds recorded in native.frames.csv'
     record['profiler']['binary']={'path':str(tool),'sha256':c.sha(tool)}
     if args.profiler=='ncu':
@@ -144,9 +156,11 @@ if args.sanitizer:
         'version':subprocess.check_output([str(sanitizer),'--version'],text=True).strip(),
         'blocking_launches':args.sanitizer_blocking_launches,
         'force_synchronization_limit':args.sanitizer_sync_limit,'performance_qualification':False}
+    if args.sanitizer=='initcheck':record['sanitizer']['check_api_memory_access']=args.sanitizer_check_api_memory_access
     options=['--force-blocking-launches'] if args.sanitizer_blocking_launches else []
     if args.sanitizer_sync_limit is not None:
         options += ['--force-synchronization-limit',str(args.sanitizer_sync_limit)]
+    if args.sanitizer=='initcheck':options+=['--check-api-memory-access',args.sanitizer_check_api_memory_access]
     record['command']=[str(sanitizer),'--tool',args.sanitizer,'--error-exitcode','97',*options,*record['command']]
 def owned(pid,parent):
     seen=set()
@@ -162,7 +176,23 @@ def save():(out/'receipt.json').write_text(json.dumps(record,indent=2)+'\n')
 def require_gpu_health(sample):
     if not sample.get('devices') or 'requires reset' in json.dumps(sample).lower():
         raise RuntimeError('GPU unavailable or reset required; no capture is qualified')
-with (root/'out/destruction-ab.lock').open('a') as lock:
+# A frozen baseline coordinator may own the shared lease for the whole campaign.
+# Validate live ancestry AND the kernel's lock owner; never trust an env flag alone.
+lease_owner = int(os.environ.get('PHYSX_BASELINE_LOCK_OWNER', '0'))
+lease_path = root/'out/destruction-ab.lock'
+if lease_owner:
+    assert owned(os.getpid(), lease_owner), 'Lease owner is not an ancestor'
+    st = lease_path.stat()
+    expected = (os.major(st.st_dev), os.minor(st.st_dev), st.st_ino)
+    def owned_lease(line):
+        fields = line.split()
+        if len(fields) < 6 or fields[1:4] != ['FLOCK', 'ADVISORY', 'WRITE'] or fields[4] != str(lease_owner):
+            return False
+        dev = fields[5].split(':')
+        return (int(dev[0], 16), int(dev[1], 16), int(dev[2])) == expected
+    assert any(owned_lease(line) for line in Path('/proc/locks').read_text().splitlines()), 'Coordinator does not hold shared benchmark lease'
+    lease_path = root/'out/destruction-baseline-20260913/child-capture.lock'
+with lease_path.open('a') as lock:
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     initial=c.gpu();record['before']=initial
     try:require_gpu_health(initial)

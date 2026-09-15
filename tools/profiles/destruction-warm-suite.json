@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "contract": "physical-warm-window-v1",
+  "description": "Nine fixed warm windows; late debris is a post-restore continuation, not an uninterrupted-run equivalent. Cold full52 and uninterrupted heavy remain separate guardrails.",
+  "cases": [
+    {
+      "name": "bridge64",
+      "prefix": "out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+      "warmup_ticks": 8,
+      "measure_ticks": 8,
+      "trait": "Supported span at accepted static equilibrium"
+    },
+    {
+      "name": "chain256",
+      "prefix": "out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+      "warmup_ticks": 8,
+      "measure_ticks": 8,
+      "trait": "Long sparse load path after initial solve"
+    },
+    {
+      "name": "dense12",
+      "prefix": "out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+      "warmup_ticks": 8,
+      "measure_ticks": 8,
+      "trait": "Dense interconnected equilibrium; cold solve remains a companion"
+    },
+    {
+      "name": "tower64",
+      "prefix": "out/snapshot-large-20260911/roundtrip-regressions/tower64-cold",
+      "warmup_ticks": 8,
+      "measure_ticks": 8,
+      "trait": "Tall static structure; tests equilibrium reuse, not changed-load convergence"
+    },
+    {
+      "name": "city25-impact",
+      "prefix": "out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40",
+      "warmup_ticks": 42,
+      "measure_ticks": 8,
+      "trait": "11,100 chunks; first impact and early cascading fractures at nominal ticks82..89"
+    },
+    {
+      "name": "city256-idle",
+      "prefix": "out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+      "warmup_ticks": 16,
+      "measure_ticks": 16,
+      "trait": "113,664 chunks; large settled intact world at nominal ticks56..71"
+    },
+    {
+      "name": "city256-impact",
+      "prefix": "out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40",
+      "warmup_ticks": 42,
+      "measure_ticks": 8,
+      "trait": "113,664 chunks, 256 projectiles; first impact and cascades at nominal ticks82..89"
+    },
+    {
+      "name": "city256-cascade",
+      "prefix": "out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40",
+      "warmup_ticks": 55,
+      "measure_ticks": 8,
+      "trait": "Active cascading destruction at nominal ticks95..102; pre-impact history retained"
+    },
+    {
+      "name": "city256-debris",
+      "prefix": "out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+      "warmup_ticks": 8,
+      "measure_ticks": 8,
+      "trait": "Restored late debris continued through8 real ticks; repeatable matched input, NOT the original uninterrupted trajectory"
+    }
+  ],
+  "default_profile_case": "city256-debris",
+  "cold_companion_manifest": "out/destruction-baseline-20260913/manifest.json"
+}

@@ -31,12 +31,12 @@ def fixture(path,count=32,ordinary=False):
     with (path/'native.frames.csv').open('w') as f:
         writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader()
         for step in range(count):writer.writerow(dict(step=step,resim_passes=0,stress_converged=1,stress_passes=1,bonds_broken=0,post_correction_bonds_broken=0))
-    fields=list(prefix.IDENTITY_FIELDS)+[p+a for p in ['render_','physics_','com_'] for a in 'xyz']
+    fields=list(prefix.IDENTITY_FIELDS)+[p+a for p in ['render_','physics_','com_'] for a in 'xyz']+['qx','qy','qz','qw','vx','vy','vz','wx','wy','wz']
     with (path/'native.motion.csv').open('w') as f:
         writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader()
         for step in range(count):
             for chunk in range(444):
-                row={k:0 for k in fields};row.update(step=step,chunk=chunk,root=0,cluster_chunks=444,supported=1);writer.writerow(row)
+                row={k:0 for k in fields};row.update(step=step,chunk=chunk,root=0,cluster_chunks=444,supported=1,qw=1);writer.writerow(row)
     with (path/'native.twstate').open('wb') as f:
         f.write(b'TWSTATE1'+struct.pack('<7I2f',2,60,count,960,540,1,0,count/60,0))
         for step in range(count):f.write(struct.pack('<B3I7fB',2,step,1,444,0,0,0,0,0,0,1,0))
@@ -83,6 +83,35 @@ class PrefixTests(unittest.TestCase):
         mutate_row(self.actual/'native.motion.csv',17*444+9,'physics_x',.002)
         mutate_row(self.actual/'native.motion.csv',17*444+9,'render_x',.002)
         self.assertEqual(self.verify()['first_difference']['step'],17)
+    def test_velocity_regression_without_position_change(self):
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'vx',.01)
+        self.assertEqual(self.verify()['first_difference']['kind'],'linear_m_s')
+    def test_spin_regression_without_position_change(self):
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'wz',.01)
+        self.assertEqual(self.verify()['first_difference']['kind'],'angular_rad_s')
+    def test_orientation_regression(self):
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'qz',.70710678)
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'qw',.70710678)
+        self.assertEqual(self.verify()['first_difference']['kind'],'orientation_dot_error')
+    def test_quaternion_sign_is_not_a_regression(self):
+        mutate_row(self.actual/'native.motion.csv',7*444+2,'qw',-1)
+        self.assertEqual(self.verify()['status'],'passed')
+    def test_invalid_quaternion_rejected(self):
+        mutate_row(self.actual/'native.motion.csv',2,'qw',0)
+        with self.assertRaisesRegex(ValueError,'quaternion'):self.verify()
+    def test_internal_root_renaming_is_diagnostic(self):
+        path=self.actual/'native.motion.csv'
+        with path.open() as f:rows=list(csv.DictReader(f));fields=list(rows[0])
+        for row in rows:row['root']='23'
+        with path.open('w') as f:
+            writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader();writer.writerows(rows)
+        result=self.verify()
+        self.assertEqual(result['status'],'passed')
+        self.assertEqual(result['implementation_differences']['root_labels'],32*444)
+        self.assertEqual(prefix.verify(self.actual,self.reference,32,strict_implementation=True)['status'],'failed')
+    def test_missing_second_stress_rejected(self):
+        mutate_row(self.actual/'native.frames.csv',5,'resim_passes',1)
+        with self.assertRaisesRegex(ValueError,'current-tick stress'):self.verify()
     def test_nonfinite(self):
         mutate_row(self.actual/'native.motion.csv',10,'com_x','nan')
         with self.assertRaisesRegex(ValueError,'Non-finite'):self.verify()
@@ -95,6 +124,13 @@ class PrefixTests(unittest.TestCase):
     def test_mode_mismatch(self):
         path=self.reference/'native.summary.json';data=json.loads(path.read_text());data['sleeping']=True;write_json(path,data)
         with self.assertRaisesRegex(ValueError,'physical setting'):self.verify()
+    def test_implementation_owner_can_change_without_changing_physics(self):
+        for directory,value in ((self.actual,True),(self.reference,False)):
+            path=directory/'native.summary.json';data=json.loads(path.read_text());data['gpu_island_repair']=value;write_json(path,data)
+            path=directory/'capture.json';data=json.loads(path.read_text());data['command']+=['--gpu-island-repair',str(int(value))];write_json(path,data)
+        self.assertEqual(self.verify()['status'],'passed')
+        with self.assertRaisesRegex(ValueError,'settings differ'):
+            prefix.verify(self.actual,self.reference,32,strict_implementation=True)
     def test_changed_solver_settings(self):
         path=self.reference/'capture.json';data=json.loads(path.read_text());data['command'][-1]='4096';write_json(path,data)
         with self.assertRaisesRegex(ValueError,'command settings'):self.verify()
