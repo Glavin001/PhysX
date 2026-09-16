@@ -713,3 +713,44 @@ preallocation for dormant islands, it removes the CPU stages as well.
 Estimated at several weeks with the physical-gate qualification; the
 diagnostic (`PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG`) and the maps in this
 section are the starting point.
+
+### R5 stage 2, first implementation (2026-09-16, env-gated, default off)
+
+`PHYSX_DESTRUCTION_ISLAND_SCOPE=1` (2: stress skip only, 3: parking without
+the stress skip; both bisection modes). Pieces:
+- `IG::IslandSim::parkIslandForPass` / `unparkIslandForPass` (accurate sim
+  only; no edge changes, no notifications; unpark tolerates islands merged or
+  woken during the pass) and `collectNeighbourIslands` (inline, used from the
+  GPU module).
+- `PxgSimulationController`: after the correction bindings, the affected set
+  = islands of correction targets and reserved bodies plus every island
+  connected to them by an edge (a projectile resting on the kinematic
+  building it just split shares no island with the replacement bodies; the
+  kinematic building node has hundreds of such edges). Islands with
+  kinematic or articulation nodes are never parked. The GPU restore keeps a
+  snapshot of the trial end-of-tick state and reinstates it for parked
+  bodies (`requestTrialSnapshot` / `reinstateTrialState`), and flags the
+  stress components of parked bodies so the corrected stress solve
+  republishes their trial result (`setParkedComponentFlags`, the settled
+  skip path).
+- `Sc::Scene::restoreDestructionActivity` skips the rewind of parked bodies
+  and parks their islands; `finalizationPhase` unparks them after the
+  corrected pass.
+- Constraint pre-prep maps a solver body index of 0xFFFFFFFF (a parked body)
+  to the static world (zero response); the writeback skips such rigid
+  contacts so their impulse and friction caches and their published
+  response keep the trial values.
+
+Findings so far (g4 bombardment, 3 s): flag off is bit-identical to the
+baseline; mode 2 (stress skip only) is bit-identical too, i.e. the affected
+set and the component skip are exact; modes 1 and 3 keep the CPU/GPU motion
+audit at the baseline level (5.6e-6 vs 6.3e-6) but the history diverges from
+the first parked correction on (bonds broken 2,993 vs 4,192 over the run).
+Because a full corrected pass re-simulates untouched islands with a
+different solver active set (different body order), it is itself not
+bitwise equal to the trial for those islands, so a bitwise comparison
+cannot separate a defect from floating-point chaos here; the next check is
+the warm-window contract (16-tick windows, force relL2 and health drift)
+with relinked probes, and per-body state comparison right after a parked
+correction. A g16 run of mode 1 crashed once in `unparkIslandForPass` on an
+island merged away during the pass (guarded since).
