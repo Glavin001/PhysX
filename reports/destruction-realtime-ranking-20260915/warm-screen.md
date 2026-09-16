@@ -751,3 +751,19 @@ without it. The tiny components' cost is the per-component fixed work
 around the solve (two true-residual evaluations, rebuild, monitors), which
 the dense step keeps and adds assembly to; their 1–2 PCG iterations were
 not the expensive part. Env `BLAST_GPU_NATIVE_DENSE_TINY=1` enables it.
+
+## Requalification of the current defaults (contract v4, `results-solve2-v4`, 2026-09-16)
+
+Runtime copy refreshed (Woodbury on, absent-column skipping, pipelined
+narrow levels, diagonal inverses, three CTAs per SM, dense tiny step off),
+11/11 native GPU tests. All nine windows pass; means in ms (A0 / B / A1):
+bridge64 1.58/1.55/1.53, chain256 1.69/1.66/1.55, city25 impact
+25.2/16.4/23.1, city256 cascade 113.2/71.0/109.1, city256 debris
+132.6/80.3/129.2, city256 idle 1.69/1.80/1.71, city256 impact
+93.1/69.8/94.8, dense12 1.52/1.43/1.51, tower64 1.48/1.39/1.64. Discrete
+outcomes exact, health drift ≤ 3.0e-5, force relL2 ≤ 1.9e-2 on the debris
+window (elastic reuse, as before). Against the 2026-09-15 final: cascade
+80 → 71, impact 71 → 70, city25 16.3 → 16.4, debris 74–82 (run to run).
+The `city256-debris-ncu` job of the plan fails in its check step
+(profiled-run comparison), unrelated to the candidate; the nsys job
+completes.
