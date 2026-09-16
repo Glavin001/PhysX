@@ -625,6 +625,12 @@ graph that may be rebuilt concurrently), default missing entries to not ready, a
 both the trial and the corrected third pass of the next tick; CPU-side wakes stay covered by
 `mIslandWokenThisFrame`. Only then can mode 1 be qualified as lossless.
 
+Done the same day (increment 2, `warm-screen.md`): with that timing the device-side contradictions
+are 0, but 0.8 % of island decisions still differ because the CPU readiness flag has sources the
+device cannot see (fragments created ready-for-sleep, cleared only by CPU wake paths). Mode 1
+measured +5.7 % bonds broken on g16 (outside the §11 envelope) and stays off. The scheduler
+therefore needs device-owned activation state, not only the reduction.
+
 ### R5 stage 1 result (2026-09-16): the corrected pass re-simulates ~200× more than it must
 
 `PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1` (PxgSimulationController, at the
