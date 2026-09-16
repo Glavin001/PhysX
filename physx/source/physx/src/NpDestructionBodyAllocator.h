@@ -40,6 +40,7 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
     // Placeholder pool: enabled by the runtime (PxgDestructionRuntime reads
     // PHYSX_DESTRUCTION_BODY_POOL); a runtime that never asks gets in-tick creation.
     bool mPlaceholderPool=false;
+    PxArray<NpRigidDynamic*> mResolvedTargets,mResolvedFrom,mResolvedTo; // per-batch resolved bodies (applyBindings/publishShapeOwners)
 public:
     bool poolEnabled() const { return mPlaceholderPool; }
     void setPlaceholderPool(bool enabled) override { mPlaceholderPool=enabled; }
@@ -333,7 +334,12 @@ public:
         const PxU32 shapeCapacity=controller->getNbShapes();
         if(count && !shapes)return false;
         PxHashMap<PxU32,NpRigidDynamic*> owners;
-        PxHashMap<PxU32,PxU32> seen;
+        // Each body is resolved once (source() walks the island node, the
+        // registration and a hash map); the later loops reuse the results.
+        PxBitMap seen;seen.resizeAndClear(PxMax(1u,shapeCapacity));
+        mResolvedTargets.forceSize_Unsafe(0);mResolvedTargets.reserve(bodies);
+        mResolvedFrom.forceSize_Unsafe(0);mResolvedFrom.reserve(count);
+        mResolvedTo.forceSize_Unsafe(0);mResolvedTo.reserve(count);
         PxProfilerCallback* profiler=PxGetProfilerCallback();
         const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
         {
@@ -342,6 +348,7 @@ public:
             auto* parent=source(requests[i].sourceBody);
             auto* target=source(targets[i],true);
             if(!parent || !target || requests[i].supported>1)return false;
+            mResolvedTargets.pushBack(target);
             if(owners.insert(requests[i].sourceBody,parent)) {
                 const auto& manager=parent->getShapeManager();
                 if(parent->getAggregate() || manager.isSqCompound() || manager.getPruningStructure())return false;
@@ -349,9 +356,11 @@ public:
         }
         for(PxU32 i=0;i<count;++i) {
             const auto b=bindings[i];
-            auto* from=source(b.sourceBody);auto* to=source(b.targetBody,true);
-            if(!from || !to || from==to || !owners.find(b.sourceBody) || b.shape>=shapeCapacity
-                || !shapes[b.shape] || !seen.insert(b.shape,i))return false;
+            const auto* ownerEntry=owners.find(b.sourceBody);
+            auto* from=ownerEntry?ownerEntry->second:NULL;auto* to=source(b.targetBody,true);
+            if(!from || !to || from==to || b.shape>=shapeCapacity
+                || !shapes[b.shape] || seen.test(b.shape))return false;
+            seen.set(b.shape);mResolvedFrom.pushBack(from);mResolvedTo.pushBack(to);
             auto* sim=shapes[b.shape];auto* shape=static_cast<NpShape*>(sim->getPxShape());
             if(!shape || sim->getElementID()!=b.shape || (needsHostProperties()? &sim->getActor()!=from->getCore().getSim():shape->getActor()!=from) || !shape->isExclusiveFast()
                 || shape->getCore().getExclusiveSim()!=sim || !sim->isInBroadPhase()
@@ -367,7 +376,7 @@ public:
         {
         PxProfileScoped profile(profiler,"GpuDestruction.applyDetail.scheduleOwners",false,profileContext);
         for(PxU32 i=0;i<bodies;++i) {
-            auto* target=source(targets[i],true);auto& core=target->getCore();auto flags=core.getFlags();
+            auto* target=mResolvedTargets[i];auto& core=target->getCore();auto flags=core.getFlags();
             if(requests[i].supported)flags|=PxRigidBodyFlag::eKINEMATIC;
             else flags.clear(PxRigidBodyFlag::eKINEMATIC);
             core.setFlags(flags,true);
@@ -388,7 +397,7 @@ public:
         PxProfileScoped profile(profiler,"GpuDestruction.applyDetail.migrateShapes",false,profileContext);
         for(PxU32 i=0;i<count;++i) {
             const auto b=bindings[i];auto* shape=static_cast<NpShape*>(shapes[b.shape]->getPxShape());
-            if(!NpShapeManager::rebindShapeInternal(*source(b.sourceBody),*source(b.targetBody,true),
+            if(!NpShapeManager::rebindShapeInternal(*mResolvedFrom[i],*mResolvedTo[i],
                 *shape,shape->getLocalPoseFast(),true,needsHostProperties()))return false;
         }
         }
@@ -399,16 +408,18 @@ public:
         auto* controller=mScene.getScScene().getSimulationController();
         auto** shapes=controller->getShapeSims();const PxU32 capacity=controller->getNbShapes();
         // Validate the entire GPU-selected final batch before publication.
+        mResolvedTo.forceSize_Unsafe(0);mResolvedTo.reserve(count);
         for(PxU32 i=0;i<count;++i) {
             const auto& b=bindings[i];auto* target=source(b.targetBody,true);
             if(!target || b.shape>=capacity || !shapes[b.shape]
                 || &shapes[b.shape]->getActor()!=target->getCore().getSim())return false;
+            mResolvedTo.pushBack(target);
         }
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.finalShapePublication",false,
             PxU64(reinterpret_cast<size_t>(this)));
         for(PxU32 i=0;i<count;++i) {
             const auto& b=bindings[i];auto* shape=shapes[b.shape]->getPxShape();
-            if(!NpShapeManager::publishNativeShapeOwner(*source(b.targetBody,true),*shape))return false;
+            if(!NpShapeManager::publishNativeShapeOwner(*mResolvedTo[i],*shape))return false;
         }
         return true;
     }

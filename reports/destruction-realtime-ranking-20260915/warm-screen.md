@@ -1163,3 +1163,23 @@ body frozen (finalize walk, filtered list, empty constraints). Since neither
 a bit-identical reference nor the physical counters can separate a defect
 from chaos here, and the upside measured earlier is below 1 ms of GPU work,
 device-side island scoping is closed; mode 4 remains available, off.
+
+## Impact-tick CPU profile (perf restricted to step 82) and two lossless follow-ups
+
+`perf record -k CLOCK_MONOTONIC` with the phase timestamps selecting only
+the impact tick (227 ms under `--profile-phases 1`, 46k samples): the
+demo's own phase profiler is 10–15 % of that tick (per-shape scopes), which
+is why unprofiled impact ticks are 180–190 ms; the rest is diffuse PhysX
+new-pair work (`ShapeInteraction::createManager` 2.0 %, `runOverlapFilters`
+1.2 %, `IslandSim::processNewEdges` 1.2 %, `addPreallocatedContactManager`
+0.8 %, contact-manager construction 0.7 %, hash-map creates 1 %, atomics
+2.8 %), the allocator's per-shape body lookup (`source()` + hash-map find
+2.7 %), and heap/pinned growth (`sysmalloc`, `mprotect`, page faults ~7 %).
+
+- Pre-sizing scene limits and GPU dynamics storage
+  (`PHYSX_DEMO_SCENE_LIMITS=1`, off by default): impact 190–206 vs 178–188 ms,
+  no gain; the demo already scales the GPU dynamics config.
+- Resolving each body once per binding batch (validation, scheduling,
+  migration and publication reuse the resolved pointers; duplicate shapes
+  tracked in a bitmap instead of a hash map): bit-identical, impact 181–183
+  vs 178–188 ms (inside the ±10 ms spread of that tick), 11/11 tests. Kept.

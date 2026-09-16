@@ -211,6 +211,28 @@ PhysXScene::PhysXScene(
         desc.flags |= physx::PxSceneFlag::eENABLE_GPU_DYNAMICS;
         desc.broadPhaseType = physx::PxBroadPhaseType::eGPU;
         desc.gpuMaxNumPartitions = 8;
+        // PHYSX_DEMO_SCENE_LIMITS=1: pre-size scene and GPU dynamics storage for a
+        // city-scale fracture so the impact tick does not grow pools, pinned
+        // arrays and device buffers in-tick (each growth synchronises).
+        if (const char* limitsRaw = std::getenv("PHYSX_DEMO_SCENE_LIMITS"))
+        {
+            if (std::atoi(limitsRaw) > 0)
+            {
+                const physx::PxU32 scale = static_cast<physx::PxU32>(std::atoi(limitsRaw));
+                desc.limits.maxNbActors = 32768u * scale;
+                desc.limits.maxNbBodies = 32768u * scale;
+                desc.limits.maxNbStaticShapes = 4096u;
+                desc.limits.maxNbDynamicShapes = 131072u * scale;
+                desc.limits.maxNbAggregates = 0;
+                desc.limits.maxNbConstraints = 0;
+                desc.limits.maxNbRegions = 0;
+                desc.limits.maxNbBroadPhaseOverlaps = 262144u * scale;
+                desc.gpuDynamicsConfig.foundLostPairsCapacity = 262144u * scale;
+                desc.gpuDynamicsConfig.maxRigidContactCount = 1024u * 1024u * 2u * scale;
+                desc.gpuDynamicsConfig.maxRigidPatchCount = 1024u * 256u * scale;
+                desc.gpuDynamicsConfig.tempBufferCapacity = 16u * 1024u * 1024u * scale;
+            }
+        }
         if (m_directGpuApiRequested)
         {
             desc.flags |= physx::PxSceneFlag::eENABLE_DIRECT_GPU_API;
