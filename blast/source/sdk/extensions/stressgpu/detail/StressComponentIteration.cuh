@@ -61,7 +61,12 @@ __device__ __forceinline__ float nativeComponentResidualNorm(const PersistentStr
 // component's numerical order is unchanged; only the CTA that runs it differs.
 constexpr unsigned kTinyComponentNodes = 7u;
 template<bool Tiny>
-__global__ void __launch_bounds__(kBlockSize) componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c, unsigned tinyLimit)
+#ifndef BLAST_GPU_SOLVE_MIN_BLOCKS
+#define BLAST_GPU_SOLVE_MIN_BLOCKS 3
+#endif
+// Residency of the persistent component grid: 128 registers allow two CTAs
+// per SM, so only 72 of the 144 launched CTAs ever claim work on a 36-SM part.
+__global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c, unsigned tinyLimit)
 {
     __shared__ unsigned counts[2], iteration, activeCount, slot, directApplied, directNormValid;
     __shared__ float directNorm;
