@@ -717,3 +717,11 @@ instead of 72. city256 g16 3 s bombardment: tick ratio 0.553 → 0.527
 per SM (64 registers) spills more and is worse (ratio 0.563). Default is
 now three (`BLAST_GPU_SOLVE_MIN_BLOCKS`). Shared memory (27 KB per CTA) is
 not the limit at three.
+
+Tiny-component launch re-tested at three resident CTAs per SM
+(`BLAST_GPU_NATIVE_TINY_CTAS` 16 and 32): ratios 0.550 and 0.541 against
+0.527 for the single launch; histories identical. The separate 32-thread
+launch still serialises ahead of the main kernel on the same stream and
+costs more than it saves; it stays off. The tiny components' 33 % of solve
+cycles remain a target only through their per-component fixed cost inside
+the main kernel.
