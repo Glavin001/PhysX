@@ -861,3 +861,49 @@ breaks more than 2,000 bonds where the control breaks fewer than 200
 the nine warm windows stay within their motion bounds; and timing is
 reported as before (means, peaks, 60 Hz misses). Bit-identical control
 runs (A/A) remain required for every lossless change.
+
+## 12. R2 milestone 2 item 2: device-keyed partition edges — code map and plan (2026-09-16)
+
+Keying by the CPU island edge index today: `IG::GPUExternalData::mFirstPartitionEdges`
+(`PxsIslandSim.h:460-463`, `getFirstPartitionEdge(edgeIndex)`), `mDestroyedPartitionEdges`
+(`:467-472`), `mActiveContactEdges` (`:476`), `CPUExternalData::mEdgeNodeIndices` (`:437-442`),
+`AuxCpuData::mConstraintOrCm[edgeId]`/`mInteractions[edgeId]` (`PxsSimpleIslandManager.h:143-146, 312`);
+`PartitionEdge::mEdgeIndex` (`PxsPartitionEdge.h:76`, 27-bit domain, `:104`),
+`processPartitionEdges` (`:113-127`, the CPU↔NP rebinding hook), `mSolverConstants[uniqueId].mEdgeIndex`
+(`PxgConstraintPartition.cpp:904`, `:2395`), `mNpIndexArray` (`:898`, `:2391`, published `:2588`),
+`mDestroyedContactEdgeIndices` (pushed `:1702, 1774, 1821, 2207, 2266, 2560`). Downstream: friction
+patch counts and index stream sized by `getNbEdgeHandles()` (`PxgContext.cpp:2557-2563`), destroyed-edge
+clear (`PxgCudaSolverCore.cpp:314-411`), device reads of `constants->mEdgeIndex`
+(`constraintBlockPrePrep.cu:968-969`, `constraintBlockPrep.cu:439`, `constraintBlockPrepTGS.cu:356`,
+`artiConstraintPrep2.cu:1301`). The only host read of the CPU edge index into the device identity:
+`PxgNarrowphaseCore.cpp:8667-8672` (`mContactGraphEdges[i] = cm->getWorkUnit().mEdgeIndex`, consumed by
+`contactIdentity::initialize`, `PxgContactIdentity.cuh:18-32`). `mPartitionIndexArray`/`mPartitionNodeArray`
+are already keyed by the pool slot `mUniqueIndex`, not by edge index.
+
+Irreducible host residue per native pair: a `ShapeInteraction*`-shaped report handle
+(`constraintBlockPrePrep.cu:981`, `accumulateThresholdStream.cu:545,596,833`), the filter verdict
+(`ScPipeline.cpp:687`), and the sleeping-counter contribution (`:1274-1280`). Touch events
+(`PxsContext.cpp:529-577`, `ScPipeline.cpp:1792-1823`) and the partition's `Part2_0/Part2_1`
+(`PxgConstraintPartition.cpp:2260-2290, 2340-2408`) currently require the CM and a valid `unit.mNpIndex`.
+
+Plan (each step measurable):
+1. Device-owned edge-id allocator next to `PxgContactGraphSequence` (`PxgContactManager.h:38-47`,
+   `PxgContactIdentity.cuh`, `PxgNarrowphaseCore.cpp:8667-8685`); checkpoint: no host reads of
+   `mEdgeIndex` for native pairs, `native_contact_graph_check` passes.
+2. Partition key as `{edgeIndex, generation}` in `PartitionEdge` and `PxgSolverConstraintManagerConstants`
+   (CPU path generation 0); checkpoint: bitwise-identical `mSolverConstants` upload.
+3. Identity→`PartitionEdge*` map beside `mFirstPartitionEdges`, used by add/remove/destroy and
+   `processPartitionEdges`; checkpoint: identical partition arrays on `updateIncrementalIslands_Reference`.
+4. Device pair roster (`PxgDestructionContactEdge`, `getDestructionPreSolveContacts`,
+   `PxgNarrowphaseCore.cpp:8574-8586`) feeding `Part2_0/Part2_1`; checkpoint: partition/np-index arrays
+   match the CPU-built ones on a bombardment step.
+5. Friction counts and destroyed-edge clear indexed by identity slots; checkpoint: the
+   `preserveUnchangedContactPairs` fixture parity (32 trajectories within 2e-4).
+6. Skip `IslandInsertionTask`, `registerContactManagers` and handle preallocation for native pairs
+   (`ScPipeline.cpp:969-1020, 1082-1086, 1220-1247`), keeping `registerInteractions`/
+   `registerSceneInteractions`; checkpoint: the ~25 ms of those scopes at the impact tick drop, broken-bond
+   totals within the order-changing envelope (§11).
+7. Device retained-edge deltas replacing the host walk (`PxgSimulationController.cpp:816-863`);
+   checkpoint: zero host staging in `native.graph-diagnostics.json`.
+Step 6 keeps the sleeping gate (`mPreSolveSleepingDisabled`, `PxgContext.h:338`) as analysed in
+`r2-consumer-inventory.md:82-84`.
