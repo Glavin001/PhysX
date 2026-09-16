@@ -1265,3 +1265,21 @@ A first version read the slot from the solver constants on every patch removal (
 | peak tick 82 | 178.2, 186.1, 193.9, 177.5 | 182.0, 193.1, 183.4, 198.3 |
 
 Neutral. The control binary directory is the reference for the remaining steps.
+
+## Warm nine-window screen of R2 steps 1–3 (contract v4, `results-r2s3-v4`)
+
+Candidate = runtime, GPU module and probes at `48854ccb` (steps 1–3 plus the sleep-audit diagnostic; probes rebuilt because `PxcNpWorkUnit` gained the slot word); controls A0/A1 = the 2026-09-13 baseline artifacts. All nine windows pass; force relL2 and health drift are identical to `results-16d-v4`, so the stress solves are bit-identical and only scheduling noise moves. Means in ms (A0 / B / A1), previous screen's B in brackets:
+
+| window | A0 | B | A1 | B max | misses A0/B/A1 | B check |
+|---|---:|---:|---:|---:|---:|---|
+| bridge64 | 1.26 | 1.52 | 1.69 | 2.12 | 0/0/0 of 16 | passed |
+| chain256 | 1.43 | 1.66 | 1.60 | 2.02 | 0/0/0 of 16 | passed |
+| city25-impact | 23.59 | 15.94 [16.25] | 23.78 | 35.74 | 10/7/10 of 16 | passed |
+| city256-cascade | 112.21 | 68.21 [69.00] | 110.84 | 106.41 | 16/16/16 of 16 | passed |
+| city256-debris | 130.13 | 79.24 [77.33] | 129.93 | 86.89 | 16/16/16 of 16 | passed |
+| city256-idle | 2.86 | 1.77 [1.92] | 1.75 | 2.07 | 0/0/0 of 32 | passed |
+| city256-impact | 92.34 | 68.85 [68.58] | 93.91 | 186.49 | 16/16/16 of 16 | passed |
+| dense12 | 1.63 | 1.63 | 1.51 | 1.91 | 0/0/0 of 16 | passed |
+| tower64 | 1.61 | 1.61 | 1.50 | 2.14 | 0/0/0 of 16 | passed |
+
+The optional `city256-debris-ncu` profiling job after the nine windows timed out under its 180 s watchdog (the nsys job completed); it is not part of the contract.
