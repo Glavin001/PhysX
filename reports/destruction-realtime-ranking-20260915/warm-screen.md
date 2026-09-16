@@ -737,3 +737,17 @@ window (B 2.62 vs A 1.68/1.78 ms) is a repeat of a runtime that measured
 1.8 ms the day before: idle is noisy under desktop management. Copy the
 current `libPhysXDestructionGpuRuntime_64.so` into that directory before
 a warm screen of a new build.
+
+## Dense direct step for tiny components (exact, slower; off by default)
+
+`StressNativeDenseTiny.cuh`: components below the cached-factor minimum
+(at most seven nodes) assemble their operator from live bonds into shared
+memory, factor it densely and solve, under the same residual gate as the
+cached factors. Correct: histories identical, every tiny component
+converges in zero PCG iterations (maxIterations 0 across the run,
+70,636 dense applications). Slower: tick ratio 0.556 with block barriers
+in the factorization and 0.544 with a warp-only version, against 0.527
+without it. The tiny components' cost is the per-component fixed work
+around the solve (two true-residual evaluations, rebuild, monitors), which
+the dense step keeps and adds assembly to; their 1–2 PCG iterations were
+not the expensive part. Env `BLAST_GPU_NATIVE_DENSE_TINY=1` enables it.

@@ -285,6 +285,7 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
 #undef DIRECT_PROBE_PUBLISH
     return true;
 }
+#include "StressNativeDenseTiny.cuh"
 // Undo the last application: subtract the same x from the accumulated solution.
 __device__ __forceinline__ void directUndoNativeComponent(const PersistentStressArgs& a, const unsigned* nodes, unsigned id, const float* x) {
     const NativeDirectView& v = a.hierarchy.direct;

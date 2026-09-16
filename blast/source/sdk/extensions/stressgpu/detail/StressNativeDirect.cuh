@@ -97,8 +97,10 @@ struct NativeDirectView {
     unsigned woodbury = 1;
     // Pipelined narrow levels in the direct solve (default on).
     unsigned pipeline = 1;
+    // Dense direct step for components below minNodes with at most kDenseTinyMaxNodes nodes (default off, measured slower).
+    unsigned denseTiny = 0;
 };
-constexpr unsigned kDirectCounterCount = 11u; // [9] Woodbury builds [10] Woodbury applications
+constexpr unsigned kDirectCounterCount = 12u; // [9] Woodbury builds [10] Woodbury applications [11] dense tiny applications
 struct NativeDirectOperator {
     const unsigned *node0, *node1, *nodeBondBegin, *nodeBondRef, *nodeIsland;
     const Vec4 *offset0, *offset1;

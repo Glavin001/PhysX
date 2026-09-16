@@ -373,6 +373,17 @@ bool nativeDirectEager()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_EAGER"); return !raw || std::string(raw) != "0"; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_DENSE_TINY=1 enables the dense direct step for tiny
+/// components below the cached-factor minimum. Default off: exact (every
+/// tiny component then solves in zero iterations) but slower on the city256
+/// bombardment (ratio 0.544-0.556 vs 0.527), because the per-component
+/// residual evaluations and assembly cost more than the 1-2 PCG iterations
+/// they replace.
+bool nativeDirectDenseTiny()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DENSE_TINY"); return raw && std::string(raw) == "1"; }();
+    return value;
+}
 /// BLAST_GPU_NATIVE_DIRECT_DIAGINV=0 disables the stored inverses of the
 /// diagonal Cholesky blocks (the solve then divides through the block).
 bool nativeDirectDiagInverse()

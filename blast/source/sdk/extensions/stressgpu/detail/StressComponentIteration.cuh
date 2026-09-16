@@ -132,11 +132,14 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
         // result to the accumulated solution and rebuild the true residual. At
         // most two refinement applications; the loop below still owns
         // acceptance through its unchanged monitor and verification.
-        if(a.m_islandActive[id] && a.hierarchy.direct.enabled && count>=a.hierarchy.direct.minNodes){
+        // Tiny components below the cached-factor minimum take a dense direct
+        // step assembled per solve (StressNativeDenseTiny.cuh); same gate.
+        const bool dense=a.hierarchy.direct.enabled && a.hierarchy.direct.denseTiny && count<a.hierarchy.direct.minNodes && count<=kDenseTinyMaxNodes;
+        if(a.m_islandActive[id] && a.hierarchy.direct.enabled && (count>=a.hierarchy.direct.minNodes || dense)){
             if(a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters,1u);
             // A stale factor (topology changed since it was built) is a
             // preconditioner rather than a solver: allow more refinement steps.
-            const unsigned attempts=directSlotStale(a.hierarchy.direct,id)?kDirectStaleAttempts:2u;
+            const unsigned attempts=(!dense && directSlotStale(a.hierarchy.direct,id))?kDirectStaleAttempts:2u;
             float previous=INFINITY;
             // Every application must reduce the true residual norm; one that does
             // not (a stale factor of a much-changed operator) is undone, so the
@@ -154,7 +157,7 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
                     if(attempt && isfinite(norm) && a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters+2,1u);
                     if(attempt && isfinite(norm) && a.hierarchy.direct.counters && attempts>2u && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters+7,1u);
                     if(attempt && !isfinite(norm)){
-                        directUndoNativeComponent(a,c.nodes+begin,id,directX);
+                        if(dense)denseUndoTinyComponent(a,c.nodes+begin,count,id,directX);else directUndoNativeComponent(a,c.nodes+begin,id,directX);
                         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                         if(!threadIdx.x && attempt==1u)directApplied=0;
                         __syncthreads();
@@ -162,7 +165,7 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
                     break;
                 }
                 if(attempt && !(norm<previous)){
-                    directUndoNativeComponent(a,c.nodes+begin,id,directX);
+                    if(dense)denseUndoTinyComponent(a,c.nodes+begin,count,id,directX);else directUndoNativeComponent(a,c.nodes+begin,id,directX);
                     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                     if(!threadIdx.x && attempt==1u)directApplied=0;
                     __syncthreads();
@@ -170,7 +173,7 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
                 }
                 if(attempt==attempts)break;
                 previous=norm;
-                if(!directSolveNativeComponent(a,c.nodes+begin,count,id,directX))break;
+                if(dense?!denseSolveTinyComponent(a,c.nodes+begin,count,id,directX):!directSolveNativeComponent(a,c.nodes+begin,count,id,directX))break;
                 DIRECT_SUBPROBE_END(2)
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                 if(!threadIdx.x)directApplied=1;
@@ -334,7 +337,7 @@ __global__ void finishComponentStress(PersistentStressArgs a, ResidentStressComp
     if(threadIdx.x==0) {
         if(a.hierarchy.direct.diagnostics && a.hierarchy.direct.counters){unsigned* k=a.hierarchy.direct.counters;
             unsigned* e=a.hierarchy.settled.counters;const unsigned elastic=e?e[0]:0u;if(e)e[0]=0u;
-            printf("native direct: eligible=%u applied=%u accepted=%u noslot=%u invalid=%u pinnedfree=%u refactored=%u staleApplied=%u undone=%u woodburyBuilt=%u woodburyApplied=%u elasticSkips=%u maxIterations=%u\n",k[0],k[1],k[2],k[3],k[4],k[5],k[6],k[7],k[8],k[9],k[10],elastic,iterations[0]);k[6]=0u;k[9]=0u;}
+            printf("native direct: eligible=%u applied=%u accepted=%u noslot=%u invalid=%u pinnedfree=%u refactored=%u staleApplied=%u undone=%u woodburyBuilt=%u woodburyApplied=%u denseTiny=%u elasticSkips=%u maxIterations=%u\n",k[0],k[1],k[2],k[3],k[4],k[5],k[6],k[7],k[8],k[9],k[10],k[11],elastic,iterations[0]);k[6]=0u;k[9]=0u;}
         a.m_status->active+=active[0];
         a.m_status->iterations=max(a.m_status->iterations,iterations[0]);
         a.m_status->converged=a.m_status->converged && failed[0]==0;

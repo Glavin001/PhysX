@@ -286,6 +286,7 @@
         view.pattern.columnLevel = directUpload(columnLevel); view.pattern.structureTopLevel = directUpload(structureTopLevel);
         view.pattern.lateFwdPtr = directUpload(lateFwdPtr); view.pattern.lateFwdIdx = directUpload(lateFwdIdx); view.pattern.patternLateFwdBegin = directUpload(patternLateFwdBegin);
         view.pattern.lateBwdPtr = directUpload(lateBwdPtr); view.pattern.lateBwdIdx = directUpload(lateBwdIdx); view.pattern.patternLateBwdBegin = directUpload(patternLateBwdBegin);
+        view.denseTiny = nativeDirectDenseTiny() ? 1u : 0u;
         view.pipeline = nativeDirectPipeline() ? (std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE") ? unsigned(std::atoi(std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE"))) : 1u) : 0u;
         if (nativeDirectDiagInverse() && nativeDirectClusterSize() <= 1u) {
             unsigned maxNodes = 0;
