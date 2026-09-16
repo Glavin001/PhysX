@@ -2288,8 +2288,12 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 				const PxU32 root = island.mRootNode.index();
 				const bool haveVerdict = mGpuSleepNotReady && root < mGpuSleepCapacity;
 				const bool wokenCpu = islandId < mIslandWokenThisFrame.size() && mIslandWokenThisFrame.test(islandId);
-				const bool deviceCan = haveVerdict && !mGpuSleepNotReady[root] && !wokenCpu;
-				if (haveVerdict && mGpuSleepMode == 1)
+				// Modes 4/5 reduce the CPU's own readiness flags per device component;
+				// CPU-side wakes are already in those flags, so the woken guard only
+				// applies to the solver-derived verdicts (modes 1/2).
+				const bool cpuReadiness = mGpuSleepMode >= 4;
+				const bool deviceCan = haveVerdict && !mGpuSleepNotReady[root] && (cpuReadiness || !wokenCpu);
+				if (haveVerdict && (mGpuSleepMode == 1 || mGpuSleepMode == 4))
 				{
 					canDeactivate = deviceCan;
 				}
@@ -2310,9 +2314,11 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 						}
 						nodeId = node.mNextNode;
 					}
-					if (haveVerdict && mGpuSleepMode == 2)
+					if (haveVerdict && (mGpuSleepMode == 2 || mGpuSleepMode == 5))
 					{
-						static PxU64 audits = 0, agree = 0, cpuOnly = 0, deviceOnly = 0, deviceOnlyMemberFlagged = 0, deviceOnlyMemberClear = 0, cpuOnlyRootFlagged = 0, shown = 0;
+						static PxU64 counters[2][8] = {};
+						PxU64* c = counters[mGpuData ? 0 : 1];
+						PxU64 &audits = c[0], &agree = c[1], &cpuOnly = c[2], &deviceOnly = c[3], &deviceOnlyMemberFlagged = c[4], &deviceOnlyMemberClear = c[5], &cpuOnlyRootFlagged = c[6], &shown = c[7];
 						++audits; if (canDeactivate == deviceCan) ++agree; else if (canDeactivate) ++cpuOnly; else ++deviceOnly;
 						if (canDeactivate != deviceCan)
 						{

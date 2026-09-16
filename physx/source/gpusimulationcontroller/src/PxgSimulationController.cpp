@@ -767,6 +767,23 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             const int deviceSleep=destructionDeviceSleepMode();
             islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,0);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,0);
             if(deviceSleep==3) { islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,3);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,3); }
+            else if(deviceSleep==4 || deviceSleep==5) {
+                // Half-step: CPU readiness reduced per device component. Exact when
+                // device components and CPU islands coincide for the active set.
+                PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
+                for(int which=0;which<2;++which) {
+                    IG::IslandSim& sim=which?islands.getSpeculativeIslandSim():islands.getAccurateIslandSim();
+                    const PxU32 nodeCount=sim.getNbNodes();
+                    mDestructionReadinessScratch.forceSize_Unsafe(0);mDestructionReadinessScratch.resize(nodeCount);
+                    for(PxU32 i=0;i<nodeCount;++i) {
+                        const IG::Node& node=sim.getNode(PxNodeIndex(i));
+                        mDestructionReadinessScratch[i]=PxU8((!node.isDeleted() && !node.isKinematic() && node.mType==IG::Node::eRIGID_BODY_TYPE && !node.isReadyForSleeping())?1u:0u);
+                    }
+                    PxU32 capacity=0;const PxU8* verdicts=NULL;
+                    if(core){verdicts=mDestruction->reduceCpuReadiness(mDestructionReadinessScratch.begin(),nodeCount,which!=0,core->getStream(),capacity);}
+                    if(verdicts && capacity)sim.setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),0);
+                }
+            }
             else if(deviceSleep) {
                 PxU32 capacity=0;
                 const PxU8* verdicts=mDestructionCorrecting

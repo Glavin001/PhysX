@@ -79,6 +79,12 @@ __global__ void sleepNodeVerdict(const unsigned* labels,unsigned nodeCapacity,co
     const unsigned char component=(label<nodeCapacity)?componentNotReady[label]:1u;
     nodeNotReady[i]=(component|ownNotReady[i])?1u:0u;
 }
+__global__ void sleepComponentFromFlags(const unsigned char* notReady,const unsigned* labels,unsigned capacity,unsigned char* componentNotReady) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i>=capacity || !notReady[i])return;
+    const unsigned label=labels[i];
+    if(label<capacity)componentNotReady[label]=1;
+}
 __global__ void markParkedBodies(const unsigned* list,unsigned count,unsigned char* bitmap,unsigned capacity) {
     const unsigned k=blockIdx.x*blockDim.x+threadIdx.x;
     if(k<count && list[k]<capacity)bitmap[list[k]]=1;
@@ -1164,6 +1170,8 @@ public:
         cudaFree(mSleepComponentNotReady);cudaFree(mSleepNodeNotReady);cudaFree(mSleepOwnNotReady);if(mHostSleepNodeNotReady)cudaFreeHost(mHostSleepNodeNotReady);
         mSleepComponentNotReady=mSleepNodeNotReady=mSleepOwnNotReady=mHostSleepNodeNotReady=nullptr;mSleepVerdictCapacity=mSleepVerdictCount=0;mSleepVerdictPending=false;
         delete[] mHostSleepPublished;mHostSleepPublished=nullptr;mHostSleepPublishedCapacity=mSleepPublishedCount=0;mPreSolveLabelCount=0;
+        cudaFree(mReadinessUpload);if(mReadinessHost)cudaFreeHost(mReadinessHost);mReadinessUpload=mReadinessHost=nullptr;mReadinessCapacity=0;
+        for(int k=0;k<2;++k){cudaFree(mReadinessVerdict[k]);if(mReadinessVerdictHost[k])cudaFreeHost(mReadinessVerdictHost[k]);mReadinessVerdict[k]=mReadinessVerdictHost[k]=nullptr;}mReadinessVerdictCapacity=0;
         mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCompletion->collision={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
@@ -2048,6 +2056,54 @@ public:
     }
     const PxU8* componentSleepVerdicts(PxU32& capacity) override {
         capacity=mSleepPublishedCount;return mSleepPublishedCount?mHostSleepPublished:nullptr;
+    }
+    unsigned char* mReadinessUpload=nullptr;unsigned char* mReadinessHost=nullptr;PxU32 mReadinessCapacity=0;
+    unsigned char* mReadinessVerdict[2]={nullptr,nullptr};unsigned char* mReadinessVerdictHost[2]={nullptr,nullptr};PxU32 mReadinessVerdictCapacity=0;
+    const PxU8* reduceCpuReadiness(const PxU8* hostNotReady,PxU32 count,bool speculative,CUstream solverStream,PxU32& capacity) override {
+        capacity=0;
+        // Labels of the repair graph built for this pass (after narrowphase), so
+        // pairs whose touch was found this pass connect like the CPU islands do.
+        // The speculative island sim reduces over the speculative labels.
+        const PxU32 labels=mGraphView.nodeCapacity;const unsigned* labelArray=speculative?mGraphSpeculative:mGraphAccurate;
+        const PxU32 slot=speculative?1u:0u;
+        if(!hostNotReady || !count || !labels || !labelArray || !solverStream)return nullptr;
+        const PxU32 n=PxMin(count,labels);
+        PX_UNUSED(solverStream);
+        try {
+            // Own stream: depends only on the graph build, so the CPU third island
+            // pass does not wait for the solver of this pass.
+            Context current(mContext);const auto stream=mStream;
+            if(mGraphView.readyEvent)check(cudaStreamWaitEvent(stream,reinterpret_cast<cudaEvent_t>(mGraphView.readyEvent),0));
+            if(labels>mReadinessCapacity) {
+                cudaFree(mReadinessUpload);if(mReadinessHost)cudaFreeHost(mReadinessHost);mReadinessUpload=mReadinessHost=nullptr;
+                check(cudaMalloc(reinterpret_cast<void**>(&mReadinessUpload),labels));
+                check(cudaMallocHost(reinterpret_cast<void**>(&mReadinessHost),labels));
+                mReadinessCapacity=labels;
+            }
+            if(labels>mSleepVerdictCapacity) {
+                cudaFree(mSleepComponentNotReady);cudaFree(mSleepNodeNotReady);cudaFree(mSleepOwnNotReady);if(mHostSleepNodeNotReady)cudaFreeHost(mHostSleepNodeNotReady);
+                mSleepComponentNotReady=mSleepNodeNotReady=mSleepOwnNotReady=mHostSleepNodeNotReady=nullptr;
+                check(cudaMalloc(reinterpret_cast<void**>(&mSleepComponentNotReady),labels));
+                check(cudaMalloc(reinterpret_cast<void**>(&mSleepNodeNotReady),labels));
+                check(cudaMalloc(reinterpret_cast<void**>(&mSleepOwnNotReady),labels));
+                check(cudaMallocHost(reinterpret_cast<void**>(&mHostSleepNodeNotReady),labels));
+                mSleepVerdictCapacity=labels;
+            }
+            if(labels>mReadinessVerdictCapacity) {
+                for(int k=0;k<2;++k){cudaFree(mReadinessVerdict[k]);if(mReadinessVerdictHost[k])cudaFreeHost(mReadinessVerdictHost[k]);mReadinessVerdict[k]=mReadinessVerdictHost[k]=nullptr;
+                    check(cudaMalloc(reinterpret_cast<void**>(&mReadinessVerdict[k]),labels));check(cudaMallocHost(reinterpret_cast<void**>(&mReadinessVerdictHost[k]),labels));}
+                mReadinessVerdictCapacity=labels;
+            }
+            std::memcpy(mReadinessHost,hostNotReady,n);if(n<labels)std::memset(mReadinessHost+n,0,labels-n);
+            check(cudaMemcpyAsync(mReadinessUpload,mReadinessHost,labels,cudaMemcpyHostToDevice,stream));
+            check(cudaMemsetAsync(mSleepComponentNotReady,0,labels,stream));
+            sleepComponentFromFlags<<<(labels+255u)/256u,256,0,stream>>>(mReadinessUpload,labelArray,labels,mSleepComponentNotReady);
+            sleepNodeVerdict<<<(labels+255u)/256u,256,0,stream>>>(labelArray,labels,mSleepComponentNotReady,mReadinessUpload,mReadinessVerdict[slot]);
+            check(cudaGetLastError());
+            check(cudaMemcpyAsync(mReadinessVerdictHost[slot],mReadinessVerdict[slot],labels,cudaMemcpyDeviceToHost,stream));
+            check(cudaStreamSynchronize(stream));
+            capacity=labels;return mReadinessVerdictHost[slot];
+        }catch(...){return nullptr;}
     }
     std::vector<unsigned char> mHostSleepCorrected;
     const PxU8* componentSleepVerdictsForCorrection(const PxU32* bornNodes,PxU32 bornCount,PxU32& capacity) override {

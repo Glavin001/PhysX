@@ -635,6 +635,12 @@ rule in `afterIntegration` (bodies the island generator deactivates in parallel 
 zero wake counter and their solver wake flags discarded, readiness left set). The device verdict would
 have to apply the previous tick's `getNodesToDeactivate` list, or the device must own deactivation.
 
+Exact half-step achieved (`warm-screen.md`, modes 4/5): CPU readiness flags reduced per device component
+over the repair graph's labels (accurate and speculative sims separately) reproduce every CPU island
+sleep decision (0 of 1.34 M disagree) and the control histories bit for bit. Kept off: the synchronous
+upload/readback costs ~0.8 ms per tick against a 0.04 ms CPU walk. It establishes that repair-graph
+components equal CPU islands for sleep; the remaining work is device-owned readiness sources.
+
 ### R5 stage 1 result (2026-09-16): the corrected pass re-simulates ~200× more than it must
 
 `PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1` (PxgSimulationController, at the

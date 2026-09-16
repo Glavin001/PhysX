@@ -131,6 +131,10 @@ public:
     // flags. Returns the published verdict with the trial's pending verdict
     // merged in for the given born node indices.
     virtual const PxU8* componentSleepVerdictsForCorrection(const PxU32* bornNodes, PxU32 bornCount, PxU32& capacity) = 0;
+    // Half-step: CPU-owned per-node readiness (1 = not ready) reduced per device
+    // component from this pass's pre-solve labels. Synchronous: uploads, reduces,
+    // reads back and returns the per-node verdict (NULL when unavailable).
+    virtual const PxU8* reduceCpuReadiness(const PxU8* hostNotReady, PxU32 count, bool speculative, CUstream stream, PxU32& capacity) = 0;
     // Island-scoped correction. requestTrialSnapshot makes the next
     // restoreRigidState keep a copy of the live (trial end-of-tick) state before
     // rewinding; reinstateTrialState copies that snapshot back for the listed
