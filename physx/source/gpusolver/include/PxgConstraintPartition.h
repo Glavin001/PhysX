@@ -330,6 +330,7 @@ public:
 	PX_FORCE_INLINE	const Cm::PinnableArray<PxU32>&	getNodeInteractionCountArray()		const	{ return mNodeInteractionCountArray;	}
 	PX_FORCE_INLINE	const Cm::PinnableArray<PxU32>&	getDestroyedContactEdgeIndices()	const	{ return mDestroyedContactEdgeIndices;	}
 	PX_FORCE_INLINE	PxU32							getPairSlotCapacity()				const	{ return mPairSlotCapacity;				}
+	PX_FORCE_INLINE	PxU32							pairSlotOf(const PartitionEdge* edge)	const	{ return mSolverConstants[edge->mUniqueIndex].mPairSlot; }
 
 	PX_FORCE_INLINE	const PxArray<PxU32>&			getNpIndexArray()					const	{ return mNpIndexArray;					}
 	PX_FORCE_INLINE	const PxArray<PartitionSlab*>&	getPartitionSlabs()					const	{ return mPartitionSlabs;				}

@@ -1249,3 +1249,19 @@ Qualification: `destruction_gpu_contact_graph` checks slot publication; `native_
 | peak tick 82 | 181.7, 195.4, 189.7, 195.5 | 149.4, 200.5, 207.7, 208.1 |
 
 Neutral; the peak tick (the first impact, dominated by allocation growth) has a wider spread in the candidate but the same mean (190 vs 191).
+
+## R2 milestone 2 item 2, step 3: contact partition edges reachable by pair slot (lossless, neutral)
+
+`IG::GPUExternalData` gained `mFirstPartitionEdgesBySlot`, a second head map for contact partition edges keyed by the pair slot. The GPU partition mirrors every head update of a contact edge into it (`updatePartitionEdgeLinkedListHead`, `removeEdge`, the deferred removal in the found/lost patch pass, deactivated contacts, and the destroyed-partition-edge loop, where the island manager has already nulled the edge-handle head). The narrowphase-driven lookups now use the slot map: `processPartitionEdges` (the CPU↔NP rebinding hook), the lost-patch and found-patch passes. Island-driven loops (activated, deactivated, destroyed edges) and joints stay on the edge-handle map; those are the loops step 6 replaces for native pairs.
+
+A first version read the slot from the solver constants on every patch removal (a cold 16-byte line per removal) and measured +0.6 ms; the mirror now touches the constants only when the removed patch is the list head, and the explicit clears cover the island-nulled cases. Because the earlier controls were library swaps only, a full control binary was built from `de647cfb` (`out/direct-factor-feasibility-20260915/control-de647cfb-bin`) and the g16 3 s bombardment was run interleaved, four trials per arm (histories bit-identical, 56,077 bonds, 99/180 misses):
+
+| window (mean over 4 trials, ms) | control `de647cfb` | steps 1–3 |
+|---|---:|---:|
+| pre-impact ticks 0–79 | 4.87 | 4.91 |
+| impact ticks 80–99 | 54.28 | 54.94 |
+| late ticks 100–179 | 49.93 | 49.93 |
+| run mean | 30.39 | 30.48 |
+| peak tick 82 | 178.2, 186.1, 193.9, 177.5 | 182.0, 193.1, 183.4, 198.3 |
+
+Neutral. The control binary directory is the reference for the remaining steps.

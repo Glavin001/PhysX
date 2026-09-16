@@ -462,6 +462,28 @@ class GPUExternalData
 
 					PxArray<PartitionEdge*>		mFirstPartitionEdges;
 
+	// Contact partition edges are also reachable by the dense pair slot of their
+	// contact manager (PxcNpWorkUnit::mDeviceSlot), independent of island edge
+	// handles. The GPU partition mirrors every head update of a contact edge
+	// into this map; narrowphase-driven lookups use it, island-driven ones the
+	// edge-handle map above (joints live only there).
+	PX_FORCE_INLINE PartitionEdge*				getFirstPartitionEdgeBySlot(PxU32 slot)	const { return slot < mFirstPartitionEdgesBySlot.size() ? mFirstPartitionEdgesBySlot[slot] : NULL; }
+	PX_FORCE_INLINE void						setFirstPartitionEdgeBySlot(PxU32 slot, PartitionEdge* partitionEdge)
+	{
+		if(slot == 0xFFFFFFFF)
+			return;
+		if(slot >= mFirstPartitionEdgesBySlot.size())
+		{
+			const PxU32 oldSize = mFirstPartitionEdgesBySlot.size();
+			mFirstPartitionEdgesBySlot.resize(PxMax(2u * (slot + 1u), 1024u));
+			for(PxU32 i = oldSize; i < mFirstPartitionEdgesBySlot.size(); ++i)
+				mFirstPartitionEdgesBySlot[i] = NULL;
+		}
+		mFirstPartitionEdgesBySlot[slot] = partitionEdge;
+	}
+
+					PxArray<PartitionEdge*>		mFirstPartitionEdgesBySlot;
+
 	///////////////////////////////////////////////////////////////////////////
 
 	PX_FORCE_INLINE PxU32						getNbDestroyedPartitionEdges()	const	{ return mDestroyedPartitionEdges.size();		}

@@ -790,7 +790,13 @@ void PxgIncrementalPartition::removeEdge(PartitionEdge* edge, IG::GPUExternalDat
 		const IG::EdgeIndex edgeIndex = edge->getEdgeIndex();
 		const PartitionEdge* pEdge = islandSimGpuData.getFirstPartitionEdge(edgeIndex);
 		if (pEdge == edge)
+		{
 			islandSimGpuData.setFirstPartitionEdge(edgeIndex, edge->mNextPatch);
+			// The slot head mirrors the edge head; when the island manager has
+			// already nulled the edge head (destroyed/deactivated edges), the
+			// caller clears the slot head explicitly, so no lookup is needed here.
+			islandSimGpuData.setFirstPartitionEdgeBySlot(pairSlotOf(edge), edge->mNextPatch);
+		}
 	}
 
 	updateDirtyNodeBitmap(mIsDirtyNode, edge, hasInfiniteMass0, hasInfiniteMass1, selfConstraint);
@@ -909,10 +915,11 @@ PartitionEdge* PxgIncrementalPartition::addEdge_Stage1(const IG::IslandSim& isla
 	return partitionEdge;
 }
 
-static PX_FORCE_INLINE void updatePartitionEdgeLinkedListHead(IG::GPUExternalData& islandSimGpuData, IG::EdgeIndex edgeIndex, PartitionEdge* partitionEdge)
+static PX_FORCE_INLINE void updatePartitionEdgeLinkedListHead(IG::GPUExternalData& islandSimGpuData, IG::EdgeIndex edgeIndex, PxU32 pairSlot, PartitionEdge* partitionEdge)
 {
 	partitionEdge->mNextPatch = islandSimGpuData.getFirstPartitionEdge(edgeIndex);
 	islandSimGpuData.setFirstPartitionEdge(edgeIndex, partitionEdge);
+	islandSimGpuData.setFirstPartitionEdgeBySlot(pairSlot, partitionEdge);
 }
 
 // PT: this function does multiple things:
@@ -990,7 +997,7 @@ void PxgIncrementalPartition::addEdge_Stage2(IG::GPUExternalData& islandSimGpuDa
 	}
 
 	if(doPart2)
-		updatePartitionEdgeLinkedListHead(islandSimGpuData, edgeIndex, partitionEdge);
+		updatePartitionEdgeLinkedListHead(islandSimGpuData, edgeIndex, pairSlotOf(partitionEdge), partitionEdge);
 }
 
 //static bool containedInDestroyedEdges(PxsContactManager* /*manager*/, PartitionEdge** /*destroyedEdges*/, const PxU32 /*destroyedEdgeCount*/)
@@ -1174,7 +1181,7 @@ namespace
 				if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE)
 					continue;
 
-				PartitionEdge* partitionEdge = islandSimGpuData.getFirstPartitionEdge(unit.mEdgeIndex);
+				PartitionEdge* partitionEdge = islandSimGpuData.getFirstPartitionEdgeBySlot(unit.mDeviceSlot);
 
 				//KS - if this is NULL, it means this unit was also destroyed and will be included in the destroyedEdgeCount (i.e. NP detected a lost touch at the same time as BP detected a lost pair
 				//PX_ASSERT(partitionEdge != NULL || containedInDestroyedEdges(manager, destroyedEdges, destroyedEdgeCount));
@@ -1413,7 +1420,7 @@ namespace
 				if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE)
 					continue;
 
-				PartitionEdge* partitionEdge = islandSimGpuData.getFirstPartitionEdge(unit.mEdgeIndex);
+				PartitionEdge* partitionEdge = islandSimGpuData.getFirstPartitionEdgeBySlot(unit.mDeviceSlot);
 				if(!partitionEdge)
 					continue;
 
@@ -1516,7 +1523,10 @@ namespace
 							const IG::EdgeIndex edgeIndex = partitionEdge->getEdgeIndex();
 							PartitionEdge* pEdge = islandSimGpuData.getFirstPartitionEdge(edgeIndex);
 							if (pEdge == partitionEdge)
+							{
 								islandSimGpuData.setFirstPartitionEdge(edgeIndex, nextPartitionEdge);
+								islandSimGpuData.setFirstPartitionEdgeBySlot(mContext.mIP.pairSlotOf(partitionEdge), nextPartitionEdge);
+							}
 						}
 						mContext.mIP.mEdgeManager.putEdge(partitionEdge);
 					}
@@ -1690,8 +1700,7 @@ void PxgIncrementalPartition::processLostPatches_Reference(
 
 			if (!(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE))
 			{
-				const IG::EdgeIndex edgeIndex = unit.mEdgeIndex;
-				PartitionEdge* partitionEdge = islandSimGpuData.getFirstPartitionEdge(edgeIndex);
+				PartitionEdge* partitionEdge = islandSimGpuData.getFirstPartitionEdgeBySlot(unit.mDeviceSlot);
 
 				//KS - if this is NULL, it means this unit was also destroyed and will be included in the destroyedEdgeCount (i.e. NP detected a lost touch at the same time as BP detected a lost pair
 				//PX_ASSERT(partitionEdge != NULL || containedInDestroyedEdges(manager, destroyedEdges, destroyedEdgeCount));
@@ -1759,7 +1768,7 @@ void PxgIncrementalPartition::processFoundPatches_Reference(IG::IslandSim& islan
 			{
 				//We either add all patches, or we add only the new patches. This decision is made based on whether there is already
 				//a partition edge
-				const PxU32 startIndex = islandSimGpuData.getFirstPartitionEdge(edgeIndex) ? prevPatches : 0;
+				const PxU32 startIndex = islandSimGpuData.getFirstPartitionEdgeBySlot(unit.mDeviceSlot) ? prevPatches : 0;
 
 				const PxNodeIndex node1 = islandSimCpuData.getNodeIndex1(edgeIndex);
 				const PxNodeIndex node2 = islandSimCpuData.getNodeIndex2(edgeIndex);
@@ -1820,8 +1829,15 @@ void PxgIncrementalPartition::destroyEdges(const IG::CPUExternalData& islandSimC
 
 			if (edgeType == PxgEdgeType::eCONSTRAINT || edgeType == PxgEdgeType::eARTICULATION_CONSTRAINT)
 				jointManager.removeJoint(partitionEdge->getEdgeIndex(), mNpIndexArray, islandSimCpuData, islandSimGpuData);
-			else if(recordDestroyedEdges)
-				pushDestroyedPairSlot(mSolverConstants[partitionEdge->mUniqueIndex].mPairSlot);
+			else
+			{
+				// Island manager already nulled the edge head; clear the slot head.
+				const PxU32 slot = pairSlotOf(partitionEdge);
+				if(recordDestroyedEdges)
+					pushDestroyedPairSlot(slot);
+				if (islandSimGpuData.getFirstPartitionEdgeBySlot(slot) == partitionEdge)
+					islandSimGpuData.setFirstPartitionEdgeBySlot(slot, NULL);
+			}
 
 			removeAllEdges(islandSimGpuData, bodySimManager, partitionEdge);
 		}
@@ -2194,9 +2210,11 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part1(
 			{
 				decreaseNodeInteractionCounts(mNodeInteractionCountArray, partitionEdge->mNode0, partitionEdge->mNode1);
 
+				const PxU32 slot = pairSlotOf(partitionEdge);
 				removeAllEdges(islandSimGpuData, bodySimManager, partitionEdge);
 
 				islandSimGpuData.setFirstPartitionEdge(edgeId, NULL);
+				islandSimGpuData.setFirstPartitionEdgeBySlot(slot, NULL);
 
 				PxsContactManager* cm = islandManagerData.getContactManager(edgeId);
 				if (cm)
@@ -2465,7 +2483,7 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2_2(IG::IslandSim& is
 		{
 			const IG::EdgeIndex edgeId = workItems[i].mEdgeID;
 			PartitionEdge* edge = workItems[i].mPartitionEdge;
-			updatePartitionEdgeLinkedListHead(islandSimGpuData, edgeId, edge);
+			updatePartitionEdgeLinkedListHead(islandSimGpuData, edgeId, pairSlotOf(edge), edge);
 		}
 	}
 }

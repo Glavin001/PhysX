@@ -898,13 +898,14 @@ Plan (each step measurable):
    published into the identity, carried in `PxgSolverConstraintManagerConstants::mPairSlot`, and the
    friction patch counts / index stream / destroyed-edge clear are keyed by it (sized by the partition's
    slot capacity). Step 1's device allocator was replaced: the host needs the key before the pass runs.
-3. Identity→`PartitionEdge*` map beside `mFirstPartitionEdges`, used by add/remove/destroy and
-   `processPartitionEdges`; checkpoint: identical partition arrays on `updateIncrementalIslands_Reference`.
+3. DONE (2026-09-16, lossless, neutral against a full control binary): `mFirstPartitionEdgesBySlot` beside
+   `mFirstPartitionEdges`, mirrored at every contact head update; `processPartitionEdges` and the NP
+   lost/found patch passes look up by slot. Island-driven loops and joints stay on edge handles.
 4. Device pair roster (`PxgDestructionContactEdge`, `getDestructionPreSolveContacts`,
    `PxgNarrowphaseCore.cpp:8574-8586`) feeding `Part2_0/Part2_1`; checkpoint: partition/np-index arrays
    match the CPU-built ones on a bombardment step.
-5. Friction counts and destroyed-edge clear indexed by identity slots; checkpoint: the
-   `preserveUnchangedContactPairs` fixture parity (32 trajectories within 2e-4).
+5. DONE as part of step 2 (friction counts, friction index stream and destroyed-edge clear are keyed
+   by the pair slot; histories bit-identical).
 6. Skip `IslandInsertionTask`, `registerContactManagers` and handle preallocation for native pairs
    (`ScPipeline.cpp:969-1020, 1082-1086, 1220-1247`), keeping `registerInteractions`/
    `registerSceneInteractions`; checkpoint: the ~25 ms of those scopes at the impact tick drop, broken-bond
