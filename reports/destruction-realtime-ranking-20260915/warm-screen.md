@@ -1103,3 +1103,23 @@ An earlier pair measured 49.9/50.0 vs 52.9/51.9. The impact tick itself is
 roughly neutral (186/156 → 193/202 ms): the 22 ms burst now competes with
 the corrected rigid pass's kernels instead of blocking acceptance, and
 smaller eager grids (1–4 CTAs per SM) are slower overall. 11/11 tests.
+
+## Continuous 600-tick A/B/A of the 2026-09-16c defaults (`out/direct-continuous-ab-20260916c`)
+
+Same procedure (`run-destruction-ab.py`, two trials per arm, 10 simulated
+seconds, ordinary APIs, sleeping on, one correction), candidate arm =
+runtime, GPU module and demo at `9707b24f` (friction-count zero-fill,
+speculative stress topology, side-stream eager refactor), baseline arm = the
+2026-09-15 shipped set. Physical work counters match on every one of the
+600 ticks in all four comparisons (0 differences; only stress iteration
+counts differ, 288 → 4 at the impact step).
+
+| case | A-before mean | **B mean** | A-after mean | peaks (median) A/B/A | 60 Hz misses A/B/A |
+|---|---:|---:|---:|---|---|
+| idle-256 | 1.715 | 1.894 | 1.687 | 14.4 / 14.3 / 12.9 | 0 / 0 / 0 of 600 |
+| impacts-256 | 54.84 | **28.39** | 54.76 | 185.4 / 197.8 / 208.5 | 519 / **306–315** / 519 of 600 |
+
+Against the previous shipped defaults (30.2 ms, 321 misses, idle 1.79) the
+sustained mean improves by 1.8 ms and the idle tick costs 0.1 ms more (the
+per-solve friction-count clear and the factor-stream joins). The impact
+peak (196–199 ms) lies inside the baseline arm's own spread (178–210 ms).
