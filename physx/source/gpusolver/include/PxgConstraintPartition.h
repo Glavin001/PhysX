@@ -269,7 +269,10 @@ public:	// PT: TODO: revisit after the dust settles
 	Cm::PinnableArray<PxgSolverConstraintManagerConstants>	mSolverConstants;
 	Cm::PinnableArray<PxU32>								mNodeInteractionCountArray;
 
-	Cm::PinnableArray<PxU32>		mDestroyedContactEdgeIndices;
+	Cm::PinnableArray<PxU32>		mDestroyedContactEdgeIndices;	// pair slots whose friction patch counts must be cleared
+	PxU32							mPairSlotCapacity;				// monotone bound of every pair slot the solver has been given
+	PX_FORCE_INLINE void			notePairSlot(PxU32 slot)		{ if(slot != 0xFFFFFFFF && slot >= mPairSlotCapacity) mPairSlotCapacity = slot + 1; }
+	PX_FORCE_INLINE void			pushDestroyedPairSlot(PxU32 slot)	{ if(slot != 0xFFFFFFFF) { notePairSlot(slot); mDestroyedContactEdgeIndices.pushBack(slot); } }
 
 	Cm::PinnableArray<PxU32>		mStartSlabPerPartition;
 	Cm::PinnableArray<PxU32>		mArticStartSlabPerPartition;
@@ -326,6 +329,7 @@ public:
 	PX_FORCE_INLINE	const Cm::PinnableArray<PxU32>&	getNbArticJointsPerPartition()		const	{ return mNbArtiJointsPerPartition;		}
 	PX_FORCE_INLINE	const Cm::PinnableArray<PxU32>&	getNodeInteractionCountArray()		const	{ return mNodeInteractionCountArray;	}
 	PX_FORCE_INLINE	const Cm::PinnableArray<PxU32>&	getDestroyedContactEdgeIndices()	const	{ return mDestroyedContactEdgeIndices;	}
+	PX_FORCE_INLINE	PxU32							getPairSlotCapacity()				const	{ return mPairSlotCapacity;				}
 
 	PX_FORCE_INLINE	const PxArray<PxU32>&			getNpIndexArray()					const	{ return mNpIndexArray;					}
 	PX_FORCE_INLINE	const PxArray<PartitionSlab*>&	getPartitionSlabs()					const	{ return mPartitionSlabs;				}
@@ -374,7 +378,7 @@ public:
 
 	void getPreviousAndNextReferencesInSlab(NodeEntryDecoded& prev, NodeEntryDecoded& next, PxU32 index, PxU32 uniqueId, const PartitionSlab* slab, PxU32 slabMask) const;
 
-	PartitionEdge* addEdge_Stage1(const IG::IslandSim& islandSim, IG::EdgeIndex edgeIndex, PxU32 patchIndex, PxU32 npIndex, PxNodeIndex node1, PxNodeIndex node2);
+	PartitionEdge* addEdge_Stage1(const IG::IslandSim& islandSim, IG::EdgeIndex edgeIndex, PxU32 patchIndex, PxU32 npIndex, PxU32 pairSlot, PxNodeIndex node1, PxNodeIndex node2);
 
 	void addEdge_Stage2(IG::GPUExternalData& islandSimGpuData, IG::EdgeIndex edgeIndex, PartitionEdge* partitionEdge, bool specialHandled, bool doPart1, bool doPart2);
 

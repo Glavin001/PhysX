@@ -1606,6 +1606,10 @@ void PxgNphaseImplementationContext::registerContactManager(PxsContactManager* c
 	///////////////////////////
 
 	PxcNpWorkUnit& workUnit = cm->getWorkUnit();
+	// Dense pair slot: the solver keys friction state by it (all buckets and
+	// the fallback path). Refreshes re-register with the slot already set.
+	if(workUnit.mDeviceSlot == 0xFFffFFff)
+		workUnit.mDeviceSlot = mGpuNarrowphaseCore->allocateContactSlot();
 
 	const PxsShapeCore* shapeCore0 = workUnit.getShapeCore0();
 	const PxsShapeCore* shapeCore1 = workUnit.getShapeCore1();
@@ -1664,6 +1668,8 @@ void PxgNphaseImplementationContext::registerContactManager(PxsContactManager* c
 void PxgNphaseImplementationContext::unregisterContactManager(PxsContactManager* cm)
 {
 	mTotalNbPairs--;
+	mGpuNarrowphaseCore->retireContactSlot(cm->getWorkUnit().mDeviceSlot);
+	cm->getWorkUnit().mDeviceSlot = 0xFFffFFff;
 
 	if (mGpuContactManagerBitMap[0].test(cm->getIndex()))
 	{

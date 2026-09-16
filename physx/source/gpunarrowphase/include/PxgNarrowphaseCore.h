@@ -137,12 +137,14 @@ namespace physx
 
 	struct PxgNewContactManagers : public PxgContactManagers
     {
-        // Temporary CPU-produced edge IDs only; GPU lifetime IDs are never mirrored.
+        // Temporary CPU-produced edge IDs and pair slots; GPU lifetime IDs are never mirrored.
         Cm::PinnableArray<PxU32> mContactGraphEdges;
+        Cm::PinnableArray<PxU32> mContactGraphSlots;
 		Cm::PinnableArray<PxsContactManagerOutput>	mGpuOutputContactManagers;
 
 		PxgNewContactManagers(const PxU32 bucketIndex, Cm::VirtualAllocatorCallback& hostAlloc) : PxgContactManagers(bucketIndex, hostAlloc),
             mContactGraphEdges(hostAlloc, PxsHeapStats::eNARROWPHASE),
+            mContactGraphSlots(hostAlloc, PxsHeapStats::eNARROWPHASE),
 			mGpuOutputContactManagers(hostAlloc)
 		{
 		}
@@ -165,6 +167,7 @@ namespace physx
 		PxgTypedCudaBuffer<PxgContactManagerInput>    mContactManagerInputData;
         PxgTypedCudaBuffer<PxgContactGraphIdentity> mContactGraphIdentities;
         PxgTypedCudaBuffer<PxU32> mContactGraphEdgeUpload;
+        PxgTypedCudaBuffer<PxU32> mContactGraphSlotUpload;
 		PxgTypedCudaBuffer<PxsContactManagerOutput>   mContactManagerOutputData;
 		PxgCudaBuffer                                 mPersistentContactManifolds;
 
@@ -184,6 +187,7 @@ namespace physx
 			mContactManagerInputData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
             mContactGraphIdentities(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
             mContactGraphEdgeUpload(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+            mContactGraphSlotUpload(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 			mContactManagerOutputData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 			mPersistentContactManifolds(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE), 
 			mTempRunsumArray(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE), 
@@ -328,11 +332,19 @@ namespace physx
         PxU32 mDestructionGraphRetiredCounts[GPU_BUCKET_ID::eCount] = {};
         PxU32 mDestructionGraphPairCounts[GPU_BUCKET_ID::eCount] = {};
 		PxgTypedCudaBuffer<PxgContactGraphSequence> mContactGraphSequence;
-        // Device-owned dense pair slots (R2 milestone 2 item 2, step 1). The
-        // host only tracks an upper bound of live slots to size the free list.
-        PxgTypedCudaBuffer<PxgContactSlotAllocator> mContactSlotAllocator;
-        PxgCudaBuffer mContactSlotFreeList;
-        PxU32 mContactSlotCapacity = 0, mContactSlotsLive = 0;
+        // Dense pair slots (R2 milestone 2 item 2): one per registered contact
+        // manager (GPU buckets and fallback alike), independent of the island
+        // manager's edge handles. Retired slots wait in mContactSlotRetiring
+        // until removeLostPairs has compacted their device rows, so a slot is
+        // never shared by two rows the solver could both see.
+        PxArray<PxU32> mContactSlotFree, mContactSlotRetiring;
+        PxU32 mContactSlotHighWater = 0;
+        PxU32 allocateContactSlot() {
+            if(mContactSlotFree.size()) { const PxU32 slot=mContactSlotFree.back(); mContactSlotFree.popBack(); return slot; }
+            return mContactSlotHighWater++;
+        }
+        void retireContactSlot(PxU32 slot) { if(slot!=0xFFffFFff) mContactSlotRetiring.pushBack(slot); }
+        PxU32 getContactSlotHighWater() const { return mContactSlotHighWater; }
         Cm::PinnableArray<PxgPairManagementData>			mPairManagementData;
 		PxgCudaBuffer										mGpuPairManagementData;
 	

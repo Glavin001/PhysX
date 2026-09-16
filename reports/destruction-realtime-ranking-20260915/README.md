@@ -893,8 +893,11 @@ Plan (each step measurable):
    `native_contact_graph_check` verifies slot uniqueness and allocator counters. The CPU edge index
    still rides in `edgeIndex` until steps 2-5 key their consumers by slot; measurements in
    `warm-screen.md`.
-2. Partition key as `{edgeIndex, generation}` in `PartitionEdge` and `PxgSolverConstraintManagerConstants`
-   (CPU path generation 0); checkpoint: bitwise-identical `mSolverConstants` upload.
+2. DONE (2026-09-16, lossless, neutral): the dense pair slot is host-owned (`PxcNpWorkUnit::mDeviceSlot`,
+   allocated at `PxgNphaseImplementationContext::registerContactManager`, recycled after `removeLostPairs`),
+   published into the identity, carried in `PxgSolverConstraintManagerConstants::mPairSlot`, and the
+   friction patch counts / index stream / destroyed-edge clear are keyed by it (sized by the partition's
+   slot capacity). Step 1's device allocator was replaced: the host needs the key before the pass runs.
 3. Identity→`PartitionEdge*` map beside `mFirstPartitionEdges`, used by add/remove/destroy and
    `processPartitionEdges`; checkpoint: identical partition arrays on `updateIncrementalIslands_Reference`.
 4. Device pair roster (`PxgDestructionContactEdge`, `getDestructionPreSolveContacts`,

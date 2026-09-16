@@ -39,15 +39,12 @@ namespace physx
         PxU64 next;
         PxU32 error, reserved;
     };
-    // Device-owned dense pair slots: a free list plus a high-water mark.
-    // Slots are released when retired managers are compacted out of NP buffers
-    // and reused in LIFO order; live pairs never share a slot. Errors never wrap.
-    struct PxgContactSlotAllocator {
-        PxU32 freeCount, highWater, error, reserved;
-    };
     // Independent of bucket slots. Zero generation is invalid/unavailable.
-    // slot is the device-owned dense key for this lifetime (valid with the
-    // generation); edgeIndex remains the CPU island edge handle for now.
+    // slot is the dense pair key of the contact manager (PxcNpWorkUnit::
+    // mDeviceSlot): allocated by the GPU NP context when the manager registers,
+    // kept across refreshes, recycled only after the retired row is compacted.
+    // It keys the solver's friction state; edgeIndex remains the CPU island
+    // edge handle used by the retained-edge and ownership paths.
     struct PxgContactGraphIdentity {
         PxU32 edgeIndex;
         PxU32 slot;

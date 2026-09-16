@@ -202,6 +202,7 @@ PxgIncrementalPartition::PxgIncrementalPartition(Cm::VirtualAllocatorCallback& h
 	mSolverConstants(hostAlloc, PxsHeapStats::eSOLVER),
 	mNodeInteractionCountArray(hostAlloc, PxsHeapStats::eSOLVER),
 	mDestroyedContactEdgeIndices(hostAlloc, PxsHeapStats::eSOLVER), 
+	mPairSlotCapacity(0),
 	mStartSlabPerPartition(hostAlloc, PxsHeapStats::eSOLVER),
 	mArticStartSlabPerPartition(hostAlloc, PxsHeapStats::eSOLVER),
 	mNbJointsPerPartition(hostAlloc, PxsHeapStats::eSOLVER), 
@@ -818,7 +819,7 @@ static PX_FORCE_INLINE PxIntBool isKinematic(const IG::IslandSim& islandSim, PxN
 // 5) initialize some of the data for the newly allocated PartitionNodeData entry in mPartitionNodeArray
 // 6) initialize the newly allocated entry in mNpIndexArray
 // 7) initialize the newly allocated entry in mSolverConstants
-PartitionEdge* PxgIncrementalPartition::addEdge_Stage1(const IG::IslandSim& islandSim, IG::EdgeIndex edgeIndex, PxU32 patchIndex, PxU32 npIndex, PxNodeIndex node1, PxNodeIndex node2)
+PartitionEdge* PxgIncrementalPartition::addEdge_Stage1(const IG::IslandSim& islandSim, IG::EdgeIndex edgeIndex, PxU32 patchIndex, PxU32 npIndex, PxU32 pairSlot, PxNodeIndex node1, PxNodeIndex node2)
 {
 #if USE_FINE_GRAINED_PROFILE_ZONES
 	PX_PROFILE_ZONE("PxgIncrementalPartition::addEdge_Stage1", mContextID);
@@ -902,6 +903,8 @@ PartitionEdge* PxgIncrementalPartition::addEdge_Stage1(const IG::IslandSim& isla
 	// PT: 7) initialize the newly allocated entry in mSolverConstants
 
 	mSolverConstants[uniqueId].mEdgeIndex = edgeIndex;	// PT: as far as I can tell mConstraintWriteBackIndex remains uninitialized / unused for contact managers!
+	mSolverConstants[uniqueId].mPairSlot = pairSlot;
+	notePairSlot(pairSlot);
 
 	return partitionEdge;
 }
@@ -1699,7 +1702,7 @@ void PxgIncrementalPartition::processLostPatches_Reference(
 						decreaseNodeInteractionCounts(mNodeInteractionCountArray, partitionEdge->mNode0, partitionEdge->mNode1);
 
 #if RECORD_DESTROYED_EDGES_IN_FOUND_LOST_PASSES
-						mDestroyedContactEdgeIndices.pushBack(edgeIndex);
+						pushDestroyedPairSlot(unit.mDeviceSlot);
 #endif
 					}
 
@@ -1763,7 +1766,7 @@ void PxgIncrementalPartition::processFoundPatches_Reference(IG::IslandSim& islan
 
 				for (PxU32 b = startIndex; b < output.nbPatches; ++b)
 				{
-					PartitionEdge* edge = addEdge_Stage1(islandSim, edgeIndex, b, unit.mNpIndex, node1, node2);
+					PartitionEdge* edge = addEdge_Stage1(islandSim, edgeIndex, b, unit.mNpIndex, unit.mDeviceSlot, node1, node2);
 					const bool specialHandled = addContactManager(edge, unit, bodySimManager);
 					addEdge_Stage2(islandSimGpuData, edgeIndex, edge, specialHandled, true, true);
 				}
@@ -1771,7 +1774,7 @@ void PxgIncrementalPartition::processFoundPatches_Reference(IG::IslandSim& islan
 				if (startIndex == 0)
 				{
 #if RECORD_DESTROYED_EDGES_IN_FOUND_LOST_PASSES
-					mDestroyedContactEdgeIndices.pushBack(edgeIndex); //KS - this will potentially hit *if* CCD is enabled
+					pushDestroyedPairSlot(unit.mDeviceSlot); //KS - this will potentially hit *if* CCD is enabled
 #endif
 					increaseNodeInteractionCounts(mNodeInteractionCountArray, node1, node2);
 				}
@@ -1818,7 +1821,7 @@ void PxgIncrementalPartition::destroyEdges(const IG::CPUExternalData& islandSimC
 			if (edgeType == PxgEdgeType::eCONSTRAINT || edgeType == PxgEdgeType::eARTICULATION_CONSTRAINT)
 				jointManager.removeJoint(partitionEdge->getEdgeIndex(), mNpIndexArray, islandSimCpuData, islandSimGpuData);
 			else if(recordDestroyedEdges)
-				mDestroyedContactEdgeIndices.pushBack(partitionEdge->getEdgeIndex());
+				pushDestroyedPairSlot(mSolverConstants[partitionEdge->mUniqueIndex].mPairSlot);
 
 			removeAllEdges(islandSimGpuData, bodySimManager, partitionEdge);
 		}
@@ -2202,9 +2205,9 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part1(
 					PxsContactManagerOutput& output = iterator.getContactManagerOutput(workUnit.mNpIndex);
 					output.prevPatches = output.nbPatches; //Ensure that our internal data does not get corrupted by any touch found/lost events
 					workUnit.mFrictionPatchCount = 0; //Zero the friction patch count to make sure that we don't access any memory illegally
+					pushDestroyedPairSlot(workUnit.mDeviceSlot);
 				}
 
-				mDestroyedContactEdgeIndices.pushBack(edgeId);
 			}
 		}
 	}
@@ -2225,7 +2228,7 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part1(
 			const PxNodeIndex node1 = islandSimCpuData.getNodeIndex1(edgeIndex);
 			const PxNodeIndex node2 = islandSimCpuData.getNodeIndex2(edgeIndex);
 
-			PartitionEdge* edge = addEdge_Stage1(islandSim, edgeIndex, 0, 0xFFFFFFFF, node1, node2);
+			PartitionEdge* edge = addEdge_Stage1(islandSim, edgeIndex, 0, 0xFFFFFFFF, 0xFFFFFFFF, node1, node2);
 			const bool specialHandled = addJointManager(edge, bodySimManager);
 			addEdge_Stage2(islandSimGpuData, edgeIndex, edge, specialHandled, true, true);
 
@@ -2263,11 +2266,10 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2_0(IG::IslandSim& is
 			const IG::EdgeIndex edgeId = activatedContacts[a];
 			if(activeCMBitmap.test(edgeId))
 			{
-				mDestroyedContactEdgeIndices.pushBack(edgeId);	//KS - looks a bit weird because we didn't "destroy" any edges but this just ensures that we zero the PF count for this edge
-
 				PxsContactManager* cm = islandManagerData.getContactManager(edgeId);
 				if(cm)
 				{
+					pushDestroyedPairSlot(cm->getWorkUnit().mDeviceSlot);	//KS - looks a bit weird because we didn't "destroy" any edges but this just ensures that we zero the PF count for this edge
 					if(islandSimGpuData.getFirstPartitionEdge(edgeId) == NULL)
 					{
 						PxcNpWorkUnit& unit = cm->getWorkUnit();
@@ -2393,6 +2395,8 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2_1(PxU32 startIndex,
 		// PT: this block was part 7) of addEdge_Stage1
 
 		mSolverConstants[uniqueId].mEdgeIndex = edgeId;
+		mSolverConstants[uniqueId].mPairSlot = unit.mDeviceSlot;
+		notePairSlot(unit.mDeviceSlot);
 
 		// PT: this block was the first part of addContactManager
 
@@ -2547,7 +2551,7 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2(
 
 						for (PxU32 b = 0; b < output.nbPatches; ++b)
 						{
-							PartitionEdge* edge = addEdge_Stage1(islandSim, edgeId, b, unit.mNpIndex, node1, node2);
+							PartitionEdge* edge = addEdge_Stage1(islandSim, edgeId, b, unit.mNpIndex, unit.mDeviceSlot, node1, node2);
 							const bool specialHandled = addContactManager(edge, unit, bodySimManager);
 							addEdge_Stage2(islandSimGpuData, edgeId, edge, specialHandled, true, true);
 						}
@@ -2556,8 +2560,8 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2(
 
 						unit.mFrictionPatchCount = 0; //KS - ensure that the friction patch count is 0
 					}
+					pushDestroyedPairSlot(cm->getWorkUnit().mDeviceSlot);	//KS - looks a bit weird because we didn't "destroy" any edges but this just ensures that we zero the PF count for this edge
 				}
-				mDestroyedContactEdgeIndices.pushBack(edgeId);	//KS - looks a bit weird because we didn't "destroy" any edges but this just ensures that we zero the PF count for this edge
 			}
 		}
 	}

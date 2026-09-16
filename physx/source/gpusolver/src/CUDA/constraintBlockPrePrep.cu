@@ -965,7 +965,9 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 					}
 				}
 				
-				const PxU32 edgeIndex = constants->mEdgeIndex;
+				// Friction state is keyed by the dense pair slot, which outlives
+				// island edge handles for pairs the CPU island manager never sees.
+				const PxU32 edgeIndex = constants->mPairSlot;
 				n.mEdgeIndex[threadIndexInWarp] = edgeIndex;
 
 				n.mPatchIndex[threadIndexInWarp] = patchIndex;

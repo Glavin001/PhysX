@@ -2554,7 +2554,9 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 
 	mGpuSolverCore->resetMemoryAllocator();
 
-	PxU32 totalEdges = mIslandManager.getNbEdgeHandles();
+	// Friction patch counts and the friction index stream are keyed by the dense
+	// contact pair slot (PxcNpWorkUnit::mDeviceSlot), not by island edge handles.
+	PxU32 totalEdges = PxMax(mIncrementalPartition.getPairSlotCapacity(), 1u);
 	mTotalPreviousEdges = mTotalEdges;
 	mTotalEdges = totalEdges;
 
@@ -2568,13 +2570,13 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 		if(frozenCount)
 		{
 			// Static contact records carry partition unique ids; the friction
-			// counts are keyed by edge index (solver constants).
+			// counts are keyed by the pair slot (solver constants).
 			const Cm::PinnableArray<PxgSolverConstraintManagerConstants>& constants = mIncrementalPartition.getSolverConstants();
 			mDestructionFrozenEdgeScratch.forceSize_Unsafe(0);
 			mDestructionFrozenEdgeScratch.reserve(frozenCount);
 			for(PxU32 i = 0; i < frozenCount; ++i)
-				if(frozenUniqueIds[i] < constants.size() && constants[frozenUniqueIds[i]].mEdgeIndex < totalEdges)
-					mDestructionFrozenEdgeScratch.pushBack(constants[frozenUniqueIds[i]].mEdgeIndex);
+				if(frozenUniqueIds[i] < constants.size() && constants[frozenUniqueIds[i]].mPairSlot < totalEdges)
+					mDestructionFrozenEdgeScratch.pushBack(constants[frozenUniqueIds[i]].mPairSlot);
 			if(mDestructionFrozenEdgeScratch.size())
 				mGpuSolverCore->clearCurrentFrictionPatchCounts(mDestructionFrozenEdgeScratch.begin(), mDestructionFrozenEdgeScratch.size());
 		}

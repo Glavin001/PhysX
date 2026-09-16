@@ -1140,6 +1140,7 @@ void Sc::ShapeInteraction::createManager(PxsContactManager* contactManager)
 		PxU32(isPairVisualizationEnabled(shapeSim0, shapeSim1) ? PxsContactManager::PXS_CM_VISUALIZATION : 0);
 
 	unit.mNpIndex = 0xFFffFFff;
+	unit.mDeviceSlot = 0xFFffFFff;
 
 	mManager = manager;
 

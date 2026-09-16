@@ -116,6 +116,7 @@ struct PxcNpWorkUnit
 	PxReal				mTorsionalPatchRadius;												//76
 	PxReal				mMinTorsionalPatchRadius;											//80
 	PxReal				mOffsetSlop;														//84
+	PxU32				mDeviceSlot;				// dense pair slot owned by the GPU NP context (friction key), 0xFFFFFFFF if none //88
 																							//88 pading
 
 	///////////////////////////////////////////////////////////////////////////

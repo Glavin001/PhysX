@@ -1231,3 +1231,21 @@ Qualification: `destruction_gpu_contact_graph` gained a slot test (70 K concurre
 | candidate (slots) | 31.60, 32.05, 31.43, 31.21 | 31.57 | 191.1, 199.7, 191.4, 193.4 |
 
 Neutral within the control spread (mean +0.3 ms, peak +3 ms against a 14 ms peak spread). Cost model: one extra launch per bucket per pass with retirements, and 4 bytes per slot.
+
+## R2 milestone 2 item 2, step 2: friction state keyed by a dense pair slot instead of island edge handles (lossless, neutral)
+
+Step 1's device-side allocator could not feed the partition: the host needs the key when it creates `PartitionEdge`s and solver constants, before the pass runs. The slot is therefore host-owned now (`PxgGpuNarrowphaseCore::allocateContactSlot`, called from `PxgNphaseImplementationContext::registerContactManager` for every contact manager, GPU buckets and fallback alike) and stored in the work unit's former padding word (`PxcNpWorkUnit::mDeviceSlot`). It survives refreshes, is retired at unregister, and is recycled only after `removeLostPairs` has compacted the retired device row. The identity kernel publishes it into `PxgContactGraphIdentity::slot`; the device allocator, its release kernel and counters are gone.
+
+The solver constants gained `mPairSlot` (joints carry the invalid slot). Contact pre-prep now keys `prevFrictionPatchCount`, `currFrictionPatchCount` and the friction index stream by the slot; the friction buffers are sized by the partition's monotone slot capacity instead of `getNbEdgeHandles()`; every "destroyed contact edge" push (lost touch, deactivated, activated, destroyed partition edge) records the slot, obtained from the work unit or, for destroyed partition edges, from the solver constants; the frozen-static-edge clear of mode 4 maps through the slot too. Consequence for step 6: the friction domain no longer references island edge handles, so native pairs without a CPU island edge can keep friction warm starts.
+
+Qualification: `destruction_gpu_contact_graph` checks slot publication; `native_contact_graph_check` requires unique in-range slots among live rows; 36/36 native GPU tests. g16 3 s bombardment, four candidate trials against the four control trials of step 1 (control binary = `de647cfb` PhysX; histories bit-identical, 56,077 bonds, 99/180 misses):
+
+| window (mean over 4 trials, ms) | control | slot-keyed |
+|---|---:|---:|
+| pre-impact ticks 0–79 | 4.93 | 4.88 |
+| impact ticks 80–99 | 55.89 | 56.28 |
+| late ticks 100–179 | 51.44 | 51.43 |
+| run mean | 31.26 | 31.28 |
+| peak tick 82 | 181.7, 195.4, 189.7, 195.5 | 149.4, 200.5, 207.7, 208.1 |
+
+Neutral; the peak tick (the first impact, dominated by allocation growth) has a wider spread in the candidate but the same mean (190 vs 191).

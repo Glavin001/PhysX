@@ -24,55 +24,23 @@ template<class T> struct Device {
     std::vector<T> get(size_t n){std::vector<T> v(n);if(n)check(cudaMemcpy(v.data(),p,n*sizeof(T),cudaMemcpyDeviceToHost));return v;}
 };
 __global__ void initializeContactIdentities(PxgContactGraphIdentity* ids,const PxU32* edges,
-    PxU32 count,PxgContactGraphSequence* sequence,PxgContactSlotAllocator* slots=nullptr,const PxU32* freeList=nullptr,PxU32 capacity=0) {
-    contactIdentity::initialize(ids,edges,count,sequence,slots,freeList,capacity);
+    PxU32 count,PxgContactGraphSequence* sequence,const PxU32* slots=nullptr) {
+    contactIdentity::initialize(ids,edges,slots,count,sequence);
 }
-__global__ void releaseContactIdentities(const PxgContactGraphIdentity* ids,const PxU32* rows,PxU32 count,
-    PxgContactSlotAllocator* slots,PxU32* freeList,PxU32 capacity) {
-    contactIdentity::releaseSlots(ids,rows,count,slots,freeList,capacity);
-}
-void contactSlotAllocation() {
-    // Dense device slots: allocation across concurrent streams, LIFO recycling
-    // after release, no sharing among live rows, and a latched capacity error.
-    constexpr PxU32 n=70001,second=333,capacity=n+second+64;
-    std::vector<PxU32> edges(n);std::iota(edges.begin(),edges.end(),0u);
-    Device<PxU32> dEdges(n);dEdges.put(edges);
-    Device<PxgContactGraphIdentity> a(n),b(second+70);
-    Device<PxgContactGraphSequence> sequence(1);sequence.put({{1,0,0}});
-    Device<PxgContactSlotAllocator> slots(1);slots.put({{0,0,0,0}});
-    Device<PxU32> freeList(capacity);
-    cudaStream_t left,right;check(cudaStreamCreateWithFlags(&left,cudaStreamNonBlocking));check(cudaStreamCreateWithFlags(&right,cudaStreamNonBlocking));
-    initializeContactIdentities<<<9,128,0,left>>>(a.p,dEdges.p,n,sequence.p,slots.p,freeList.p,capacity);
-    initializeContactIdentities<<<3,128,0,right>>>(b.p,dEdges.p,second,sequence.p,slots.p,freeList.p,capacity);
-    check(cudaGetLastError());check(cudaDeviceSynchronize());
-    auto first=a.get(n),other=b.get(second);std::set<PxU32> live;
-    for(const auto& id:first)require(id.slot<n+second && live.insert(id.slot).second,"device slots shared or out of range");
-    for(const auto& id:other)require(id.slot<n+second && live.insert(id.slot).second,"device slots shared or out of range");
-    auto state=slots.get(1)[0];require(!state.error && !state.freeCount && state.highWater==n+second,"slot high water differs from the live count");
-    // Release every third row of the first buffer, then reallocate more than
-    // the recycled count: the recycled slots come back first, new ones after.
-    std::vector<PxU32> rows;for(PxU32 i=0;i<n;i+=3)rows.push_back(i);
-    Device<PxU32> dRows(rows.size());dRows.put(rows);
-    releaseContactIdentities<<<(unsigned(rows.size())+255)/256,256>>>(a.p,dRows.p,PxU32(rows.size()),slots.p,freeList.p,capacity);
-    check(cudaGetLastError());check(cudaDeviceSynchronize());
-    state=slots.get(1)[0];require(!state.error && state.freeCount==rows.size() && state.highWater==n+second,"release did not recycle exactly the retired rows");
-    std::set<PxU32> released;for(PxU32 r:rows)released.insert(first[r].slot);
-    for(PxU32 r:rows)live.erase(first[r].slot);
-    const PxU32 more=PxU32(rows.size())+40;Device<PxgContactGraphIdentity> c(more);
-    initializeContactIdentities<<<4,128>>>(c.p,dEdges.p,more,sequence.p,slots.p,freeList.p,capacity);
-    check(cudaGetLastError());check(cudaDeviceSynchronize());
-    PxU32 recycled=0;
-    for(const auto& id:c.get(more)) {
-        require(id.slot<capacity && live.insert(id.slot).second,"reallocated slot collides with a live row");
-        if(released.count(id.slot))++recycled;
-    }
-    state=slots.get(1)[0];
-    require(recycled==rows.size() && !state.freeCount && state.highWater==n+second+40 && !state.error,"recycled slots were not reused before extending the high water");
-    // Exhaustion latches and publishes invalid slots; generations stay valid.
-    initializeContactIdentities<<<1,128>>>(b.p,dEdges.p,70,sequence.p,slots.p,freeList.p,capacity);check(cudaDeviceSynchronize());
-    state=slots.get(1)[0];require(state.error==1,"slot capacity overflow did not latch");
-    auto failed=b.get(70);for(const auto& id:failed)require(id.generation && (id.slot==~PxU32(0) || id.slot<capacity),"overflowed rows published slots beyond capacity");
-    std::puts("GPU contact slots: concurrent allocation, release/recycle, capacity latch: passed");
+void contactSlotPublication() {
+    // Host-owned pair slots are copied verbatim next to the device lifetime;
+    // without a slot array the identity publishes the invalid slot.
+    constexpr PxU32 n=4099;
+    std::vector<PxU32> edges(n),slots(n);std::iota(edges.begin(),edges.end(),0u);
+    for(PxU32 i=0;i<n;++i)slots[i]=(i*7919u)%65521u;
+    Device<PxU32> dEdges(n),dSlots(n);dEdges.put(edges);dSlots.put(slots);
+    Device<PxgContactGraphIdentity> ids(n);Device<PxgContactGraphSequence> sequence(1);sequence.put({{1,0,0}});
+    initializeContactIdentities<<<5,128>>>(ids.p,dEdges.p,n,sequence.p,dSlots.p);check(cudaGetLastError());check(cudaDeviceSynchronize());
+    auto out=ids.get(n);
+    for(PxU32 i=0;i<n;++i)require(out[i].edgeIndex==edges[i] && out[i].slot==slots[i] && out[i].generation,"identity did not publish the host pair slot");
+    initializeContactIdentities<<<5,128>>>(ids.p,dEdges.p,n,sequence.p);check(cudaDeviceSynchronize());
+    for(const auto& id:ids.get(n))require(id.slot==~PxU32(0),"identity without a slot array must publish the invalid slot");
+    std::puts("GPU contact slots: host slot publication: passed");
 }
 void contactLifetimeAllocation() {
     // Non-multiple tails and a deliberately small grid exercise block-stride
@@ -401,7 +369,7 @@ void retainedTransactions() {
 
 int main(){try{
     contactLifetimeAllocation();
-    contactSlotAllocation();
+    contactSlotPublication();
     preSolveNodeTransactions();
     preSolveDeviceContacts();
     preSolveComponents();
