@@ -1183,3 +1183,20 @@ new-pair work (`ShapeInteraction::createManager` 2.0 %, `runOverlapFilters`
   migration and publication reuse the resolved pointers; duplicate shapes
   tracked in a bitmap instead of a hash map): bit-identical, impact 181–183
   vs 178–188 ms (inside the ±10 ms spread of that tick), 11/11 tests. Kept.
+
+## Warm screen caught a regression of the incremental cluster mass properties (fixed)
+
+The nine-window screen for the 2026-09-16c defaults (`results-16c-v4`)
+passed eight windows and failed `city256-debris-B` at the first replayed
+tick with stage error 128 (solver-body preparation): 5,949 candidate
+clusters had zero mass and inertia. Cause: since the incremental cluster
+mass properties (R6, this morning) only clusters whose membership changed
+against the accepted labels are recomputed, but the transaction never
+copied the accepted cluster table into the trial topology, so after a
+snapshot restore (and after any rejected transaction) the trial carried
+stale masses for every unchanged cluster. The g16 demo never replays a
+snapshot and commits every transaction, which is why the continuous and
+g16 screens stayed bit-identical. Fix: the trial copies the accepted
+cluster table at prepare (`PxgDestructionTransaction.cuh`; a device copy
+of ~9 MB per transaction, tens of microseconds). The failing probe passes;
+the screen is rerun as `results-16d-v4`.

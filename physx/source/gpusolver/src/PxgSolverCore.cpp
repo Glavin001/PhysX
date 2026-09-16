@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
 #include "PxgSolverCore.h"
+#include <cstdlib>
 #include "PxgCommonDefines.h"
 #include "PxgRadixSortDesc.h"
 #include "cudamanager/PxCudaContextManager.h"
@@ -231,7 +232,8 @@ void PxgSolverCore::allocateFrictionCounts(PxU32 totalEdges)
 	// a frozen destruction pass, an edge re-added within one pass) must read as
 	// "no previous friction patches" next pass: its index-stream entry and patch
 	// blocks would otherwise point into another pass's batch space.
-	if(totalEdges)
+	static const bool zeroFill = []() { const char* raw = getenv("PHYSX_DESTRUCTION_FRICTION_ZEROFILL"); return !raw || raw[0] != '0'; }();
+	if(totalEdges && zeroFill)
 		mCudaContext->memsetD32Async(mFrictionPatchCounts[mCurrentIndex].getDevicePtr(), 0, totalEdges, mStream);
 }
 

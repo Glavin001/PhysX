@@ -167,8 +167,13 @@ class Transaction final : public PxgDestructionTopologyTransaction {
         const unsigned blocks=std::min(2560u,(std::max(mAccepted->mN,mAccepted->mM)+BLOCK-1)/BLOCK);
         if(!capture(body,[&] {
             const unsigned n=mTrial->mN,m=mTrial->mM;
+            // Incremental mass properties recompute only clusters whose membership
+            // changed against the accepted labels, so the trial must start from the
+            // accepted cluster table (a rejected transaction or a snapshot restore
+            // otherwise leaves stale masses in the trial buffer).
             if(!copy(mTrial->mActiveChunks,mAccepted->mActiveChunks,n)
                 || !copy(mTrial->mActiveBonds,mAccepted->mActiveBonds,m)
+                || !copy(mTrial->mClusters,mAccepted->mClusters,n)
                 || !copy(mTrial->mPreviousLabels,mAccepted->mLabels,n)
                 || !copy(mTrial->mClusterSlots,mAccepted->mClusterSlots,n)
                 || !copy(mTrial->mSlotRoots,mAccepted->mSlotRoots,n)
