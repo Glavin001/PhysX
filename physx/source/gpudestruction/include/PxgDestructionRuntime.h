@@ -134,6 +134,9 @@ public:
     virtual bool prepareFrame(bool postCorrection = false) = 0;
     // Merge the two evaluations into one tick receipt, after final ownership commit.
     virtual bool finishPostCorrection() = 0;
+    /// The correction this step required will not run: restore the accepted
+    /// stress topology that a speculative update replaced (no-op otherwise).
+    virtual void discardSpeculativeTopology() {}
     virtual CUevent inputEvent() const = 0;
     // The producer stream owns the native body pool. Runtime orders its reads
     // after this stream and borrowed NP streams; no Direct GPU API gather or

@@ -20,6 +20,12 @@ struct NativeStressCycleView {
     const ExtStressGpuDeviceTopologyStatus* topology=nullptr;
     NativeDirectView direct{};
 };
+// Forget the hierarchy and motion-mode builds so the next topology update
+// rebuilds them at whatever generation it carries (device topology rollback).
+__global__ void resetNativeHierarchyStatus(StressHierarchy::Status* hierarchy,StressHierarchy::Status* modes){
+    hierarchy->initialized=0;hierarchy->generation=0;hierarchy->error=0;
+    modes->initialized=0;modes->generation=0;modes->error=0;
+}
 __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hierarchy,const StressHierarchy::Status* modes,ExtStressGpuDeviceTopologyStatus* topology){
     if(!hierarchy->initialized || hierarchy->error || hierarchy->generation!=topology->generation || !modes->initialized || modes->error || modes->generation!=topology->generation)topology->error|=8u;
 }
@@ -64,5 +70,9 @@ public:
     void setDirect(const NativeDirectView& direct){mView.direct=direct;}
     const StressHierarchy::Status* status()const{return mHierarchy.status();}
     const StressHierarchy::Status* modeStatus()const{return mModes.status();}
+    void invalidate(cudaStream_t stream){
+        mHierarchy.invalidate(stream);
+        StressHierarchy::resetLevelStatus<<<1,1,0,stream>>>(const_cast<StressHierarchy::Status*>(mModes.status()));
+    }
 };
 #endif

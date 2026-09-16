@@ -25,6 +25,7 @@
             || m_topologyDirty || m_activeListsDirty || m_prevListsSkipping || m_deviceTopologyFailed)
             return false;
         ContextGuard context(m_cudaContext);
+        joinFactorStream();
         if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,
             reinterpret_cast<cudaEvent_t>(consumerDone), 0), "wait stress consumer");
         if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,
@@ -161,6 +162,7 @@
         if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(consumerDone),0), "wait stress topology consumer");
         if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(producerReady),0), "wait stress topology producer");
         m_telemetry = {};
+        joinFactorStream();
         m_deviceTopology->submit({mask,generation,accept,bondUtilization},m_stream);
         checkCuda(cudaEventRecord(m_statusReady,m_stream), "record stress topology update");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
@@ -169,8 +171,64 @@
         // ready event, and overlap the CPU work that precedes the next solve
         // (fragment registration between the trial and corrected passes, the
         // impact tick's burst in particular). The solve's own factor launch then
-        // finds every slot valid.
-        if (m_direct.enabled && !m_direct.deferred && nativeDirectEager()) launchNativeDirectFactor();
+        // finds every slot valid. On the factor stream (BLAST_GPU_NATIVE_FACTOR_STREAM=0
+        // restores the solver stream) the consumers' status readback, which
+        // shares the solver stream, no longer waits behind the burst.
+        if (m_direct.enabled && !m_direct.deferred && nativeDirectEager()) {
+            if (nativeFactorStream() && m_factorStream) {
+                // Deferred to flushEagerFactor(): the consumer decides when the
+                // burst may start (after its own readbacks).
+                checkCuda(cudaEventRecord(m_topologyReady, m_stream), "record topology ready for factor");
+                m_eagerFactorRequested = true;
+            } else launchNativeDirectFactor();
+        }
 #endif
         return true;
+    }
+
+    void invalidateDeviceTopology(const std::uint32_t* aliveBonds, const float* aliveHealth, const std::uint64_t* targetGeneration) override
+    {
+#ifndef PHYSX_RESIDENT_DESTRUCTION
+        (void)aliveBonds; (void)aliveHealth; (void)targetGeneration; return;
+#else
+        if (!m_deviceTopology) return;
+        ContextGuard context(m_cudaContext);
+        joinFactorStream();
+        resetDeviceStressGeneration<<<1,1,0,m_stream>>>(m_deviceTopology->status(), targetGeneration);
+        m_deviceTopology->invalidateNativeHierarchy(m_stream);
+        if (aliveBonds && m_bondCount)
+            restoreDeviceStressHealth<<<(m_bondCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(aliveBonds, aliveHealth, m_health, m_bondCount);
+        checkCuda(cudaGetLastError(), "reset device stress generation");
+#endif
+    }
+
+    void debugPrintDeviceTopologyStatus(const char* tag) override
+    {
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if (!m_deviceTopology) return;
+        ContextGuard context(m_cudaContext);
+        checkCuda(cudaStreamSynchronize(m_stream), "debug status sync");
+        ExtStressGpuDeviceTopologyStatus t{}; StressHierarchy::Status h{}, m{};
+        checkCuda(cudaMemcpy(&t, m_deviceTopology->status(), sizeof(t), cudaMemcpyDeviceToHost), "debug status copy");
+        if (m_deviceTopology->nativeHierarchyStatus()) checkCuda(cudaMemcpy(&h, m_deviceTopology->nativeHierarchyStatus(), sizeof(h), cudaMemcpyDeviceToHost), "debug hierarchy copy");
+        if (m_deviceTopology->nativeModeStatus()) checkCuda(cudaMemcpy(&m, m_deviceTopology->nativeModeStatus(), sizeof(m), cudaMemcpyDeviceToHost), "debug modes copy");
+        std::printf("[stress-status %s] topology gen=%llu init=%u err=%u rebuilds=%llu islands=%u | hierarchy gen=%llu init=%u err=%u builds=%u | modes gen=%llu init=%u err=%u builds=%u\n", tag,
+            (unsigned long long)t.generation, t.initialized, t.error, (unsigned long long)t.rebuilds, t.islandCount,
+            (unsigned long long)h.generation, h.initialized, h.error, h.builds, (unsigned long long)m.generation, m.initialized, m.error, m.builds);
+#else
+        (void)tag;
+#endif
+    }
+
+    void flushEagerFactor() override
+    {
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if (!m_eagerFactorRequested || !m_factorStream) return;
+        ContextGuard context(m_cudaContext);
+        m_eagerFactorRequested = false;
+        checkCuda(cudaStreamWaitEvent(m_factorStream, m_topologyReady, 0), "factor stream waits for topology");
+        launchNativeDirectFactor(m_factorStream, nativeEagerFactorBlocksPerSm());
+        checkCuda(cudaEventRecord(m_factorDone, m_factorStream), "record factor done");
+        m_factorPending = true;
+#endif
     }

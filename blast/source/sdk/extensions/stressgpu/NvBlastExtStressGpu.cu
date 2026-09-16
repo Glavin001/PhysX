@@ -504,6 +504,20 @@ float nativeElasticMargin()
 /// load is bit-identical to its last converged solve on an unchanged topology
 /// (no margin condition). Requires the elastic-margin pass. Default off until
 /// measured.
+/// BLAST_GPU_NATIVE_FACTOR_STREAM (default 1): eager refactorization on a side
+/// stream joined by every solver-stream consumer of the direct state.
+bool nativeFactorStream()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_FACTOR_STREAM"); return !raw || std::string(raw) != "0"; }();
+    return value;
+}
+/// BLAST_GPU_NATIVE_EAGER_FACTOR_BLOCKS (default 1): CTAs per SM of the eager
+/// refactor launch; 0 uses the full persistent grid.
+unsigned nativeEagerFactorBlocksPerSm()
+{
+    static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_EAGER_FACTOR_BLOCKS"); const long v = raw ? std::atol(raw) : 0; return unsigned(std::min(16L, std::max(0L, v))); }();
+    return value;
+}
 bool nativeExactReuse()
 {
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_EXACT_REUSE"); return raw && raw[0] == '1'; }();
@@ -4662,6 +4676,18 @@ private:
     cudaStream_t m_stream{};
     /// Capture-only stream for the conditional loop body graph.
     cudaStream_t m_bodyStream{};
+    // Eager refactorization runs on its own stream so the topology consumers'
+    // status readback is not queued behind a refactor burst (impact ticks:
+    // 22 ms). Every m_stream use of the direct state first joins m_factorDone.
+    cudaStream_t m_factorStream{}; cudaEvent_t m_factorDone{}, m_topologyReady{}; bool m_factorPending = false, m_eagerFactorRequested = false;
+    void joinFactorStream() {
+        // A requested but not yet flushed eager launch is dropped: the solver
+        // stream's own factor launch before the solve covers the invalid slots.
+        m_eagerFactorRequested = false;
+        if (!m_factorPending) return;
+        checkCuda(cudaStreamWaitEvent(m_stream, m_factorDone, 0), "join factor stream");
+        m_factorPending = false;
+    }
     cudaGraph_t m_graph{};
     cudaGraphExec_t m_graphExec{};
     ExtStressGpuSolveParams m_graphParams{};

@@ -11,14 +11,35 @@ struct DeviceStressTopologyBatch
 };
 __global__ void setDeviceStressTopologyBatch(DeviceStressTopologyBatch* dst, DeviceStressTopologyBatch src)
 { *dst = src; }
+// Forces the next update to rebuild whatever generation it carries (an
+// accepted generation may be lower than, or equal to, the forgotten one).
+__global__ void resetDeviceStressGeneration(ExtStressGpuDeviceTopologyStatus* status, const std::uint64_t* targetGeneration)
+{
+    // The hierarchy builds inside the update read this status as their source
+    // (initialized, error, generation) before the topology's own finish node
+    // runs, so it must already carry the target generation.
+    if (targetGeneration) status->generation = *targetGeneration;
+    status->forceRebuild = 1; status->solvedGeneration = ~0ull;
+}
+// A speculatively removed bond had its health zeroed by the update; a bond
+// alive in the view being restored gets a positive health back (the solver
+// reads health only as an alive gate).
+__global__ void restoreDeviceStressHealth(const unsigned* alive, const float* aliveHealth, float* health, unsigned m)
+{
+    const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= m || !alive[i] || health[i] > 0.f) return;
+    const float h = aliveHealth ? aliveHealth[i] : 1.f;
+    health[i] = h > 0.f ? h : 1.f;
+}
 __global__ void beginDeviceStressTopology(const DeviceStressTopologyBatch* batch,
     ExtStressGpuDeviceTopologyStatus* status, cudaGraphConditionalHandle work)
 {
     status->error = 0;
     const auto generation = batch->generation ? *batch->generation : 0ull;
     if (batch->accept && !*batch->accept) { cudaGraphSetConditional(work, 0); return; }
-    if (status->initialized && generation < status->generation) status->error = 4;
-    cudaGraphSetConditional(work, !status->error && (!status->initialized || generation != status->generation));
+    const bool force = status->forceRebuild != 0; status->forceRebuild = 0;
+    if (!force && status->initialized && generation < status->generation) status->error = 4;
+    cudaGraphSetConditional(work, !status->error && (force || !status->initialized || generation != status->generation));
 }
 __global__ void validateDeviceStressMask(const DeviceStressTopologyBatch* batch,
     const float* health, unsigned count, ExtStressGpuDeviceTopologyStatus* status)
@@ -401,6 +422,11 @@ public:
         checkCuda(cudaGraphLaunch(exec,stream), "launch device stress topology transaction");
     }
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    void invalidateNativeHierarchy(cudaStream_t stream) { if (nativeHierarchy) nativeHierarchy->invalidate(stream); }
+    const StressHierarchy::Status* nativeHierarchyStatus() const { return nativeHierarchy ? nativeHierarchy->status() : nullptr; }
+    const StressHierarchy::Status* nativeModeStatus() const { return nativeHierarchy ? nativeHierarchy->modeStatus() : nullptr; }
+#endif
     const DeviceStressTopologyBatch* batchView() const { return batch; }
     const unsigned* islandIds() const { return liveIslands; }
 #ifdef PHYSX_RESIDENT_DESTRUCTION

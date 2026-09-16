@@ -277,6 +277,7 @@ struct ExtStressGpuDeviceTopologyStatus
 {
     std::uint64_t generation, solvedGeneration, rebuilds;
     std::uint32_t initialized, error, islandCount, activeBondCount, activeNodeCount;
+    std::uint32_t forceRebuild; // next update rebuilds regardless of generation (device topology rollback)
 };
 
 struct ExtStressGpuDeviceView
@@ -360,6 +361,16 @@ public:
      * (that solve republishes the component's previous output); nullptr clears.
      */
     virtual void setParkedComponentFlags(const unsigned* deviceNodeFlags) { (void)deviceNodeFlags; }
+    /// Launch the refactorization requested by the last topology update (if
+    /// any) on the solver's side stream. Consumers call it after their own
+    /// synchronisation so no readback queues behind a refactor burst.
+    virtual void flushEagerFactor() {}
+    /// Forget the device topology generation so the next update rebuilds from
+    /// whatever view it is given (a speculatively applied transaction that was
+    /// never accepted).
+    virtual void invalidateDeviceTopology(const std::uint32_t* aliveBonds, const float* aliveHealth, const std::uint64_t* targetGeneration) { (void)aliveBonds; (void)aliveHealth; (void)targetGeneration; }
+    /// Diagnostic: synchronise and print the device topology, hierarchy and motion-mode statuses.
+    virtual void debugPrintDeviceTopologyStatus(const char* tag) { (void)tag; }
 
     virtual bool readbackImpulses(
         ExtStressGpuImpulse* bondImpulses,

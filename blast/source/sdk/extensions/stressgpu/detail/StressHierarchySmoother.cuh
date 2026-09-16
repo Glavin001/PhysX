@@ -24,7 +24,8 @@ __global__ void constructSmoother(Input input,const Status* source,Status* statu
     if(!lane){
         work->active=0;
         if(!input.accept || *input.accept){
-            if(!usable(source) || !sourceCountsValid(input) || source->generation!=*input.generation)status->error=32;
+            if(!usable(source) || !sourceCountsValid(input) || source->generation!=*input.generation){status->error=32;
+                printf("[hierarchy-smoother] rejected: usable=%d countsValid=%d srcInit=%u srcErr=%u srcGen=%llu gen=%llu\n",int(usable(source)),int(sourceCountsValid(input)),source->initialized,source->error,(unsigned long long)source->generation,(unsigned long long)*input.generation);}
             else if(status->initialized && status->generation>source->generation)status->error=4;
             else if(!status->initialized || status->generation!=source->generation || status->error){status->error=0;work->active=1;}
         }

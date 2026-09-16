@@ -132,7 +132,8 @@ __global__ void constructTerminals(Input input,const Status* source,Status* stat
     if(!lane){
         work->active=0;
         if(!input.accept || *input.accept){
-            if(!usable(source) || !sourceCountsValid(input) || source->generation!=*input.generation)status->error=32;
+            if(!usable(source) || !sourceCountsValid(input) || source->generation!=*input.generation){status->error=32;
+                printf("[hierarchy-terminal] rejected: usable=%d countsValid=%d srcInit=%u srcErr=%u srcGen=%llu gen=%llu\n",int(usable(source)),int(sourceCountsValid(input)),source->initialized,source->error,(unsigned long long)source->generation,(unsigned long long)*input.generation);}
             else if(status->initialized && source->generation<status->generation)status->error=4;
             else if(*input.partition.nodeCount>resolvedInput(input).nodes || *input.partition.count>resolvedInput(input).nodes)status->error=64;
             else if(!status->initialized || status->generation!=source->generation || status->error){status->error=0;work->active=1;}

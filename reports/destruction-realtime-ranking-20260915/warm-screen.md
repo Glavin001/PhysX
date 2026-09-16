@@ -1063,3 +1063,43 @@ corrected tick 150 the trial stress phase is 7.5 ms and the corrected one
 stress path is the critical GPU chain, and it is bounded by the ~255
 remnants that must be solved every tick (their loads change by more than
 1 % per tick, so no exact or tolerance skip applies) at ~3 Mcycles each.
+
+## Speculative stress topology and refactor off the acceptance path (default on, lossless)
+
+Attribution with host timers and an aligned nsys timeline showed that
+`acceptCorrection` at the impact tick (26 ms) and the sustained tick's
+acceptance (1.4 ms/tick) were the eager refactorization: the corrected
+topology is committed only after the corrected rigid pass, so the stress
+topology rebuild and the changed components' refactor sat between
+acceptance and the corrected stress solve. A persistent refactor grid also
+stalls every other stream's launches until its work list drains (measured:
+a 1-block kernel on the runtime stream waited 22 ms with no event between
+it and the previous launch, regardless of stream priority, grid size or
+`CUDA_DEVICE_MAX_CONNECTIONS`).
+
+Change: the stress topology is updated speculatively from the *trial* view
+right after the trial transaction (`PHYSX_DESTRUCTION_SPECULATIVE_STRESS_TOPOLOGY`,
+default 1). A commit deferred to the corrected pass copies the trial status
+into the accepted one, so the acceptance-time update finds the same
+generation and is a no-op, and the refactor overlaps the corrected rigid
+pass. The eager refactor itself runs on a solver side stream and is
+launched by the runtime after its own synchronisations
+(`flushEagerFactor`, `BLAST_GPU_NATIVE_FACTOR_STREAM`, default 1); every
+solver-stream consumer of the direct state joins it first. A correction
+that never runs (`discardSpeculativeTopology`, called by the controller
+when no corrected pass follows, plus a solve-time safety net) rolls the
+solver back: forced rebuild at the accepted generation, hierarchy and
+motion-mode level statuses reset, speculatively zeroed bond health restored.
+
+g16 3 s bombardment, two interleaved pairs, histories bit-identical
+(56,077 broken bonds, identical to the session's baseline):
+
+| | late window | corrected-tick mean | waitForGpu /tick | accept /tick | impact: accept | impact: wait |
+|---|---:|---:|---:|---:|---:|---:|
+| off | 54.2 / 53.8 ms | 59.7 / 58.8 | 13.7 / 13.8 | 1.40 | 26.0 | 11.5 |
+| on | 52.8 / 52.5 ms | 58.0 / 58.2 | 12.3 / 12.4 | 0.36 | 1.1 | 15.1 |
+
+An earlier pair measured 49.9/50.0 vs 52.9/51.9. The impact tick itself is
+roughly neutral (186/156 → 193/202 ms): the 22 ms burst now competes with
+the corrected rigid pass's kernels instead of blocking acceptance, and
+smaller eager grids (1–4 CTAs per SM) are slower overall. 11/11 tests.

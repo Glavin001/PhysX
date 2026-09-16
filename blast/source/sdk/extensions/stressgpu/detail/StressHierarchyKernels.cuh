@@ -44,6 +44,9 @@ struct Status {
     unsigned initialized,builds,rounds,aggregates,error;
 };
 struct Work {unsigned active,pending;};
+// Device topology rollback: forget a level's build so the next construction
+// rebuilds it at whatever generation its source carries.
+__global__ void resetLevelStatus(Status* status){status->initialized=0;status->generation=0;status->error=0;}
 struct CoarseBond {
     unsigned a,b;
     double3 offset0,offset1;
@@ -236,7 +239,9 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
         return;
     }
     if(!sourceCountsValid(input) || (input.sourceStatus && (!input.sourceStatus->initialized || input.sourceStatus->error || input.sourceStatus->generation!=*input.generation))){
-        if(!blockIdx.x && !threadIdx.x){status->error=32;work->active=work->pending=0;}
+        if(!blockIdx.x && !threadIdx.x){status->error=32;work->active=work->pending=0;
+            printf("[hierarchy-construct] rejected: countsValid=%d source=%p init=%u err=%u srcGen=%llu gen=%llu\n",int(sourceCountsValid(input)),(const void*)input.sourceStatus,
+                input.sourceStatus?input.sourceStatus->initialized:0u,input.sourceStatus?input.sourceStatus->error:0u,(unsigned long long)(input.sourceStatus?input.sourceStatus->generation:0ull),(unsigned long long)*input.generation);}
         return;
     }
     input=resolvedInput(input);

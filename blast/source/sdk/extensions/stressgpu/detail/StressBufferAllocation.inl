@@ -170,6 +170,18 @@
         checkCuda(
             cudaStreamCreateWithPriority(&m_stream, cudaStreamNonBlocking, streamPriority()),
             "create solver stream");
+        {
+            // Lowest priority: the persistent refactor grid saturates the SMs'
+            // register file, and every other stream's kernels must be able to
+            // take the next retiring CTA slot instead of queueing behind the burst.
+            int least = 0, greatest = 0;
+            checkCuda(cudaDeviceGetStreamPriorityRange(&least, &greatest), "factor stream priority range");
+            checkCuda(
+                cudaStreamCreateWithPriority(&m_factorStream, cudaStreamNonBlocking, least),
+                "create factor stream");
+        }
+        checkCuda(cudaEventCreateWithFlags(&m_factorDone, cudaEventDisableTiming), "create factor-done event");
+        checkCuda(cudaEventCreateWithFlags(&m_topologyReady, cudaEventDisableTiming), "create topology-ready event");
 #ifndef PHYSX_RESIDENT_DESTRUCTION
         // Capture-only: the conditional loop body is captured onto this stream
         // into the while-node's body graph. Nothing is ever launched on it

@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <cstdio>
+#include <chrono>
 #include <thrust/iterator/counting_iterator.h>
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxgDestructionRuntime.h"
@@ -574,7 +575,9 @@ class Runtime final : public PxgDestructionRuntime {
         }
         mStageTimingPending=false;
     }
-    cudaEvent_t mCorrectionEvents[6]{};PxU32 mCorrectionTimingMask=0;
+    cudaEvent_t mCorrectionEvents[6]{};PxU32 mCorrectionTimingMask=0;cudaEvent_t mAcceptProbe[2]{};
+    bool mSpeculativeStressOutstanding=false;
+    static bool acceptDiagEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ACCEPT_DIAG");return raw && raw[0]=='1';}();return v;}
     void correctionMarker(PxU32 marker,cudaStream_t stream) {
         if(!mProfiler)return;
         for(auto& event:mCorrectionEvents)if(!event)check(cudaEventCreate(&event));
@@ -1473,6 +1476,20 @@ public:
             check(cudaEventRecord(mInput,mStream));return true;
         }catch(...){mFailed=true;return false;}
     }
+    void discardSpeculativeTopology() override {
+        if(!mSpeculativeStressOutstanding || !mSolver || !mTopology || mFailed)return;
+        try {
+            Context current(mContext);
+            const auto accepted=mTopology->accepted();
+            mSolver->invalidateDeviceTopology(accepted.activeBonds,mHealth,&accepted.status->generation);
+            if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,accepted.readyEvent,nullptr,mBondUtilization))
+                throw std::runtime_error("native stress topology restore submission failed");
+            check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mSolver->deviceView().readyEvent),0));
+            check(cudaEventRecord(mReady,mStream));
+            mSpeculativeStressOutstanding=false;
+            if(acceptDiagEnabled())std::printf("[spec-diag] discarded speculative stress topology (no correction)\n");
+        }catch(...){mFailed=true;}
+    }
     bool finishPostCorrection() override {
         if(!mPostCorrection || mFailed || mPending || mHostStatus->error)return false;
         try {Context current(mContext);
@@ -1513,7 +1530,9 @@ public:
             if(count && !mBodyAllocator->publishCorrectionProperties(observations.data(),count))return false;
             const PxU32 shapeCount=shapeCapacity?mHostCompletion->shapeCount:0;
             if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(shapeObservations.data(),shapeCount)))return false;
-            mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPostCorrection=false;return true;
+            mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPostCorrection=false;
+            if(mSolver)mSolver->flushEagerFactor();
+            return true;
         }catch(...){mFailed=true;return false;}
     }
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
@@ -1552,6 +1571,23 @@ public:
             const PxDestructionVectorPair* forces=nullptr;
             const ExtStressGpuDeviceStatus* solveStatus=nullptr;
             if(mSolver) {
+                // A speculatively applied transaction whose correction never
+                // completed (incomplete step): restore the accepted topology
+                // before this solve so the retry sees the accepted state.
+                if(mSpeculativeStressOutstanding) {
+                    if(acceptDiagEnabled()){std::printf("[spec-diag] restoring accepted stress topology before the trial solve\n");mSolver->debugPrintDeviceTopologyStatus("before-restore");}
+                    const auto accepted=mTopology->accepted();
+                    mSolver->invalidateDeviceTopology(accepted.activeBonds,mHealth,&accepted.status->generation);
+                    if(acceptDiagEnabled())mSolver->debugPrintDeviceTopologyStatus("after-invalidate");
+                    if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,accepted.readyEvent,nullptr,mBondUtilization))
+                        throw std::runtime_error("native stress topology restore submission failed");
+                    check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mSolver->deviceView().readyEvent),0));
+                    mSpeculativeStressOutstanding=false;
+                    if(acceptDiagEnabled())mSolver->debugPrintDeviceTopologyStatus("after-restore");
+                    if(acceptDiagEnabled()){ExtStressGpuDeviceTopologyStatus st{};check(cudaStreamSynchronize(mStream));
+                        check(cudaMemcpy(&st,mSolver->deviceView().topologyStatus,sizeof(st),cudaMemcpyDeviceToHost));
+                        std::printf("[spec-diag] restored: error=%u initialized=%u generation=%llu rebuilds=%llu bonds=%u nodes=%u\n",st.error,st.initialized,(unsigned long long)st.generation,(unsigned long long)st.rebuilds,st.activeBondCount,st.activeNodeCount);}
+                }
                 // Island-scoped correction: the solve after a reinstatement is the
                 // corrected pass; parked components republish their trial result.
                 mSolver->setParkedComponentFlags(mParkedFlagsArmed?mParkedRootFlags:nullptr);
@@ -1597,9 +1633,25 @@ public:
                 if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("native topology commit submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
                 if(mSolver) {
-                    const auto accepted=mTopology->accepted();
-                    if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,accepted.readyEvent,nullptr,mBondUtilization))
+                    // Speculative stress topology (PHYSX_DESTRUCTION_SPECULATIVE_STRESS_TOPOLOGY=0
+                    // restores the accepted view): a commit deferred to the corrected
+                    // pass is committed with the trial's status, so the accepted
+                    // generation equals the trial's afterwards and the acceptance-time
+                    // update is a no-op. The changed components' refactor then
+                    // overlaps the corrected rigid pass instead of sitting between
+                    // acceptance and the corrected stress solve (22 ms at a city impact).
+                    static const bool speculative=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_SPECULATIVE_STRESS_TOPOLOGY");return !raw || raw[0]!='0';}();
+                    const auto accepted=mTopology->accepted();const auto trial=mTopology->trial();
+                    const auto& source=speculative?trial:accepted;
+                    // A previous speculative update whose correction never completed
+                    // left the solver at a generation the accepted view never reached.
+                    if(speculative && mSpeculativeStressOutstanding){mSolver->invalidateDeviceTopology(accepted.activeBonds,mHealth,&accepted.status->generation);mSpeculativeStressOutstanding=false;}
+                    if(!mSolver->updateDeviceTopologyAsync(source.activeBonds,mM,&source.status->generation,nullptr,accepted.readyEvent,nullptr,mBondUtilization))
                         throw std::runtime_error("native stress topology update submission failed");
+                    // Outstanding until the commit is known to have happened: at
+                    // finish (no correction required) or at acceptance.
+                    mSpeculativeStressOutstanding=speculative;
+                    if(acceptDiagEnabled())std::printf("[spec-diag] speculative update submitted (outstanding=%d)\n",int(mSpeculativeStressOutstanding));
                     const auto stress=mSolver->deviceView();
                     check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
                     inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);
@@ -2262,6 +2314,10 @@ public:
     }
     bool acceptCorrection(const PxgBodySim* bodies,CUstream coreStream) override {
         if(mFailed || !mCorrectionEnabled || !bodies || !coreStream || mHostStatus->error!=8u)return false;
+        static const bool acceptDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ACCEPT_DIAG");return raw && raw[0]=='1';}();
+        const auto acceptT0=std::chrono::steady_clock::now();
+        auto acceptMs=[&]{return std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-acceptT0).count();};
+        double tCommit=0,tTopology=0,tSubmit=0,tSync=0;
         try {
             Context current(mContext);
             check(cudaEventRecord(mInput,reinterpret_cast<cudaStream_t>(coreStream)));
@@ -2269,7 +2325,9 @@ public:
             prepareNativeCorrectionAcceptance<<<1,1,0,mStream>>>(mStatus,mContactSequence,mTopologyAccept);
             mChanges.commit(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mStream);
             check(cudaEventRecord(mReady,mStream));
+            tCommit=acceptMs();
             if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("corrected topology commit failed");
+            tTopology=acceptMs();
             check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
             mC=mHostBodyPreparation->count;
             acceptClusterBindings<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mTrialBodyIndices,mClusters,mStatus);
@@ -2287,6 +2345,10 @@ public:
                 const auto stress=mSolver->deviceView();check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
                 inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);
             }
+            if(acceptDiag){static cudaEvent_t e1{},e2{};if(!e1){check(cudaEventCreate(&e1));check(cudaEventCreate(&e2));}
+                check(cudaEventRecord(e1,mStream));commitNativeMotionSlots<<<1,1,0,mStream>>>(mMotionSlots,mStatus);check(cudaEventRecord(e2,mStream));
+                mAcceptProbe[0]=e1;mAcceptProbe[1]=e2;}
+            else
             commitNativeMotionSlots<<<1,1,0,mStream>>>(mMotionSlots,mStatus);
             // A bound for final observation storage only, not a physical work
             // budget. CUDA selects the union of changed surviving owners once.
@@ -2295,18 +2357,28 @@ public:
             if(mShapePublicationEpochs)mPendingShapeCapacity=PxU32(std::min<PxU64>(mN,
                 PxU64(mPendingShapeCapacity)+mHostCompletion->collision.migrating));
             check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
+            tSubmit=acceptMs();
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+            tSync=acceptMs();
             collectCorrectionTimings();
             if(mHostStatus->error)return false;
             mCommittedMotionSlots+=mHostBodyAllocation.reserved;
-            mBodyAllocator->acceptReservations();return true;
+            mSpeculativeStressOutstanding=false;
+            mBodyAllocator->acceptReservations();
+            if(acceptDiag){float gap=0.f;if(mAcceptProbe[0])check(cudaEventElapsedTime(&gap,mAcceptProbe[0],mAcceptProbe[1]));
+                std::printf("[accept-diag] changes=%.2f topologyCommit=%.2f submit=%.2f sync=%.2f total=%.2f ms (clusters=%u reserved=%u) motionSlotsKernelGap=%.2f\n",
+                tCommit,tTopology-tCommit,tSubmit-tTopology,tSync-tSubmit,acceptMs(),mC,mHostBodyAllocation.reserved,gap);}
+            return true;
         }catch(...){mFailed=true;return false;}
     }
     bool finish() override {
         try {Context current(mContext);if(mPending){
                 {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
                     check(cudaEventSynchronize(mReady));}
-                collectStageTimings();collectMotionAllocationTiming();mPending=false;reserveBodySlots();mPreparationObserved=true;}
+                collectStageTimings();collectMotionAllocationTiming();mPending=false;reserveBodySlots();mPreparationObserved=true;
+                if(acceptDiagEnabled())std::printf("[spec-diag] finish: status error=%u bondCommands=%u outstanding(before)=%d\n",mHostStatus->error,mHostStatus->bondCommands,int(mSpeculativeStressOutstanding));
+                if(!(mHostStatus->error&8u))mSpeculativeStressOutstanding=false; // committed with the trial
+                if(mSolver)mSolver->flushEagerFactor();}
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;

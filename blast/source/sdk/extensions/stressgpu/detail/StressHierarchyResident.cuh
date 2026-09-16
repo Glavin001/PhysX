@@ -12,7 +12,8 @@ __global__ void finalizeHierarchy(Input input,const Status* terminal,TerminalBuf
     if(!threadIdx.x){
         work=error=0;
         if(!input.accept || *input.accept){
-            if(!usable(terminal) || !sourceCountsValid(input) || terminal->generation!=*input.generation)output->error=32;
+            if(!usable(terminal) || !sourceCountsValid(input) || terminal->generation!=*input.generation){output->error=32;
+                printf("[hierarchy-resident] rejected: usable=%d countsValid=%d termInit=%u termErr=%u termGen=%llu gen=%llu\n",int(usable(terminal)),int(sourceCountsValid(input)),terminal->initialized,terminal->error,(unsigned long long)terminal->generation,(unsigned long long)*input.generation);}
             else if(output->initialized && output->generation>terminal->generation)output->error=4;
             else if(!output->initialized || output->generation!=terminal->generation || output->error)work=1;
         }
@@ -83,6 +84,15 @@ public:
         cudaGraphNode_t final;check(cudaGraphAddKernelNode(&final,graph,&prior,1,&params));mAppended=true;return tailCompletion?tailCompletion:final;
     }
     const Status* status()const{return mStatus;}
+    void invalidate(cudaStream_t stream){
+        auto reset=[&](const Status* s){if(s)resetLevelStatus<<<1,1,0,stream>>>(const_cast<Status*>(s));};
+        reset(mStatus);
+        for(auto& g:mGraphs)reset(g->status());
+        for(auto& t:mTerminals)reset(t->status());
+        for(auto& s:mSmoothers)reset(s->status());
+        for(auto& p:mPacked)reset(p->status());
+        check(cudaGetLastError());
+    }
     TerminalBuffers terminalBuffers()const{return mPool.buffers();}
     unsigned levels()const{return mDepth;}
     cudaStream_t stream()const{return mStream;}

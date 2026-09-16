@@ -349,18 +349,25 @@
     // Claim slots for eligible components and refactor every invalid or stale
     // slot. Launched before the solve in the original schedule, after the
     // solve's completion event in deferred mode, and once at setup.
-    void launchNativeDirectFactor() {
+    void launchNativeDirectFactor(cudaStream_t launchStream = nullptr, unsigned blocksPerSm = 0) {
         if (!m_direct.enabled || !m_deviceTopology) return;
+        const cudaStream_t stream = launchStream ? launchStream : m_stream;
+        if (!launchStream) joinFactorStream();
         const auto components = m_deviceTopology->components();
         const auto view = m_deviceTopology->cycleView();
         if (!m_directGrid) {
             int device = 0, sms = 0;
             checkCuda(cudaGetDevice(&device), "prefactor device");
             checkCuda(cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, device), "prefactor multiprocessors");
-            m_directGrid = std::min(m_nodeCount, unsigned(std::max(1, sms)) * nativeFactorBlocksPerSm());
+            m_directSms = unsigned(std::max(1, sms));
+            m_directGrid = std::min(m_nodeCount, m_directSms * nativeFactorBlocksPerSm());
         }
+        // A smaller grid (the eager launch: one CTA per SM) leaves SM resources
+        // for other streams' kernels; a full persistent grid stalls every other
+        // launch until its whole work list drains (22 ms at a city impact).
+        const unsigned grid = blocksPerSm ? std::min(m_nodeCount, m_directSms * blocksPerSm) : m_directGrid;
         const NativeDirectOperator op{m_node0, m_node1, m_nodeBondBegin, m_nodeBondRef, m_nodeIsland, m_offset0, m_offset1, m_inertia, m_health, m_colScales};
-        assignNativeDirectSlots<<<1, kBlockSize, 0, m_stream>>>(m_direct, components, view.modes.components, m_deviceTopology->status());
+        assignNativeDirectSlots<<<1, kBlockSize, 0, stream>>>(m_direct, components, view.modes.components, m_deviceTopology->status());
         if (m_directClusterSize == ~0u) {
             // Probe once: a cluster of BLAST_GPU_NATIVE_DIRECT_CLUSTER CTAs per
             // component (default 8, 0 disables) if the device and kernel allow it.
@@ -368,7 +375,7 @@
             const unsigned wanted = nativeDirectClusterSize();
             if (wanted > 1) {
                 cudaLaunchConfig_t cfg = {};
-                cfg.gridDim = dim3(wanted); cfg.blockDim = dim3(kBlockSize); cfg.dynamicSmemBytes = 0; cfg.stream = m_stream;
+                cfg.gridDim = dim3(wanted); cfg.blockDim = dim3(kBlockSize); cfg.dynamicSmemBytes = 0; cfg.stream = stream;
                 cudaLaunchAttribute attr = {};
                 attr.id = cudaLaunchAttributeClusterDimension; attr.val.clusterDim.x = wanted; attr.val.clusterDim.y = 1; attr.val.clusterDim.z = 1;
                 cfg.attrs = &attr; cfg.numAttrs = 1;
@@ -381,16 +388,16 @@
         if (m_directClusterSize > 1) {
             const unsigned clusters = std::max(1u, std::min(m_nodeCount, m_directGrid / m_directClusterSize));
             cudaLaunchConfig_t cfg = {};
-            cfg.gridDim = dim3(clusters * m_directClusterSize); cfg.blockDim = dim3(kBlockSize); cfg.dynamicSmemBytes = 0; cfg.stream = m_stream;
+            cfg.gridDim = dim3(clusters * m_directClusterSize); cfg.blockDim = dim3(kBlockSize); cfg.dynamicSmemBytes = 0; cfg.stream = stream;
             cudaLaunchAttribute attr = {};
             attr.id = cudaLaunchAttributeClusterDimension; attr.val.clusterDim.x = m_directClusterSize; attr.val.clusterDim.y = 1; attr.val.clusterDim.z = 1;
             cfg.attrs = &attr; cfg.numAttrs = 1;
             checkCuda(cudaLaunchKernelEx(&cfg, factorNativeDirectCluster, m_direct, op, components, view.modes.components, m_deviceTopology->status()), "native direct cluster factor launch");
         } else
-            factorNativeDirect<<<m_directGrid, kBlockSize, 0, m_stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status());
+            factorNativeDirect<<<grid, kBlockSize, 0, stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status());
         checkCuda(cudaGetLastError(), "native direct factor launch");
     }
-    unsigned m_directGrid = 0, m_directClusterSize = ~0u;
+    unsigned m_directGrid = 0, m_directClusterSize = ~0u, m_directSms = 1;
     void prefactorNativeDirect() {
         if (!m_direct.enabled || !m_deviceTopology) return;
         launchNativeDirectFactor();

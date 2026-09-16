@@ -938,6 +938,11 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             PxProfileScoped validation(PxGetProfilerCallback(),"GpuDestruction.validatePreparation",false,profileContext);
             ok=mDestruction->observeCorrectionPreparation();
         }
+        if(ok && !complete && !(mDestruction->correctionEnabled() && canCorrect)) {
+            // No corrected pass will follow: the accepted stress topology stands.
+            PxScopedCudaLock lock(*mCudaContextManager);
+            mDestruction->discardSpeculativeTopology();
+        }
         if(ok && !complete && mDestruction->correctionEnabled() && canCorrect) {
             if(ok) {
                 {
