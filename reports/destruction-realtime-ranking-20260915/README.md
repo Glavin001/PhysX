@@ -817,3 +817,33 @@ identities (§7, item 2), which is what retires island insertion,
 contact-manager preallocation and registration from the impact tick. Each
 of these is a fidelity-neutral but non-bitwise change (body order), so the
 physical gates are the acceptance path from the first step.
+
+## 11. State at the end of 2026-09-16 (session c)
+
+Shipped defaults (all lossless, bit-identical histories on the g16 screen,
+11/11 tests, continuous 600-tick counters identical): R1 direct factorization
+with Woodbury, pipelined narrow levels, diagonal inverses, 3 CTAs/SM and the
+verification skip; R6 incremental mass and motion modes; elastic reuse;
+friction-count zero-fill; speculative stress topology from the trial view;
+eager refactor on a side stream flushed after the runtime's synchronisations.
+Continuous city256: heavy 54.8 → 28.4 ms (60 Hz misses 519 → ~310), idle
+1.9 ms; warm nine windows pass under contract v4.
+
+Measured structure of a late corrected tick (g16, 42–50 ms): trial CPU
+pipeline ~13 ms, trial stress wait ~7, corrected pass ~11 (CPU stages plus
+launch chains, GPU busy 20 %), corrected stress wait ~5. GPU busy 26 % of
+the tick; the destruction GPU chain is ~10 ms/tick (two solves of ~255
+remnants whose loads change >1 %/tick, refactors, loads).
+
+Closed with measurements (see warm-screen.md): corrected-solve component
+skip (mode 2), exact/tolerance input reuse, device-side frozen corrected
+pass (mode 4, three variants), more CPU workers, smaller eager refactor
+grids, tiny-component dense step, cluster refactor, ND ordering.
+
+Remaining plan items, both multi-week and neither bit-comparable: R2
+registry migration (impact tick: ~40 ms new-pair pipeline, 22 ms body
+allocation; sustained −2 ms) and a CPU-level scoped corrected pass
+(~5 ms per corrected tick, needs a non-renumbering solver body list to be
+verifiable). With the two-pass same-tick rewind on this GPU the sustained
+floor is ~25 ms at city256 heavy; 16 ms needs either that structure relaxed
+or faster hardware.
