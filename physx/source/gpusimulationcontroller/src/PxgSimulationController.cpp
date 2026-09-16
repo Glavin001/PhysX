@@ -26,6 +26,8 @@
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 
 #include "PxgSimulationController.h"
+#include <cstdlib>
+#include <cstdio>
 #include "PxgDestructionNativeSnapshot.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxDirectGPUAPI.h"
@@ -889,6 +891,29 @@ namespace physx
                         body.mGpuHostDirty=0;mBodySimManager.mUpdatedMap.reset(id);
                     }
                     mDynamicContext->acknowledgeNativeNodeBirths(mDestruction->reservedBodyIndices(),mDestruction->reservedBodyCount());
+                    // R5 diagnostic (PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1): how much of the
+                    // trial island structure an island-scoped correction would touch. The
+                    // accurate island sim still holds the trial islands here; body sim
+                    // indices are node indices. Reserved (new) bodies have no island yet.
+                    {
+                        static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+                        if(scopeDiag) {
+                            const IG::IslandSim& sim=mDynamicContext->getIslandManager().getAccurateIslandSim();
+                            const PxU32 islandCount=sim.getNbIslands();
+                            PxArray<PxU8> touched(islandCount,PxU8(0));
+                            const IG::IslandId* ids=sim.getIslandIds();
+                            PxU32 affectedIslands=0,affectedBodies=0,unislanded=0;
+                            for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i) {
+                                const PxU32 node=indices[i];
+                                if(node>=sim.getNbNodes() || ids[node]==IG_INVALID_ISLAND){++unislanded;continue;}
+                                const IG::IslandId island=ids[node];
+                                if(island<islandCount && !touched[island]){touched[island]=1;++affectedIslands;affectedBodies+=sim.getIsland(island).mNodeCount[IG::Node::eRIGID_BODY_TYPE];}
+                            }
+                            static PxU32 pass=0;++pass;
+                            printf("island scope: pass=%u activeIslands=%u affectedIslands=%u activeBodies=%u affectedIslandBodies=%u correctionTargets=%u notInIsland=%u reserved=%u\n",
+                                pass,sim.getNbActiveIslands(),affectedIslands,sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE),affectedBodies,mDestruction->correctionBodyCount(),unislanded,mDestruction->reservedBodyCount());
+                        }
+                    }
                     auto& pending=mBodySimManager.mNewOrUpdatedBodySims;PxU32 kept=0;
                     for(PxU32 i=0;i<pending.size();++i)if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
                     pending.forceSize_Unsafe(kept);
