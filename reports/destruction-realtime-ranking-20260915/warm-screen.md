@@ -828,3 +828,22 @@ goes 0.61 → 0.57 ms per tick and the tick mean 33.2 → 32.9 ms, so the
 island maintenance cost (≈2.5 ms per tick across both sims) is in
 findPathsAndBreakIslands, removeEdges and deactivateIsland, not in the
 readiness walk. Both modes stay off.
+
+## R2 core bound: device-owned connectivity with sleeping disabled (g16, phases)
+
+To bound what the island half of the R2 core can save on sustained ticks,
+the existing device-owned connectivity path (`--gpu-connectivity-owner 1`,
+only allowed with sleeping off) was measured against owner 0, both with
+`--sleeping 0`, ticks 60–180, host wall ms per tick: accurate island
+maintenance 1.59 → 0.80, speculative 1.49 → 0.78, prepareIslandRepair
+1.97 → 0.47 (about 3 ms of CPU removed), bodyStatusWork 1.04 → 1.10,
+afterIntegration 0.66 → 0.87. The tick mean is nevertheless worse
+(32.4 → 37.2 ms, peak 189 → 359 ms) and the histories differ (owned
+connectivity changes solver inputs). Conclusion: on sustained ticks the
+island/sleep part of R2 is worth at most ~3 ms of CPU and the current
+owned path does not realise it; the tick remains bound by the GPU stress
+wait (11.8 ms) and the corrected collision pass (11.1 ms). R2's remaining
+value is the impact-tick registration (item 2, device-keyed pairs); the
+sustained tick's next exact lever is skipping the corrected stress solve
+for components the correction did not touch (R5 stage 2 mode 2, bit-
+identical on g4), measured next.
