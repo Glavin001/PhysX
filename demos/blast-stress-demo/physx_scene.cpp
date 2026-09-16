@@ -1,5 +1,7 @@
 // Copyright (c) 2026 NVIDIA Corporation. All rights reserved.
 
+#include <cstdlib>
+#include <algorithm>
 #include "physx_scene.h"
 
 #include <algorithm>
@@ -179,7 +181,11 @@ PhysXScene::PhysXScene(
         }
     }
 
-    m_dispatcher = physx::PxDefaultCpuDispatcherCreate(4);
+    // PHYSX_DEMO_CPU_THREADS overrides the worker count (default 4, the
+    // count every recorded measurement used).
+    const char* cpuThreadsRaw = std::getenv("PHYSX_DEMO_CPU_THREADS");
+    const int cpuThreads = cpuThreadsRaw ? std::max(1, std::atoi(cpuThreadsRaw)) : 4;
+    m_dispatcher = physx::PxDefaultCpuDispatcherCreate(static_cast<physx::PxU32>(cpuThreads));
     if (!m_dispatcher)
     {
         throw std::runtime_error("PxDefaultCpuDispatcherCreate failed");

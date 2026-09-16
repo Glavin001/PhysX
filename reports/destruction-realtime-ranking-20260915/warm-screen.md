@@ -1043,3 +1043,23 @@ histories identical at all three (56,077 broken bonds), late window
 53.6–55.5 ms vs 54.0 (noise band). The remnants that are solved every tick
 carry debris and impact loads that change by more than 1 % between ticks,
 so a tolerance-based skip cannot remove their fixed cost. Off (tolerance 0).
+
+## CPU worker count and the GPU stress path per tick (2026-09-16)
+
+The demo's dispatcher is 4 workers (`PxDefaultCpuDispatcherCreate(4)`, now
+overridable with `PHYSX_DEMO_CPU_THREADS`, default unchanged). g16 3 s
+bombardment, identical histories: late window 54.9 ms with 4 workers, 57.9
+with 8, 62.2 with 16; the impact tick 207 → 223 → 228 ms. The CPU pipeline
+is a chain of short stages and GPU synchronisation points, not a pool of
+parallel work; more workers only add contention.
+
+The demo's CUDA-event stage timings (`native.phases.csv.device.csv`, late
+window, per tick) put the destruction GPU path at 12.8 ms
+(`GpuDestruction.cuda.stress`: the two solves, the eager refactor, motion
+modes and hierarchy construction) plus contact loads 0.96, topology and
+candidates 0.62, allocation/preparation 0.31, materials 0.23. On the
+corrected tick 150 the trial stress phase is 7.5 ms and the corrected one
+5.6 ms. That matches the 14 ms/tick the CPU spends in `waitForGpu`: the
+stress path is the critical GPU chain, and it is bounded by the ~255
+remnants that must be solved every tick (their loads change by more than
+1 % per tick, so no exact or tolerance skip applies) at ~3 Mcycles each.
