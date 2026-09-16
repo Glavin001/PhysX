@@ -2260,16 +2260,53 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 			//Therefore, no point in testing the nodes in the island. They must remain awake
 			if (canDeactivate)
 			{
-				PxNodeIndex nodeId = island.mRootNode;
-				while (nodeId.index() != PX_INVALID_NODE)
+				// R2 core: the device verdict for this island is the flag of its root
+				// node (device components and islands coincide under owned connectivity).
+				const PxU32 root = island.mRootNode.index();
+				const bool haveVerdict = mGpuSleepNotReady && root < mGpuSleepCapacity;
+				const bool deviceCan = haveVerdict && !mGpuSleepNotReady[root];
+				if (haveVerdict && mGpuSleepMode == 1)
 				{
-					Node& node = mNodes[nodeId.index()];
-					if (!node.isReadyForSleeping())
+					canDeactivate = deviceCan;
+				}
+				else
+				{
+					PxNodeIndex nodeId = island.mRootNode;
+					while (nodeId.index() != PX_INVALID_NODE)
 					{
-						canDeactivate = false;
-						break;
+						Node& node = mNodes[nodeId.index()];
+						if (!node.isReadyForSleeping())
+						{
+							canDeactivate = false;
+							break;
+						}
+						nodeId = node.mNextNode;
 					}
-					nodeId = node.mNextNode;
+					if (haveVerdict && mGpuSleepMode == 2)
+					{
+						static PxU64 audits = 0, agree = 0, cpuOnly = 0, deviceOnly = 0, deviceOnlyMemberFlagged = 0, deviceOnlyMemberClear = 0, cpuOnlyRootFlagged = 0, shown = 0;
+						++audits; if (canDeactivate == deviceCan) ++agree; else if (canDeactivate) ++cpuOnly; else ++deviceOnly;
+						if (canDeactivate != deviceCan)
+						{
+							// Classify: for deviceOnly (device says sleep, CPU found a not-ready
+							// member) does that member's own device flag say not ready (then the
+							// root and the member sit in different device components or the
+							// member is unlabeled) or ready (readiness itself differs)?
+							PxU32 members = 0, notReadyCpu = 0, notReadyCpuFlagged = 0;
+							PxNodeIndex walkId = island.mRootNode;
+							while (walkId.index() != PX_INVALID_NODE)
+							{
+								const Node& walkNode = mNodes[walkId.index()]; ++members;
+								if (!walkNode.isReadyForSleeping()) { ++notReadyCpu; if (walkId.index() < mGpuSleepCapacity && mGpuSleepNotReady[walkId.index()]) ++notReadyCpuFlagged; }
+								walkId = walkNode.mNextNode;
+							}
+							if (!canDeactivate) { if (notReadyCpuFlagged) ++deviceOnlyMemberFlagged; else ++deviceOnlyMemberClear; }
+							else if (mGpuSleepNotReady[root]) ++cpuOnlyRootFlagged;
+							if (shown < 6) { ++shown; fprintf(stderr, "  mismatch %s: cpu=%d device=%d members=%u notReadyCpu=%u ofWhichDeviceFlagged=%u rootFlag=%u\n", mGpuData ? "accurate" : "speculative", int(canDeactivate), int(deviceCan), members, notReadyCpu, notReadyCpuFlagged, unsigned(mGpuSleepNotReady[root])); }
+						}
+						if ((audits & 4095) == 0) fprintf(stderr, "device sleep audit (%s): islands=%llu agree=%llu cpuOnly=%llu (rootFlagged=%llu) deviceOnly=%llu (memberFlagged=%llu memberClear=%llu)\n", mGpuData ? "accurate" : "speculative",
+							(unsigned long long)audits, (unsigned long long)agree, (unsigned long long)cpuOnly, (unsigned long long)cpuOnlyRootFlagged, (unsigned long long)deviceOnly, (unsigned long long)deviceOnlyMemberFlagged, (unsigned long long)deviceOnlyMemberClear);
+					}
 				}
 				if (canDeactivate)
 				{

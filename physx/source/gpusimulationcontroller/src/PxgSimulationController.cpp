@@ -674,6 +674,21 @@ namespace physx
         }
         const PxU32 *accurate=NULL,*speculative=NULL;const PxU32 *aMembers=NULL,*sMembers=NULL;PxU32 count=0;
         const bool owned=mDynamicContext->deviceConnectivityOwnershipReady();
+        // R2 core increment 1 (PHYSX_DESTRUCTION_DEVICE_SLEEP=1 use, 2 audit): per-node
+        // "component not ready" flags from the solver's sleep data and the device
+        // labels; the island sims deactivate from the root node's flag.
+        {
+            static const int deviceSleep=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):0;}();
+            islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,0);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,0);
+            if(deviceSleep) {
+                PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
+                const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+                if(core && bodies && mDestruction->computeComponentSleepVerdicts(core->getSolverBodySleepData().getPointer(),core->getGpuIslandNodeIndices().getPointer(),bodies,core->getStream())) {
+                    PxU32 capacity=0;const PxU8* verdicts=mDestruction->componentSleepVerdicts(capacity);
+                    if(verdicts && capacity){islands.getAccurateIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep));islands.getSpeculativeIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep));}
+                }
+            }
+        }
         if(!owned)islands.restoreHostConnectivity();
         islands.setDeviceConnectivityOwned(owned);
         const bool needAccurate=islands.getAccurateIslandSim().gpuComponentAuditEnabled()

@@ -10,6 +10,7 @@
 #include <cub/cub.cuh>
 #include <cuda.h>
 #include "PxgBodySim.h"
+#include "PxgSolverBody.h"
 #include "PxgDestructionNativeSnapshot.h"
 #include "PxgShapeSim.h"
 #include "PxgContactManager.h"
@@ -52,6 +53,25 @@ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T
 // Rebind compact runtime cluster slots entirely on device after acceptance.
 // Island-scoped correction: copy the trial snapshot back over the live state
 // for the listed (parked) bodies.
+// R2 core: component sleep verdicts. eDEACTIVATE_THIS_FRAME (1<<4) marks a
+// body ready to sleep; a component (accurate label) with any body not ready
+// stays awake; the per-node flag is read by the CPU from an island's root.
+__global__ void sleepComponentNotReady(const PxgSolverBodySleepData* sleep,const PxNodeIndex* nodes,unsigned count,
+    const unsigned* labels,unsigned nodeCapacity,unsigned char* componentNotReady) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i>=count)return;
+    const PxNodeIndex node=nodes[i];
+    if(node.index()==PX_INVALID_NODE || node.isArticulation() || node.index()>=nodeCapacity)return;
+    const unsigned label=labels[node.index()];
+    if(label>=nodeCapacity)return;
+    if(!(sleep[i].internalFlags & (1u<<4)))componentNotReady[label]=1;
+}
+__global__ void sleepNodeVerdict(const unsigned* labels,unsigned nodeCapacity,const unsigned char* componentNotReady,unsigned char* nodeNotReady) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i>=nodeCapacity)return;
+    const unsigned label=labels[i];
+    nodeNotReady[i]=(label<nodeCapacity)?componentNotReady[label]:1u;
+}
 __global__ void markParkedBodies(const unsigned* list,unsigned count,unsigned char* bitmap,unsigned capacity) {
     const unsigned k=blockIdx.x*blockDim.x+threadIdx.x;
     if(k<count && list[k]<capacity)bitmap[list[k]]=1;
@@ -1126,6 +1146,8 @@ public:
         cudaFree(mTrialSnapBodies);cudaFree(mTrialSnapPrevious);cudaFree(mTrialSnapAccelerations);mTrialSnapBodies=nullptr;mTrialSnapPrevious=nullptr;mTrialSnapAccelerations=nullptr;
         mTrialSnapCapacity=mTrialSnapCount=0;mTrialSnapshotValid=false;cudaFree(mReinstateList);mReinstateList=nullptr;mReinstateCapacity=0;
         cudaFree(mParkedBodyBitmap);mParkedBodyBitmap=nullptr;mParkedBodyBitmapCapacity=0;cudaFree(mParkedRootFlags);mParkedRootFlags=nullptr;mParkedRootCapacity=0;mParkedFlagsArmed=false;
+        cudaFree(mSleepComponentNotReady);cudaFree(mSleepNodeNotReady);if(mHostSleepNodeNotReady)cudaFreeHost(mHostSleepNodeNotReady);
+        mSleepComponentNotReady=mSleepNodeNotReady=mHostSleepNodeNotReady=nullptr;mSleepVerdictCapacity=mSleepVerdictCount=0;mSleepVerdictPending=false;
         mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCompletion->collision={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
@@ -1890,6 +1912,39 @@ public:
     PxgBodySim* mTrialSnapBodies=nullptr;PxgBodySimVelocities* mTrialSnapPrevious=nullptr;PxgRigidBodyAcceleration* mTrialSnapAccelerations=nullptr;
     PxU32 mTrialSnapCapacity=0,mTrialSnapCount=0;bool mTrialSnapshotRequested=false,mTrialSnapshotValid=false;
     unsigned* mReinstateList=nullptr;PxU32 mReinstateCapacity=0;
+    unsigned char *mSleepComponentNotReady=nullptr,*mSleepNodeNotReady=nullptr,*mHostSleepNodeNotReady=nullptr;PxU32 mSleepVerdictCapacity=0,mSleepVerdictCount=0;
+    cudaEvent_t mSleepVerdictReady=nullptr;bool mSleepVerdictPending=false;
+    bool computeComponentSleepVerdicts(const PxgSolverBodySleepData* sleep,const PxNodeIndex* nodes,PxU32 count,CUstream solverStream) override {
+        mSleepVerdictPending=false;mSleepVerdictCount=0;
+        const PxU32 capacity=mGraphView.nodeCapacity;
+        if(!sleep || !nodes || !count || !capacity || !mGraphAccurate || !solverStream)return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(solverStream);
+            if(capacity>mSleepVerdictCapacity) {
+                cudaFree(mSleepComponentNotReady);cudaFree(mSleepNodeNotReady);if(mHostSleepNodeNotReady)cudaFreeHost(mHostSleepNodeNotReady);
+                mSleepComponentNotReady=mSleepNodeNotReady=mHostSleepNodeNotReady=nullptr;
+                check(cudaMalloc(reinterpret_cast<void**>(&mSleepComponentNotReady),capacity));
+                check(cudaMalloc(reinterpret_cast<void**>(&mSleepNodeNotReady),capacity));
+                check(cudaMallocHost(reinterpret_cast<void**>(&mHostSleepNodeNotReady),capacity));
+                mSleepVerdictCapacity=capacity;
+            }
+            if(!mSleepVerdictReady)check(cudaEventCreateWithFlags(&mSleepVerdictReady,cudaEventDisableTiming));
+            if(mGraphView.readyEvent)check(cudaStreamWaitEvent(stream,reinterpret_cast<cudaEvent_t>(mGraphView.readyEvent),0));
+            check(cudaMemsetAsync(mSleepComponentNotReady,0,capacity,stream));
+            sleepComponentNotReady<<<(count+255u)/256u,256,0,stream>>>(sleep,nodes,count,mGraphAccurate,capacity,mSleepComponentNotReady);
+            sleepNodeVerdict<<<(capacity+255u)/256u,256,0,stream>>>(mGraphAccurate,capacity,mSleepComponentNotReady,mSleepNodeNotReady);
+            check(cudaGetLastError());
+            check(cudaMemcpyAsync(mHostSleepNodeNotReady,mSleepNodeNotReady,capacity,cudaMemcpyDeviceToHost,stream));
+            check(cudaEventRecord(mSleepVerdictReady,stream));
+            mSleepVerdictPending=true;mSleepVerdictCount=capacity;return true;
+        }catch(...){mSleepVerdictPending=false;return false;}
+    }
+    const PxU8* componentSleepVerdicts(PxU32& capacity) override {
+        capacity=0;
+        if(!mSleepVerdictPending)return nullptr;
+        try {Context current(mContext);check(cudaEventSynchronize(mSleepVerdictReady));}catch(...){mSleepVerdictPending=false;return nullptr;}
+        mSleepVerdictPending=false;capacity=mSleepVerdictCount;return mHostSleepNodeNotReady;
+    }
     unsigned char* mParkedBodyBitmap=nullptr;PxU32 mParkedBodyBitmapCapacity=0;
     unsigned* mParkedRootFlags=nullptr;PxU32 mParkedRootCapacity=0;bool mParkedFlagsArmed=false;
     void requestTrialSnapshot(bool enabled) override {mTrialSnapshotRequested=enabled;}

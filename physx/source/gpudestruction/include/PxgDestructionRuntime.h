@@ -112,6 +112,12 @@ public:
     // Copies only the captured rigid arrays, never CPU/island/contact state.
     // Candidate bodies must be applied after this restore, including new slots
     // that reused pre-existing holes. The future correction task owns that order.
+    // R2 core: device sleep verdicts. From the solver's per-body sleep data and
+    // the accurate contact-graph labels, mark every node whose device component
+    // holds a body that is not ready to sleep; the island sims deactivate an
+    // island from the flag of its root node instead of walking its nodes.
+    virtual bool computeComponentSleepVerdicts(const struct PxgSolverBodySleepData* sleep, const PxNodeIndex* nodes, PxU32 count, CUstream solverStream) = 0;
+    virtual const PxU8* componentSleepVerdicts(PxU32& capacity) = 0; // waits for the readback; NULL when unavailable
     // Island-scoped correction. requestTrialSnapshot makes the next
     // restoreRigidState keep a copy of the live (trial end-of-tick) state before
     // rewinding; reinstateTrialState copies that snapshot back for the listed
