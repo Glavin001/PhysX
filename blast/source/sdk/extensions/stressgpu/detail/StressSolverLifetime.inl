@@ -87,6 +87,9 @@ uploadIslands();
         cudaEventDestroy(m_downloadStop);
         cudaStreamDestroy(m_stream);
         if (m_bodyStream) { cudaStreamDestroy(m_bodyStream); m_bodyStream = nullptr; }
+        if (m_factorStream) { cudaStreamDestroy(m_factorStream); m_factorStream = nullptr; }
+        if (m_factorDone) { cudaEventDestroy(m_factorDone); m_factorDone = nullptr; }
+        if (m_topologyReady) { cudaEventDestroy(m_topologyReady); m_topologyReady = nullptr; }
         freeBondStress();
         cudaFreeHost(m_topoStaging);
         cudaFreeHost(m_hostStatus);
