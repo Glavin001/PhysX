@@ -630,6 +630,10 @@ are 0, but 0.8 % of island decisions still differ because the CPU readiness flag
 device cannot see (fragments created ready-for-sleep, cleared only by CPU wake paths). Mode 1
 measured +5.7 % bonds broken on g16 (outside the §11 envelope) and stays off. The scheduler
 therefore needs device-owned activation state, not only the reduction.
+Located (same day, `warm-screen.md`): the residual is PhysX's island-generation-versus-solver race
+rule in `afterIntegration` (bodies the island generator deactivates in parallel are rolled back with a
+zero wake counter and their solver wake flags discarded, readiness left set). The device verdict would
+have to apply the previous tick's `getNodesToDeactivate` list, or the device must own deactivation.
 
 ### R5 stage 1 result (2026-09-16): the corrected pass re-simulates ~200× more than it must
 

@@ -126,6 +126,11 @@ public:
     virtual bool enqueueComponentSleepVerdicts(const struct PxgSolverBodySleepData* sleep, const PxNodeIndex* nodes, PxU32 count, CUstream solverStream) = 0;
     virtual const PxU8* publishComponentSleepVerdicts(PxU32& capacity) = 0; // waits for the pending readback, publishes it, returns it
     virtual const PxU8* componentSleepVerdicts(PxU32& capacity) = 0; // the published verdict; NULL when unavailable
+    // Corrected pass: the CPU restores readiness for bodies that were active
+    // before the trial, but bodies born in the trial keep the trial's post-solve
+    // flags. Returns the published verdict with the trial's pending verdict
+    // merged in for the given born node indices.
+    virtual const PxU8* componentSleepVerdictsForCorrection(const PxU32* bornNodes, PxU32 bornCount, PxU32& capacity) = 0;
     // Island-scoped correction. requestTrialSnapshot makes the next
     // restoreRigidState keep a copy of the live (trial end-of-tick) state before
     // rewinding; reinstateTrialState copies that snapshot back for the listed

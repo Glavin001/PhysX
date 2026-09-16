@@ -679,8 +679,8 @@ public:
 	// R2 core: device sleep verdicts (per node: nonzero when the node's device
 	// component holds a body not ready to sleep). Mode 1 uses them in place of the
 	// per-island node walk, mode 2 audits them against the walk. Cleared after use.
-	void setGpuSleepVerdicts(const PxU8* nodeNotReady, PxU32 capacity, PxU32 mode) { mGpuSleepNotReady = nodeNotReady; mGpuSleepCapacity = capacity; mGpuSleepMode = mode; }
-	const PxU8* mGpuSleepNotReady = NULL; PxU32 mGpuSleepCapacity = 0, mGpuSleepMode = 0;
+	void setGpuSleepVerdicts(const PxU8* nodeNotReady, PxU32 capacity, PxU32 mode, PxU32 passTag = 0) { mGpuSleepNotReady = nodeNotReady; mGpuSleepCapacity = capacity; mGpuSleepMode = mode; mGpuSleepPassTag = passTag; }
+	const PxU8* mGpuSleepNotReady = NULL; PxU32 mGpuSleepCapacity = 0, mGpuSleepMode = 0, mGpuSleepPassTag = 0;
 	// Diagnostic: number of active-list entries whose node does not point back (0 = consistent).
 	PxU32 validateActiveLists(const char* tag) const;
 	void unparkIslandForPass(IslandId island);

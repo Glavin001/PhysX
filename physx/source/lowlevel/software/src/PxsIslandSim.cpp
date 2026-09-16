@@ -2336,8 +2336,8 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 								if (rootNode.mType == Node::eRIGID_BODY_TYPE && rootNode.mObject) {
 									const PxsRigidBody& body = *reinterpret_cast<const PxsRigidBody*>(rootNode.mObject);
 									wake = body.getCore().wakeCounter; solverWake = body.getCore().solverWakeCounter; internalFlags = body.mInternalFlags; }
-								fprintf(stderr, "  mismatch accurate #%llu: cpu=%d device=%d members=%u notReadyCpu=%u ofWhichDeviceFlagged=%u rootFlag=%u woken=%d root=%u/%u rootReady=%d activating=%d kinematic=%d activeIndex=%u wake=%g solverWake=%g bodyFlags=0x%x\n",
-									(unsigned long long)audits, int(canDeactivate), int(deviceCan), members, notReadyCpu, notReadyCpuFlagged, unsigned(mGpuSleepNotReady[root]), int(wokenCpu), root, mNodes.size(),
+								fprintf(stderr, "  mismatch accurate #%llu pass=%u(%s): cpu=%d device=%d members=%u notReadyCpu=%u ofWhichDeviceFlagged=%u rootFlag=%u woken=%d root=%u/%u lifetime=%u rootReady=%d activating=%d kinematic=%d activeIndex=%u wake=%g solverWake=%g bodyFlags=0x%x\n",
+									(unsigned long long)audits, mGpuSleepPassTag >> 1, (mGpuSleepPassTag & 1) ? "corrected" : "trial", int(canDeactivate), int(deviceCan), members, notReadyCpu, notReadyCpuFlagged, unsigned(mGpuSleepNotReady[root]), int(wokenCpu), root, mNodes.size(), unsigned(getPreSolveLifetime(root)),
 									int(rootNode.isReadyForSleeping()), int(rootNode.isActivating()), int(rootNode.isKinematic()), activeIndex, double(wake), double(solverWake), internalFlags); }
 						}
 						if ((audits & 4095) == 0) fprintf(stderr, "device sleep audit (%s): islands=%llu agree=%llu cpuOnly=%llu (rootFlagged=%llu) deviceOnly=%llu (memberFlagged=%llu memberClear=%llu)\n", mGpuData ? "accurate" : "speculative",

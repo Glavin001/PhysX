@@ -2049,6 +2049,24 @@ public:
     const PxU8* componentSleepVerdicts(PxU32& capacity) override {
         capacity=mSleepPublishedCount;return mSleepPublishedCount?mHostSleepPublished:nullptr;
     }
+    std::vector<unsigned char> mHostSleepCorrected;
+    const PxU8* componentSleepVerdictsForCorrection(const PxU32* bornNodes,PxU32 bornCount,PxU32& capacity) override {
+        capacity=0;
+        if(!mSleepPublishedCount)return nullptr;
+        if(!bornCount || !bornNodes || !mSleepVerdictPending){capacity=mSleepPublishedCount;return mHostSleepPublished;}
+        bool ok=true;
+        try {Context current(mContext);check(cudaEventSynchronize(mSleepVerdictReady));}catch(...){ok=false;}
+        if(!ok){capacity=mSleepPublishedCount;return mHostSleepPublished;}
+        // Keep the pending verdict pending: the next tick's trial pass publishes it.
+        const PxU32 size=PxMax(mSleepPublishedCount,mSleepVerdictCount);
+        mHostSleepCorrected.assign(size,1u);
+        std::memcpy(mHostSleepCorrected.data(),mHostSleepPublished,mSleepPublishedCount);
+        for(PxU32 i=0;i<bornCount;++i) {
+            const PxU32 node=bornNodes[i];
+            if(node<mSleepVerdictCount)mHostSleepCorrected[node]=mHostSleepNodeNotReady[node];
+        }
+        capacity=size;return mHostSleepCorrected.data();
+    }
     // PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG: device-side contradiction test on the
     // verdict just read back. A node the device calls ready while its own solver
     // entry is awake means the verdict does not come from that pass's data.

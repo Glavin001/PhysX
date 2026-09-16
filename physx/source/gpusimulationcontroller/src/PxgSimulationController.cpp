@@ -769,8 +769,12 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             if(deviceSleep==3) { islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,3);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,3); }
             else if(deviceSleep) {
                 PxU32 capacity=0;
-                const PxU8* verdicts=mDestructionCorrecting?mDestruction->componentSleepVerdicts(capacity):mDestruction->publishComponentSleepVerdicts(capacity);
-                if(verdicts && capacity){islands.getAccurateIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep));islands.getSpeculativeIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep));}
+                const PxU8* verdicts=mDestructionCorrecting
+                    ?mDestruction->componentSleepVerdictsForCorrection(mDestruction->reservedBodyIndices(),mDestruction->reservedBodyCount(),capacity)
+                    :mDestruction->publishComponentSleepVerdicts(capacity);
+                static PxU32 sleepPassTick=0;if(!mDestructionCorrecting)++sleepPassTick;
+                const PxU32 tag=(sleepPassTick<<1)|(mDestructionCorrecting?1u:0u);
+                if(verdicts && capacity){islands.getAccurateIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),tag);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),tag);}
             }
         }
         if(!owned)islands.restoreHostConnectivity();
