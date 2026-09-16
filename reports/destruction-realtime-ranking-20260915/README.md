@@ -847,3 +847,17 @@ allocation; sustained −2 ms) and a CPU-level scoped corrected pass
 verifiable). With the two-pass same-tick rewind on this GPU the sustained
 floor is ~25 ms at city256 heavy; 16 ms needs either that structure relaxed
 or faster hardware.
+
+### Acceptance envelope for order-changing work (R2 core, CPU-level R5), adopted 2026-09-16
+
+Work that changes the solver body order cannot reproduce bit-identical
+histories, and the fracture model amplifies bit-level differences into
+different break sequences, so the exact gates (contract v4 discrete outcomes,
+continuous counter match) do not apply. Until the user overrides it, such
+work is accepted when, against the control on the same fixture and run
+length: total broken bonds and final cluster count are within 3 %; no tick
+breaks more than 2,000 bonds where the control breaks fewer than 200
+(collapse without cause); the demo's motion and island-boundary audits pass;
+the nine warm windows stay within their motion bounds; and timing is
+reported as before (means, peaks, 60 Hz misses). Bit-identical control
+runs (A/A) remain required for every lossless change.
