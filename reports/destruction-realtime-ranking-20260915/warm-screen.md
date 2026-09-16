@@ -810,3 +810,21 @@ README: R2 core (device sleep state and device-keyed partition edges) and
 R5 island-scoped correction; both are multi-week PhysX-internals projects
 that own the remaining 12 ms corrected pass and the CPU phase tail of the
 sustained tick, and the 170–190 ms impact peak.
+
+## R2 core increment 1: device sleep verdicts (audit only) and the flat readiness pass
+
+`PHYSX_DESTRUCTION_DEVICE_SLEEP`: 2 audits device component sleep verdicts
+(solver sleep flags reduced per accurate contact-graph label, one flag per
+node read back) against the CPU's per-island readiness walk; 1 would use
+them; 3 is an exact CPU variant (one flat pass over the active node lists
+into a per-island bitmap). g16 3 s bombardment: audit 99.9 % agreement
+(1.13 M decisions; 4.6 k CPU-only, 5.6 k device-only sleeps). The residual
+comes from the CPU readiness flag being a sticky, multi-source state
+(set by DEACTIVATE_THIS_FRAME, cleared by wake paths) while the solver's
+flags and wake counters are per-frame; an exact device replica needs the
+device to own that state (activation deltas both ways), which is the R2
+core proper. Mode 3 is exact and neutral: the accurate deactivation zone
+goes 0.61 → 0.57 ms per tick and the tick mean 33.2 → 32.9 ms, so the
+island maintenance cost (≈2.5 ms per tick across both sims) is in
+findPathsAndBreakIslands, removeEdges and deactivateIsland, not in the
+readiness walk. Both modes stay off.
