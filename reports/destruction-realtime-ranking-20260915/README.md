@@ -632,3 +632,44 @@ Fidelity: mathematically exact for untouched islands; not bitwise
 comparable to today's histories because the solver's active set (hence
 partition and body order) changes, so qualification is by the physical
 gates (contract v4, counters, trajectories), not by identical histories.
+
+#### Parking mechanics (mapped 2026-09-16, before stage 2)
+
+- Activity lives in two places: IG node state (`PxsIslandSim.cpp:776-830`
+  `activateNodeInternal`/`deactivateNodeInternal`) and Sc state
+  (`mActiveBodies`, `ScScene.cpp:1186/1257`; `BodySim::setActive`,
+  `ScSleep.cpp:50`). `deactivateNode_ForGPUSolver`/`activateNode_ForGPUSolver`
+  (`PxsIslandSim.h:701-710`) only flip readiness; removal from the active
+  list happens in third-pass island gen after the solver, so they cannot park
+  an island for the same pass. Parking needs a new IG-level "deactivate now"
+  that bypasses `BodySim::setActive` (which asserts `wakeCounter == 0`, zeroes
+  velocities and queues user sleep notifications, `ScBodySim.cpp:463-497`).
+- The corrected pass refreshes all rigid shape bounds from the GPU body sims
+  regardless of activity (`PxgSimulationController.cpp:1190`,
+  `PxgSimulationCore.cpp:3265-3305`), so parked bodies carry their trial
+  end-of-tick bounds into the corrected broadphase: what the closure needs.
+- A contact manager exists only if at least one actor is active in the
+  speculative sim (`ScShapeInteraction.h:286-307`); parking both sides in the
+  speculative sim destroys the manager (`onDeactivate`, `.cpp:971-995`) and
+  its contact cache, which would cost warm starts on every debris pile after
+  every correction. Hence park in the accurate sim only (solver list source,
+  `PxgContext.cpp:2371-2381`) and keep the speculative sim untouched, provided
+  the solver's constraint selection skips edges whose endpoints are both
+  inactive in the accurate sim (under verification).
+- A new touch between an affected body and a parked one wakes the parked
+  island in the same pass (`setEdgesConnected` `ScPipeline.cpp:1790-1820` →
+  second-pass island gen → `wakeObjectsUp`), before `PxgGpuContext::update`,
+  so the third closure set is handled by the ordinary path; a broadphase
+  overlap without a touch does not wake it (correct: no coupling).
+- GPU restore (`PxgDestructionRuntime.cu:1777-1875`) is three whole-array D2D
+  copies (`PxgBodySim`, previous velocities, accelerations) sized
+  `mTotalNumBodies`; a scoped restore is a gather over the affected index
+  list, with `installCorrectionBodies`/`acceptCorrection` to be checked for
+  full-array assumptions. Bodies absent from `mActiveNodeIndex` are untouched
+  by the corrected solve (no pre-integration, solve or writeback).
+- Asserts that constrain ordering: `activateNode` requires
+  `mActiveNodeIndex == PX_INVALID_NODE` (`PxsIslandSim.cpp:704`),
+  `makeEdgeActive` (`:765-766`), `ShapeInteraction::onDeactivate` (`:967-969`),
+  `validateDeactivations` (`PxsSimpleIslandManager.cpp:424`),
+  `addToActiveList`/`removeFromActiveList` and the kinematic prefix
+  (`ScScene.cpp:1188/1260-1298`).
