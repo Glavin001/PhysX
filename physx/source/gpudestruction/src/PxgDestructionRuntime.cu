@@ -1158,6 +1158,8 @@ public:
         cudaFree(mCheckpointAccelerations);mCheckpointAccelerations=nullptr;
         cudaFree(mTrialSnapBodies);cudaFree(mTrialSnapPrevious);cudaFree(mTrialSnapAccelerations);mTrialSnapBodies=nullptr;mTrialSnapPrevious=nullptr;mTrialSnapAccelerations=nullptr;
         mTrialSnapCapacity=mTrialSnapCount=0;mTrialSnapshotValid=false;cudaFree(mReinstateList);mReinstateList=nullptr;mReinstateCapacity=0;
+        if(mReinstateHost){cudaFreeHost(mReinstateHost);mReinstateHost=nullptr;}
+        for(auto& e:mReinstateUploaded)if(e){cudaEventDestroy(e);e=nullptr;}
         cudaFree(mParkedBodyBitmap);mParkedBodyBitmap=nullptr;mParkedBodyBitmapCapacity=0;cudaFree(mParkedRootFlags);mParkedRootFlags=nullptr;mParkedRootCapacity=0;mParkedFlagsArmed=false;
         cudaFree(mSleepComponentNotReady);cudaFree(mSleepNodeNotReady);cudaFree(mSleepOwnNotReady);if(mHostSleepNodeNotReady)cudaFreeHost(mHostSleepNodeNotReady);
         mSleepComponentNotReady=mSleepNodeNotReady=mSleepOwnNotReady=mHostSleepNodeNotReady=nullptr;mSleepVerdictCapacity=mSleepVerdictCount=0;mSleepVerdictPending=false;
@@ -1974,6 +1976,27 @@ public:
     PxgBodySim* mTrialSnapBodies=nullptr;PxgBodySimVelocities* mTrialSnapPrevious=nullptr;PxgRigidBodyAcceleration* mTrialSnapAccelerations=nullptr;
     PxU32 mTrialSnapCapacity=0,mTrialSnapCount=0;bool mTrialSnapshotRequested=false,mTrialSnapshotValid=false;
     unsigned* mReinstateList=nullptr;PxU32 mReinstateCapacity=0;
+    // Pinned staging (two slots) so a host list can be uploaded without a
+    // stream synchronisation; a slot is reused only after its upload completed.
+    unsigned* mReinstateHost=nullptr;cudaEvent_t mReinstateUploaded[2]{};PxU32 mReinstateSlot=0;
+    const unsigned* stageReinstateList(const PxU32* bodies,PxU32 count,cudaStream_t stream) {
+        if(count>mReinstateCapacity) {
+            if(mReinstateList)check(cudaFree(mReinstateList));mReinstateList=nullptr;
+            if(mReinstateHost)check(cudaFreeHost(mReinstateHost));mReinstateHost=nullptr;
+            const PxU32 capacity=std::max(count*2u,PxU32(4096)); // geometric growth: a reallocation synchronises the device
+            check(cudaMalloc(reinterpret_cast<void**>(&mReinstateList),sizeof(unsigned)*size_t(capacity)*2u));
+            check(cudaMallocHost(reinterpret_cast<void**>(&mReinstateHost),sizeof(unsigned)*size_t(capacity)*2u));
+            mReinstateCapacity=capacity;
+        }
+        for(auto& e:mReinstateUploaded)if(!e)check(cudaEventCreateWithFlags(&e,cudaEventDisableTiming));
+        const PxU32 slot=mReinstateSlot;mReinstateSlot^=1u;
+        if(cudaEventQuery(mReinstateUploaded[slot])==cudaErrorNotReady)check(cudaEventSynchronize(mReinstateUploaded[slot]));
+        unsigned* host=mReinstateHost+size_t(slot)*mReinstateCapacity;unsigned* device=mReinstateList+size_t(slot)*mReinstateCapacity;
+        std::memcpy(host,bodies,sizeof(unsigned)*size_t(count));
+        check(cudaMemcpyAsync(device,host,sizeof(unsigned)*size_t(count),cudaMemcpyHostToDevice,stream));
+        check(cudaEventRecord(mReinstateUploaded[slot],stream));
+        return device;
+    }
     unsigned char *mSleepComponentNotReady=nullptr,*mSleepNodeNotReady=nullptr,*mSleepOwnNotReady=nullptr,*mHostSleepNodeNotReady=nullptr;PxU32 mSleepVerdictCapacity=0,mSleepVerdictCount=0;
     cudaEvent_t mSleepVerdictReady=nullptr;bool mSleepVerdictPending=false;
     bool computeComponentSleepVerdicts(const PxgSolverBodySleepData* sleep,const PxNodeIndex* nodes,PxU32 count,CUstream solverStream) override {
@@ -2018,32 +2041,30 @@ public:
         if((reinstateBodies && !mTrialSnapshotValid) || !live || !coreStream)return false;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
-            if(count>mReinstateCapacity){if(mReinstateList)check(cudaFree(mReinstateList));mReinstateList=nullptr;
-                check(cudaMalloc(reinterpret_cast<void**>(&mReinstateList),sizeof(unsigned)*size_t(count)));mReinstateCapacity=count;}
-            check(cudaMemcpyAsync(mReinstateList,bodies,sizeof(unsigned)*size_t(count),cudaMemcpyHostToDevice,stream));
+            const unsigned* list=stageReinstateList(bodies,count,stream);
             if(reinstateBodies)reinstateTrialBodies<<<(count+255u)/256u,256,0,stream>>>(live,mTrialSnapBodies,previous?previous:nullptr,mTrialSnapPrevious,
-                accelerations?accelerations:nullptr,mTrialSnapAccelerations,mReinstateList,count,mTrialSnapCount);
+                accelerations?accelerations:nullptr,mTrialSnapAccelerations,list,count,mTrialSnapCount);
             check(cudaGetLastError());
             const PxU32 bodyCapacity=mTrialSnapshotValid?mTrialSnapCount:mCheckpointCount;
             // Stress components of the parked bodies keep their trial result in the
             // corrected solve: body bitmap -> per-cluster-root flags (consumed once).
             if(skipStressComponents && mTopology && mChunks && mClusters && mN && bodyCapacity) {
                 if(bodyCapacity>mParkedBodyBitmapCapacity){cudaFree(mParkedBodyBitmap);mParkedBodyBitmap=nullptr;
-                    check(cudaMalloc(reinterpret_cast<void**>(&mParkedBodyBitmap),size_t(bodyCapacity)));mParkedBodyBitmapCapacity=bodyCapacity;}
+                    mParkedBodyBitmapCapacity=std::max(bodyCapacity*2u,PxU32(8192));
+                    check(cudaMalloc(reinterpret_cast<void**>(&mParkedBodyBitmap),size_t(mParkedBodyBitmapCapacity)));}
                 if(mN>mParkedRootCapacity){cudaFree(mParkedRootFlags);mParkedRootFlags=nullptr;
                     check(cudaMalloc(reinterpret_cast<void**>(&mParkedRootFlags),sizeof(unsigned)*size_t(mN)));mParkedRootCapacity=mN;}
                 check(cudaMemsetAsync(mParkedBodyBitmap,0,size_t(bodyCapacity),stream));
                 check(cudaMemsetAsync(mParkedRootFlags,0,sizeof(unsigned)*size_t(mN),stream));
-                markParkedBodies<<<(count+255u)/256u,256,0,stream>>>(mReinstateList,count,mParkedBodyBitmap,bodyCapacity);
+                markParkedBodies<<<(count+255u)/256u,256,0,stream>>>(list,count,mParkedBodyBitmap,bodyCapacity);
                 markParkedRoots<<<(mN+255u)/256u,256,0,stream>>>(mTopology->accepted(),mChunks,mClusters,std::max(mN,mC),mParkedBodyBitmap,bodyCapacity,mParkedRootFlags,mN);
                 check(cudaGetLastError());
                 mParkedFlagsArmed=true;
             }
-            check(cudaStreamSynchronize(stream)); // the host list is reused by the caller
             static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
             if(scopeDiag) {
                 unsigned flagged=0;
-                if(mParkedFlagsArmed) {std::vector<unsigned> flags(mN);check(cudaMemcpy(flags.data(),mParkedRootFlags,sizeof(unsigned)*size_t(mN),cudaMemcpyDeviceToHost));
+                if(mParkedFlagsArmed) {std::vector<unsigned> flags(mN);check(cudaStreamSynchronize(stream));check(cudaMemcpy(flags.data(),mParkedRootFlags,sizeof(unsigned)*size_t(mN),cudaMemcpyDeviceToHost));
                     for(unsigned f:flags)flagged+=f?1u:0u;}
                 std::printf("[island-scope] reinstate parked=%u bodyCapacity=%u snapshot=%d skip=%d armed=%d flaggedRoots=%u\n",
                     count,bodyCapacity,int(mTrialSnapshotValid),int(skipStressComponents),int(mParkedFlagsArmed),flagged);
@@ -2057,13 +2078,10 @@ public:
         if(!mCheckpointValid || !mCheckpointBodies || !live || !coreStream)return false;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
-            if(count>mReinstateCapacity){if(mReinstateList)check(cudaFree(mReinstateList));mReinstateList=nullptr;
-                check(cudaMalloc(reinterpret_cast<void**>(&mReinstateList),sizeof(unsigned)*size_t(count)));mReinstateCapacity=count;}
-            check(cudaMemcpyAsync(mReinstateList,bodies,sizeof(unsigned)*size_t(count),cudaMemcpyHostToDevice,stream));
+            const unsigned* list=stageReinstateList(bodies,count,stream);
             reinstateTrialBodies<<<(count+255u)/256u,256,0,stream>>>(live,mCheckpointBodies,previous?previous:nullptr,mCheckpointPrevious,
-                accelerations?accelerations:nullptr,mCheckpointAccelerations,mReinstateList,count,mCheckpointCount);
+                accelerations?accelerations:nullptr,mCheckpointAccelerations,list,count,mCheckpointCount);
             check(cudaGetLastError());
-            check(cudaStreamSynchronize(stream));
             return true;
         }catch(...){return false;}
     }
@@ -2083,11 +2101,13 @@ public:
                 // Island-scoped correction: keep the live (trial end-of-tick) state so
                 // parked bodies can be reinstated once the affected set is known.
                 if(mTrialSnapCapacity<mCheckpointCount) {
+                    // Geometric growth: every reallocation synchronises the device.
+                    const PxU32 capacity=std::max(mCheckpointCount*2u,PxU32(8192));
                     cudaFree(mTrialSnapBodies);cudaFree(mTrialSnapPrevious);cudaFree(mTrialSnapAccelerations);mTrialSnapBodies=nullptr;mTrialSnapPrevious=nullptr;mTrialSnapAccelerations=nullptr;
-                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapBodies),sizeof(*bodies)*size_t(mCheckpointCount)));
-                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapPrevious),sizeof(*previous)*size_t(mCheckpointCount)));
-                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapAccelerations),sizeof(*accelerations)*size_t(mCheckpointCount)));
-                    mTrialSnapCapacity=mCheckpointCount;
+                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapBodies),sizeof(*bodies)*size_t(capacity)));
+                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapPrevious),sizeof(*previous)*size_t(capacity)));
+                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapAccelerations),sizeof(*accelerations)*size_t(capacity)));
+                    mTrialSnapCapacity=capacity;
                 }
                 check(cudaMemcpyAsync(mTrialSnapBodies,bodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
                 if(previous)check(cudaMemcpyAsync(mTrialSnapPrevious,previous,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));

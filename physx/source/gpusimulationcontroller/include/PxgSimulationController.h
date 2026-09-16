@@ -523,6 +523,7 @@ class PxProfilerCallback;
         PxArray<PxU32> mDestructionFrozenNodes;
         PxArray<PxU32> mDestructionFrozenStaticEdges; // static contact edges of the frozen bodies (not batched this pass)
         bool mDestructionFreezePending = false;
+        bool mDestructionReinstatedAtInstall = true;
         const PxU32* destructionFrozenStaticEdges(PxU32& count) const { count=mDestructionFrozenStaticEdges.size(); return mDestructionFrozenStaticEdges.begin(); }
         const PxArray<PxNodeIndex>* destructionFilteredActiveNodes(const IG::IslandSim& islandSim);
         void discardDestructionTrialBodyUpload(PxU32 id) override {

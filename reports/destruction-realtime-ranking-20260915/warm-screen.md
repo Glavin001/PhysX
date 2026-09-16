@@ -1134,3 +1134,32 @@ bombardment, two interleaved pairs: histories bit-identical (56,077 broken
 bonds); CUDA stress stage 10.15/10.16 → 9.87/9.88 ms per late tick,
 `waitForGpu` 12.49/12.56 → 12.22/12.27; the tick itself moves inside the
 noise band (late 52.8/49.7 vs 54.1/50.4). 11/11 tests.
+
+## R5 device-side scoping closed: even freezing only isolated bodies is not comparable (mode 4 stays off)
+
+Two follow-ups on mode 4. Its host synchronisations were replaced by pinned
+double-buffered staging and its per-growth reallocations (trial snapshot,
+parked bitmap, reinstate list) by geometric growth; `restoreInstall` fell
+from 5.9–7.5 to 0.26 ms per late tick. Then the candidate set was
+restricted to bodies with no island edge and no static contact
+(`PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_ISOLATED=1`), whose trial and
+corrected states are identical by construction. g16 3 s bombardment:
+
+| | late window | corrected-tick mean | broken bonds | first differing tick |
+|---|---:|---:|---:|---|
+| default | 51.7 ms | 57.0 | 56,077 | – |
+| mode 4, isolated only, reinstate at install | 57.0 ms | 63.2 | 57,432 | 85 (post-correction verdict) |
+| mode 4, isolated only, reinstate at finalize | 77.2 ms | 78.5 | 74,243 | 85 |
+
+Even with only isolated bodies frozen the history diverges at the first
+frozen pass, because removing any body from the solver's active list
+renumbers every other solver body and changes the partition's accumulation
+order, so the rigid solve of the unrelated bodies is no longer bit-identical;
+the +2.4 % breakage of the install-time variant is chaos amplified by the
+fracture model, and the finalize-time variant (bodies at the checkpoint
+through narrowphase, reinstated before the solve) is systematically wrong
+(+32 %). The mechanism also costs ~3 ms per corrected tick with almost no
+body frozen (finalize walk, filtered list, empty constraints). Since neither
+a bit-identical reference nor the physical counters can separate a defect
+from chaos here, and the upside measured earlier is below 1 ms of GPU work,
+device-side island scoping is closed; mode 4 remains available, off.

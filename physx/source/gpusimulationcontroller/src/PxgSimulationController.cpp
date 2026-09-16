@@ -183,15 +183,17 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     {
         PxScopedCudaLock lock(*mCudaContextManager);
         // Candidates already carry their trial state (install); merged ones go
-        // back to the checkpoint and are solved like any affected body.
-        if(mergedNodes.size())
+        // back to the checkpoint and are solved like any affected body. With
+        // reinstatement at finalize instead, everything sat at the checkpoint
+        // through broadphase/narrowphase and only the frozen bodies move now.
+        if(mDestructionReinstatedAtInstall && mergedNodes.size())
             ok=mDestruction->restoreCheckpointBodies(mergedNodes.begin(),mergedNodes.size(),
                 mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
                 mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream());
-        if(ok && mDestructionFrozenNodes.size() && (freezeBits&1) && stressSkip)
+        if(ok && mDestructionFrozenNodes.size() && (freezeBits&1))
             ok=mDestruction->reinstateTrialState(mDestructionFrozenNodes.begin(),mDestructionFrozenNodes.size(),
                 mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
-                mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),false,true);
+                mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),!mDestructionReinstatedAtInstall,stressSkip);
         // skipStressComponents: their contacts are neutralised in the corrected
         // rigid solve, so the corrected stress solve republishes their trial
         // result instead of solving with missing contact loads.
@@ -1038,6 +1040,23 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                                 }
                                 mDestructionParkedNodes=kept;
                             }
+                            // Bisection aid: PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_ISOLATED=1 keeps
+                            // only bodies without any island edge or static contact (their
+                            // trial and corrected results are identical by construction).
+                            static const bool isolatedOnly=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_ISOLATED");return raw && raw[0]=='1';}();
+                            if(isolatedOnly) {
+                                PxArray<PxU32> kept;
+                                for(PxU32 i=0;i<mDestructionParkedNodes.size();++i) {
+                                    const PxU32 node=mDestructionParkedNodes[i];
+                                    if(sim.getNode(PxNodeIndex(node)).mFirstEdgeIndex!=IG_INVALID_EDGE)continue;
+                                    if(node<mBodySimManager.mStaticConstraints.size()) {
+                                        const PxgStaticConstraints& sc=mBodySimManager.mStaticConstraints[node];
+                                        if(sc.mStaticContacts.size() || sc.mStaticJoints.size())continue;
+                                    }
+                                    kept.pushBack(node);
+                                }
+                                mDestructionParkedNodes=kept;
+                            }
                             for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i)mDestructionAffectedNodes.pushBack(indices[i]);
                             for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)mDestructionAffectedNodes.pushBack(reserved[i]);
                             mDestructionFreezePending=mDestructionParkedNodes.size()!=0;
@@ -1046,7 +1065,9 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                             // evolve as the next tick expects); a candidate that a new touch
                             // merges into an affected island is gathered back to the
                             // checkpoint before the solve (destructionFilteredActiveNodes).
-                            if(mDestructionFreezePending) {
+                            static const bool reinstateAtInstall=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_REINSTATE_AT_INSTALL");return !raw || raw[0]!='0';}();
+                            mDestructionReinstatedAtInstall=reinstateAtInstall;
+                            if(mDestructionFreezePending && reinstateAtInstall) {
                                 PxScopedCudaLock lock(*mCudaContextManager);
                                 ok=ok && mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
                                     mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
