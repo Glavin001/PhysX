@@ -601,6 +601,30 @@ partition edges, retiring `preallocateContactManagers` /
 `islandInsertion` / `registerInteractions` from the impact tick) together
 with the device sleep scheduler, i.e. the multi-week core of R2.
 
+### Device sleep verdict audit, cause of the residual (2026-09-16, after R2 steps 1–3)
+
+`PHYSX_DESTRUCTION_DEVICE_SLEEP=2` with the new `PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG=1`
+(device-side contradiction test in `componentSleepVerdicts`, `PxgDestructionRuntime.cu`) on the
+g16 3 s bombardment: 763 of 1.72 M solver entries are "device says ready" while the entry's own
+solver sleep data is awake, and the island audit's first mismatches are the 256 projectiles at
+the impact tick (CPU wake counter 0.333, freshly reset by the solver; device verdict ready).
+Two causes, both ordering, neither numerical:
+1. The verdict kernels are enqueued from `prepareGpuDestructionIslandRepair`, which runs in
+   `destroyManagers` concurrently with the solver task (`processLostContacts3` continues to
+   `mPostSolver`, `ScPipeline.cpp:2267`). Depending on which side enqueues first, the device
+   reads this pass's or the previous pass's sleep data, while the CPU third pass always uses
+   the readiness flags set by the previous tick's `afterIntegration` (sticky flags, restored
+   by `restoreDestructionActivity` for corrected passes).
+2. Nodes absent from the solver list of the pass that produced the data (fragments born this
+   pass, bodies just activated) have no entry; `ownNotReady` is zero-filled, so they default to
+   ready, whereas the CPU creates them not ready.
+Requirement for the device sleep scheduler (R2 item 1): compute the verdict once per tick on the
+solver stream immediately after `integrateCoreParallel` of the accepted pass, from the pre-solve
+node labels of that pass (`mPreSolveIslandIds`, stable during the solve, instead of the repair
+graph that may be rebuilt concurrently), default missing entries to not ready, and publish it for
+both the trial and the corrected third pass of the next tick; CPU-side wakes stay covered by
+`mIslandWokenThisFrame`. Only then can mode 1 be qualified as lossless.
+
 ### R5 stage 1 result (2026-09-16): the corrected pass re-simulates ~200× more than it must
 
 `PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1` (PxgSimulationController, at the

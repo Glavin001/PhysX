@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "PxsIslandSim.h"
+#include "PxsRigidBody.h"
 #include "foundation/PxSort.h"
 #include "foundation/PxUtilities.h"
 #include "common/PxProfileZone.h"
@@ -2329,11 +2330,15 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 							}
 							if (!canDeactivate) { if (notReadyCpuFlagged) ++deviceOnlyMemberFlagged; else ++deviceOnlyMemberClear; }
 							else if (mGpuSleepNotReady[root]) ++cpuOnlyRootFlagged;
-							if (shown < 12 && mGpuData) { ++shown;
+							if (shown < 24 && mGpuData) { ++shown;
 								const Node& rootNode = mNodes[root];
-								fprintf(stderr, "  mismatch accurate: cpu=%d device=%d members=%u notReadyCpu=%u ofWhichDeviceFlagged=%u rootFlag=%u woken=%d root=%u/%u rootReady=%d activating=%d readyCpuFlag=%d\n",
-									int(canDeactivate), int(deviceCan), members, notReadyCpu, notReadyCpuFlagged, unsigned(mGpuSleepNotReady[root]), int(wokenCpu), root, mNodes.size(),
-									int(rootNode.isReadyForSleeping()), int(rootNode.isActivating()), int(rootNode.isReadyForSleeping())); }
+								float wake = -1.f, solverWake = -1.f; unsigned internalFlags = 0, activeIndex = mActiveNodeIndex[root];
+								if (rootNode.mType == Node::eRIGID_BODY_TYPE && rootNode.mObject) {
+									const PxsRigidBody& body = *reinterpret_cast<const PxsRigidBody*>(rootNode.mObject);
+									wake = body.getCore().wakeCounter; solverWake = body.getCore().solverWakeCounter; internalFlags = body.mInternalFlags; }
+								fprintf(stderr, "  mismatch accurate #%llu: cpu=%d device=%d members=%u notReadyCpu=%u ofWhichDeviceFlagged=%u rootFlag=%u woken=%d root=%u/%u rootReady=%d activating=%d kinematic=%d activeIndex=%u wake=%g solverWake=%g bodyFlags=0x%x\n",
+									(unsigned long long)audits, int(canDeactivate), int(deviceCan), members, notReadyCpu, notReadyCpuFlagged, unsigned(mGpuSleepNotReady[root]), int(wokenCpu), root, mNodes.size(),
+									int(rootNode.isReadyForSleeping()), int(rootNode.isActivating()), int(rootNode.isKinematic()), activeIndex, double(wake), double(solverWake), internalFlags); }
 						}
 						if ((audits & 4095) == 0) fprintf(stderr, "device sleep audit (%s): islands=%llu agree=%llu cpuOnly=%llu (rootFlagged=%llu) deviceOnly=%llu (memberFlagged=%llu memberClear=%llu)\n", mGpuData ? "accurate" : "speculative",
 							(unsigned long long)audits, (unsigned long long)agree, (unsigned long long)cpuOnly, (unsigned long long)cpuOnlyRootFlagged, (unsigned long long)deviceOnly, (unsigned long long)deviceOnlyMemberFlagged, (unsigned long long)deviceOnlyMemberClear);

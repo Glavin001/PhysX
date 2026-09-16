@@ -1999,8 +1999,9 @@ public:
     }
     unsigned char *mSleepComponentNotReady=nullptr,*mSleepNodeNotReady=nullptr,*mSleepOwnNotReady=nullptr,*mHostSleepNodeNotReady=nullptr;PxU32 mSleepVerdictCapacity=0,mSleepVerdictCount=0;
     cudaEvent_t mSleepVerdictReady=nullptr;bool mSleepVerdictPending=false;
+    const PxgSolverBodySleepData* mSleepAuditSleep=nullptr;const PxNodeIndex* mSleepAuditNodes=nullptr;PxU32 mSleepAuditCount=0;
     bool computeComponentSleepVerdicts(const PxgSolverBodySleepData* sleep,const PxNodeIndex* nodes,PxU32 count,CUstream solverStream) override {
-        mSleepVerdictPending=false;mSleepVerdictCount=0;
+        mSleepVerdictPending=false;mSleepVerdictCount=0;mSleepAuditSleep=sleep;mSleepAuditNodes=nodes;mSleepAuditCount=count;
         const PxU32 capacity=mGraphView.nodeCapacity;
         if(!sleep || !nodes || !count || !capacity || !mGraphAccurate || !solverStream)return false;
         try {
@@ -2030,7 +2031,37 @@ public:
         capacity=0;
         if(!mSleepVerdictPending)return nullptr;
         try {Context current(mContext);check(cudaEventSynchronize(mSleepVerdictReady));}catch(...){mSleepVerdictPending=false;return nullptr;}
-        mSleepVerdictPending=false;capacity=mSleepVerdictCount;return mHostSleepNodeNotReady;
+        mSleepVerdictPending=false;capacity=mSleepVerdictCount;
+        // Audit (PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG): device-side contradiction test.
+        // A node the device calls ready while its own solver entry is awake means
+        // the verdict does not come from this pass's sleep data for that node.
+        static const bool diag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG");return raw && std::atoi(raw)!=0;}();
+        if(diag && mSleepAuditSleep && mSleepAuditNodes && mSleepAuditCount) {
+            static PxU64 passes=0,contradictions=0,checked=0,shown=0;++passes;
+            std::vector<PxgSolverBodySleepData> sleep(mSleepAuditCount);std::vector<PxNodeIndex> nodes(mSleepAuditCount);
+            std::vector<unsigned char> own(capacity),component(capacity);std::vector<unsigned> labels(capacity);
+            try {
+                Context current(mContext);
+                check(cudaMemcpy(sleep.data(),mSleepAuditSleep,sizeof(PxgSolverBodySleepData)*mSleepAuditCount,cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(nodes.data(),mSleepAuditNodes,sizeof(PxNodeIndex)*mSleepAuditCount,cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(own.data(),mSleepOwnNotReady,capacity,cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(component.data(),mSleepComponentNotReady,capacity,cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(labels.data(),mGraphAccurate,sizeof(unsigned)*capacity,cudaMemcpyDeviceToHost));
+                for(PxU32 i=0;i<mSleepAuditCount;++i) {
+                    const PxU32 node=nodes[i].index();
+                    if(node==PX_INVALID_NODE || nodes[i].isArticulation() || node>=capacity)continue;
+                    ++checked;
+                    const bool awake=!((sleep[i].internalFlags&(1u<<4)) || sleep[i].wakeCounter<=0.f);
+                    if(awake && !mHostSleepNodeNotReady[node]) {
+                        ++contradictions;
+                        if(shown<16){++shown;std::fprintf(stderr,"  device sleep contradiction pass=%llu solver=%u node=%u wake=%g flags=0x%x own=%u label=%u component=%u verdict=%u count=%u capacity=%u\n",
+                            (unsigned long long)passes,i,node,double(sleep[i].wakeCounter),sleep[i].internalFlags,own[node],labels[node],labels[node]<capacity?component[labels[node]]:255u,mHostSleepNodeNotReady[node],mSleepAuditCount,capacity);}
+                    }
+                }
+            }catch(...){}
+            if((passes%64)==0)std::fprintf(stderr,"device sleep diag: passes=%llu checked=%llu contradictions=%llu\n",(unsigned long long)passes,(unsigned long long)checked,(unsigned long long)contradictions);
+        }
+        return mHostSleepNodeNotReady;
     }
     unsigned char* mParkedBodyBitmap=nullptr;PxU32 mParkedBodyBitmapCapacity=0;
     unsigned* mParkedRootFlags=nullptr;PxU32 mParkedRootCapacity=0;bool mParkedFlagsArmed=false;
