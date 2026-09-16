@@ -507,3 +507,61 @@ Order of work: 1 (bounded, measurable on its own only as CPU time in
 membership in the sleep scheduler (the `processLostEdges` deactivation loop),
 then 3. Milestone 1's seed skip becomes the default with item 1.
 
+
+## 8. R5 groundwork: map of the corrected pass (2026-09-16)
+
+Where the corrected pass lives (for an island-scoped variant):
+
+- Trigger: `Sc::Scene::finalizationPhase` (`ScPipeline.cpp:2998`): eligibility
+  `:3042-3056`, `advanceDestruction` `:3057`; when bonds broke, scene repair
+  `:3059-3128` (report-stream teardown, `onResetFiltering`; the fallback
+  refilter loop `:3118-3127` visits *all* shapes), `restoreDestructionActivity`
+  `:3130`, then re-entry through `stepSetupCollide` + `mCollideStep`
+  `:3135-3139`, i.e. the same full pipeline `simulate` uses: updateShapes →
+  narrowphase → broadphase → island insertion → registration → solver →
+  updateDynamics → postSolver → afterIntegration → destruction finalization.
+- Full-scene stages: broadphase update, overlap filtering / contact-manager
+  preallocation, island insertion and second-pass island gen, partitioning,
+  solver. Already restricted: preserve-pairs repair (`:3082-3116`), GPU
+  contact/friction cache reset (`PxgSimulationController.cpp:893-899`),
+  `installCorrectionBodies` / `installCollisionOwners`
+  (`PxgDestructionRuntime.cu:2012/2030`), writeback skipping `mLastTransform`
+  during correction (`PxgContext.cpp:953`).
+- Affected sets already known to the runtime: `mHostCorrectionTargets` →
+  `correctionBodyIndices` (`PxgDestructionRuntime.cu:675, 2052-2078`); new
+  fragments `mHostReservedIndices` → `reservedBodyIndices` (`:1869+`);
+  broken clusters `mAffectedClusters` (`:592`); migrating shapes
+  `mMigratingCollisionBindings` (`:2030`); controller `mUpdatedMap` /
+  `mNewOrUpdatedBodySims` (`PxgSimulationController.cpp:870-884`).
+- Islands on the CPU: `mSimpleIslandManager` accurate/speculative
+  `IslandSim` (`PxsIslandSim.h:646-691`: `getIsland`, active islands, member
+  walk `Island::mRootNode/mLastNode`, `Node::mNextNode`). No per-island
+  restore or re-simulation hook exists; nearest hooks are
+  `prepareGpuDestructionIslandRepair` (`PxgSimulationController.cpp:657-686`)
+  and `restoreHostConnectivity` (`PxsSimpleIslandManager.h:213-225`).
+- Restore: `captureDestructionActivity` (`ScPipeline.cpp:2030-2061`, trial
+  only) records every active rigid node's wake counters, sleep flags and
+  island readiness; `restoreDestructionActivity` (`:2063-2097`) rewinds
+  `body2World := mLastTransform`, wake state, re-activates nodes on both
+  IslandSims and replays notifications; GPU rigid state is a full-array D2D
+  restore (`captureRigidState`/`restoreRigidState`,
+  `PxgDestructionRuntime.cu:1777/1851`).
+
+Exactness rule for an island-scoped correction: an island whose bodies had
+no trial contact with any affected body (mass/ownership changed, new
+fragment, migrated shape) *and* gain no broadphase overlap with an affected
+body in the corrected pass has identical inputs in both passes, so its
+trial result is its corrected result. The affected closure is therefore
+{islands of affected bodies} ∪ {islands with a trial pair to an affected
+body} ∪ {islands with a corrected-pass overlap to an affected body}; contact
+*loss* is covered because a lost pair was a trial pair. The corrected
+broadphase must still run on the affected bodies' bounds (against all
+bounds) to find the third set; everything after it (narrowphase,
+partitioning, solver, integration) can be restricted to the closure, and
+the restore can be skipped for the untouched islands. The cost that this
+removes is the full-scene narrowphase/solver/integration of the corrected
+pass and its per-stage CPU overhead (~12 ms per corrected pass on the late
+city256 window, 17 ms per pass); the remaining risk is engineering: the
+`Sc::Scene` pipeline has no partial-scene entry point, so the scoped pass
+needs a filtered body/pair set through `stepSetupCollide` or a dedicated
+mini-pipeline over the closure.
