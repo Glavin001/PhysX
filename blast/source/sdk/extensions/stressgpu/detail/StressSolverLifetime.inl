@@ -109,6 +109,8 @@ uploadIslands();
         cudaFree(m_islandConverged);
         cudaFree(m_islandSkip);
         cudaFree(m_parkedFlags);
+        cudaFree(m_auditInput);
+        cudaFree(m_auditCounters);
         cudaFree(m_deviceIslandDirty);
         cudaFree(m_status);
         cudaFree(m_previousGradientSquared);

@@ -219,6 +219,35 @@ __global__ void markParkedNativeComponents(unsigned* islandSkip, const unsigned*
     const unsigned id = c.ids[t];
     if (parkedNodeFlags[id]) islandSkip[id] = 1u;
 }
+// Diagnostic (BLAST_GPU_NATIVE_PARKED_AUDIT=1): in a corrected solve, count
+// components whose node inputs differ from the trial solve's, split by the
+// island-scope parked flag. counters: parked, parkedChanged, live, liveChanged.
+__global__ void auditParkedNativeInputs(const ExtStressGpuImpulse* cur, const ExtStressGpuImpulse* ref,
+    const unsigned* parkedNodeFlags, ResidentStressComponentView c, unsigned* counters) {
+    for (unsigned slot = blockIdx.x; slot < *c.count; slot += gridDim.x) {
+        const unsigned id = c.ids[slot], begin = c.begin[id], end = c.end[id];
+        // Relative difference per node against the larger of the two vectors;
+        // buckets: any bit change, > 1e-6, > 1e-3, > 1e-1.
+        unsigned changed = 0u, b6 = 0u, b3 = 0u, b1 = 0u;
+        for (unsigned i = begin + threadIdx.x; i < end; i += blockDim.x) {
+            const float* a = reinterpret_cast<const float*>(cur + i);
+            const float* b = reinterpret_cast<const float*>(ref + i);
+            float diff = 0.f, mag = 0.f;
+            for (unsigned w = 0; w < 6; ++w) { const float dd = a[w] - b[w]; diff += dd * dd; mag += fmaxf(a[w] * a[w], b[w] * b[w]); changed |= a[w] != b[w]; }
+            const float rel = sqrtf(diff) / fmaxf(sqrtf(mag), 1e-12f);
+            b6 |= rel > 1e-6f; b3 |= rel > 1e-3f; b1 |= rel > 1e-1f;
+        }
+        changed = __syncthreads_or(changed); b6 = __syncthreads_or(b6); b3 = __syncthreads_or(b3); b1 = __syncthreads_or(b1);
+        if (!threadIdx.x) {
+            const unsigned base = parkedNodeFlags[id] ? 0u : 5u;
+            atomicAdd(counters + base, 1u);
+            if (changed) atomicAdd(counters + base + 1u, 1u);
+            if (b6) atomicAdd(counters + base + 2u, 1u);
+            if (b3) atomicAdd(counters + base + 3u, 1u);
+            if (b1) atomicAdd(counters + base + 4u, 1u);
+        }
+    }
+}
 // Solve entry: every eligible live component without a slot claims one, in
 // component-list order from the free slots in ascending order. One CTA runs
 // this deterministically: identical inputs always produce identical slot

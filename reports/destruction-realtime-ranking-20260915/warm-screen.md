@@ -900,3 +900,69 @@ README §8. Bound confirmed small (≤1.5 ms per sustained tick), so the
 lever stays off; the always-launched marking kernel with zero flags is
 lossless (default run bit-identical to the previous default run,
 `skip4-m0-2` vs `skip6-m0`), 11/11 native GPU tests.
+
+## Corrected-pass inputs audit, exact-input reuse, and where the late tick goes (2026-09-16)
+
+Three measurements that close the "scope the second stress solve" idea
+and re-attribute the late tick. All on the g16 3 s bombardment.
+
+**Untouched components do not see identical inputs in the corrected pass.**
+`BLAST_GPU_NATIVE_PARKED_AUDIT=1` (flags computed as in mode 2 but never
+applied) compares every component's node inputs in the corrected solve with
+the trial solve's, split by the island-scope parked flag (141 corrected
+solves, relative difference against the larger of the two loads):
+
+| | components | any bit changed | > 1e-6 | > 1e-3 | > 1e-1 |
+|---|---:|---:|---:|---:|---:|
+| parked (island untouched, no trial pair to an affected body) | 188,731 | 39 % | 29 % | 27 % | 19 % |
+| live | 59,207 | 77 % | 73 % | 71 % | 66 % |
+
+So 19 % of the components in untouched islands receive loads that differ by
+more than 10 % between the two passes. The cause is the correction's
+contact/friction cache reset (`resetDestructionContactCaches` /
+`resetDestructionFrictionCaches`, needed because the pairs are preserved
+across the rewind): the corrected pass solves the whole scene cold, the
+trial pass warm. Today's histories are therefore "cold corrected" for every
+island on every corrected tick; an island-scoped correction that keeps the
+trial result for untouched islands is not bit-comparable to them, only
+physically equivalent (a warm-started solve of the same constraints). This
+is the divergence seen with mode 2, not an index-domain bug.
+
+**The exact certificate already scopes the corrected solve.** The direct
+diagnostic now prints `components=` and `skipped=` per solve: in the late
+window the corrected solve skips 1,480–1,860 of 1,800–2,130 components
+through the exact settled certificate (identical inputs, unchanged
+component) and the elastic margin; only 115–190 components are solved, and
+those are the affected remnants. An exact reference-based reuse
+(`BLAST_GPU_NATIVE_EXACT_REUSE=1`: bit-identical load to the last converged
+solve, no margin) adds 362 skips over the whole run (0.1 %), histories
+identical, timing inside the band (late 51.6 vs 51.8 ms, run means 31.0 vs
+31.2; the B repeat 35.9 vs 31.6 is a desktop interference outlier). Kept
+off: nothing left to skip. The 4.7 ms per late solve is the CTA-cycle
+throughput of the ~150 affected remnants plus the tiny-component setup
+(census above), not the number of components entering the kernel.
+
+**GPU busy is 26 % of the late tick.** nsys (`--cuda-graph-trace=node`)
+over the whole run: 15.9 ms of kernels per tick, of which
+`componentStressSolve` 5.1 (3.46 ms avg, 4.70 in the last third),
+`factorNativeDirect` 4.0 (3.8 launches per tick, 521 of 678 are empty
+0.01 ms launches; the real ones are 2–5 ms), incremental SAP 1.1, all rigid
+solver kernels together < 1 ms. In a 55 ms window around a late corrected
+tick the GPU is busy 14.2 ms. The per-tick phase timeline of a late
+corrected tick (step 150, 42 ms): trial CPU pipeline 0–12.9 ms, wait for
+the trial stress result 13.5–21.9, corrected pass 23.0–34.0 (its own GPU
+waits: broadphase 1.6, narrowphase ~0.9, solver ~3.0, post-solver 1.6; CPU
+sub-phases ~4.5), accept 1.2, submit 0.7, wait for the corrected stress
+result 35.8–42.2. `perf` over the late window is flat: the largest self
+symbols are `PxgPostSolveWorkerTask` 3.2 %, `IslandSim::processLostEdges`
+2.4 %, `PxgBatchRigidStaticConstraintPrePrepTask` 2.0 %, scene-query pruner
+refit ~4 % in total, hash-map erases from fragment shape churn ~1.5 %;
+`cudaEventSynchronize` and the mapped-flag spin wait are 23 % (the GPU
+waits above). No single CPU hotspot above 4 %.
+
+Consequences for the remaining plan: the two stress solves are latency
+floors of ~4.7 ms each on this GPU (remnant chains × waves), the corrected
+pass is ~11 ms of full-scene CPU pipeline plus small GPU waits, and the
+trial pass ~13 ms of the same. Only structural scoping of the corrected
+pass on the CPU side (R5 partition-level) or fewer CPU consumers per pass
+(R2) move those; both remain multi-week and are not bit-comparable.

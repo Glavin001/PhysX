@@ -500,6 +500,15 @@ float nativeElasticMargin()
     static const float value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_ELASTIC_MARGIN"); return raw ? float(std::atof(raw)) : 0.5f; }();
     return value;
 }
+/// Exact-input reuse: BLAST_GPU_NATIVE_EXACT_REUSE=1 skips a component whose
+/// load is bit-identical to its last converged solve on an unchanged topology
+/// (no margin condition). Requires the elastic-margin pass. Default off until
+/// measured.
+bool nativeExactReuse()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_EXACT_REUSE"); return raw && raw[0] == '1'; }();
+    return value;
+}
 float nativeElasticChangeFraction()
 {
     static const float value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_ELASTIC_CHANGE"); return raw ? float(std::atof(raw)) : 0.1f; }();
@@ -4569,6 +4578,8 @@ private:
     /// Island-scoped correction: per-node parked flags (component root ids),
     /// solver-owned so the captured solve graph always reads one address.
     std::uint32_t* m_parkedFlags{nullptr};
+    ExtStressGpuImpulse* m_auditInput{nullptr}; // BLAST_GPU_NATIVE_PARKED_AUDIT reference (trial inputs)
+    std::uint32_t* m_auditCounters{nullptr};
     std::uint32_t* m_deviceIslandDirty{nullptr};
     KernelProfile m_kernelProfile;
     std::uint32_t m_profiledSolves{0};

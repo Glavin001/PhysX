@@ -316,28 +316,31 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
 // large component (or an empty large-component list).
 __global__ void finishComponentStress(PersistentStressArgs a, ResidentStressComponentView c)
 {
-    __shared__ unsigned iterations[kBlockSize], active[kBlockSize], failed[kBlockSize];
-    unsigned maxIterations=0,activeComponents=0,notConverged=0;
+    __shared__ unsigned iterations[kBlockSize], active[kBlockSize], failed[kBlockSize], skipped[kBlockSize], total[kBlockSize];
+    unsigned maxIterations=0,activeComponents=0,notConverged=0,skippedComponents=0,totalComponents=0;
     for(unsigned slot=threadIdx.x;slot<*c.count;slot+=blockDim.x) {
         const unsigned id=c.ids[slot];
         if(c.end[id]-c.begin[id]>kResidentComponentMaxNodes)continue;
         const auto status=c.results[id];
         maxIterations=max(maxIterations,status.iterations);
         activeComponents+=status.active;notConverged+=!status.converged;
+        ++totalComponents;skippedComponents+=(a.settledIslands && a.settledIslands[id])?1u:0u;
     }
     iterations[threadIdx.x]=maxIterations;active[threadIdx.x]=activeComponents;failed[threadIdx.x]=notConverged;
+    skipped[threadIdx.x]=skippedComponents;total[threadIdx.x]=totalComponents;
     __syncthreads();
     for(unsigned stride=blockDim.x/2;stride;stride>>=1) {
         if(threadIdx.x<stride) {
             iterations[threadIdx.x]=max(iterations[threadIdx.x],iterations[threadIdx.x+stride]);
             active[threadIdx.x]+=active[threadIdx.x+stride];failed[threadIdx.x]+=failed[threadIdx.x+stride];
+            skipped[threadIdx.x]+=skipped[threadIdx.x+stride];total[threadIdx.x]+=total[threadIdx.x+stride];
         }
         __syncthreads();
     }
     if(threadIdx.x==0) {
         if(a.hierarchy.direct.diagnostics && a.hierarchy.direct.counters){unsigned* k=a.hierarchy.direct.counters;
-            unsigned* e=a.hierarchy.settled.counters;const unsigned elastic=e?e[0]:0u;if(e)e[0]=0u;
-            printf("native direct: eligible=%u applied=%u accepted=%u noslot=%u invalid=%u pinnedfree=%u refactored=%u staleApplied=%u undone=%u woodburyBuilt=%u woodburyApplied=%u denseTiny=%u elasticSkips=%u maxIterations=%u\n",k[0],k[1],k[2],k[3],k[4],k[5],k[6],k[7],k[8],k[9],k[10],k[11],elastic,iterations[0]);k[6]=0u;k[9]=0u;}
+            unsigned* e=a.hierarchy.settled.counters;const unsigned elastic=e?e[0]:0u,exact=e?e[1]:0u;if(e){e[0]=0u;e[1]=0u;}
+            printf("native direct: eligible=%u applied=%u accepted=%u noslot=%u invalid=%u pinnedfree=%u refactored=%u staleApplied=%u undone=%u woodburyBuilt=%u woodburyApplied=%u denseTiny=%u elasticSkips=%u exactSkips=%u components=%u skipped=%u maxIterations=%u\n",k[0],k[1],k[2],k[3],k[4],k[5],k[6],k[7],k[8],k[9],k[10],k[11],elastic,exact,total[0],skipped[0],iterations[0]);k[6]=0u;k[9]=0u;}
         a.m_status->active+=active[0];
         a.m_status->iterations=max(a.m_status->iterations,iterations[0]);
         a.m_status->converged=a.m_status->converged && failed[0]==0;

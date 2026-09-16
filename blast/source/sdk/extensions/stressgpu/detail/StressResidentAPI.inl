@@ -49,13 +49,35 @@
 #endif
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         // Refresh the captured graph's parked-flag input outside the capture.
+        static const bool parkedAudit = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_PARKED_AUDIT"); return raw && raw[0] == '1'; }();
         if (m_deviceTopology && m_parkedFlags) {
-            if (m_parkedNodeFlags)
+            if (m_parkedNodeFlags && !parkedAudit)
                 checkCuda(cudaMemcpyAsync(m_parkedFlags, m_parkedNodeFlags, sizeof(std::uint32_t) * m_nodeCount,
                     cudaMemcpyDeviceToDevice, m_stream), "copy parked component flags");
             else
                 checkCuda(cudaMemsetAsync(m_parkedFlags, 0, sizeof(std::uint32_t) * m_nodeCount, m_stream),
                     "clear parked component flags");
+            if (parkedAudit) {
+                // Audit only: flags are never applied; the corrected solve's node
+                // inputs are compared against the preceding (trial) solve's.
+                if (!m_auditInput) {
+                    checkCuda(cudaMalloc(reinterpret_cast<void**>(&m_auditInput), sizeof(ExtStressGpuImpulse) * m_nodeCount), "allocate audit inputs");
+                    checkCuda(cudaMalloc(reinterpret_cast<void**>(&m_auditCounters), sizeof(std::uint32_t) * 10), "allocate audit counters");
+                }
+                if (!m_parkedNodeFlags) {
+                    checkCuda(cudaMemcpyAsync(m_auditInput, m_input, sizeof(ExtStressGpuImpulse) * m_nodeCount,
+                        cudaMemcpyDeviceToDevice, m_stream), "copy audit inputs");
+                } else {
+                    checkCuda(cudaMemsetAsync(m_auditCounters, 0, sizeof(std::uint32_t) * 10, m_stream), "clear audit counters");
+                    auditParkedNativeInputs<<<256, kBlockSize, 0, m_stream>>>(m_input, m_auditInput, m_parkedNodeFlags,
+                        m_deviceTopology->components(), m_auditCounters);
+                    std::uint32_t h[10] = {};
+                    checkCuda(cudaMemcpyAsync(h, m_auditCounters, sizeof(h), cudaMemcpyDeviceToHost, m_stream), "read audit counters");
+                    checkCuda(cudaStreamSynchronize(m_stream), "sync audit counters");
+                    std::printf("[parked-audit] parked=%u parkedChanged=%u parkedRel6=%u parkedRel3=%u parkedRel1=%u live=%u liveChanged=%u liveRel6=%u liveRel3=%u liveRel1=%u\n",
+                        h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], h[9]);
+                }
+            }
         }
 #endif
         executeSolve(params);
