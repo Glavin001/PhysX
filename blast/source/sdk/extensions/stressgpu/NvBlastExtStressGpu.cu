@@ -4566,6 +4566,9 @@ private:
     /// This frame's decision, one entry per island, uploaded before the graph
     /// runs. 1 = settled, do not touch.
     std::uint32_t* m_islandSkip{nullptr};
+    /// Island-scoped correction: per-node parked flags (component root ids),
+    /// solver-owned so the captured solve graph always reads one address.
+    std::uint32_t* m_parkedFlags{nullptr};
     std::uint32_t* m_deviceIslandDirty{nullptr};
     KernelProfile m_kernelProfile;
     std::uint32_t m_profiledSolves{0};

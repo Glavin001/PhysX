@@ -99,6 +99,7 @@
         allocateDevice(m_islandActive, m_islandCapacity, "allocate island active flags");
         allocateDevice(m_islandConverged, m_islandCapacity, "allocate island converged flags");
         allocateDevice(m_islandSkip, m_islandCapacity, "allocate island skip mask");
+        allocateDevice(m_parkedFlags, m_islandCapacity, "allocate parked component flags");
         allocateDevice(m_deviceIslandDirty, m_islandCapacity, "allocate device input dirty flags");
         allocateDevice(
             m_blockActiveCounts,
@@ -193,6 +194,9 @@
         checkCuda(
             cudaMemset(m_islandSkip, 0, sizeof(std::uint32_t) * m_islandCapacity),
             "clear island skip mask");
+        checkCuda(
+            cudaMemset(m_parkedFlags, 0, sizeof(std::uint32_t) * m_islandCapacity),
+            "clear parked component flags");
         checkCuda(
             cudaMemset(m_input, 0, sizeof(ExtStressGpuImpulse) * m_nodeCount),
             "clear stress inputs");

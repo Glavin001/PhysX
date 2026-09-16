@@ -860,3 +860,43 @@ map parked bodies to stress roots (`PxDestructionStressCluster::body`, a
 GPU rigid index) has to be checked against the node-index domain of the
 correction targets before this lever can pay (bound: the corrected stress
 solve is ~2.5 ms per corrected pass, ~1.5 ms per sustained tick).
+
+## Corrected-solve skip (mode 2), second attempt: fires, inexact, no gain; off
+
+Two defects kept the skip from firing. The parked-root kernel read the
+description's static cluster body; the live body index lives in the
+per-transaction cluster table (`acceptClusterBindings` writes
+`PxDestructionStressCluster::body` from the allocation targets, so
+`clusters[chunk.cluster].body` is the current GPU rigid index and matches
+the island-sim node-index domain of the parked list). Second, the resident
+stress solve is replayed from a captured CUDA graph, so a conditional
+launch of the parked-marking kernel was captured once (without flags) and
+never replayed with them. The solver now owns a persistent parked-flag
+buffer, always marked inside the captured solve after the settled/elastic
+writers, and refreshed outside the capture per submission (copy when
+flags are armed, cleared otherwise). A `PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1`
+line reports per reinstatement: `parked=4560 bodyCapacity=5376
+flaggedRoots=4332` on the first g16 correction (142 reinstatements, all
+armed).
+
+g16 3 s bombardment, `PHYSX_DESTRUCTION_ISLAND_SCOPE=2` vs default (same build):
+
+| | eligible | applied | accepted | elastic skips | broken bonds | mid (30–100) | late (100–180) | corrected-tick mean |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| default | 43,735 | 65,959 | 43,328 | 206,870 | 53,105 | 19.76 ms | 54.27 ms | 59.86 ms (87 ticks) |
+| mode 2 | 39,428 | 61,220 | 39,071 | 144,518 | 53,362 | 20.16 ms | 52.76 ms | 60.43 ms (83 ticks) |
+
+The skip removes 10 % of the direct-step components from the corrected
+solve, but histories diverge from tick 94 (broken bonds differ on 77 of
+180 ticks; +0.5 % breaks over the run) and the late window moves 1.5 ms,
+inside the 3 % band. The divergence is the exactness rule's third set:
+mode 2 parks components whose islands have no affected body and no trial
+pair to one, but the corrected pass still re-simulates the whole scene, so
+islands that gain a corrected-pass overlap with an affected body (and the
+solver's re-partitioned iteration order) change those components' inputs
+while their trial result is republished. Making it exact needs the
+corrected broadphase's overlap set, i.e. the partition-level scoping in
+README §8. Bound confirmed small (≤1.5 ms per sustained tick), so the
+lever stays off; the always-launched marking kernel with zero flags is
+lossless (default run bit-identical to the previous default run,
+`skip4-m0-2` vs `skip6-m0`), 11/11 native GPU tests.

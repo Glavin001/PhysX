@@ -47,6 +47,17 @@
         if(!m_workCapture)throw std::runtime_error("component diagnostic requires native topology");
         m_workCapture->begin(m_stream);
 #endif
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        // Refresh the captured graph's parked-flag input outside the capture.
+        if (m_deviceTopology && m_parkedFlags) {
+            if (m_parkedNodeFlags)
+                checkCuda(cudaMemcpyAsync(m_parkedFlags, m_parkedNodeFlags, sizeof(std::uint32_t) * m_nodeCount,
+                    cudaMemcpyDeviceToDevice, m_stream), "copy parked component flags");
+            else
+                checkCuda(cudaMemsetAsync(m_parkedFlags, 0, sizeof(std::uint32_t) * m_nodeCount, m_stream),
+                    "clear parked component flags");
+        }
+#endif
         executeSolve(params);
         exportPhysicalImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
             m_impulses, m_colScales, m_devicePhysicalImpulses, m_bondCount,

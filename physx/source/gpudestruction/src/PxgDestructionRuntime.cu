@@ -84,8 +84,12 @@ __global__ void markParkedBodies(const unsigned* list,unsigned count,unsigned ch
 }
 // Every chunk whose cluster body is parked flags its component root (the
 // topology's cluster root, the minimum member chunk, is the stress component id).
-__global__ void markParkedRoots(PxDestructionTopologyDeviceView topology,const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
-    unsigned clusterCount,const unsigned char* bitmap,unsigned bodyCapacity,unsigned* rootFlags,unsigned chunkCount) {
+// The live cluster slot -> body index comes from the motion allocation
+// (the description's cluster body field is static and invalid for
+// runtime-born fragments).
+__global__ void markParkedRoots(PxDestructionTopologyDeviceView topology,const PxDestructionStressChunk* chunks,
+    const PxDestructionStressCluster* clusters,unsigned clusterCount,const unsigned char* bitmap,unsigned bodyCapacity,
+    unsigned* rootFlags,unsigned chunkCount) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i>=chunkCount || i>=topology.chunkCount || !topology.activeChunks[i])return;
     const unsigned slot=chunks[i].cluster;
@@ -1979,11 +1983,19 @@ public:
                 check(cudaMemsetAsync(mParkedBodyBitmap,0,size_t(bodyCapacity),stream));
                 check(cudaMemsetAsync(mParkedRootFlags,0,sizeof(unsigned)*size_t(mN),stream));
                 markParkedBodies<<<(count+255u)/256u,256,0,stream>>>(mReinstateList,count,mParkedBodyBitmap,bodyCapacity);
-                markParkedRoots<<<(mN+255u)/256u,256,0,stream>>>(mTopology->trial(),mChunks,mClusters,mC,mParkedBodyBitmap,bodyCapacity,mParkedRootFlags,mN);
+                markParkedRoots<<<(mN+255u)/256u,256,0,stream>>>(mTopology->accepted(),mChunks,mClusters,std::max(mN,mC),mParkedBodyBitmap,bodyCapacity,mParkedRootFlags,mN);
                 check(cudaGetLastError());
                 mParkedFlagsArmed=true;
             }
             check(cudaStreamSynchronize(stream)); // the host list is reused by the caller
+            static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+            if(scopeDiag) {
+                unsigned flagged=0;
+                if(mParkedFlagsArmed) {std::vector<unsigned> flags(mN);check(cudaMemcpy(flags.data(),mParkedRootFlags,sizeof(unsigned)*size_t(mN),cudaMemcpyDeviceToHost));
+                    for(unsigned f:flags)flagged+=f?1u:0u;}
+                std::printf("[island-scope] reinstate parked=%u bodyCapacity=%u snapshot=%d skip=%d armed=%d flaggedRoots=%u\n",
+                    count,bodyCapacity,int(mTrialSnapshotValid),int(skipStressComponents),int(mParkedFlagsArmed),flagged);
+            }
             return true;
         }catch(...){return false;}
     }
