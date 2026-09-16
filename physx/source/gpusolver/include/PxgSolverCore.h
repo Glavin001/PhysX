@@ -425,6 +425,12 @@ namespace physx
 		PxgTypedCudaBuffer<PxU32>	mPartitionArtiJointBatchCounts;
 									
 		PxgTypedCudaBuffer<PxU32>	mDestroyedEdgeIndices;
+		// Frozen corrected pass: contact edges whose bodies are absent from the
+		// solver list this pass (their static contacts are not batched), so the
+		// current-generation friction patch counts they would have written are
+		// cleared instead of keeping stale entries.
+		PxgTypedCudaBuffer<PxU32>	mFrozenEdgeIndices;
+		void clearCurrentFrictionPatchCounts(const PxU32* edges, PxU32 count);
 		PxgTypedCudaBuffer<PxU32>	mNpIndexArray;
 
 		PxgTypedCudaBuffer<PxgBlockContactPoint>	mGpuContactBlockBuffer;

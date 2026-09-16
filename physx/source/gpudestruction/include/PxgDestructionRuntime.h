@@ -127,6 +127,10 @@ public:
         PxgRigidBodyAcceleration* accelerations, CUstream coreStream, bool reinstateBodies, bool skipStressComponents) = 0;
     virtual bool restoreRigidState(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 generation, CUstream stream) = 0;
+    /// Frozen corrected pass: gather the listed bodies back to the restored
+    /// checkpoint (candidates that a new touch merged into an affected island).
+    virtual bool restoreCheckpointBodies(const PxU32*, PxU32, PxgBodySim*, PxgBodySimVelocities*,
+        PxgRigidBodyAcceleration*, CUstream) { return false; }
     virtual bool prepareFrame(bool postCorrection = false) = 0;
     // Merge the two evaluations into one tick receipt, after final ownership commit.
     virtual bool finishPostCorrection() = 0;

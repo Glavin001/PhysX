@@ -2079,6 +2079,9 @@ void Sc::Scene::restoreDestructionActivity()
     PxU32 parkedCount=0;const PxU32* parked=mSimulationController->destructionParkedNodes(parkedCount);
     PxBitMap parkedMap;
     static const bool scopeTrace=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_TRACE")!=NULL;
+    // Mode 4 (frozen pass) keeps the island sim untouched: bodies are removed
+    // from the solver's active list by the GPU context instead of parked.
+    static const bool parkIslands=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");const int mode=raw?std::atoi(raw):0;return mode==1||mode==3;}();
     if(parkedCount) {
         auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
         if(scopeTrace)accurate.validateActiveLists("before park");
@@ -2090,6 +2093,7 @@ void Sc::Scene::restoreDestructionActivity()
             const PxU32 node=parked[i];
             if(node>=accurate.getNbNodes() || ids[node]==IG_INVALID_ISLAND)continue;
             parkedMap.set(node);
+            if(!parkIslands)continue;
             const IG::IslandId island=ids[node];
             if(island>=accurate.getNbIslands() || islandSeen.test(island))continue;
             islandSeen.set(island);

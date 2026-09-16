@@ -33,7 +33,8 @@
             // output; marked after every other writer of the skip mask. Always
             // captured: the flags buffer is solver-owned and refreshed per solve
             // (all zero outside a corrected pass).
-            markParkedNativeComponents<<<(m_nodeCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(m_islandSkip,m_parkedFlags,m_deviceTopology->components());
+            markParkedNativeComponents<<<(m_nodeCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(m_islandSkip,m_parkedFlags,m_deviceTopology->components(),
+                m_deviceTopology->cycleView().settled,m_islandConverged);
         }
 #endif
 

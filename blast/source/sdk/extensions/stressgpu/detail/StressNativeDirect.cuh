@@ -211,14 +211,6 @@ __global__ void releaseNativeDirectSlots(NativeDirectView v, const unsigned* nod
         }
     }
 }
-// Island-scoped correction: components whose root node is flagged keep their
-// previous output (the same skip the settled certificate takes).
-__global__ void markParkedNativeComponents(unsigned* islandSkip, const unsigned* parkedNodeFlags, ResidentStressComponentView c) {
-    const unsigned t = blockIdx.x * blockDim.x + threadIdx.x;
-    if (t >= *c.count) return;
-    const unsigned id = c.ids[t];
-    if (parkedNodeFlags[id]) islandSkip[id] = 1u;
-}
 // Diagnostic (BLAST_GPU_NATIVE_PARKED_AUDIT=1): in a corrected solve, count
 // components whose node inputs differ from the trial solve's, split by the
 // island-scope parked flag. counters: parked, parkedChanged, live, liveChanged.

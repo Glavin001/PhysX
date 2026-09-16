@@ -34,6 +34,7 @@ namespace {
 // 2: stress skip only (bisection); 3: park + reinstate without the stress skip.
 int islandScopedCorrectionMode() { static const int value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");return raw?std::atoi(raw):0;}(); return value; }
 bool islandScopedCorrectionEnabled() { return islandScopedCorrectionMode()!=0; }
+
 }
 #include "PxgDestructionNativeSnapshot.h"
 #include "PxgNarrowphaseCore.h"
@@ -137,6 +138,71 @@ namespace physx
 		initSimulationControllerKernels2();
 #endif
 	}
+
+// Frozen corrected pass (mode 4), called by PxgGpuContext::update before the
+// solver body list is built. Returns the rigid active list without the frozen
+// bodies, or NULL when the ordinary list applies.
+const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNodes(const IG::IslandSim& sim)
+{
+    if(islandScopedCorrectionMode()!=4 || !mDestructionCorrecting || !mDestructionFreezePending || !mDestruction)return NULL;
+    mDestructionFreezePending=false;
+    const PxU32 islandCount=sim.getNbIslands(),nodeCount=sim.getNbNodes();
+    const IG::IslandId* ids=sim.getIslandIds();
+    PxBitMap affected;affected.resizeAndClear(PxMax(1u,islandCount));
+    for(PxU32 i=0;i<mDestructionAffectedNodes.size();++i) {
+        const PxU32 node=mDestructionAffectedNodes[i];
+        if(node<nodeCount && ids[node]!=IG_INVALID_ISLAND && ids[node]<islandCount)affected.set(ids[node]);
+    }
+    PxBitMap frozen;frozen.resizeAndClear(PxMax(1u,nodeCount));
+    mDestructionFrozenNodes.clear();mDestructionFrozenStaticEdges.clear();PxU32 merged=0;
+    PxArray<PxU32> mergedNodes;
+    for(PxU32 i=0;i<mDestructionParkedNodes.size();++i) {
+        const PxU32 node=mDestructionParkedNodes[i];
+        if(node>=nodeCount || ids[node]==IG_INVALID_ISLAND || ids[node]>=islandCount)continue;
+        if(affected.test(ids[node])){++merged;mergedNodes.pushBack(node);continue;}
+        const IG::Node& n=sim.getNode(PxNodeIndex(node));
+        if(!n.isActive() || n.isKinematic())continue;
+        frozen.set(node);mDestructionFrozenNodes.pushBack(node);
+        // Static contacts of a frozen body are not batched this pass: their
+        // current friction patch counts must be cleared (see PxgContext).
+        if(node<mBodySimManager.mStaticConstraints.size()) {
+            const PxgStaticConstraints& sc=mBodySimManager.mStaticConstraints[node];
+            for(PxU32 k=0;k<sc.mStaticContacts.size();++k)mDestructionFrozenStaticEdges.pushBack(sc.mStaticContacts[k].uniqueId);
+        }
+    }
+    const PxU32 activeCount=sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    const PxNodeIndex* active=sim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    mDestructionSolverNodes.clear();mDestructionSolverNodes.reserve(activeCount);
+    PxU32 removed=0;
+    for(PxU32 a=0;a<activeCount;++a){if(frozen.boundedTest(active[a].index()))++removed;else mDestructionSolverNodes.pushBack(active[a]);}
+    bool ok=true;
+    // Bisection aid: bit0 reinstates the frozen bodies' trial state, bit1 removes
+    // them from the solver list (default both).
+    static const int freezeBits=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_BITS");return raw?std::atoi(raw):3;}();
+    static const bool stressSkip=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_STRESS_SKIP");return !raw || raw[0]!='0';}();
+    {
+        PxScopedCudaLock lock(*mCudaContextManager);
+        // Candidates already carry their trial state (install); merged ones go
+        // back to the checkpoint and are solved like any affected body.
+        if(mergedNodes.size())
+            ok=mDestruction->restoreCheckpointBodies(mergedNodes.begin(),mergedNodes.size(),
+                mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream());
+        if(ok && mDestructionFrozenNodes.size() && (freezeBits&1) && stressSkip)
+            ok=mDestruction->reinstateTrialState(mDestructionFrozenNodes.begin(),mDestructionFrozenNodes.size(),
+                mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),false,true);
+        // skipStressComponents: their contacts are neutralised in the corrected
+        // rigid solve, so the corrected stress solve republishes their trial
+        // result instead of solving with missing contact loads.
+    }
+    static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+    if(scopeDiag)printf("[island-scope] frozen pass: candidates=%u merged=%u frozen=%u removedFromSolver=%u active=%u staticEdges=%u reinstate=%d\n",
+        mDestructionParkedNodes.size(),merged,mDestructionFrozenNodes.size(),removed,activeCount,mDestructionFrozenStaticEdges.size(),int(ok));
+    if(!ok){mDestructionError=1;return NULL;}
+    if(!(freezeBits&2))return NULL;
+    return &mDestructionSolverNodes;
+}
 
 	PxgSimulationController::PxgSimulationController(PxsKernelWranglerManager* gpuWranglerManager, PxCudaContextManager* cudaContextManager, PxgGpuContext* dynamicContext,
 		PxgNphaseImplementationContext* npContext, Bp::BroadPhase* bp, bool useGpuBroadphase, PxsSimulationControllerCallback* callback,
@@ -882,8 +948,8 @@ namespace physx
                 auto* previous=mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer();
                 auto* acceleration=mSimulationCore->getRigidBodyAccelerationsDevice();
                 const auto capacity=mSimulationCore->getBodySimStorageCapacity();const auto stream=mSimulationCore->getStream();
-                mDestructionParkedNodes.clear();
-                mDestruction->requestTrialSnapshot(islandScopedCorrectionMode()==1 || islandScopedCorrectionMode()==3);
+                mDestructionParkedNodes.clear();mDestructionAffectedNodes.clear();mDestructionFrozenNodes.clear();mDestructionFrozenStaticEdges.clear();mDestructionFreezePending=false;
+                mDestruction->requestTrialSnapshot(islandScopedCorrectionMode()==1 || islandScopedCorrectionMode()==3 || islandScopedCorrectionMode()==4);
                 ok=mDestruction->restoreRigidState(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCollisionOwners(
@@ -950,12 +1016,44 @@ namespace physx
                             node=record.mRootNode;
                             while(node.index()!=PX_INVALID_NODE){mDestructionParkedNodes.pushBack(node.index());node=sim.getNode(node).mNextNode;}
                         }
-                        PxScopedCudaLock lock(*mCudaContextManager);
                         const int mode=islandScopedCorrectionMode();
+                        if(mode==4) {
+                            // Frozen pass: candidates keep their CPU trial state now
+                            // (restoreDestructionActivity skips them); the GPU side is
+                            // finalized after the corrected island gen.
+                            // Bisection aid: PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_MAXNODES
+                            // limits candidates to islands of at most that many nodes.
+                            static const PxU32 maxNodes=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_MAXNODES");return raw?PxU32(std::atoi(raw)):0xffffffffu;}();
+                            if(maxNodes!=0xffffffffu) {
+                                PxArray<PxU32> kept;
+                                for(PxU32 i=0;i<mDestructionParkedNodes.size();++i) {
+                                    const PxU32 node=mDestructionParkedNodes[i];
+                                    const IG::IslandId island=ids[node];
+                                    if(island<islandCount && sim.getIsland(island).mNodeCount[IG::Node::eRIGID_BODY_TYPE]<=maxNodes)kept.pushBack(node);
+                                }
+                                mDestructionParkedNodes=kept;
+                            }
+                            for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i)mDestructionAffectedNodes.pushBack(indices[i]);
+                            for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)mDestructionAffectedNodes.pushBack(reserved[i]);
+                            mDestructionFreezePending=mDestructionParkedNodes.size()!=0;
+                            // Candidates sit at their trial end-of-tick state through the
+                            // corrected broadphase/narrowphase (their contact caches then
+                            // evolve as the next tick expects); a candidate that a new touch
+                            // merges into an affected island is gathered back to the
+                            // checkpoint before the solve (destructionFilteredActiveNodes).
+                            if(mDestructionFreezePending) {
+                                PxScopedCudaLock lock(*mCudaContextManager);
+                                ok=ok && mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
+                                    mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                                    mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),true,false);
+                            }
+                        } else {
+                        PxScopedCudaLock lock(*mCudaContextManager);
                         ok=ok && mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
                             mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
                             mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),mode==1||mode==3,mode==1||mode==2);
                         if(mode==2)mDestructionParkedNodes.clear(); // stress skip only: nothing parked in the scene
+                        }
                     }
                     // R5 diagnostic (PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1): how much of the
                     // trial island structure an island-scoped correction would touch. The

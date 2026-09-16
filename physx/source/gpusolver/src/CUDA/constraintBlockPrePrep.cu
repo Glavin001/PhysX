@@ -880,7 +880,11 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 				PxU32 solverBodyIndexB = isStaticB ? 0 : solverBodyIndices[nodeIndexB];
 				// A dynamic body absent from the solver's active list (parked for an
 				// island-scoped destruction correction) is treated as the static
-				// world body: zero response, no velocity written.
+				// world body: zero response, no velocity written. Its friction
+				// anchors would be correlated in the world frame, so the pair
+				// publishes no friction patches for the next pass (cold restart,
+				// as after any correction today).
+				const bool parkedPair = solverBodyIndexA == 0xFFFFFFFFu || solverBodyIndexB == 0xFFFFFFFFu;
 				if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0;
 				if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0;
 
@@ -991,11 +995,15 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 				if (cmOutput->contactForces)
 					forceIndex = reinterpret_cast<PxReal*>(cmOutput->contactForces) - shDesc.cpuForceBufferBase;
 
-				prevFrictionPatchCount = shDesc.prevFrictionPatchCount[edgeIndex];
+				// A parked pair becomes an empty constraint: no contacts, no
+				// friction warm start, nothing published. Its bodies map to the
+				// world (index 0), whose response with a kinematic or itself is
+				// undefined (zero unit response).
+				prevFrictionPatchCount = parkedPair ? 0u : shDesc.prevFrictionPatchCount[edgeIndex];
 
-				shDesc.currFrictionPatchCount[edgeIndex] = cmOutput->nbPatches;
+				shDesc.currFrictionPatchCount[edgeIndex] = parkedPair ? 0u : cmOutput->nbPatches;
 
-				if (hasContacts && patchIndex < cmOutput->nbPatches)
+				if (hasContacts && !parkedPair && patchIndex < cmOutput->nbPatches)
 				{
 					if(cmOutput->contactPatches != NULL)
 						contactPatch = shDesc.compressedPatches + patchStartIndex + patchIndex;

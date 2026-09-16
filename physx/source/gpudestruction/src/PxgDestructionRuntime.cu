@@ -1999,6 +1999,22 @@ public:
             return true;
         }catch(...){return false;}
     }
+    bool restoreCheckpointBodies(const PxU32* bodies,PxU32 count,PxgBodySim* live,PxgBodySimVelocities* previous,
+        PxgRigidBodyAcceleration* accelerations,CUstream coreStream) override {
+        if(!count)return true;
+        if(!mCheckpointValid || !mCheckpointBodies || !live || !coreStream)return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            if(count>mReinstateCapacity){if(mReinstateList)check(cudaFree(mReinstateList));mReinstateList=nullptr;
+                check(cudaMalloc(reinterpret_cast<void**>(&mReinstateList),sizeof(unsigned)*size_t(count)));mReinstateCapacity=count;}
+            check(cudaMemcpyAsync(mReinstateList,bodies,sizeof(unsigned)*size_t(count),cudaMemcpyHostToDevice,stream));
+            reinstateTrialBodies<<<(count+255u)/256u,256,0,stream>>>(live,mCheckpointBodies,previous?previous:nullptr,mCheckpointPrevious,
+                accelerations?accelerations:nullptr,mCheckpointAccelerations,mReinstateList,count,mCheckpointCount);
+            check(cudaGetLastError());
+            check(cudaStreamSynchronize(stream));
+            return true;
+        }catch(...){return false;}
+    }
     bool restoreRigidState(PxgBodySim* bodies,PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations,PxU32 capacity,PxU64 generation,CUstream coreStream) override {
         // Reject the whole operation before any device write. A generation is

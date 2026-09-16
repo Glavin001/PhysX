@@ -247,6 +247,12 @@ static __device__ bool getFrictionPatches(PxgBlockFrictionPatch&  frictionPatch,
 		const PxgBlockFrictionIndex index = prevFrictionIndices[prevFrictionStartIndex + a*totalNbEdges];
 		const PxU32 oldThreadId = index.getThreadIdx();
 		const PxU64 patchIndex = index.getPatchIndex();
+		if(oldThreadId >= 32u || patchIndex >= (1ull<<22))
+		{
+			printf("[friction-probe] edge=%u a=%u count=%u totalPrevEdges=%u patchIndex=%llu oldThread=%u thread=%u\n",
+				prevFrictionStartIndex, a, frictionPatchCount, totalNbEdges, (unsigned long long)patchIndex, oldThreadId, threadIndex);
+			return true;
+		}
 		//indices += totalNbEdges;
 		const PxgBlockFrictionPatch& oldPatch = previousPatches[patchIndex];
 		const PxgBlockFrictionAnchorPatch& oldAnchor = previousAnchors[patchIndex];

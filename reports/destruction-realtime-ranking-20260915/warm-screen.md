@@ -966,3 +966,68 @@ pass is ~11 ms of full-scene CPU pipeline plus small GPU waits, and the
 trial pass ~13 ms of the same. Only structural scoping of the corrected
 pass on the CPU side (R5 partition-level) or fewer CPU consumers per pass
 (R2) move those; both remain multi-week and are not bit-comparable.
+
+## R5 stage 3: frozen corrected pass on the device (mode 4) — physically close, slower; off
+
+`PHYSX_DESTRUCTION_ISLAND_SCOPE=4` keeps the island sim and the incremental
+partition untouched and instead (a) reinstates the candidate bodies (active
+islands with no correction target, no reserved fragment and no trial edge to
+one) to their trial end-of-tick state right after the checkpoint restore,
+(b) after the corrected island gen removes the ones a new touch merged into
+an affected island (gathered back to the checkpoint and solved normally,
+`restoreCheckpointBodies`), (c) removes the frozen bodies from the solver's
+active list (`PxgGpuContext::update` takes the controller's filtered list;
+their static contacts are not batched, their partitioned contacts become
+empty constraints in the pre-prep) and (d) parks their stress components
+(trial forces republished, certificates and references preserved). Four
+defects had to be fixed on the way; the first is a latent one and stays on
+by default:
+
+1. `PxgSolverCore::allocateFrictionCounts` now zero-fills the current
+   friction-patch-count generation each solve. The ping-pong buffer kept
+   garbage for edges a pass did not visit, and the next pass's warm start
+   read patch indices from another pass's batch space (warp MMU fault in
+   `getFrictionPatches`, the "late CUDA 700" that also killed modes 1/3).
+   Lossless: the default run is bit-identical before and after.
+2. Parked pairs are empty constraints (no contacts, no friction warm start,
+   zero published patches): solved as world-vs-world or world-vs-kinematic
+   their unit response is zero, and their friction anchors were correlated in
+   the world frame and reused by the real bodies next tick (buildings
+   collapsed two ticks after every frozen pass, +25 % bonds).
+3. Frozen bodies must sit at their trial end-of-tick pose through the
+   corrected broadphase/narrowphase, or their persistent contact manifolds
+   are updated to a pose one tick behind (same collapse signature with
+   single-body islands only).
+4. The parked marking runs after the settled/elastic reuse kernels and used
+   to leave the component "unverified"; the commit then dropped its
+   certificate and reference, so the next trial solve re-solved every
+   frozen component (+36 % eligible components).
+
+g16 3 s bombardment, mode 4 vs default (both `--profile-phases 1`):
+
+| | late window | corrected-tick mean | broken bonds | clusters | eligible (direct) | elastic skips |
+|---|---:|---:|---:|---:|---:|---:|
+| default | 54.0 ms | 60.0 ms | 56,077 | 12,248 | 43,735 | 206,870 |
+| mode 4 | 61.2 ms | 68.6 ms | 60,004 | 13,407 | 54,125 | 117,365 |
+
+Per-tick phases (late window, ms): `correctedCollisionSolve` 19.5 vs 14.5
+(`detail.updateDynamics` 2.26 vs 0.40 is the finalize: island walk plus two
+stream synchronisations; `postBroadPhase` 2.5 vs 2.0; `postNarrowPhase` 1.4
+vs 0.9), `restoreInstall` 1.26 vs 0.18 (the install-time reinstate),
+`waitForGpu` 16.0 vs 14.0. Histories track the default closely for the
+first ten corrected ticks (602/1861/4/329/153 breaks identical or within a
+few bonds) and then diverge by the warm-vs-cold difference (+7 % bonds over
+the run); 324 of 810k candidate-passes were merged by a new touch (third
+closure set, handled exactly).
+
+Why it does not pay: the GPU work the freeze removes is under 1 ms per
+corrected pass (rigid solver kernels are ~1 ms per tick in total, the
+corrected stress solve already skips 92 % of components through the exact
+certificate), while the corrected pass costs ~11 ms of CPU pipeline stages
+and launch-latency chains that are unchanged by removing bodies from the
+solver list. Even with the overheads made asynchronous the lever is bounded
+by the broadphase/narrowphase share (~1–2 ms). Kept off; the mechanism and
+its fixes are in place for a CPU-level scoping (island gen, contact-manager
+management, post-solve tasks restricted to the closure), which is the only
+R5 route with a measurable upside (~5 ms per corrected tick) and remains
+multi-week.

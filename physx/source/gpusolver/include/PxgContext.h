@@ -466,6 +466,7 @@ namespace physx
 
 		PxU32									mTotalEdges;
 		PxU32									mTotalPreviousEdges;
+		PxArray<PxU32>	mDestructionFrozenEdgeScratch; // frozen corrected pass: edge indices whose friction counts are cleared
 
 		PxsContactManagerOutputIterator			mOutputIterator;
 

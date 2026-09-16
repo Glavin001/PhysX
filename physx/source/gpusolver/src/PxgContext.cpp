@@ -1216,7 +1216,8 @@ namespace physx
 
 		const PxU32 atomBatchSize = PxMax(256u, PxMin(1024u, (mBodyCount + workerCount - 1) / workerCount));
 
-		const PxNodeIndex* const PX_RESTRICT nodeIndices = islandSim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+		// The solver's own list (a frozen corrected pass may exclude bodies).
+		const PxNodeIndex* const PX_RESTRICT nodeIndices = mActiveNodeIndex.begin() + 1 + mKinematicCount;
 
 		mGpuSolverCore->acquireContext();
 
@@ -2251,7 +2252,10 @@ void PxgGpuContext::update(	Cm::FlushPool& flushPool, PxBaseTask* continuation, 
 	//These will be parameters
 	IG::IslandSim& islandSim = mIslandManager.getAccurateIslandSim();
 
-	const PxU32 bodyCount = islandSim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+	// Frozen corrected pass: the destruction controller may hand back the rigid
+	// active list without the bodies that keep their trial result this pass.
+	const PxArray<PxNodeIndex>* filteredRigid = static_cast<PxgSimulationController*>(mSimulationController)->destructionFilteredActiveNodes(islandSim);
+	const PxU32 bodyCount = filteredRigid ? filteredRigid->size() : islandSim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
 	const PxU32 articulationCount = islandSim.getNbActiveNodes(IG::Node::eARTICULATION_TYPE);
 
 	mGpuSolverCore->setGpuContactManagerOutputBase(gpuContactManagerOutputs);
@@ -2371,7 +2375,7 @@ void PxgGpuContext::update(	Cm::FlushPool& flushPool, PxBaseTask* continuation, 
 	if (needsSolve(islandSim, bodyCount, articulationCount))
 	{
 		//Set up gpu workloads early!!!
-		const PxNodeIndex* const PX_RESTRICT nodeIndices = islandSim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+		const PxNodeIndex* const PX_RESTRICT nodeIndices = filteredRigid ? filteredRigid->begin() : islandSim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
 		const PxNodeIndex* const PX_RESTRICT articulationNodeIndices = islandSim.getActiveNodes(IG::Node::eARTICULATION_TYPE);
 
 		PxMemCopy(mActiveNodeIndex.begin() + 1, islandSim.getActiveKinematics(), islandSim.getNbActiveKinematics() * sizeof(PxNodeIndex));
@@ -2557,6 +2561,24 @@ void PxgGpuContext::updatePostPartitioning(PxBaseTask* lostTouchTask, PxvNphaseI
 	mGpuSolverCore->allocateFrictionPatchIndexStream(totalEdges * maxPatchesPerCM); //How many batches
 
 	mGpuSolverCore->allocateFrictionCounts(totalEdges);
+	{
+		// Frozen corrected pass: edges this pass will not visit keep no stale counts.
+		PxU32 frozenCount = 0;
+		const PxU32* frozenUniqueIds = static_cast<PxgSimulationController*>(mSimulationController)->destructionFrozenStaticEdges(frozenCount);
+		if(frozenCount)
+		{
+			// Static contact records carry partition unique ids; the friction
+			// counts are keyed by edge index (solver constants).
+			const Cm::PinnableArray<PxgSolverConstraintManagerConstants>& constants = mIncrementalPartition.getSolverConstants();
+			mDestructionFrozenEdgeScratch.forceSize_Unsafe(0);
+			mDestructionFrozenEdgeScratch.reserve(frozenCount);
+			for(PxU32 i = 0; i < frozenCount; ++i)
+				if(frozenUniqueIds[i] < constants.size() && constants[frozenUniqueIds[i]].mEdgeIndex < totalEdges)
+					mDestructionFrozenEdgeScratch.pushBack(constants[frozenUniqueIds[i]].mEdgeIndex);
+			if(mDestructionFrozenEdgeScratch.size())
+				mGpuSolverCore->clearCurrentFrictionPatchCounts(mDestructionFrozenEdgeScratch.begin(), mDestructionFrozenEdgeScratch.size());
+		}
+	}
 
 	currentDescIndex = mIncrementalPartition.getTotalConstraints() + mIncrementalPartition.getTotalContacts();
 

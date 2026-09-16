@@ -140,6 +140,7 @@ PxgSolverCore::PxgSolverCore(PxgCudaKernelWranglerManager* gpuKernelWrangler, Px
 	mPartitionJointBatchCounts(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mPartitionArtiJointBatchCounts(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mDestroyedEdgeIndices(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
+	mFrozenEdgeIndices(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mNpIndexArray(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mGpuContactBlockBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mDataBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
@@ -207,10 +208,31 @@ bool PxgSolverCore::resetDestructionFrictionCaches()
     return !mCudaContext->isInAbortMode();
 }
 
+void PxgSolverCore::clearCurrentFrictionPatchCounts(const PxU32* edges, PxU32 count)
+{
+	if(!count || !edges)return;
+	mFrozenEdgeIndices.allocate(sizeof(PxU32)*count, PX_FL);
+	mCudaContext->memcpyHtoDAsync(mFrozenEdgeIndices.getDevicePtr(), edges, count*sizeof(PxU32), mStream);
+	const PxU32 nbBlocksRequired = (count + PxgKernelBlockDim::CLEAR_FRICTION_PATCH_COUNTS - 1)/PxgKernelBlockDim::CLEAR_FRICTION_PATCH_COUNTS;
+	const CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::CLEAR_FRICTION_PATCH_COUNTS);
+	CUdeviceptr frictionPatchPtr = mFrictionPatchCounts[mCurrentIndex].getDevicePtr();
+	CUdeviceptr indicesPtr = mFrozenEdgeIndices.getDevicePtr();
+	PxCudaKernelParam kernelParams[] = { PX_CUDA_KERNEL_PARAM(frictionPatchPtr), PX_CUDA_KERNEL_PARAM(indicesPtr), PX_CUDA_KERNEL_PARAM(count) };
+	CUresult result = mCudaContext->launchKernel(kernelFunction, nbBlocksRequired, 1, 1, PxgKernelBlockDim::CLEAR_FRICTION_PATCH_COUNTS, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
+	if(result != CUDA_SUCCESS)
+		PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU clearCurrentFrictionPatchCounts fail to launch kernel!!\n");
+}
+
 void PxgSolverCore::allocateFrictionCounts(PxU32 totalEdges)
 {
 	mFrictionPatchCounts[1 - mCurrentIndex].allocateCopyOldDataAsync(totalEdges * sizeof(PxU32), mCudaContext, mStream, PX_FL);
 	mFrictionPatchCounts[mCurrentIndex].allocate(totalEdges * sizeof(PxU32), PX_FL);
+	// Every edge this pass does not visit (a body absent from the solver list in
+	// a frozen destruction pass, an edge re-added within one pass) must read as
+	// "no previous friction patches" next pass: its index-stream entry and patch
+	// blocks would otherwise point into another pass's batch space.
+	if(totalEdges)
+		mCudaContext->memsetD32Async(mFrictionPatchCounts[mCurrentIndex].getDevicePtr(), 0, totalEdges, mStream);
 }
 
 PxgBlockFrictionIndex* PxgSolverCore::allocateFrictionPatchIndexStream(PxU32 totalFrictionPatchCount)

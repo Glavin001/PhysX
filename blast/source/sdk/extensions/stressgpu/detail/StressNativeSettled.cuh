@@ -147,6 +147,21 @@ __global__ void beginNativeElasticReuse(NativeSettledCache cache,ResidentStressC
         __syncthreads();
     }
 }
+// Island-scoped correction: components whose root node is flagged keep their
+// previous output (the same skip the settled certificate takes).
+// The component's stored forces, reference load and certificate stay exactly
+// what they were: a parked component is neither solved nor observed this pass
+// (its inputs are the neutralised contacts of the corrected rigid solve).
+__global__ void markParkedNativeComponents(unsigned* islandSkip, const unsigned* parkedNodeFlags, ResidentStressComponentView c,
+    NativeSettledCache cache, unsigned* converged) {
+    const unsigned t = blockIdx.x * blockDim.x + threadIdx.x;
+    if (t >= *c.count) return;
+    const unsigned id = c.ids[t];
+    if (!parkedNodeFlags[id]) return;
+    islandSkip[id] = 1u;
+    converged[id] = 1u;
+    cache.verifiedStoredOutput[id] = cache.certificates[id].valid ? 1u : 0u;
+}
 __global__ void commitNativeSettledReuse(NativeSettledCache cache,ResidentStressComponentView components,
     const ExtStressGpuDeviceTopologyStatus* topology,const ExtStressGpuImpulse* inputs,
     const unsigned* converged,const unsigned* skip,float tolerance,unsigned maxIterations){

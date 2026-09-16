@@ -28,11 +28,14 @@
         int device=0;cudaDeviceProp properties{};
         checkCuda(cudaGetDevice(&device), "query destruction device");
         checkCuda(cudaGetDeviceProperties(&properties, device), "query destruction capabilities");
-        const bool supportedDevice =
+        // PHYSX_DESTRUCTION_DEVICE_GATE=sm120 admits any CC 12.0 device (e.g. RTX PRO 6000 on Modal); default unchanged.
+        const char* gate = std::getenv("PHYSX_DESTRUCTION_DEVICE_GATE");
+        const bool anySm120 = gate && std::string(gate)=="sm120" && properties.major==12 && properties.minor==0;
+        const bool supportedDevice = anySm120 ||
             (properties.major==8 && properties.minor==9 && std::string(properties.name)=="NVIDIA GeForce RTX 4090") ||
             (properties.major==12 && properties.minor==0 && std::string(properties.name)=="NVIDIA GeForce RTX 5060 Ti");
         if(!supportedDevice || !properties.cooperativeLaunch)
-            throw std::runtime_error("Integrated destruction requires RTX 4090 sm_89 or RTX 5060 Ti sm_120 with cooperative CUDA execution");
+            throw std::runtime_error("Integrated destruction requires RTX 4090 sm_89 or RTX 5060 Ti sm_120 with cooperative CUDA execution (or PHYSX_DESTRUCTION_DEVICE_GATE=sm120 on another sm_120 device)");
 #endif
         prepare(nodes, bonds);
 computeIslands();

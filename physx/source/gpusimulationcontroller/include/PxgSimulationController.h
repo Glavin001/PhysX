@@ -512,6 +512,19 @@ class PxProfilerCallback;
         bool isDestructionCorrecting() const { return mDestructionCorrecting; }
         const PxU32* destructionParkedNodes(PxU32& count) const override { count=mDestructionParkedNodes.size(); return mDestructionParkedNodes.begin(); }
         PxArray<PxU32> mDestructionParkedNodes; // island-scoped correction: nodes left at their trial result
+        // Frozen corrected pass (PHYSX_DESTRUCTION_ISLAND_SCOPE=4): candidates
+        // are finalized after the corrected island gen (islands merged by a new
+        // touch with an affected body leave the set), reinstated to their trial
+        // state on the GPU and removed from the solver's active body list for
+        // the pass. The incremental partition is untouched; their constraints
+        // resolve to the static world and skip writeback.
+        PxArray<PxU32> mDestructionAffectedNodes;
+        PxArray<PxNodeIndex> mDestructionSolverNodes;
+        PxArray<PxU32> mDestructionFrozenNodes;
+        PxArray<PxU32> mDestructionFrozenStaticEdges; // static contact edges of the frozen bodies (not batched this pass)
+        bool mDestructionFreezePending = false;
+        const PxU32* destructionFrozenStaticEdges(PxU32& count) const { count=mDestructionFrozenStaticEdges.size(); return mDestructionFrozenStaticEdges.begin(); }
+        const PxArray<PxNodeIndex>* destructionFilteredActiveNodes(const IG::IslandSim& islandSim);
         void discardDestructionTrialBodyUpload(PxU32 id) override {
             if(id<mBodySimManager.mBodies.size() && mBodySimManager.mBodies[id]) {
                 mBodySimManager.mUpdatedMap.reset(id);
