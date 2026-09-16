@@ -934,6 +934,7 @@ namespace Sc
                     PxArray<IG::IslandId> mDestructionParkedIslands; // island-scoped correction
                     PxBitMap mDestructionQueryDirty;
                     PxArray<PxU32> mDestructionQueryShapes;
+                    PxArray<PxU32> mDestructionPartitionCandidates, mDestructionPartitionCandidatesTrial;
                     void captureDestructionActivity();
                     void restoreDestructionActivity();
 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;

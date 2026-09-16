@@ -2377,6 +2377,48 @@ void Sc::Scene::updateDynamics(PxBaseTask* /*continuation*/)
 		}
 	}
 
+	// R2 step 4 (env-gated): narrowphase-driven candidate list for new partition edges:
+	// touch bit set this pass, touching per narrowphase output, either dynamic endpoint
+	// active; corrected passes replay the trial pass's list.
+	{
+		static const bool npSource = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_NP_SOURCE"); return raw && raw[0] == '1'; }();
+		if(npSource && mSimpleIslandManager->getAccurateIslandSim().mGpuData)
+		{
+			const IG::IslandSim& sim = mSimpleIslandManager->getAccurateIslandSim();
+			PxsContactManagerOutputIterator outputs = mLLContext->getNphaseImplementationContext()->getContactManagerOutputs();
+			const PxBitMap& touchBits = mLLContext->getContactManagerTouchEvents();
+			if(!mDestructionCorrectionInProgress) mDestructionPartitionCandidatesTrial.forceSize_Unsafe(0);
+			mDestructionPartitionCandidates.forceSize_Unsafe(0);
+			const PxU32* words = touchBits.getWords();
+			const PxU32 last = words ? touchBits.findLast() : PX_INVALID_U32;
+			if(last != PX_INVALID_U32)
+				for(PxU32 w = 0; w <= last >> 5; ++w)
+					for(PxU32 bw = words[w]; bw; bw &= bw-1)
+					{
+						const PxU32 index = PxU32(w<<5|PxLowestSetBit(bw));
+						PxsContactManager* cm = mLLContext->getContactManagerPool().findByIndexFast(index);
+						if(!cm) continue;
+						const PxcNpWorkUnit& unit = cm->getWorkUnit();
+						if(unit.mNpIndex == 0xFFffFFff || !outputs.getContactManagerOutput(unit.mNpIndex).nbPatches) continue;
+						if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE) continue;
+						const IG::EdgeIndex e = unit.mEdgeIndex;
+						if(e == IG_INVALID_EDGE || e >= sim.getNbEdges()) continue;
+						const PxNodeIndex n0 = sim.mCpuData.getNodeIndex1(e), n1 = sim.mCpuData.getNodeIndex2(e);
+						const bool dyn0 = n0.isValid() && !sim.getNode(n0).isKinematic(), dyn1 = n1.isValid() && !sim.getNode(n1).isKinematic();
+						const bool active0 = !n0.isValid() || sim.getNode(n0).isActive() || sim.getNode(n0).isActivating();
+						const bool active1 = !n1.isValid() || sim.getNode(n1).isActive() || sim.getNode(n1).isActivating();
+						if((dyn0 && active0) || (dyn1 && active1) || (!dyn0 && !dyn1))
+						{
+							mDestructionPartitionCandidates.pushBack(e);
+							if(!mDestructionCorrectionInProgress) mDestructionPartitionCandidatesTrial.pushBack(e);
+						}
+					}
+			if(mDestructionCorrectionInProgress)
+				for(PxU32 i = 0; i < mDestructionPartitionCandidatesTrial.size(); ++i) mDestructionPartitionCandidates.pushBack(mDestructionPartitionCandidatesTrial[i]);
+			mDynamicsContext->setPartitionCandidateEdges(mDestructionPartitionCandidates.begin(), mDestructionPartitionCandidates.size());
+		}
+	}
+
 	//Allow processLostContactsTask to run until after 2nd pass of solver completes (update bodies, run sleeping logic etc.)
 	mProcessLostContactsTask3.setContinuation(&mPostSolver);
 	mProcessLostContactsTask2.setContinuation(&mProcessLostContactsTask3);

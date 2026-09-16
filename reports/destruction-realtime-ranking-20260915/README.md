@@ -907,6 +907,13 @@ the nine warm windows stay within their motion bounds; and timing is
 reported as before (means, peaks, 60 Hz misses). Bit-identical control
 runs (A/A) remain required for every lossless change.
 
+**Calibration (2026-09-16, `warm-screen.md`):** reversing only the partition insertion order of the same
+edge set moves the g16 bond total by +23 % (56,077 → 69,243). The ±3 % bound on totals is therefore below
+the scene's own order sensitivity and rejects every order-changing change; the rejected candidates
+(+5.7 % solver-derived sleep verdicts, +7.7 % narrowphase partition source) lie inside that sensitivity.
+The envelope needs an ensemble-based or order-insensitive definition before any order-changing R2 step can
+be accepted or refused on evidence.
+
 ## 12. R2 milestone 2 item 2: device-keyed partition edges — code map and plan (2026-09-16)
 
 Keying by the CPU island edge index today: `IG::GPUExternalData::mFirstPartitionEdges`
@@ -946,7 +953,8 @@ Plan (each step measurable):
 3. DONE (2026-09-16, lossless, neutral against a full control binary): `mFirstPartitionEdgesBySlot` beside
    `mFirstPartitionEdges`, mirrored at every contact head update; `processPartitionEdges` and the NP
    lost/found patch passes look up by slot. Island-driven loops and joints stay on edge handles.
-4. SIZED (2026-09-16, `warm-screen.md`): a narrowphase-driven source (touch bitmap ∩ touching output ∩
+4. BUILT env-gated (2026-09-16, `PHYSX_DESTRUCTION_PARTITION_NP_SOURCE`; 88 % of items from narrowphase,
+   deterministic, +7.7 % bonds pending the envelope recalibration). Sizing: a narrowphase-driven source (touch bitmap ∩ touching output ∩
    either endpoint active) reproduces 89.6 % of the island's activated pairs; the rest are corrected-pass
    re-activations (8.4 %, replay the trial set) and wake re-activations (1.3 %, need per-node pair adjacency).
    Order-changing; qualifies under §11. Original plan: device pair roster feeding `Part2_0/Part2_1`.

@@ -194,6 +194,9 @@ public:
 
 	// Only used for Direct GPU API pipeline at the moment.
 	virtual void setActiveBreakableConstraintCount(PxU32 activeBreakableConstraintCount) { PX_UNUSED(activeBreakableConstraintCount); }
+	// R2 step 4: narrowphase-driven candidate contact edges for new partition edges
+	// (island edge indices this pass); NULL disables the alternative source.
+	virtual void setPartitionCandidateEdges(const PxU32* /*edges*/, PxU32 /*count*/) {}
 
 protected:
 

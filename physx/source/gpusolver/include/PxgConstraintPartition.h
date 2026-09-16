@@ -334,6 +334,9 @@ public:
 	// R2 step 4 audit: this pass's narrowphase found/lost patch list, handed in before the update.
 	void setFoundPatchList(PxsContactManager** managers, PxU32 count, const PxsContactManagerOutputCounts* counts) { mFoundManagers = managers; mFoundCount = count; mFoundCounts = counts; }
 	PxsContactManager** mFoundManagers = NULL; PxU32 mFoundCount = 0; const PxsContactManagerOutputCounts* mFoundCounts = NULL;
+	// R2 step 4: alternative source of new partition edges (see updateIncrementalIslands_Part2_0).
+	void setCandidateEdges(const PxU32* edges, PxU32 count) { mCandidateEdges = edges; mCandidateCount = count; }
+	const PxU32* mCandidateEdges = NULL; PxU32 mCandidateCount = 0; PxBitMap mCandidateSeen;
 
 	PX_FORCE_INLINE	const PxArray<PxU32>&			getNpIndexArray()					const	{ return mNpIndexArray;					}
 	PX_FORCE_INLINE	const PxArray<PartitionSlab*>&	getPartitionSlabs()					const	{ return mPartitionSlabs;				}

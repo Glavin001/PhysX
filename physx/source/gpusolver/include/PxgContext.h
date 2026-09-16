@@ -335,6 +335,7 @@ namespace physx
         IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
 
         void enableDeviceConnectivityOwnership(bool enabled) { mIslandManager.requestDeviceConnectivity(enabled); }
+        virtual void setPartitionCandidateEdges(const PxU32* edges, PxU32 count) PX_OVERRIDE { mIncrementalPartition.setCandidateEdges(edges, count); }
         bool deviceConnectivityOwnershipRequested() const { return mIslandManager.deviceConnectivityRequested() && mCudaPreSolveIslands && mCudaPreSolveContacts && mCudaPreSolveSupport && mPreSolveSleepingDisabled; }
         bool deviceConnectivityOwnershipReady() const;
         void enableCudaPreSolveIslands(bool enabled) { if(!enabled)mIslandManager.restoreHostConnectivity(); if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled,!mCudaPreSolveContacts,!(mCudaPreSolveSupport && mCudaPreSolveContacts)); }

@@ -2282,9 +2282,66 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2_0(IG::IslandSim& is
 		mPart2WorkItems.clear();
 		mPart2EdgeCases.clear();
 
-		for (PxU32 a = 0; a < activatedContactCount; ++a)
+		// R2 step 4 (env-gated): take new touches from the narrowphase-driven
+		// candidate list and only the woken already-touching pairs from the
+		// island sim's activated list. Same set as the island source (audited
+		// inline), different insertion order.
+		const bool npSource = mCandidateEdges != NULL;
+		if(npSource)
 		{
-			const IG::EdgeIndex edgeId = activatedContacts[a];
+			static PxU64 passes = 0, islandItems = 0, npItems = 0, wokenItems = 0;
+			++passes;
+			mCandidateSeen.resizeAndClear(PxMax(islandSim.getNbEdges(), 1u));
+			for(PxU32 c = 0; c < mCandidateCount; ++c)
+			{
+				const IG::EdgeIndex edgeId = mCandidateEdges[c];
+				if(edgeId >= islandSim.getNbEdges() || mCandidateSeen.test(edgeId) || !activeCMBitmap.test(edgeId)) continue;
+				PxsContactManager* cm = islandManagerData.getContactManager(edgeId);
+				if(!cm || islandSimGpuData.getFirstPartitionEdge(edgeId) != NULL) continue;
+				PxcNpWorkUnit& unit = cm->getWorkUnit();
+				const PxsContactManagerOutput& output = iterator.getContactManagerOutput(unit.mNpIndex);
+				if(!output.nbPatches) continue;
+				mCandidateSeen.set(edgeId);
+				pushDestroyedPairSlot(unit.mDeviceSlot);
+				for (PxU32 b = 0; b < output.nbPatches; ++b)
+				{
+					Part2WorkItem& item = *mPart2WorkItems.insert();
+					item.mEdgeID = edgeId; item.mPatchIndex = PxU16(b); item.mPartitionEdge = mEdgeManager.getEdge(edgeId);
+				}
+				++npItems;
+			}
+			for (PxU32 a = 0; a < activatedContactCount; ++a)
+			{
+				const IG::EdgeIndex edgeId = activatedContacts[a];
+				if(!activeCMBitmap.test(edgeId)) continue;
+				PxsContactManager* cm = islandManagerData.getContactManager(edgeId);
+				if(!cm) continue;
+				if(islandSimGpuData.getFirstPartitionEdge(edgeId) != NULL || mCandidateSeen.test(edgeId)) { if(!mCandidateSeen.test(edgeId)) pushDestroyedPairSlot(cm->getWorkUnit().mDeviceSlot); continue; }
+				PxcNpWorkUnit& unit = cm->getWorkUnit();
+				const PxsContactManagerOutput& output = iterator.getContactManagerOutput(unit.mNpIndex);
+				++islandItems;
+				if(!output.nbPatches) { pushDestroyedPairSlot(unit.mDeviceSlot); continue; }
+				// Not in the candidate list: a woken already-touching pair, or a gap of the
+				// narrowphase source; both still come from the island list for now.
+				mCandidateSeen.set(edgeId);
+				pushDestroyedPairSlot(unit.mDeviceSlot);
+				for (PxU32 b = 0; b < output.nbPatches; ++b)
+				{
+					Part2WorkItem& item = *mPart2WorkItems.insert();
+					item.mEdgeID = edgeId; item.mPatchIndex = PxU16(b); item.mPartitionEdge = mEdgeManager.getEdge(edgeId);
+				}
+				++wokenItems;
+			}
+			static const bool report = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_NP_SOURCE_DIAG"); return raw && raw[0] == '1'; }();
+			if(report && (passes % 32) == 0)
+				fprintf(stderr, "partition np-source: passes=%llu from-narrowphase=%llu from-island(residual)=%llu\n", (unsigned long long)passes, (unsigned long long)npItems, (unsigned long long)wokenItems);
+		}
+
+		// Envelope calibration (env-gated): same set, reversed insertion order.
+		static const bool reverseOrder = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_REVERSE_AUDIT"); return raw && raw[0] == '1'; }();
+		for (PxU32 a = 0; a < activatedContactCount && !npSource; ++a)
+		{
+			const IG::EdgeIndex edgeId = activatedContacts[reverseOrder ? activatedContactCount - 1 - a : a];
 			if(activeCMBitmap.test(edgeId))
 			{
 				PxsContactManager* cm = islandManagerData.getContactManager(edgeId);
