@@ -798,3 +798,22 @@ as scaffolding: island park/unpark, neighbour-island closure, trial
 snapshot/reinstatement, parked-component stress skip (exact), pre-prep
 neutralisation and writeback skip, and the diagnostics
 (`PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG`, `_TRACE`, modes 2 and 3).
+
+## 10. R2 core, stage 0 (2026-09-16): where device-owned activity would start
+
+The pre-solve roster's `live` flag is authored on the CPU from the accurate
+island sim (`PxgContext.cpp:2596`: island id valid, not deleted, not
+kinematic) and uploaded as node updates (`mPreSolveNodes`); the device
+island producer only labels components among live nodes
+(`PxgPreSolveIslands.cuh`). Nothing on the device decides activity today.
+The R2 core therefore begins with device-owned sleep: consume the solver's
+per-body sleep data (`PxgSolverBodySleepData`, rebuilt per pass) on the
+device to (a) update roster liveness, (b) emit activation/deactivation
+deltas for the CPU island sims and Sc (`wakeObjectsUp`/`putObjectsToSleep`
+consumers, `ScSleep.cpp:148-306`) instead of the CPU deriving them from
+island gen, and (c) feed `PxgGpuContext::update` a compacted active list
+(README §9). Only after that can partition edges be keyed by device pair
+identities (§7, item 2), which is what retires island insertion,
+contact-manager preallocation and registration from the impact tick. Each
+of these is a fidelity-neutral but non-bitwise change (body order), so the
+physical gates are the acceptance path from the first step.
