@@ -1200,3 +1200,21 @@ g16 screens stayed bit-identical. Fix: the trial copies the accepted
 cluster table at prepare (`PxgDestructionTransaction.cuh`; a device copy
 of ~9 MB per transaction, tens of microseconds). The failing probe passes;
 the screen is rerun as `results-16d-v4`.
+
+## Warm nine-window screen of the 2026-09-16d defaults (contract v4, `results-16d-v4`)
+
+Candidate = runtime, GPU module and probes at `b5144342` (all lossless defaults of the day plus the cluster-table fix); controls A0/A1 = the 2026-09-13 baseline artifacts. All nine windows pass. Means in ms (A0 / B / A1); the 09-16 morning screen (`results-solve2-v4`) is in brackets:
+
+| window | A0 mean | B mean | A1 mean | A0 max | B max | A1 max | misses A0/B/A1 | B force relL2 | B health drift | B check |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| bridge64 | 1.47 | 1.57 | 1.48 | 1.77 | 2.01 | 1.73 | 0/0/0 of 16 | 3.00e-07 | 0.0e+00 | passed |
+| chain256 | 1.76 | 1.48 | 1.82 | 2.02 | 1.74 | 2.27 | 0/0/0 of 16 | 8.31e-08 | 0.0e+00 | passed |
+| city25-impact | 24.20 | 16.25 | 24.23 | 44.66 | 39.69 | 40.26 | 10/8/10 of 16 | 1.53e-03 | 1.1e-06 | passed |
+| city256-cascade | 112.23 | 69.00 | 113.17 | 152.51 | 109.35 | 158.10 | 16/16/16 of 16 | 1.25e-03 | 1.1e-06 | passed |
+| city256-debris | 131.18 | 77.33 | 131.48 | 136.29 | 83.90 | 134.77 | 16/16/16 of 16 | 1.89e-02 | 3.0e-05 | passed |
+| city256-idle | 1.72 | 1.92 | 1.78 | 2.02 | 2.41 | 4.89 | 0/0/0 of 32 | 2.39e-07 | 0.0e+00 | passed |
+| city256-impact | 93.79 | 68.58 | 93.28 | 197.42 | 189.00 | 191.76 | 16/16/16 of 16 | 4.37e-04 | 1.2e-06 | passed |
+| dense12 | 1.51 | 1.79 | 1.73 | 1.75 | 2.14 | 2.16 | 0/0/0 of 16 | 4.42e-08 | 0.0e+00 | passed |
+| tower64 | 1.43 | 1.46 | 1.45 | 1.59 | 1.75 | 2.18 | 0/0/0 of 16 | 4.60e-08 | 0.0e+00 | passed |
+
+cascade 69.0 [71.0], impact 68.6 [69.8], debris 77.3 [80.3], city25 16.3 [16.4], idle 1.92 [1.80]; force relL2 and health drift unchanged from the previous screen (the stress solves are bit-identical), so the movement is the acceptance and refactor scheduling.
