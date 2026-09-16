@@ -647,6 +647,40 @@ public:
 	PX_FORCE_INLINE const Island&				getIsland(const PxNodeIndex& nodeIndex)	const { PX_ASSERT(mIslandIds[nodeIndex.index()] != IG_INVALID_ISLAND); return mIslands[mIslandIds[nodeIndex.index()]]; }
 
 	PX_FORCE_INLINE PxU32						getNbActiveIslands()	const	{ return mActiveIslands.size();		}
+	// Island-scoped destruction correction: remove an awake island and its
+	// dynamic nodes from the active lists for one pass without touching edge
+	// activity, sleep state or user notifications; the inverse re-adds them
+	// unless a new touch woke the island through the ordinary path meanwhile.
+	// Returns false (and parks nothing) when the island holds a kinematic or
+	// an articulation node.
+	bool parkIslandForPass(IslandId island);
+	// Diagnostic: number of active-list entries whose node does not point back (0 = consistent).
+	PxU32 validateActiveLists(const char* tag) const;
+	void unparkIslandForPass(IslandId island);
+	// Islands of the dynamic nodes connected to `node` by any edge (contacts
+	// and constraints, active or not). Returns the number written (capped).
+	// Inline: called from the GPU module, which does not link this library.
+	PX_FORCE_INLINE PxU32 collectNeighbourIslands(PxNodeIndex nodeIndex, IslandId* out, PxU32 capacity) const
+	{
+		if(nodeIndex.index() >= mNodes.size()) return 0;
+		const Node& node = mNodes[nodeIndex.index()];
+		PxU32 count = 0;
+		EdgeInstanceIndex index = node.mFirstEdgeIndex;
+		while(index != IG_INVALID_EDGE && count < capacity)
+		{
+			const EdgeIndex idx = index / 2;
+			const PxNodeIndex nodeIndex1 = mCpuData.mEdgeNodeIndices[idx * 2];
+			const PxNodeIndex nodeIndex2 = mCpuData.mEdgeNodeIndices[idx * 2 + 1];
+			const PxNodeIndex other = nodeIndex1.index() == nodeIndex.index() ? nodeIndex2 : nodeIndex1;
+			if(other.index() != PX_INVALID_NODE && !other.isStaticBody() && other.index() < mNodes.size())
+			{
+				const IslandId island = mIslandIds[other.index()];
+				if(island != IG_INVALID_ISLAND) out[count++] = island;
+			}
+			index = mEdgeInstances[index].mNextEdge;
+		}
+		return count;
+	}
 	PX_FORCE_INLINE const IslandId*				getActiveIslands()		const	{ return mActiveIslands.begin();	}
 
 	PX_FORCE_INLINE PxU32						getNbDeactivatingEdges(const IG::Edge::EdgeType edgeType)	const	{ return mDeactivatingEdges[edgeType].size();	}
@@ -744,6 +778,7 @@ private:
 	void activateIslandInternal(const Island& island);
 
 	void activateIsland(IslandId island);
+
 
 	void deactivateIsland(IslandId island);
 
@@ -953,6 +988,9 @@ private:
 
 	void removeEdgeFromActivatingList(EdgeIndex index);
 };
+
+// Diagnostic: rejection reasons of IslandSim::parkIslandForPass (island-scoped correction).
+PxU32 parkRejectReason(PxU32 reason);
 }
 }
 

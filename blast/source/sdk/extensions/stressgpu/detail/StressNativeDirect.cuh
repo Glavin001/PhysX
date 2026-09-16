@@ -211,6 +211,14 @@ __global__ void releaseNativeDirectSlots(NativeDirectView v, const unsigned* nod
         }
     }
 }
+// Island-scoped correction: components whose root node is flagged keep their
+// previous output (the same skip the settled certificate takes).
+__global__ void markParkedNativeComponents(unsigned* islandSkip, const unsigned* parkedNodeFlags, ResidentStressComponentView c) {
+    const unsigned t = blockIdx.x * blockDim.x + threadIdx.x;
+    if (t >= *c.count) return;
+    const unsigned id = c.ids[t];
+    if (parkedNodeFlags[id]) islandSkip[id] = 1u;
+}
 // Solve entry: every eligible live component without a slot claims one, in
 // component-list order from the free slots in ascending order. One CTA runs
 // this deterministically: identical inputs always produce identical slot

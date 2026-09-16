@@ -50,6 +50,37 @@ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T
 #include "PxgDestructionCommittedChanges.cuh"
 #include "PxgDestructionShapePublication.cuh"
 // Rebind compact runtime cluster slots entirely on device after acceptance.
+// Island-scoped correction: copy the trial snapshot back over the live state
+// for the listed (parked) bodies.
+__global__ void markParkedBodies(const unsigned* list,unsigned count,unsigned char* bitmap,unsigned capacity) {
+    const unsigned k=blockIdx.x*blockDim.x+threadIdx.x;
+    if(k<count && list[k]<capacity)bitmap[list[k]]=1;
+}
+// Every chunk whose cluster body is parked flags its component root (the
+// topology's cluster root, the minimum member chunk, is the stress component id).
+__global__ void markParkedRoots(PxDestructionTopologyDeviceView topology,const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
+    unsigned clusterCount,const unsigned char* bitmap,unsigned bodyCapacity,unsigned* rootFlags,unsigned chunkCount) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i>=chunkCount || i>=topology.chunkCount || !topology.activeChunks[i])return;
+    const unsigned slot=chunks[i].cluster;
+    if(slot>=clusterCount)return;
+    const unsigned body=clusters[slot].body;
+    const unsigned root=topology.chunkCluster[i];
+    if(body<bodyCapacity && root<chunkCount && bitmap[body])rootFlags[root]=1u;
+}
+__global__ void reinstateTrialBodies(PxgBodySim* live,const PxgBodySim* trial,
+    PxgBodySimVelocities* previous,const PxgBodySimVelocities* trialPrevious,
+    PxgRigidBodyAcceleration* accelerations,const PxgRigidBodyAcceleration* trialAccelerations,
+    const unsigned* list,unsigned count,unsigned capacity) {
+    const unsigned k=blockIdx.x*blockDim.x+threadIdx.x;
+    if(k>=count)return;
+    const unsigned i=list[k];
+    if(i>=capacity)return;
+    live[i]=trial[i];
+    if(previous)previous[i]=trialPrevious[i];
+    if(accelerations)accelerations[i]=trialAccelerations[i];
+}
+
 __global__ void acceptClusterBindings(PxDestructionTopologyDeviceView topology,
     const PxU32* targets,PxDestructionStressCluster* clusters,const PxDestructionStageStatus* status) {
     if(status->error & ~8u)return;
@@ -1092,6 +1123,9 @@ public:
         cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
         cudaFree(mCheckpointPrevious);mCheckpointPrevious=nullptr;
         cudaFree(mCheckpointAccelerations);mCheckpointAccelerations=nullptr;
+        cudaFree(mTrialSnapBodies);cudaFree(mTrialSnapPrevious);cudaFree(mTrialSnapAccelerations);mTrialSnapBodies=nullptr;mTrialSnapPrevious=nullptr;mTrialSnapAccelerations=nullptr;
+        mTrialSnapCapacity=mTrialSnapCount=0;mTrialSnapshotValid=false;cudaFree(mReinstateList);mReinstateList=nullptr;mReinstateCapacity=0;
+        cudaFree(mParkedBodyBitmap);mParkedBodyBitmap=nullptr;mParkedBodyBitmapCapacity=0;cudaFree(mParkedRootFlags);mParkedRootFlags=nullptr;mParkedRootCapacity=0;mParkedFlagsArmed=false;
         mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCompletion->collision={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
@@ -1486,6 +1520,10 @@ public:
             const PxDestructionVectorPair* forces=nullptr;
             const ExtStressGpuDeviceStatus* solveStatus=nullptr;
             if(mSolver) {
+                // Island-scoped correction: the solve after a reinstatement is the
+                // corrected pass; parked components republish their trial result.
+                mSolver->setParkedComponentFlags(mParkedFlagsArmed?mParkedRootFlags:nullptr);
+                mParkedFlagsArmed=false;
                 if(!mSolver->solveDeviceAsync(reinterpret_cast<ExtStressGpuImpulse*>(mInputs),mN,mParams,mReady,mConsumer))
                     throw std::runtime_error("resident stress solve submission failed");
                 const auto view=mSolver->deviceView();
@@ -1848,6 +1886,44 @@ public:
     PxgDestructionRigidCheckpointView inputRigidCheckpoint() const override {
         return mFailed?PxgDestructionRigidCheckpointView{}:mInputCheckpoint;
     }
+    // Island-scoped correction: trial end-of-tick snapshot and the reinstatement list.
+    PxgBodySim* mTrialSnapBodies=nullptr;PxgBodySimVelocities* mTrialSnapPrevious=nullptr;PxgRigidBodyAcceleration* mTrialSnapAccelerations=nullptr;
+    PxU32 mTrialSnapCapacity=0,mTrialSnapCount=0;bool mTrialSnapshotRequested=false,mTrialSnapshotValid=false;
+    unsigned* mReinstateList=nullptr;PxU32 mReinstateCapacity=0;
+    unsigned char* mParkedBodyBitmap=nullptr;PxU32 mParkedBodyBitmapCapacity=0;
+    unsigned* mParkedRootFlags=nullptr;PxU32 mParkedRootCapacity=0;bool mParkedFlagsArmed=false;
+    void requestTrialSnapshot(bool enabled) override {mTrialSnapshotRequested=enabled;}
+    bool reinstateTrialState(const PxU32* bodies,PxU32 count,PxgBodySim* live,PxgBodySimVelocities* previous,
+        PxgRigidBodyAcceleration* accelerations,CUstream coreStream,bool reinstateBodies,bool skipStressComponents) override {
+        if(!count)return true;
+        if((reinstateBodies && !mTrialSnapshotValid) || !live || !coreStream)return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            if(count>mReinstateCapacity){if(mReinstateList)check(cudaFree(mReinstateList));mReinstateList=nullptr;
+                check(cudaMalloc(reinterpret_cast<void**>(&mReinstateList),sizeof(unsigned)*size_t(count)));mReinstateCapacity=count;}
+            check(cudaMemcpyAsync(mReinstateList,bodies,sizeof(unsigned)*size_t(count),cudaMemcpyHostToDevice,stream));
+            if(reinstateBodies)reinstateTrialBodies<<<(count+255u)/256u,256,0,stream>>>(live,mTrialSnapBodies,previous?previous:nullptr,mTrialSnapPrevious,
+                accelerations?accelerations:nullptr,mTrialSnapAccelerations,mReinstateList,count,mTrialSnapCount);
+            check(cudaGetLastError());
+            const PxU32 bodyCapacity=mTrialSnapshotValid?mTrialSnapCount:mCheckpointCount;
+            // Stress components of the parked bodies keep their trial result in the
+            // corrected solve: body bitmap -> per-cluster-root flags (consumed once).
+            if(skipStressComponents && mTopology && mChunks && mClusters && mN && bodyCapacity) {
+                if(bodyCapacity>mParkedBodyBitmapCapacity){cudaFree(mParkedBodyBitmap);mParkedBodyBitmap=nullptr;
+                    check(cudaMalloc(reinterpret_cast<void**>(&mParkedBodyBitmap),size_t(bodyCapacity)));mParkedBodyBitmapCapacity=bodyCapacity;}
+                if(mN>mParkedRootCapacity){cudaFree(mParkedRootFlags);mParkedRootFlags=nullptr;
+                    check(cudaMalloc(reinterpret_cast<void**>(&mParkedRootFlags),sizeof(unsigned)*size_t(mN)));mParkedRootCapacity=mN;}
+                check(cudaMemsetAsync(mParkedBodyBitmap,0,size_t(bodyCapacity),stream));
+                check(cudaMemsetAsync(mParkedRootFlags,0,sizeof(unsigned)*size_t(mN),stream));
+                markParkedBodies<<<(count+255u)/256u,256,0,stream>>>(mReinstateList,count,mParkedBodyBitmap,bodyCapacity);
+                markParkedRoots<<<(mN+255u)/256u,256,0,stream>>>(mTopology->trial(),mChunks,mClusters,mC,mParkedBodyBitmap,bodyCapacity,mParkedRootFlags,mN);
+                check(cudaGetLastError());
+                mParkedFlagsArmed=true;
+            }
+            check(cudaStreamSynchronize(stream)); // the host list is reused by the caller
+            return true;
+        }catch(...){return false;}
+    }
     bool restoreRigidState(PxgBodySim* bodies,PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations,PxU32 capacity,PxU64 generation,CUstream coreStream) override {
         // Reject the whole operation before any device write. A generation is
@@ -1859,6 +1935,22 @@ public:
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
             correctionMarker(0,stream);
+            mTrialSnapshotValid=false;
+            if(mTrialSnapshotRequested) {
+                // Island-scoped correction: keep the live (trial end-of-tick) state so
+                // parked bodies can be reinstated once the affected set is known.
+                if(mTrialSnapCapacity<mCheckpointCount) {
+                    cudaFree(mTrialSnapBodies);cudaFree(mTrialSnapPrevious);cudaFree(mTrialSnapAccelerations);mTrialSnapBodies=nullptr;mTrialSnapPrevious=nullptr;mTrialSnapAccelerations=nullptr;
+                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapBodies),sizeof(*bodies)*size_t(mCheckpointCount)));
+                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapPrevious),sizeof(*previous)*size_t(mCheckpointCount)));
+                    check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapAccelerations),sizeof(*accelerations)*size_t(mCheckpointCount)));
+                    mTrialSnapCapacity=mCheckpointCount;
+                }
+                check(cudaMemcpyAsync(mTrialSnapBodies,bodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
+                if(previous)check(cudaMemcpyAsync(mTrialSnapPrevious,previous,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
+                if(accelerations)check(cudaMemcpyAsync(mTrialSnapAccelerations,accelerations,size_t(mCheckpointCount)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
+                mTrialSnapCount=mCheckpointCount;mTrialSnapshotValid=true;
+            }
             check(cudaMemcpyAsync(bodies,mCheckpointBodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
             if(previous)check(cudaMemcpyAsync(previous,mCheckpointPrevious,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
             if(accelerations)check(cudaMemcpyAsync(accelerations,mCheckpointAccelerations,size_t(mCheckpointCount)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));

@@ -311,6 +311,9 @@ namespace physx
         virtual bool advanceDestruction(PxReal, const PxVec3&, bool, bool) { return false; }
         virtual PxU32 getDestructionError() const { return 0; }
         virtual void discardDestructionTrialBodyUpload(PxU32) {}
+        // Island-scoped correction: rigid nodes whose islands hold no correction
+        // target and stay at their trial result for the corrected pass.
+        virtual const PxU32* destructionParkedNodes(PxU32& count) const { count=0; return NULL; }
         virtual bool preservesDestructionContactPairs() const { return false; }
         virtual bool usesDeviceDestructionContactInputs() const { return false; }
         virtual bool usesGpuDestructionIslandRepair() const { return false; }

@@ -28,6 +28,13 @@
 #include "PxgSimulationController.h"
 #include <cstdlib>
 #include <cstdio>
+namespace {
+// PHYSX_DESTRUCTION_ISLAND_SCOPE=1: island-scoped destruction correction.
+// 1: full (park islands, reinstate GPU state, skip parked stress components);
+// 2: stress skip only (bisection); 3: park + reinstate without the stress skip.
+int islandScopedCorrectionMode() { static const int value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");return raw?std::atoi(raw):0;}(); return value; }
+bool islandScopedCorrectionEnabled() { return islandScopedCorrectionMode()!=0; }
+}
 #include "PxgDestructionNativeSnapshot.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxDirectGPUAPI.h"
@@ -859,6 +866,8 @@ namespace physx
                 auto* previous=mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer();
                 auto* acceleration=mSimulationCore->getRigidBodyAccelerationsDevice();
                 const auto capacity=mSimulationCore->getBodySimStorageCapacity();const auto stream=mSimulationCore->getStream();
+                mDestructionParkedNodes.clear();
+                mDestruction->requestTrialSnapshot(islandScopedCorrectionMode()==1 || islandScopedCorrectionMode()==3);
                 ok=mDestruction->restoreRigidState(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCollisionOwners(
@@ -891,6 +900,47 @@ namespace physx
                         body.mGpuHostDirty=0;mBodySimManager.mUpdatedMap.reset(id);
                     }
                     mDynamicContext->acknowledgeNativeNodeBirths(mDestruction->reservedBodyIndices(),mDestruction->reservedBodyCount());
+                    // Island-scoped correction (PHYSX_DESTRUCTION_ISLAND_SCOPE=1): now that
+                    // the correction targets are known, every rigid node of a trial
+                    // island holding neither a target nor a reserved body, nor an edge
+                    // to one, is reinstated to its trial end-of-tick state on the GPU
+                    // and parked for the pass by the scene (restoreDestructionActivity).
+                    // Islands holding kinematics or articulations are never parked.
+                    if(islandScopedCorrectionEnabled()) {
+                        const IG::IslandSim& sim=mDynamicContext->getIslandManager().getAccurateIslandSim();
+                        const PxU32 islandCount=sim.getNbIslands();
+                        PxArray<PxU8> affected(islandCount,PxU8(0));
+                        const IG::IslandId* ids=sim.getIslandIds();
+                        PxArray<IG::IslandId> neighbours(4096u);
+                        auto markNode=[&](PxU32 node){
+                            if(node>=sim.getNbNodes())return;
+                            if(ids[node]!=IG_INVALID_ISLAND && ids[node]<islandCount)affected[ids[node]]=1;
+                            PxU32 n=sim.collectNeighbourIslands(PxNodeIndex(node),neighbours.begin(),neighbours.size());
+                            while(n==neighbours.size()){neighbours.resize(neighbours.size()*2u);n=sim.collectNeighbourIslands(PxNodeIndex(node),neighbours.begin(),neighbours.size());}
+                            for(PxU32 k=0;k<n;++k)if(neighbours[k]<islandCount)affected[neighbours[k]]=1;
+                        };
+                        for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i)markNode(indices[i]);
+                        const PxU32* reserved=mDestruction->reservedBodyIndices();
+                        for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)markNode(reserved[i]);
+                        const IG::IslandId* active=sim.getActiveIslands();
+                        for(PxU32 a=0;a<sim.getNbActiveIslands();++a) {
+                            const IG::IslandId island=active[a];
+                            if(island>=islandCount || affected[island])continue;
+                            const IG::Island& record=sim.getIsland(island);
+                            if(record.mNodeCount[IG::Node::eARTICULATION_TYPE])continue;
+                            bool parkable=true;PxNodeIndex node=record.mRootNode;
+                            while(node.index()!=PX_INVALID_NODE){const IG::Node& n=sim.getNode(node);if(n.isKinematic()){parkable=false;break;}node=n.mNextNode;}
+                            if(!parkable)continue;
+                            node=record.mRootNode;
+                            while(node.index()!=PX_INVALID_NODE){mDestructionParkedNodes.pushBack(node.index());node=sim.getNode(node).mNextNode;}
+                        }
+                        PxScopedCudaLock lock(*mCudaContextManager);
+                        const int mode=islandScopedCorrectionMode();
+                        ok=ok && mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
+                            mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                            mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),mode==1||mode==3,mode==1||mode==2);
+                        if(mode==2)mDestructionParkedNodes.clear(); // stress skip only: nothing parked in the scene
+                    }
                     // R5 diagnostic (PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1): how much of the
                     // trial island structure an island-scoped correction would touch. The
                     // accurate island sim still holds the trial islands here; body sim
@@ -910,6 +960,24 @@ namespace physx
                                 if(island<islandCount && !touched[island]){touched[island]=1;++affectedIslands;affectedBodies+=sim.getIsland(island).mNodeCount[IG::Node::eRIGID_BODY_TYPE];}
                             }
                             static PxU32 pass=0;++pass;
+                            if(pass<=2) for(PxU32 i=0;i<mDestruction->correctionBodyCount() && i<6;++i) {
+                                const PxU32 node=indices[i];
+                                const bool inRange=node<sim.getNbNodes();
+                                IG::IslandId nb[64];const PxU32 nn=inRange?sim.collectNeighbourIslands(PxNodeIndex(node),nb,64):0;
+                                printf("  target[%u]=%u island=%d activeIndex=%d type=%d kinematic=%d deleted=%d neighbourIslands=%u first=%d\n",i,node,inRange?int(ids[node]):-2,
+                                    inRange?int(sim.getActiveNodeIndex(PxNodeIndex(node))):-2,inRange?int(sim.getNode(PxNodeIndex(node)).mType):-2,
+                                    inRange?int(sim.getNode(PxNodeIndex(node)).isKinematic()):-2,inRange?int(sim.getNode(PxNodeIndex(node)).isDeleted()):-2,nn,nn?int(nb[0]):-1);
+                            }
+                            if(pass<=2) { const PxNodeIndex* an=sim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+                                for(PxU32 a=0;a<sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE) && a<3;++a){IG::IslandId nb[64];const PxU32 nn=sim.collectNeighbourIslands(an[a],nb,64);
+                                    printf("  projectile node=%u island=%d neighbourIslands=%u first=%d\n",an[a].index(),int(ids[an[a].index()]),nn,nn?int(nb[0]):-1);} }
+                            if(pass<=2) {
+                                const IG::IslandId* act=sim.getActiveIslands();
+                                for(PxU32 a=0;a<sim.getNbActiveIslands() && a<6;++a){const IG::Island& isl=sim.getIsland(act[a]);
+                                    printf("  activeIsland[%u]=%u rigidNodes=%u root=%u rootKinematic=%d rootActiveIndex=%d\n",a,act[a],isl.mNodeCount[IG::Node::eRIGID_BODY_TYPE],isl.mRootNode.index(),int(sim.getNode(isl.mRootNode).isKinematic()),int(sim.getActiveNodeIndex(isl.mRootNode)));}
+                                const PxNodeIndex* an=sim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+                                for(PxU32 a=0;a<sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE) && a<6;++a)printf("  activeNode[%u]=%u island=%d kinematic=%d\n",a,an[a].index(),int(ids[an[a].index()]),int(sim.getNode(an[a]).isKinematic()));
+                            }
                             printf("island scope: pass=%u activeIslands=%u affectedIslands=%u activeBodies=%u affectedIslandBodies=%u correctionTargets=%u notInIsland=%u reserved=%u\n",
                                 pass,sim.getNbActiveIslands(),affectedIslands,sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE),affectedBodies,mDestruction->correctionBodyCount(),unislanded,mDestruction->reservedBodyCount());
                         }

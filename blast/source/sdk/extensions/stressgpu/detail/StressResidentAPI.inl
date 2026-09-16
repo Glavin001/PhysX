@@ -14,6 +14,8 @@
         return true;
     }
 
+    const unsigned* m_parkedNodeFlags = nullptr;
+    void setParkedComponentFlags(const unsigned* deviceNodeFlags) override { m_parkedNodeFlags = deviceNodeFlags; }
     bool solveDeviceAsync(const ExtStressGpuImpulse* inputs, std::uint32_t count,
         const ExtStressGpuSolveParams& params, void* producerReady, void* consumerDone) override
     {

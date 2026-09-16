@@ -24,6 +24,8 @@
             beginNativeSettledReuse<<<std::min(m_nodeCount,256u),128,0,m_stream>>>(
                 m_deviceTopology->cycleView().settled,m_deviceTopology->components(),m_deviceTopology->status(),
                 m_input,m_islandConverged,m_islandSkip,warmStart,params.tolerance,params.maxIterations);
+            if(m_parkedNodeFlags)
+                markParkedNativeComponents<<<(m_nodeCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(m_islandSkip,m_parkedNodeFlags,m_deviceTopology->components());
             if(nativeElasticMargin()>0.f)
                 beginNativeElasticReuse<<<std::min(m_nodeCount,256u),kBlockSize,0,m_stream>>>(
                     m_deviceTopology->cycleView().settled,m_deviceTopology->components(),m_deviceTopology->status(),m_deviceTopology->batchView(),

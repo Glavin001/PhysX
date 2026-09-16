@@ -878,6 +878,11 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 				//We can do this in the articulation prep code!
 				PxU32 solverBodyIndexA = isStaticA ? 0 : solverBodyIndices[nodeIndexA];
 				PxU32 solverBodyIndexB = isStaticB ? 0 : solverBodyIndices[nodeIndexB];
+				// A dynamic body absent from the solver's active list (parked for an
+				// island-scoped destruction correction) is treated as the static
+				// world body: zero response, no velocity written.
+				if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0;
+				if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0;
 
 				batch.bodyAIndex[threadIndexInWarp] = solverBodyIndexA;
 				batch.bodyBIndex[threadIndexInWarp] = solverBodyIndexB;
@@ -1105,7 +1110,8 @@ static PX_FORCE_INLINE __device__  void constraint1DPrePrep(PxU32 jointDataIndex
 			}
 			else
 			{
-				const PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexA];
+				PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexA];
+				if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0; // parked body: static world
 				const PxAlignedTransform pose0_ = solverBodyData[solverBodyIndexA].body2World;
 				pose0 = pose0_.getTransform();
 			}
@@ -1120,7 +1126,8 @@ static PX_FORCE_INLINE __device__  void constraint1DPrePrep(PxU32 jointDataIndex
 			}
 			else
 			{
-				const PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexB];
+				PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexB];
+				if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0; // parked body: static world
 				const PxAlignedTransform pose1_ = solverBodyData[solverBodyIndexB].body2World;
 				pose1 = pose1_.getTransform();
 			}
@@ -1130,8 +1137,10 @@ static PX_FORCE_INLINE __device__  void constraint1DPrePrep(PxU32 jointDataIndex
 			PX_UNUSED(bodySimEntries);
 			PX_UNUSED(articulations);
 
-			const PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexA];
-			const PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexB];
+			PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexA];
+			PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexB];
+			if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0; // parked body: static world
+			if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0;
 
 			const PxAlignedTransform pose0_ = solverBodyData[solverBodyIndexA].body2World;
 			const PxAlignedTransform pose1_ = solverBodyData[solverBodyIndexB].body2World;
@@ -1337,6 +1346,8 @@ extern "C" __global__ void constraint1DBlockPrePrepLaunch(
 
 				PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : shDesc.solverBodyIndices[nodeIndexA];
 				PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : shDesc.solverBodyIndices[nodeIndexB];
+				if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0; // parked body: static world
+				if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0;
 
 				batch.bodyAIndex[threadIndexInWarp] = solverBodyIndexA;
 				batch.bodyBIndex[threadIndexInWarp] = solverBodyIndexB;

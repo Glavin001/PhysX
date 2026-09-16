@@ -931,6 +931,7 @@ namespace Sc
                     PxArray<DestructionKinematic> mDestructionTrialKinematics;
                     PxArray<DestructionActivity> mDestructionTrialActivity;
                     PxArray<BodySim*> mDestructionTrialSleepNotifications;
+                    PxArray<IG::IslandId> mDestructionParkedIslands; // island-scoped correction
                     PxBitMap mDestructionQueryDirty;
                     PxArray<PxU32> mDestructionQueryShapes;
                     void captureDestructionActivity();

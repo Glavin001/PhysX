@@ -163,7 +163,16 @@ extern "C" __global__ void writebackBlocksTGS(
 
 		if(threadIndexInWarp < batch.mDescStride)
 		{
-			if(batch.constraintType==PxgSolverConstraintDesc::eCONTACT || batch.constraintType == PxgSolverConstraintDesc::eARTICULATION_CONTACT)
+			// A rigid contact whose both bodies map to the static world was
+			// neutralised for an island-scoped destruction correction (parked
+			// bodies): keep its trial writeback (impulse and friction caches) and
+			// its published response untouched.
+			const bool parkedContact = batch.constraintType==PxgSolverConstraintDesc::eCONTACT
+				&& batch.bodyAIndex[threadIndexInWarp]==0 && batch.bodyBIndex[threadIndexInWarp]==0;
+			if(parkedContact)
+			{
+			}
+			else if(batch.constraintType==PxgSolverConstraintDesc::eCONTACT || batch.constraintType == PxgSolverConstraintDesc::eARTICULATION_CONTACT)
 			{
 				writeBackContactBlockTGS(batch, threadIndexInWarp, solverBodyDatas, startAddress, &index[warpIndexInBlock], contactHeaders, frictionHeaders, contactPoints, frictions,
 					baseWritebackForceBuffer, baseFrictionPatches[batch.mConstraintBatchIndex], frictionPatches);

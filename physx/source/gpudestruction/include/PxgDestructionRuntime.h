@@ -112,6 +112,13 @@ public:
     // Copies only the captured rigid arrays, never CPU/island/contact state.
     // Candidate bodies must be applied after this restore, including new slots
     // that reused pre-existing holes. The future correction task owns that order.
+    // Island-scoped correction. requestTrialSnapshot makes the next
+    // restoreRigidState keep a copy of the live (trial end-of-tick) state before
+    // rewinding; reinstateTrialState copies that snapshot back for the listed
+    // bodies once the affected set is known (after the correction bindings).
+    virtual void requestTrialSnapshot(bool enabled) = 0;
+    virtual bool reinstateTrialState(const PxU32* bodies, PxU32 count, PxgBodySim* live, PxgBodySimVelocities* previous,
+        PxgRigidBodyAcceleration* accelerations, CUstream coreStream, bool reinstateBodies, bool skipStressComponents) = 0;
     virtual bool restoreRigidState(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 generation, CUstream stream) = 0;
     virtual bool prepareFrame(bool postCorrection = false) = 0;

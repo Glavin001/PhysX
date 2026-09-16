@@ -354,6 +354,13 @@ public:
         void* consumerDone = nullptr) = 0;
     virtual ExtStressGpuDeviceView deviceView() const = 0;
 
+    /** Island-scoped destruction correction: device flags indexed by node
+     * (one per node, nonzero for the root node of every component that stays at
+     * its previous result). Applied to the next resident solve as a skip mask
+     * (that solve republishes the component's previous output); nullptr clears.
+     */
+    virtual void setParkedComponentFlags(const unsigned* deviceNodeFlags) { (void)deviceNodeFlags; }
+
     virtual bool readbackImpulses(
         ExtStressGpuImpulse* bondImpulses,
         std::uint32_t capacity) = 0;

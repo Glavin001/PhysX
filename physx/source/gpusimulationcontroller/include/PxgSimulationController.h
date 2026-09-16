@@ -510,6 +510,8 @@ class PxProfilerCallback;
         bool usesGpuDestructionIslandRepair() const override;
         PxgDestructionRuntime* getNativeDestructionRuntime() const { return mDestruction; }
         bool isDestructionCorrecting() const { return mDestructionCorrecting; }
+        const PxU32* destructionParkedNodes(PxU32& count) const override { count=mDestructionParkedNodes.size(); return mDestructionParkedNodes.begin(); }
+        PxArray<PxU32> mDestructionParkedNodes; // island-scoped correction: nodes left at their trial result
         void discardDestructionTrialBodyUpload(PxU32 id) override {
             if(id<mBodySimManager.mBodies.size() && mBodySimManager.mBodies[id]) {
                 mBodySimManager.mUpdatedMap.reset(id);

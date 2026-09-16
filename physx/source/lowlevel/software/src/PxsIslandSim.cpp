@@ -940,6 +940,97 @@ void IslandSim::activateIsland(IslandId islandId)
 	markIslandActive(islandId);
 }
 
+static PxU32 gParkRejectReason[8] = {0,0,0,0,0,0,0,0};
+PxU32 physx::IG::parkRejectReason(PxU32 i) { return i < 8 ? gParkRejectReason[i] : 0; }
+bool IslandSim::parkIslandForPass(IslandId islandId)
+{
+	if(islandId >= mIslands.size()) { ++gParkRejectReason[0]; return false; }
+	Island& island = mIslands[islandId];
+	if(!mIslandAwake.test(islandId) || island.mActiveIndex == IG_INVALID_ISLAND) { ++gParkRejectReason[1]; return false; }
+	if(island.mActiveIndex >= mActiveIslands.size() || mActiveIslands[island.mActiveIndex] != islandId) { ++gParkRejectReason[2]; return false; }
+	if(island.mNodeCount[Node::eARTICULATION_TYPE]) { ++gParkRejectReason[3]; return false; }
+	// Validate the whole island first: kinematic, deleted or inconsistent
+	// nodes make the island unparkable (it is then re-simulated as before).
+	PxNodeIndex currentNode = island.mRootNode;
+	PxU32 visited = 0;
+	while(currentNode.index() != PX_INVALID_NODE)
+	{
+		if(currentNode.index() >= mNodes.size() || ++visited > mNodes.size()) { ++gParkRejectReason[4]; return false; }
+		const Node& node = mNodes[currentNode.index()];
+		if(node.isKinematic() || node.isDeleted() || mIslandIds[currentNode.index()] != islandId) { ++gParkRejectReason[5]; return false; }
+		const PxU32 activeIndex = mActiveNodeIndex[currentNode.index()];
+		if(bool(node.isActive()) != (activeIndex != PX_INVALID_NODE)) { ++gParkRejectReason[6]; return false; }
+		if(activeIndex != PX_INVALID_NODE && (activeIndex >= mActiveNodes[node.mType].size() || mActiveNodes[node.mType][activeIndex].index() != currentNode.index())) { ++gParkRejectReason[7]; return false; }
+		currentNode = node.mNextNode;
+	}
+	// Nodes leave the active lists and drop their active flag (so that the
+	// ordinary activation path re-adds them when a new touch wakes or merges
+	// the island); edges keep their activity, so the partition and every
+	// contact cache survive the pass.
+	static const bool trace = ::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_TRACE") != NULL;
+	if(trace) fprintf(stderr, "park island %u nodes=%u root=%u activeIndex=%u activeIslands=%u\n", islandId, visited, island.mRootNode.index(), island.mActiveIndex, mActiveIslands.size());
+	currentNode = island.mRootNode;
+	while(currentNode.index() != PX_INVALID_NODE)
+	{
+		Node& node = mNodes[currentNode.index()];
+		const PxNodeIndex next = node.mNextNode;
+		if(trace) fprintf(stderr, "  node %u type=%u active=%d activeIndex=%u listSize=%u initial=%u\n", currentNode.index(), PxU32(node.mType), int(node.isActive()), mActiveNodeIndex[currentNode.index()], mActiveNodes[node.mType].size(), mInitialActiveNodeCount[node.mType]);
+		if(mActiveNodeIndex[currentNode.index()] != PX_INVALID_NODE) markInactive(currentNode);
+		if(node.isActive()) { node.clearActive(); }
+		currentNode = next;
+	}
+	if(trace) fprintf(stderr, "  island inactive %u\n", islandId);
+	markIslandInactive(islandId);
+	return true;
+}
+
+PxU32 IslandSim::validateActiveLists(const char* tag) const
+{
+	PxU32 bad = 0;
+	for(PxU32 type = 0; type < Node::eTYPE_COUNT; ++type)
+	{
+		const PxArray<PxNodeIndex>& list = mActiveNodes[type];
+		for(PxU32 i = 0; i < list.size(); ++i)
+		{
+			const PxU32 node = list[i].index();
+			const bool ok = node < mNodes.size() && mActiveNodeIndex[node] == i && mNodes[node].isActive();
+			if(!ok)
+			{
+				if(bad < 4) fprintf(stderr, "active list %s: type=%u pos=%u (initial=%u size=%u) node=%u back=%u flags active=%d deleted=%d island=%u awake=%d\n", tag, type, i, mInitialActiveNodeCount[type], list.size(), node,
+					node < mNodes.size() ? mActiveNodeIndex[node] : 0xffffffffu, node < mNodes.size() ? int(mNodes[node].isActive()) : -1, node < mNodes.size() ? int(mNodes[node].isDeleted()) : -1,
+					node < mNodes.size() ? mIslandIds[node] : 0xffffffffu, (node < mNodes.size() && mIslandIds[node] != IG_INVALID_ISLAND && mIslandIds[node] < mIslands.size()) ? int(mIslandAwake.test(mIslandIds[node])) : -1);
+				++bad;
+			}
+		}
+	}
+	if(bad) fprintf(stderr, "active list %s: %u inconsistent entries\n", tag, bad);
+	return bad;
+}
+
+void IslandSim::unparkIslandForPass(IslandId islandId)
+{
+	if(islandId >= mIslands.size() || mIslandAwake.test(islandId)) return; // woken during the pass
+	Island& island = mIslands[islandId];
+	// Merged away or freed during the pass: its nodes now belong to another
+	// (awake) island; the record must not be touched.
+	if(island.mRootNode.index() == PX_INVALID_NODE || island.mRootNode.index() >= mNodes.size()
+		|| mIslandIds[island.mRootNode.index()] != islandId) return;
+	if(island.mActiveIndex != IG_INVALID_ISLAND) return;
+	// Every node re-enters the active lists through the ordinary internal
+	// activation (edges already active, so that part is idempotent). A node
+	// that was queued for activation meanwhile (activateNode: activating
+	// list, index into that list) is left to wakeIslands, which activates it
+	// and the island; touching it here would strand a stale active entry.
+	PxNodeIndex currentNode = island.mRootNode;
+	while(currentNode.index() != PX_INVALID_NODE)
+	{
+		Node& node = mNodes[currentNode.index()];
+		if(!node.isActiveOrActivating()) activateNodeInternal(currentNode);
+		currentNode = node.mNextNode;
+	}
+	if(!mIslandAwake.test(islandId)) markIslandActive(islandId);
+}
+
 void IslandSim::deactivateIsland(IslandId islandId)
 {
 	PX_ASSERT(mIslandAwake.test(islandId));

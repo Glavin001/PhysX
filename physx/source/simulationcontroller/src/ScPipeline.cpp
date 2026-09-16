@@ -66,6 +66,8 @@
 #include "ScArticulationCore.h"
 #include "ScArticulationSim.h"
 #include "ScConstraintCore.h"
+#include <cstdio>
+#include <cstdlib>
 #include "ScConstraintSim.h"
 #include "DyIslandManager.h"
 
@@ -2070,8 +2072,40 @@ void Sc::Scene::restoreDestructionActivity()
         // against the unchanged user target during the corrected simulation.
     }
     mDestructionTrialKinematics.clear();
+    // Island-scoped correction: bodies of islands without a correction target
+    // keep their trial result and their islands are parked in the accurate
+    // island sim for the corrected pass (edges, contact managers, sleep state
+    // and notifications untouched); the GPU restore already skipped them.
+    PxU32 parkedCount=0;const PxU32* parked=mSimulationController->destructionParkedNodes(parkedCount);
+    PxBitMap parkedMap;
+    static const bool scopeTrace=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_TRACE")!=NULL;
+    if(parkedCount) {
+        auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+        if(scopeTrace)accurate.validateActiveLists("before park");
+        parkedMap.resizeAndClear(accurate.getNbNodes());
+        const IG::IslandId* ids=accurate.getIslandIds();
+        mDestructionParkedIslands.clear();
+        PxBitMap islandSeen;islandSeen.resizeAndClear(accurate.getNbIslands());
+        for(PxU32 i=0;i<parkedCount;++i) {
+            const PxU32 node=parked[i];
+            if(node>=accurate.getNbNodes() || ids[node]==IG_INVALID_ISLAND)continue;
+            parkedMap.set(node);
+            const IG::IslandId island=ids[node];
+            if(island>=accurate.getNbIslands() || islandSeen.test(island))continue;
+            islandSeen.set(island);
+            if(accurate.parkIslandForPass(island))mDestructionParkedIslands.pushBack(island);
+        }
+        static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+        if(scopeDiag){printf("island scope: parked nodes=%u islands=%u activeIslandsNow=%u activeRigidNow=%u rejects=%u/%u/%u/%u/%u/%u/%u/%u\n",parkedCount,mDestructionParkedIslands.size(),accurate.getNbActiveIslands(),accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE),
+            IG::parkRejectReason(0),IG::parkRejectReason(1),IG::parkRejectReason(2),IG::parkRejectReason(3),IG::parkRejectReason(4),IG::parkRejectReason(5),IG::parkRejectReason(6),IG::parkRejectReason(7));}
+    }
     for(const auto& saved:mDestructionTrialActivity) {
         auto& body=*saved.body;auto& rigid=body.getLowLevelBody();auto& core=rigid.getCore();
+        if(parkedCount && parkedMap.boundedTest(body.getNodeIndex().index())) {
+            // Parked: trial end-of-tick pose, wake state and flags stand.
+            mSimulationController->discardDestructionTrialBodyUpload(body.getNodeIndex().index());
+            continue;
+        }
         // A changed cluster has already received its GPU-computed COM frame.
         // Unchanged bodies retain the first trial's pre-integration transform.
         core.body2World=rigid.mLastTransform;
@@ -3139,6 +3173,15 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         return;
     }
     mDestructionCorrectionInProgress=false;
+    if(mDestructionParkedIslands.size()) {
+        auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+        if(::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_TRACE"))accurate.validateActiveLists("before unpark");
+        for(PxU32 i=0;i<mDestructionParkedIslands.size();++i)accurate.unparkIslandForPass(mDestructionParkedIslands[i]);
+        if(::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_TRACE"))accurate.validateActiveLists("after unpark");
+        static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+        if(scopeDiag)printf("island scope: unparked islands=%u activeIslandsNow=%u activeRigidNow=%u\n",mDestructionParkedIslands.size(),accurate.getNbActiveIslands(),accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE));
+        mDestructionParkedIslands.clear();
+    }
     mDestructionTrialKinematics.clear();
     mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
     publishDestructionQueryMembership();

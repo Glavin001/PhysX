@@ -754,3 +754,47 @@ the warm-window contract (16-tick windows, force relL2 and health drift)
 with relinked probes, and per-body state comparison right after a parked
 correction. A g16 run of mode 1 crashed once in `unparkIslandForPass` on an
 island merged away during the pass (guarded since).
+
+### R5 stage 2 outcome (2026-09-16): island-sim parking does not deliver; kept env-gated off
+
+Further iterations on `PHYSX_DESTRUCTION_ISLAND_SCOPE=1` fixed two real
+island-sim interaction bugs and reached a crash-free g4 run, but the
+approach is not viable as built:
+
+- Bugs found and fixed: (1) the affected set must be computed after the
+  correction bindings (the target list is empty at the GPU restore), so the
+  GPU keeps a trial snapshot and reinstates parked bodies afterwards;
+  (2) parking must clear the node's active flag, otherwise a merge with an
+  awake island leaves inactive nodes in an awake island and the sleep pass
+  crashes in `deactivateNodeInternal`; (3) a parked node can be queued for
+  activation during the pass (`activateNode`: activating list, index into
+  that list); unparking such a node through the normal internal activation
+  double-activates it and strands a stale active-list entry, which crashed
+  the next parking pass. Unpark now skips active-or-activating nodes and
+  `validateActiveLists` (trace env) confirms the lists stay consistent.
+- Remaining defects: the g16 run still hits a CUDA illegal address late in
+  the run (error 700, not localised: the only kernel indexing solver bodies
+  by node is the patched pre-prep), the history diverges from the first
+  parked correction on even with consistent island state (g4: 3,341 vs
+  4,192 bonds; the CPU/GPU motion audit stays at the baseline level, and
+  the stress-skip-only mode is bit-identical, so the divergence is on the
+  rigid-body side of parked islands: neutralised contacts and skipped
+  writebacks change the next tick's warm starts, contact events and
+  activity bookkeeping), and it is slower, not faster: g16 late window
+  68 ms vs 54 ms, corrected ticks 79 vs 56 ms, because parked bodies still
+  go through broadphase, narrowphase and constraint prep, and their
+  end-of-tick poses against the affected bodies' start-of-tick poses create
+  spurious touches that wake and merge islands.
+
+Conclusion: the cost the corrected pass carries is the full-scene CPU
+pipeline (island insertion, contact-manager preallocation, registration,
+partition updates) plus narrowphase and prep over all pairs; parking bodies
+without removing their pairs from those stages saves only the solve and
+integration. The viable R5 remains the partition-level design above
+(dormant edges, pairs skipped end to end, exactness qualified by the
+physical gates), a multi-week change. The stage-2 code stays in the tree
+behind the flag (default off; flag-off is bit-identical to the baseline)
+as scaffolding: island park/unpark, neighbour-island closure, trial
+snapshot/reinstatement, parked-component stress skip (exact), pre-prep
+neutralisation and writeback skip, and the diagnostics
+(`PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG`, `_TRACE`, modes 2 and 3).
