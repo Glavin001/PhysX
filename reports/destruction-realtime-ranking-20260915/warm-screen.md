@@ -725,3 +725,15 @@ launch still serialises ahead of the main kernel on the same stream and
 costs more than it saves; it stays off. The tiny components' 33 % of solve
 cycles remain a target only through their per-component fixed cost inside
 the main kernel.
+
+## Measurement note: the warm plan's candidate arm loads a copied runtime
+
+`plan-pool.json` points the B arm at `out/direct-factor-feasibility-20260915/artifacts`,
+a *copy* of the runtime made on 2026-09-15 20:18 (the pre-Woodbury final
+build), not at `physx/bin`. The `results-solve-v4` screen run on 2026-09-16
+therefore re-measured that older build (all nine windows pass; city256
+debris 76.3, cascade 75.8, impact 72.6, city25 14.9 ms), and its idle
+window (B 2.62 vs A 1.68/1.78 ms) is a repeat of a runtime that measured
+1.8 ms the day before: idle is noisy under desktop management. Copy the
+current `libPhysXDestructionGpuRuntime_64.so` into that directory before
+a warm screen of a new build.
