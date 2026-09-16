@@ -200,7 +200,7 @@ binary and records the same in the bundle manifest (`skew`). Push only after a c
 Whole-GPU throughput is roughly 2x the 5060 Ti (188 vs 36 SMs, same SM design); per-SM residency findings
 transfer, absolute tick means do not. Compare only against Modal-measured controls.
 
-Observed capacity: seven concurrent RTX PRO 6000 requests queued for several minutes with "waiting to be
+Observed capacity: a 15-container `qualify` got 10 GPUs within ~3 minutes (tests, A/B, eight warm windows done at 195 s) and the last five never scheduled in 35 minutes ("waiting to be scheduled on a GPU_RTX_PRO_6000 worker"); earlier, seven concurrent requests queued for several minutes with "waiting to be
 scheduled on a GPU_RTX_PRO_6000 worker"; plan fan-out width accordingly or use `L4`/`L40S` for correctness jobs.
 
 Filled in after the first `ab --grid 16 --seconds 3 --repeats 3` on RTX PRO 6000 (see the
