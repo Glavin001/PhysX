@@ -673,3 +673,43 @@ gates (contract v4, counters, trajectories), not by identical histories.
   `validateDeactivations` (`PxsSimpleIslandManager.cpp:424`),
   `addToActiveList`/`removeFromActiveList` and the kinematic prefix
   (`ScScene.cpp:1188/1260-1298`).
+
+#### Why parking at the island-sim level is not enough (mapped 2026-09-16)
+
+The GPU solver solves exactly the incremental partition, and the partition is
+driven by the accurate sim's edge activity: deactivating edges destroy their
+`PartitionEdge`s and zero their friction patch counts
+(`PxgConstraintPartition.cpp:2130-2213`, `:2202-2210`); activated edges are
+re-added only when `activeCMBitmap` says so (`:2248-2270`). There is no
+solver-side backstop: `mSolverBodyIndices` is `0xFFFFFFFF` for inactive nodes
+(`PxgSolverCore.cpp:292`, `preIntegration.cu:58`) and the constraint prep
+would index with it (`constraintBlockPrePrep.cu:879, 1108-1134, 1338`), so an
+edge that survives with a parked endpoint is memory corruption, not a skip.
+Consequences for the design above:
+- Parking a node in the accurate sim (`deactivateNodeInternal`,
+  `PxsIslandSim.cpp:805-850`) deactivates its edges to other parked nodes:
+  every contact among parked debris loses its partition edge and friction
+  anchors on every corrected pass, and re-activation after the pass is
+  dropped by `wakeIslands` before the next partition update
+  (`PxsSimpleIslandManager.cpp:378-384`), so those contacts would never
+  regain partition edges unless re-dirtied. That is both a fidelity change
+  (warm starts and friction anchors lost on all piles each correction) and a
+  partition rebuild cost of the same order as the pass it replaces.
+- Parking must also mirror `deactivateIsland`/`activateIsland`
+  (`:943-959`, `:932-941`) including `markIslandInactive`, or a new touch
+  wakes a single node with edges to still-parked neighbours.
+- Freezing bodies on the GPU instead (mask in pre-integration, solver and
+  writeback, affected set from the device pre-solve labels so new touches
+  unfreeze exactly) keeps the partition intact and is exact, but it leaves
+  every CPU stage of the corrected pass in place; the timeline shows those
+  CPU gaps, not the kernels, are most of the 17 ms per pass.
+
+R5 therefore needs partition-level parking: a third edge state in
+`PxgIncrementalPartition` ("dormant": keeps `PartitionEdge`s and patches,
+excluded from the solve), island-level parking that uses it, a scoped
+restore (CPU and GPU gather), and re-activation through the same state on
+the next pass. Combined with skipping island insertion / contact-manager
+preallocation for dormant islands, it removes the CPU stages as well.
+Estimated at several weeks with the physical-gate qualification; the
+diagnostic (`PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG`) and the maps in this
+section are the starting point.
