@@ -675,3 +675,35 @@ the g16 bombardment: levels 74 → 67, narrow levels 68 → 57, blocks
 4,741 → 5,449, histories identical, tick ratio 0.579 vs 0.554 for minimum
 degree. The bisection order does not produce a shallow tree on this
 building graph; it stays off.
+
+## Direct solve: where the remnant cycles go, and why cutting them did not move the tick
+
+Diagnostic sub-phase clocks (commits `40794c66`, `6a503f5b`) on the city256
+late window, per solve: pre-monitor 918 of 1,138 Mcycles, of which the
+direct applications were 480 (forward narrow levels 210, backward narrow
+105, wide levels 132, Woodbury apply 21); the residual norms 113, rebuilds
+26. Per forward narrow level: index loads 0.5k, entry loads 2.1k, reduce
+0.3k, the serial 6×6 finish by lane 0 with six divisions 5.5k, barrier
+0.1k cycles.
+
+Two lossless changes followed. (1) Pipelined narrow levels (commit
+`f7f2a2ed`): idle warps gather the next level's early entries into
+per-item partials while the current level finishes; correct after an
+early-warp distribution fix, but the narrow cycles did not drop (200/117
+Mcycles) because the entries were not the chain. (2) Stored diagonal-block
+inverses with a lane-parallel row finish (`6a503f5b`): finish 5.5k → 1.9k
+cycles per level, direct applications 480 → 359 Mcycles per solve, remnant
+mean 2.71 → 2.41 Mcycles. Histories identical for both. Tick ratio 0.553
+in both cases: unchanged.
+
+The reason is residency, not latency. `cuobjdump -res-usage`: the solve
+kernel uses 128 registers (27 KB shared), so only two CTAs fit per SM and
+only 72 of the 144 launched CTAs ever claim work from the cursor (the
+census records 72 distinct CTA ids per solve); each carries ~7.8 Mcycles
+per solve (max ~10), which is the 3.7 ms launch. The launch is therefore
+total cycles ÷ 72, not the longest remnant chain: the remnants are 59 %
+of the cycles, the 1,693 tiny free components 33 % (0.2 Mcycles each of
+per-component setup), 8–31-node components 8 %. The levers in order are
+more resident CTAs (launch bounds at three or four blocks per SM, under
+test), fewer per-component fixed cycles for the tiny components, and the
+remnant cost reductions above, which now pay proportionally.
