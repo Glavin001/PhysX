@@ -741,7 +741,16 @@ public:
 	{
 		IG::Node& node = mNodes[index.index()];
 		node.clearIsReadyForSleeping(); //Clear the "isReadyForSleeping" flag. Just in case it was set
+		noteNodeWoken(index.index());
 	}
+	// R2 core: islands with a node woken this frame by a CPU-side path cannot be
+	// deactivated by a device verdict (the device saw only the solver's flags).
+	PX_INLINE void noteNodeWoken(PxU32 index)
+	{
+		if(index < mIslandIds.size()) { const IslandId island = mIslandIds[index]; if(island != IG_INVALID_ISLAND) { if(island >= mIslandWokenThisFrame.size()) mIslandWokenThisFrame.resize(island + 1u); mIslandWokenThisFrame.set(island); } }
+	}
+	PxBitMap mIslandWokenThisFrame;
+	PxBitMap mIslandNotReadyFlat; // mode 3 scratch
 	PX_INLINE void deactivateNode_ForGPUSolver(PxNodeIndex index)
 	{
 		IG::Node& node = mNodes[index.index()];

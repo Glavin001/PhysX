@@ -680,7 +680,8 @@ namespace physx
         {
             static const int deviceSleep=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):0;}();
             islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,0);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,0);
-            if(deviceSleep) {
+            if(deviceSleep==3) { islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,3);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,3); }
+            else if(deviceSleep) {
                 PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
                 const PxU32 bodies=mDynamicContext->getActiveNodeCount();
                 if(core && bodies && mDestruction->computeComponentSleepVerdicts(core->getSolverBodySleepData().getPointer(),core->getGpuIslandNodeIndices().getPointer(),bodies,core->getStream())) {

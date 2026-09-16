@@ -707,6 +707,7 @@ void IslandSim::activateNode(PxNodeIndex nodeIndex)
 			mActivatingNodes.pushBack(nodeIndex);
 		}
 		node.clearIsReadyForSleeping(); //Clear the "isReadyForSleeping" flag. Just in case it was set
+		noteNodeWoken(index);
 	}
 }
 
@@ -2247,6 +2248,27 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 			}
 		}
 
+		// Mode 3 (exact): one flat pass over the active node lists marks every
+		// island holding a node that is not ready, replacing the per-island
+		// node-chain walk below with a bitmap test.
+		const bool flatReadiness = mGpuSleepMode == 3;
+		if (flatReadiness)
+		{
+			mIslandNotReadyFlat.resizeAndClear(mIslands.size());
+			for (PxU32 type = 0; type < Node::eTYPE_COUNT; ++type)
+			{
+				const PxArray<PxNodeIndex>& active = mActiveNodes[type];
+				for (PxU32 i = 0; i < active.size(); ++i)
+				{
+					const PxU32 node = active[i].index();
+					if (!mNodes[node].isReadyForSleeping())
+					{
+						const IslandId island = mIslandIds[node];
+						if (island != IG_INVALID_ISLAND && island < mIslands.size()) mIslandNotReadyFlat.set(island);
+					}
+				}
+			}
+		}
 		for (PxU32 a = mActiveIslands.size(); a > 0; --a)
 		{
 			const IslandId islandId = mActiveIslands[a - 1];
@@ -2264,10 +2286,15 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 				// node (device components and islands coincide under owned connectivity).
 				const PxU32 root = island.mRootNode.index();
 				const bool haveVerdict = mGpuSleepNotReady && root < mGpuSleepCapacity;
-				const bool deviceCan = haveVerdict && !mGpuSleepNotReady[root];
+				const bool wokenCpu = islandId < mIslandWokenThisFrame.size() && mIslandWokenThisFrame.test(islandId);
+				const bool deviceCan = haveVerdict && !mGpuSleepNotReady[root] && !wokenCpu;
 				if (haveVerdict && mGpuSleepMode == 1)
 				{
 					canDeactivate = deviceCan;
+				}
+				else if (flatReadiness)
+				{
+					canDeactivate = !mIslandNotReadyFlat.test(islandId);
 				}
 				else
 				{
@@ -2302,7 +2329,11 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 							}
 							if (!canDeactivate) { if (notReadyCpuFlagged) ++deviceOnlyMemberFlagged; else ++deviceOnlyMemberClear; }
 							else if (mGpuSleepNotReady[root]) ++cpuOnlyRootFlagged;
-							if (shown < 6) { ++shown; fprintf(stderr, "  mismatch %s: cpu=%d device=%d members=%u notReadyCpu=%u ofWhichDeviceFlagged=%u rootFlag=%u\n", mGpuData ? "accurate" : "speculative", int(canDeactivate), int(deviceCan), members, notReadyCpu, notReadyCpuFlagged, unsigned(mGpuSleepNotReady[root])); }
+							if (shown < 12 && mGpuData) { ++shown;
+								const Node& rootNode = mNodes[root];
+								fprintf(stderr, "  mismatch accurate: cpu=%d device=%d members=%u notReadyCpu=%u ofWhichDeviceFlagged=%u rootFlag=%u woken=%d root=%u/%u rootReady=%d activating=%d readyCpuFlag=%d\n",
+									int(canDeactivate), int(deviceCan), members, notReadyCpu, notReadyCpuFlagged, unsigned(mGpuSleepNotReady[root]), int(wokenCpu), root, mNodes.size(),
+									int(rootNode.isReadyForSleeping()), int(rootNode.isActivating()), int(rootNode.isReadyForSleeping())); }
 						}
 						if ((audits & 4095) == 0) fprintf(stderr, "device sleep audit (%s): islands=%llu agree=%llu cpuOnly=%llu (rootFlagged=%llu) deviceOnly=%llu (memberFlagged=%llu memberClear=%llu)\n", mGpuData ? "accurate" : "speculative",
 							(unsigned long long)audits, (unsigned long long)agree, (unsigned long long)cpuOnly, (unsigned long long)cpuOnlyRootFlagged, (unsigned long long)deviceOnly, (unsigned long long)deviceOnlyMemberFlagged, (unsigned long long)deviceOnlyMemberClear);
@@ -2316,6 +2347,7 @@ void IslandSim::processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, boo
 				}
 			}
 		}
+		mIslandWokenThisFrame.clear();
 	}
 
 	{
