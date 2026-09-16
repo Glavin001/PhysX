@@ -8,6 +8,9 @@ __device__ unsigned long long componentPreconditionClocks[4];
 // Direct-solve split: [0] gather [1] forward wide levels [2] forward narrow
 // levels [3] backward wide [4] backward narrow [5] Woodbury apply [6] scatter [7] levels visited.
 __device__ unsigned long long directSolveClocks[8];
+// Forward narrow level timeline (warp 0 lane 0): [0] index loads [1] entry
+// loads + FMAs [2] warp reduce [3] partial sum + 6x6 finish [4] barrier wait [5] levels.
+__device__ unsigned long long directNarrowClocks[6];
 // Explicitly share one CTA allocation across the caller and callee.
 #define COMPONENT_SUBPROBE_PARAMETER , unsigned long long* subProbe
 #define COMPONENT_SUBPROBE_ARGUMENT , probeSubCycles

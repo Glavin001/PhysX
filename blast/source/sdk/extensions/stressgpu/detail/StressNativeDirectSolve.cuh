@@ -45,6 +45,26 @@ __device__ __forceinline__ void directBwdFinish(const float* val, float* x, cons
     }
     for (unsigned r = 0; r < 6; ++r) x[6 * i + r] = y[r];
 }
+// Row finish with the stored diagonal inverse: lanes 0-5 each produce one
+// component, y_r = sum_t Linv[r][t] (rhs_t - acc_t) (forward) or with Linv^T
+// (backward). `inv` is this lane's row (forward) or column (backward) of the
+// inverse, loaded before the entry loop so the latency overlaps it. Every
+// lane holds the reduced acc; the caller passes the per-row partial sums.
+__device__ __forceinline__ void directFinishInv(float* x, unsigned i, const float (&acc)[6], const float (&inv)[6], unsigned lane, bool forward) {
+    // Whole warp executes both barriers (a __syncwarp inside a divergent branch hangs).
+    const unsigned r = lane < 6 ? lane : 0u;
+    float sum = 0.f;
+    if (forward) for (unsigned t = 0; t <= r; ++t) sum = fmaf(inv[t], x[6 * i + t] - acc[t], sum);
+    else for (unsigned t = r; t < 6; ++t) sum = fmaf(inv[t], x[6 * i + t] - acc[t], sum);
+    __syncwarp();
+    if (lane < 6) x[6 * i + lane] = sum;
+    __syncwarp();
+}
+__device__ __forceinline__ void directLoadInv(const NativeDirectView& v, unsigned s, unsigned i, unsigned lane, bool forward, float (&inv)[6]) {
+    const float* m = v.slots.diagInv + size_t(s) * v.slots.diagStride + size_t(i) * kDirectBlockEntries;
+    const unsigned r = lane < 6 ? lane : 0u;
+    for (unsigned t = 0; t < 6; ++t) inv[t] = forward ? m[r * 6 + t] : m[t * 6 + r];
+}
 __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStressArgs& a, const unsigned* nodes, unsigned count, unsigned id, float* x) {
     const NativeDirectView& v = a.hierarchy.direct;
     if (!v.enabled || count > kResidentComponentMaxNodes) return false;
@@ -88,14 +108,16 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     // the entry-bound gathers of the dense top off the serial chain.
     __shared__ float scratch[2][kBlockSize / 32u][6];
     const unsigned T = (v.pipeline && warps >= 2u && P.lateFwdPtr) ? P.topLevel : P.levels;
+    const bool useInv = v.slots.diagInv != nullptr;
     const unsigned Tf = (v.pipeline == 3u) ? P.levels : T, Tb = (v.pipeline == 2u) ? P.levels : T; // debug split: 2 forward only, 3 backward only
     for (unsigned l = 0; l < Tf; ++l) {
         for (unsigned e = P.levelPtr[l] + warp; e < P.levelPtr[l + 1]; e += warps) {
             const unsigned i = P.levelCols[e];
-            float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+            float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f}, inv[6];
+            if (useInv) directLoadInv(v, s, i, lane, true, inv);
             for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) directFwdEntry(acc, val, x, P, q);
             directWarpReduce6(acc);
-            if (lane == 0) directFwdFinish(val, x, P, i, acc);
+            if (useInv) directFinishInv(x, i, acc, inv, lane, true); else if (lane == 0) directFwdFinish(val, x, P, i, acc);
         }
         __syncthreads();
         DIRECT_PROBE(1)
@@ -123,19 +145,29 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
         }
         __syncthreads();
         for (unsigned l = T; l < P.levels; ++l) {
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+            unsigned long long nt[6] = {0, 0, 0, 0, 0, 0}; if (!threadIdx.x) nt[0] = clock64();
+#define NARROW_MARK(k) if (!threadIdx.x) nt[k] = clock64();
+#else
+#define NARROW_MARK(k)
+#endif
             const unsigned nl = P.levelPtr[l + 1] - P.levelPtr[l];
             const unsigned WePrev = (l == T) ? warps : warps - (P.levelPtr[l] - P.levelPtr[l - 1]);
             if (warp < nl) {
                 const unsigned i = P.levelCols[P.levelPtr[l] + warp];
-                float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                const unsigned lb = P.lateFwdPtr[i], le = P.lateFwdPtr[i + 1];
+                NARROW_MARK(1)
+                float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f}, inv[6];
+                if (useInv) directLoadInv(v, s, i, lane, true, inv);
                 if (v.pipeline == 4u) { for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) directFwdEntry(acc, val, x, P, q); }
-                else if (v.pipeline == 5u) { for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) if (P.columnLevel[P.rowCols[q]] + 1u != l) directFwdEntry(acc, val, x, P, q); for (unsigned t = P.lateFwdPtr[i] + lane; t < P.lateFwdPtr[i + 1]; t += 32) directFwdEntry(acc, val, x, P, P.lateFwdIdx[t]); }
-                else for (unsigned t = P.lateFwdPtr[i] + lane; t < P.lateFwdPtr[i + 1]; t += 32) directFwdEntry(acc, val, x, P, P.lateFwdIdx[t]);
+                else if (v.pipeline == 5u) { for (unsigned q = P.rowPtr[i] + lane; q < P.rowPtr[i + 1]; q += 32) if (P.columnLevel[P.rowCols[q]] + 1u != l) directFwdEntry(acc, val, x, P, q); for (unsigned t = lb + lane; t < le; t += 32) directFwdEntry(acc, val, x, P, P.lateFwdIdx[t]); }
+                else for (unsigned t = lb + lane; t < le; t += 32) directFwdEntry(acc, val, x, P, P.lateFwdIdx[t]);
+                NARROW_MARK(2)
                 directWarpReduce6(acc);
-                if (lane == 0) {
-                    if (v.pipeline < 4u) { const unsigned parts = WePrev / nl > 0u ? WePrev / nl : 1u; for (unsigned part = 0; part < parts; ++part) for (unsigned r = 0; r < 6; ++r) acc[r] += scratch[buf][warp + part * nl][r]; }
-                    directFwdFinish(val, x, P, i, acc);
-                }
+                NARROW_MARK(3)
+                if (v.pipeline < 4u) { const unsigned parts = WePrev / nl > 0u ? WePrev / nl : 1u; for (unsigned part = 0; part < parts; ++part) for (unsigned r = 0; r < 6; ++r) acc[r] += scratch[buf][warp + part * nl][r]; }
+                if (useInv) directFinishInv(x, i, acc, inv, lane, true); else if (lane == 0) directFwdFinish(val, x, P, i, acc);
+                NARROW_MARK(4)
             } else if (l + 1 < P.levels) {
                 const unsigned R = P.levelPtr[l + 2] - P.levelPtr[l + 1], We = warps - nl, we = warp - nl, parts = We / R > 0u ? We / R : 1u;
                 for (unsigned idx = we; idx < R * parts; idx += We) {
@@ -148,6 +180,11 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
                 }
             }
             __syncthreads();
+            NARROW_MARK(5)
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+            if (!threadIdx.x && nt[1]) { atomicAdd(directNarrowClocks + 0, nt[1] - nt[0]); atomicAdd(directNarrowClocks + 1, nt[2] - nt[1]); atomicAdd(directNarrowClocks + 2, nt[3] - nt[2]); atomicAdd(directNarrowClocks + 3, nt[4] - nt[3]); atomicAdd(directNarrowClocks + 4, nt[5] - nt[4]); atomicAdd(directNarrowClocks + 5, 1ull); }
+#endif
+#undef NARROW_MARK
             buf ^= 1u;
             DIRECT_PROBE(2)
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
@@ -193,13 +230,12 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
             const unsigned WePrev = (l + 1 == P.levels) ? 0u : warps - (P.levelPtr[l + 2] - P.levelPtr[l + 1]);
             if (warp < nl) {
                 const unsigned i = P.levelCols[P.levelPtr[l] + warp];
-                float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+                float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f}, inv[6];
+                if (useInv) directLoadInv(v, s, i, lane, false, inv);
                 for (unsigned t = P.lateBwdPtr[i] + lane; t < P.lateBwdPtr[i + 1]; t += 32) directBwdEntry(acc, val, x, P, P.lateBwdIdx[t]);
                 directWarpReduce6(acc);
-                if (lane == 0) {
-                    if (WePrev) { const unsigned parts = WePrev / nl > 0u ? WePrev / nl : 1u; for (unsigned part = 0; part < parts; ++part) for (unsigned r = 0; r < 6; ++r) acc[r] += scratch[buf][warp + part * nl][r]; }
-                    directBwdFinish(val, x, P, i, acc);
-                }
+                if (WePrev) { const unsigned parts = WePrev / nl > 0u ? WePrev / nl : 1u; for (unsigned part = 0; part < parts; ++part) for (unsigned r = 0; r < 6; ++r) acc[r] += scratch[buf][warp + part * nl][r]; }
+                if (useInv) directFinishInv(x, i, acc, inv, lane, false); else if (lane == 0) directBwdFinish(val, x, P, i, acc);
             } else if (l > Tb) {
                 const unsigned R = P.levelPtr[l] - P.levelPtr[l - 1], We = warps - nl, we = warp - nl, parts = We / R > 0u ? We / R : 1u;
                 for (unsigned idx = we; idx < R * parts; idx += We) {
@@ -219,10 +255,11 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     for (unsigned l = Tb; l-- > 0;) {
         for (unsigned e = P.levelPtr[l] + warp; e < P.levelPtr[l + 1]; e += warps) {
             const unsigned i = P.levelCols[e], p0 = P.colPtr[i], p1 = P.colPtr[i + 1];
-            float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+            float acc[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f}, inv[6];
+            if (useInv) directLoadInv(v, s, i, lane, false, inv);
             for (unsigned q = p0 + 1 + lane; q < p1; q += 32) directBwdEntry(acc, val, x, P, q);
             directWarpReduce6(acc);
-            if (lane == 0) directBwdFinish(val, x, P, i, acc);
+            if (useInv) directFinishInv(x, i, acc, inv, lane, false); else if (lane == 0) directBwdFinish(val, x, P, i, acc);
         }
         __syncthreads();
         DIRECT_PROBE(3)

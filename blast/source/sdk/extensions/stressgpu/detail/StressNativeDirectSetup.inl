@@ -287,6 +287,12 @@
         view.pattern.lateFwdPtr = directUpload(lateFwdPtr); view.pattern.lateFwdIdx = directUpload(lateFwdIdx); view.pattern.patternLateFwdBegin = directUpload(patternLateFwdBegin);
         view.pattern.lateBwdPtr = directUpload(lateBwdPtr); view.pattern.lateBwdIdx = directUpload(lateBwdIdx); view.pattern.patternLateBwdBegin = directUpload(patternLateBwdBegin);
         view.pipeline = nativeDirectPipeline() ? (std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE") ? unsigned(std::atoi(std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE"))) : 1u) : 0u;
+        if (nativeDirectDiagInverse() && nativeDirectClusterSize() <= 1u) {
+            unsigned maxNodes = 0;
+            for (unsigned p = 0; p < patterns; ++p) maxNodes = std::max(maxNodes, patternNodeBegin[p + 1] - patternNodeBegin[p]);
+            view.slots.diagStride = maxNodes * kDirectBlockEntries;
+            view.slots.diagInv = directUpload(std::vector<float>(size_t(slotCount) * view.slots.diagStride, 0.f));
+        }
         std::vector<float> values(size_t(slotCount) * stride, 0.f);
         std::vector<unsigned> slotComponent(slotCount, kNoIsland), componentSlot(n, kNoIsland), zeros(slotCount, 0u);
         std::vector<unsigned long long> generations(slotCount, 0ull);

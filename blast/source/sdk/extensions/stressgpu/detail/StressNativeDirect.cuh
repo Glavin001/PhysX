@@ -72,6 +72,11 @@ struct NativeDirectSlotView {
     unsigned* woodburyOwner = nullptr;      // scratch (buffers)
     unsigned* woodburyFree = nullptr;       // scratch (buffers)
     unsigned woodburyBuffers = 0, woodburyStride = 0;
+    // Inverse of every column's diagonal Cholesky block (lower 6x6, row-major),
+    // slotCount * diagStride floats: the triangular solves finish each row with
+    // six lane-parallel dot products instead of a serial chain of divisions.
+    float* diagInv = nullptr;
+    unsigned diagStride = 0;
     unsigned slotCount = 0, stride = 0;
 };
 struct NativeDirectView {
@@ -119,6 +124,21 @@ __device__ __forceinline__ void directAccumulateMMt(float acc[kDirectBlockEntrie
             for (unsigned t = 0; t < 6; ++t) sum = fmaf(a[r * 6 + t], b[c * 6 + t], sum);
             acc[r * 6 + c] = sum;
         }
+}
+// Inverse of a lower-triangular 6x6 block (row-major), by forward substitution on the identity.
+__device__ __forceinline__ void directInvertLower6(const float* l, float* inv) {
+    for (unsigned c = 0; c < 6; ++c)
+        for (unsigned r = 0; r < 6; ++r) {
+            float sum = (r == c) ? 1.f : 0.f;
+            for (unsigned t = c; t < r; ++t) sum = fmaf(-l[r * 6 + t], inv[t * 6 + c], sum);
+            inv[r * 6 + c] = (r < c) ? 0.f : sum / l[r * 6 + r];
+        }
+}
+__device__ __forceinline__ void directStoreDiagInverse(const NativeDirectView& v, unsigned s, unsigned j, const float* diag, bool present) {
+    if (!v.slots.diagInv) return;
+    float* inv = v.slots.diagInv + size_t(s) * v.slots.diagStride + size_t(j) * kDirectBlockEntries;
+    if (present) directInvertLower6(diag, inv);
+    else for (unsigned e = 0; e < kDirectBlockEntries; ++e) inv[e] = (e % 7u == 0u) ? 1.f : 0.f;
 }
 // In-place lower Cholesky of a 6x6 SPD block. Returns false on a non-positive pivot.
 __device__ __forceinline__ bool directCholesky6(float* d) {
@@ -407,7 +427,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                     for (unsigned cc = 0; cc < 6; ++cc) dst[cc] -= acc[cc];
                 }
                 if (wide) __syncwarp(); else __syncthreads();
-                if (laneId == 0 && present) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); }
+                if (laneId == 0) { if (present && !directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); directStoreDiagInverse(v, s, j, val + size_t(p0) * kDirectBlockEntries, present); }
                 if (wide) __syncwarp(); else __syncthreads();
                 if (present) {
                     const float* ljj = val + size_t(p0) * kDirectBlockEntries;
@@ -464,7 +484,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
         // contributions from earlier tail columns already arrived right-looking.
         for (unsigned e = topBegin; e < P.nodes; ++e) {
             const unsigned j = P.levelCols[e], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
-            if (!woodburyPresent(presentMask, j)) continue; // identity column: nothing to eliminate or propagate
+            if (!woodburyPresent(presentMask, j)) { if (!threadIdx.x) directStoreDiagInverse(v, s, j, nullptr, false); continue; } // identity column: nothing to eliminate or propagate
             for (unsigned t = threadIdx.x; t < (p1 - p0) * 6u; t += blockDim.x) {
                 const unsigned q = p0 + t / 6u, rr = t % 6u, i = P.rowIdx[q];
                 if (!woodburyPresent(presentMask, i)) continue;
@@ -487,7 +507,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
                 for (unsigned cc = 0; cc < 6; ++cc) dst[cc] -= acc[cc];
             }
             __syncthreads();
-            if (threadIdx.x == 0) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); }
+            if (threadIdx.x == 0) { if (!directCholesky6(val + size_t(p0) * kDirectBlockEntries)) atomicExch(&failed, 1u); directStoreDiagInverse(v, s, j, val + size_t(p0) * kDirectBlockEntries, true); }
             __syncthreads();
             {
                 const float* ljj = val + size_t(p0) * kDirectBlockEntries;

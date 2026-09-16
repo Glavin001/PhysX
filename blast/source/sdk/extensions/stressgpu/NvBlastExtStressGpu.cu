@@ -373,6 +373,13 @@ bool nativeDirectEager()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_EAGER"); return !raw || std::string(raw) != "0"; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_DIRECT_DIAGINV=0 disables the stored inverses of the
+/// diagonal Cholesky blocks (the solve then divides through the block).
+bool nativeDirectDiagInverse()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAGINV"); return !raw || std::string(raw) != "0"; }();
+    return value;
+}
 /// BLAST_GPU_NATIVE_DIRECT_PIPELINE=0 disables the pipelined narrow levels of
 /// the direct solve (early gathers of the next level's rows run on the idle
 /// warps while the current level's rows finish).
