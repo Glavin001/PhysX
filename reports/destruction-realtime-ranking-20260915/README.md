@@ -600,3 +600,35 @@ next R2 step with a measurable payoff is therefore item 2 (device-keyed
 partition edges, retiring `preallocateContactManagers` /
 `islandInsertion` / `registerInteractions` from the impact tick) together
 with the device sleep scheduler, i.e. the multi-week core of R2.
+
+### R5 stage 1 result (2026-09-16): the corrected pass re-simulates ~200× more than it must
+
+`PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1` (PxgSimulationController, at the
+correction install) on the g16 3 s bombardment, 143 corrected passes: the
+first impact pass affects everything (256 islands, 4,864 new fragments);
+every later pass touches 1–21 of ~4,700 active islands and 1–21 of ~10,000
+active bodies (correction targets 2–28 per pass). The closure by trial
+pairs is already contained in "the island of the affected body"; only
+corrected-pass *new* overlaps can extend it.
+
+Implementation route with the least pipeline surgery (design, not built):
+1. Scope the restore. `restoreDestructionActivity` currently rewinds every
+   active body to `mLastTransform`; instead rewind only bodies of affected
+   islands and leave the others at their trial end-of-tick state. The GPU
+   `restoreRigidState` (full-array D2D of `PxgBodySim`) becomes a gather over
+   the affected body list.
+2. Park the untouched islands for the corrected pass with the internal
+   activity toggles the restore already uses (`deactivateNode_ForGPUSolver`
+   without user notifications): sleeping bodies are neither solved nor
+   integrated, so their trial result stands, while a corrected-pass overlap
+   between an affected body and a parked body wakes that island through the
+   ordinary island-manager path, which is exactly the third closure set.
+3. After the corrected pass, re-apply the captured activity (wake counters,
+   sleep flags) to the parked islands so the next tick sees the trial state.
+Expected: the corrected pass drops from ~17 ms per pass (~12 ms per
+sustained tick) to the cost of a few islands plus the full-scene
+broadphase update; the impact tick is unchanged (everything is affected).
+Fidelity: mathematically exact for untouched islands; not bitwise
+comparable to today's histories because the solver's active set (hence
+partition and body order) changes, so qualification is by the physical
+gates (contract v4, counters, trajectories), not by identical histories.
