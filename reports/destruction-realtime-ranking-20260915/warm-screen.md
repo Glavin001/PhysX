@@ -1031,3 +1031,15 @@ its fixes are in place for a CPU-level scoping (island gen, contact-manager
 management, post-solve tasks restricted to the closure), which is the only
 R5 route with a measurable upside (~5 ms per corrected tick) and remains
 multi-week.
+
+## Load-change tolerance skip (R4 variant): remnant loads change by more than 1 % per tick; off
+
+`BLAST_GPU_NATIVE_EXACT_REUSE=1` with `BLAST_GPU_NATIVE_EXACT_REUSE_TOL`
+skips a component whose load moved by less than the tolerance (relative L2
+against the last converged reference load), with no elastic-margin
+condition. g16 3 s bombardment, extra skips over 267 solves: 592 at 1e-4,
+1,390 at 1e-3, 5,604 at 1e-2 (eligible 43,735 → 38,457 at 1e-2, −12 %);
+histories identical at all three (56,077 broken bonds), late window
+53.6–55.5 ms vs 54.0 (noise band). The remnants that are solved every tick
+carry debris and impact loads that change by more than 1 % between ticks,
+so a tolerance-based skip cannot remove their fixed cost. Off (tolerance 0).

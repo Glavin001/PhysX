@@ -509,6 +509,11 @@ bool nativeExactReuse()
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_EXACT_REUSE"); return raw && raw[0] == '1'; }();
     return value;
 }
+float nativeExactReuseTolerance()
+{
+    static const float value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_EXACT_REUSE_TOL"); return raw ? float(std::atof(raw)) : 0.f; }();
+    return value;
+}
 float nativeElasticChangeFraction()
 {
     static const float value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_ELASTIC_CHANGE"); return raw ? float(std::atof(raw)) : 0.1f; }();

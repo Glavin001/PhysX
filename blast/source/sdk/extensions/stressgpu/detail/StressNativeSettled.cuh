@@ -111,7 +111,7 @@ __global__ void relaxNativeContinuingTolerance(NativeSettledCache cache,Resident
 __global__ void beginNativeElasticReuse(NativeSettledCache cache,ResidentStressComponentView components,
     const ExtStressGpuDeviceTopologyStatus* topology,const DeviceStressTopologyBatch* batch,const ExtStressGpuImpulse* inputs,
     const unsigned* nodeBondBegin,const unsigned* nodeBondRef,const float* health,
-    unsigned* converged,unsigned* skip,bool warm,float margin,float changeFraction,unsigned* counters,bool exactReuse){
+    unsigned* converged,unsigned* skip,bool warm,float margin,float changeFraction,unsigned* counters,bool exactReuse,float exactTolerance){
     __shared__ float partial[3][kBlockSize/32];
     const float* utilization=batch->utilization;
     if(!utilization)return;
@@ -142,7 +142,10 @@ __global__ void beginNativeElasticReuse(NativeSettledCache cache,ResidentStressC
             // component, so its stored forces are that solve's answer; no
             // margin condition. Typical in the corrected pass for components
             // the correction did not touch.
-            else if(exactReuse && p2>0.f && d2==0.f){skip[id]=1;converged[id]=1;if(counters)atomicAdd(counters+1,1u);}
+            // With BLAST_GPU_NATIVE_EXACT_REUSE_TOL > 0 the same skip applies to a
+            // load within that relative change of the reference (accepted
+            // compromise: forces republished up to that fraction stale).
+            else if(exactReuse && p2>0.f && d2<=exactTolerance*exactTolerance*p2){skip[id]=1;converged[id]=1;if(counters)atomicAdd(counters+1,1u);}
         }
         __syncthreads();
     }

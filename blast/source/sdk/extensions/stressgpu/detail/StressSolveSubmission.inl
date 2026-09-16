@@ -28,7 +28,7 @@
                 beginNativeElasticReuse<<<std::min(m_nodeCount,256u),kBlockSize,0,m_stream>>>(
                     m_deviceTopology->cycleView().settled,m_deviceTopology->components(),m_deviceTopology->status(),m_deviceTopology->batchView(),
                     m_input,m_nodeBondBegin,m_nodeBondRef,m_health,m_islandConverged,m_islandSkip,warmStart,nativeElasticMargin(),nativeElasticChangeFraction(),
-                    m_deviceTopology->cycleView().settled.counters,nativeExactReuse());
+                    m_deviceTopology->cycleView().settled.counters,nativeExactReuse(),nativeExactReuseTolerance());
             // Island-scoped correction: parked components keep their previous
             // output; marked after every other writer of the skip mask. Always
             // captured: the flags buffer is solver-owned and refreshed per solve
