@@ -328,6 +328,11 @@ namespace physx
         PxU32 mDestructionGraphRetiredCounts[GPU_BUCKET_ID::eCount] = {};
         PxU32 mDestructionGraphPairCounts[GPU_BUCKET_ID::eCount] = {};
 		PxgTypedCudaBuffer<PxgContactGraphSequence> mContactGraphSequence;
+        // Device-owned dense pair slots (R2 milestone 2 item 2, step 1). The
+        // host only tracks an upper bound of live slots to size the free list.
+        PxgTypedCudaBuffer<PxgContactSlotAllocator> mContactSlotAllocator;
+        PxgCudaBuffer mContactSlotFreeList;
+        PxU32 mContactSlotCapacity = 0, mContactSlotsLive = 0;
         Cm::PinnableArray<PxgPairManagementData>			mPairManagementData;
 		PxgCudaBuffer										mGpuPairManagementData;
 	

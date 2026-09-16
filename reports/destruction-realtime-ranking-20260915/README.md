@@ -887,9 +887,12 @@ Irreducible host residue per native pair: a `ShapeInteraction*`-shaped report ha
 (`PxgConstraintPartition.cpp:2260-2290, 2340-2408`) currently require the CM and a valid `unit.mNpIndex`.
 
 Plan (each step measurable):
-1. Device-owned edge-id allocator next to `PxgContactGraphSequence` (`PxgContactManager.h:38-47`,
-   `PxgContactIdentity.cuh`, `PxgNarrowphaseCore.cpp:8667-8685`); checkpoint: no host reads of
-   `mEdgeIndex` for native pairs, `native_contact_graph_check` passes.
+1. DONE (2026-09-16, lossless, neutral): device-owned dense slot allocator next to
+   `PxgContactGraphSequence` (`PxgContactSlotAllocator`, `PxgContactGraphIdentity::slot`,
+   `contactIdentity::reserveSlots/releaseSlots`, kernel `releaseContactSlots` at `removeLostPairs`);
+   `native_contact_graph_check` verifies slot uniqueness and allocator counters. The CPU edge index
+   still rides in `edgeIndex` until steps 2-5 key their consumers by slot; measurements in
+   `warm-screen.md`.
 2. Partition key as `{edgeIndex, generation}` in `PartitionEdge` and `PxgSolverConstraintManagerConstants`
    (CPU path generation 0); checkpoint: bitwise-identical `mSolverConstants` upload.
 3. Identity→`PartitionEdge*` map beside `mFirstPartitionEdges`, used by add/remove/destroy and

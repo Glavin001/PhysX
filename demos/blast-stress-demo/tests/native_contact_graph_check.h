@@ -11,6 +11,7 @@
 #include "PxsSimpleIslandManager.h"
 #include <cuda.h>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 #include <stdexcept>
@@ -89,6 +90,24 @@ inline void verify(PxScene& scene,PxCudaContextManager& cuda) {
     const auto associate=[](std::map<PxU32,PxU32>& map,PxU32 from,PxU32 to){
         const auto result=map.emplace(from,to);return result.second || result.first->second==to;
     };
+    // Device-owned dense slots: unique among live rows, inside the free-list
+    // capacity, and the allocator's counters must account for every live row.
+    PxgContactSlotAllocator slotState;
+    cudaCheck(cuMemcpyDtoH(&slotState,np.mContactSlotAllocator.getDevicePtr(),sizeof(slotState)));
+    require(!slotState.error,"device contact slot allocator reported an error");
+    require(slotState.highWater<=np.mContactSlotCapacity,"device contact slot high water exceeds the free-list capacity");
+    std::set<PxU32> liveSlots;
+    for(PxU32 p=0;p<view.pairCount;++p) {
+        if(retired[p>>5]&(1u<<(p&31)) || !identities[p].generation)continue;
+        require(identities[p].slot<np.mContactSlotCapacity,"live contact row has no device slot");
+        require(liveSlots.insert(identities[p].slot).second,"two live contact rows share a device slot");
+    }
+    // Rows retired this pass keep their slots until compaction, so live rows,
+    // retirements and recycled slots never exceed the high water (rows of
+    // non-rigid buckets hold slots too but are outside this graph's domain).
+    PxU32 retiredRows=0;for(PxU32 word:retired)retiredRows+=PxU32(__builtin_popcount(word));
+    require(liveSlots.size()+retiredRows+slotState.freeCount<=slotState.highWater,
+        "device contact slot counters do not account for the live rows");
     std::map<PxU64,PxU32> shapePairs;
     for(PxU32 p=0;p<view.pairCount;++p) {
         if(retired[p>>5]&(1u<<(p&31)))continue;

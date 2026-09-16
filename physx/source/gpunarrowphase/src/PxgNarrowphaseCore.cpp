@@ -124,6 +124,8 @@ PxgGpuNarrowphaseCore::PxgGpuNarrowphaseCore(PxgCudaKernelWranglerManager* gpuKe
 	mLostFoundPairsOutputData(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
 	mLostFoundPairsCms(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
     mContactGraphSequence(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+    mContactSlotAllocator(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+    mContactSlotFreeList(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mPairManagementData(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
 	mGpuPairManagementData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 	mRSDesc(allocDesc.hostAlloc, PxsHeapStats::eNARROWPHASE),
@@ -211,6 +213,9 @@ PxgGpuNarrowphaseCore::PxgGpuNarrowphaseCore(PxgCudaKernelWranglerManager* gpuKe
     mContactGraphSequence.allocate(sizeof(PxgContactGraphSequence),PX_FL);
     const PxgContactGraphSequence sequence={1,0,0};
     mCudaContext->memcpyHtoD(mContactGraphSequence.getDevicePtr(),&sequence,sizeof(sequence));
+    mContactSlotAllocator.allocate(sizeof(PxgContactSlotAllocator),PX_FL);
+    const PxgContactSlotAllocator slots={0,0,0,0};
+    mCudaContext->memcpyHtoD(mContactSlotAllocator.getDevicePtr(),&slots,sizeof(slots));
 
 	mCudaContext->memcpyHtoD(mGpuMultiManifold.getDevicePtr(), &emptyMultiManifold, sizeof(PxgPersistentContactMultiManifold));
 	mCudaContext->memcpyHtoD(mGpuManifold.getDevicePtr(), &emptyManifold, sizeof(PxgPersistentContactManifold));
@@ -8639,10 +8644,11 @@ bool PxgGpuNarrowphaseCore::resetDestructionContactCaches()
         CUdeviceptr empty=single?mGpuManifold.getDevicePtr():mGpuMultiManifold.getDevicePtr();
         PxU32 size=single?sizeof(PxgPersistentContactManifold):sizeof(PxgPersistentContactMultiManifold);
         if(!destination || gpu.mPersistentContactManifolds.getSize()<PxU64(count)*size)return false;
-        CUdeviceptr noIdentityInitialization=0;
+        CUdeviceptr noIdentityInitialization=0;PxU32 noSlotCapacity=0;
         PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(destination),PX_CUDA_KERNEL_PARAM(empty),
             PX_CUDA_KERNEL_PARAM(size),PX_CUDA_KERNEL_PARAM(count),PX_CUDA_KERNEL_PARAM(noIdentityInitialization),
-            PX_CUDA_KERNEL_PARAM(noIdentityInitialization),PX_CUDA_KERNEL_PARAM(noIdentityInitialization)};
+            PX_CUDA_KERNEL_PARAM(noIdentityInitialization),PX_CUDA_KERNEL_PARAM(noIdentityInitialization),
+            PX_CUDA_KERNEL_PARAM(noIdentityInitialization),PX_CUDA_KERNEL_PARAM(noIdentityInitialization),PX_CUDA_KERNEL_PARAM(noSlotCapacity)};
         if(mCudaContext->launchKernel(kernel,PxgNarrowPhaseGridDims::INITIALIZE_MANIFOLDS,1,1,
             PxgNarrowPhaseBlockDims::INITIALIZE_MANIFOLDS,1,1,0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS)return false;
     }
@@ -8677,9 +8683,20 @@ void PxgGpuNarrowphaseCore::initializeContactManagerIdentities(PxgGpuContactMana
     CUdeviceptr destination=gpu.mPersistentContactManifolds.getDevicePtr();
     CUdeviceptr identities=gpu.mContactGraphIdentities.getDevicePtr(),edges=gpu.mContactGraphEdgeUpload.getDevicePtr();
     CUdeviceptr sequence=mContactGraphSequence.getDevicePtr();
+    // Grow the free list before any slot can be recycled into it: the bound of
+    // live slots is monotone between this host point and the device release.
+    mContactSlotsLive+=count;
+    if(mContactSlotsLive>mContactSlotCapacity) {
+        const PxU32 grown=PxMax(PxMax(mContactSlotCapacity*2u,mContactSlotsLive),65536u); // 256 KB floor keeps impact-tick growth to a few doublings
+        mContactSlotFreeList.allocateCopyOldDataAsync(sizeof(PxU32)*grown,mCudaContext,mStream,PX_FL);
+        mContactSlotCapacity=grown;
+    }
+    CUdeviceptr slots=mContactSlotAllocator.getDevicePtr(),freeList=mContactSlotFreeList.getDevicePtr();
+    const PxU32 slotCapacity=mContactSlotCapacity;
     PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(destination),PX_CUDA_KERNEL_PARAM(emptyManifold),
         PX_CUDA_KERNEL_PARAM(manifoldBytes),PX_CUDA_KERNEL_PARAM(count),PX_CUDA_KERNEL_PARAM(identities),
-        PX_CUDA_KERNEL_PARAM(edges),PX_CUDA_KERNEL_PARAM(sequence)};
+        PX_CUDA_KERNEL_PARAM(edges),PX_CUDA_KERNEL_PARAM(sequence),PX_CUDA_KERNEL_PARAM(slots),
+        PX_CUDA_KERNEL_PARAM(freeList),PX_CUDA_KERNEL_PARAM(slotCapacity)};
     if(mCudaContext->launchKernel(mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::INITIALIZE_MANIFOLDS),
         PxgNarrowPhaseGridDims::INITIALIZE_MANIFOLDS,1,1,PxgNarrowPhaseBlockDims::INITIALIZE_MANIFOLDS,1,1,
         0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS) {
@@ -9060,6 +9077,20 @@ void PxgGpuNarrowphaseCore::removeLostPairsGpuInternal(ManagementData& cpuBuffer
 		mCudaContext->memcpyHtoDAsync(gpuBuffer, &cpuBuffer, sizeof(ManagementData), mStream);
 
 		mCudaContext->memcpyHtoDAsync(pairManagementBuffers.mRemovedIndicesArray.getDevicePtr(), removedIndices.begin(), removedIndices.size()*sizeof(PxU32), mStream);
+
+        {
+            // Return the retired rows' device slots before compaction moves them.
+            CUdeviceptr identities=gpuContactManagers.mContactGraphIdentities.getDevicePtr();
+            CUdeviceptr rows=pairManagementBuffers.mRemovedIndicesArray.getDevicePtr();
+            CUdeviceptr slots=mContactSlotAllocator.getDevicePtr(),freeList=mContactSlotFreeList.getDevicePtr();
+            const PxU32 count=removedIndices.size(),slotCapacity=mContactSlotCapacity;
+            PxCudaKernelParam releaseParams[]={PX_CUDA_KERNEL_PARAM(identities),PX_CUDA_KERNEL_PARAM(rows),
+                PX_CUDA_KERNEL_PARAM(count),PX_CUDA_KERNEL_PARAM(slots),PX_CUDA_KERNEL_PARAM(freeList),PX_CUDA_KERNEL_PARAM(slotCapacity)};
+            const CUresult released=mCudaContext->launchKernel(mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::RELEASE_CONTACT_SLOTS),
+                (count+255)/256,1,1,256,1,1,0,mStream,releaseParams,sizeof(releaseParams),0,PX_FL);
+            if(released!=CUDA_SUCCESS)mCudaContext->setAbortMode(true);
+            mContactSlotsLive-=PxMin(mContactSlotsLive,count);
+        }
 
 		CUfunction remove1 = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::REMOVE_CONTACT_MANAGERS_1);
 		CUfunction remove2 = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::REMOVE_CONTACT_MANAGERS_2);

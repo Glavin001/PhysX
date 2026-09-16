@@ -1218,3 +1218,16 @@ Candidate = runtime, GPU module and probes at `b5144342` (all lossless defaults 
 | tower64 | 1.43 | 1.46 | 1.45 | 1.59 | 1.75 | 2.18 | 0/0/0 of 16 | 4.60e-08 | 0.0e+00 | passed |
 
 cascade 69.0 [71.0], impact 68.6 [69.8], debris 77.3 [80.3], city25 16.3 [16.4], idle 1.92 [1.80]; force relL2 and health drift unchanged from the previous screen (the stress solves are bit-identical), so the movement is the acceptance and refactor scheduling.
+
+## R2 milestone 2 item 2, step 1: device-owned contact slot allocator (lossless, neutral)
+
+Every NP pair now carries a device-owned dense slot next to its lifetime generation (`PxgContactGraphIdentity::slot`, `PxgContactSlotAllocator` in `PxgContactManager.h`). Slots are reserved per block inside `initializeManifolds` (free list first, then the high-water mark; `PxgContactIdentity.cuh`) and returned by a new kernel `releaseContactSlots` launched at `removeLostPairs`, before compaction moves the retired rows. The host tracks only an upper bound of live slots to size the free list (doubling, 64 K floor); no host code reads or assigns slot values. The CPU island edge index stays in `edgeIndex`, so this step changes no solver input: it is the dense key that steps 2 to 5 of README §12 will use for `PartitionEdge`, solver constants, friction counts and the destroyed-edge clear.
+
+Qualification: `destruction_gpu_contact_graph` gained a slot test (70 K concurrent allocations on two streams, release of every third row, LIFO reuse before high-water growth, latched capacity error); `native_contact_graph_check.h` now also requires unique in-range slots among live rows and consistent allocator counters, and 36/36 native GPU tests pass including every test that includes that check. g16 3 s bombardment, interleaved control (committed tree) and candidate, four trials each: histories bit-identical (all counters, 56,077 bonds broken, 99/180 misses each), means in ms:
+
+| arm | trial means | avg | peaks |
+|---|---|---:|---|
+| control `de647cfb` | 31.70, 31.31, 31.88, 30.14 | 31.26 | 181.7, 195.4, 189.7, 195.5 |
+| candidate (slots) | 31.60, 32.05, 31.43, 31.21 | 31.57 | 191.1, 199.7, 191.4, 193.4 |
+
+Neutral within the control spread (mean +0.3 ms, peak +3 ms against a 14 ms peak spread). Cost model: one extra launch per bucket per pass with retirements, and 4 bytes per slot.

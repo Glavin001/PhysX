@@ -152,12 +152,19 @@ extern "C" __global__ void removeContactManagers_Stage5_CvxTri(const PxgPairMana
 	}
 }
 
+extern "C" __global__ void releaseContactSlots(const PxgContactGraphIdentity* identities,const PxU32* rows,PxU32 count,
+    PxgContactSlotAllocator* slots,PxU32* freeList,PxU32 slotCapacity)
+{
+    contactIdentity::releaseSlots(identities,rows,count,slots,freeList,slotCapacity);
+}
+
 extern "C" __global__ void initializeManifolds(float4* destination, const float4* source, PxU32 dataSize, PxU32 nbTimesToReplicate,
-    PxgContactGraphIdentity* identities,const PxU32* edges,PxgContactGraphSequence* sequence)
+    PxgContactGraphIdentity* identities,const PxU32* edges,PxgContactGraphSequence* sequence,
+    PxgContactSlotAllocator* slots,const PxU32* freeList,PxU32 slotCapacity)
 {
     // New pairs create their device-owned lifetime alongside manifold storage.
     // Cache invalidation passes null identities and never changes lifetimes.
-    if(identities)contactIdentity::initialize(identities,edges,nbTimesToReplicate,sequence);
+    if(identities)contactIdentity::initialize(identities,edges,nbTimesToReplicate,sequence,slots,freeList,slotCapacity);
     if(!dataSize)return; // primitive buckets have identities but no PCM manifold
 
 	const PxU32 MaxStructureSize = 4096;
