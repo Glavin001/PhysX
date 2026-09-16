@@ -33,6 +33,7 @@
 #include "foundation/PxAssert.h"
 #include "foundation/PxBitMap.h"
 #include "foundation/PxArray.h"
+#include "foundation/PxAtomic.h"
 #include "CmPriorityQueue.h"
 #include "CmBlockArray.h"
 #include "PxNodeIndex.h"
@@ -763,8 +764,35 @@ public:
 	{
 		IG::Node& node = mNodes[index.index()];
 		node.clearIsReadyForSleeping(); //Clear the "isReadyForSleeping" flag. Just in case it was set
+		noteReadiness(index.index(), false);
 		noteNodeWoken(index.index());
 	}
+	// R2 core: every change of the readiness flag is recorded so a device mirror
+	// of the flag can be maintained by deltas (node index << 1 | ready).
+	// Recorded from multi-threaded island/solver tasks: an atomic slot counter
+	// into a preallocated buffer; overflow is reported so the consumer reseeds.
+	PX_FORCE_INLINE void noteReadiness(PxU32 index, bool ready)
+	{
+		if(!mReadinessRecording) return;
+		const PxU32 slot = PxU32(PxAtomicIncrement(&mReadinessDeltaCount)) - 1u;
+		if(slot < mReadinessDeltas.size()) mReadinessDeltas[slot] = (index << 1) | (ready ? 1u : 0u);
+		else mReadinessDeltaOverflow = true;
+	}
+	PX_FORCE_INLINE const PxU32* readinessDeltas(PxU32& count, bool& overflow) const
+	{
+		const PxU32 recorded = PxU32(mReadinessDeltaCount);
+		count = PxMin(recorded, mReadinessDeltas.size()); overflow = mReadinessDeltaOverflow || recorded > mReadinessDeltas.size();
+		return mReadinessDeltas.begin();
+	}
+	PX_FORCE_INLINE void clearReadinessDeltas(PxU32 capacityHint)
+	{
+		mReadinessDeltaCount = 0; mReadinessDeltaOverflow = false;
+		if(mReadinessDeltas.size() < capacityHint) mReadinessDeltas.resize(capacityHint);
+	}
+	PX_FORCE_INLINE void setReadinessRecording(bool on) { mReadinessRecording = on; mReadinessDeltaCount = 0; mReadinessDeltaOverflow = false; if(!on) mReadinessDeltas.reset(); }
+	PxArray<PxU32> mReadinessDeltas;
+	volatile PxI32 mReadinessDeltaCount = 0;
+	bool mReadinessRecording = false, mReadinessDeltaOverflow = false;
 	// R2 core: islands with a node woken this frame by a CPU-side path cannot be
 	// deactivated by a device verdict (the device saw only the solver's flags).
 	PX_INLINE void noteNodeWoken(PxU32 index)
@@ -777,6 +805,7 @@ public:
 	{
 		IG::Node& node = mNodes[index.index()];
 		node.setIsReadyForSleeping();
+		noteReadiness(index.index(), true);
 	}
 
 	// PT: these three functions added for multithreaded implementation of Sc::Scene::islandInsertion

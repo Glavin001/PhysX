@@ -767,6 +767,40 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             const int deviceSleep=destructionDeviceSleepMode();
             islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,0);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,0);
             if(deviceSleep==3) { islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,3);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,3); }
+            else if(deviceSleep==6 || deviceSleep==7) {
+                // Device mirror of the readiness flag maintained by deltas; the
+                // reduction reads the mirror. Mode 7 also audits mirror == CPU flags.
+                for(int which=0;which<2;++which) {
+                    IG::IslandSim& sim=which?islands.getSpeculativeIslandSim():islands.getAccurateIslandSim();
+                    const PxU32 nodeCount=sim.getNbNodes();
+                    const auto cpuFlags=[&](PxU32 i){const IG::Node& node=sim.getNode(PxNodeIndex(i));
+                        return PxU8((!node.isDeleted() && !node.isKinematic() && node.mType==IG::Node::eRIGID_BODY_TYPE && !node.isReadyForSleeping())?1u:0u);};
+                    PxU32 deltaCount=0;bool overflow=false;const PxU32* deltas=sim.readinessDeltas(deltaCount,overflow);
+                    if(mDestructionReadinessSeeded[which] && overflow){mDestructionReadinessSeeded[which]=false;++mDestructionReadinessReseeds;}
+                    if(!mDestructionReadinessSeeded[which]) {
+                        sim.setReadinessRecording(true);
+                        mDestructionReadinessScratch.forceSize_Unsafe(0);mDestructionReadinessScratch.resize(nodeCount);
+                        for(PxU32 i=0;i<nodeCount;++i)mDestructionReadinessScratch[i]=cpuFlags(i);
+                        mDestructionReadinessSeeded[which]=mDestruction->initReadinessMirror(mDestructionReadinessScratch.begin(),nodeCount,which!=0);
+                    } else {
+                        if(!mDestruction->applyReadinessDeltas(deltas,deltaCount,which!=0))mDestructionReadinessSeeded[which]=false;
+                    }
+                    sim.clearReadinessDeltas(PxMax(4u*nodeCount,65536u));
+                    PxU32 capacity=0;const PxU8* verdicts=mDestructionReadinessSeeded[which]?mDestruction->reduceMirroredReadiness(which!=0,capacity):NULL;
+                    if(verdicts && capacity)sim.setGpuSleepVerdicts(verdicts,capacity,deviceSleep==6?4u:5u,0);
+                    if(deviceSleep==7) {
+                        PxU32 mirrorCapacity=0;const PxU8* mirror=mDestruction->readinessMirror(which!=0,mirrorCapacity);
+                        static PxU64 passes[2]={0,0},checked[2]={0,0},diffs[2]={0,0};++passes[which];
+                        if(mirror){
+                            for(PxU32 i=0;i<nodeCount;++i){const IG::Node& node=sim.getNode(PxNodeIndex(i));
+                                if(node.isDeleted() || node.isKinematic() || node.mType!=IG::Node::eRIGID_BODY_TYPE)continue;
+                                ++checked[which];const PxU8 cpu=cpuFlags(i);const PxU8 dev=i<mirrorCapacity?mirror[i]:0xFF;if(cpu!=dev)++diffs[which];}
+                        }
+                        if((passes[which]%64)==0)fprintf(stderr,"readiness mirror audit (%s): passes=%llu checked=%llu diffs=%llu\n",which?"speculative":"accurate",
+                            (unsigned long long)passes[which],(unsigned long long)checked[which],(unsigned long long)diffs[which]);
+                    }
+                }
+            }
             else if(deviceSleep==4 || deviceSleep==5) {
                 // Half-step: CPU readiness reduced per device component. Exact when
                 // device components and CPU islands coincide for the active set.

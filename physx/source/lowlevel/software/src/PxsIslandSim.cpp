@@ -374,6 +374,7 @@ void IslandSim::addNode(bool isActive, bool isKinematic, Node::NodeType type, Px
 	if(isKinematic)
 		flags |= Node::eKINEMATIC;
 	node.mFlags = flags;
+	noteReadiness(handle, !isActive);
     if(mGpuData){
         // Fragment registration can append thousands of nodes in one tick.
         // resize reserves exactly its argument; reuse the node storage capacity
@@ -708,6 +709,7 @@ void IslandSim::activateNode(PxNodeIndex nodeIndex)
 			mActivatingNodes.pushBack(nodeIndex);
 		}
 		node.clearIsReadyForSleeping(); //Clear the "isReadyForSleeping" flag. Just in case it was set
+		noteReadiness(index, false);
 		noteNodeWoken(index);
 	}
 }
@@ -748,6 +750,7 @@ void IslandSim::deactivateNode(PxNodeIndex nodeIndex)
 
 		//Raise the "ready for sleeping" flag so that island gen can put this node to sleep
 		node.setIsReadyForSleeping();
+		noteReadiness(index, true);
 	}
 }
 

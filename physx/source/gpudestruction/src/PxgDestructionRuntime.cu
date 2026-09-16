@@ -79,6 +79,16 @@ __global__ void sleepNodeVerdict(const unsigned* labels,unsigned nodeCapacity,co
     const unsigned char component=(label<nodeCapacity)?componentNotReady[label]:1u;
     nodeNotReady[i]=(component|ownNotReady[i])?1u:0u;
 }
+// Deltas are ordered as recorded; the latest entry for a node wins. Pass 1
+// records the highest delta index per node, pass 2 applies exactly those.
+__global__ void readinessDeltaOrder(const unsigned* deltas,unsigned count,unsigned* last,unsigned capacity) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const unsigned node=deltas[i]>>1;if(node<capacity)atomicMax(last+node,i+1u);
+}
+__global__ void readinessDeltaApply(const unsigned* deltas,unsigned count,const unsigned* last,unsigned char* mirror,unsigned capacity) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const unsigned node=deltas[i]>>1;if(node<capacity && last[node]==i+1u)mirror[node]=(deltas[i]&1u)?0u:1u;
+}
 __global__ void sleepComponentFromFlags(const unsigned char* notReady,const unsigned* labels,unsigned capacity,unsigned char* componentNotReady) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i>=capacity || !notReady[i])return;
@@ -1172,6 +1182,9 @@ public:
         delete[] mHostSleepPublished;mHostSleepPublished=nullptr;mHostSleepPublishedCapacity=mSleepPublishedCount=0;mPreSolveLabelCount=0;
         cudaFree(mReadinessUpload);if(mReadinessHost)cudaFreeHost(mReadinessHost);mReadinessUpload=mReadinessHost=nullptr;mReadinessCapacity=0;
         for(int k=0;k<2;++k){cudaFree(mReadinessVerdict[k]);if(mReadinessVerdictHost[k])cudaFreeHost(mReadinessVerdictHost[k]);mReadinessVerdict[k]=mReadinessVerdictHost[k]=nullptr;}mReadinessVerdictCapacity=0;
+        for(int k=0;k<2;++k){cudaFree(mReadinessMirror[k]);mReadinessMirror[k]=nullptr;mReadinessMirrorCapacity[k]=0;}
+        for(int k=0;k<2;++k){cudaFree(mReadinessDeltaUpload[k]);if(mReadinessDeltaStaging[k])cudaFreeHost(mReadinessDeltaStaging[k]);cudaFree(mReadinessDeltaLast[k]);mReadinessDeltaUpload[k]=mReadinessDeltaStaging[k]=mReadinessDeltaLast[k]=nullptr;mReadinessDeltaCapacity[k]=mReadinessDeltaLastCapacity[k]=0;}
+        if(mReadinessMirrorHost)cudaFreeHost(mReadinessMirrorHost);mReadinessMirrorHost=nullptr;mReadinessMirrorHostCapacity=0;
         mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCompletion->collision={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
@@ -2059,6 +2072,97 @@ public:
     }
     unsigned char* mReadinessUpload=nullptr;unsigned char* mReadinessHost=nullptr;PxU32 mReadinessCapacity=0;
     unsigned char* mReadinessVerdict[2]={nullptr,nullptr};unsigned char* mReadinessVerdictHost[2]={nullptr,nullptr};PxU32 mReadinessVerdictCapacity=0;
+    unsigned char* mReadinessMirror[2]={nullptr,nullptr};PxU32 mReadinessMirrorCapacity[2]={0,0};
+    unsigned* mReadinessDeltaUpload[2]={nullptr,nullptr};unsigned* mReadinessDeltaStaging[2]={nullptr,nullptr};PxU32 mReadinessDeltaCapacity[2]={0,0};
+    unsigned* mReadinessDeltaLast[2]={nullptr,nullptr};PxU32 mReadinessDeltaLastCapacity[2]={0,0};
+    unsigned char* mReadinessMirrorHost=nullptr;PxU32 mReadinessMirrorHostCapacity=0;
+    bool growReadinessMirror(PxU32 slot,PxU32 needed,cudaStream_t stream) {
+        if(needed<=mReadinessMirrorCapacity[slot])return true;
+        const PxU32 grown=PxMax(needed,PxMax(mReadinessMirrorCapacity[slot]*2u,4096u));
+        unsigned char* next=nullptr;check(cudaMalloc(reinterpret_cast<void**>(&next),grown));
+        check(cudaMemsetAsync(next,0,grown,stream));
+        if(mReadinessMirror[slot] && mReadinessMirrorCapacity[slot])check(cudaMemcpyAsync(next,mReadinessMirror[slot],mReadinessMirrorCapacity[slot],cudaMemcpyDeviceToDevice,stream));
+        check(cudaStreamSynchronize(stream));cudaFree(mReadinessMirror[slot]);mReadinessMirror[slot]=next;mReadinessMirrorCapacity[slot]=grown;return true;
+    }
+    bool initReadinessMirror(const PxU8* hostNotReady,PxU32 count,bool speculative) override {
+        const PxU32 slot=speculative?1u:0u;
+        try {
+            Context current(mContext);const auto stream=mStream;
+            if(!growReadinessMirror(slot,count,stream))return false;
+            if(count){check(cudaMemcpy(mReadinessMirror[slot],hostNotReady,count,cudaMemcpyHostToDevice));}
+            return true;
+        }catch(...){return false;}
+    }
+    bool applyReadinessDeltas(const PxU32* deltas,PxU32 count,bool speculative) override {
+        if(!count)return true;
+        const PxU32 slot=speculative?1u:0u;
+        try {
+            Context current(mContext);const auto stream=mStream;
+            PxU32 maxNode=0;for(PxU32 i=0;i<count;++i)maxNode=PxMax(maxNode,deltas[i]>>1);
+            if(!growReadinessMirror(slot,maxNode+1u,stream))return false;
+            if(count>mReadinessDeltaCapacity[slot]) {
+                check(cudaStreamSynchronize(stream)); // previous upload from this staging buffer must be done
+                cudaFree(mReadinessDeltaUpload[slot]);if(mReadinessDeltaStaging[slot])cudaFreeHost(mReadinessDeltaStaging[slot]);mReadinessDeltaUpload[slot]=mReadinessDeltaStaging[slot]=nullptr;
+                const PxU32 grown=PxMax(count,PxMax(2u*mReadinessDeltaCapacity[slot],4096u));
+                check(cudaMalloc(reinterpret_cast<void**>(&mReadinessDeltaUpload[slot]),sizeof(unsigned)*grown));
+                check(cudaMallocHost(reinterpret_cast<void**>(&mReadinessDeltaStaging[slot]),sizeof(unsigned)*grown));
+                mReadinessDeltaCapacity[slot]=grown;
+            }
+            const PxU32 cap=mReadinessMirrorCapacity[slot];
+            if(cap>mReadinessDeltaLastCapacity[slot]){cudaFree(mReadinessDeltaLast[slot]);mReadinessDeltaLast[slot]=nullptr;check(cudaMalloc(reinterpret_cast<void**>(&mReadinessDeltaLast[slot]),sizeof(unsigned)*cap));mReadinessDeltaLastCapacity[slot]=cap;}
+            // The staging copy is safe: the reduction that follows synchronizes this
+            // stream before the next tick can overwrite the staging buffer.
+            std::memcpy(mReadinessDeltaStaging[slot],deltas,sizeof(unsigned)*count);
+            check(cudaMemcpyAsync(mReadinessDeltaUpload[slot],mReadinessDeltaStaging[slot],sizeof(unsigned)*count,cudaMemcpyHostToDevice,stream));
+            check(cudaMemsetAsync(mReadinessDeltaLast[slot],0,sizeof(unsigned)*cap,stream));
+            readinessDeltaOrder<<<(count+255u)/256u,256,0,stream>>>(mReadinessDeltaUpload[slot],count,mReadinessDeltaLast[slot],cap);
+            readinessDeltaApply<<<(count+255u)/256u,256,0,stream>>>(mReadinessDeltaUpload[slot],count,mReadinessDeltaLast[slot],mReadinessMirror[slot],cap);
+            check(cudaGetLastError());
+            return true;
+        }catch(...){return false;}
+    }
+    const PxU8* reduceMirroredReadiness(bool speculative,PxU32& capacity) override {
+        capacity=0;
+        const PxU32 labels=mGraphView.nodeCapacity;const unsigned* labelArray=speculative?mGraphSpeculative:mGraphAccurate;
+        const PxU32 slot=speculative?1u:0u;
+        if(!labels || !labelArray)return nullptr;
+        try {
+            Context current(mContext);const auto stream=mStream;
+            if(mGraphView.readyEvent)check(cudaStreamWaitEvent(stream,reinterpret_cast<cudaEvent_t>(mGraphView.readyEvent),0));
+            if(!growReadinessMirror(slot,labels,stream))return nullptr;
+            if(labels>mSleepVerdictCapacity) {
+                cudaFree(mSleepComponentNotReady);cudaFree(mSleepNodeNotReady);cudaFree(mSleepOwnNotReady);if(mHostSleepNodeNotReady)cudaFreeHost(mHostSleepNodeNotReady);
+                mSleepComponentNotReady=mSleepNodeNotReady=mSleepOwnNotReady=mHostSleepNodeNotReady=nullptr;
+                check(cudaMalloc(reinterpret_cast<void**>(&mSleepComponentNotReady),labels));
+                check(cudaMalloc(reinterpret_cast<void**>(&mSleepNodeNotReady),labels));
+                check(cudaMalloc(reinterpret_cast<void**>(&mSleepOwnNotReady),labels));
+                check(cudaMallocHost(reinterpret_cast<void**>(&mHostSleepNodeNotReady),labels));
+                mSleepVerdictCapacity=labels;
+            }
+            if(labels>mReadinessVerdictCapacity) {
+                for(int k=0;k<2;++k){cudaFree(mReadinessVerdict[k]);if(mReadinessVerdictHost[k])cudaFreeHost(mReadinessVerdictHost[k]);mReadinessVerdict[k]=mReadinessVerdictHost[k]=nullptr;
+                    check(cudaMalloc(reinterpret_cast<void**>(&mReadinessVerdict[k]),labels));check(cudaMallocHost(reinterpret_cast<void**>(&mReadinessVerdictHost[k]),labels));}
+                mReadinessVerdictCapacity=labels;
+            }
+            check(cudaMemsetAsync(mSleepComponentNotReady,0,labels,stream));
+            sleepComponentFromFlags<<<(labels+255u)/256u,256,0,stream>>>(mReadinessMirror[slot],labelArray,labels,mSleepComponentNotReady);
+            sleepNodeVerdict<<<(labels+255u)/256u,256,0,stream>>>(labelArray,labels,mSleepComponentNotReady,mReadinessMirror[slot],mReadinessVerdict[slot]);
+            check(cudaGetLastError());
+            check(cudaMemcpyAsync(mReadinessVerdictHost[slot],mReadinessVerdict[slot],labels,cudaMemcpyDeviceToHost,stream));
+            check(cudaStreamSynchronize(stream));
+            capacity=labels;return mReadinessVerdictHost[slot];
+        }catch(...){return nullptr;}
+    }
+    const PxU8* readinessMirror(bool speculative,PxU32& capacity) override {
+        capacity=0;const PxU32 slot=speculative?1u:0u;const PxU32 n=mReadinessMirrorCapacity[slot];
+        if(!n || !mReadinessMirror[slot])return nullptr;
+        try {
+            Context current(mContext);
+            if(n>mReadinessMirrorHostCapacity){if(mReadinessMirrorHost)cudaFreeHost(mReadinessMirrorHost);mReadinessMirrorHost=nullptr;check(cudaMallocHost(reinterpret_cast<void**>(&mReadinessMirrorHost),n));mReadinessMirrorHostCapacity=n;}
+            check(cudaMemcpy(mReadinessMirrorHost,mReadinessMirror[slot],n,cudaMemcpyDeviceToHost));
+            capacity=n;return mReadinessMirrorHost;
+        }catch(...){return nullptr;}
+    }
     const PxU8* reduceCpuReadiness(const PxU8* hostNotReady,PxU32 count,bool speculative,CUstream solverStream,PxU32& capacity) override {
         capacity=0;
         // Labels of the repair graph built for this pass (after narrowphase), so

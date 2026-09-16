@@ -640,6 +640,11 @@ over the repair graph's labels (accurate and speculative sims separately) reprod
 sleep decision (0 of 1.34 M disagree) and the control histories bit for bit. Kept off: the synchronous
 upload/readback costs ~0.8 ms per tick against a 0.04 ms CPU walk. It establishes that repair-graph
 components equal CPU islands for sleep; the remaining work is device-owned readiness sources.
+Second half-step (modes 6/7): the readiness flag is mirrored on the device by deltas recorded at every
+CPU change (atomic recording; overflow reseeds), the reduction reads the mirror. Exact (0 differences on
+3.6 M node checks, histories bit-identical), +1.3 ms per tick from waiting for this pass's repair graph,
+off by default. Remaining for device-owned sleep: produce the deltas on the device and consume the
+reduction there.
 
 ### R5 stage 1 result (2026-09-16): the corrected pass re-simulates ~200× more than it must
 

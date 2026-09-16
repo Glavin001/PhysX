@@ -135,6 +135,15 @@ public:
     // component from this pass's pre-solve labels. Synchronous: uploads, reduces,
     // reads back and returns the per-node verdict (NULL when unavailable).
     virtual const PxU8* reduceCpuReadiness(const PxU8* hostNotReady, PxU32 count, bool speculative, CUstream stream, PxU32& capacity) = 0;
+    // Device mirror of the readiness flag, per island sim, maintained by deltas
+    // (node << 1 | ready). initReadinessMirror seeds it from a full CPU snapshot;
+    // applyReadinessDeltas replays the tick's changes; reduceMirroredReadiness
+    // reduces the mirror over the repair graph labels and returns the verdict;
+    // readinessMirror reads the mirror back for audits (NULL when unavailable).
+    virtual bool initReadinessMirror(const PxU8* hostNotReady, PxU32 count, bool speculative) = 0;
+    virtual bool applyReadinessDeltas(const PxU32* deltas, PxU32 count, bool speculative) = 0;
+    virtual const PxU8* reduceMirroredReadiness(bool speculative, PxU32& capacity) = 0;
+    virtual const PxU8* readinessMirror(bool speculative, PxU32& capacity) = 0;
     // Island-scoped correction. requestTrialSnapshot makes the next
     // restoreRigidState keep a copy of the live (trial end-of-tick) state before
     // rewinding; reinstateTrialState copies that snapshot back for the listed

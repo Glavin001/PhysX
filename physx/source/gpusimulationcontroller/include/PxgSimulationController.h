@@ -536,6 +536,7 @@ class PxProfilerCallback;
         // Enqueue the device sleep verdict of this pass on the solver stream (after integration).
         void enqueueDestructionSleepVerdicts();
         PxArray<PxU8> mDestructionReadinessScratch;
+        bool mDestructionReadinessSeeded[2]={false,false};PxU32 mDestructionReadinessReseeds=0;
         bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
         bool buildDestructionContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
             const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream,const PxgContactGraphSequence* sequence);
