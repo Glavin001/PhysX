@@ -1123,3 +1123,14 @@ Against the previous shipped defaults (30.2 ms, 321 misses, idle 1.79) the
 sustained mean improves by 1.8 ms and the idle tick costs 0.1 ms more (the
 per-solve friction-count clear and the factor-stream joins). The impact
 peak (196–199 ms) lies inside the baseline arm's own spread (178–210 ms).
+
+## Acceptance verification sweep skipped after a reused direct norm (default on, lossless)
+
+When the first monitor reuses the direct step's residual norm, that norm was
+evaluated on the residual rebuilt from the same solution (rebuild, prepare,
+matvec); the acceptance verification repeated exactly that computation.
+`BLAST_GPU_NATIVE_SKIP_VERIFY` (default 1) skips it in that case. g16 3 s
+bombardment, two interleaved pairs: histories bit-identical (56,077 broken
+bonds); CUDA stress stage 10.15/10.16 → 9.87/9.88 ms per late tick,
+`waitForGpu` 12.49/12.56 → 12.22/12.27; the tick itself moves inside the
+noise band (late 52.8/49.7 vs 54.1/50.4). 11/11 tests.

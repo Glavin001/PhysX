@@ -84,6 +84,11 @@ struct NativeDirectView {
     NativeDirectSlotView slots{};
     unsigned* counters = nullptr; // diagnostics: [0] eligible [1] applied [2] accepted before iterating [3] no slot [4] slot invalid/failed [5] pinned free applied [6] refactored [7] stale applied [8] applications undone (residual grew)
     unsigned enabled = 0, diagnostics = 0, minNodes = kDirectMinNodes;
+    // The direct step rebuilds the true residual after each application and
+    // evaluates its norm; when the first monitor reuses that norm, the
+    // acceptance verification would rebuild and evaluate the same residual
+    // again (identical deterministic computation). Skip it when set.
+    unsigned skipVerify = 0;
     // Deferred mode: a changed component keeps its factor as a stale
     // preconditioner for this solve and is refactored after the solve, off the
     // tick's critical path. Otherwise changed factors are invalidated and

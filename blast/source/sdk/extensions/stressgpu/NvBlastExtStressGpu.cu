@@ -379,6 +379,16 @@ bool nativeDirectEager()
 /// bombardment (ratio 0.544-0.556 vs 0.527), because the per-component
 /// residual evaluations and assembly cost more than the 1-2 PCG iterations
 /// they replace.
+/// BLAST_GPU_NATIVE_SKIP_VERIFY (default 1; 0 restores the sweep): skip the
+/// acceptance verification sweep when the first monitor reuses the direct
+/// step's residual norm, which was evaluated on the residual rebuilt from the
+/// same solution (bit-identical histories on the g16 bombardment; CUDA stress
+/// stage 10.15 -> 9.87 ms per tick).
+bool nativeDirectSkipVerify()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_SKIP_VERIFY"); return !raw || std::string(raw) != "0"; }();
+    return value;
+}
 bool nativeDirectDenseTiny()
 {
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_DENSE_TINY"); return raw && std::string(raw) == "1"; }();

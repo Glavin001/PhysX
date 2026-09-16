@@ -223,7 +223,14 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
             if(threadIdx.x==0)reduceValue=numerator;
             __syncthreads();
             }
-            if((iteration || a.warmStart || directApplied) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]){
+            if((iteration || a.warmStart || directApplied) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]
+                && reuseDirectNorm && a.hierarchy.direct.skipVerify){
+                // The reused norm was evaluated on the residual rebuilt from this
+                // very solution (rebuild + prepare + matvec): the verification
+                // below would repeat that computation bit for bit.
+                if(!threadIdx.x)a.hierarchy.previous[id]=0;__syncthreads();
+            }
+            else if((iteration || a.warmStart || directApplied) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]){
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                 if(!threadIdx.x)a.hierarchy.previous[id]=0;__syncthreads();
                 prepareNativeResidualComponent(a,c.nodes+begin,count,id);
