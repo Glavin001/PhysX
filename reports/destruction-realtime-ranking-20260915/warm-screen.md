@@ -767,3 +767,19 @@ window (elastic reuse, as before). Against the 2026-09-15 final: cascade
 The `city256-debris-ncu` job of the plan fails in its check step
 (profiled-run comparison), unrelated to the candidate; the nsys job
 completes.
+
+## Continuous 600-tick A/B/A of the current defaults (`out/direct-continuous-ab-20260916b`)
+
+Arms `out/direct-ab-arms/{A,B}` with the B runtime refreshed to the
+2026-09-16 build, two trials per arm, screen locker already present. Physical
+counter differences 0 on every tick of every comparison (only stress
+iteration counts differ: 288 → 4 at the impact step).
+
+| case | A-before mean | **B mean** | A-after mean | peaks (median) A/B/A | 60 Hz misses A/B/A |
+|---|---:|---:|---:|---|---|
+| idle-256 | 1.698 | 1.786 | 1.749 | 14.0 / 14.2 / 14.1 | 0 / 0 / 0 of 600 |
+| impacts-256 | 54.73 | **30.18** | 54.55 | 171.7 / 187.5 / 194.7 | 519 / **321–323** / 519 of 600 |
+
+Against the 2026-09-15 final (30.7 ms, 311 misses, controls 52.3): the
+mean is 0.5 ms better on a 2.3 ms slower control; the miss count is within
+run-to-run noise. The impact peak is unchanged (CPU registration, R2).
