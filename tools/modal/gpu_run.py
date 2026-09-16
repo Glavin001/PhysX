@@ -985,6 +985,11 @@ def _merge_warm(dest):
             if target.exists():
                 shutil.rmtree(target) if target.is_dir() else target.unlink()
             shutil.move(str(item), str(target))
+    for f in merged.glob('*/replay.json'):   # a failed probe leaves a partial file that summarize-warm-screen.py cannot parse
+        try:
+            json.loads(f.read_text())
+        except Exception:  # noqa: BLE001
+            f.rename(f.with_name('replay.partial.json'))
     return merged
 
 
