@@ -847,3 +847,16 @@ value is the impact-tick registration (item 2, device-keyed pairs); the
 sustained tick's next exact lever is skipping the corrected stress solve
 for components the correction did not touch (R5 stage 2 mode 2, bit-
 identical on g4), measured next.
+
+## Corrected-solve skip for untouched components (mode 2) on g16: no effect, off
+
+`PHYSX_DESTRUCTION_ISLAND_SCOPE=2` interleaved with the default twice on the
+g16 3 s bombardment: histories identical, but the direct-step counters are
+identical too (eligible 43,735, applied 65,959, elastic skips 206,870 in
+both), i.e. no component was actually skipped, and the tick is ~1 ms slower
+(33.1/33.7 vs 32.1/32.2 ms) from the affected-set computation. The parked
+component flags do not fire on this scene: the cluster body field used to
+map parked bodies to stress roots (`PxDestructionStressCluster::body`, a
+GPU rigid index) has to be checked against the node-index domain of the
+correction targets before this lever can pay (bound: the corrected stress
+solve is ~2.5 ms per corrected pass, ~1.5 ms per sustained tick).
