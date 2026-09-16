@@ -707,3 +707,13 @@ per-component setup), 8–31-node components 8 %. The levers in order are
 more resident CTAs (launch bounds at three or four blocks per SM, under
 test), fewer per-component fixed cycles for the tiny components, and the
 remnant cost reductions above, which now pay proportionally.
+
+## Solve kernel residency: three CTAs per SM (lossless, −1.4 ms)
+
+`__launch_bounds__(kBlockSize, 3)` on `componentStressSolve` caps registers
+at 80 (stack 480 → 592 bytes) so 108 of the 144 launched CTAs claim work
+instead of 72. city256 g16 3 s bombardment: tick ratio 0.553 → 0.527
+(29.8 vs 31.3 ms at a 56.5 ms control), histories identical. Four blocks
+per SM (64 registers) spills more and is worse (ratio 0.563). Default is
+now three (`BLAST_GPU_SOLVE_MIN_BLOCKS`). Shared memory (27 KB per CTA) is
+not the limit at three.
