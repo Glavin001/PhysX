@@ -783,3 +783,30 @@ iteration counts differ: 288 → 4 at the impact step).
 Against the 2026-09-15 final (30.7 ms, 311 misses, controls 52.3): the
 mean is 0.5 ms better on a 2.3 ms slower control; the miss count is within
 run-to-run noise. The impact peak is unchanged (CPU registration, R2).
+
+## Incremental cluster mass properties (R6, lossless, neutral)
+
+`PxgDestructionTopology.cu`: the per-transaction `massProperties` kernel
+(0.64 ms per call, one CTA per cluster with a 10-double block reduction)
+now skips every cluster whose member set did not change since the previous
+labels (`markChangedClusters` marks the old and new root of every chunk
+whose label changed; roots are minimum member indices, chunk properties are
+immutable, so an unchanged set has the same root and record, which is kept
+instead of being cleared). city256 g16: histories identical, ratio 0.552
+(within the 0.53–0.56 run-to-run band of this session). Native tests:
+13/14 with the pre-existing `bombardment_contacts` motion audit failing as
+on the baseline runtime.
+
+## Session summary (2026-09-16)
+
+Shipped defaults now: cached factors with Woodbury updates, absent-column
+skipping, pipelined narrow levels, stored diagonal inverses, three solve
+CTAs per SM, elastic reuse, incremental motion modes and mass properties,
+eager refactor, async island observation. Measured: warm nine windows all
+pass (cascade 71, impact 70, debris 80, idle 1.8 ms), continuous heavy
+600-tick 54.7 → 30.2 ms with 60 Hz misses 519 → 321, histories identical
+to the baseline in every screen. Not done, with groundwork recorded in the
+README: R2 core (device sleep state and device-keyed partition edges) and
+R5 island-scoped correction; both are multi-week PhysX-internals projects
+that own the remaining 12 ms corrected pass and the CPU phase tail of the
+sustained tick, and the 170–190 ms impact peak.

@@ -58,8 +58,20 @@ __global__ void resetLabels(const unsigned* alive, unsigned* labels, unsigned* i
     if (i < n) {
         labels[i] = alive[i] ? i : INVALID;
         indices[i] = i;
-        clusters[i] = {};
+        // Cluster records persist: a cluster whose member set did not change
+        // keeps its root (the minimum member index) and its record.
+        (void)clusters;
     }
+}
+// Roots whose member set changed since the previous labels: every chunk whose
+// label differs marks both its old and its new root.
+__global__ void markChangedClusters(const unsigned* labels, const unsigned* previous, unsigned* changed, unsigned n) {
+    const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const unsigned now = labels[i], was = previous[i];
+    if (now == was) return;
+    if (now != INVALID) changed[now] = 1u;
+    if (was != INVALID) changed[was] = 1u;
 }
 
 __device__ unsigned root(unsigned* labels, unsigned i) {
@@ -111,11 +123,14 @@ __global__ void finishGeneration(PxgDestructionTopologyStatus* status) {
 __global__ void massProperties(const PxgDestructionChunk* chunks, const unsigned* labels,
     const unsigned* alive, const unsigned* order, const unsigned* begins,
     const unsigned* ends, PxgDestructionCluster* clusters, const unsigned* roots,
-    const PxgDestructionTopologyStatus* status) {
+    const PxgDestructionTopologyStatus* status, const unsigned* changed) {
     __shared__ double sums[10][BLOCK];
     __shared__ unsigned supports[BLOCK];
     for (unsigned cidx = blockIdx.x; cidx < status->clusterCount; cidx += gridDim.x) {
     const unsigned r = roots[cidx];
+    // Incremental: an unchanged member set has the same root and the same
+    // record (chunk properties are immutable), so it is not recomputed.
+    if (changed && !changed[r]) continue;
     double v[10] = {};
     unsigned support = 0;
     for (unsigned j = begins[r] + threadIdx.x; j < ends[r]; j += BLOCK) {
@@ -231,6 +246,7 @@ class Topology final : public PxgDestructionTopology {
     unsigned *mIndices = nullptr, *mKeys = nullptr, *mOrder = nullptr;
     unsigned *mBegins = nullptr, *mEnds = nullptr, *mRoots = nullptr, *mRootFlags = nullptr;
     PxgDestructionCluster* mClusters = nullptr;
+    unsigned* mMassChanged = nullptr; // per root: member set changed since the previous labels
     unsigned *mClusterSlots=nullptr,*mSlotRoots=nullptr;
     std::uint64_t* mSlotGenerations=nullptr;
     unsigned *mFreeFlags=nullptr,*mFreeRanks=nullptr,*mFreeSlots=nullptr,*mRequestRanks=nullptr;
@@ -258,8 +274,15 @@ class Topology final : public PxgDestructionTopology {
         if (cub::DeviceSelect::Flagged(mTemp, mTempBytes, mIndices, mRootFlags,
             mRoots, &mStatus->clusterCount, mN, mStream) != cudaSuccess) return false;
         finishGeneration<<<1,1,0,mStream>>>(mStatus);
+        const unsigned* changed = nullptr;
+        if (transfer && mMassChanged) {
+            // mPreviousLabels holds the labels of the previous generation (apply()).
+            if (cudaMemsetAsync(mMassChanged, 0, sizeof(unsigned)*mN, mStream) != cudaSuccess) return false;
+            markChangedClusters<<<grid, BLOCK, 0, mStream>>>(mLabels, mPreviousLabels, mMassChanged, mN);
+            changed = mMassChanged;
+        }
         massProperties<<<std::min(mN,2560u), BLOCK, 0, mStream>>>(mChunks, mLabels, mActiveChunks,
-            mOrder, mBegins, mEnds, mClusters, mRoots, mStatus);
+            mOrder, mBegins, mEnds, mClusters, mRoots, mStatus, changed);
         retainMotionSlots<<<grid,BLOCK,0,mStream>>>(mSlotRoots,mActiveChunks,mLabels,mFreeFlags,mN);
         requestMotionSlots<<<grid,BLOCK,0,mStream>>>(mActiveChunks,mLabels,mClusterSlots,mSlotRoots,mRootFlags,mN);
         if(cub::DeviceScan::ExclusiveSum(mTemp,mTempBytes,mFreeFlags,mFreeRanks,mN,mStream)!=cudaSuccess
@@ -285,6 +308,7 @@ public:
             || !alloc(mActiveBonds,m) || !alloc(mLabels,n) || !alloc(mIndices,n)
             || !alloc(mKeys,n) || !alloc(mOrder,n) || !alloc(mBegins,n)
             || !alloc(mEnds,n) || !alloc(mRoots,n) || !alloc(mRootFlags,n) || !alloc(mClusters,n) || !alloc(mStatus,1)
+            || !alloc(mMassChanged,n)
             || !alloc(mMotions,n) || !alloc(mPreviousMotions,n) || !alloc(mPreviousLabels,n)
             || !alloc(mPreviousSlots,n) || !alloc(mPreviousCenters,size_t(n)*3)
             || !alloc(mClusterSlots,n) || !alloc(mSlotRoots,n) || !alloc(mSlotGenerations,n)
@@ -338,7 +362,7 @@ public:
         cudaFree(mClusterSlots);cudaFree(mSlotRoots);cudaFree(mSlotGenerations);
         cudaFree(mFreeFlags);cudaFree(mFreeRanks);cudaFree(mFreeSlots);cudaFree(mRequestRanks);
         cudaFree(mPreviousSlots); cudaFree(mPreviousCenters);
-        cudaFree(mBegins); cudaFree(mEnds); cudaFree(mRoots); cudaFree(mRootFlags); cudaFree(mClusters); cudaFree(mStatus); cudaFree(mTemp);
+        cudaFree(mBegins); cudaFree(mEnds); cudaFree(mRoots); cudaFree(mRootFlags); cudaFree(mClusters); cudaFree(mMassChanged); cudaFree(mStatus); cudaFree(mTemp);
         if (mReady) cudaEventDestroy(mReady);
         if (mStream) cudaStreamDestroy(mStream);
     }
