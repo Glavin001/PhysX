@@ -565,3 +565,38 @@ city256 window, 17 ms per pass); the remaining risk is engineering: the
 `Sc::Scene` pipeline has no partial-scene entry point, so the scoped pass
 needs a filtered body/pair set through `stepSetupCollide` or a dedicated
 mini-pipeline over the closure.
+
+## 9. R2 milestone 2, item 1 re-examined (2026-09-16)
+
+Mapping of the solver node-ordering consumer (`PxgGpuContext::update`,
+`physx/source/gpusolver/src/PxgContext.cpp:2234-2381`): the solver body
+layout is [world][active kinematics][active rigid dynamics][articulations],
+copied from the accurate IslandSim's active lists (`:2371-2381`), whose
+order is activation history (push-back / swap-remove,
+`PxsIslandSim.h:864-912`), not node index. Order matters: it fixes
+`solverBodyIndices[node]` (`preIntegration.cu:58`), slab/warp grouping,
+accumulator layout and the host writeback pairing, so a different but
+still deterministic order changes floating-point results (not bitwise
+histories). Set-only consumers: partitioning (node/edge keyed), island
+labels, constraint prep, CPU sleep/wake.
+
+Two facts move item 1 out of the "bounded" class:
+1. The device roster's `live` flag (`PxgContext.cpp:2596`) means island-valid,
+   not deleted and not kinematic; it equals the active set only when the
+   pre-solve sleeping gate disables sleeping. With sleeping on (required),
+   "active" is the CPU wake-counter state, so a device active list needs
+   device-owned sleep state first (the rest of R2), not just a compaction.
+2. Ordering hazard: `buildPreSolveIslands` runs after `update()` has built
+   `mActiveNodeIndex` (`PxgContext.cpp:2626-2640`), so the device list would
+   have to be produced a phase earlier or consumed one phase late.
+
+No compacted active list exists on the device today; `cub::DeviceSelect`
+(order-preserving, hence canonical by node index) would provide one. The
+CPU work that exists only to feed this consumer is the island-gen passes
+and `restoreDestructionActivity` rebuilding the active lists for the
+corrected pass (`ScPipeline.cpp:1160-1212, 1820-1839, 2572-2593,
+2063-2096`). Conclusion: R2 item 1 is gated on device sleep state; the
+next R2 step with a measurable payoff is therefore item 2 (device-keyed
+partition edges, retiring `preallocateContactManagers` /
+`islandInsertion` / `registerInteractions` from the impact tick) together
+with the device sleep scheduler, i.e. the multi-week core of R2.
