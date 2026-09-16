@@ -24,6 +24,9 @@
 //
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 
+#include <cstdlib>
+#include "foundation/PxHashSet.h"
+#include <cstdio>
 #include "common/PxProfileZone.h"
 
 #include "PxgConstraintPartition.h"
@@ -2293,6 +2296,21 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2_0(IG::IslandSim& is
 						PxcNpWorkUnit& unit = cm->getWorkUnit();
 						const PxsContactManagerOutput& output = iterator.getContactManagerOutput(unit.mNpIndex);
 
+						// R2 step 4 sizing audit: activated contacts reaching the partition are
+						// either new touches (prevPatches == 0, narrowphase-driven) or already
+						// touching pairs whose bodies woke (island-activation-driven).
+						static const bool sourceAudit = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_SOURCE_AUDIT"); return raw && raw[0] == '1'; }();
+						if(sourceAudit && output.nbPatches)
+						{
+							static PxU64 passes = 0, newTouch = 0, wokenTouch = 0, items = 0;
+							if(a == 0) ++passes;
+							if(output.prevPatches == 0) ++newTouch; else ++wokenTouch;
+							items += output.nbPatches;
+							if(a + 1 == activatedContactCount && (passes % 32) == 0)
+								fprintf(stderr, "partition source audit: passes=%llu activated-edges new-touch=%llu woken-touch=%llu patch-items=%llu\n",
+									(unsigned long long)passes, (unsigned long long)newTouch, (unsigned long long)wokenTouch, (unsigned long long)items);
+						}
+
 						for (PxU32 b = 0; b < output.nbPatches; ++b)
 						{
 							Part2WorkItem& item = *mPart2WorkItems.insert();
@@ -2303,6 +2321,51 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2_0(IG::IslandSim& is
 					}
 				}
 			}
+		}
+	}
+
+	// R2 step 4 audit: would a narrowphase-driven source (this pass's found touches
+	// whose endpoints are active, or one endpoint static) reproduce the set of
+	// activated contacts the partition takes from the island sim?
+	{
+		static const bool npAudit = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_NP_AUDIT"); return raw && raw[0] == '1'; }();
+		if(npAudit)
+		{
+			static PxU64 passes = 0, islandSet = 0, npSet = 0, both = 0, islandOnly = 0, npOnly = 0, islandOnlyWoken = 0, npOnlyInactive = 0;
+			++passes;
+			PxHashSet<PxU32> a, b;
+			for(PxU32 i = 0; i < mPart2WorkItems.size(); ++i) a.insert(mPart2WorkItems[i].mEdgeID);
+			const IG::CPUExternalData& cpuData = islandSim.mCpuData;
+			for(PxU32 i = 0; i < mFoundCount; ++i)
+			{
+				const PxsContactManagerOutputCounts& c = mFoundCounts[i];
+				if(!c.nbPatches || c.prevPatches) continue;	// new touch only
+				const PxcNpWorkUnit& unit = mFoundManagers[i]->getWorkUnit();
+				if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE) continue;
+				const IG::EdgeIndex e = unit.mEdgeIndex;
+				if(e == IG_INVALID_EDGE || islandSimGpuData.getFirstPartitionEdge(e) != NULL) continue;
+				const PxNodeIndex n0 = cpuData.getNodeIndex1(e), n1 = cpuData.getNodeIndex2(e);
+				const bool active0 = !n0.isValid() || islandSim.getNode(n0).isActive() || islandSim.getNode(n0).isActivating();
+				const bool active1 = !n1.isValid() || islandSim.getNode(n1).isActive() || islandSim.getNode(n1).isActivating();
+				if(active0 && active1) b.insert(e);
+			}
+			islandSet += a.size(); npSet += b.size();
+			for(PxHashSet<PxU32>::Iterator it = a.getIterator(); !it.done(); ++it)
+			{
+				if(b.contains(*it)) ++both;
+				else
+				{
+					++islandOnly;
+					PxsContactManager* cm = islandManagerData.getContactManager(*it);
+					if(cm && iterator.getContactManagerOutput(cm->getWorkUnit().mNpIndex).prevPatches) ++islandOnlyWoken;
+				}
+			}
+			for(PxHashSet<PxU32>::Iterator it = b.getIterator(); !it.done(); ++it)
+				if(!a.contains(*it)) { ++npOnly; if(!activeCMBitmap.test(*it)) ++npOnlyInactive; }
+			if((passes % 32) == 0)
+				fprintf(stderr, "partition np-source audit: passes=%llu island=%llu np=%llu both=%llu islandOnly=%llu (woken=%llu) npOnly=%llu (edgeInactive=%llu)\n",
+					(unsigned long long)passes, (unsigned long long)islandSet, (unsigned long long)npSet, (unsigned long long)both,
+					(unsigned long long)islandOnly, (unsigned long long)islandOnlyWoken, (unsigned long long)npOnly, (unsigned long long)npOnlyInactive);
 		}
 	}
 

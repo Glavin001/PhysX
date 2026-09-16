@@ -30,6 +30,7 @@
 // Ideally they should be listed in the order in which they are called in the single-threaded version, to help
 // understanding and following the pipeline.
 
+#include "foundation/PxHashSet.h"
 #include "ScScene.h"
 #include "BpBroadPhase.h"
 #include "ScArticulationSim.h"
@@ -2262,6 +2263,119 @@ void Sc::Scene::updateDynamics(PxBaseTask* /*continuation*/)
     PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
         mDestructionCorrectionInProgress?"GpuDestruction.detail.updateDynamics":"GpuDestruction.trialDetail.updateDynamics",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_START_CROSSTHREAD("Basic.dynamics", mContextId);
+
+	// R2 step 4 audit: would this pass's narrowphase touch-found events, gated by
+	// endpoint activity, reproduce the island sim's activated contact list that
+	// the GPU partition turns into new partition edges?
+	{
+		static const bool npAudit = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_NP_AUDIT"); return raw && raw[0] == '1'; }();
+		if(npAudit && mSimpleIslandManager->getAccurateIslandSim().mGpuData)
+		{
+			static PxU64 passes = 0, islandSet = 0, npSet = 0, both = 0, islandOnly = 0, islandOnlyWoken = 0, npOnly = 0, npOnlyEdgeInactive = 0;
+			static PxU64 islandOnlyCorrected = 0, islandOnlyBitSet = 0, islandOnlyNewCm = 0, correctedPasses = 0;
+			++passes; if(mDestructionCorrectionInProgress) ++correctedPasses;
+			const PxBitMap& touchBits = mLLContext->getContactManagerTouchEvents();
+			const IG::IslandSim& sim = mSimpleIslandManager->getAccurateIslandSim();
+			const IG::GPUExternalData& gpu = *sim.mGpuData;
+			const PxBitMap& activeCM = gpu.getActiveContactManagerBitmap();
+			PxsContactManagerOutputIterator outputs = mLLContext->getNphaseImplementationContext()->getContactManagerOutputs();
+			PxHashSet<PxU32> a, b;
+			const PxU32 n = sim.getNbActivatedEdges(IG::Edge::eCONTACT_MANAGER);
+			const IG::EdgeIndex* edges = sim.getActivatedEdges(IG::Edge::eCONTACT_MANAGER);
+			for(PxU32 i = 0; i < n; ++i)
+			{
+				const IG::EdgeIndex e = edges[i];
+				if(!activeCM.test(e) || gpu.getFirstPartitionEdge(e)) continue;
+				PxsContactManager* cm = mSimpleIslandManager->getContactManager(e);
+				if(!cm) continue;
+				const PxsContactManagerOutput& o = outputs.getContactManagerOutput(cm->getWorkUnit().mNpIndex);
+				if(!o.nbPatches) continue;
+				a.insert(e);
+				if(o.prevPatches) ++islandOnlyWoken;	// counted below only if missing from b
+			}
+			for(PxU32 i = 0; i < mTouchFoundEvents.size(); ++i)
+			{
+				const ShapeInteraction* si = getSI(mTouchFoundEvents[i]);
+				const PxsContactManager* cm = si ? si->getContactManager() : NULL;
+				if(!cm) continue;
+				const PxcNpWorkUnit& unit = cm->getWorkUnit();
+				if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE) continue;
+				const IG::EdgeIndex e = unit.mEdgeIndex;
+				if(e == IG_INVALID_EDGE || gpu.getFirstPartitionEdge(e)) continue;
+				const PxNodeIndex n0 = si->getActorSim0().getNodeIndex(), n1 = si->getActorSim1().getNodeIndex();
+				const bool active0 = !n0.isValid() || sim.getNode(n0).isActive() || sim.getNode(n0).isActivating();
+				const bool active1 = !n1.isValid() || sim.getNode(n1).isActive() || sim.getNode(n1).isActivating();
+				if(active0 && active1) b.insert(e);
+			}
+			// Bitmap-derived set (touch bit set this pass, touching, activity-gated),
+			// plus the trial pass's set carried into the corrected pass.
+			static PxHashSet<PxU32>* carriedPtr = new PxHashSet<PxU32>(); PxHashSet<PxU32>& carried = *carriedPtr; static PxU64 bitmapSet = 0, coveredByBitmapOrCarry = 0;
+			static PxU64 stageBits = 0, stageCm = 0, stageTouch = 0, stageEdge = 0, stageActive = 0;
+			static PxU64 gateIsland = 0, gateBoth = 0, gateEither = 0, gateNeither = 0, gateListedEither = 0, gateDeleted = 0, gateKinematic = 0;
+			{
+				const PxU32* words = touchBits.getWords();
+				const PxU32 last = words ? touchBits.findLast() : PX_INVALID_U32;
+				if(last != PX_INVALID_U32)
+					for(PxU32 w = 0; w <= last >> 5; ++w)
+						for(PxU32 bw = words[w]; bw; bw &= bw-1)
+						{
+							const PxU32 index = PxU32(w<<5|PxLowestSetBit(bw));
+							++stageBits;
+							PxsContactManager* cm = mLLContext->getContactManagerPool().findByIndexFast(index);
+							if(!cm) continue;
+							++stageCm;
+							const PxcNpWorkUnit& unit = cm->getWorkUnit();
+							// Touch per this pass's narrowphase output, not the cached status
+							// (which is only updated once the touch events are processed).
+							if(unit.mNpIndex == 0xFFffFFff || !outputs.getContactManagerOutput(unit.mNpIndex).nbPatches) continue;
+							++stageTouch;
+							if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE) continue;
+							const IG::EdgeIndex e = unit.mEdgeIndex;
+							if(e == IG_INVALID_EDGE || gpu.getFirstPartitionEdge(e)) continue;
+							++stageEdge;
+							const PxNodeIndex n0 = sim.mCpuData.getNodeIndex1(e), n1 = sim.mCpuData.getNodeIndex2(e);
+							const bool dyn0 = n0.isValid() && !sim.getNode(n0).isKinematic(), dyn1 = n1.isValid() && !sim.getNode(n1).isKinematic();
+							const bool active0 = !n0.isValid() || sim.getNode(n0).isActive() || sim.getNode(n0).isActivating();
+							const bool active1 = !n1.isValid() || sim.getNode(n1).isActive() || sim.getNode(n1).isActivating();
+							const bool listed0 = n0.isValid() && sim.getActiveNodeIndex(n0) != PX_INVALID_NODE;
+							const bool listed1 = n1.isValid() && sim.getActiveNodeIndex(n1) != PX_INVALID_NODE;
+							if(a.contains(e))
+							{
+								++gateIsland;
+								if(active0 && active1) ++gateBoth; else if((dyn0 && active0) || (dyn1 && active1)) ++gateEither; else ++gateNeither;
+								if(listed0 || listed1) ++gateListedEither;
+								if(!active0 && n0.isValid()) { if(sim.getNode(n0).isDeleted()) ++gateDeleted; if(sim.getNode(n0).isKinematic()) ++gateKinematic; }
+							}
+							// Either dynamic endpoint active: the island sim wakes the other one.
+							if((dyn0 && active0) || (dyn1 && active1) || (!dyn0 && !dyn1)) { b.insert(e); ++stageActive; }
+						}
+				bitmapSet += b.size();
+				if(!mDestructionCorrectionInProgress) { carried.clear(); for(PxHashSet<PxU32>::Iterator it = b.getIterator(); !it.done(); ++it) carried.insert(*it); }
+				else for(PxHashSet<PxU32>::Iterator it = carried.getIterator(); !it.done(); ++it) if(!gpu.getFirstPartitionEdge(*it)) b.insert(*it);
+			}
+			islandSet += a.size(); npSet += b.size();
+			for(PxHashSet<PxU32>::Iterator it = a.getIterator(); !it.done(); ++it)
+			{
+				if(b.contains(*it)) { ++both; ++coveredByBitmapOrCarry; continue; }
+				++islandOnly;
+				if(mDestructionCorrectionInProgress) ++islandOnlyCorrected;
+				PxsContactManager* cm = mSimpleIslandManager->getContactManager(*it);
+				if(cm && touchBits.boundedTest(cm->getIndex())) ++islandOnlyBitSet;
+				if(cm && (cm->getWorkUnit().mNpIndex & PxsContactManagerBase::NEW_CONTACT_MANAGER_MASK)) ++islandOnlyNewCm;
+			}
+			for(PxHashSet<PxU32>::Iterator it = b.getIterator(); !it.done(); ++it) if(!a.contains(*it)) { ++npOnly; if(!activeCM.test(*it)) ++npOnlyEdgeInactive; }
+			if((passes % 32) == 0)
+			{
+				fprintf(stderr, "  bitmap stages: bits=%llu cm=%llu touching=%llu edge=%llu active=%llu\n", (unsigned long long)stageBits, (unsigned long long)stageCm, (unsigned long long)stageTouch, (unsigned long long)stageEdge, (unsigned long long)stageActive);
+				fprintf(stderr, "  island items among bitmap-touching: %llu, gate both=%llu either=%llu neither=%llu listedEither=%llu n0deleted=%llu n0kinematic=%llu\n",
+					(unsigned long long)gateIsland, (unsigned long long)gateBoth, (unsigned long long)gateEither, (unsigned long long)gateNeither, (unsigned long long)gateListedEither, (unsigned long long)gateDeleted, (unsigned long long)gateKinematic);
+				fprintf(stderr, "sc np-source audit (events+bitmap+carry): passes=%llu (corrected=%llu) island=%llu np=%llu both=%llu islandOnly=%llu (corrected=%llu bitSet=%llu newCm=%llu wokenTotal=%llu) npOnly=%llu (edgeInactive=%llu) touchFound=%u\n",
+					(unsigned long long)passes, (unsigned long long)correctedPasses, (unsigned long long)islandSet, (unsigned long long)npSet, (unsigned long long)both, (unsigned long long)islandOnly,
+					(unsigned long long)islandOnlyCorrected, (unsigned long long)islandOnlyBitSet, (unsigned long long)islandOnlyNewCm, (unsigned long long)islandOnlyWoken,
+					(unsigned long long)npOnly, (unsigned long long)npOnlyEdgeInactive, mTouchFoundEvents.size());
+			}
+		}
+	}
 
 	//Allow processLostContactsTask to run until after 2nd pass of solver completes (update bodies, run sleeping logic etc.)
 	mProcessLostContactsTask3.setContinuation(&mPostSolver);

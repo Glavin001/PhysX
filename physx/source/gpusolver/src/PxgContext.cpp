@@ -2416,6 +2416,7 @@ void PxgGpuContext::update(	Cm::FlushPool& flushPool, PxBaseTask* continuation, 
 	// PT: when updateIncrementalIslands() is single-threaded this is a blocking call and we can use the
 	// partitioning data when it returns. This is not the case anymore with multi-threaded implementations.
 
+	mIncrementalPartition.setFoundPatchList(nphase->getLostFoundPatchManagers(), nphase->getNbLostFoundPatchManagers(), nphase->getLostFoundPatchOutputCounts());
 	// doConstraintPrePrepCommon() consumes the output of the incremental island building as part of mPrepTask
 	mIncrementalPartition.updateIncrementalIslands(
 		mIslandManager.getAccurateIslandSim(),

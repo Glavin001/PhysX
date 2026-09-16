@@ -206,6 +206,7 @@ public:
 	{
 		return mContactManagerPool;
 	}
+	PX_FORCE_INLINE const PxBitMap& getContactManagerTouchEvents() const { return mContactManagerTouchEvent; }
 
 	PX_FORCE_INLINE void setActiveContactManager(const PxsContactManager* manager, PxIntBool useCCD)
 	{

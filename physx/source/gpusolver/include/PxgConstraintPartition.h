@@ -331,6 +331,9 @@ public:
 	PX_FORCE_INLINE	const Cm::PinnableArray<PxU32>&	getDestroyedContactEdgeIndices()	const	{ return mDestroyedContactEdgeIndices;	}
 	PX_FORCE_INLINE	PxU32							getPairSlotCapacity()				const	{ return mPairSlotCapacity;				}
 	PX_FORCE_INLINE	PxU32							pairSlotOf(const PartitionEdge* edge)	const	{ return mSolverConstants[edge->mUniqueIndex].mPairSlot; }
+	// R2 step 4 audit: this pass's narrowphase found/lost patch list, handed in before the update.
+	void setFoundPatchList(PxsContactManager** managers, PxU32 count, const PxsContactManagerOutputCounts* counts) { mFoundManagers = managers; mFoundCount = count; mFoundCounts = counts; }
+	PxsContactManager** mFoundManagers = NULL; PxU32 mFoundCount = 0; const PxsContactManagerOutputCounts* mFoundCounts = NULL;
 
 	PX_FORCE_INLINE	const PxArray<PxU32>&			getNpIndexArray()					const	{ return mNpIndexArray;					}
 	PX_FORCE_INLINE	const PxArray<PartitionSlab*>&	getPartitionSlabs()					const	{ return mPartitionSlabs;				}

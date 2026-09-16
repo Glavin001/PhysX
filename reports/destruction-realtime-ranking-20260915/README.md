@@ -946,9 +946,10 @@ Plan (each step measurable):
 3. DONE (2026-09-16, lossless, neutral against a full control binary): `mFirstPartitionEdgesBySlot` beside
    `mFirstPartitionEdges`, mirrored at every contact head update; `processPartitionEdges` and the NP
    lost/found patch passes look up by slot. Island-driven loops and joints stay on edge handles.
-4. Device pair roster (`PxgDestructionContactEdge`, `getDestructionPreSolveContacts`,
-   `PxgNarrowphaseCore.cpp:8574-8586`) feeding `Part2_0/Part2_1`; checkpoint: partition/np-index arrays
-   match the CPU-built ones on a bombardment step.
+4. SIZED (2026-09-16, `warm-screen.md`): a narrowphase-driven source (touch bitmap ∩ touching output ∩
+   either endpoint active) reproduces 89.6 % of the island's activated pairs; the rest are corrected-pass
+   re-activations (8.4 %, replay the trial set) and wake re-activations (1.3 %, need per-node pair adjacency).
+   Order-changing; qualifies under §11. Original plan: device pair roster feeding `Part2_0/Part2_1`.
 5. DONE as part of step 2 (friction counts, friction index stream and destroyed-edge clear are keyed
    by the pair slot; histories bit-identical).
 6. Skip `IslandInsertionTask`, `registerContactManagers` and handle preallocation for native pairs
