@@ -606,6 +606,8 @@ namespace physx
 
 
 		mGpuSolverCore->integrateCoreParallel(offset, mSolverBodyPool.size());
+		// Device sleep verdict of this pass, from the sleep data integrate just wrote.
+		static_cast<PxgSimulationController*>(mSimulationController)->enqueueDestructionSleepVerdicts();
 
 		mGpuArticulationCore->updateBodies(mDt, !mIsTGS, mEnableDirectGPUAPI);
 

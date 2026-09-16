@@ -1283,3 +1283,13 @@ Candidate = runtime, GPU module and probes at `48854ccb` (steps 1–3 plus the s
 | tower64 | 1.61 | 1.61 | 1.50 | 2.14 | 0/0/0 of 16 | passed |
 
 The optional `city256-debris-ncu` profiling job after the nine windows timed out under its 180 s watchdog (the nsys job completed); it is not part of the contract.
+
+## Device sleep verdicts re-timed (R2 item 1, increment 2): device-side exact, CPU residual remains; mode 1 measured and kept off
+
+The verdict is now enqueued on the solver stream right after `integrateCoreParallel` of every pass (`PxgSimulationController::enqueueDestructionSleepVerdicts`, called from `PxgGpuContext::update`), from that pass's pre-solve node labels (`mPreLabels`, stable during the solve) with nodes absent from the solver list defaulting to not ready; the pending verdict is published when the next tick's trial pass prepares its island repair, and a corrected pass reuses the published one (`publishComponentSleepVerdicts` / `componentSleepVerdicts` in `PxgDestructionRuntime`). Device-side contradiction test (`PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG=1`): 0 of 454 k solver entries (was 763 of 1.72 M).
+
+The island audit (`PHYSX_DESTRUCTION_DEVICE_SLEEP=2`, g16 3 s bombardment) still disagrees on 0.8 % of island decisions (1.069 M decisions: 4,154 CPU-only sleeps, 4,399 device-only). The samples are now the CPU's sticky readiness: fragments are created with the ready flag (inactive at creation), the solver's first pass reports them moving (`solverWakeCounter` 0.44, `ACTIVATE_THIS_FRAME`), the CPU island still deactivates the single-body island because the flag is only cleared by CPU wake paths, and the device says not ready. An exact replica therefore needs the CPU's flag sources on the device (creation state, user wakes, kinematic touches), i.e. device-owned activation, not a better reduction.
+
+`PHYSX_DESTRUCTION_DEVICE_SLEEP=1` (device verdicts decide) on the same run, two trials: 59,271 and 59,272 bonds broken against 56,077 (+5.7 %, outside the 3 % envelope of §11), clusters 11,285 / 11,318 against 10,945 at t = 2 s, motion audit position error ≤ 2.2e-5. More fragments stay awake at birth (physically the more faithful behaviour), but it is an order-changing default that fails the envelope, so it stays off.
+
+Default path after the change (mode 0), interleaved against the control binary, three trials each, histories bit-identical: 31.82 → 31.80 ms; late window 52.34 → 52.42; 36/36 native GPU tests after relinking the test binaries (the runtime vtable changed).

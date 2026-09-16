@@ -892,7 +892,7 @@ public:
                     destructionPreSolve::requireValidContacts<<<1,1,0,cudaStream>>>(mPreContactStatus);
                 }
                 destructionPreSolve::finish<<<(count+127)/128,128,0,cudaStream>>>(mPreNodes,count,mPreParents,mPreLabels,mPreTouches,deriveSupport?mPreSupport:nullptr);
-                labels=mPreLabels;staticTouches=mPreTouches;
+                labels=mPreLabels;staticTouches=mPreTouches;mPreSolveLabelCount=count;
             }
             if(count)check(cudaMemcpyAsync(mPrePrevious,mPreNodes,size_t(count)*sizeof(PxvPreSolveNode),cudaMemcpyDeviceToDevice,cudaStream));
             check(cudaGetLastError());check(cudaEventRecord(mPreReady,cudaStream));mPrePreviousCount=count;mPreSourceGraphGeneration=mGraphView.generation;mPreRosterValid=true;
@@ -1163,6 +1163,7 @@ public:
         cudaFree(mParkedBodyBitmap);mParkedBodyBitmap=nullptr;mParkedBodyBitmapCapacity=0;cudaFree(mParkedRootFlags);mParkedRootFlags=nullptr;mParkedRootCapacity=0;mParkedFlagsArmed=false;
         cudaFree(mSleepComponentNotReady);cudaFree(mSleepNodeNotReady);cudaFree(mSleepOwnNotReady);if(mHostSleepNodeNotReady)cudaFreeHost(mHostSleepNodeNotReady);
         mSleepComponentNotReady=mSleepNodeNotReady=mSleepOwnNotReady=mHostSleepNodeNotReady=nullptr;mSleepVerdictCapacity=mSleepVerdictCount=0;mSleepVerdictPending=false;
+        delete[] mHostSleepPublished;mHostSleepPublished=nullptr;mHostSleepPublishedCapacity=mSleepPublishedCount=0;mPreSolveLabelCount=0;
         mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCompletion->collision={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
@@ -1998,12 +1999,14 @@ public:
         return device;
     }
     unsigned char *mSleepComponentNotReady=nullptr,*mSleepNodeNotReady=nullptr,*mSleepOwnNotReady=nullptr,*mHostSleepNodeNotReady=nullptr;PxU32 mSleepVerdictCapacity=0,mSleepVerdictCount=0;
+    unsigned char* mHostSleepPublished=nullptr;PxU32 mHostSleepPublishedCapacity=0,mSleepPublishedCount=0;
     cudaEvent_t mSleepVerdictReady=nullptr;bool mSleepVerdictPending=false;
+    PxU32 mPreSolveLabelCount=0; // node capacity of the last pre-solve label build
     const PxgSolverBodySleepData* mSleepAuditSleep=nullptr;const PxNodeIndex* mSleepAuditNodes=nullptr;PxU32 mSleepAuditCount=0;
-    bool computeComponentSleepVerdicts(const PxgSolverBodySleepData* sleep,const PxNodeIndex* nodes,PxU32 count,CUstream solverStream) override {
+    bool enqueueComponentSleepVerdicts(const PxgSolverBodySleepData* sleep,const PxNodeIndex* nodes,PxU32 count,CUstream solverStream) override {
         mSleepVerdictPending=false;mSleepVerdictCount=0;mSleepAuditSleep=sleep;mSleepAuditNodes=nodes;mSleepAuditCount=count;
-        const PxU32 capacity=mGraphView.nodeCapacity;
-        if(!sleep || !nodes || !count || !capacity || !mGraphAccurate || !solverStream)return false;
+        const PxU32 capacity=mPreSolveLabelCount;
+        if(!sleep || !nodes || !count || !capacity || !mPreLabels || !solverStream)return false;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(solverStream);
             if(capacity>mSleepVerdictCapacity) {
@@ -2016,52 +2019,66 @@ public:
                 mSleepVerdictCapacity=capacity;
             }
             if(!mSleepVerdictReady)check(cudaEventCreateWithFlags(&mSleepVerdictReady,cudaEventDisableTiming));
-            if(mGraphView.readyEvent)check(cudaStreamWaitEvent(stream,reinterpret_cast<cudaEvent_t>(mGraphView.readyEvent),0));
+            // Pre-solve labels were produced on this stream before the solve; the
+            // repair graph may be rebuilt concurrently, so they are the stable input.
             check(cudaMemsetAsync(mSleepComponentNotReady,0,capacity,stream));
-            check(cudaMemsetAsync(mSleepOwnNotReady,0,capacity,stream));
-            sleepComponentNotReady<<<(count+255u)/256u,256,0,stream>>>(sleep,nodes,count,mGraphAccurate,capacity,mSleepComponentNotReady,mSleepOwnNotReady);
-            sleepNodeVerdict<<<(capacity+255u)/256u,256,0,stream>>>(mGraphAccurate,capacity,mSleepComponentNotReady,mSleepOwnNotReady,mSleepNodeNotReady);
+            check(cudaMemsetAsync(mSleepOwnNotReady,1,capacity,stream)); // absent from the solver list => not ready
+            sleepComponentNotReady<<<(count+255u)/256u,256,0,stream>>>(sleep,nodes,count,mPreLabels,capacity,mSleepComponentNotReady,mSleepOwnNotReady);
+            sleepNodeVerdict<<<(capacity+255u)/256u,256,0,stream>>>(mPreLabels,capacity,mSleepComponentNotReady,mSleepOwnNotReady,mSleepNodeNotReady);
             check(cudaGetLastError());
             check(cudaMemcpyAsync(mHostSleepNodeNotReady,mSleepNodeNotReady,capacity,cudaMemcpyDeviceToHost,stream));
             check(cudaEventRecord(mSleepVerdictReady,stream));
             mSleepVerdictPending=true;mSleepVerdictCount=capacity;return true;
         }catch(...){mSleepVerdictPending=false;return false;}
     }
-    const PxU8* componentSleepVerdicts(PxU32& capacity) override {
-        capacity=0;
-        if(!mSleepVerdictPending)return nullptr;
-        try {Context current(mContext);check(cudaEventSynchronize(mSleepVerdictReady));}catch(...){mSleepVerdictPending=false;return nullptr;}
-        mSleepVerdictPending=false;capacity=mSleepVerdictCount;
-        // Audit (PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG): device-side contradiction test.
-        // A node the device calls ready while its own solver entry is awake means
-        // the verdict does not come from this pass's sleep data for that node.
-        static const bool diag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG");return raw && std::atoi(raw)!=0;}();
-        if(diag && mSleepAuditSleep && mSleepAuditNodes && mSleepAuditCount) {
-            static PxU64 passes=0,contradictions=0,checked=0,shown=0;++passes;
-            std::vector<PxgSolverBodySleepData> sleep(mSleepAuditCount);std::vector<PxNodeIndex> nodes(mSleepAuditCount);
-            std::vector<unsigned char> own(capacity),component(capacity);std::vector<unsigned> labels(capacity);
-            try {
-                Context current(mContext);
-                check(cudaMemcpy(sleep.data(),mSleepAuditSleep,sizeof(PxgSolverBodySleepData)*mSleepAuditCount,cudaMemcpyDeviceToHost));
-                check(cudaMemcpy(nodes.data(),mSleepAuditNodes,sizeof(PxNodeIndex)*mSleepAuditCount,cudaMemcpyDeviceToHost));
-                check(cudaMemcpy(own.data(),mSleepOwnNotReady,capacity,cudaMemcpyDeviceToHost));
-                check(cudaMemcpy(component.data(),mSleepComponentNotReady,capacity,cudaMemcpyDeviceToHost));
-                check(cudaMemcpy(labels.data(),mGraphAccurate,sizeof(unsigned)*capacity,cudaMemcpyDeviceToHost));
-                for(PxU32 i=0;i<mSleepAuditCount;++i) {
-                    const PxU32 node=nodes[i].index();
-                    if(node==PX_INVALID_NODE || nodes[i].isArticulation() || node>=capacity)continue;
-                    ++checked;
-                    const bool awake=!((sleep[i].internalFlags&(1u<<4)) || sleep[i].wakeCounter<=0.f);
-                    if(awake && !mHostSleepNodeNotReady[node]) {
-                        ++contradictions;
-                        if(shown<16){++shown;std::fprintf(stderr,"  device sleep contradiction pass=%llu solver=%u node=%u wake=%g flags=0x%x own=%u label=%u component=%u verdict=%u count=%u capacity=%u\n",
-                            (unsigned long long)passes,i,node,double(sleep[i].wakeCounter),sleep[i].internalFlags,own[node],labels[node],labels[node]<capacity?component[labels[node]]:255u,mHostSleepNodeNotReady[node],mSleepAuditCount,capacity);}
-                    }
+    const PxU8* publishComponentSleepVerdicts(PxU32& capacity) override {
+        if(mSleepVerdictPending) {
+            bool ok=true;
+            try {Context current(mContext);check(cudaEventSynchronize(mSleepVerdictReady));}catch(...){ok=false;}
+            mSleepVerdictPending=false;
+            if(ok) {
+                if(mSleepVerdictCount>mHostSleepPublishedCapacity) {
+                    delete[] mHostSleepPublished;mHostSleepPublished=new unsigned char[mSleepVerdictCount];mHostSleepPublishedCapacity=mSleepVerdictCount;
                 }
-            }catch(...){}
-            if((passes%64)==0)std::fprintf(stderr,"device sleep diag: passes=%llu checked=%llu contradictions=%llu\n",(unsigned long long)passes,(unsigned long long)checked,(unsigned long long)contradictions);
+                std::memcpy(mHostSleepPublished,mHostSleepNodeNotReady,mSleepVerdictCount);mSleepPublishedCount=mSleepVerdictCount;
+                sleepVerdictDiagnostic();
+            }
         }
-        return mHostSleepNodeNotReady;
+        return componentSleepVerdicts(capacity);
+    }
+    const PxU8* componentSleepVerdicts(PxU32& capacity) override {
+        capacity=mSleepPublishedCount;return mSleepPublishedCount?mHostSleepPublished:nullptr;
+    }
+    // PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG: device-side contradiction test on the
+    // verdict just read back. A node the device calls ready while its own solver
+    // entry is awake means the verdict does not come from that pass's data.
+    void sleepVerdictDiagnostic() {
+        static const bool diag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_DIAG");return raw && std::atoi(raw)!=0;}();
+        if(!diag || !mSleepAuditSleep || !mSleepAuditNodes || !mSleepAuditCount)return;
+        const PxU32 capacity=mSleepVerdictCount;
+        static PxU64 passes=0,contradictions=0,checked=0,shown=0;++passes;
+        std::vector<PxgSolverBodySleepData> sleep(mSleepAuditCount);std::vector<PxNodeIndex> nodes(mSleepAuditCount);
+        std::vector<unsigned char> own(capacity),component(capacity);std::vector<unsigned> labels(capacity);
+        try {
+            Context current(mContext);
+            check(cudaMemcpy(sleep.data(),mSleepAuditSleep,sizeof(PxgSolverBodySleepData)*mSleepAuditCount,cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(nodes.data(),mSleepAuditNodes,sizeof(PxNodeIndex)*mSleepAuditCount,cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(own.data(),mSleepOwnNotReady,capacity,cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(component.data(),mSleepComponentNotReady,capacity,cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(labels.data(),mPreLabels,sizeof(unsigned)*capacity,cudaMemcpyDeviceToHost));
+            for(PxU32 i=0;i<mSleepAuditCount;++i) {
+                const PxU32 node=nodes[i].index();
+                if(node==PX_INVALID_NODE || nodes[i].isArticulation() || node>=capacity)continue;
+                ++checked;
+                const bool awake=!((sleep[i].internalFlags&(1u<<4)) || sleep[i].wakeCounter<=0.f);
+                if(awake && !mHostSleepNodeNotReady[node]) {
+                    ++contradictions;
+                    if(shown<16){++shown;std::fprintf(stderr,"  device sleep contradiction pass=%llu solver=%u node=%u wake=%g flags=0x%x own=%u label=%u component=%u verdict=%u count=%u capacity=%u\n",
+                        (unsigned long long)passes,i,node,double(sleep[i].wakeCounter),sleep[i].internalFlags,own[node],labels[node],labels[node]<capacity?component[labels[node]]:255u,mHostSleepNodeNotReady[node],mSleepAuditCount,capacity);}
+                }
+            }
+        }catch(...){}
+        if((passes%64)==0)std::fprintf(stderr,"device sleep diag: passes=%llu checked=%llu contradictions=%llu\n",(unsigned long long)passes,(unsigned long long)checked,(unsigned long long)contradictions);
     }
     unsigned char* mParkedBodyBitmap=nullptr;PxU32 mParkedBodyBitmapCapacity=0;
     unsigned* mParkedRootFlags=nullptr;PxU32 mParkedRootCapacity=0;bool mParkedFlagsArmed=false;

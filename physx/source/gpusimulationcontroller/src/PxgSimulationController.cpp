@@ -731,6 +731,22 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     bool PxgSimulationController::usesGpuDestructionIslandRepair() const {
         return usesDeviceDestructionContactInputs() && mDestruction->gpuIslandRepairEnabled();
     }
+    static int destructionDeviceSleepMode() {
+        static const int mode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):0;}();
+        return mode;
+    }
+
+    void PxgSimulationController::enqueueDestructionSleepVerdicts() {
+        const int mode=destructionDeviceSleepMode();
+        if(mode!=1 && mode!=2)return;
+        if(!mDestruction || !usesGpuDestructionIslandRepair())return;
+        PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
+        const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+        if(!core || !bodies)return;
+        PxScopedCudaLock lock(*mCudaContextManager);
+        mDestruction->enqueueComponentSleepVerdicts(core->getSolverBodySleepData().getPointer(),core->getGpuIslandNodeIndices().getPointer(),bodies,core->getStream());
+    }
+
     void PxgSimulationController::prepareGpuDestructionIslandRepair(IG::SimpleIslandManager& islands) {
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair",false,PxU64(reinterpret_cast<size_t>(this)));
         PxScopedCudaLock lock(*mCudaContextManager);
@@ -742,20 +758,19 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         }
         const PxU32 *accurate=NULL,*speculative=NULL;const PxU32 *aMembers=NULL,*sMembers=NULL;PxU32 count=0;
         const bool owned=mDynamicContext->deviceConnectivityOwnershipReady();
-        // R2 core increment 1 (PHYSX_DESTRUCTION_DEVICE_SLEEP=1 use, 2 audit): per-node
-        // "component not ready" flags from the solver's sleep data and the device
-        // labels; the island sims deactivate from the root node's flag.
+        // R2 core increment 1 (PHYSX_DESTRUCTION_DEVICE_SLEEP=1 use, 2 audit, 3 flat CPU):
+        // the island sims deactivate from the device verdict of the previous tick's
+        // final pass (enqueued after that pass's integration, published here on the
+        // trial pass; a corrected pass keeps the same verdict, like the restored
+        // CPU readiness).
         {
-            static const int deviceSleep=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):0;}();
+            const int deviceSleep=destructionDeviceSleepMode();
             islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,0);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,0);
             if(deviceSleep==3) { islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,3);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,3); }
             else if(deviceSleep) {
-                PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
-                const PxU32 bodies=mDynamicContext->getActiveNodeCount();
-                if(core && bodies && mDestruction->computeComponentSleepVerdicts(core->getSolverBodySleepData().getPointer(),core->getGpuIslandNodeIndices().getPointer(),bodies,core->getStream())) {
-                    PxU32 capacity=0;const PxU8* verdicts=mDestruction->componentSleepVerdicts(capacity);
-                    if(verdicts && capacity){islands.getAccurateIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep));islands.getSpeculativeIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep));}
-                }
+                PxU32 capacity=0;
+                const PxU8* verdicts=mDestructionCorrecting?mDestruction->componentSleepVerdicts(capacity):mDestruction->publishComponentSleepVerdicts(capacity);
+                if(verdicts && capacity){islands.getAccurateIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep));islands.getSpeculativeIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep));}
             }
         }
         if(!owned)islands.restoreHostConnectivity();

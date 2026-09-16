@@ -116,8 +116,16 @@ public:
     // the accurate contact-graph labels, mark every node whose device component
     // holds a body that is not ready to sleep; the island sims deactivate an
     // island from the flag of its root node instead of walking its nodes.
-    virtual bool computeComponentSleepVerdicts(const struct PxgSolverBodySleepData* sleep, const PxNodeIndex* nodes, PxU32 count, CUstream solverStream) = 0;
-    virtual const PxU8* componentSleepVerdicts(PxU32& capacity) = 0; // waits for the readback; NULL when unavailable
+    // Device sleep verdicts (R2 item 1). Enqueued on the solver stream right after
+    // integration of a pass, from that pass's pre-solve node labels and solver
+    // sleep data; nodes absent from the solver list are not ready. The pending
+    // verdict becomes the published one when the next tick's trial pass asks for
+    // it, so both the trial and the corrected third island pass of a tick read
+    // the verdict of the previous tick's final pass, exactly like the CPU's
+    // sticky readiness flags (restored before a corrected pass).
+    virtual bool enqueueComponentSleepVerdicts(const struct PxgSolverBodySleepData* sleep, const PxNodeIndex* nodes, PxU32 count, CUstream solverStream) = 0;
+    virtual const PxU8* publishComponentSleepVerdicts(PxU32& capacity) = 0; // waits for the pending readback, publishes it, returns it
+    virtual const PxU8* componentSleepVerdicts(PxU32& capacity) = 0; // the published verdict; NULL when unavailable
     // Island-scoped correction. requestTrialSnapshot makes the next
     // restoreRigidState keep a copy of the live (trial end-of-tick) state before
     // rewinding; reinstateTrialState copies that snapshot back for the listed
