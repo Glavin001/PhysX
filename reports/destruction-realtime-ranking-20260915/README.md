@@ -380,13 +380,18 @@ Ordered by expected gain per effort on the current runtime (`5f0b72ca`).
    resident analytic columns test failed. The bond-variable/residual sign and
    scaling relation must be taken from `nodeSpaceMatvecBody`'s actual operator
    (including the null-space projection of free components) before retrying.
-3. **Refactor throughput (2.8 ms per launch on one SM; 19.5 ms impact burst).**
-   Either a graph partitioner with refinement to shrink the 111-column dense top
-   (the level-structure bisection tried here made it larger), or Woodbury
-   updates so that few-bond removals keep the old factor: A_new = A_old − U Uᵀ
-   with six columns per removed bond, capacitance 6k×6k, with A_old⁻¹U cached per
-   slot until the next refactor. Departed nodes after a split are handled by the
-   same subtraction (the updated operator is block-diagonal across the parts).
+3. **Refactor throughput — DONE as far as Woodbury goes (2026-09-15/16).**
+   Woodbury updates shipped (`StressNativeWoodbury.cuh`, default on): a slot
+   that lost at most 16 bonds keeps its factor; the capacitance is only
+   semidefinite after a split, so the kept-part solution uses a rank-revealing
+   pseudo-inverse (departed rows are never scattered). Exact-equivalent, 63 %
+   of refactors replaced, impact peak 182 → 163 ms, mean neutral because every
+   split creates a new component that still needs a full factor. The factor
+   kernel also skips absent columns of the parent pattern (lossless). Still
+   open: a real partitioner (level-structure bisection re-tested: 74 → 67
+   levels, no gain) and the solve kernel's narrow-level latency, whose
+   per-level cost turned out to be the serial 6×6 finish, not the gathers
+   (`warm-screen.md`, diagonal-inverse finish in progress).
 4. **R5 island-scoped correction** after R2's device islands exist; the affected
    set must include islands that lose or gain contact after correction.
 
