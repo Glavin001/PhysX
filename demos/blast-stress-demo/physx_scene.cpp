@@ -198,6 +198,15 @@ PhysXScene::PhysXScene(
     desc.simulationEventCallback = events;
     desc.solverType = solverType;
     if (enableBodyAccelerations) desc.flags |= physx::PxSceneFlag::eENABLE_BODY_ACCELERATIONS;
+    // PHYSX_DEMO_SQ_UPDATE_MODE: 0 build+commit (PhysX default), 1 build only
+    // (pruner refit deferred to the first query), 2 no scene-query work.
+    if (const char* sqModeRaw = std::getenv("PHYSX_DEMO_SQ_UPDATE_MODE"))
+    {
+        const int sqMode = std::atoi(sqModeRaw);
+        desc.sceneQueryUpdateMode = sqMode == 2 ? physx::PxSceneQueryUpdateMode::eBUILD_DISABLED_COMMIT_DISABLED
+            : sqMode == 1 ? physx::PxSceneQueryUpdateMode::eBUILD_ENABLED_COMMIT_DISABLED
+            : physx::PxSceneQueryUpdateMode::eBUILD_ENABLED_COMMIT_ENABLED;
+    }
     desc.flags |= physx::PxSceneFlag::eENABLE_PCM;
     desc.flags |= physx::PxSceneFlag::eENABLE_STABILIZATION;
     if (disableSleeping)

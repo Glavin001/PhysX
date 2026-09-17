@@ -54,12 +54,13 @@ int run(int argc,char** argv){
     }
     std::string geometryName="building";
     const auto initializationBegin=Clock::now();
-    bool standardScene=true,standardSleeping=true,traceStress=false;
+    bool standardScene=true,standardSleeping=true,traceStress=false,sceneQueryShapes=true;
     unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0,reservePairs=~0u;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
         else if(flag=="--sleeping"){require(std::string(value)=="0" || std::string(value)=="1","--sleeping requires 0 or 1");standardSleeping=std::string(value)=="1";}
         else if(flag=="--standard-scene"){require(std::string(value)=="0" || std::string(value)=="1","--standard-scene requires 0 or 1");standardScene=std::string(value)=="1";}
+        else if(flag=="--scene-query-shapes"){require(std::string(value)=="0" || std::string(value)=="1","--scene-query-shapes requires 0 or 1");sceneQueryShapes=std::string(value)=="1";}
         else if(flag=="--gpu-trace-buffer-mb"){gpuTraceBufferMiB=std::stoul(value);require(gpuTraceBufferMiB>=16 && gpuTraceBufferMiB<=4096,"GPU trace buffer must be 16..4096 MiB");}
         else if(flag=="--gpu-connectivity-owner"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-connectivity-owner requires 0 or 1");deviceConnectivity=std::string(value)=="1";}
         else if(flag=="--color-by-cluster"){require(std::string(value)=="0" || std::string(value)=="1","--color-by-cluster requires 0 or 1");colorByCluster=std::string(value)=="1";}
@@ -149,7 +150,7 @@ int run(int argc,char** argv){
             if(!geometry.present(x,y,z))continue;
             const bool supported=geometry.supported(x,y,z);
             const PxVec3 p(float(x)-float(geometry.nx-1)*.5f,float(y),float(z)-float(geometry.nz-1)*.5f);auto* shape=physics.createShape(PxBoxGeometry(half),context.material(),true);
-            require(shape,"chunk shape allocation failed");shape->setLocalPose(PxTransform(p));require(parent->attachShape(*shape),"persistent chunk attachment failed");
+            require(shape,"chunk shape allocation failed");if(!sceneQueryShapes)shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE,false);shape->setLocalPose(PxTransform(p));require(parent->attachShape(*shape),"persistent chunk attachment failed");
             const unsigned id=unsigned(chunks.size());ids[{x,y,z}]=id;chunks.push_back({p,shape,building});
             const bool frameMember=geometry.frame(x,y,z);
             nodes.push_back({p,supported?0.0f:massPerChunk,supported?0.0f:inertia,building,PX_INVALID_U32,8*half.x*half.y*half.z,(frameStrength>1 && frameMember)?1u:0u});

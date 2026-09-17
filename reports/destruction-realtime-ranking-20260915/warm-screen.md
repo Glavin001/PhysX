@@ -1489,3 +1489,16 @@ With 128-thread CTAs the launch is register-bound at 6 CTAs per SM, but the 64-t
 | global staging, 128 threads | 28.49 | 0.32 | 46.9 | 173 |
 
 Global staging wins in all five pairs; 96 threads (28.59, two runs) and 64 threads (28.91, now 12 CTAs per SM but a slower corrected solve) do not beat 128. Histories identical (56,077 bonds, five counters), 14/14 native tests, compute-sanitizer memcheck clean on a grid-4 run. A first measurement of this change taken minutes after the warm screen restored the desktop session showed every CPU phase 15–20 % slower and was discarded: measurements must not start while a fresh desktop login is settling.
+
+## Scene-query maintenance of chunk shapes: 2.4 ms of the sustained tick (application configuration; demo default unchanged)
+
+The steady-state perf profile puts about 4 % of CPU samples in the scene-query pruner (`BVHPartialRefitData::refitMarkedNodes`, `PruningPool::updateAndInflateBounds`, `markNodeForRefit`, `AABBTreeBuildNode::subdivide`). The demo issues no scene queries, but every chunk shape carries `eSCENE_QUERY_SHAPE` (PhysX's default), so `fetchResults` syncs the bounds of every moved fragment into the dynamic pruner, refits the tree and rebuilds it periodically. Two new demo knobs measure it (two interleaved runs each, city256 bombardment, histories identical):
+
+| configuration | tick mean | late 90+ | peak |
+|---|---:|---:|---:|
+| default (`eBUILD_ENABLED_COMMIT_ENABLED`, all chunks queryable) | 29.56 | 48.7 | 185 |
+| `PHYSX_DEMO_SQ_UPDATE_MODE=1` (build only; refit deferred to the first query) | 27.91 | 46.1 | 169 |
+| `PHYSX_DEMO_SQ_UPDATE_MODE=2` (no scene-query work) | 27.96 | 46.1 | 166 |
+| `--scene-query-shapes 0` (chunks not queryable) | 27.14 | 44.6 | 167 |
+
+So the pruner commit costs about 1.6 ms per tick and the mandatory bounds sync of ~10k moving fragments a further 0.8 ms. This is PhysX's scene-query system, not the destruction pipeline, and whether a game needs fragments queryable is the application's choice (bullets and line-of-sight against debris versus intact buildings). The demo default stays at PhysX's default so every earlier measurement remains comparable; an application targeting the plan's budget should use build-only mode (queries stay correct, the refit moves to the first query of the frame) or exclude debris from queries.
