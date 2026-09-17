@@ -124,6 +124,9 @@ __global__ void flagDeviceStressRows(const unsigned* islands,unsigned count,unsi
     if(i<count)flags[i]=islands[i]!=kNoIsland;
 }
 #ifdef PHYSX_RESIDENT_DESTRUCTION
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include "detail/StressInverseTopology.cuh"
 #endif
 __global__ void beginDeviceStressRebuild(ExtStressGpuDeviceTopologyStatus* status)
@@ -435,8 +438,18 @@ public:
     }
     void submit(DeviceStressTopologyBatch input,cudaStream_t stream)
     {
+        static const bool diag=[]{const char* raw=std::getenv("BLAST_GPU_TOPOLOGY_LAUNCH_DIAG");return raw && std::atoi(raw)!=0;}();
+        auto t0=std::chrono::steady_clock::now();
         setDeviceStressTopologyBatch<<<1,1,0,stream>>>(batch,input);
+        auto t1=std::chrono::steady_clock::now();
         checkCuda(cudaGraphLaunch(exec,stream), "launch device stress topology transaction");
+        auto t2=std::chrono::steady_clock::now();
+        if(diag){
+            static double sumK=0,sumG=0,maxG=0;static unsigned n=0;
+            const double k=std::chrono::duration<double,std::micro>(t1-t0).count(),g=std::chrono::duration<double,std::micro>(t2-t1).count();
+            sumK+=k;sumG+=g;if(g>maxG)maxG=g;++n;
+            if((n%50)==0){std::fprintf(stderr,"topology submit: n=%u batch-kernel avg %.0f us, graph launch avg %.0f us max %.0f us\n",n,sumK/n,sumG/n,maxG);}
+        }
     }
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
 #ifdef PHYSX_RESIDENT_DESTRUCTION
