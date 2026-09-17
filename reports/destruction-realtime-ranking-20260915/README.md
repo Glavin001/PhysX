@@ -964,7 +964,10 @@ Plan (each step measurable):
    Order-changing; qualifies under §11. Original plan: device pair roster feeding `Part2_0/Part2_1`.
 5. DONE as part of step 2 (friction counts, friction index stream and destroyed-edge clear are keyed
    by the pair slot; histories bit-identical).
-6. Skip `IslandInsertionTask`, `registerContactManagers` and handle preallocation for native pairs
+6. RE-SIZED (2026-09-17, `warm-screen.md`): by phase timestamps the four registration stages of the corrected
+   impact pass overlap (union 15.7 ms of a 29.2 ms sum); this step removes at most ~7 ms of wall time. The
+   24.5 ms serial `preallocateContactManagers` (pool allocation of ~100 k managers, interactions, markers on
+   one thread) is the larger, island-independent target. Skip `IslandInsertionTask`, `registerContactManagers` and handle preallocation for native pairs
    (`ScPipeline.cpp:969-1020, 1082-1086, 1220-1247`), keeping `registerInteractions`/
    `registerSceneInteractions`; checkpoint: the ~25 ms of those scopes at the impact tick drop, broken-bond
    totals within the order-changing envelope (§11).

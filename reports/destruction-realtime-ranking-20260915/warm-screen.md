@@ -1352,3 +1352,19 @@ Same set of partition edges, only the insertion order of the island's activated 
 | candidate: solver-derived sleep verdicts (mode 1) | 59,271 | 13,346 | 1.7e-5 |
 
 Provisional rule for order-changing work (assumption until the owner confirms it): a candidate is accepted when its bond total and peak cluster count lie within the range of the mild order perturbations of the same baseline (rotations; here 58,237–60,797 bonds, 12,911–14,337 clusters), its motion audit error is at the ensemble's level, and it shows no collapse without cause. Under this rule both candidates are indistinguishable from an insertion-order change and pass. The baseline order is the lowest of all samples, which suggests the island's activation order happens to be a favourable one, not a physically special one. Both candidates remain off by default because neither improves the tick on its own; they are accepted foundations for steps 6 and 7.
+
+## Impact tick, corrected pass: the registration stages measured by timestamps (re-prioritization of R2 steps 6/7)
+
+From the recorded phase timestamps of the profiled impact tick (step 82, `perf-impact/native.phases.csv`, corrected pass), host wall per stage and their overlap on the worker threads:
+
+| stage | wall (ms) | notes |
+|---|---:|---|
+| preallocateContactManagers | 24.5 | one thread, serial: contact-manager pool preallocation, shape-interaction and marker pool allocations, pair compaction, per batch of 256 pairs |
+| postBroadPhase | 13.4 | GPU wait |
+| registerSceneInteractions | 11.9 | runs in parallel with registerInteractions (10.2 ms of overlap) |
+| registerInteractions | 10.2 | kept by every R2 step |
+| islandInsertion | 6.6 | 3.9 ms of it overlaps the two registrations |
+| postBroadPhaseStage2 | 6.6 | |
+| registerContactManagers | 0.5 | |
+
+Union span of the four registration stages 15.7 ms against a 29.2 ms sum. Consequence: steps 6 and 7 (skip island insertion, contact-manager registration and handle preallocation for native pairs) can remove at most about 7 ms of wall time on this tick, not the 25–40 ms the §7 attribution suggested when the stages were read as serial. The largest single CPU block, the 24.5 ms serial contact-manager preallocation, is independent of the island manager and of device-owned activation; it is the pool allocation of ~100 k contact managers, shape interactions and markers on one thread. That is the next impact-tick target and it needs no order-changing work: batch or per-thread pool allocation, or retaining the trial's records for the corrected pass. The trial pass of the same tick spends 0.8 ms here because the fragments do not exist yet.
