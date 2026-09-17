@@ -1026,3 +1026,30 @@ unchanged. Exactness rests on the mode-6 audit; the PhysX afterIntegration race 
 bodies rolled back) is the one known divergence source and is already handled by that mode's
 previous-deactivation list. Expected gain up to ~2.5 ms per pass; cost several days in
 `PxgSimulationController`/`Sc::Scene` scheduling plus the ensemble check if any order changes.
+
+## 15. R5 route refined from the measurements (2026-09-17): dormant masks, no island parking
+
+Why the corrected pass is worth ~13 ms of the 20.5 ms tick: an idle tick costs 1.1 ms, so the
+pipeline's cost is per active body and pair (10k bodies, 300k pairs), and the closure of a sustained
+correction is under 0.5 % of islands. Why parking failed: deactivating and reactivating islands in the
+island sim removes and re-inserts their partition edges (68 vs 54 ms late window). Why mode 4 failed:
+freezing bodies on the device left the CPU pipeline and the narrowphase running over the whole scene.
+
+Route that follows from both: a per-body *dormant* flag for the corrected pass, consumed by the stages
+in cost order and never touching the island sim or the partition structure:
+1. Narrowphase: pairs with both bodies dormant are not re-tested and keep their trial outputs
+   (`resetDestructionContactCaches` must skip them too); the pass-test lists are filtered per bucket
+   with output indexing unchanged. This is the largest item (300k pairs).
+2. Constraint prep and solve: edges with a dormant body are skipped in prep; the solver's body update and
+   integration skip dormant bodies (mode 4 already removes them from the active list).
+3. Post-solve host work: body status and sleep checks skip dormant bodies.
+4. Broadphase: dormant bodies keep their trial-end bounds (the scoped restore already leaves them);
+   affected bodies' restored bounds are tested against those. This is the one deviation from the
+   trial-start/trial-start rule: it changes an overlap only when a dormant body moved across an affected
+   body's bound within one tick, which is physically the state the next tick would see. Order-changing
+   under §11; the ensemble protocol judges it.
+5. Corrected stress solve: components of dormant clusters are already skipped by the exact certificate.
+Expected: the corrected pass falls from ~11 ms toward the idle-tick floor plus the closure's work
+(2–4 ms), i.e. −7 to −9 ms per sustained tick, the only remaining item of that size. Cost: NP and
+solver kernel surgery across PhysX GPU buckets, multi-week; acceptance needs the owner's confirmation
+of the §11 ensemble rule because the result is not bit-comparable.
