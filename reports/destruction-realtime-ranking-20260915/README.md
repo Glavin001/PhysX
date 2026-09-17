@@ -1104,3 +1104,53 @@ but not re-inserted; no bounds are created at fracture); the CPU bookkeeping (al
 Order of the remaining program, per the user's decisions: CPU record creation and publication may
 be moved off the tick (a tick late) but the device-side corrected pass must not change; then R2
 steps 6–7; then R5 dormant masks for the sustained corrected pass.
+
+## 17. R5 dormant corrected pass: the exact recipe, and why mode 4 still loses (2026-09-17, session e)
+
+Mode 4 (frozen bodies removed from the solver, CPU pipeline untouched) re-measured on today's build: 23.65 vs
+22.34 ms mean, 60,004 bonds (inside the §11 mild range). The corrected pass gets slower, not faster: every
+CPU stage still walks the whole scene and the frozen bookkeeping adds ~1 ms. The route that pays is a
+per-body *dormant* flag consumed by every stage, and the analysis below fixes what "exact" means for it.
+
+**Affected set.** PhysX evaluates broad phase and narrowphase at start-of-step poses. The corrected pass
+restores start-of-step poses, so its pair set equals the trial's pair set (fragments inherit their chunks'
+shapes; the only new pairs are intra-fracture chunk pairs found by the refilter). Islands are formed by
+touching pairs, so the affected set A is exactly the trial islands containing a fractured body, plus the new
+fragment bodies; no iterative closure is needed (Vibe's divergence came from a different treatment of
+bounds, below). Everything else is dormant, D.
+
+**What D keeps.** Its trial end-of-tick state: body pose/velocity/sleep data on the device, CPU activity
+and wake counters, island edges, contact manifolds and friction patches, narrowphase outputs and touch
+status. A keeps the shipped semantics (restore to start of step, cold contact caches, re-run).
+
+**Pairs across the boundary.** Every A–D pair is non-touching (a touching pair would have merged the
+islands). In the corrected pass those pairs must produce no contact and no touch event, whatever the
+narrowphase computes with d at a wrong pose; D–D pairs must produce no event either. The cheap exact
+implementation: run the corrected broad phase and narrowphase with *all* transform-cache and bounds entries
+restored to start of step (as today; only the body-sim state of D is left at trial end), so every pair's
+narrowphase inputs are identical to the trial's and its outputs are bit-identical; then skip the CPU touch
+processing for pairs without an A body (their events already fired in the trial), neutralise D's
+constraints in prep (the existing parked-contact path keeps their trial writeback), skip D in integration
+and in the post-solve body status and sleep checks, and let the post-integration cache/bounds update (which
+covers all active bodies) put D's cache and bounds back to trial end. The corrected broad phase then moves
+no D box (its bounds are at start of step in the SAP and in the bounds array alike) and reports only A's
+deltas. Nothing depends on the island sim being parked, so the partition structure is untouched.
+
+**Bit-identity and acceptance.** A's results are independent of D's presence (constraints are applied per
+island in partition order; neutralised D constraints keep their batch slots), so a dormant pass reproduces
+today's corrected pass for A bit-for-bit while D keeps warm trial results instead of a cold re-solve. The
+five-counter identity therefore cannot judge the first dormant build (D's results differ from today's cold
+re-solve by construction); the §11 ensemble judges it once, and every later cost-cutting step is judged by
+identity against that first build. A slow reference (full corrected pass, then D's device state and pair
+outputs overwritten from trial snapshots) would give the same semantics for cross-checking but needs
+snapshots of the manifold and friction buffers (~60 MB per pass), so it is a debugging tool, not a default.
+
+**Cost model.** Sustained corrected pass today ≈ 11.5 ms: restore 1.1, broad phase 2.7, registration 0.5,
+narrowphase 1.3, island/partition 1.2, lost contacts 0.6, solver and integrate wait 3.1, body status and
+sleep 1.0, acceptance 0.3. With D dormant: restore scoped (exists), broad phase ~1.3 (A's boxes plus the
+fragment refilter), narrowphase kernels unchanged (0.2 ms) but result processing scoped, prep/solver over
+A's constraints only, integrate over A, body status over A. Expected −6 to −8 ms per sustained tick; the
+work is the per-stage filters (Sc and Pxg, dozens of loops) and the neutralisation of D's constraints
+without renumbering the solver bodies (mode 4 renumbered, which is what made even isolated bodies
+non-comparable). Multi-week; the first increment is the CPU touch-processing and body-status filters,
+measured with the ensemble protocol.
