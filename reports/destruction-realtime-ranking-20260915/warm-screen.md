@@ -1662,3 +1662,7 @@ Candidate = commit `f9d422c3` runtime and GPU module with the rebuilt probes (wh
 | city256 idle | 2.4 / 1.6 | 1.9 | 1.8 |
 
 Placeholder body pool re-measured on the impact tick (`PHYSX_DESTRUCTION_BODY_POOL=auto`): allocation 7.7 → 5.6 ms and the tick 113.7 → 110.1, but the sustained mean 22.3 → 23.3 and the histories change (59,991 vs 56,077 bonds: placeholders alter body ordering), so it stays opt-in.
+
+## The 256-impact tick's corrected pass, attributed (2026-09-17, 112 ms tick, pass 56.5 ms)
+
+Broad-phase wait 18.7 ms (the trial's scattered chunks moving back through `performIncrementalSAP`, ~11.6 ms, plus the refactor burst's tail overlapping it); contact-manager preallocation, interaction registration and island insertion ~9 ms of wall across three threads; narrowphase and its result processing ~10 ms; partition, solver and integration ~9 ms; island repair, post-integration and sleep ~4 ms. Nothing in it is a single dominant kernel; it is the full pipeline on a scene that just gained ~10k bodies, plus the burst overlap. The next bounded step is a fracture-count-aware flush point: for large bursts, flush after the corrected broad phase so the burst overlaps the CPU registration and narrowphase instead of the broad phase (expected −7 ms at the impact, nothing sustained).
