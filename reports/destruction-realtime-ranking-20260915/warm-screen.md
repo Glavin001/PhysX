@@ -1513,3 +1513,19 @@ Candidate = commit `0e0fb2a3` binaries (R2 steps 1–3, solve occupancy 3/SM wit
 | idle-256 | 1.31 steady (first tick 13.5) | 1.68 steady (first tick 38.2) | 0 → 1 | 13 → 39 | identical |
 
 Heavy: 54.4 → 25.7 ms against 28.4 at the previous continuous A/B (0fb405e1). Idle: the single miss is the first tick, which now pays the page-touched pair-pool reserve (about 40–60 ms once, 9 ms with `--reserve-pairs 0`) instead of the impact tick; the +0.37 ms steady idle difference could not be attributed to any one default (toggling 256-thread shared staging, the pair reserve, largest-first and 2 CTAs/SM individually gave 1.36–1.69 ms, the same spread as repeated default runs with the desktop active), so it stays recorded as an unexplained drift within the idle noise band.
+
+## CPU dispatcher wake-up latency: 4.6 ms of the sustained tick (demo default changed to yield-thread workers)
+
+The sustained tick is a chain of a few hundred small PhysX and destruction tasks across four workers, and the demo created its `PxDefaultCpuDispatcher` in PhysX's default `eWAIT_FOR_WORK` mode, where every task hand-off to an idle worker is a semaphore wake-up (a futex round trip on this VM). `PHYSX_DEMO_DISPATCHER_MODE` selects the mode (0 wait, 1 yield thread, 2 yield processor with `PHYSX_DEMO_DISPATCHER_SPIN`); two interleaved city256 bombardment runs each, histories identical (five counters):
+
+| dispatcher | workers | tick mean | late 90+ | peak |
+|---|---:|---:|---:|---:|
+| wait for work (old default) | 4 | 27.30 | 45.1 | 165 |
+| yield processor (spin 1000) | 4 | 22.67 | 37.6 | 128 |
+| yield thread | 4 | 22.67 | 37.8 | 125 |
+| yield thread | 3 | 23.03 | 38.4 | 126 |
+| yield thread | 6 | 23.72 | 39.6 | 129 |
+| yield thread | 8 | 24.24 | 40.5 | 136 |
+| yield thread + `PHYSX_DEMO_SQ_UPDATE_MODE=1` | 4 | 22.21 | 37.2 | 125 |
+
+The demo default is now yield-thread with four workers (the earlier "2–4 workers equal, 6 worse" finding was measured under wake-up latency; it still holds under spinning). This is application configuration, like a game's job system, not a runtime change: the runtime A/B arms remain comparable because each arm carries its own demo binary, and the report states which dispatcher a number was taken with. From here every measurement uses the new default unless stated.

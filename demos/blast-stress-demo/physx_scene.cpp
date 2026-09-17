@@ -185,7 +185,21 @@ PhysXScene::PhysXScene(
     // count every recorded measurement used).
     const char* cpuThreadsRaw = std::getenv("PHYSX_DEMO_CPU_THREADS");
     const int cpuThreads = cpuThreadsRaw ? std::max(1, std::atoi(cpuThreadsRaw)) : 4;
-    m_dispatcher = physx::PxDefaultCpuDispatcherCreate(static_cast<physx::PxU32>(cpuThreads));
+    // PHYSX_DEMO_DISPATCHER_MODE: 0 wait for work (PhysX default, a semaphore
+    // wake-up per task), 1 yield thread (default since 2026-09-17), 2 yield
+    // processor (spin; count from PHYSX_DEMO_DISPATCHER_SPIN, default 1000).
+    // The destruction tick is a chain of hundreds of small tasks; on the
+    // measurement VM the per-task wake-up costs 4.6 ms of a 27 ms city256
+    // tick (histories identical). Workers of modes 1/2 use CPU while idle.
+    const char* dispatcherModeRaw = std::getenv("PHYSX_DEMO_DISPATCHER_MODE");
+    const int dispatcherMode = dispatcherModeRaw ? std::atoi(dispatcherModeRaw) : 1;
+    const char* dispatcherSpinRaw = std::getenv("PHYSX_DEMO_DISPATCHER_SPIN");
+    const physx::PxU32 dispatcherSpin = static_cast<physx::PxU32>(dispatcherSpinRaw ? std::max(1, std::atoi(dispatcherSpinRaw)) : 1000);
+    m_dispatcher = physx::PxDefaultCpuDispatcherCreate(static_cast<physx::PxU32>(cpuThreads), NULL,
+        dispatcherMode == 2 ? physx::PxDefaultCpuDispatcherWaitForWorkMode::eYIELD_PROCESSOR
+        : dispatcherMode == 1 ? physx::PxDefaultCpuDispatcherWaitForWorkMode::eYIELD_THREAD
+        : physx::PxDefaultCpuDispatcherWaitForWorkMode::eWAIT_FOR_WORK,
+        dispatcherMode == 2 ? dispatcherSpin : 0u);
     if (!m_dispatcher)
     {
         throw std::runtime_error("PxDefaultCpuDispatcherCreate failed");
