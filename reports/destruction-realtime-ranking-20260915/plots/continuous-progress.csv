@@ -1,0 +1,10 @@
+stage,baseline_heavy_mean_ms,heavy_mean_ms,heavy_peak_ms,heavy_misses_60hz_of_600,idle_mean_ms
+09-10 baseline (rev 1155b7ff),,64.05,210.3,519,1.65
+09-15 R1 direct factors,51.41,33.81,181.2,324,1.58
+09-15 +elastic reuse,51.23,29.83,150.2,297,1.61
+09-15 +island repair,52.34,30.69,178.3,311,1.77
+09-15 +body pool,52.29,30.56,171.5,309,1.66
+"09-16 +Woodbury, narrow levels",54.73,30.18,187.5,322,1.79
+09-16 +speculative topology,54.84,28.39,197.8,310,1.89
+"09-17 +R2 slots, residency",53.67,25.66,160.7,276,1.95
+09-17 +yield-thread demo,54.63,20.53,129.3,248,1.13

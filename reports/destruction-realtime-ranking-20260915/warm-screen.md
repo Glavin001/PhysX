@@ -1573,3 +1573,21 @@ Device-side check of the same experiment (node-level nsys, averaged over eight s
 ## R5 increment 1 measured and reverted: a dormant broad-phase does not shorten the corrected pass
 
 Experiment (island scope mode 5, not kept): bodies of trial islands untouched by the correction had their shapes cleared from the corrected pass's changed-handle set (CPU map before the DMA, device map after the merge kernel), so the broad phase re-tested only the closure's boxes; nothing was parked or frozen and the solver ran in full. Result on the city256 bombardment: the corrected broad-phase wait was unchanged (2.42 vs 2.46 ms), the corrected pass grew by the host cost of building the ~10k-handle list (1.3 ms), and the histories diverged (58,461 vs 56,077 bonds; 391 mismatching ticks), which shows the current corrected pass tests overlaps with the trial-end bounds of every body rather than trial-start bounds (the restore does not refresh the broad-phase boxes). Two conclusions for R5: the corrected broad phase's 2.4 ms is not the per-box update of moved boxes but the created-handle and refiltering path (region histograms over all boxes, run whenever fragments were inserted or pairs refiltered), so the broad-phase lever is the few-insertions fast path, worth ~1.5–2 ms per corrected pass rather than 0.8; and the mode-4 profile (98 % of bodies frozen, corrected pass 12.3 vs 10.6 ms) confirms that removing bodies from the solver alone gains nothing, so the dormant masks must reach the narrowphase result processing and constraint prep before any of the R5 prize appears.
+
+## Before/after plots (2026-09-17): from the 09-10 baseline to the shipped defaults
+
+`tools/scripts/plot-destruction-progress.py` renders `plots/continuous-progress.png` (day-by-day city256 continuous 600-tick runs: candidate of the day against the fixed 09-15 baseline arm re-measured each day, plus the 09-10 qualification baseline at revision `1155b7ff`), `plots/before-after.png` and `plots/warm-screen-progress.png`; the data is in `plots/continuous-progress.csv`. Every continuous A/B in the chain reported identical physical counters between arms.
+
+| stage (continuous city256, 600 ticks) | heavy mean | heavy peak | 60 Hz misses /600 | idle mean |
+|---|---:|---:|---:|---:|
+| 09-10 baseline (`1155b7ff`, 3 trials) | 64.0 ms | 210 | 519 | 1.65 |
+| 09-14 plan start (warm full52 runtime `d5770a80`) | 50.5–51.7 | 176–195 | 519 | 1.66–1.69 |
+| 09-15 R1 direct factors | 33.8 | 181 | 324 | 1.58 |
+| 09-15 + elastic reuse | 29.8 | 150 | 297 | 1.61 |
+| 09-15 + island repair / body pool | 30.6–30.7 | 172–178 | 309–311 | 1.66–1.77 |
+| 09-16 + Woodbury, narrow levels | 30.2 | 188 | 322 | 1.79 |
+| 09-16 + speculative topology | 28.4 | 198 | 310 | 1.89 |
+| 09-17 + R2 slots, residency, reserved pairs | 25.7 | 161 | 276 | 1.95 |
+| 09-17 + yield-thread demo workers | 20.5 | 129 | 248 | 1.13 |
+
+Against the 09-10 baseline the sustained tick is 3.1× faster (64.0 → 20.5 ms), the peak 1.6× (210 → 129), 60 Hz misses halve (519 → 248) and the idle tick is 1.5× faster (1.65 → 1.13). Against the plan's 09-14 starting point it is 2.5×. The warm nine-window screen shows the same shape against its paired 09-14 controls: impact 89 → 66 ms (1.35×), cascade 105 → 64 (1.64×), debris 126 → 73 (1.71×), city25 impact 23 → 16 (1.43×). The last step of the continuous chain (25.7 → 20.5) is the demo's dispatcher wait mode, an application-level setting; the runtime-only chain ends at 25.7 ms.
