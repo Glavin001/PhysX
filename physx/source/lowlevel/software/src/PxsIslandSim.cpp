@@ -1048,6 +1048,7 @@ void IslandSim::deactivateIsland(IslandId islandId)
 		
 		//if(mActiveNodeIndex[currentNode.index()] < mInitialActiveNodeCount[node.mType])
 		mNodesToPutToSleep[node.mType].pushBack(currentNode); //If this node was previously active, then push it to the list of nodes to deactivate
+		if(!node.isReadyForSleeping()) mDeactivatedNotReady.pushBack(currentNode.index());
 		deactivateNodeInternal(currentNode);
 		currentNode = node.mNextNode;
 	}

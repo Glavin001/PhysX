@@ -1987,3 +1987,17 @@ Against the previous continuous run of the session-e defaults (`20260917e`: heav
 day's shipped state is heavy 54.5 → 19.3 ms (2.8×), peak 191 → 98, misses 519 → 248, idle 1.78 → 1.07, all
 lossless. A 3 s A/B of the same arms (`20260917f`, 180 ticks) reads heavy 58.2 → 21.4, peak 183 → 100, idle 1.75 →
 1.21, also with identical counters.
+
+### §14 increment 1, corrected: the device reduction reproduces the CPU sleep decisions exactly (2026-09-17)
+
+The 11 % "misses" above were an audit artifact. The reference set had been taken from the early sleep commit's
+rollback list, which also carries entries the trial's `afterIntegration` inserts after the trial's early commit
+cleared the pending sets (`ScPipeline.cpp:3147`); those persist into the corrected pass's early commit and are rolled
+back a second time on top of the corrected pass's own decisions. A decision-time audit inside
+`IslandSim::deactivateIsland` (`deactivatedNotReady()`) showed no node is ever pushed while not ready, and with this
+pass's fresh `getNodesToDeactivate` list as the reference (node index = GPU body index) the device list from the
+readiness mirror and the repair-graph labels agrees on every one of 267 passes: 8,190 fresh CPU decisions, 8,190
+device entries, 0 CPU-only, 0 device-only (kinematics skipped by the solver layout offset). The carried entries
+(4,966 over the run) are exactly the previous pass's fresh list, so a device-driven transition on a corrected pass
+must apply the union of the trial's device list and the corrected reduction; on a trial pass only the fresh list.
+That makes README §14 steps (2)–(4) derivable from device state and the design proceeds (mode 9).

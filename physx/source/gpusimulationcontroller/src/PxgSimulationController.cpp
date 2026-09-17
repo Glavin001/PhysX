@@ -1077,7 +1077,20 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     {
         static PxU64 passes=0,cpuTotal=0,devTotal=0,cpuOnly=0,devOnly=0,mismatchPasses=0,shown=0;++passes;
         const PxU32* list=NULL;const PxU32 count=mDestructionTransitionEnqueued?mDestruction->readDeviceSleepTransition(list):0;
-        PxArray<PxU32>& cpu=mDestructionSleepAuditCpu;
+        // Reference = this pass's fresh decision list of the accurate island sim
+        // (node index == GPU body index for rigid bodies). The early commit's
+        // rollback set also carries entries persisted from the trial's
+        // afterIntegration; those are reported separately as "carried".
+        PxArray<PxU32>& pending=mDestructionSleepAuditCpu;
+        PxArray<PxU32> cpu;PxU32 carried=0;
+        if(mDestructionAuditIslands) {
+            const IG::IslandSim& asim=mDestructionAuditIslands->getAccurateIslandSim();
+            const PxU32 nd=asim.getNbNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);const PxNodeIndex* di=asim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
+            cpu.reserve(nd);for(PxU32 i=0;i<nd;++i)cpu.pushBack(di[i].index());
+            PxHashSet<PxU32> fresh;for(PxU32 i=0;i<nd;++i)fresh.insert(di[i].index());
+            for(PxU32 i=0;i<pending.size();++i)if(!fresh.contains(pending[i]))++carried;
+        }
+        static PxU64 carriedTotal=0;carriedTotal+=carried;
         PxU32 co=0,dof=0,stale=0;
         PxHashSet<PxU32> solverSet;
         {
@@ -1094,8 +1107,15 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             for(PxU32 i=0;i<cpu.size();++i)if(!dev.contains(cpu[i])){if(solverSet.contains(cpu[i]))++co;else ++stale;}
             for(PxU32 i=0;i<count;++i)if(!cpuSet.contains(list[i]))++dof;
         }
-        static PxU64 staleTotal=0;staleTotal+=stale;
+        static PxU64 staleTotal=0,class1Total=0,class2Total=0;staleTotal+=stale;
         cpuTotal+=cpu.size();devTotal+=count;cpuOnly+=co;devOnly+=dof;if(co||dof)++mismatchPasses;
+        {
+            PxHashSet<PxU32> dev;for(PxU32 i=0;i<count;++i)dev.insert(list[i]);
+            for(PxU32 i=0;i<cpu.size();++i)if(!dev.contains(cpu[i]) && solverSet.contains(cpu[i])) {
+                const PxU32 n=cpu[i];
+                if(n<mDestructionAuditReadyAtPrepare.size() && mDestructionAuditReadyAtPrepare[n])++class2Total;else ++class1Total;
+            }
+        }
         if((co||dof) && shown<12 && mDestructionAuditIslands) {
             // Classify the first mismatched nodes with CPU-side state.
             const IG::IslandSim& sim=mDestructionAuditIslands->getAccurateIslandSim();
@@ -1104,25 +1124,52 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             PxHashSet<PxU32> cpuSet;for(PxU32 i=0;i<cpu.size();++i)cpuSet.insert(cpu[i]);
             const IG::IslandId* islandIds=sim.getIslandIds();const PxU32 nodeCount=sim.getNbNodes();
             PxU32 printed=0;
+            const PxArray<PxU32>& dnr=sim.deactivatedNotReady();PxHashSet<PxU32> dnrSet;for(PxU32 i=0;i<dnr.size();++i)dnrSet.insert(dnr[i]);
+            fprintf(stderr,"   decision audit: %u nodes were pushed to the deactivation list while not ready this pass\n",dnr.size());
             const auto describe=[&](const char* kind,PxU32 n){
                 if(printed>=6 || n>=nodeCount)return;++printed;
                 const IG::Node& node=sim.getNode(PxNodeIndex(n));const IG::IslandId island=islandIds[n];
                 const PxU32 root=(island!=IG_INVALID_ISLAND && island<sim.getNbIslands())?sim.getIsland(island).mRootNode.index():0xFFFFFFFFu;
-                fprintf(stderr,"   %s node %u: readyAtPrepare %d readyNow %d active %d kinematic %d island %u root %u inSolver %d mirrorNotReady %d islandWoken %d\n",
-                    kind,n,n<mDestructionAuditReadyAtPrepare.size()?int(mDestructionAuditReadyAtPrepare[n]):-1,int(node.isReadyForSleeping()!=0),int(node.isActive()!=0),int(node.isKinematic()!=0),
+                // Readiness deltas the CPU recorded for this node since the mirror update.
+                char seq[64];seq[0]=0;
+                {PxU32 dc=0;bool ov=false;const PxU32* dl=sim.readinessDeltas(dc,ov);PxU32 len=0;
+                    for(PxU32 k=0;k<dc && len<60;++k)if((dl[k]>>1)==n){seq[len++]=(dl[k]&1u)?'1':'0';seq[len]=0;}
+                    if(ov){seq[len++]='!';seq[len]=0;}}
+                fprintf(stderr,"   %s node %u: readyAtPrepare %d readyNow %d deltasThisPass [%s] notReadyAtDecision %d active %d kinematic %d island %u root %u inSolver %d mirrorNotReady %d islandWoken %d\n",
+                    kind,n,n<mDestructionAuditReadyAtPrepare.size()?int(mDestructionAuditReadyAtPrepare[n]):-1,int(node.isReadyForSleeping()!=0),seq,int(dnrSet.contains(n)),int(node.isActive()!=0),int(node.isKinematic()!=0),
                     unsigned(island),root,int(solverSet.contains(n)),n<mirrorCap?int(mirror[n]):-1,
                     (island!=IG_INVALID_ISLAND && island<sim.mIslandWokenThisFrame.size())?int(sim.mIslandWokenThisFrame.test(island)):-1);
             };
             for(PxU32 i=0;i<cpu.size() && printed<3;++i)if(!dev.contains(cpu[i]) && solverSet.contains(cpu[i]))describe("cpuOnly",cpu[i]);
+            // Class 2: the device component of a ready CPU island holds a not-ready
+            // member; list those members with their CPU island and kinematic flag.
+            {
+                PxU32 lc=0;const PxU32* labels=sim.gpuComponentLabels(lc);PxU32 shownMembers=0;
+                for(PxU32 i=0;i<cpu.size() && shownMembers<6 && labels;++i) {
+                    const PxU32 n=cpu[i];
+                    if(dev.contains(n) || !solverSet.contains(n) || n>=lc || n>=mDestructionAuditReadyAtPrepare.size() || !mDestructionAuditReadyAtPrepare[n])continue;
+                    const PxU32 label=labels[n];
+                    for(PxU32 m=0;m<lc && m<nodeCount && shownMembers<6;++m) {
+                        if(labels[m]!=label || m==n)continue;
+                        const IG::Node& mn=sim.getNode(PxNodeIndex(m));
+                        const bool notReady=(m<mirrorCap && mirror[m]) || !(m<mDestructionAuditReadyAtPrepare.size() && mDestructionAuditReadyAtPrepare[m]);
+                        if(!notReady)continue;
+                        ++shownMembers;
+                        fprintf(stderr,"   class2 node %u (island %u) shares device component %u with not-ready node %u: island %u kinematic %d active %d readyAtPrepare %d mirrorNotReady %d inSolver %d\n",
+                            n,unsigned(islandIds[n]),label,m,unsigned(islandIds[m]),int(mn.isKinematic()!=0),int(mn.isActive()!=0),
+                            m<mDestructionAuditReadyAtPrepare.size()?int(mDestructionAuditReadyAtPrepare[m]):-1,m<mirrorCap?int(mirror[m]):-1,int(solverSet.contains(m)));
+                    }
+                }
+            }
             for(PxU32 i=0;i<count && printed<6;++i)if(!cpuSet.contains(list[i]))describe("devOnly",list[i]);
         }
         if(((co||dof) && shown<12) || (passes%64)==0) {
             ++shown;
-            fprintf(stderr,"[sleep-transition audit] pass %llu (%s, enqueued %d): cpu %u (stale %u) dev %u cpuOnly %u devOnly %u | totals cpu %llu dev %llu cpuOnly %llu devOnly %llu stale %llu mismatchPasses %llu\n",
-                (unsigned long long)passes,mDestructionCorrecting?"corrected":"trial",int(mDestructionTransitionEnqueued),cpu.size(),stale,count,co,dof,
-                (unsigned long long)cpuTotal,(unsigned long long)devTotal,(unsigned long long)cpuOnly,(unsigned long long)devOnly,(unsigned long long)staleTotal,(unsigned long long)mismatchPasses);
+            fprintf(stderr,"[sleep-transition audit] pass %llu (%s, enqueued %d): fresh %u (stale %u) pending %u (carried %u) dev %u cpuOnly %u devOnly %u | totals cpu %llu dev %llu cpuOnly %llu (class1 %llu class2 %llu) devOnly %llu stale %llu carried %llu mismatchPasses %llu\n",
+                (unsigned long long)passes,mDestructionCorrecting?"corrected":"trial",int(mDestructionTransitionEnqueued),cpu.size(),stale,pending.size(),carried,count,co,dof,
+                (unsigned long long)cpuTotal,(unsigned long long)devTotal,(unsigned long long)cpuOnly,(unsigned long long)class1Total,(unsigned long long)class2Total,(unsigned long long)devOnly,(unsigned long long)staleTotal,(unsigned long long)carriedTotal,(unsigned long long)mismatchPasses);
         }
-        cpu.forceSize_Unsafe(0);
+        pending.forceSize_Unsafe(0);
     }
     // Under mDestructionEarlyMutex: the sleep commit and the submission, with
     // the simulation core stream joined to the solver's issued launches.

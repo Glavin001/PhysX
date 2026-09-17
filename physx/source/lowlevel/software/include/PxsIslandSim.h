@@ -664,7 +664,12 @@ public:
 			mNodesToPutToSleep[i].forceSize_Unsafe(0);
 			mDeactivatingEdges[i].forceSize_Unsafe(0);
 		}
+		mDeactivatedNotReady.forceSize_Unsafe(0);
 	}
+	// Audit: nodes pushed to the deactivation list while their readiness flag was clear.
+	PxArray<PxU32> mDeactivatedNotReady;
+	PX_FORCE_INLINE const PxArray<PxU32>& deactivatedNotReady() const { return mDeactivatedNotReady; }
+	PX_FORCE_INLINE const PxU32* gpuComponentLabels(PxU32& count) const { count = mGpuComponentCount; return mGpuComponentLabels; }
 
 	PX_FORCE_INLINE const Island&				getIsland(IG::IslandId islandIndex)		const { return mIslands[islandIndex]; }
 	PX_FORCE_INLINE const Island&				getIsland(const PxNodeIndex& nodeIndex)	const { PX_ASSERT(mIslandIds[nodeIndex.index()] != IG_INVALID_ISLAND); return mIslands[mIslandIds[nodeIndex.index()]]; }
