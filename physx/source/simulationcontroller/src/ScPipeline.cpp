@@ -120,7 +120,10 @@ void Sc::Scene::simulate(PxReal timeStep, PxBaseTask* continuation)
 		// Index-preserving variant: reserve raw, page-touched slabs only (no elements
 		// constructed, free lists untouched), so the first impact's growth is
 		// bit-identical to cold growth minus the page faults (PHYSX_DESTRUCTION_PREFAULT_PAIRS=N).
-		static const PxU32 prefault = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PREFAULT_PAIRS"); return raw ? PxU32(::atoi(raw)) : 0u; }();
+		static const PxU32 prefaultEnv = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PREFAULT_PAIRS"); return raw ? PxU32(::atoi(raw)) : 0u; }();
+		// The destruction scene may be configured after the scene's first step, so
+		// the request is re-checked each step until it is served once.
+		const PxU32 prefault = prefaultEnv ? prefaultEnv : mSimulationController->destructionReservedContactPairs();
 		if(prefault && !mPairPoolsPrefaulted)
 		{
 			mPairPoolsPrefaulted = true;

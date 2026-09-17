@@ -508,6 +508,7 @@ class PxProfilerCallback;
         virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
         bool usesDeviceDestructionContactInputs() const override;
         bool usesGpuDestructionIslandRepair() const override;
+        PxU32 destructionReservedContactPairs() const override;
         PxgDestructionRuntime* getNativeDestructionRuntime() const { return mDestruction; }
         bool isDestructionCorrecting() const { return mDestructionCorrecting; }
         const PxU32* destructionParkedNodes(PxU32& count) const override { count=mDestructionParkedNodes.size(); return mDestructionParkedNodes.begin(); }

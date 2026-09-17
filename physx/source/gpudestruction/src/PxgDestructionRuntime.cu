@@ -568,7 +568,7 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 #include "PxgDestructionPreparationGraph.cuh"
 class Runtime final : public PxgDestructionRuntime {
     snapshot::Data mSnapshotAsset;
-    bool mPreserveContactPairs=false;
+    bool mPreserveContactPairs=false;PxU32 mReservedContactPairs=0;
     bool mPostCorrection=false;PxDestructionStageStatus mFirstPassStatus{};
     PxProfilerCallback* mProfiler=nullptr;PxU64 mProfileContext=0;
     cudaEvent_t mStageEvents[6]{};bool mStageTimingPending=false;
@@ -1308,7 +1308,7 @@ public:
             // work before releasing buffers even if the last stage failed.
             check(cudaEventSynchronize(mInput));check(cudaStreamSynchronize(mStream));
             if(mConsumer)check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(mConsumer)));
-            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit==1;mPreserveContactPairs=d.preserveUnchangedContactPairs;mGpuIslandRepair=d.gpuIslandRepair;
+            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit==1;mPreserveContactPairs=d.preserveUnchangedContactPairs;mReservedContactPairs=d.reservedContactPairs;mGpuIslandRepair=d.gpuIslandRepair;
             if(d.bondCount) {
                 mSolver=ExtStressGpuSolver::create(nodes.data(),d.chunkCount,bonds.data(),d.bondCount,NULL,0,mContext);
                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
@@ -2529,6 +2529,7 @@ public:
         return {mShapeOwnerGenerations,mInstalledOwnerGeneration,mShapeOwnerCapacity};
     }
     bool preserveUnchangedContactPairs() const override { return mPreserveContactPairs; }
+    PxU32 reservedContactPairs() const override { return mReservedContactPairs; }
     bool correctionEnabled() const override { return mCorrectionEnabled; }
     PxU32 correctionBodyCount() const override { return PxU32(mHostCorrectionTargets.size()); }
     const PxU32* correctionBodyIndices() const override { return mHostCorrectionTargets.data(); }

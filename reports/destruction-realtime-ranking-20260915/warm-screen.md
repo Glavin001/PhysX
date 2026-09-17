@@ -1427,3 +1427,11 @@ Device-stage profile after both occupancy commits (`--profile-phases 1`, g16, ti
 | initialization (s) | 3.21 / 3.13 / 2.76 | 2.96 / 2.95 / 3.05 |
 
 The serial preallocation was mostly first-touch page faults on ~80 MB of fresh slabs. Env-gated because N is a scene-scale choice (about 550 bytes per pair); a scene-description field is the right home for it.
+
+## Warm nine-window screen of the occupancy defaults (contract v4, `results-occ-v4`)
+
+Candidate = runtime and GPU module at `6cf194b1` (dense-tiny path confined to the Tiny instantiation, dynamic-shared direct staging), controls A0/A1 = the 2026-09-13 baseline artifacts. All nine windows pass; force relL2 and health drift identical to the previous screens (stress solves bit-identical). B means in ms, previous screen in brackets: city25-impact 16.47 [15.94], city256-cascade 66.13 [68.21], city256-debris 74.91 [79.24], city256-idle 1.79 [1.77], city256-impact 64.36 [68.85]; small windows within noise (bridge64 1.42, chain256 1.59, dense12 1.65, tower64 1.61). City256 impact max 169.6 [186.5].
+
+## Reserved contact pairs as a scene setting (bit-identical; demo default 1.5 pairs per chunk)
+
+`PxDestructionStressDesc::reservedContactPairs` carries the page-touched slab reserve through the runtime and the simulation controller to `Sc::Scene`, which serves it at the next step after configuration (the environment variable still overrides). The demo sets `--reserve-pairs N` or, by default, 1.5 pairs per chunk capped at 1 M (170 k for city256, about 94 MB). g16 3 s bombardment, profiled, three interleaved pairs against the control binary, histories bit-identical, 36/36 tests: preallocateContactManagers at the impact tick 13.9 / 15.1 / 12.0 → 7.7 / 5.0 / 5.3 ms; impact tick 187 / 236 / 231 → 164 / 203 / 222 ms; initialization 2.99 / 3.70 / 2.87 → 2.92 / 2.95 / 2.93 s; run means equal within noise under profiling.

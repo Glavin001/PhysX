@@ -55,7 +55,7 @@ int run(int argc,char** argv){
     std::string geometryName="building";
     const auto initializationBegin=Clock::now();
     bool standardScene=true,standardSleeping=true,traceStress=false;
-    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
+    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0,reservePairs=~0u;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
         else if(flag=="--sleeping"){require(std::string(value)=="0" || std::string(value)=="1","--sleeping requires 0 or 1");standardSleeping=std::string(value)=="1";}
@@ -75,6 +75,7 @@ int run(int argc,char** argv){
         else if(flag=="--workload")workload=value;
         else if(flag=="--launch-seconds")launchSeconds=std::stof(value);
         else if(flag=="--profile-phases"){require(std::string(value)=="0" || std::string(value)=="1","--profile-phases requires 0 or 1");profilePhases=std::string(value)=="1";}
+        else if(flag=="--reserve-pairs"){reservePairs=unsigned(std::atol(value));}
         else if(flag=="--preserve-contact-pairs"){require(std::string(value)=="0" || std::string(value)=="1","--preserve-contact-pairs requires 0 or 1");preservePairs=std::string(value)=="1";}
         else if(flag=="--gpu-island-repair"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-island-repair requires 0 or 1");gpuIslandRepair=std::string(value)=="1";}
         else if(flag=="--gpu-pre-solve-islands"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-pre-solve-islands requires 0 or 1");preSolveIslands=std::string(value)=="1";}
@@ -188,7 +189,9 @@ int run(int argc,char** argv){
     materials[1].shearElasticLimit*=frameStrength;materials[1].shearFatalLimit*=frameStrength;
     PxDestructionStressDesc desc;desc.chunks=nodes.data();desc.chunkCount=unsigned(nodes.size());desc.chunkMassProperties=properties.data();
     desc.clusters=clusters.data();desc.clusterCount=unsigned(clusters.size());desc.bonds=bonds.data();desc.bondCount=unsigned(bonds.size());
-    desc.materials=materials;desc.materialCount=frameStrength>1?2:1;desc.maxIterations=stressIterations;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=preservePairs;desc.gpuIslandRepair=gpuIslandRepair;
+    desc.materials=materials;desc.materialCount=frameStrength>1?2:1;desc.maxIterations=stressIterations;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=preservePairs;
+    // Pair storage reserve: --reserve-pairs N (0 disables); default 1.5 pairs per chunk, capped at 1 M.
+    desc.reservedContactPairs=reservePairs!=~0u?reservePairs:std::min<unsigned>(1u<<20,unsigned(nodes.size())*3u/2u);desc.gpuIslandRepair=gpuIslandRepair;
     require(destruction->configureStress(desc),"native destruction configuration failed");
     const PxVec3 center(float(grid-1)*8,4,float(grid-1)*8);std::array<Camera,4> cameras;
     for(unsigned i=0;i<4;++i){const float angle=float(i)*1.5707963f+.6f;cameras[i].eye=center+PxVec3(std::cos(angle)*float(grid)*24,float(grid)*13,std::sin(angle)*float(grid)*24);cameras[i].direction=(center-cameras[i].eye).getNormalized();}

@@ -227,6 +227,7 @@ public:
     // readyEvent orders this borrowed view after GPU ownership installation.
     virtual PxgDestructionOwnershipView collisionOwnershipView() const = 0;
     virtual bool preserveUnchangedContactPairs() const = 0;
+    virtual PxU32 reservedContactPairs() const = 0;
 };
 }
 #if defined(_WIN32)

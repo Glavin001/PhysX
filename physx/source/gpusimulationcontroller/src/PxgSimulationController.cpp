@@ -728,6 +728,9 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     PxU64 PxgSimulationController::getDestructionContactGraphGeneration() const {
         return usesDeviceDestructionContactInputs() ? mDestruction->getContactGraphView().generation : 0;
     }
+    PxU32 PxgSimulationController::destructionReservedContactPairs() const {
+        return (mDestruction && mDestruction->configured()) ? mDestruction->reservedContactPairs() : 0u;
+    }
     bool PxgSimulationController::usesGpuDestructionIslandRepair() const {
         return usesDeviceDestructionContactInputs() && mDestruction->gpuIslandRepairEnabled();
     }

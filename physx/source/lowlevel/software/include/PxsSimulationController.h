@@ -317,6 +317,8 @@ namespace physx
         virtual bool preservesDestructionContactPairs() const { return false; }
         virtual bool usesDeviceDestructionContactInputs() const { return false; }
         virtual bool usesGpuDestructionIslandRepair() const { return false; }
+        // Contact-pair storage the destruction scene asked to reserve (page-touched) at the next step.
+        virtual PxU32 destructionReservedContactPairs() const { return 0; }
         virtual void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) {}
 
 		virtual	bool	copyContactData(void* /*data*/, PxU32* /*numContactPairs*/, const PxU32 /*maxContactPairs*/, CUevent /*startEvent*/, CUevent /*copyEvent*/) { return false; }

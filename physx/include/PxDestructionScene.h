@@ -84,6 +84,11 @@ struct PxDestructionStressDesc {
     // Retain unchanged owners' pair registrations, clear GPU manifold/friction
     // caches and regenerate collision/constraint data. False is the reference.
     bool preserveUnchangedContactPairs = false;
+    // Contact-pair storage (contact managers, shape interactions, markers) to
+    // reserve with touched pages when the scene next steps, so a first impact's
+    // pair creation does not page-fault on the simulation thread. About 550
+    // bytes per pair; the pools still grow past it. Zero reserves nothing.
+    PxU32 reservedContactPairs = 0;
     // Use CUDA contact components for rigid island repair, including ordinary
     // sleeping scenes. Native sleep scheduling still needs its membership mirror.
     // Unsupported graph state retains the original traversal; false is the reference.
