@@ -112,6 +112,28 @@ void Sc::Scene::stepSetupCollide(PxBaseTask* continuation)
 
 void Sc::Scene::simulate(PxReal timeStep, PxBaseTask* continuation)
 {
+	// R2: pre-heat the pair pools once so the first impact's corrected pass does not
+	// pay slab growth for ~100 k contact managers, shape interactions and markers
+	// on one thread (PHYSX_DESTRUCTION_PREHEAT_PAIRS=N). Order-changing: warm free
+	// lists assign contact-manager indices differently from cold slab growth.
+	{
+		static const PxU32 preheat = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PREHEAT_PAIRS"); return raw ? PxU32(::atoi(raw)) : 0u; }();
+		if(preheat && !mPairPoolsPreheated)
+		{
+			mPairPoolsPreheated = true;
+			PX_PROFILE_ZONE("Sim.preheatPairPools", mContextId);
+			Cm::PoolList<PxsContactManager>& cmPool = mLLContext->getContactManagerPool();
+			PxArray<PxsContactManager*> cms(preheat);
+			const PxU32 got = cmPool.preallocate(preheat, cms.begin());
+			for(PxU32 i = got; i > 0; --i) cmPool.put(cms[i - 1]);
+			PxArray<ShapeInteraction*> sis(preheat);
+			for(PxU32 i = 0; i < preheat; ++i) sis[i] = mNPhaseCore->mShapeInteractionPool.allocate();
+			for(PxU32 i = preheat; i > 0; --i) mNPhaseCore->mShapeInteractionPool.deallocate(sis[i - 1]);
+			PxArray<ElementInteractionMarker*> markers(preheat / 4 + 1);
+			for(PxU32 i = 0; i < markers.size(); ++i) markers[i] = mNPhaseCore->mInteractionMarkerPool.allocate();
+			for(PxU32 i = markers.size(); i > 0; --i) mNPhaseCore->mInteractionMarkerPool.deallocate(markers[i - 1]);
+		}
+	}
     if(mSimpleIslandManager->deviceConnectivityOwned() && !canUseGpuDestructionIslandRepair())
     {
         mSimpleIslandManager->restoreHostConnectivity();
