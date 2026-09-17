@@ -2912,6 +2912,10 @@ void Sc::Scene::postThirdPassIslandGen(PxBaseTask* /*continuation*/)
 
 			const PxU32 nbDeactivatingEdges = islandSim.getNbDeactivatingEdges(edgeType);
 			const IG::EdgeIndex* deactivatingEdgeIds = islandSim.getDeactivatingEdges(edgeType);
+            {static const bool retiredDiag=::getenv("PHYSX_DESTRUCTION_RETIRED_DIAG")!=NULL;
+             if(retiredDiag && edgeType==IG::Edge::eCONTACT_MANAGER){static PxU32 passes=0;++passes;
+                PxU32 destroyedOverlaps=0;mAABBManager->getDestroyedOverlaps(ElementType::eSHAPE,destroyedOverlaps);
+                fprintf(stderr,"[retired-diag] pass %u %s deactivatingContactEdges %u destroyedOverlaps %u\n",passes,mDestructionCorrectionInProgress?"corrected":"trial",nbDeactivatingEdges,destroyedOverlaps);}}
 
 			for(PxU32 i = 0; i < nbDeactivatingEdges; ++i)
 			{

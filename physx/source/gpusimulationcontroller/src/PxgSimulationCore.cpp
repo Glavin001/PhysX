@@ -3308,6 +3308,8 @@ void PxgSimulationCore::ovdSnapshotRigidDynamicForces(const PxRigidDynamicGPUInd
 
 #endif
 
+void PxgSimulationCore::noteDevicePoseWrites() { mGpuContext->mGpuBp->getAABBManager()->setGPUStateChanged(); }
+
 bool PxgSimulationCore::setRigidDynamicData(const void* PX_RESTRICT data, const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
                                                 PxRigidDynamicGPUAPIWriteType::Enum dataType, PxU32 nbElements,
                                                 CUevent startEvent, CUevent finishEvent)

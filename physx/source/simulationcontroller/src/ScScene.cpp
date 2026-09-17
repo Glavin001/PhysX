@@ -2120,6 +2120,7 @@ bool Sc::Scene::finalizeGpuSleep(BodyCore* body)
         return true;
 #if PX_SUPPORT_GPU_PHYSX
     if(body && !mGpuSleepPendingBodies.contains(body)) return true;
+    if(body)mSimulationController->noteDestructionSleepFinalized(static_cast<PxRigidDynamic*>(body->getPxActor())->getGPUIndex());
     PxProfileScoped profile(nativeSleep?PxGetProfilerCallback():NULL,
         "GpuDestruction.task.sleepCommit",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
     PxArray<PxU32> indices, rollbackIndices;

@@ -1260,17 +1260,16 @@ extern "C" __global__ void refreshReboundShapeBounds(
     }
 }
 
-extern "C" __global__ void setRigidDynamicGlobalPose(
+// Body of setRigidDynamicGlobalPose for one list element, shared by the host-count
+// and device-count launches (native sleep transition, README §14).
+static __device__ void setRigidDynamicGlobalPoseFor(
 	const PxTransform* PX_RESTRICT data,
 	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
 	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
-	const PxU32 nbElements,
+	const PxU32 globalThreadIndex,
 	const PxU32 totalNumShapes
 )
 {
-	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x*blockIdx.x;
-
-	if (globalThreadIndex < nbElements)
 	{
 		PxgBodySim* PX_RESTRICT gBodySimPool = updateActorDataDesc->mBodySimBufferDeviceData;
 		PxNodeIndex* PX_RESTRICT gRigidNodeIndices = updateActorDataDesc->mRigidNodeIndices;
@@ -1329,6 +1328,33 @@ extern "C" __global__ void setRigidDynamicGlobalPose(
 			pos--;
 		}
 	}
+}
+
+extern "C" __global__ void setRigidDynamicGlobalPose(
+	const PxTransform* PX_RESTRICT data,
+	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
+	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
+	const PxU32 nbElements,
+	const PxU32 totalNumShapes
+)
+{
+	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x*blockIdx.x;
+	if (globalThreadIndex < nbElements)
+		setRigidDynamicGlobalPoseFor(data, gpuIndices, updateActorDataDesc, globalThreadIndex, totalNumShapes);
+}
+
+// Device-count variant: the list and its count are produced on the device.
+extern "C" __global__ void setRigidDynamicGlobalPoseDevice(
+	const PxTransform* PX_RESTRICT data,
+	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
+	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
+	const PxU32* PX_RESTRICT nbElements,
+	const PxU32 totalNumShapes
+)
+{
+	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x*blockIdx.x;
+	if (globalThreadIndex < *nbElements)
+		setRigidDynamicGlobalPoseFor(data, gpuIndices, updateActorDataDesc, globalThreadIndex, totalNumShapes);
 }
 
 extern "C" __global__ void setRigidDynamicLinearVelocity(
@@ -1395,6 +1421,34 @@ extern "C" __global__ void zeroNativeSleepMotion(
 	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (globalThreadIndex < nbElements)
+	{
+		PxgBodySim* gBodySimPool = updateActorDataDesc->mBodySimBufferDeviceData;
+		const PxU32 index = gpuIndices[globalThreadIndex];
+		PxgBodySim& bodySim = gBodySimPool[index];
+		const float4 lv = make_float4(0.f, 0.f, 0.f, bodySim.linearVelocityXYZ_inverseMassW.w);
+		const float4 av = make_float4(0.f, 0.f, 0.f, bodySim.angularVelocityXYZ_maxPenBiasW.w);
+		bodySim.linearVelocityXYZ_inverseMassW = lv;
+		bodySim.angularVelocityXYZ_maxPenBiasW = av;
+		if(prevVelocities)
+		{
+			prevVelocities[index].linearVelocity = lv;
+			prevVelocities[index].angularVelocity = av;
+		}
+		bodySim.externalLinearAcceleration = make_float4(0.f, 0.f, 0.f, 0.f);
+		bodySim.externalAngularAcceleration = make_float4(0.f, 0.f, 0.f, 0.f);
+	}
+}
+
+extern "C" __global__ void zeroNativeSleepMotionDevice(
+	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
+	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
+	PxgBodySimVelocities* PX_RESTRICT prevVelocities,
+	const PxU32* PX_RESTRICT nbElements
+)
+{
+	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x * blockIdx.x;
+
+	if (globalThreadIndex < *nbElements)
 	{
 		PxgBodySim* gBodySimPool = updateActorDataDesc->mBodySimBufferDeviceData;
 		const PxU32 index = gpuIndices[globalThreadIndex];

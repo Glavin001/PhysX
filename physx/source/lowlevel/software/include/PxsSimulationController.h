@@ -317,6 +317,9 @@ namespace physx
         virtual void flushDeferredDestructionWork() {}
         virtual PxU32 getDestructionError() const { return 0; }
         virtual void discardDestructionTrialBodyUpload(PxU32) {}
+        // A body's pending native sleep finalization was applied individually (wake/command
+        // paths); it leaves the CPU's carried rollback set. Device sleep transition mirrors this.
+        virtual void noteDestructionSleepFinalized(PxU32 /*gpuIndex*/) {}
         // Island-scoped correction: rigid nodes whose islands hold no correction
         // target and stay at their trial result for the corrected pass.
         virtual const PxU32* destructionParkedNodes(PxU32& count) const { count=0; return NULL; }

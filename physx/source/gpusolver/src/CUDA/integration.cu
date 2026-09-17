@@ -147,3 +147,20 @@ extern "C" __global__ void gatherNativeSleepPoses(PxTransform* poses, const PxU3
         poses[i] = (world * body.body2Actor_maxImpulseW.getInverse()).getTransform();
     }
 }
+
+// Device-count variant for the native sleep transition (README §14).
+extern "C" __global__ void gatherNativeSleepPosesDevice(PxTransform* poses, const PxU32* indices,
+    const PxgSolverCoreDesc* desc, const PxU32* solverIndices, const PxU32* count)
+{
+    const PxU32 i = threadIdx.x + blockIdx.x * blockDim.x;
+    if(i < *count)
+    {
+        const PxU32 node = indices[i];
+        const PxU32 solverIndex = solverIndices[node];
+        const PxgBodySim& body = desc->mBodySimBufferDeviceData[node];
+        const bool solved=solverIndex<desc->numSolverBodies
+            && desc->solverBodyDataPool[solverIndex].islandNodeIndex.index()==node;
+        const auto world=solved?desc->solverBodyDataPool[solverIndex].body2World:body.body2World;
+        poses[i] = (world * body.body2Actor_maxImpulseW.getInverse()).getTransform();
+    }
+}

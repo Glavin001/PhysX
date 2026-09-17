@@ -534,6 +534,8 @@ class PxProfilerCallback;
         bool mDestructionReinstatedAtInstall = true;
         const PxU32* destructionFrozenStaticEdges(PxU32& count) const { count=mDestructionFrozenStaticEdges.size(); return mDestructionFrozenStaticEdges.begin(); }
         const PxArray<PxNodeIndex>* destructionFilteredActiveNodes(const IG::IslandSim& islandSim);
+        void noteDestructionSleepFinalized(PxU32 gpuIndex) override { mDestructionFinalizedSince.pushBack(gpuIndex); }
+        PxArray<PxU32> mDestructionFinalizedSince;PxArray<void*> mDestructionPrevFreshObjects;PxArray<PxU32> mDestructionCarried;
         void discardDestructionTrialBodyUpload(PxU32 id) override {
             if(id<mBodySimManager.mBodies.size() && mBodySimManager.mBodies[id]) {
                 mBodySimManager.mUpdatedMap.reset(id);
@@ -547,6 +549,7 @@ class PxProfilerCallback;
         bool mDestructionReadinessSeeded[2]={false,false};PxU32 mDestructionReadinessReseeds=0;
         IG::SimpleIslandManager* mDestructionAuditIslands=NULL;PxArray<PxU8> mDestructionAuditReadyAtPrepare;volatile PxI32 mDestructionTransitionArrivals=0;bool mDestructionTransitionEnqueued=false;PxArray<PxU32> mDestructionSleepAuditCpu;
         void noteDestructionSleepTransitionArrival();void auditDestructionSleepTransition();
+        bool runDestructionDeviceSleepTransition();bool mDestructionTransitionApplied=false;PxU32 mDestructionSleepAuditNonRollback=0;PxArray<PxU32> mDestructionPrevFresh;PxU32 mNativeSleepLastRollbackCount=0;CUevent mDestructionTransitionStaged=NULL,mDestructionTransitionGathered=NULL;bool mDestructionInEarlyCommit=false;bool mDestructionPostUpdateRan=false;bool mDestructionInPrepare=false;PxReal mDestructionStepDt=0;PxVec3 mDestructionStepGravity=PxVec3(0.f);CUdeviceptr mDestructionTransitionPoses=0;PxU32 mDestructionTransitionPoseCapacity=0;
         bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
         bool buildDestructionContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
             const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream,const PxgContactGraphSequence* sequence);

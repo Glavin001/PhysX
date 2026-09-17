@@ -338,6 +338,7 @@ namespace physx
 		PX_FORCE_INLINE PxU32 getNumTotalFEMCloths() { return mNbTotalFEMCloths; }
 
 		PX_FORCE_INLINE PxU32 getNumTotalShapes() { return mPxgShapeSimManager.getNbTotalShapeSims();  }
+		void noteDevicePoseWrites(); // AABB manager: GPU-side bounds changed (as setRigidDynamicData does)
 		PX_FORCE_INLINE PxU32 getNumTotalSoftbodies() { return mNbTotalSoftBodies; }
 
 		PX_FORCE_INLINE PxU32 getNbRigidSoftBodyAttachments() const { return mNbRigidSoftBodyAttachments; }

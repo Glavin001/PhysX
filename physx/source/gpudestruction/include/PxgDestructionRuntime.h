@@ -151,8 +151,15 @@ public:
     // pass's integration is issued (no host wait; waits on the mirror upload and
     // the graph build by event). readDeviceSleepTransition is the synchronous
     // audit readback (count; list valid until the next enqueue).
-    virtual bool enqueueDeviceSleepTransition(const PxNodeIndex* nodes, PxU32 count, PxU32 firstRigid, CUstream solverStream) = 0; // solver bodies [firstRigid, count) are rigid dynamics
+    // carried/carriedCount: the previous pass's CPU decision list (host memory, copied
+    // synchronously into pinned staging), applied again like the CPU rollback set does.
+    virtual bool enqueueDeviceSleepTransition(const PxNodeIndex* nodes, PxU32 count, PxU32 firstRigid, CUstream solverStream, const PxU32* carried, PxU32 carriedCount) = 0; // solver bodies [firstRigid, count) are rigid dynamics
     virtual PxU32 readDeviceSleepTransition(const PxU32*& list) = 0;
+    virtual PxU32 readDeviceSleepApply(const PxU32*& list) = 0; // synchronous audit readback of the apply list
+    // The list the transition applies: this pass's fresh list plus, on a corrected
+    // pass, every fresh list since the tick's trial (the CPU's rollback set carries
+    // those through afterIntegration). Device pointers, valid after the ready event.
+    virtual bool deviceSleepTransitionApply(const PxU32*& list, const PxU32*& count, PxU32& capacity, CUevent& ready) = 0;
     // Island-scoped correction. requestTrialSnapshot makes the next
     // restoreRigidState keep a copy of the live (trial end-of-tick) state before
     // rewinding; reinstateTrialState copies that snapshot back for the listed
