@@ -2047,3 +2047,15 @@ for this lead: a device-state diff of the corrected pass's broad-phase inputs at
 handle map, touched marks) between the transition at the arm and at the solver issue; the difference is in what
 the trial's copy-back or the corrected pass's bounds upload does with the transitioned bodies, not in the
 transition's own writes (audited equal). Mode 9 stays opt-in and off.
+
+Closing state of the mode-9 lead (2026-09-18): three host-sync placements around the device transition
+(`PHYSX_DESTRUCTION_DEVICE_SLEEP_SYNC=1|2|3`) leave the arrival variant at 59,450; ordering the post-solve copy-back
+after the transition leaves it at 59,450; but pass-start stream synchronisations (the broad-phase input dump at trial
+ordinals 86–91) move the first divergent tick from 87 to 97 and the total to 57,003. So the residual is
+timing-dependent across the pass boundary: the early-submitted device tail of one pass (stress chain, topology,
+publication) overlaps the next pass's start differently than the arm-time submit did, and some consumer's stream
+dependency is captured at host time. The contact stream index (`mCurrentContactStream`, flipped in `postSolver`)
+is read before the flip in both variants; the transition's sets, poses, kernels and bookkeeping are audited equal.
+Next step: a device-state diff at the pass boundary (body sims, solver body data, transform cache, bounds, changed
+map) between the arm-time and issue-time submit for the first transition tick, to name the consumer with the
+host-captured dependency. Until then mode 9 stays opt-in and off; the shipped defaults are unchanged.
