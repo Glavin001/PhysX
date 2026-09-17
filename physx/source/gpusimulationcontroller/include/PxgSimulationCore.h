@@ -435,6 +435,31 @@ namespace physx
 		PxgTypedCudaBuffer<PxU32>	mDeactivateBuffer;
 
 		PxgTypedCudaBuffer<PxU32>	mUpdatedDirectBuffer;
+		// Compacted CPU mirror of the transform cache and bounds (see gpuMemDmaBack).
+		PxgTypedCudaBuffer<PxU32>	mTouchedBuffer;
+		PxgTypedCudaBuffer<PxU32>	mCompactCountBuffer;
+		PxgTypedCudaBuffer<PxU32>	mCompactIndicesStaging;
+		PxgTypedCudaBuffer<PxBounds3>	mCompactBoundsStaging;
+		PxgTypedCudaBuffer<PxsCachedTransform>	mCompactTransformsStaging;
+		PxU32*						mCompactIndicesMapped = NULL;
+		PxBounds3*					mCompactBoundsMapped = NULL;
+		PxsCachedTransform*			mCompactTransformsMapped = NULL;
+		PxU32*						mCompactCountMapped = NULL;
+		PxU32						mCompactCapacity = 0;
+		PxU32						mCompactEstimate = 0;		// entries DMA'd this pass (prefix of the staging)
+		PxU32						mCompactLastCount = 0;		// gathered entries of the previous pass
+		PxU32						mCompactLastElements = 0;
+		bool						mCompactGathered = false;	// this pass gathered (else full copies + count only)
+		PxU32						mCompactPassCounter = 0;
+		PxBounds3*					mDmaBackBounds = NULL;
+		PxsCachedTransform*			mDmaBackTransforms = NULL;
+		PxU32						mDmaBackElementCount = 0;
+		bool						mCompactPending = false;
+		PxBounds3*					mVerifyBounds = NULL;
+		PxsCachedTransform*			mVerifyTransforms = NULL;
+		PxU32						mVerifyCapacity = 0;
+		void						ensureTouchedCapacity(PxU32 elements);
+		void						releaseCompactMirror();
         PxgTypedCudaBuffer<PxU32> mReboundShapeIndices;
         PxU64 mReboundShapeIndexUploadCount=0;
 

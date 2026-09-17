@@ -344,6 +344,12 @@ namespace physx
 
 		PxU32					mTotalFrozenShapes;   // AD: these two members are the only reason we copy the whole descriptor back to cpu.
 		PxU32					mTotalUnfrozenShapes;
+
+		// Per element: set by every device writer of the transform cache or
+		// bounds since the last DMA back (compacted CPU mirror, see
+		// PxgSimulationCore::gpuMemDmaBack). NULL disables the tracking.
+		PxU32*					mTouched;
+		PxU32					mTouchedCapacity;
 	};
 
 	struct PxgUpdateActorDataDesc
@@ -364,6 +370,11 @@ namespace physx
 		PxU32				mBitMapWordCounts;
 
 		const PxgShapeSim*	mShapeSimsBufferDeviceData;
+
+		// Touched-element tracking shared with PxgSimulationCoreDesc (the merge
+		// kernel folds pending Direct-API handles in before consuming them).
+		PxU32*				mTouched;
+		PxU32				mTouchedCapacity;
 	};
 }
 #endif

@@ -1681,3 +1681,40 @@ Heavy 54.4 → 19.5 ms against 20.5 at the previous campaign (`17b`); the impact
 ## Impact tick: large bursts held until the corrected broad phase has run (lossless, −12 ms at the 256-impact tick)
 
 When a fracture has at least `PHYSX_DESTRUCTION_EAGER_FLUSH_LARGE` correction targets (default 64), the eager refactor burst is held past the binding readback and released by a new scene hook at the end of the corrected pass's `postBroadPhase` (`PxsSimulationController::flushDeferredDestructionWork` → runtime `flushDeferredWork`), with the pre-solve island production as a fallback release; small fractures keep the earlier flush. Two interleaved runs: 256-impact tick 118.8 → 107.1 ms (corrected broad-phase wait 15 → 13.7, bindings 22 → 16), sustained mean 22.6 → 22.2 (noise), histories identical, 14/14 tests.
+
+## Compacted CPU mirror of the transform cache and bounds (lossless, −0.9 ms per tick when most of the city sleeps; 2026-09-17)
+
+With the Direct GPU API off (required for sleeping), PhysX copied the whole bounds array (3.1 MB) and
+transform cache (3.6 MB) back to the host after every pass (`PxgSimulationCore::gpuMemDmaBack`): 267 pairs of
+copies of 440 + 509 µs in the g16 trace, on the simulation-core stream that the post-solve host chain and the
+destruction submit wait on. The device now records, per element, which entries a kernel rewrote since the
+last DMA back (`mTouched`, set by the post-integration cache/bounds kernel for both branches and folded in
+from the pending Direct-API handles by the merge kernel, so pose-sets of sleeping bodies are covered), and
+`compactTouchedCacheAndBoundsLaunch` gathers those entries into device staging; only a prefix sized from
+the previous pass's count (with headroom; the rare remainder is fetched synchronously) is DMA'd and the host
+scatters it in `syncDmaback`. The mode is adaptive (`PHYSX_GPU_COMPACT_DMABACK`, default 1): once the previous
+pass gathered more than half of the elements, the full copies return and the touched marks are only counted
+every eighth pass (as a conservative union), so the all-awake regime pays nothing. 0 = legacy full copies,
+3 = always gather, 2 = gather plus a verifying full copy with mismatches on stderr.
+
+Exactness: verify mode reports zero bounds/transform mismatches at every pass of the g16 bombardment (267
+passes; 113,920 of 113,921 elements gathered once the whole city is awake) and of the staggered 64-building
+run (32 sampled passes, up to 28,442 of 28,459 elements). A first attempt that wrote the gathered entries
+straight into host-mapped memory from the kernel was exact but ran at ~1 GB/s (48.6 vs 34.8 ms late window);
+the staged prefix DMA replaced it.
+
+g16 3 s bombardment, interleaved A/B (three runs each; histories identical, 56,077 bonds):
+
+| window | full copies (0) | adaptive (1) | always gather (3) |
+|---|---:|---:|---:|
+| ticks 30–80 (256 buildings standing, few awake) | 3.17 / 3.29 / 3.23 ms | 2.37 / 2.42 / 2.31 (−27 %) | 2.22 |
+| ticks 85–120 (impact, everything awake) | 37.3 / 38.4 / 37.9 | 38.3 / 38.6 / 37.9 | 39.0 |
+| ticks 120–170 | 34.8 / 35.8 / 35.3 | 35.1 / 35.7 / 35.1 | 37.0 |
+| run mean | 21.75 / 22.47 / 22.12 | 21.83 / 22.13 / 21.70 | 22.43 |
+
+Staggered 64 buildings over 20 s (30 s runs): 5.67 ms mean with either mode (that scenario is not
+reproducible run to run, two full-copy runs diverge at tick 860, so only the verify mode attributes it).
+Native tests: 8/9 `physx_native_*` pass (the snapshot test fails at HEAD too); the test binaries had to be
+rebuilt because they include `PxgSimulationCore.h` and use its inline accessors. Not a sustained-window
+lever: when the whole city is awake nearly every shape moves every pass and the full copy is the cheapest
+transport; the gain is in the game's common case (a few buildings awake), where the tick was 3.2 ms.

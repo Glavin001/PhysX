@@ -102,6 +102,8 @@ extern "C" __global__ void updateTransformCacheAndBoundArrayLaunch(const PxgSimu
 	PxU32* PX_RESTRICT unfrozen = scDesc->mUnfrozen;
 	//Each shape has a updated element corresponding to the elementIndex
 	PxU32* PX_RESTRICT updated = scDesc->mUpdated;
+	PxU32* PX_RESTRICT touched = scDesc->mTouched;
+	const PxU32 touchedCapacity = scDesc->mTouchedCapacity;
 
 	//Each body has a corresponding active and deactive element
 	PxU32* PX_RESTRICT active = scDesc->mActivate;
@@ -157,6 +159,8 @@ extern "C" __global__ void updateTransformCacheAndBoundArrayLaunch(const PxgSimu
 						const PxTransform absPos = getAbsPose(body2World, shapeSim.mTransform, bodySim.body2Actor_maxImpulseW.getTransform());
 
 						updateCacheAndBound(absPos, shapeSim, elementIndex, gTransformCache, gBounds, gShapes, isBPOrSq);
+						if (touched && elementIndex < touchedCapacity)
+							touched[elementIndex] = 1;
 					}
 
 					if (internalFlags & PxsRigidBody::eACTIVATE_THIS_FRAME)
@@ -185,6 +189,8 @@ extern "C" __global__ void updateTransformCacheAndBoundArrayLaunch(const PxgSimu
 				const PxTransform absPos = getAbsPose(body2World, shapeSim.mTransform, body2Actor);
 
 				updateCacheAndBound(absPos, shapeSim, elementIndex, gTransformCache, gBounds, gShapes, isBPOrSq);
+				if (touched && elementIndex < touchedCapacity)
+					touched[elementIndex] = 1;
 
 				if (internalFlags & PxsRigidBody::eACTIVATE_THIS_FRAME)
 					active[bodySimIndex] = 1;
@@ -243,6 +249,8 @@ extern "C" __global__ void mergeChangedAABBMgrHandlesLaunch(const PxgUpdateActor
         // Native correction uses this buffer without Direct GPU API's end-of-
         // fetch reset. Retaining bits would resurrect deleted shape handles on
         // a later correction (e.g. reset the scene and fracture it again).
+        if (updateBit && updateActorDesc->mTouched && i < updateActorDesc->mTouchedCapacity)
+            updateActorDesc->mTouched[i] = 1;
         updated[i] = 0;
 
 		const PxU32 word = __ballot_sync(FULL_MASK, updateBit);
@@ -250,6 +258,50 @@ extern "C" __global__ void mergeChangedAABBMgrHandlesLaunch(const PxgUpdateActor
 		if (threadIndexInWarp == 0)
 		{
 			gChangedAABBMgrHandles[i / WARP_SIZE] |= word;
+		}
+	}
+}
+
+// Compacted CPU mirror of the transform cache and bounds (Direct GPU API off):
+// instead of copying every element back after each pass, gather the elements
+// a device kernel touched since the last DMA back (post-integration update,
+// Direct-API pose sets folded in by the merge kernel) into host-mapped arrays;
+// the host scatters them in syncDmaback. touched is cleared by the host after
+// this launch; the pending Direct-API handles are consumed by the merge.
+extern "C" __global__ void compactTouchedCacheAndBoundsLaunch(
+	const PxgSimulationCoreDesc* PX_RESTRICT scDesc,
+	const PxU32* PX_RESTRICT pendingDirect,
+	const PxU32 elementCount,
+	PxU32* PX_RESTRICT outIndices,
+	PxBounds3* PX_RESTRICT outBounds,
+	PxsCachedTransform* PX_RESTRICT outTransforms,
+	PxU32* PX_RESTRICT outCount,
+	const PxU32 outCapacity)
+{
+	const PxU32* PX_RESTRICT touched = scDesc->mTouched;
+	const PxsCachedTransform* PX_RESTRICT gTransformCache = scDesc->mTransformCache;
+	const PxBounds3* PX_RESTRICT gBounds = scDesc->mBounds;
+	const PxU32 threadIndexInWarp = threadIdx.x & (WARP_SIZE - 1);
+	const PxU32 rounded = (elementCount + WARP_SIZE - 1) & ~(WARP_SIZE - 1);
+	for (PxU32 i = threadIdx.x + blockIdx.x * blockDim.x; i < rounded; i += blockDim.x * gridDim.x)
+	{
+		const bool hit = i < elementCount && (touched[i] || (pendingDirect && pendingDirect[i]));
+		const PxU32 mask = __ballot_sync(FULL_MASK, hit);
+		if (!mask)
+			continue;
+		PxU32 base = 0;
+		if (threadIndexInWarp == 0)
+			base = atomicAdd(outCount, __popc(mask));
+		base = __shfl_sync(FULL_MASK, base, 0);
+		if (hit)
+		{
+			const PxU32 slot = base + __popc(mask & ((1u << threadIndexInWarp) - 1u));
+			if (slot < outCapacity)
+			{
+				outIndices[slot] = i;
+				outBounds[slot] = gBounds[i];
+				outTransforms[slot] = gTransformCache[i];
+			}
 		}
 	}
 }

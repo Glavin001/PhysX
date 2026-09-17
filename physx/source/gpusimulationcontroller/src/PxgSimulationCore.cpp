@@ -46,6 +46,9 @@
 #include "PxsCachedTransform.h"
 #include "PxgCudaBroadPhaseSap.h"
 #include "PxgCudaUtils.h"
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
 #include "PxgKernelWrangler.h"
 #include "PxgKernelIndices.h"
 #include "PxgKernelLauncher.h"
@@ -87,6 +90,15 @@
 #define GPU_VERIFY_JOINT_UPDATE	0
 
 using namespace physx;
+
+// PHYSX_GPU_COMPACT_DMABACK: 1 (default) compacted CPU mirror of the transform
+// cache and bounds, 0 full copies every pass, 2 compacted plus a verifying
+// full copy (mismatches reported on stderr).
+static int compactDmaBackMode()
+{
+	static const int value = []{ const char* raw = ::getenv("PHYSX_GPU_COMPACT_DMABACK"); return raw ? ::atoi(raw) : 1; }();
+	return value;
+}
 
 PxgArticulationBuffer::PxgArticulationBuffer(PxgHeapMemoryAllocator& deviceAlloc) :
 	links(deviceAlloc, PxsHeapStats::eSIMULATION_ARTICULATION),
@@ -343,6 +355,11 @@ PxgSimulationCore::PxgSimulationCore(PxgCudaKernelWranglerManager* gpuKernelWran
 	mActivateBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mDeactivateBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mUpdatedDirectBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mTouchedBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mCompactCountBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mCompactIndicesStaging(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mCompactBoundsStaging(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mCompactTransformsStaging(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mReboundShapeIndices(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mBodySimCudaBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mBodySimPreviousVelocitiesCudaBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
@@ -602,6 +619,7 @@ void PxgSimulationCore::releaseGpuStreamsAndEvents()
 	mCudaContext->eventDestroy(mDmaEvent);
 	mDmaEvent = NULL;
 
+	releaseCompactMirror();
 	PX_PINNED_MEMORY_FREE(*mCudaContextManager, mEventMapped);
 }
 
@@ -614,6 +632,8 @@ void PxgSimulationCore::constructDescriptor(CUdeviceptr boundsd, CUdeviceptr cha
 	desc.mFrozenBlockAndRes = mFrozenBlockAndResBuffer.getTypedPtr();
 	desc.mUnfrozenBlockAndRes = mUnfrozenBlockAndResBuffer.getTypedPtr();
 	desc.mUpdated = mUpdatedBuffer.getTypedPtr();
+	desc.mTouched = mTouchedBuffer.getTypedPtr();
+	desc.mTouchedCapacity = PxU32(mTouchedBuffer.getSize() / sizeof(PxU32));
 	desc.mActivate = mActivateBuffer.getTypedPtr();
 	desc.mDeactivate = mDeactivateBuffer.getTypedPtr();
 
@@ -2183,6 +2203,7 @@ void PxgSimulationCore::gpuMemDmaUp(const PxU32 nbTotalBodies, const PxU32 nbTot
 	//const PxU32 roundElement = (nbTotalShapes + 31) & (~31);
 	const PxU32 roundElement = bitMapWordCounts * 32;
 	mUpdatedBuffer.allocate(roundElement * sizeof(PxU32), PX_FL);
+	ensureTouchedCapacity(roundElement);
 
 	//initialize all the sleeping stage buffers to be 0
 	mCudaContext->memsetD32Async(mFrozenBuffer.getDevicePtr(), 0, nbTotalShapes, mStream);
@@ -2266,8 +2287,115 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 	if(!mGpuContext->getEnableDirectGPUAPI())
 	{
 		CUdeviceptr boundsd = mUseGpuBp ? mGpuContext->mGpuBp->getBoundsBuffer().getDevicePtr() : mBoundsBuffer.getDevicePtr();
-		mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
-		mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+		// PHYSX_GPU_COMPACT_DMABACK (default 1, adaptive): copy back only the
+		// elements a device kernel touched since the last DMA back
+		// (post-integration update, Direct-API pose sets) when the previous
+		// pass gathered at most half of them; otherwise full copies plus a
+		// count. 3 = always gather; 0 = full copies; 2 = gather and verify
+		// against a full copy (mismatches on stderr). The gather lands in
+		// device staging and only a prefix (previous count with headroom) is
+		// DMA'd; the rare remainder is fetched synchronously in syncDmaback.
+		const int compact = compactDmaBackMode();
+		const PxU32 elementCount = PxMin(PxMin(boundCapacity, cachedCapacity), PxU32(mTouchedBuffer.getSize() / sizeof(PxU32)));
+		bool handled = false;
+		if(compact && mUseGpuBp && elementCount)
+		{
+			if(elementCount > mCompactCapacity)
+			{
+				releaseCompactMirror();
+				mCompactCapacity = elementCount;
+				mCompactIndicesMapped = PX_PINNED_MEMORY_ALLOC_FLAGS(PxU32, *mCudaContextManager, elementCount, CU_MEMHOSTALLOC_PORTABLE);
+				mCompactBoundsMapped = PX_PINNED_MEMORY_ALLOC_FLAGS(PxBounds3, *mCudaContextManager, elementCount, CU_MEMHOSTALLOC_PORTABLE);
+				mCompactTransformsMapped = PX_PINNED_MEMORY_ALLOC_FLAGS(PxsCachedTransform, *mCudaContextManager, elementCount, CU_MEMHOSTALLOC_PORTABLE);
+				mCompactCountMapped = PX_PINNED_MEMORY_ALLOC_FLAGS(PxU32, *mCudaContextManager, 1, CU_MEMHOSTALLOC_PORTABLE);
+				mCompactCountBuffer.allocate(sizeof(PxU32), PX_FL);
+				mCompactIndicesStaging.allocate(sizeof(PxU32) * elementCount, PX_FL);
+				mCompactBoundsStaging.allocate(sizeof(PxBounds3) * elementCount, PX_FL);
+				mCompactTransformsStaging.allocate(sizeof(PxsCachedTransform) * elementCount, PX_FL);
+				mCompactLastCount = 0; mCompactLastElements = 0;
+			}
+			if(mCompactIndicesMapped && mCompactBoundsMapped && mCompactTransformsMapped && mCompactCountMapped)
+			{
+				const bool gather = compact != 1 || mCompactLastElements == 0 || mCompactLastCount * 2u <= mCompactLastElements;
+				// While most elements move, the full copies stay and the touched marks
+				// accumulate; they are counted (as a conservative union) every eighth
+				// pass only, so the all-awake regime pays nothing per pass.
+				++mCompactPassCounter;
+				if(!gather && (mCompactPassCounter & 7u) != 0)
+				{
+					mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
+					mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+					handled = true;
+				}
+				else
+				{
+				CUdeviceptr scDescd = mUpdatedCacheAndBoundsDescBuffer.getDevicePtr();
+				CUdeviceptr directd = mUpdatedDirectBuffer.getDevicePtr();
+				if(PxU32(mUpdatedDirectBuffer.getSize() / sizeof(PxU32)) < elementCount)
+					directd = 0;
+				CUdeviceptr indicesd = gather ? mCompactIndicesStaging.getDevicePtr() : 0;
+				CUdeviceptr boundsOutd = gather ? mCompactBoundsStaging.getDevicePtr() : 0;
+				CUdeviceptr transformsOutd = gather ? mCompactTransformsStaging.getDevicePtr() : 0;
+				CUdeviceptr countd = mCompactCountBuffer.getDevicePtr();
+				const PxU32 capacity = gather ? mCompactCapacity : 0u;
+				mCudaContext->memsetD32Async(countd, 0, 1, mStream);
+				PxCudaKernelParam params[] =
+				{
+					PX_CUDA_KERNEL_PARAM(scDescd),
+					PX_CUDA_KERNEL_PARAM(directd),
+					PX_CUDA_KERNEL_PARAM(elementCount),
+					PX_CUDA_KERNEL_PARAM(indicesd),
+					PX_CUDA_KERNEL_PARAM(boundsOutd),
+					PX_CUDA_KERNEL_PARAM(transformsOutd),
+					PX_CUDA_KERNEL_PARAM(countd),
+					PX_CUDA_KERNEL_PARAM(capacity)
+				};
+				CUfunction compactFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::COMPACT_TOUCHED_CACHE_AND_BOUNDS);
+				const PxU32 blocks = PxMin(2048u, (elementCount + 255u) / 256u);
+				CUresult compactResult = mCudaContext->launchKernel(compactFunction, blocks, 1, 1, 256, 1, 1, 0, mStream, params, sizeof(params), 0, PX_FL);
+				PX_ASSERT(compactResult == CUDA_SUCCESS); PX_UNUSED(compactResult);
+				mCudaContext->memcpyDtoHAsync(mCompactCountMapped, countd, sizeof(PxU32), mStream);
+				if(gather)
+				{
+					// Prefix sized from the previous pass with headroom; the
+					// remainder (rare) is fetched synchronously after the sync.
+					mCompactEstimate = PxMin(mCompactCapacity, PxMax(mCompactLastCount + (mCompactLastCount >> 2) + 1024u, 4096u));
+					mCudaContext->memcpyDtoHAsync(mCompactIndicesMapped, indicesd, sizeof(PxU32) * mCompactEstimate, mStream);
+					mCudaContext->memcpyDtoHAsync(mCompactBoundsMapped, boundsOutd, sizeof(PxBounds3) * mCompactEstimate, mStream);
+					mCudaContext->memcpyDtoHAsync(mCompactTransformsMapped, transformsOutd, sizeof(PxsCachedTransform) * mCompactEstimate, mStream);
+				}
+				else
+				{
+					mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
+					mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+				}
+				mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr(), 0, mTouchedBuffer.getSize() / sizeof(PxU32), mStream);
+				mDmaBackBounds = bounds; mDmaBackTransforms = cachedTransforms; mDmaBackElementCount = elementCount;
+				mCompactPending = true; mCompactGathered = gather; mCompactLastElements = elementCount;
+				if(compact == 2 && gather)
+				{
+					if(mVerifyCapacity < PxMax(boundCapacity, cachedCapacity))
+					{
+						if(mVerifyBounds) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mVerifyBounds);
+						if(mVerifyTransforms) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mVerifyTransforms);
+						mVerifyCapacity = PxMax(boundCapacity, cachedCapacity);
+						mVerifyBounds = PX_PINNED_MEMORY_ALLOC_FLAGS(PxBounds3, *mCudaContextManager, mVerifyCapacity, CU_MEMHOSTALLOC_PORTABLE);
+						mVerifyTransforms = PX_PINNED_MEMORY_ALLOC_FLAGS(PxsCachedTransform, *mCudaContextManager, mVerifyCapacity, CU_MEMHOSTALLOC_PORTABLE);
+					}
+					mCudaContext->memcpyDtoHAsync(mVerifyBounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
+					mCudaContext->memcpyDtoHAsync(mVerifyTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+				}
+				handled = true;
+				}
+			}
+		}
+		if(!handled)
+		{
+			mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
+			mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+			if(mTouchedBuffer.getSize())
+				mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr(), 0, mTouchedBuffer.getSize() / sizeof(PxU32), mStream);
+		}
 	}
     if(mGpuContext->getEnableDirectGPUAPI() || mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs())
 	{
@@ -2321,6 +2449,89 @@ void PxgSimulationCore::syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnf
 
 	nbFrozenShapesThisFrame = mUpdatedCacheAndBoundsDesc.get().mTotalFrozenShapes;
 	nbUnfrozenShapesThisFrame = mUpdatedCacheAndBoundsDesc.get().mTotalUnfrozenShapes;
+
+	if (mCompactPending)
+	{
+		mCompactPending = false;
+		if (didSimulate && mDmaBackBounds && mDmaBackTransforms)
+		{
+			const PxU32 total = *mCompactCountMapped;
+			mCompactLastCount = total;
+			if (total > mCompactCapacity)
+				PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Compacted cache/bounds DMA back overflowed (%u > %u).", total, mCompactCapacity);
+			const PxU32 count = PxMin(total, mCompactCapacity);
+			const PxU32 limit = mDmaBackElementCount;
+			if (mCompactGathered)
+			{
+				if (count > mCompactEstimate)
+				{
+					// The prefix estimate was short: fetch the remainder now (synchronous, rare).
+					const PxU32 from = mCompactEstimate, n = count - from;
+					mCudaContext->memcpyDtoH(mCompactIndicesMapped + from, mCompactIndicesStaging.getDevicePtr() + sizeof(PxU32) * from, sizeof(PxU32) * n);
+					mCudaContext->memcpyDtoH(mCompactBoundsMapped + from, mCompactBoundsStaging.getDevicePtr() + sizeof(PxBounds3) * from, sizeof(PxBounds3) * n);
+					mCudaContext->memcpyDtoH(mCompactTransformsMapped + from, mCompactTransformsStaging.getDevicePtr() + sizeof(PxsCachedTransform) * from, sizeof(PxsCachedTransform) * n);
+				}
+				for (PxU32 i = 0; i < count; ++i)
+				{
+					const PxU32 index = mCompactIndicesMapped[i];
+					if (index < limit)
+					{
+						mDmaBackBounds[index] = mCompactBoundsMapped[i];
+						mDmaBackTransforms[index] = mCompactTransformsMapped[i];
+					}
+				}
+				if (compactDmaBackMode() == 2 && mVerifyBounds && mVerifyTransforms)
+				{
+					PxU32 boundMismatch = 0, transformMismatch = 0;
+					for (PxU32 i = 0; i < limit; ++i)
+					{
+						if (memcmp(&mDmaBackBounds[i], &mVerifyBounds[i], sizeof(PxBounds3)) != 0) ++boundMismatch;
+						if (memcmp(&mDmaBackTransforms[i], &mVerifyTransforms[i], sizeof(PxsCachedTransform)) != 0) ++transformMismatch;
+					}
+					static PxU32 passes = 0; ++passes;
+					if (boundMismatch || transformMismatch || (passes % 64) == 0)
+						fprintf(stderr, "[compact-dmaback] pass %u: gathered %u of %u elements (prefix %u), mismatches bounds=%u transforms=%u\n",
+							passes, count, limit, mCompactEstimate, boundMismatch, transformMismatch);
+				}
+			}
+		}
+	}
+}
+
+void PxgSimulationCore::ensureTouchedCapacity(PxU32 elements)
+{
+	const PxU64 required = PxU64(elements) * sizeof(PxU32);
+	const PxU64 current = mTouchedBuffer.getSize();
+	if (required <= current)
+		return;
+	// Preserve pending marks (the merge kernel folds Direct-API handles in
+	// before the DMA back) and zero the new tail.
+	mTouchedBuffer.allocateCopyOldDataAsync(required, mCudaContext, mStream, PX_FL);
+	const PxU64 grown = mTouchedBuffer.getSize();
+	if (grown > current)
+		mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr() + current, 0, (grown - current) / sizeof(PxU32), mStream);
+	// The Direct-API descriptor lives on the device between gpuDmaUpdateData
+	// calls: refresh its touched pointer so the merge kernel never writes into
+	// the released buffer.
+	PxgUpdateActorDataDesc& actorDesc = mUpdatedActorDataDesc.get();
+	actorDesc.mTouched = mTouchedBuffer.getTypedPtr();
+	actorDesc.mTouchedCapacity = PxU32(grown / sizeof(PxU32));
+	if (mUpdatedActorDescBuffer.getDevicePtr())
+		mCudaContext->memcpyHtoDAsync(mUpdatedActorDescBuffer.getDevicePtr() + PX_OFFSET_OF(PxgUpdateActorDataDesc, mTouched),
+			&actorDesc.mTouched, sizeof(PxgUpdateActorDataDesc) - PX_OFFSET_OF(PxgUpdateActorDataDesc, mTouched), mStream);
+}
+
+void PxgSimulationCore::releaseCompactMirror()
+{
+	if (mCompactIndicesMapped) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mCompactIndicesMapped);
+	if (mCompactBoundsMapped) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mCompactBoundsMapped);
+	if (mCompactTransformsMapped) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mCompactTransformsMapped);
+	if (mCompactCountMapped) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mCompactCountMapped);
+	mCompactIndicesMapped = NULL; mCompactBoundsMapped = NULL; mCompactTransformsMapped = NULL; mCompactCountMapped = NULL;
+	mCompactCapacity = 0; mCompactPending = false;
+	if (mVerifyBounds) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mVerifyBounds);
+	if (mVerifyTransforms) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mVerifyTransforms);
+	mVerifyBounds = NULL; mVerifyTransforms = NULL; mVerifyCapacity = 0;
 }
 
 bool PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies, PxgDestructionRuntime* commandInputs, PxU32 bodyCount)
@@ -3350,6 +3561,9 @@ void PxgSimulationCore::gpuDmaUpdateData()
 	desc.mShapes = reinterpret_cast<PxgShape*>(mGpuContext->mGpuNpCore->mGpuShapesManager.mGpuShapesBuffer.getDevicePtr());
 	desc.mTransformCache = reinterpret_cast<PxsCachedTransform*>(mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr());
 	desc.mShapeSimsBufferDeviceData = mPxgShapeSimManager.getShapeSimsDeviceTypedPtr();
+	ensureTouchedCapacity(desc.mBitMapWordCounts * 32);
+	desc.mTouched = mTouchedBuffer.getTypedPtr();
+	desc.mTouchedCapacity = PxU32(mTouchedBuffer.getSize() / sizeof(PxU32));
 	mCudaContext->memcpyHtoDAsync(mUpdatedActorDescBuffer.getDevicePtr(), &desc, sizeof(PxgUpdateActorDataDesc), mStream);
 }
 
