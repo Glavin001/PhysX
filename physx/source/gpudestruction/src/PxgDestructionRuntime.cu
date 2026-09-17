@@ -1176,7 +1176,7 @@ public:
             // joined once (a synchronous cudaMemcpy would run on the legacy default
             // stream and implicitly join every blocking stream, including the rigid
             // solver; mStream may already carry an early-submitted stress chain).
-            if(!mObserveStream)check(cudaStreamCreateWithFlags(&mObserveStream,cudaStreamNonBlocking));
+            if(!mObserveStream){int lo=0,hi=0;cudaDeviceGetStreamPriorityRange(&lo,&hi);check(cudaStreamCreateWithPriority(&mObserveStream,cudaStreamNonBlocking,hi));}
             const auto observeStream=mObserveStream;
             check(cudaStreamWaitEvent(observeStream,mGraphReady,0));
             const PxU32 n=mGraphView.nodeCapacity;if(!n)return false;

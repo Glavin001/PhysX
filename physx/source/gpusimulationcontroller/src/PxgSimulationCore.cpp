@@ -2276,8 +2276,8 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 	CUstream dmaStream = mStream;
 	if(mDmaBackOnSideStream)
 	{
-		mCudaContext->eventRecord(mDmaBackReady, mStream);
-		mCudaContext->streamWaitEvent(mDmaBackStream, mDmaBackReady, 0);
+		if(mDmaBackJoinEvent) { mCudaContext->streamWaitEvent(mDmaBackStream, mDmaBackJoinEvent, 0); mDmaBackJoinEvent = NULL; }
+		else { mCudaContext->eventRecord(mDmaBackReady, mStream); mCudaContext->streamWaitEvent(mDmaBackStream, mDmaBackReady, 0); }
 		dmaStream = mDmaBackStream;
 	}
 	// AD: DtoH memcopies, need to be skip safe!

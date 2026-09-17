@@ -26,6 +26,8 @@
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 
 #include "PxgSimulationController.h"
+#include "foundation/PxTime.h"
+#include "foundation/PxThread.h"
 #include <cstdlib>
 #include <cstdio>
 namespace {
@@ -770,8 +772,13 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     bool PxgSimulationController::usesGpuDestructionIslandRepair() const {
         return usesDeviceDestructionContactInputs() && mDestruction->gpuIslandRepairEnabled();
     }
+    // PHYSX_DESTRUCTION_DEVICE_SLEEP: 0 = CPU early sleep commit at the arm (previous
+    // default); 8 = audit of the device sleep reduction; 9 (default) = device-driven
+    // sleep transition and stress submit at the solver issue (README §14). Mode 9 is
+    // lossless (identical histories, g16) and falls back to the CPU commit and the
+    // ordinary submit on passes where the device enqueue cannot run.
     static int destructionDeviceSleepMode() {
-        static const int mode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):0;}();
+        static const int mode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):9;}();
         return mode;
     }
     // Mode 9 isolation knobs: keep the CPU rollback commit too (double application),
@@ -1109,7 +1116,13 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         // individually since (wake/command paths erase them from the CPU set),
         // minus deleted or re-assigned nodes.
         mDestructionCarried.forceSize_Unsafe(0);
-        if(mDestructionAuditIslands) {
+        // The CPU's rollback set re-lists the previous pass's decisions (afterIntegration
+        // inserts them after the pending sets were cleared), but at the device level that
+        // re-application is a no-op (pass-end device-state diff, 2026-09-18: the default
+        // leaves those bodies with their corrected-pass motion); applying it changed the
+        // history. PHYSX_DESTRUCTION_DEVICE_SLEEP_CARRY=1 re-enables it for audits.
+        static const bool carry=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_CARRY");return raw && raw[0]=='1';}();
+        if(mDestructionAuditIslands && carry) {
             const IG::IslandSim& asim=mDestructionAuditIslands->getAccurateIslandSim();
             PxHashSet<PxU32> finalized;for(PxU32 i=0;i<mDestructionFinalizedSince.size();++i)finalized.insert(mDestructionFinalizedSince[i]);
             for(PxU32 i=0;i<mDestructionPrevFresh.size();++i) {
@@ -1188,6 +1201,9 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(listPtr),PX_CUDA_KERNEL_PARAM(actorDesc),PX_CUDA_KERNEL_PARAM(prevVelocities),PX_CUDA_KERNEL_PARAM(countPtr)};
             if(cuda->launchKernel(mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_ZERO_MOTION_DEVICE),blocks,1,1,256,1,1,0,stream,params,sizeof(params),0,PX_FL)!=0)return false;
         }
+        // Note: joining the post-solve copy-back to an event recorded here (instead of the
+        // core-stream head) breaks identity: the core stream also carries the correction's
+        // acceptance and installs after this point, which the copy-back must include.
         return true;
     }
     // Mode 8 audit: the device list against the CPU rollback set of this pass's
@@ -1447,6 +1463,32 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.finishAndReserve",false,profileContext);
             complete=mDestruction->finish();
+        }
+        // PHYSX_DESTRUCTION_PASS_DUMP=1: after the finish wait (host already joined the
+        // device), dump body sims, previous velocities and bounds of trial ordinals
+        // 85..92 for a pass-boundary device-state diff between sleep-transition variants.
+        {
+            static const bool passDump=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_PASS_DUMP");return raw && raw[0]=='1';}();
+            static PxU32 trialOrdinal=0;if(!postCorrection)++trialOrdinal;
+            static const bool passTrace=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_PASS_TRACE");return raw && raw[0]=='1';}();
+            if(passTrace && trialOrdinal>=84 && trialOrdinal<=92) {
+                const PxU32* apply=NULL;const PxU32 applyCount=mDestruction->readDeviceSleepApply(apply);
+                fprintf(stderr,"[pass-trace] ordinal %u %s arrivals %d enqueued %d applied %d carried %u applyCount %u gpuRepair %d earlySubmitted %d earlyOk %d\n",
+                    trialOrdinal,postCorrection?"corrected":"trial",int(mDestructionTransitionArrivals),int(mDestructionTransitionEnqueued),int(mDestructionTransitionApplied),
+                    mDestructionCarried.size(),applyCount,int(usesGpuDestructionIslandRepair()),int(mDestructionEarlySubmitted),int(mDestructionEarlyOk));
+            }
+            if(passDump && trialOrdinal>=85 && trialOrdinal<=92) {
+                PxScopedCudaLock lock(*mCudaContextManager);PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+                cuda->streamSynchronize(mSimulationCore->getStream());cuda->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
+                const PxU32 nbBodies=mBodySimManager.mTotalNumBodies;const PxU32 bodyBytes=PxU32(sizeof(PxgBodySim));
+                const PxU32 nbShapes=mSimulationCore->getNumTotalShapes();
+                PxArray<PxU8> hb(nbBodies*bodyBytes);PxArray<PxgBodySimVelocities> hv(nbBodies);PxArray<PxBounds3> hs(nbShapes);
+                cuda->memcpyDtoH(hb.begin(),mSimulationCore->getBodySimBufferDevicePtr(),PxU64(nbBodies)*bodyBytes);
+                cuda->memcpyDtoH(hv.begin(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr(),PxU64(nbBodies)*sizeof(PxgBodySimVelocities));
+                cuda->memcpyDtoH(hs.begin(),mDynamicContext->getGpuBroadPhase()->getBoundsBuffer().getDevicePtr(),PxU64(nbShapes)*sizeof(PxBounds3));
+                char name[160];snprintf(name,sizeof(name),"%s/pass-%u-%s.bin",::getenv("PHYSX_DESTRUCTION_PASS_DUMP_DIR")?::getenv("PHYSX_DESTRUCTION_PASS_DUMP_DIR"):".",trialOrdinal,postCorrection?"c":"t");
+                if(FILE* f=fopen(name,"wb")){fwrite(&nbBodies,4,1,f);fwrite(&bodyBytes,4,1,f);fwrite(&nbShapes,4,1,f);fwrite(hb.begin(),1,hb.size(),f);fwrite(hv.begin(),sizeof(PxgBodySimVelocities),nbBodies,f);fwrite(hs.begin(),sizeof(PxBounds3),nbShapes,f);fclose(f);}
+            }
         }
         if(ok) {
             PxProfileScoped validation(PxGetProfilerCallback(),"GpuDestruction.validatePreparation",false,profileContext);
@@ -4139,16 +4181,18 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
 	{
 		if (mHasBeenSimulated)
 		{
+            // Mode 9: the copy-back's stream dependency is captured at enqueue time, so
+            // the device sleep transition must be enqueued first (the CPU commit at the
+            // arm always precedes this call). Bounded wait for the second arrival.
+            if(destructionDeviceSleepMode()==9 && mDestruction && usesGpuDestructionIslandRepair() && !mDestructionTransitionEnqueued && mDestructionSolverIssued) {
+                PxProfileScoped wait(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.dmaWaitsTransition",false,PxU64(reinterpret_cast<size_t>(this)));
+                PxTime timer;
+                while(!mDestructionTransitionEnqueued && mDestructionTransitionArrivals<2 && timer.peekElapsedSeconds()<0.02){PxThread::yield();}
+            }
             // Mode 9: the copy-back's stream dependency is captured at enqueue time,
             // so the device sleep transition must be enqueued first (the CPU commit
             // at the arm always precedes this call). Wait (bounded) for the second
             // arrival when the island repair will provide it.
-            if(destructionDeviceSleepMode()==9 && mDestruction && usesGpuDestructionIslandRepair() && !mDestructionTransitionEnqueued && mDestructionSolverIssued) {
-                PxProfileScoped wait(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.dmaWaitsTransition",false,PxU64(reinterpret_cast<size_t>(this)));
-                const PxU64 start=PxTime::getCurrentCounterValue();
-                while(!mDestructionTransitionEnqueued && mDestructionTransitionArrivals<2 && PxTime::getCounterFrequency()>0
-                    && double(PxTime::getCurrentCounterValue()-start)/double(PxTime::getCounterFrequency())<0.02){PxThread::yield();}
-            }
 			mCudaContextManager->acquireContext();
 
 			const PxU32 nbTotalBodies = mBodySimManager.mTotalNumBodies;

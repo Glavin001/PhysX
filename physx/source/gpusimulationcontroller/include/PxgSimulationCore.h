@@ -462,6 +462,11 @@ namespace physx
 		// Event completing the latest copy-back; core-stream writers of the
 		// copied buffers (sleep pose-sets) wait on it.
 		CUevent						getDmaBackDoneEvent() const { return mDmaBackOnSideStream ? mDmaBackDone : NULL; }
+		// When set, the next copy-back's side stream joins this event instead of the core
+		// stream head (an early-submitted destruction chain queued behind it must not delay
+		// the copy-back). Cleared by gpuMemDmaBack.
+		CUevent						mDmaBackJoinEvent = NULL;
+		void						setDmaBackJoinEvent(CUevent e) { mDmaBackJoinEvent = e; }
 	private:
 		PxBounds3*					mDmaBackBounds = NULL;
 		PxsCachedTransform*			mDmaBackTransforms = NULL;
