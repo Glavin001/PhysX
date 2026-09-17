@@ -168,6 +168,10 @@ __global__ void deviceStressTiles(const unsigned* keys, unsigned count, const un
 // Workload specialization, not a device/backend fallback. Larger components
 // retain cooperative iteration; small components synchronize within one CTA.
 constexpr unsigned kResidentComponentMaxNodes = 1024u;
+__global__ void stressComponentSizeKeys(const unsigned* live,const unsigned* rangeBegin,const unsigned* rangeEnd,unsigned* keys,unsigned n){
+    const unsigned id=blockIdx.x*blockDim.x+threadIdx.x;if(id>=n)return;
+    keys[id]=live[id]?(rangeEnd[id]-rangeBegin[id]):0u;
+}
 __global__ void flagLargeStressComponents(const unsigned* begin, const unsigned* end,
     unsigned* flags, unsigned count)
 {
@@ -220,6 +224,8 @@ class DeviceStressTopology
     unsigned *componentNodes=nullptr, *largeIslands=nullptr, *largeCount=nullptr;
     SolveStatus* componentResults=nullptr;
     unsigned* componentWorkCursor=nullptr;
+    unsigned* sizeKeys=nullptr; // largest-first dispatch keys (component node counts)
+    unsigned* dispatchIds=nullptr; // live ids permuted largest first; read only by the persistent solve
     void *sortScratch=nullptr, *scanScratch=nullptr;
     size_t sortBytes=0, scanBytes=0;
     DeviceStressTopologyBatch* batch=nullptr;
@@ -336,6 +342,17 @@ class DeviceStressTopology
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,
             rootFlags,liveIslands,&state->islandCount,b.n,captureStream), "compact resident stress components");
         componentOrder();
+        // Largest-first dispatch (LPT): the persistent solve claims components
+        // in list order, so the longest level chains must not be claimed last.
+        // Stable descending sort by node count over all ids (dead ids key 0)
+        // into a separate dispatch permutation; the first islandCount entries
+        // are the live ids, largest first, ties by ascending id. The ascending
+        // live list stays the identity every other consumer (hierarchy pools,
+        // certificates, slots) relies on; only the solve kernels read this one.
+        if(nativeLargestFirst()){
+            stressComponentSizeKeys<<<nodeBlocks,kBlockSize,0,captureStream>>>(rootFlags,rangeBegin,rangeEnd,sizeKeys,b.n);
+            checkCuda(cub::DeviceRadixSort::SortPairsDescending(sortScratch,sortBytes,sizeKeys,sortedKeys,identity,dispatchIds,b.n,0,32,captureStream), "order resident components largest first");
+        }
 #endif
         flagDeviceStressRows<<<bondBlocks,kBlockSize,0,captureStream>>>(b.bondIsland,b.m,b.activeFlags);
         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,b.activeFlags,b.activeBonds,b.activeCounts,b.m,captureStream), "compact device stress bonds");
@@ -386,7 +403,7 @@ public:
         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
         cudaFree(componentNodes); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
-        cudaFree(componentWorkCursor);
+        cudaFree(componentWorkCursor); cudaFree(sizeKeys); cudaFree(dispatchIds);
     }
     void init(cudaStream_t stream)
     {
@@ -395,7 +412,7 @@ public:
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         allocate(forest,b.m); allocate(liveIslands,b.n); allocate(componentNodes,b.n);
         allocate(largeIslands,b.n); allocate(largeCount,1); allocate(componentResults,b.n);
-        allocate(componentWorkCursor,1);
+        allocate(componentWorkCursor,1); allocate(sizeKeys,b.n); allocate(dispatchIds,b.n);
         allocate(sortedKeys,b.n); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n);
         checkCuda(cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,b.nodeIsland,sortedKeys,
             identity,componentNodes,b.n), "size resident component sorting");
@@ -434,4 +451,7 @@ public:
 #endif
     ResidentStressComponentView components() const
     { return {liveIslands,&state->islandCount,componentNodes,rangeBegin,rangeEnd,largeIslands,largeCount,componentResults,componentWorkCursor}; }
+    // Same view with the dispatch permutation (largest first) for the persistent solve.
+    ResidentStressComponentView componentsForSolve() const
+    { return {nativeLargestFirst()?dispatchIds:liveIslands,&state->islandCount,componentNodes,rangeBegin,rangeEnd,largeIslands,largeCount,componentResults,componentWorkCursor}; }
 };

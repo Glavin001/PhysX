@@ -277,8 +277,9 @@
                 const unsigned tinyCtas=nativeTinyCtasPerSm();
                 const unsigned tinyLimit=tinyCtas?kTinyComponentNodes:0u;
                 const unsigned directCapacity=m_directCapacityNodes?m_directCapacityNodes:kResidentComponentMaxNodes;
-                if(tinyCtas)componentStressSolve<true><<<std::min(m_nodeCount,unsigned(sms*tinyCtas)),32,0,m_stream>>>(args,components,tinyLimit,8u);
-                componentStressSolve<false><<<std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm())),kBlockSize,6u*sizeof(float)*directCapacity,m_stream>>>(args,components,tinyLimit,directCapacity);
+                const ResidentStressComponentView dispatch=m_deviceTopology->componentsForSolve();
+                if(tinyCtas)componentStressSolve<true><<<std::min(m_nodeCount,unsigned(sms*tinyCtas)),32,0,m_stream>>>(args,dispatch,tinyLimit,8u);
+                componentStressSolve<false><<<std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm())),kBlockSize,6u*sizeof(float)*directCapacity,m_stream>>>(args,dispatch,tinyLimit,directCapacity);
             }
             args.islandIds=components.largeIds;
             args.liveIslandCount=components.largeCount;

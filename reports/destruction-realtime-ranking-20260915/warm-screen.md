@@ -1435,3 +1435,9 @@ Candidate = runtime and GPU module at `6cf194b1` (dense-tiny path confined to th
 ## Reserved contact pairs as a scene setting (bit-identical; demo default 1.5 pairs per chunk)
 
 `PxDestructionStressDesc::reservedContactPairs` carries the page-touched slab reserve through the runtime and the simulation controller to `Sc::Scene`, which serves it at the next step after configuration (the environment variable still overrides). The demo sets `--reserve-pairs N` or, by default, 1.5 pairs per chunk capped at 1 M (170 k for city256, about 94 MB). g16 3 s bombardment, profiled, three interleaved pairs against the control binary, histories bit-identical, 36/36 tests: preallocateContactManagers at the impact tick 13.9 / 15.1 / 12.0 → 7.7 / 5.0 / 5.3 ms; impact tick 187 / 236 / 231 → 164 / 203 / 222 ms; initialization 2.99 / 3.70 / 2.87 → 2.92 / 2.95 / 2.93 s; run means equal within noise under profiling.
+
+## Stress solve: largest-first component dispatch (lossless, default on)
+
+The persistent solve claims components from a device work cursor in live-list order, and the live list is ascending by component id, so the longest level chains (the largest remnants) could be claimed last and extend the solve's tail. The topology build now also produces a dispatch permutation: a stable descending radix sort by node count over all ids (dead ids key 0) whose first `islandCount` entries are the live ids largest first, ties by ascending id. Only the solve kernels read it (`componentsForSolve`); every other consumer keeps the ascending list, which the hierarchy's residency pools identify components by (a first attempt that reordered the live list itself tripped that check, stage error 64). `BLAST_GPU_NATIVE_LARGEST_FIRST=0` restores list order.
+
+g16 3 s bombardment, same binary, interleaved off/on, three pairs, histories bit-identical: run mean 31.80 → 31.39 ms, late window 51.86 → 51.03 ms, each pair in the same direction.
