@@ -2041,11 +2041,21 @@ bool Sc::Scene::queueDestructionQueryMembership(const PxU32* indices, PxU32 coun
 {
     PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.queryMembershipQueue",false,
         PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    // The copied frozen/unfrozen index lists are only meaningful below the
+    // shape count; an index beyond it is a stale or uninitialised copy-back
+    // entry (seen intermittently as ~100k bogus entries) and is dropped.
+    const PxU32 shapeCount=mSimulationController->getNbShapes();
+    PxU32 dropped=0;
     for(PxU32 i=0;i<count;++i) {
         const PxU32 id=indices[i];
+        if(id>=shapeCount){++dropped;continue;}
         if(mDestructionQueryDirty.boundedTest(id))continue;
         if(!mDestructionQueryDirty.growAndSet(id))return false;
         mDestructionQueryShapes.pushBack(id);
+    }
+    if(dropped){
+        static const bool scopeDiag=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG")!=NULL;
+        if(scopeDiag)fprintf(stderr,"[query-diag] dropped %u of %u query indices beyond the shape count %u\n",dropped,count,shapeCount);
     }
     return true;
 }

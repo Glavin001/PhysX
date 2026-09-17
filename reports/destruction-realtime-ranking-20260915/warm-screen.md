@@ -1860,3 +1860,31 @@ g16 3 s bombardment (profiled), mode 6 vs default, two mode-6 runs identical:
 The dormant pass keeps the warm trial motion of untouched islands instead of a cold re-solve, so more
 bodies stay awake and more clusters form; the bond total is 0.5 % above the top of the default's
 order-rotation range (56,077–60,797), so the §11 ensemble decides acceptance (run recorded below).
+
+### Ensemble verdict for mode 6 (`out/direct-ensemble-20260917-mode6`, §11 protocol, four rotations per arm)
+
+| arm | bonds broken (rotations 0 / 7 / 101 / 1013) | median | tick mean | peak | 60 Hz misses | motion audit |
+|---|---:|---:|---:|---:|---:|---:|
+| control (default) | 56,077 / 58,680 / 60,797 / 58,237 | 58,458 | 20.9–23.5 ms | 95–106 | 97–98 | 1.7–2.2e-5 |
+| mode 6 | 61,130 / 61,150 / 60,333 / 61,551 | 61,140 | 20.1–20.2 | 95–99 | 97–98 | 2.2–3.1e-5 |
+
+Mode 6's rotations overlap the top of the control's range (60,333 is inside it) but sit +4.6 % above the
+control median, consistently across rotations, with clean motion audits and no collapse; its tick mean is
+both lower and far more stable across rotations (20.1–20.2 vs 20.9–23.5 ms). The single semantic
+difference is that untouched islands keep their warm trial motion instead of the default's cold re-solve
+(contact and friction caches reset for the whole scene on every correction tick), which damps motion each
+time; more bodies therefore stay awake (11,540 vs 10,520 at tick 150) and more bonds break. That is
+arguably the more faithful outcome, but it is an order-changing default flip under the §11 rule, so mode 6
+stays opt-in (`PHYSX_DESTRUCTION_ISLAND_SCOPE=6`) until the owner decides. The warm nine-window screen and
+the continuous A/B cannot judge it yet: neither runner supports a per-arm environment, and the baseline
+arm's older runtime misinterprets the mode.
+
+Follow-up on the copy-back "flood": with a guard that drops copied query indices beyond the shape count
+(none were dropped), the lists turn out to be valid shape ids: on trial passes after a dormant correction
+the post-integration kernel reports ~95–104k *frozen* shapes (every settled body freezes again each trial
+pass, i.e. the dormant pass returns those bodies with the frozen bit cleared). It is intermittent, has no
+physical effect (histories identical across runs) and, after the guard and the other fixes, no measurable
+cost: three mode-6 runs with the diag firing on 145 passes are the fastest yet (mean 19.95–20.08 ms, late
+window 31.2–31.6, peaks 96–98, 61,130 bonds each). Native tests 8/8. Root cause (which flag the
+reinstatement or the integrate early-out leaves cleared) is still open and only matters for scene-query
+bookkeeping cost.
