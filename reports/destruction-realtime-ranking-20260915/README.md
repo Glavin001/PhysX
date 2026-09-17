@@ -1064,3 +1064,17 @@ and patch streams (dormant pairs would point into the previous pass's buffer whi
 loads and the compaction read the current one). The dormant design therefore needs a per-pair
 "retained output" indirection in the stream pools before any kernel skip pays off; that is the first
 real R5 work item, and it is multi-week.
+
+Correction to the addendum (same day, from the node-level kernel trace): the narrowphase kernels are
+not where the corrected pass spends its time. Per pass, `boxBoxNphase_Kernel` is 0.17 ms, the
+sphere and plane kernels 0.01 ms, the manifold reset 0.002 ms; the contact-constraint prep is 0.5 ms,
+the solver about 1.2 ms, the broad phase 1.5–2 ms. All GPU kernels of a corrected pass sum to about
+4 ms of its 11 ms; the other 7 ms are the CPU sides of its ~15 stages (activity restore 1.2, AABB
+manager update and DMA, narrowphase result processing over all pairs ~1, island and partition update
+~1.5, post-solve body status and sleep work ~2, sleep commit 0.5, acceptance 0.3) and their launch
+and wait latencies. A dormant mask therefore pays only when it filters the CPU per-body and per-pair
+loops of those stages (Sc and Pxg, dozens of sites), not when it skips device kernels; skipping the
+narrowphase kernels alone (with retained outputs) would save ~0.15 ms per pass. That reorders the R5
+work: first the CPU-side filtered lists (activity restore, NP result processing, post-solve body
+status, island maintenance), then constraint prep and solver skips, then the broad-phase insertion
+fast path. Expected value is unchanged (−7 to −9 ms per sustained tick) and so is the cost.
