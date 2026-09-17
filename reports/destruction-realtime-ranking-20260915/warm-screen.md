@@ -1666,3 +1666,14 @@ Placeholder body pool re-measured on the impact tick (`PHYSX_DESTRUCTION_BODY_PO
 ## The 256-impact tick's corrected pass, attributed (2026-09-17, 112 ms tick, pass 56.5 ms)
 
 Broad-phase wait 18.7 ms (the trial's scattered chunks moving back through `performIncrementalSAP`, ~11.6 ms, plus the refactor burst's tail overlapping it); contact-manager preallocation, interaction registration and island insertion ~9 ms of wall across three threads; narrowphase and its result processing ~10 ms; partition, solver and integration ~9 ms; island repair, post-integration and sleep ~4 ms. Nothing in it is a single dominant kernel; it is the full pipeline on a scene that just gained ~10k bodies, plus the burst overlap. The next bounded step is a fracture-count-aware flush point: for large bursts, flush after the corrected broad phase so the burst overlaps the CPU registration and narrowphase instead of the broad phase (expected −7 ms at the impact, nothing sustained).
+
+## Continuous 600-tick A/B/A of the 2026-09-17 scheduling defaults (`out/direct-continuous-ab-20260917c`, desktop stopped for the run)
+
+Candidate = commit `f9d422c3` runtime, GPU module and demo (yield-thread workers); baseline arm unchanged. Two trials per arm, baseline before and after.
+
+| case | baseline mean | candidate mean | 60 Hz misses (of 600) | peak | counters |
+|---|---:|---:|---:|---:|---|
+| impacts-256 (heavy) | 54.2–54.6 ms | 19.4–19.6 | 519 → 248 | 183–188 → 114–116 | identical (28,596 bonds) |
+| idle-256 | 1.59–1.78 | 1.08–1.13 | 0 → 1 (first tick, pair reserve) | 14–15 → 35–36 | identical |
+
+Heavy 54.4 → 19.5 ms against 20.5 at the previous campaign (`17b`); the impact peak 187 → 115. The first attempt of this campaign was aborted by the desktop's screen locker appearing as a GPU process mid-run; the rerun stopped the desktop for its duration.
