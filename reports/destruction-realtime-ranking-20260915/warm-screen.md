@@ -1660,3 +1660,5 @@ Candidate = commit `f9d422c3` runtime and GPU module with the rebuilt probes (wh
 | city256 debris | 129.5 / 131.3 | 64.6 | 73.4 |
 | city25 impact | 25.5 / 23.7 | 13.5 | 15.9 |
 | city256 idle | 2.4 / 1.6 | 1.9 | 1.8 |
+
+Placeholder body pool re-measured on the impact tick (`PHYSX_DESTRUCTION_BODY_POOL=auto`): allocation 7.7 → 5.6 ms and the tick 113.7 → 110.1, but the sustained mean 22.3 → 23.3 and the histories change (59,991 vs 56,077 bonds: placeholders alter body ordering), so it stays opt-in.
