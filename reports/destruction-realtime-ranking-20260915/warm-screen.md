@@ -1392,3 +1392,17 @@ Verdicts under the ensemble protocol:
 - **Pre-heat rejected.** A systematic shift, not an order effect: every rotation breaks 63–65 k bonds against the control's 56–61 k, with heavier ticks. Warm pools change more than the index order (memory placement of interactions and managers reaches pointer-ordered containers); the cause is not established and the 24.5 ms serial preallocation remains an open target that needs an index-preserving pool path instead.
 
 The protocol itself (four orders per arm, compare ranges and medians of bonds, clusters, tick mean, peak, misses; motion audit and no-collapse as hard gates) is adopted provisionally for all order-changing work; the owner can change the orders or the count.
+
+## Stress solve occupancy: dense-tiny path confined to the Tiny instantiation (lossless, default on)
+
+`componentStressSolve` uses 80 registers (3 CTAs per SM by registers with 256 threads) but was carrying 34,400 bytes of static shared memory: the direct-step staging vector (24,576), the dense-tiny path's matrix (7,056, `StressNativeDenseTiny.cuh`, a path that is off by default and was measured slower) and small reductions. With 102,400 bytes per SM that admits only 2 CTAs per SM, 800 bytes short of 3, which matches the earlier "72 active CTAs of 144" finding. The dense-tiny path is now compiled only into the Tiny instantiation, so the large instantiation's shared memory drops to 27,344 bytes and 3 CTAs fit (82 KB).
+
+g16 3 s bombardment, interleaved against the control binary, three trials each, histories bit-identical (56,077 bonds, all counters):
+
+| | control | 3 CTAs/SM |
+|---|---:|---:|
+| run mean (ms) | 31.70 (31.51–31.88) | 31.02 (30.72–31.40) |
+| late window (ms) | 52.44 | 50.90 |
+| peak tick | 183–199 | 183–202 |
+
+Consistent 0.7 ms per tick, 1.5 ms on the late window, from the remnant solve's throughput. A fourth CTA per SM would need shared memory under 25,600 bytes (the staging vector alone is 24,576 for the 1,024-node resident cap) and 64 registers; not pursued.

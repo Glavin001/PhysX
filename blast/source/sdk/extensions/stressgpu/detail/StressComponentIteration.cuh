@@ -134,7 +134,11 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
         // acceptance through its unchanged monitor and verification.
         // Tiny components below the cached-factor minimum take a dense direct
         // step assembled per solve (StressNativeDenseTiny.cuh); same gate.
-        const bool dense=a.hierarchy.direct.enabled && a.hierarchy.direct.denseTiny && count<a.hierarchy.direct.minNodes && count<=kDenseTinyMaxNodes;
+        // The dense-tiny path lives only in the Tiny instantiation: its shared
+        // matrix (7 KB) otherwise costs the large instantiation a third CTA per
+        // SM (34.4 KB per CTA against 102.4 KB per SM). With no size split
+        // (tinyLimit 0) tiny components stay on the cached/PCG path here.
+        const bool dense=Tiny && a.hierarchy.direct.enabled && a.hierarchy.direct.denseTiny && count<a.hierarchy.direct.minNodes && count<=kDenseTinyMaxNodes;
         if(a.m_islandActive[id] && a.hierarchy.direct.enabled && (count>=a.hierarchy.direct.minNodes || dense)){
             if(a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters,1u);
             // A stale factor (topology changed since it was built) is a
@@ -157,7 +161,7 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
                     if(attempt && isfinite(norm) && a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters+2,1u);
                     if(attempt && isfinite(norm) && a.hierarchy.direct.counters && attempts>2u && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters+7,1u);
                     if(attempt && !isfinite(norm)){
-                        if(dense)denseUndoTinyComponent(a,c.nodes+begin,count,id,directX);else directUndoNativeComponent(a,c.nodes+begin,id,directX);
+                        if(Tiny && dense)denseUndoTinyComponent(a,c.nodes+begin,count,id,directX);else directUndoNativeComponent(a,c.nodes+begin,id,directX);
                         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                         if(!threadIdx.x && attempt==1u)directApplied=0;
                         __syncthreads();
@@ -165,7 +169,7 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
                     break;
                 }
                 if(attempt && !(norm<previous)){
-                    if(dense)denseUndoTinyComponent(a,c.nodes+begin,count,id,directX);else directUndoNativeComponent(a,c.nodes+begin,id,directX);
+                    if(Tiny && dense)denseUndoTinyComponent(a,c.nodes+begin,count,id,directX);else directUndoNativeComponent(a,c.nodes+begin,id,directX);
                     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                     if(!threadIdx.x && attempt==1u)directApplied=0;
                     __syncthreads();
@@ -173,7 +177,7 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
                 }
                 if(attempt==attempts)break;
                 previous=norm;
-                if(dense?!denseSolveTinyComponent(a,c.nodes+begin,count,id,directX):!directSolveNativeComponent(a,c.nodes+begin,count,id,directX))break;
+                if((Tiny && dense)?!denseSolveTinyComponent(a,c.nodes+begin,count,id,directX):!directSolveNativeComponent(a,c.nodes+begin,count,id,directX))break;
                 DIRECT_SUBPROBE_END(2)
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
                 if(!threadIdx.x)directApplied=1;
