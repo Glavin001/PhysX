@@ -1548,3 +1548,16 @@ The cooperative motion-mode construction (rigid modes of free components, rebuil
 ## Sleep finalization: one fused zeroing launch instead of four generic setters (lossless, −0.3 ms/tick, default on)
 
 Native sleep finalization (`finalizeSleepingRigidBodies`) zeroed a sleeping body's linear velocity, angular velocity, force and torque through four `setRigidDynamicData` calls, each taking the CUDA context lock and launching its own kernel; the kernel trace showed them 120–170 µs apart on the critical path between integration and the stress-solve submit, twice per tick. `zeroNativeSleepMotion` makes the same writes (velocities, previous velocities, external accelerations) in one launch (`PHYSX_DESTRUCTION_SLEEP_FUSED`, default 1). City256 bombardment, two runs each: 23.13 → 22.81 ms mean (late window 38.6 → 38.0), histories identical, 14/14 tests. The remaining chain between the rigid solver's end and the stress solve (about 2.5 ms per pass: body DMA wait, island maintenance of both sims, sleep commit) is R2 item 1 territory: device-owned sleep decisions would let the stress solve start right after integration while the CPU island work runs alongside.
+
+## Warm nine-window screen of the 2026-09-17d defaults (contract v4, `results-17d-v4`)
+
+Candidate = commit `4d75227f` runtime and GPU module (128-thread solve CTAs, global staging, motion-arc compaction, fused sleep zeroing) against the paired 09-14 controls. All nine windows pass; force and health signatures are identical to every screen since `results-16d-v4` (same relL2 and drift values), consistent with the identical histories measured on the g16 runs.
+
+| window | controls A0/A1 | candidate B |
+|---|---:|---:|
+| city256 cascade | 113.8 / 107.7 ms | 63.9 |
+| city256 impact | 95.6 / 91.7 | 65.9 |
+| city256 debris | 131.2 / 129.9 | 73.4 |
+| city25 impact | 23.8 / 23.3 | 15.9 |
+| city256 idle | 5.4 / 1.5 | 1.8 |
+| bridge64 / chain256 / dense12 / tower64 | 1.4–1.7 | 1.4–1.6 |
