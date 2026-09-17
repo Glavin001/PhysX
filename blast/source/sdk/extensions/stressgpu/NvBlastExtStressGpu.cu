@@ -361,6 +361,11 @@ unsigned nativeDirectClusterSize()
 }
 /// BLAST_GPU_NATIVE_MOTION_INCREMENTAL=0 rebuilds every component's motion
 /// modes on each topology transaction (default: only changed components).
+bool nativeSlotInherit()
+{
+    static const bool value = []{ const char* raw = std::getenv("BLAST_GPU_NATIVE_SLOT_INHERIT"); return raw ? std::atoi(raw) != 0 : false; }();
+    return value;
+}
 bool nativeLargestFirst()
 {
     static const bool value = []{ const char* raw = std::getenv("BLAST_GPU_NATIVE_LARGEST_FIRST"); return raw ? std::atoi(raw) != 0 : true; }();

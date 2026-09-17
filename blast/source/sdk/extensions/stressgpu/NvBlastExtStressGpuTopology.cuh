@@ -229,6 +229,7 @@ class DeviceStressTopology
     unsigned* componentWorkCursor=nullptr;
     unsigned* sizeKeys=nullptr; // largest-first dispatch keys (component node counts)
     unsigned* dispatchIds=nullptr; // live ids permuted largest first; read only by the persistent solve
+    unsigned* previousNodeIsland=nullptr; // labels before the relabel, for direct-slot inheritance
     void *sortScratch=nullptr, *scanScratch=nullptr;
     size_t sortBytes=0, scanBytes=0;
     DeviceStressTopologyBatch* batch=nullptr;
@@ -333,8 +334,12 @@ class DeviceStressTopology
         connectDeviceStressTopology<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,b.m,parent,forest);
         flattenDeviceStressTopology<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,b.n);
         labelDeviceStressBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,parent,rootFlags,b.bondIsland,b.m);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(b.direct.enabled && nativeSlotInherit())checkCuda(cudaMemcpyAsync(previousNodeIsland,b.nodeIsland,sizeof(unsigned)*b.n,cudaMemcpyDeviceToDevice,captureStream), "keep previous stress labels");
+#endif
         labelDeviceStressNodes<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,rootFlags,b.nodeIsland,b.n,state);
 #ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(b.direct.enabled && nativeSlotInherit())inheritNativeDirectSlots<<<b.direct.slots.slotCount,kBlockSize,0,captureStream>>>(b.direct,previousNodeIsland,b.nodeIsland,componentNodes,rangeBegin,rangeEnd,b.n);
         if(b.direct.enabled)releaseNativeDirectSlots<<<(b.direct.slots.slotCount+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(b.direct,b.nodeIsland,b.n);
 #endif
         thrust::counting_iterator<unsigned> indices(0u);
@@ -406,7 +411,7 @@ public:
         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
         cudaFree(componentNodes); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
-        cudaFree(componentWorkCursor); cudaFree(sizeKeys); cudaFree(dispatchIds);
+        cudaFree(componentWorkCursor); cudaFree(sizeKeys); cudaFree(dispatchIds); cudaFree(previousNodeIsland);
     }
     void init(cudaStream_t stream)
     {
@@ -415,7 +420,7 @@ public:
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         allocate(forest,b.m); allocate(liveIslands,b.n); allocate(componentNodes,b.n);
         allocate(largeIslands,b.n); allocate(largeCount,1); allocate(componentResults,b.n);
-        allocate(componentWorkCursor,1); allocate(sizeKeys,b.n); allocate(dispatchIds,b.n);
+        allocate(componentWorkCursor,1); allocate(sizeKeys,b.n); allocate(dispatchIds,b.n); allocate(previousNodeIsland,b.n);
         allocate(sortedKeys,b.n); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n);
         checkCuda(cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,b.nodeIsland,sortedKeys,
             identity,componentNodes,b.n), "size resident component sorting");

@@ -105,7 +105,7 @@ struct NativeDirectView {
     // Dense direct step for components below minNodes with at most kDenseTinyMaxNodes nodes (default off, measured slower).
     unsigned denseTiny = 0;
 };
-constexpr unsigned kDirectCounterCount = 12u; // [9] Woodbury builds [10] Woodbury applications [11] dense tiny applications
+constexpr unsigned kDirectCounterCount = 28u; // [24] Woodbury build failed (slot invalidated) [25] big refactor on a never-built slot (generation 0) [26] big refactor on an invalidated slot [27] unused // [20] inherit: valid slots visited [21] transferred [22] table overflow [23] largest child kept the id // [16] refactor: no valid factor (new slot) [17] stale but too many removed bonds [18] stale but pin changed [19] stale, other (no buffer / Woodbury failed) // [12..14] full refactors by present-node count (<=64, <=256, >256), [15] their present nodes summed // [9] Woodbury builds [10] Woodbury applications [11] dense tiny applications
 struct NativeDirectOperator {
     const unsigned *node0, *node1, *nodeBondBegin, *nodeBondRef, *nodeIsland;
     const Vec4 *offset0, *offset1;
@@ -202,6 +202,55 @@ __global__ void refreshNativeDirectSlots(NativeDirectView v, ResidentStressCompo
         } else v.slots.slotGeneration[s] = batch->generation ? *batch->generation : 0ull;
     }
 }
+// Topology rebuild, after relabeling, before slots are released: a valid factor
+// follows the largest child of its former component instead of the child that
+// inherited the id (the minimum node, often the small departed piece). The
+// union's factor stays exact for the kept part through the Woodbury update of
+// the removed bonds (StressNativeWoodbury.cuh); the id survivor, if it lost
+// the slot, takes a fresh one. One CTA per slot; old ranges are still intact.
+__global__ void inheritNativeDirectSlots(NativeDirectView v, const unsigned* previousLabel, const unsigned* label,
+    const unsigned* componentNodes, const unsigned* rangeBegin, const unsigned* rangeEnd, unsigned n) {
+    constexpr unsigned kChildren = 64u;
+    __shared__ unsigned childLabel[kChildren], childCount[kChildren], childTotal, overflow;
+    if (!v.enabled) return;
+    const unsigned s = blockIdx.x;
+    if (s >= v.slots.slotCount) return;
+    const unsigned x = v.slots.slotComponent[s];
+    if (x == kNoIsland || x >= n || !v.slots.slotValid[s] || v.slots.slotFailed[s]) return;
+    if (!threadIdx.x) { childTotal = 0; overflow = 0; if (v.counters) atomicAdd(v.counters + 20, 1u); }
+    for (unsigned i = threadIdx.x; i < kChildren; i += blockDim.x) { childLabel[i] = 0xffffffffu; childCount[i] = 0u; }
+    __syncthreads();
+    const unsigned begin = rangeBegin[x], end = rangeEnd[x];
+    if (end <= begin) return;
+    for (unsigned i = begin + threadIdx.x; i < end; i += blockDim.x) {
+        const unsigned node = componentNodes[i];
+        if (node >= n || previousLabel[node] != x) continue;
+        const unsigned y = label[node];
+        // Register y among the children (bounded linear probe over a shared table).
+        bool done = false;
+        for (unsigned probe = 0; probe < kChildren && !done; ++probe) {
+            const unsigned seen = atomicCAS(&childLabel[probe], 0xffffffffu, y);
+            if (seen == 0xffffffffu || seen == y) { atomicAdd(&childCount[probe], 1u); done = true; }
+        }
+        if (!done) atomicExch(&overflow, 1u);
+    }
+    __syncthreads();
+    if (threadIdx.x == 0) {
+        unsigned best = x, bestCount = 0;
+        if (!overflow) for (unsigned probe = 0; probe < kChildren; ++probe) {
+            const unsigned y = childLabel[probe]; if (y == 0xffffffffu) break;
+            const unsigned c = childCount[probe];
+            if (c > bestCount || (c == bestCount && y < best)) { best = y; bestCount = c; }
+        }
+        if (v.counters) { if (overflow) atomicAdd(v.counters + 22, 1u); else if (best == x) atomicAdd(v.counters + 23, 1u); }
+        if (best != x && best < n && label[best] == best) {
+            v.slots.slotComponent[s] = best; v.slots.componentSlot[best] = s;
+            if (v.slots.componentSlot[x] == s) v.slots.componentSlot[x] = kNoIsland;
+            v.slots.slotStale[s] = 1u;
+            if (v.counters) atomicAdd(v.counters + 21, 1u);
+        }
+    }
+}
 // Topology rebuild, after relabeling: a slot whose component id is no longer a
 // root is released. A root that survived keeps its slot (valid or dirty).
 __global__ void releaseNativeDirectSlots(NativeDirectView v, const unsigned* nodeIsland, unsigned n) {
@@ -259,7 +308,7 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
     __shared__ unsigned scan[kBlockSize];
     __shared__ unsigned freeTotal, needTotal;
     if (!v.enabled || blockIdx.x) return;
-    if (!threadIdx.x) { freeTotal = 0; needTotal = 0; if (v.counters) for (unsigned k = 0; k < kDirectCounterCount; ++k) if (k != 6u && k != 9u) v.counters[k] = 0; } // [6] and [9] accumulate across launches until the solve prints them
+    if (!threadIdx.x) { freeTotal = 0; needTotal = 0; if (v.counters) for (unsigned k = 0; k < kDirectCounterCount; ++k) if (k != 6u && k != 9u && k < 12u) v.counters[k] = 0; } // [6] and [9] accumulate across launches until the solve prints them
     __syncthreads();
     // Pass 1: ascending list of free slots (snapshot, no writes to slot state).
     for (unsigned base = 0; base < v.slots.slotCount; base += kBlockSize) {
@@ -382,6 +431,7 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
             __syncthreads();
             if (ok && v.diagnostics >= 2u) woodburyCheck(v, op, P, p, pinned, id, s);
             if (!threadIdx.x) {
+                if (!ok && v.counters) atomicAdd(v.counters + 24, 1u);
                 if (ok) { v.slots.slotWoodbury[s] = 2u; v.slots.slotStale[s] = 0; v.slots.slotGeneration[s] = state->generation; if (v.counters) atomicAdd(v.counters + 9, 1u); }
                 else { v.slots.slotValid[s] = 0; v.slots.slotWoodbury[s] = 0; }
             }
@@ -389,7 +439,20 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
             if (ok) continue;
         }
         __syncthreads();
-        if (!threadIdx.x) { v.slots.slotRemovedCount[s] = 0; v.slots.slotWoodbury[s] = 0; }
+        if (!threadIdx.x) {
+            v.slots.slotRemovedCount[s] = 0; v.slots.slotWoodbury[s] = 0;
+            if (v.counters) {
+                unsigned present = 0; for (unsigned wd = 0; wd < kWoodburyPresentWords; ++wd) present += __popc(presentMask[wd]);
+                atomicAdd(v.counters + (present <= 64u ? 12u : present <= 256u ? 13u : 14u), 1u); atomicAdd(v.counters + 15, present);
+                if (present > 256u) {
+                    unsigned reason = 19u;
+                    if (!v.slots.slotValid[s]) { reason = 16u; atomicAdd(v.counters + (v.slots.slotGeneration[s] == 0ull ? 25u : 26u), 1u); }
+                    else if (v.slots.slotStale[s] && v.slots.slotRemovedCount[s] > kWoodburyMaxBonds) reason = 17u;
+                    else if (v.slots.slotStale[s] && v.slots.slotPinned[s] != pinned) reason = 18u;
+                    atomicAdd(v.counters + reason, 1u);
+                }
+            }
+        }
         // Levels below T use the level-parallel left-looking scheme; levels
         // from T on (the narrow tail) are eliminated one column at a time with
         // right-looking updates. Both give each target block one writer per

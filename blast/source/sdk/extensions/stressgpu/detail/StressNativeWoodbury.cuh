@@ -17,7 +17,7 @@
 // explicitly, and caches W and that pseudo-inverse per slot in a pool; the
 // base solve is followed by two dense mat-vecs.
 #ifdef PHYSX_RESIDENT_DESTRUCTION
-constexpr unsigned kWoodburyMaxBonds = 16u;   // removed bonds per factor before a refactor
+constexpr unsigned kWoodburyMaxBonds = 16u;   // removed bonds per factor before a refactor (32 measured slower: the per-solve W mat-vec doubles, see warm-screen.md)
 constexpr unsigned kWoodburyMaxColumns = 6u * kWoodburyMaxBonds;
 constexpr unsigned kWoodburyCapStride = 2u * kWoodburyMaxColumns; // row stride of the capacitance work areas
 constexpr unsigned kWoodburyCapFloats = 3u * kWoodburyMaxColumns * kWoodburyCapStride; // working copy, permuted [C11 | I], pseudo-inverse
