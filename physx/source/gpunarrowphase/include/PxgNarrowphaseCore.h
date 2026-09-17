@@ -51,6 +51,7 @@
 
 namespace physx
 {
+	struct PxgShapeSim;
 	class PxgCudaKernelWranglerManager;
 	class PxgNphaseImplementationContext;
 	class PxgGpuContext;
@@ -626,6 +627,10 @@ namespace physx
 
         bool getDestructionPreSolveContacts(PxgDestructionPreSolveContacts& view,PxArray<PxU32>& retired);
         bool resetDestructionContactCaches();
+    // Dormant corrected pass: reset manifolds of pairs with a non-dormant body only.
+    bool resetDestructionContactCachesScoped(const PxgShapeSim* shapes, CUdeviceptr dormantBits, PxU32 dormantWords);
+    // Dormant corrected pass: mark the friction slots of dormant-dormant pairs (all rigid buckets).
+    bool markDormantPairSlots(const PxgShapeSim* shapes, CUdeviceptr dormantBits, PxU32 dormantWords, CUdeviceptr slotMarks, PxU32 slotWords, CUstream stream);
         bool buildDestructionContactGraph(bool reuseSamePass = false);
         bool canReuseDestructionContactGraph(PxU64 generation,PxU64 retainedRevision) const {
             if(!generation || generation!=mDestructionGraphCachedGeneration || retainedRevision!=mDestructionGraphRetainedRevision)return false;

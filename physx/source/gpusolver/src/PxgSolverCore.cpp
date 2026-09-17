@@ -220,6 +220,18 @@ void PxgSolverCore::markDormantSolverBodies(CUdeviceptr nodes, PxU32 count)
 		PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU markDormantSolverBodies fail to launch kernel!!\n");
 }
 
+bool PxgSolverCore::resetDestructionFrictionCachesScoped(CUdeviceptr slotMarks, PxU32 slotWords)
+{
+    const PxU32 slotCount=PxU32(PxMax(mFrictionPatchCounts[0].getSize(),mFrictionPatchCounts[1].getSize())/sizeof(PxU32));
+    if(!slotCount)return !mCudaContext->isInAbortMode();
+    CUdeviceptr counts0=mFrictionPatchCounts[0].getSize()?mFrictionPatchCounts[0].getDevicePtr():0;
+    CUdeviceptr counts1=mFrictionPatchCounts[1].getSize()?mFrictionPatchCounts[1].getDevicePtr():0;
+    const CUfunction kernel=mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::ZERO_UNMARKED_FRICTION_COUNTS);
+    PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(counts0),PX_CUDA_KERNEL_PARAM(counts1),PX_CUDA_KERNEL_PARAM(slotCount),PX_CUDA_KERNEL_PARAM(slotMarks),PX_CUDA_KERNEL_PARAM(slotWords)};
+    if(mCudaContext->launchKernel(kernel,(slotCount+255u)/256u,1,1,256,1,1,0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS)return false;
+    return !mCudaContext->isInAbortMode();
+}
+
 void PxgSolverCore::clearCurrentFrictionPatchCounts(const PxU32* edges, PxU32 count)
 {
 	if(!count || !edges)return;

@@ -844,6 +844,11 @@ class PxProfilerCallback;
         PxU32* mDestructionDormantHost=NULL; PxU32* mDestructionDormantHost1=NULL; PxU32 mDestructionDormantHostCapacity=0; PxU32 mDestructionDormantCount=0; PxU32 mDestructionDormantSlot=0;
         bool mDestructionDormantReinstated=false;
         CUevent mDestructionDormantRefreshed=NULL;
+        PxgTypedCudaBuffer<PxU32> mDestructionDormantBits;      // node-indexed bitmap of this pass's candidates
+        PxgTypedCudaBuffer<PxU32> mDestructionSlotMarks;        // friction slots of dormant-dormant pairs
+        PxU32 mDestructionDormantBitWords=0;
+        CUevent mDestructionDormantBitsReady=NULL;
+        bool uploadDormantList(const PxU32* nodes, PxU32 count, CUstream stream, CUdeviceptr& device);
     private:
         PxU64 mDestructionContactInputCount = 0;
         PxU64 mDestructionContactReuseFallbackCount = 0;

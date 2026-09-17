@@ -30,6 +30,7 @@
 #include "PxNodeIndex.h"
 #include "PxgSimulationCoreDesc.h"
 #include "PxgShapeSim.h"
+#include "PxgContactManager.h"
 #include "PxgBodySim.h"
 #include "PxsRigidBody.h"
 #include "PxgD6JointData.h"
@@ -1219,7 +1220,8 @@ extern "C" __global__ void refreshReboundShapeBounds(
     const PxgShapeSim* PX_RESTRICT shapes, const PxgBodySim* PX_RESTRICT bodies,
     PxsCachedTransform* PX_RESTRICT transforms, PxBounds3* PX_RESTRICT bounds,
     PxgShape* PX_RESTRICT geometry, const PxNodeIndex* PX_RESTRICT sortedNodes,
-    PxU32* PX_RESTRICT updated, PxU32 updatedCapacity)
+    PxU32* PX_RESTRICT updated, PxU32 updatedCapacity,
+    const PxU32* PX_RESTRICT dormantBits, PxU32 dormantWords)
 {
     __shared__ PxU32 liveRigidEnd;
     if(threadIdx.x==0) {
@@ -1250,6 +1252,10 @@ extern "C" __global__ void refreshReboundShapeBounds(
         // Refreshing coordinates alone leaves SAP endpoints stale. Join the
         // ordinary GPU bounds-update bitmap without treating retained shapes
         // as new volumes or destroying their persistent contact managers.
+        // Dormant corrected pass: a dormant body's boxes already sit at these
+        // coordinates in the SAP; leave them out of the update set.
+        const PxU32 node=shape.mBodySimIndex.index();
+        if(dormantBits && (node>>5)<dormantWords && ((dormantBits[node>>5]>>(node&31))&1u))continue;
         updated[index]=1;
     }
 }
@@ -1609,4 +1615,53 @@ extern "C" __global__ void copyRigidBodyVelocitiesToPrevious(
 		prevVelocities[index].linearVelocity = bodySim.linearVelocityXYZ_inverseMassW;
 		prevVelocities[index].angularVelocity = bodySim.angularVelocityXYZ_maxPenBiasW;
 	}
+}
+
+// Dormant corrected pass helpers (PHYSX_DESTRUCTION_ISLAND_SCOPE=6).
+__device__ __forceinline__ bool dormantNode(const PxU32* PX_RESTRICT bits, PxU32 words, PxU32 node)
+{
+    return bits && (node>>5)<words && ((bits[node>>5]>>(node&31))&1u);
+}
+extern "C" __global__ void markDormantNodeBits(const PxU32* PX_RESTRICT nodes, PxU32 count, PxU32* PX_RESTRICT bits, PxU32 words)
+{
+    const PxU32 i=threadIdx.x+blockIdx.x*blockDim.x;
+    if(i<count){const PxU32 node=nodes[i];if((node>>5)<words)atomicOr(bits+(node>>5),1u<<(node&31));}
+}
+// Reset the persistent manifold of every pair with at least one non-dormant
+// body to the empty template; dormant-dormant pairs keep their trial manifold
+// so the corrected narrowphase reproduces the trial's outputs for them.
+extern "C" __global__ void resetManifoldsScoped(float4* PX_RESTRICT destination, const float4* PX_RESTRICT source, PxU32 dataSize, PxU32 count,
+    const PxgContactManagerInput* PX_RESTRICT inputs, const PxgShapeSim* PX_RESTRICT shapes, const PxU32* PX_RESTRICT bits, PxU32 words)
+{
+    const PxU32 perPair=dataSize/sizeof(float4);
+    for(PxU32 t=threadIdx.x+blockIdx.x*blockDim.x;t<count*perPair;t+=blockDim.x*gridDim.x)
+    {
+        const PxU32 pair=t/perPair,k=t-pair*perPair;
+        const PxgContactManagerInput in=inputs[pair];
+        const PxU32 nodeA=shapes[in.shapeRef0].mBodySimIndex.index(),nodeB=shapes[in.shapeRef1].mBodySimIndex.index();
+        const bool staticA=shapes[in.shapeRef0].mBodySimIndex.isStaticBody(),staticB=shapes[in.shapeRef1].mBodySimIndex.isStaticBody();
+        const bool dormantA=staticA||dormantNode(bits,words,nodeA),dormantB=staticB||dormantNode(bits,words,nodeB);
+        if(dormantA && dormantB && !(staticA && staticB))continue;
+        destination[pair*perPair+k]=source[k];
+    }
+}
+extern "C" __global__ void markDormantPairSlots(const PxgContactManagerInput* PX_RESTRICT inputs, const PxgContactGraphIdentity* PX_RESTRICT identities, PxU32 count,
+    const PxgShapeSim* PX_RESTRICT shapes, const PxU32* PX_RESTRICT bits, PxU32 words, PxU32* PX_RESTRICT slotMarks, PxU32 slotWords)
+{
+    const PxU32 pair=threadIdx.x+blockIdx.x*blockDim.x;
+    if(pair>=count)return;
+    const PxgContactManagerInput in=inputs[pair];
+    const PxNodeIndex a=shapes[in.shapeRef0].mBodySimIndex,b=shapes[in.shapeRef1].mBodySimIndex;
+    const bool dormantA=a.isStaticBody()||dormantNode(bits,words,a.index()),dormantB=b.isStaticBody()||dormantNode(bits,words,b.index());
+    if(!(dormantA && dormantB))return;
+    const PxU32 slot=identities[pair].slot;
+    if((slot>>5)<slotWords)atomicOr(slotMarks+(slot>>5),1u<<(slot&31));
+}
+extern "C" __global__ void zeroUnmarkedFrictionCounts(PxU32* PX_RESTRICT counts0, PxU32* PX_RESTRICT counts1, PxU32 slotCount, const PxU32* PX_RESTRICT slotMarks, PxU32 slotWords)
+{
+    const PxU32 slot=threadIdx.x+blockIdx.x*blockDim.x;
+    if(slot>=slotCount)return;
+    if((slot>>5)<slotWords && ((slotMarks[slot>>5]>>(slot&31))&1u))return;
+    if(counts0)counts0[slot]=0;
+    if(counts1)counts1[slot]=0;
 }

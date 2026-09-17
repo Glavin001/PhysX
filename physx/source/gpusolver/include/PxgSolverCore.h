@@ -326,6 +326,9 @@ namespace physx
 		PxgBlockFrictionIndex* allocateFrictionPatchIndexStream(PxU32 totalFrictionPatchCount);
 		void allocateFrictionCounts(PxU32 totalEdges);
         bool resetDestructionFrictionCaches();
+        // Dormant corrected pass: zero both friction count generations except the marked slots.
+        bool resetDestructionFrictionCachesScoped(CUdeviceptr slotMarks, PxU32 slotWords);
+        PxU32 getFrictionPatchCountCapacity() const { return PxU32(mFrictionPatchCounts[0].getSize()/sizeof(PxU32)); }
 
 		void gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSolverBodies,
 			Cm::PinnableArray<PxAlignedTransform>& body2WorldPool,

@@ -1824,3 +1824,39 @@ copy-back totals that mode 6 exposes and is still open.
 Next increments (README §17 order): scope the manifold and friction resets to affected pairs so dormant
 pairs produce no touch events, exclude dormant bodies' shapes from the corrected broad-phase update, skip
 dormant bodies in the CPU body-status and sleep loops, then the prep-level skip.
+
+## R5 increments 2–3: scoped cache resets, complement stress parking; mode 6 is now faster than the default (2026-09-17)
+
+Increment 2 (`PHYSX_DESTRUCTION_ISLAND_SCOPE=6`): a node-indexed dormant bitmap is built on the narrowphase
+stream at pass start from the candidate list; the pass-start bounds refresh leaves dormant bodies' boxes
+out of the broad-phase update set (they do not move); the manifold reset is scoped to pairs with a
+non-dormant body (`resetManifoldsScoped`) and the friction-count reset to all slots except dormant-dormant
+pairs' (`markDormantPairSlots`, `zeroUnmarkedFrictionCounts`), so dormant pairs reproduce the trial's
+narrowphase outputs and raise no touch events; the unscoped correction-start resets are skipped in this
+mode. The candidate walk became two linear scans over the active node array (+0.66 → +0.2 ms).
+
+Increment 3 fixed the stress side, which the direct-solve counters exposed (`BLAST_GPU_NATIVE_DIRECT_DIAG`):
+the default's corrected solve skips 88 % of components (elastic reuse of unchanged loads) while mode 6
+skipped 61–77 %, and the traces showed the corrected solve at 3.5–3.7 ms instead of 1.3. Two defects:
+`markParkedRoots` flagged the topology's cluster representative while the solver tested the flag at the
+component id (its minimum node), so only single-chunk components were parked; and a neutralised contact
+leaves no force-stream entry in the corrected pass, so any non-parked component touching a dormant body saw
+changed loads and was solved cold, with the wrong loads. Now every chunk of a parked body is flagged, the
+solver tests any member node, and the parked set for the stress solve is the complement of the affected
+islands' bodies (a component's loads cannot change unless its island holds a correction target). The
+corrected solve now skips 95 % of components (2,182 of 2,307).
+
+g16 3 s bombardment (profiled), mode 6 vs default, two mode-6 runs identical:
+
+| | default | mode 6 |
+|---|---:|---:|
+| mean | 21.25 ms | 20.49 / 20.85 |
+| late window (ticks 120–170) | 34.15 | 31.72 / 32.57 |
+| GPU wait per tick | 8.16 | 6.37 |
+| corrected pass | 10.78 | 9.56 |
+| corrected broad-phase wait | 1.94 | 1.60 |
+| bonds broken / awake at 150 / peak clusters | 56,077 / 10,520 / 12,248 | 61,130 / 11,540 / 13,029 |
+
+The dormant pass keeps the warm trial motion of untouched islands instead of a cold re-solve, so more
+bodies stay awake and more clusters form; the bond total is 0.5 % above the top of the default's
+order-rotation range (56,077–60,797), so the §11 ensemble decides acceptance (run recorded below).

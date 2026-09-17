@@ -159,8 +159,28 @@ __global__ void markParkedRoots(PxDestructionTopologyDeviceView topology,const P
     const unsigned slot=chunks[i].cluster;
     if(slot>=clusterCount)return;
     const unsigned body=clusters[slot].body;
-    const unsigned root=topology.chunkCluster[i];
-    if(body<bodyCapacity && root<chunkCount && bitmap[body])rootFlags[root]=1u;
+    // Flag every chunk of a parked body: the solver tests any member node of a
+    // component, so its component id convention (minimum node) and the
+    // topology's cluster representative need not agree.
+    if(body<bodyCapacity && bitmap[body])rootFlags[i]=1u;
+}
+// Complement form: every active chunk whose body is not flagged (affected)
+// is parked for the stress solve. Bodies beyond the bitmap (runtime-born
+// fragments) are never parked.
+__global__ void markParkedComplement(PxDestructionTopologyDeviceView topology,const PxDestructionStressChunk* chunks,
+    const PxDestructionStressCluster* clusters,unsigned clusterCount,const unsigned char* affected,unsigned bodyCapacity,
+    unsigned* rootFlags,unsigned chunkCount) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i>=chunkCount)return;
+    unsigned flag=0u;
+    if(i<topology.chunkCount && topology.activeChunks[i]) {
+        const unsigned slot=chunks[i].cluster;
+        if(slot<clusterCount) {
+            const unsigned body=clusters[slot].body;
+            flag=(body<bodyCapacity && !affected[body])?1u:0u;
+        }
+    }
+    rootFlags[i]=flag;
 }
 __global__ void reinstateTrialBodies(PxgBodySim* live,const PxgBodySim* trial,
     PxgBodySimVelocities* previous,const PxgBodySimVelocities* trialPrevious,
@@ -2395,6 +2415,26 @@ public:
                 std::printf("[island-scope] reinstate parked=%u bodyCapacity=%u snapshot=%d skip=%d armed=%d flaggedRoots=%u\n",
                     count,bodyCapacity,int(mTrialSnapshotValid),int(skipStressComponents),int(mParkedFlagsArmed),flagged);
             }
+            return true;
+        }catch(...){return false;}
+    }
+    // Dormant corrected pass: park the stress components of every active body
+    // except the listed (affected) ones. Consumed by the next solve.
+    bool markStressParkedComplement(const PxU32* affected,PxU32 count,PxU32 bodyCapacity,CUstream coreStream) override {
+        if(!mTopology || !mChunks || !mClusters || !mN || !bodyCapacity || !coreStream)return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            if(bodyCapacity>mParkedBodyBitmapCapacity){cudaFree(mParkedBodyBitmap);mParkedBodyBitmap=nullptr;
+                mParkedBodyBitmapCapacity=std::max(bodyCapacity*2u,PxU32(8192));
+                check(cudaMalloc(reinterpret_cast<void**>(&mParkedBodyBitmap),size_t(mParkedBodyBitmapCapacity)));}
+            if(mN>mParkedRootCapacity){cudaFree(mParkedRootFlags);mParkedRootFlags=nullptr;
+                check(cudaMalloc(reinterpret_cast<void**>(&mParkedRootFlags),sizeof(unsigned)*size_t(mN)));mParkedRootCapacity=mN;}
+            check(cudaMemsetAsync(mParkedBodyBitmap,0,size_t(bodyCapacity),stream));
+            if(count){const unsigned* list=stageReinstateList(affected,count,stream);
+                markParkedBodies<<<(count+255u)/256u,256,0,stream>>>(list,count,mParkedBodyBitmap,bodyCapacity);}
+            markParkedComplement<<<(mN+255u)/256u,256,0,stream>>>(mTopology->accepted(),mChunks,mClusters,std::max(mN,mC),mParkedBodyBitmap,bodyCapacity,mParkedRootFlags,mN);
+            check(cudaGetLastError());
+            mParkedFlagsArmed=true;
             return true;
         }catch(...){return false;}
     }

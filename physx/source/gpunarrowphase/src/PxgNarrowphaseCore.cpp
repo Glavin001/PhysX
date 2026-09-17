@@ -8649,6 +8649,46 @@ bool PxgGpuNarrowphaseCore::resetDestructionContactCaches()
     return !mCudaContext->isInAbortMode();
 }
 
+bool PxgGpuNarrowphaseCore::resetDestructionContactCachesScoped(const PxgShapeSim* shapes, CUdeviceptr dormantBits, PxU32 dormantWords)
+{
+    mDestructionGraphCachedGeneration=0;
+    const CUfunction kernel=mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::RESET_MANIFOLDS_SCOPED);
+    for(PxU32 bucket=GPU_BUCKET_ID::eConvex;bucket<=GPU_BUCKET_ID::eTrianglePlane;++bucket) {
+        auto& gpu=mGpuContactManagers[bucket]->mContactManagers;
+        const PxU32 count=mContactManagers[bucket]->mContactManagers.mCpuContactManagerMapping.size();
+        if(!count)continue;
+        const bool single=bucket<=GPU_BUCKET_ID::eConvexPlane;
+        CUdeviceptr destination=gpu.mPersistentContactManifolds.getDevicePtr();
+        CUdeviceptr empty=single?mGpuManifold.getDevicePtr():mGpuMultiManifold.getDevicePtr();
+        const PxU32 size=single?sizeof(PxgPersistentContactManifold):sizeof(PxgPersistentContactMultiManifold);
+        if(!destination || gpu.mPersistentContactManifolds.getSize()<PxU64(count)*size)return false;
+        CUdeviceptr inputs=gpu.mContactManagerInputData.getDevicePtr();
+        const PxU32 perPair=size/16u;
+        const PxU32 blocks=PxMin(4096u,(count*perPair+255u)/256u);
+        PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(destination),PX_CUDA_KERNEL_PARAM(empty),PX_CUDA_KERNEL_PARAM(size),PX_CUDA_KERNEL_PARAM(count),
+            PX_CUDA_KERNEL_PARAM(inputs),PX_CUDA_KERNEL_PARAM(shapes),PX_CUDA_KERNEL_PARAM(dormantBits),PX_CUDA_KERNEL_PARAM(dormantWords)};
+        if(mCudaContext->launchKernel(kernel,blocks,1,1,256,1,1,0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS)return false;
+    }
+    return !mCudaContext->isInAbortMode();
+}
+
+bool PxgGpuNarrowphaseCore::markDormantPairSlots(const PxgShapeSim* shapes, CUdeviceptr dormantBits, PxU32 dormantWords, CUdeviceptr slotMarks, PxU32 slotWords, CUstream stream)
+{
+    const CUfunction kernel=mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::MARK_DORMANT_PAIR_SLOTS);
+    for(PxU32 bucket=GPU_BUCKET_ID::eConvex;bucket<=GPU_BUCKET_ID::eConvexCoreTrimesh;++bucket) {
+        auto& gpu=mGpuContactManagers[bucket]->mContactManagers;
+        const PxU32 count=mContactManagers[bucket]->mContactManagers.mCpuContactManagerMapping.size();
+        if(!count)continue;
+        CUdeviceptr inputs=gpu.mContactManagerInputData.getDevicePtr();
+        CUdeviceptr identities=gpu.mContactGraphIdentities.getDevicePtr();
+        if(!inputs || !identities)continue;
+        PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(inputs),PX_CUDA_KERNEL_PARAM(identities),PX_CUDA_KERNEL_PARAM(count),PX_CUDA_KERNEL_PARAM(shapes),
+            PX_CUDA_KERNEL_PARAM(dormantBits),PX_CUDA_KERNEL_PARAM(dormantWords),PX_CUDA_KERNEL_PARAM(slotMarks),PX_CUDA_KERNEL_PARAM(slotWords)};
+        if(mCudaContext->launchKernel(kernel,(count+255u)/256u,1,1,256,1,1,0,stream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS)return false;
+    }
+    return !mCudaContext->isInAbortMode();
+}
+
 bool PxgGpuNarrowphaseCore::usesDeviceDestructionContactInputs(PxU32 bucket) const
 {
     // Rigid geometry buckets, including primitive, convex, plane, mesh and HF.

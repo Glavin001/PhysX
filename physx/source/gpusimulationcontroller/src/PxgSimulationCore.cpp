@@ -3505,7 +3505,7 @@ bool PxgSimulationCore::getD6JointData(void* data, const PxD6JointGPUIndex* gpuI
 	return success;
 }
 
-bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRigidShapes)
+bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRigidShapes, CUdeviceptr dormantBits, PxU32 dormantWords)
 {
     Cm::PinnableArray<PxU32>& indices = mPxgShapeSimManager.prepareGpuBoundsRefresh();
     const auto& ownership=mGpuContext->mGpuNpCore->mGpuShapesManager;
@@ -3562,7 +3562,8 @@ bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRig
     PxCudaKernelParam params[] = { PX_CUDA_KERNEL_PARAM(ids), PX_CUDA_KERNEL_PARAM(count),
         PX_CUDA_KERNEL_PARAM(shapes), PX_CUDA_KERNEL_PARAM(bodies), PX_CUDA_KERNEL_PARAM(transforms),
         PX_CUDA_KERNEL_PARAM(bounds), PX_CUDA_KERNEL_PARAM(geometry), PX_CUDA_KERNEL_PARAM(sortedNodes),
-        PX_CUDA_KERNEL_PARAM(updated), PX_CUDA_KERNEL_PARAM(updatedCapacity) };
+        PX_CUDA_KERNEL_PARAM(updated), PX_CUDA_KERNEL_PARAM(updatedCapacity),
+        PX_CUDA_KERNEL_PARAM(dormantBits), PX_CUDA_KERNEL_PARAM(dormantWords) };
     const CUfunction kernel = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::REFRESH_REBOUND_SHAPE_BOUNDS);
     const PxU32 blocks=PxMin(128u,(count+255)/256);
     const CUresult result = mCudaContext->launchKernel(kernel, blocks, 1, 1, 256, 1, 1,

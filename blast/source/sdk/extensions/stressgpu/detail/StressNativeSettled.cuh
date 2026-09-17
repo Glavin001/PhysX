@@ -160,7 +160,9 @@ __global__ void markParkedNativeComponents(unsigned* islandSkip, const unsigned*
     const unsigned t = blockIdx.x * blockDim.x + threadIdx.x;
     if (t >= *c.count) return;
     const unsigned id = c.ids[t];
-    if (!parkedNodeFlags[id]) return;
+    // The flags are per node (every chunk of a parked body is flagged); any
+    // member decides for the whole component.
+    if (c.end[id] <= c.begin[id] || !parkedNodeFlags[c.nodes[c.begin[id]]]) return;
     islandSkip[id] = 1u;
     converged[id] = 1u;
     cache.verifiedStoredOutput[id] = cache.certificates[id].valid ? 1u : 0u;

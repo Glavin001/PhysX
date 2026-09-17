@@ -218,7 +218,7 @@ namespace physx
 		PxgArticulationBuffer** getArticulationDataBuffer() { return mArticulationDataBuffer.begin(); }
 		PxgTypedCudaBuffer<PxBounds3>*	getBoundArrayBuffer();
 
-        bool refreshReboundShapeBounds(CUstream npStream, bool allRigidShapes=false);
+        bool refreshReboundShapeBounds(CUstream npStream, bool allRigidShapes=false, CUdeviceptr dormantBits=0, PxU32 dormantWords=0);
         PxU64 getReboundShapeIndexUploadCount() const { return mReboundShapeIndexUploadCount; }
 		void gpuDmaUpdateData();
 		void initDirectGPUAPIDescriptor();
