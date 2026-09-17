@@ -314,6 +314,7 @@ namespace physx
         // Whichever arrives second runs the commit and the submission.
         virtual bool submitDestructionEarly(PxReal, const PxVec3&, bool (*)(void*), void*) { return false; }
         virtual void noteDestructionSolverIssued(void* /*CUevent*/) {}
+        virtual void flushDeferredDestructionWork() {}
         virtual PxU32 getDestructionError() const { return 0; }
         virtual void discardDestructionTrialBodyUpload(PxU32) {}
         // Island-scoped correction: rigid nodes whose islands hold no correction

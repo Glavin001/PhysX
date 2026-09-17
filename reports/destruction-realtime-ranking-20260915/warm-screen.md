@@ -1677,3 +1677,7 @@ Candidate = commit `f9d422c3` runtime, GPU module and demo (yield-thread workers
 | idle-256 | 1.59–1.78 | 1.08–1.13 | 0 → 1 (first tick, pair reserve) | 14–15 → 35–36 | identical |
 
 Heavy 54.4 → 19.5 ms against 20.5 at the previous campaign (`17b`); the impact peak 187 → 115. The first attempt of this campaign was aborted by the desktop's screen locker appearing as a GPU process mid-run; the rerun stopped the desktop for its duration.
+
+## Impact tick: large bursts held until the corrected broad phase has run (lossless, −12 ms at the 256-impact tick)
+
+When a fracture has at least `PHYSX_DESTRUCTION_EAGER_FLUSH_LARGE` correction targets (default 64), the eager refactor burst is held past the binding readback and released by a new scene hook at the end of the corrected pass's `postBroadPhase` (`PxsSimulationController::flushDeferredDestructionWork` → runtime `flushDeferredWork`), with the pre-solve island production as a fallback release; small fractures keep the earlier flush. Two interleaved runs: 256-impact tick 118.8 → 107.1 ms (corrected broad-phase wait 15 → 13.7, bindings 22 → 16), sustained mean 22.6 → 22.2 (noise), histories identical, 14/14 tests.

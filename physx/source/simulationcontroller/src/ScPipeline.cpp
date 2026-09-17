@@ -488,6 +488,9 @@ void Sc::Scene::postBroadPhase(PxBaseTask* continuation)
 	mLLContext->getNphaseImplementationContext()->postBroadPhaseUpdateContactManager(continuation);
 
 	mAABBManager->postBroadPhase(continuation, *getFlushPool());
+    // The corrected pass's broad phase has run: release device work the
+    // destruction runtime held back so it would not overlap it.
+    if(mDestructionCorrectionInProgress)mSimulationController->flushDeferredDestructionWork();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -1580,6 +1580,10 @@ public:
             if(acceptDiagEnabled())std::printf("[spec-diag] discarded speculative stress topology (no correction)\n");
         }catch(...){mFailed=true;}
     }
+    void flushDeferredWork() override {
+        if(!mEagerFlushDeferred || !mSolver)return;
+        try{Context current(mContext);mEagerFlushDeferred=false;mSolver->flushEagerFactor();}catch(...){mFailed=true;}
+    }
     bool finishPostCorrection() override {
         if(!mPostCorrection || mFailed || mPending || mHostStatus->error)return false;
         try {Context current(mContext);
@@ -2667,7 +2671,13 @@ public:
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             const double tGather=bindMs();
             static const int flushLateMode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EAGER_FLUSH_LATE");return raw?std::atoi(raw):2;}();
-            if(mEagerFlushDeferred && flushLateMode<=2){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
+            // Large fractures (PHYSX_DESTRUCTION_EAGER_FLUSH_LARGE correction targets or more,
+            // default 64) hold the burst until the corrected broad phase has run
+            // (flushDeferredWork from Sc::Scene::postBroadPhase): a city-impact burst
+            // otherwise overlaps the broad phase's rewind sort and delays it by ~7 ms.
+            static const unsigned largeThreshold=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EAGER_FLUSH_LARGE");return raw?unsigned(std::atoi(raw)):64u;}();
+            const bool holdForBroadPhase=flushLateMode==2 && largeThreshold && count>=largeThreshold;
+            if(mEagerFlushDeferred && flushLateMode<=2 && !holdForBroadPhase){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
             if(bindDiag){float k=0,c=0;check(cudaEventElapsedTime(&k,bindE0,bindE1));check(cudaEventElapsedTime(&c,bindE1,bindE2));int pr=0;cudaStreamGetPriority(mStream,&pr);int lo=0,hi=0;cudaDeviceGetStreamPriorityRange(&lo,&hi);if(tGather>5.0)std::fprintf(stderr,"[bind-diag] device: gather kernel %.2f ms, D2H copies %.2f ms (mStream priority %d, range %d..%d)\n",k,c,pr,lo,hi);}
             const bool applied=mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
             if(bindDiag && bindMs()>5.0)std::fprintf(stderr,"[bind-diag] entry sync %.2f ms, gather+readback %.2f ms, CPU applyBindings %.2f ms (migrating=%u targets=%u)\n",tEntry,tGather-tEntry,bindMs()-tGather,mHostCompletion->collision.migrating,count);

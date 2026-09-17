@@ -506,6 +506,7 @@ class PxProfilerCallback;
         virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs) PX_OVERRIDE PX_FINAL;
         virtual bool submitDestructionEarly(PxReal dt, const PxVec3& gravity, bool (*commit)(void*), void* user) PX_OVERRIDE PX_FINAL;
         virtual void noteDestructionSolverIssued(void* solverEvent) PX_OVERRIDE PX_FINAL;
+        virtual void flushDeferredDestructionWork() PX_OVERRIDE PX_FINAL;
         bool submitDestructionInternal(PxReal dt, const PxVec3& gravity, bool postCorrection, PxU32 streamIndex);
         void runDestructionEarlySubmit();
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }

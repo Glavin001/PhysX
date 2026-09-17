@@ -160,6 +160,9 @@ public:
     virtual bool prepareFrame(bool postCorrection = false) = 0;
     // Merge the two evaluations into one tick receipt, after final ownership commit.
     virtual bool finishPostCorrection() = 0;
+    // Flushes device work the runtime deferred past a scene stage (the eager refactor burst of a large
+    // fracture, held until the corrected broad phase has run). No-op when nothing is deferred.
+    virtual void flushDeferredWork() {}
     /// The correction this step required will not run: restore the accepted
     /// stress topology that a speculative update replaced (no-op otherwise).
     virtual void discardSpeculativeTopology() {}

@@ -992,6 +992,10 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         if(mDestructionSolverIssued)runDestructionEarlySubmit();
         return true;
     }
+    void PxgSimulationController::flushDeferredDestructionWork()
+    {
+        if(mDestruction && mDestructionCorrecting)mDestruction->flushDeferredWork();
+    }
     void PxgSimulationController::noteDestructionSolverIssued(void* solverEvent)
     {
         if(!destructionEarlySubmit() || !mDestruction) return;
