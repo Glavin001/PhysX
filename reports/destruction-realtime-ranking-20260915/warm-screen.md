@@ -2035,3 +2035,15 @@ reduction over the speculative mirror and labels, as modes 6/7 already do) and p
 phase; the routing kernel then skips them. The transition-at-issue nondeterminism (second row) is still open.
 The measured gain of the issue-time submit, once exact, is bounded by the gap between the solver issue and the
 arm (≈1.9 ms per pass minus the chain's own prologue).
+
+Correction (2026-09-18, `PHYSX_DESTRUCTION_RETIRED_DIAG`): `mTotalNumPairs` is set once per pass in
+`fetchUpdateContactManager` (post-narrowphase, before the solver issue), so the borrow sees the same pair total at
+the solver issue and at the arm; the compaction hypothesis above is wrong. The per-submit pair counts first differ
+at the *corrected* pass of tick 87 (26,454 vs 26,684, the first tick with sleep transitions), i.e. the corrected
+broad phase finds 230 fewer pairs when the trial's transition ran at the solver issue instead of at the arm; the
+trial pass itself is identical. The submit position cannot be judged because the transition-at-issue variant with
+the submit at the arm is nondeterministic (56,469 / 59,199 / 57,003 / 59,874 / 59,874 from one binary). Next step
+for this lead: a device-state diff of the corrected pass's broad-phase inputs at tick 87 (bounds array, changed
+handle map, touched marks) between the transition at the arm and at the solver issue; the difference is in what
+the trial's copy-back or the corrected pass's bounds upload does with the transitioned bodies, not in the
+transition's own writes (audited equal). Mode 9 stays opt-in and off.
