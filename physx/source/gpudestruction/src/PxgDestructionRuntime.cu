@@ -144,6 +144,19 @@ __global__ void readinessDeltaApply(const unsigned* deltas,unsigned count,const 
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const unsigned node=deltas[i]>>1;if(node<capacity && last[node]==i+1u)mirror[node]=(deltas[i]&1u)?0u:1u;
 }
+// Device sleep transition: solver rigid bodies whose repair-graph component has
+// no not-ready member (mirror flags) form the deactivation set of the CPU's
+// third island pass. Unlabeled nodes count as not ready, like sleepNodeVerdict.
+__global__ void collectSleepTransitions(const PxNodeIndex* nodes,unsigned first,unsigned count,const unsigned* labels,unsigned capacity,
+    const unsigned char* componentNotReady,const unsigned char* ownNotReady,unsigned* list,unsigned* counter) {
+    const unsigned i=first+blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxNodeIndex node=nodes[i];if(node.isArticulation())return;
+    const unsigned n=node.index();if(n>=capacity)return;
+    const unsigned label=labels[n];
+    const bool notReady=(label<capacity?componentNotReady[label]:1u) || ownNotReady[n];
+    if(notReady)return;
+    list[atomicAdd(counter,1u)]=n;
+}
 __global__ void sleepComponentFromFlags(const unsigned char* notReady,const unsigned* labels,unsigned capacity,unsigned char* componentNotReady) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i>=capacity || !notReady[i])return;
@@ -1284,6 +1297,9 @@ public:
         cudaFree(mSleepComponentNotReady);cudaFree(mSleepNodeNotReady);cudaFree(mSleepOwnNotReady);if(mHostSleepNodeNotReady)cudaFreeHost(mHostSleepNodeNotReady);
         mSleepComponentNotReady=mSleepNodeNotReady=mSleepOwnNotReady=mHostSleepNodeNotReady=nullptr;mSleepVerdictCapacity=mSleepVerdictCount=0;mSleepVerdictPending=false;
         delete[] mHostSleepPublished;mHostSleepPublished=nullptr;mHostSleepPublishedCapacity=mSleepPublishedCount=0;mPreSolveLabelCount=0;
+        cudaFree(mSleepTransitionList);cudaFree(mSleepTransitionCount);cudaFree(mSleepTransitionComponent);mSleepTransitionList=mSleepTransitionCount=nullptr;mSleepTransitionComponent=nullptr;
+        mSleepTransitionCapacity=mSleepTransitionComponentCapacity=0;delete[] mSleepTransitionHost;mSleepTransitionHost=nullptr;mSleepTransitionHostCapacity=0;
+        if(mSleepTransitionReady)cudaEventDestroy(mSleepTransitionReady);if(mSleepMirrorReady)cudaEventDestroy(mSleepMirrorReady);mSleepTransitionReady=mSleepMirrorReady=nullptr;mSleepTransitionPending=false;
         cudaFree(mReadinessUpload);if(mReadinessHost)cudaFreeHost(mReadinessHost);mReadinessUpload=mReadinessHost=nullptr;mReadinessCapacity=0;
         for(int k=0;k<2;++k){cudaFree(mReadinessVerdict[k]);if(mReadinessVerdictHost[k])cudaFreeHost(mReadinessVerdictHost[k]);mReadinessVerdict[k]=mReadinessVerdictHost[k]=nullptr;}mReadinessVerdictCapacity=0;
         for(int k=0;k<2;++k){cudaFree(mReadinessMirror[k]);mReadinessMirror[k]=nullptr;mReadinessMirrorCapacity[k]=0;}
@@ -2291,6 +2307,47 @@ public:
             check(cudaStreamSynchronize(stream));
             capacity=labels;return mReadinessVerdictHost[slot];
         }catch(...){return nullptr;}
+    }
+    unsigned* mSleepTransitionList=nullptr;unsigned* mSleepTransitionCount=nullptr;PxU32 mSleepTransitionCapacity=0;
+    unsigned char* mSleepTransitionComponent=nullptr;PxU32 mSleepTransitionComponentCapacity=0;
+    unsigned* mSleepTransitionHost=nullptr;PxU32 mSleepTransitionHostCapacity=0;
+    cudaEvent_t mSleepTransitionReady=nullptr,mSleepMirrorReady=nullptr;bool mSleepTransitionPending=false;
+    bool enqueueDeviceSleepTransition(const PxNodeIndex* nodes,PxU32 count,PxU32 firstRigid,CUstream solverStream) override {
+        mSleepTransitionPending=false;
+        const PxU32 capacity=mGraphView.nodeCapacity;
+        if(!nodes || !solverStream || !capacity || !mGraphAccurate)return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(solverStream);
+            if(!mSleepTransitionReady){check(cudaEventCreateWithFlags(&mSleepTransitionReady,cudaEventDisableTiming));check(cudaEventCreateWithFlags(&mSleepMirrorReady,cudaEventDisableTiming));}
+            if(!growReadinessMirror(0,capacity,mStream))return false;
+            if(capacity>mSleepTransitionComponentCapacity){cudaFree(mSleepTransitionComponent);mSleepTransitionComponent=nullptr;check(cudaMalloc(reinterpret_cast<void**>(&mSleepTransitionComponent),capacity));mSleepTransitionComponentCapacity=capacity;}
+            if(!mSleepTransitionCount)check(cudaMalloc(reinterpret_cast<void**>(&mSleepTransitionCount),sizeof(unsigned)));
+            if(count>mSleepTransitionCapacity){cudaFree(mSleepTransitionList);mSleepTransitionList=nullptr;const PxU32 grown=PxMax(count,PxMax(2u*mSleepTransitionCapacity,4096u));check(cudaMalloc(reinterpret_cast<void**>(&mSleepTransitionList),sizeof(unsigned)*grown));mSleepTransitionCapacity=grown;}
+            // The mirror deltas of this pass were enqueued on mStream before this
+            // call (host order); the graph build signalled mGraphReady.
+            check(cudaEventRecord(mSleepMirrorReady,mStream));
+            check(cudaStreamWaitEvent(stream,mSleepMirrorReady,0));
+            if(mGraphView.readyEvent)check(cudaStreamWaitEvent(stream,reinterpret_cast<cudaEvent_t>(mGraphView.readyEvent),0));
+            check(cudaMemsetAsync(mSleepTransitionComponent,0,capacity,stream));
+            check(cudaMemsetAsync(mSleepTransitionCount,0,sizeof(unsigned),stream));
+            sleepComponentFromFlags<<<(capacity+255u)/256u,256,0,stream>>>(mReadinessMirror[0],mGraphAccurate,capacity,mSleepTransitionComponent);
+            if(count>firstRigid)collectSleepTransitions<<<(count-firstRigid+255u)/256u,256,0,stream>>>(nodes,firstRigid,count,mGraphAccurate,capacity,mSleepTransitionComponent,mReadinessMirror[0],mSleepTransitionList,mSleepTransitionCount);
+            check(cudaGetLastError());check(cudaEventRecord(mSleepTransitionReady,stream));
+            // The next graph build must not relabel under this pass's reduction.
+            check(cudaStreamWaitEvent(mStream,mSleepTransitionReady,0));
+            mSleepTransitionPending=true;return true;
+        }catch(...){mSleepTransitionPending=false;return false;}
+    }
+    PxU32 readDeviceSleepTransition(const PxU32*& list) override {
+        list=nullptr;if(!mSleepTransitionPending)return 0;
+        try {
+            Context current(mContext);check(cudaEventSynchronize(mSleepTransitionReady));
+            unsigned n=0;check(cudaMemcpy(&n,mSleepTransitionCount,sizeof(n),cudaMemcpyDeviceToHost));
+            n=PxMin(n,mSleepTransitionCapacity);
+            if(n>mSleepTransitionHostCapacity){delete[] mSleepTransitionHost;mSleepTransitionHost=new unsigned[n];mSleepTransitionHostCapacity=n;}
+            if(n)check(cudaMemcpy(mSleepTransitionHost,mSleepTransitionList,n*sizeof(unsigned),cudaMemcpyDeviceToHost));
+            list=mSleepTransitionHost;return n;
+        }catch(...){return 0;}
     }
     const PxU8* readinessMirror(bool speculative,PxU32& capacity) override {
         capacity=0;const PxU32 slot=speculative?1u:0u;const PxU32 n=mReadinessMirrorCapacity[slot];

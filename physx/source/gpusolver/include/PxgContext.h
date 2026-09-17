@@ -377,6 +377,7 @@ namespace physx
         const PxArray<PxU32>& getExpectedSolverStaticTouches() const { return mExpectedSolverStaticTouches; }
 		PX_FORCE_INLINE PxgSolverCore* getGpuSolverCore() { return mGpuSolverCore;}
 		PX_FORCE_INLINE PxU32 getActiveNodeCount() const { return mActiveNodeIndex.size(); } // solver body order (world, kinematics, rigid, articulations)
+		PX_FORCE_INLINE PxU32 getKinematicCount() const { return mKinematicCount; } // solver bodies [1, 1+count) are the active kinematics
 
 		PX_FORCE_INLINE PxgArticulationCore* getArticulationCore() { return mGpuArticulationCore; }
 

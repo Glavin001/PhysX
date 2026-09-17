@@ -1027,6 +1027,11 @@ bodies rolled back) is the one known divergence source and is already handled by
 previous-deactivation list. Expected gain up to ~2.5 ms per pass; cost several days in
 `PxgSimulationController`/`Sc::Scene` scheduling plus the ensemble check if any order changes.
 
+**Increment 1 result (2026-09-17, `warm-screen.md`):** the device list from the readiness mirror and the repair-graph
+labels misses 11 % of the CPU's real deactivations (decisions carried by the correction restore; device components
+that differ from CPU islands), so steps (2)–(4) are order-changing without device-owned activation state. Kept as
+the audit mode `PHYSX_DESTRUCTION_DEVICE_SLEEP=8`; the integrate → stress gap (1.95 ms per pass) stays.
+
 ## 15. R5 route refined from the measurements (2026-09-17): dormant masks, no island parking
 
 Why the corrected pass is worth ~13 ms of the 20.5 ms tick: an idle tick costs 1.1 ms, so the

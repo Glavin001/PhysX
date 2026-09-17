@@ -1922,3 +1922,28 @@ The same traces do give consistent device-side facts for the sustained trial pas
 integrate → startFrame gap 1.95 ms median, prologue (loads sort and routing, host-launch-bound) 0.89 ms with
 0.37 ms of GPU idle, chain to verdict 3.78 ms of which the solve kernel is 2.54, verdict → candidate bodies
 0.62 ms.
+
+### §14 reorder, increment 1: device sleep-transition list audited against the CPU deactivation set (2026-09-17; diagnostic kept, no default change)
+
+`PHYSX_DESTRUCTION_DEVICE_SLEEP=8`: the accurate readiness mirror (deltas applied at `prepareGpuDestructionIslandRepair`)
+is reduced on the device over this pass's repair-graph labels, and the solver's rigid bodies whose component has no
+not-ready member are collected into a device list (enqueued on the solver stream by the second of {solver issued,
+mirror updated}, no host wait; kinematics skipped by the solver body layout offset). The list is compared with the
+CPU rollback set of the same pass's early sleep commit (`finalizeSleepingRigidBodies(rollback)`), classifying CPU
+entries absent from the solver list as stale (already asleep on the device; the CPU list persists across passes).
+g16 3 s bombardment, 267 passes: device-only 0 (after the kinematic skip; before it the 256 kinematic building
+parents appeared every pass), stale 3,156, CPU-only 1,810 of 16,260 CPU entries (11 % of the non-stale ones), over
+89 of 267 passes. The CPU-only nodes fall into two classes, both visible in the per-node classification:
+
+1. readiness clear at pass start and at audit, single-node island, mirror agrees with the CPU flag: the CPU
+   deactivates the node anyway. These are corrected passes (the trial's deactivations restored by
+   `restoreDestructionActivity`) and the trials right after them; the decision is carried by the correction
+   restore, not recomputed from the flags the device sees.
+2. readiness set at pass start and at audit, multi-node island whose CPU island is entirely ready: the device
+   component holds a not-ready member, i.e. the repair-graph component differs from the CPU island for that pass.
+
+Neither class is a function of (readiness mirror, repair-graph labels), so a device-driven transition and an
+immediate stress submit would change the deactivation set (order-changing), which is the conclusion README §9
+reached for the device sleep scheduler: it needs device-owned activation state (the multi-week R2 core), not a
+reduction. The 1.95 ms integrate → stress gap per pass therefore stays; mode 8 remains as the audit tool.
+Histories under mode 8 are identical to the default (56,077 bonds).

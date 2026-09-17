@@ -806,10 +806,12 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             const int deviceSleep=destructionDeviceSleepMode();
             islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,0);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,0);
             if(deviceSleep==3) { islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,3);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,3); }
-            else if(deviceSleep==6 || deviceSleep==7) {
+            else if(deviceSleep>=6 && deviceSleep<=9) {
                 // Device mirror of the readiness flag maintained by deltas; the
                 // reduction reads the mirror. Mode 7 also audits mirror == CPU flags.
-                for(int which=0;which<2;++which) {
+                // Modes 8/9 (device sleep transition, README §14) keep only the
+                // accurate mirror and reduce on the device at the solver issue.
+                for(int which=0;which<(deviceSleep>=8?1:2);++which) {
                     IG::IslandSim& sim=which?islands.getSpeculativeIslandSim():islands.getAccurateIslandSim();
                     const PxU32 nodeCount=sim.getNbNodes();
                     const auto cpuFlags=[&](PxU32 i){const IG::Node& node=sim.getNode(PxNodeIndex(i));
@@ -825,6 +827,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                         if(!mDestruction->applyReadinessDeltas(deltas,deltaCount,which!=0))mDestructionReadinessSeeded[which]=false;
                     }
                     sim.clearReadinessDeltas(PxMax(4u*nodeCount,65536u));
+                    if(deviceSleep>=8)continue;
                     PxU32 capacity=0;const PxU8* verdicts=mDestructionReadinessSeeded[which]?mDestruction->reduceMirroredReadiness(which!=0,capacity):NULL;
                     if(verdicts && capacity)sim.setGpuSleepVerdicts(verdicts,capacity,deviceSleep==6?4u:5u,0);
                     if(deviceSleep==7) {
@@ -866,6 +869,13 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                 const PxU32 tag=(sleepPassTick<<1)|(mDestructionCorrecting?1u:0u);
                 if(verdicts && capacity){islands.getAccurateIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),tag);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),tag);}
             }
+        }
+        if(destructionDeviceSleepMode()>=8){
+            mDestructionAuditIslands=&islands;
+            if(destructionDeviceSleepMode()==8){const IG::IslandSim& sim=islands.getAccurateIslandSim();const PxU32 n=sim.getNbNodes();
+                mDestructionAuditReadyAtPrepare.forceSize_Unsafe(0);mDestructionAuditReadyAtPrepare.resize(n);
+                for(PxU32 i=0;i<n;++i)mDestructionAuditReadyAtPrepare[i]=PxU8(sim.getNode(PxNodeIndex(i)).isReadyForSleeping()?1u:0u);}
+            noteDestructionSleepTransitionArrival();
         }
         if(!owned)islands.restoreHostConnectivity();
         islands.setDeviceConnectivityOwned(owned);
@@ -1045,7 +1055,74 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         if(!destructionEarlySubmit() || !mDestruction) return;
         PxMutex::ScopedLock lock(mDestructionEarlyMutex);
         mDestructionSolverIssued=true;mDestructionSolverIssuedEvent=solverEvent;
+        if(destructionDeviceSleepMode()>=8)noteDestructionSleepTransitionArrival();
         if(mDestructionEarlyArmed && !mDestructionEarlySubmitted && !mDestructionCorrecting)runDestructionEarlySubmit();
+    }
+    // Device sleep transition (README §14): the second of {solver issued, mirror
+    // updated for this pass} enqueues the device deactivation list on the solver
+    // stream (arrival counter: no lock order against the CUDA context lock,
+    // which prepareGpuDestructionIslandRepair holds for its whole body).
+    void PxgSimulationController::noteDestructionSleepTransitionArrival()
+    {
+        if(PxAtomicIncrement(&mDestructionTransitionArrivals)!=2)return;
+        PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
+        const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+        if(!core || !mDestruction)return;
+        PxScopedCudaLock lock(*mCudaContextManager);
+        mDestructionTransitionEnqueued=mDestruction->enqueueDeviceSleepTransition(core->getGpuIslandNodeIndices().getPointer(),bodies,1u+mDynamicContext->getKinematicCount(),core->getStream());
+    }
+    // Mode 8 audit: the device list against the CPU rollback set of this pass's
+    // early sleep commit (collected in finalizeSleepingRigidBodies).
+    void PxgSimulationController::auditDestructionSleepTransition()
+    {
+        static PxU64 passes=0,cpuTotal=0,devTotal=0,cpuOnly=0,devOnly=0,mismatchPasses=0,shown=0;++passes;
+        const PxU32* list=NULL;const PxU32 count=mDestructionTransitionEnqueued?mDestruction->readDeviceSleepTransition(list):0;
+        PxArray<PxU32>& cpu=mDestructionSleepAuditCpu;
+        PxU32 co=0,dof=0,stale=0;
+        PxHashSet<PxU32> solverSet;
+        {
+            PxgSolverCore* core=mDynamicContext->getGpuSolverCore();const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+            if(core && bodies){PxArray<PxNodeIndex> host(bodies);PxScopedCudaLock lock(*mCudaContextManager);
+                mCudaContextManager->getCudaContext()->memcpyDtoH(host.begin(),CUdeviceptr(reinterpret_cast<size_t>(core->getGpuIslandNodeIndices().getPointer())),sizeof(PxNodeIndex)*bodies);
+                for(PxU32 i=0;i<bodies;++i)if(!host[i].isArticulation())solverSet.insert(host[i].index());}
+        }
+        {
+            PxHashSet<PxU32> dev;for(PxU32 i=0;i<count;++i)dev.insert(list[i]);
+            PxHashSet<PxU32> cpuSet;for(PxU32 i=0;i<cpu.size();++i)cpuSet.insert(cpu[i]);
+            // CPU entries not in this pass's solver list are already asleep on
+            // the device (the CPU list persists across passes): no-op commits.
+            for(PxU32 i=0;i<cpu.size();++i)if(!dev.contains(cpu[i])){if(solverSet.contains(cpu[i]))++co;else ++stale;}
+            for(PxU32 i=0;i<count;++i)if(!cpuSet.contains(list[i]))++dof;
+        }
+        static PxU64 staleTotal=0;staleTotal+=stale;
+        cpuTotal+=cpu.size();devTotal+=count;cpuOnly+=co;devOnly+=dof;if(co||dof)++mismatchPasses;
+        if((co||dof) && shown<12 && mDestructionAuditIslands) {
+            // Classify the first mismatched nodes with CPU-side state.
+            const IG::IslandSim& sim=mDestructionAuditIslands->getAccurateIslandSim();
+            PxU32 mirrorCap=0;const PxU8* mirror=mDestruction->readinessMirror(false,mirrorCap);
+            PxHashSet<PxU32> dev;for(PxU32 i=0;i<count;++i)dev.insert(list[i]);
+            PxHashSet<PxU32> cpuSet;for(PxU32 i=0;i<cpu.size();++i)cpuSet.insert(cpu[i]);
+            const IG::IslandId* islandIds=sim.getIslandIds();const PxU32 nodeCount=sim.getNbNodes();
+            PxU32 printed=0;
+            const auto describe=[&](const char* kind,PxU32 n){
+                if(printed>=6 || n>=nodeCount)return;++printed;
+                const IG::Node& node=sim.getNode(PxNodeIndex(n));const IG::IslandId island=islandIds[n];
+                const PxU32 root=(island!=IG_INVALID_ISLAND && island<sim.getNbIslands())?sim.getIsland(island).mRootNode.index():0xFFFFFFFFu;
+                fprintf(stderr,"   %s node %u: readyAtPrepare %d readyNow %d active %d kinematic %d island %u root %u inSolver %d mirrorNotReady %d islandWoken %d\n",
+                    kind,n,n<mDestructionAuditReadyAtPrepare.size()?int(mDestructionAuditReadyAtPrepare[n]):-1,int(node.isReadyForSleeping()!=0),int(node.isActive()!=0),int(node.isKinematic()!=0),
+                    unsigned(island),root,int(solverSet.contains(n)),n<mirrorCap?int(mirror[n]):-1,
+                    (island!=IG_INVALID_ISLAND && island<sim.mIslandWokenThisFrame.size())?int(sim.mIslandWokenThisFrame.test(island)):-1);
+            };
+            for(PxU32 i=0;i<cpu.size() && printed<3;++i)if(!dev.contains(cpu[i]) && solverSet.contains(cpu[i]))describe("cpuOnly",cpu[i]);
+            for(PxU32 i=0;i<count && printed<6;++i)if(!cpuSet.contains(list[i]))describe("devOnly",list[i]);
+        }
+        if(((co||dof) && shown<12) || (passes%64)==0) {
+            ++shown;
+            fprintf(stderr,"[sleep-transition audit] pass %llu (%s, enqueued %d): cpu %u (stale %u) dev %u cpuOnly %u devOnly %u | totals cpu %llu dev %llu cpuOnly %llu devOnly %llu stale %llu mismatchPasses %llu\n",
+                (unsigned long long)passes,mDestructionCorrecting?"corrected":"trial",int(mDestructionTransitionEnqueued),cpu.size(),stale,count,co,dof,
+                (unsigned long long)cpuTotal,(unsigned long long)devTotal,(unsigned long long)cpuOnly,(unsigned long long)devOnly,(unsigned long long)staleTotal,(unsigned long long)mismatchPasses);
+        }
+        cpu.forceSize_Unsafe(0);
     }
     // Under mDestructionEarlyMutex: the sleep commit and the submission, with
     // the simulation core stream joined to the solver's issued launches.
@@ -1060,6 +1137,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             if(mDestructionSolverIssuedEvent && cuda->streamWaitEvent(mSimulationCore->getStream(),reinterpret_cast<CUevent>(mDestructionSolverIssuedEvent),0)!=0)return;
         }
         if(mDestructionEarlyCommit && !mDestructionEarlyCommit(mDestructionEarlyUser))return;
+        if(destructionDeviceSleepMode()==8)auditDestructionSleepTransition();
         if(usesDeviceDestructionContactInputs()) {
             PxProfileScoped graph(PxGetProfilerCallback(),"GpuDestruction.task.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
             PxScopedCudaLock lock(*mCudaContextManager);
@@ -1154,7 +1232,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         {
             PxMutex::ScopedLock earlyLock(mDestructionEarlyMutex);
             const bool reuse=mDestructionEarlySubmitted;
-            mDestructionEarlySubmitted=false;mDestructionEarlyArmed=false;mDestructionSolverIssued=false;
+            mDestructionEarlySubmitted=false;mDestructionEarlyArmed=false;mDestructionSolverIssued=false;mDestructionTransitionArrivals=0;mDestructionTransitionEnqueued=false;
             if(reuse)ok=mDestructionEarlyOk;
             else ok=submitDestructionInternal(dt,gravity,postCorrection,1-mDynamicContext->getCurrentContactStreamIndex());
         }
@@ -3945,6 +4023,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     bool PxgSimulationController::finalizeSleepingRigidBodies(const PxU32* indices, PxU32 count, bool rollbackPose)
     {
         if(!count) return true;
+        if(rollbackPose && destructionDeviceSleepMode()==8)for(PxU32 i=0;i<count;++i)mDestructionSleepAuditCpu.pushBack(indices[i]);
         const PxU64 zoneContext=PxU64(reinterpret_cast<size_t>(this));
         PxProfileScoped zoneAll(PxGetProfilerCallback(),rollbackPose?"GpuDestruction.sleepDetail.finalizeRollback":"GpuDestruction.sleepDetail.finalize",false,zoneContext);
         {

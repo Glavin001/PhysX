@@ -144,6 +144,15 @@ public:
     virtual bool applyReadinessDeltas(const PxU32* deltas, PxU32 count, bool speculative) = 0;
     virtual const PxU8* reduceMirroredReadiness(bool speculative, PxU32& capacity) = 0;
     virtual const PxU8* readinessMirror(bool speculative, PxU32& capacity) = 0;
+    // Device sleep transition (README §14, R2 item 1 reorder). From the accurate
+    // readiness mirror and this pass's repair-graph labels, list the solver's
+    // rigid bodies whose component is entirely ready to sleep: the set the CPU's
+    // third island pass deactivates. Enqueued on the solver stream after the
+    // pass's integration is issued (no host wait; waits on the mirror upload and
+    // the graph build by event). readDeviceSleepTransition is the synchronous
+    // audit readback (count; list valid until the next enqueue).
+    virtual bool enqueueDeviceSleepTransition(const PxNodeIndex* nodes, PxU32 count, PxU32 firstRigid, CUstream solverStream) = 0; // solver bodies [firstRigid, count) are rigid dynamics
+    virtual PxU32 readDeviceSleepTransition(const PxU32*& list) = 0;
     // Island-scoped correction. requestTrialSnapshot makes the next
     // restoreRigidState keep a copy of the live (trial end-of-tick) state before
     // rewinding; reinstateTrialState copies that snapshot back for the listed
