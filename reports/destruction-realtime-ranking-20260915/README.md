@@ -1002,3 +1002,27 @@ knobs with the default unchanged. What remains is the two CPU-bound rigid passes
 diffuse (island sims 6 %, new-pair pipeline 3 %, activity snapshot/restore 1.7 % of CPU samples; the rest
 is PhysX's task chain and GPU waits); the structural answers stay R2 (device-owned lifecycle and islands)
 and R5 (partition-level scoping of the corrected pass), both multi-week and order-changing.
+
+## 14. Next increment specified: stress submit before the CPU island chain (R2 item 1 reorder, 2026-09-17)
+
+Kernel timeline of a sustained trial pass under the current defaults (`nsys-node2`): the rigid solver
+and integration finish 3.5 ms before the stress solve starts, and the GPU is idle for ~2.5 ms of that
+(gaps of 1.3 ms after integration, 0.5 ms after the bounds update, 0.1–0.2 ms between the sleep
+finalization uploads, 0.2 ms before the loads). The CPU chain in that window is `afterIntegration`
+(body DMA wait 0.75 ms), the accurate and speculative island maintenance (0.75 ms each, parallel),
+`finalizeGpuSleep` (sleep commit, 0.5–0.6 ms; its four setter launches are now one, −0.3 ms/tick)
+and then `advanceDestruction` (`ScPipeline.cpp`, `finalizationPhase`), whose loads read the body
+state *after* the sleep commit zeroed sleeping bodies. Twice per tick this is ~5 ms of the sustained
+tick, the largest bounded item left outside R5.
+
+The reorder: (1) build the destruction contact graph as soon as narrowphase outputs are final
+(device-only dependency; today launched from `prepareGpuDestructionIslandRepair`); (2) after
+integration, reduce readiness and sleep verdicts on the device (mode 6 machinery, measured exact:
+0 disagreements, identical histories) and apply the zeroing of newly sleeping bodies with
+`zeroNativeSleepMotion` from device verdicts; (3) enqueue loads and the stress solve immediately,
+so the solve overlaps the CPU island maintenance; (4) the CPU island sims consume the device
+verdicts (mode 6 "use") and the sleep commit becomes idempotent; (5) the verdict/correction join is
+unchanged. Exactness rests on the mode-6 audit; the PhysX afterIntegration race rule (IG-deactivated
+bodies rolled back) is the one known divergence source and is already handled by that mode's
+previous-deactivation list. Expected gain up to ~2.5 ms per pass; cost several days in
+`PxgSimulationController`/`Sc::Scene` scheduling plus the ensemble check if any order changes.
