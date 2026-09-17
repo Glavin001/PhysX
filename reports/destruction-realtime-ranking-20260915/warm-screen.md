@@ -1591,3 +1591,18 @@ Experiment (island scope mode 5, not kept): bodies of trial islands untouched by
 | 09-17 + yield-thread demo workers | 20.5 | 129 | 248 | 1.13 |
 
 Against the 09-10 baseline the sustained tick is 3.1× faster (64.0 → 20.5 ms), the peak 1.6× (210 → 129), 60 Hz misses halve (519 → 248) and the idle tick is 1.5× faster (1.65 → 1.13). Against the plan's 09-14 starting point it is 2.5×. The warm nine-window screen shows the same shape against its paired 09-14 controls: impact 89 → 66 ms (1.35×), cascade 105 → 64 (1.64×), debris 126 → 73 (1.71×), city25 impact 23 → 16 (1.43×). The last step of the continuous chain (25.7 → 20.5) is the demo's dispatcher wait mode, an application-level setting; the runtime-only chain ends at 25.7 ms.
+
+## What fits at 60 Hz with the shipped defaults (scale sweep, 2026-09-17)
+
+Standard bombardment (every building hit at once, debris sustained), 3 s runs, `out/direct-factor-feasibility-20260915/scale-g*`:
+
+| buildings | chunks / bonds | clusters at end | bonds broken | sustained mean | p95 | peak | sustained ticks > 16.7 ms |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 16 | 7k / 14k | 838 | 4,354 | 7.3 ms | 14.8 | 24 | 1 of 90 |
+| 36 | 16k / 32k | 1,772 | 8,799 | 9.8 | 17.8 | 30 | 10 of 90 |
+| 64 | 28k / 57k | 2,869 | 15,073 | 12.6 | 19.2 | 41 | 25 of 90 |
+| 100 | 44k / 90k | 4,233 | 21,834 | 18.8 | 26.5 | 57 | 69 of 90 |
+| 144 | 64k / 129k | 6,189 | 32,308 | 25.7 | 33.6 | 76 | 78 of 90 |
+| 256 | 114k / 229k | 10,945 | 56,077 | 38.5 | 53.5 | 126 | 90 of 90 |
+
+Single impact in a sleeping city (`single-g*`): 256 buildings / 114k chunks 4.5 ms mean, p95 6.7, 3 misses of 180 (first tick and the impact); 64 buildings 2.6 ms mean. Scene size is nearly free while settled (1.1–2.9 ms intact); the 60 Hz line is about 15–30k simultaneously active chunks (~3k clusters, ~15k bonds breaking per second). Simultaneous mass impacts remain the outlier (16 buildings at once peak 24 ms, 64 at 41 ms).
