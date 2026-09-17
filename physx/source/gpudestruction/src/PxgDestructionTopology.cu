@@ -16,6 +16,14 @@ namespace {
 constexpr unsigned INVALID = 0xffffffffu;
 constexpr unsigned BLOCK = 256;
 #include "PxgDestructionSlots.cuh"
+#include <cstdlib>
+// Pipeline streams sit above the least priority (see CudaCtx::streamCreate);
+// PHYSX_GPU_STREAM_PRIORITY overrides, 0 restores the CUDA default.
+static inline int destructionPipelineStreamPriority(){
+    static const int value=[]{const char* raw=::getenv("PHYSX_GPU_STREAM_PRIORITY");int least=0,greatest=0;cudaDeviceGetStreamPriorityRange(&least,&greatest);int v=raw?::atoi(raw):-2;if(v<greatest)v=greatest;if(v>least)v=least;return v;}();
+    return value;
+}
+
 
 __global__ void initialize(unsigned* activeChunks, unsigned n, unsigned* activeBonds,
     unsigned m, PxgDestructionTopologyStatus* status) {
@@ -302,7 +310,7 @@ public:
         const PxgDestructionBond* bonds, unsigned m, const Topology* shared = nullptr, const unsigned* initialActiveBonds = nullptr) {
         mN = n; mM = m;
         if(shared){mChunks=shared->mChunks;mBonds=shared->mBonds;mOwnAssets=false;}
-        if (cudaStreamCreateWithFlags(&mStream, cudaStreamNonBlocking) != cudaSuccess
+        if (cudaStreamCreateWithPriority(&mStream, cudaStreamNonBlocking, destructionPipelineStreamPriority()) != cudaSuccess
             || cudaEventCreateWithFlags(&mReady, cudaEventDisableTiming) != cudaSuccess) return false;
         if ((mOwnAssets && (!alloc(mChunks,n) || !alloc(mBonds,m))) || !alloc(mActiveChunks,n)
             || !alloc(mActiveBonds,m) || !alloc(mLabels,n) || !alloc(mIndices,n)

@@ -1028,7 +1028,22 @@ PxCUresult CudaCtx::streamCreate(CUstream* phStream, unsigned int Flags)
 	}
 
 #if !USE_DEFAULT_CUDA_STREAM
-	mLastResult = cuStreamCreate(phStream, Flags);
+	// Every pipeline stream is created above the least priority (0, the CUDA
+	// default), so a persistent low-priority grid such as the destruction
+	// refactor burst yields CTA slots to pipeline work as its blocks retire:
+	// at equal priority a city impact's burst held every SM for 22 ms while
+	// the corrected pass's rewind copies waited. PHYSX_GPU_STREAM_PRIORITY
+	// overrides (0 restores the default; negative values raise priority).
+	static const int priority = []() {
+		const char* raw = ::getenv("PHYSX_GPU_STREAM_PRIORITY");
+		int least = 0, greatest = 0;
+		cuCtxGetStreamPriorityRange(&least, &greatest);
+		int value = raw ? ::atoi(raw) : -2;
+		if (value < greatest) value = greatest;
+		if (value > least) value = least;
+		return value;
+	}();
+	mLastResult = priority ? cuStreamCreateWithPriority(phStream, Flags, priority) : cuStreamCreate(phStream, Flags);
 #else
 	PX_UNUSED(Flags);
 	*phStream = CUstream(CU_STREAM_DEFAULT);

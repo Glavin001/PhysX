@@ -4740,13 +4740,15 @@ private:
         static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_FACTOR_JOIN_DIAG"); return raw && std::atoi(raw) != 0; }();
         return value;
     }
-    void joinFactorStream() {
+    void joinFactorStream(const char* tag = "?") {
         // A requested but not yet flushed eager launch is dropped: the solver
         // stream's own factor launch before the solve covers the invalid slots.
         m_eagerFactorRequested = false;
         ++m_factorJoinDiag.joins;
         if (!m_factorPending) return;
         ++m_factorJoinDiag.pendingJoins;
+        static const bool tagDiag = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_FACTOR_JOIN_DIAG"); return raw && std::atoi(raw) >= 2; }();
+        if (tagDiag) { const bool done = cudaEventQuery(m_factorDone) == cudaSuccess; cudaGetLastError(); std::fprintf(stderr, "factor join: %s (factor %s)\n", tag, done ? "already done" : "STILL RUNNING"); }
         const bool diag = nativeFactorJoinDiag();
         FactorJoinDiag& d = m_factorJoinDiag;
         if (diag) {

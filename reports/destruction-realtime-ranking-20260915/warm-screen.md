@@ -1622,3 +1622,19 @@ Per-second means of the 256-building run rise from 4 to ~19–23 ms as tumbling 
 ## Recordings of staggered scenes, and a latent roster-growth bug fixed on the way (2026-09-17)
 
 `videos/city64-staggered-overview.mp4` (64 buildings, 64 impacts over 8 s, 12 s at 60 fps) and `videos/city256-staggered-overview.mp4` (256 buildings, 256 impacts over 14 s, 20 s) were recorded with the demo's CUDA/OpenGL renderer (`--gpu-render 1 --gpu-camera overview --gpu-video`). Recording first failed at t ≈ 2.75 s with "CUDA pre-solve island production failed, error code 2": the native node registry (`mPreNodes`) and the pre-solve roster (`mPrePrevious`) grow on different paths, and the roster copy only grew the registry when the roster itself was too small; with the renderer's projectile registrations the solver's node count (663) exceeded the registry (662) while the roster (664) sufficed, so the device-to-device roster copy read past the registry. `buildPreSolveIslands` now grows both whenever either falls short, reports the failing CUDA call with its line, and rejects out-of-range counts before allocating. 14/14 native tests pass; the scene without rendering was unaffected because its node count never straddled the two capacities.
+
+## Impact-tick scheduling: no-op acceptance transaction skipped, pipeline stream priorities, copy kernels, late burst flush (lossless, −1.2 ms sustained, −13 ms at the 256-impact tick)
+
+Tracing the 256-building impact tick (134 ms) showed the correction preparation waiting ~20 ms with the GPU running only the eager refactor burst (256 fresh factors, 22.7 ms on the factor stream) and the rewind of 512 body records taking 17 ms between its events. Four findings and changes, each env-gated and all bit-identical (three interleaved runs, five counters, 14/14 tests):
+
+1. **The acceptance-time topology transaction joined the burst.** With the speculative stress topology in effect the solver already holds the pass's verdict, so the transaction submitted by the correction preparation (and again after the corrected pass) is a device no-op, but its host join waited for the burst launched for that very verdict. `PHYSX_DESTRUCTION_SKIP_NOOP_TOPOLOGY` (default 1) skips it; a tagged join diagnostic (`BLAST_GPU_NATIVE_FACTOR_JOIN_DIAG=2`) showed 56 of 143 transactions joining a running burst on sustained ticks too, which is the −1.1 ms sustained gain.
+2. **All pipeline streams sat at the least priority.** On this GPU the least priority is 0, the CUDA default, so the factor stream created "at least priority" shared it with every PhysX stream and a persistent burst held every SM until it drained. `CudaCtx::streamCreate` now creates PhysX streams at priority −2 (`PHYSX_GPU_STREAM_PRIORITY`, 0 restores), the destruction topology and transaction streams likewise; the factor stream stays at 0.
+3. **Device-to-device copies as kernels.** The checkpoint capture, rewind, trial snapshot and pre-solve roster copies used `cudaMemcpyAsync` device-to-device; they are now SM copy kernels (`PHYSX_DESTRUCTION_KERNEL_COPIES`), ordered only by their stream.
+4. **Late flush of the eager burst.** With fractures pending a correction, the burst is flushed after the preparation's readback instead of at the trial's finish (`PHYSX_DESTRUCTION_EAGER_FLUSH_LATE`), so it overlaps the CPU-only body allocation and shape migration.
+
+| (three interleaved runs) | mean | late 90+ | p95 | 256-impact tick |
+|---|---:|---:|---:|---:|
+| all four disabled | 23.02 | 38.2 | 53.6 | 128.7 |
+| shipped | 21.87 | 36.2 | 51.1 | 116.1 |
+
+What remains on the impact tick: the binding application still waits ~33 ms behind the second burst (the corrected pass's refactors), the corrected broad phase 14 ms, and the CPU allocation, migration and publication (~30 ms); see README §14 for the plan.

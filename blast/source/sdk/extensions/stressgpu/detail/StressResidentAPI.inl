@@ -25,7 +25,7 @@
             || m_topologyDirty || m_activeListsDirty || m_prevListsSkipping || m_deviceTopologyFailed)
             return false;
         ContextGuard context(m_cudaContext);
-        joinFactorStream();
+        joinFactorStream("prepareDeviceSolve");
         if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,
             reinterpret_cast<cudaEvent_t>(consumerDone), 0), "wait stress consumer");
         if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,
@@ -188,7 +188,7 @@
         if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(consumerDone),0), "wait stress topology consumer");
         if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(producerReady),0), "wait stress topology producer");
         m_telemetry = {};
-        joinFactorStream();
+        joinFactorStream("enableDeviceTopology");
         m_deviceTopology->submit({mask,generation,accept,bondUtilization},m_stream);
         checkCuda(cudaEventRecord(m_statusReady,m_stream), "record stress topology update");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
@@ -219,7 +219,7 @@
 #else
         if (!m_deviceTopology) return;
         ContextGuard context(m_cudaContext);
-        joinFactorStream();
+        joinFactorStream("invalidateDeviceTopology");
         resetDeviceStressGeneration<<<1,1,0,m_stream>>>(m_deviceTopology->status(), targetGeneration);
         m_deviceTopology->invalidateNativeHierarchy(m_stream);
         if (aliveBonds && m_bondCount)

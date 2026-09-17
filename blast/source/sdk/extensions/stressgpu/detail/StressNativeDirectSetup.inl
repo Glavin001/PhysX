@@ -353,7 +353,7 @@
     void launchNativeDirectFactor(cudaStream_t launchStream = nullptr, unsigned blocksPerSm = 0) {
         if (!m_direct.enabled || !m_deviceTopology) return;
         const cudaStream_t stream = launchStream ? launchStream : m_stream;
-        if (!launchStream) joinFactorStream();
+        if (!launchStream) joinFactorStream("launchNativeDirectFactor");
         const auto components = m_deviceTopology->components();
         const auto view = m_deviceTopology->cycleView();
         if (!m_directGrid) {

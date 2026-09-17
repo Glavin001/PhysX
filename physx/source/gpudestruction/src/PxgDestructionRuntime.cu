@@ -46,6 +46,23 @@ void check(cudaError_t e) { if(e!=cudaSuccess) throw std::runtime_error(cudaGetE
 void checkAt(cudaError_t e,int line) { if(e!=cudaSuccess) throw std::runtime_error(std::string(cudaGetErrorString(e))+" at PxgDestructionRuntime.cu:"+std::to_string(line)); }
 #define CHECK_AT(x) checkAt((x),__LINE__)
 template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T)*std::max<size_t>(n,1))); }
+// Device-to-device copies as kernels. cudaMemcpyAsync device-to-device runs on
+// the copy engines, queued behind the pass's PCIe transfers: the corrected
+// pass's rewind of 512 body records measured 17 ms at a city impact and
+// 4-11 ms on sustained ticks. An SM copy is ordered only by its stream.
+// PHYSX_DESTRUCTION_KERNEL_COPIES=0 restores cudaMemcpyAsync (A/B).
+__global__ void copyDeviceWords16(uint4* dst,const uint4* src,size_t count){const size_t i=blockIdx.x*size_t(blockDim.x)+threadIdx.x;if(i<count)dst[i]=src[i];}
+__global__ void copyDeviceWords4(unsigned* dst,const unsigned* src,size_t count){const size_t i=blockIdx.x*size_t(blockDim.x)+threadIdx.x;if(i<count)dst[i]=src[i];}
+static bool kernelCopiesEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_KERNEL_COPIES");return !raw || raw[0]!='0';}();return v;}
+template<class T> void deviceCopy(T* dst,const T* src,size_t n,cudaStream_t stream) {
+    const size_t bytes=n*sizeof(T);if(!bytes)return;
+    if(!kernelCopiesEnabled()){check(cudaMemcpyAsync(dst,src,bytes,cudaMemcpyDeviceToDevice,stream));return;}
+    const bool aligned16=((reinterpret_cast<size_t>(dst)|reinterpret_cast<size_t>(src)|bytes)&15u)==0;
+    if(aligned16){const size_t words=bytes/16;copyDeviceWords16<<<unsigned((words+255)/256),256,0,stream>>>(reinterpret_cast<uint4*>(dst),reinterpret_cast<const uint4*>(src),words);}
+    else{const size_t words=bytes/4;copyDeviceWords4<<<unsigned((words+255)/256),256,0,stream>>>(reinterpret_cast<unsigned*>(dst),reinterpret_cast<const unsigned*>(src),words);
+        if(bytes&3u)check(cudaMemcpyAsync(reinterpret_cast<char*>(dst)+(bytes&~size_t(3)),reinterpret_cast<const char*>(src)+(bytes&~size_t(3)),bytes&3u,cudaMemcpyDeviceToDevice,stream));}
+    check(cudaGetLastError());
+}
 #include "PxgDestructionSnapshot.cuh"
 #include "PxgRigidIterationLimits.cuh"
 #include "PxgDestructionInputOwners.cuh"
@@ -594,7 +611,8 @@ class Runtime final : public PxgDestructionRuntime {
         mStageTimingPending=false;
     }
     cudaEvent_t mCorrectionEvents[6]{};PxU32 mCorrectionTimingMask=0;cudaEvent_t mAcceptProbe[2]{};
-    bool mSpeculativeStressOutstanding=false;
+    bool mSpeculativeStressOutstanding=false;bool mEagerFlushDeferred=false;
+    static bool topoDiagEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_TOPO_DIAG");return raw && raw[0]=='1';}();return v;}
     static bool acceptDiagEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ACCEPT_DIAG");return raw && raw[0]=='1';}();return v;}
     void correctionMarker(PxU32 marker,cudaStream_t stream) {
         if(!mProfiler)return;
@@ -921,7 +939,7 @@ public:
                 CHECK_AT(cudaGetLastError());
                 labels=mPreLabels;staticTouches=mPreTouches;mPreSolveLabelCount=count;
             }
-            if(count)CHECK_AT(cudaMemcpyAsync(mPrePrevious,mPreNodes,size_t(count)*sizeof(PxvPreSolveNode),cudaMemcpyDeviceToDevice,cudaStream));
+            if(count)deviceCopy(mPrePrevious,mPreNodes,size_t(count),cudaStream);
             CHECK_AT(cudaGetLastError());CHECK_AT(cudaEventRecord(mPreReady,cudaStream));mPrePreviousCount=count;mPreSourceGraphGeneration=mGraphView.generation;mPreRosterValid=true;
             return true;
         }catch(const std::exception& e){
@@ -1517,11 +1535,13 @@ public:
         }catch(...){mFailed=true;return false;}
     }
     void discardSpeculativeTopology() override {
+        if(mEagerFlushDeferred){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
         if(!mSpeculativeStressOutstanding || !mSolver || !mTopology || mFailed)return;
         try {
             Context current(mContext);
             const auto accepted=mTopology->accepted();
             mSolver->invalidateDeviceTopology(accepted.activeBonds,mHealth,&accepted.status->generation);
+            if(topoDiagEnabled())std::fprintf(stderr,"topo update: discard (postCorrection=%d)\n",int(mPostCorrection));
             if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,accepted.readyEvent,nullptr,mBondUtilization))
                 throw std::runtime_error("native stress topology restore submission failed");
             check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mSolver->deviceView().readyEvent),0));
@@ -1571,7 +1591,15 @@ public:
             const PxU32 shapeCount=shapeCapacity?mHostCompletion->shapeCount:0;
             if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(shapeObservations.data(),shapeCount)))return false;
             mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPostCorrection=false;
-            if(mSolver)mSolver->flushEagerFactor();
+            // The eager refactor burst is flushed after the correction preparation's
+            // readback (completeCorrectionPreparation) rather than here: launched
+            // now, a city-impact burst (256 fresh factors, ~22 ms of every SM)
+            // starves the preparation's device copies and kernels, and the CPU
+            // waits for them; launched after the readback it overlaps the
+            // CPU-only body allocation, shape migration and registration.
+            static const bool flushLate=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EAGER_FLUSH_LATE");return !raw || raw[0]!='0';}();
+            if(mSolver && !flushLate)mSolver->flushEagerFactor();
+            mEagerFlushDeferred=flushLate && mSolver;
             return true;
         }catch(...){mFailed=true;return false;}
     }
@@ -1619,6 +1647,7 @@ public:
                     const auto accepted=mTopology->accepted();
                     mSolver->invalidateDeviceTopology(accepted.activeBonds,mHealth,&accepted.status->generation);
                     if(acceptDiagEnabled())mSolver->debugPrintDeviceTopologyStatus("after-invalidate");
+                    if(topoDiagEnabled())std::fprintf(stderr,"topo update: restore-before-trial (postCorrection=%d)\n",int(mPostCorrection));
                     if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,accepted.readyEvent,nullptr,mBondUtilization))
                         throw std::runtime_error("native stress topology restore submission failed");
                     check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mSolver->deviceView().readyEvent),0));
@@ -1686,6 +1715,7 @@ public:
                     // A previous speculative update whose correction never completed
                     // left the solver at a generation the accepted view never reached.
                     if(speculative && mSpeculativeStressOutstanding){mSolver->invalidateDeviceTopology(accepted.activeBonds,mHealth,&accepted.status->generation);mSpeculativeStressOutstanding=false;}
+                    if(topoDiagEnabled())std::fprintf(stderr,"topo update: advance (postCorrection=%d)\n",int(mPostCorrection));
                     if(!mSolver->updateDeviceTopologyAsync(source.activeBonds,mM,&source.status->generation,nullptr,accepted.readyEvent,nullptr,mBondUtilization))
                         throw std::runtime_error("native stress topology update submission failed");
                     // Outstanding until the commit is known to have happened: at
@@ -1881,6 +1911,7 @@ public:
                 check(cudaStreamSynchronize(mStream));
             }
         }
+        if(mEagerFlushDeferred){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
         bool allocated=false;
         {
             PxProfileScoped records(mProfiler,"GpuDestruction.compatibility.allocateNativeBodies",false,mProfileContext);
@@ -1976,9 +2007,9 @@ public:
                 mCheckpointCapacity=capacity;
                 mCheckpointHasPrevious=previous!=nullptr;mCheckpointHasAccelerations=accelerations!=nullptr;
             }
-            check(cudaMemcpyAsync(mCheckpointBodies,bodies,size_t(count)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
-            if(previous)check(cudaMemcpyAsync(mCheckpointPrevious,previous,size_t(count)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
-            if(accelerations)check(cudaMemcpyAsync(mCheckpointAccelerations,accelerations,size_t(count)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
+            deviceCopy(mCheckpointBodies,bodies,size_t(count),stream);
+            if(previous)deviceCopy(mCheckpointPrevious,previous,size_t(count),stream);
+            if(accelerations)deviceCopy(mCheckpointAccelerations,accelerations,size_t(count),stream);
             if(purpose==PxgDestructionCheckpointPurpose::BeforeSolve) {
                 // The accepted authored mapping still belongs to this input
                 // generation. Freeze it before either material verdict can split
@@ -2336,7 +2367,11 @@ public:
             || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations)return false;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
+            static const bool rewindDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_REWIND_DIAG");return raw && raw[0]=='1';}();
+            static cudaEvent_t diagPre{},diagPost{},diagEnd{};
+            if(rewindDiag){if(!diagPre){check(cudaEventCreate(&diagPre));check(cudaEventCreate(&diagPost));check(cudaEventCreate(&diagEnd));}check(cudaEventRecord(diagPre,stream));}
             check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
+            if(rewindDiag)check(cudaEventRecord(diagPost,stream));
             correctionMarker(0,stream);
             mTrialSnapshotValid=false;
             if(mTrialSnapshotRequested) {
@@ -2351,15 +2386,17 @@ public:
                     check(cudaMalloc(reinterpret_cast<void**>(&mTrialSnapAccelerations),sizeof(*accelerations)*size_t(capacity)));
                     mTrialSnapCapacity=capacity;
                 }
-                check(cudaMemcpyAsync(mTrialSnapBodies,bodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
-                if(previous)check(cudaMemcpyAsync(mTrialSnapPrevious,previous,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
-                if(accelerations)check(cudaMemcpyAsync(mTrialSnapAccelerations,accelerations,size_t(mCheckpointCount)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
+                deviceCopy(mTrialSnapBodies,bodies,size_t(mCheckpointCount),stream);
+                if(previous)deviceCopy(mTrialSnapPrevious,previous,size_t(mCheckpointCount),stream);
+                if(accelerations)deviceCopy(mTrialSnapAccelerations,accelerations,size_t(mCheckpointCount),stream);
                 mTrialSnapCount=mCheckpointCount;mTrialSnapshotValid=true;
             }
-            check(cudaMemcpyAsync(bodies,mCheckpointBodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
-            if(previous)check(cudaMemcpyAsync(previous,mCheckpointPrevious,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
-            if(accelerations)check(cudaMemcpyAsync(accelerations,mCheckpointAccelerations,size_t(mCheckpointCount)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
+            deviceCopy(bodies,mCheckpointBodies,size_t(mCheckpointCount),stream);
+            if(previous)deviceCopy(previous,mCheckpointPrevious,size_t(mCheckpointCount),stream);
+            if(accelerations)deviceCopy(accelerations,mCheckpointAccelerations,size_t(mCheckpointCount),stream);
             correctionMarker(1,stream);
+            if(rewindDiag){check(cudaEventRecord(diagEnd,stream));check(cudaEventSynchronize(diagEnd));float a=0,b=0;check(cudaEventElapsedTime(&a,diagPre,diagPost));check(cudaEventElapsedTime(&b,diagPost,diagEnd));
+                if(a+b>2.f)std::fprintf(stderr,"[rewind-diag] wait(checkpointReady) %.2f ms, copies %.2f ms, bodies %u\n",a,b,mCheckpointCount);}
             check(cudaEventRecord(mCheckpointReady,stream));mRestoredCheckpointGeneration=generation;return true;
         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
     }
@@ -2603,8 +2640,20 @@ public:
             check(cudaEventRecord(mReady,mStream));
             if(mSolver) {
                 const auto accepted=mTopology->accepted();
-                if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,mReady,nullptr,mBondUtilization))
-                    throw std::runtime_error("corrected stress topology update failed");
+                // With the speculative stress topology in effect, the solver already
+                // holds this pass's verdict (committed with the trial's status), so
+                // the acceptance-time update is a device no-op; submitting it still
+                // joined the eager refactor burst launched for that verdict moments
+                // earlier (a city impact: ~22 ms per pass, twice per tick).
+                // PHYSX_DESTRUCTION_SKIP_NOOP_TOPOLOGY=0 restores the submission.
+                static const bool skipNoop=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_SKIP_NOOP_TOPOLOGY");return !raw || raw[0]!='0';}();
+                if(topoDiagEnabled())std::fprintf(stderr,"topo update: accept (postCorrection=%d, speculativeOutstanding=%d)\n",int(mPostCorrection),int(mSpeculativeStressOutstanding));
+                if(skipNoop && mSpeculativeStressOutstanding) {
+                    mSpeculativeStressOutstanding=false;
+                } else {
+                    if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,mReady,nullptr,mBondUtilization))
+                        throw std::runtime_error("corrected stress topology update failed");
+                }
                 const auto stress=mSolver->deviceView();check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
                 inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);
             }
@@ -2641,7 +2690,13 @@ public:
                 collectStageTimings();collectMotionAllocationTiming();mPending=false;reserveBodySlots();mPreparationObserved=true;
                 if(acceptDiagEnabled())std::printf("[spec-diag] finish: status error=%u bondCommands=%u outstanding(before)=%d\n",mHostStatus->error,mHostStatus->bondCommands,int(mSpeculativeStressOutstanding));
                 if(!(mHostStatus->error&8u))mSpeculativeStressOutstanding=false; // committed with the trial
-                if(mSolver)mSolver->flushEagerFactor();}
+                // With fractures pending a correction, the refactor burst is
+                // flushed after the correction preparation's readback (see
+                // completeCorrectionPreparation): launched here it gates the
+                // preparation's device work at a city impact (~22 ms).
+                static const bool flushLate=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EAGER_FLUSH_LATE");return !raw || raw[0]!='0';}();
+                if(mSolver && flushLate && mSpeculativeStressOutstanding && mHostStatus->error==8u)mEagerFlushDeferred=true;
+                else {mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}}
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;

@@ -234,7 +234,7 @@ public:
     bool init(const PxgDestructionChunk* chunks,unsigned n,const PxgDestructionBond* bonds,unsigned m) {
         mTrial=new(std::nothrow) Topology;
         if(!mTrial || !mTrial->init(chunks,n,bonds,m,mAccepted))return false;
-        if(cudaStreamCreateWithFlags(&mStream,cudaStreamNonBlocking)!=cudaSuccess
+        if(cudaStreamCreateWithPriority(&mStream,cudaStreamNonBlocking,destructionPipelineStreamPriority())!=cudaSuccess
             || cudaEventCreateWithFlags(&mReady,cudaEventDisableTiming)!=cudaSuccess
             || cudaMalloc(&mBatch,sizeof(*mBatch))!=cudaSuccess
             || cudaMalloc(&mStatus,sizeof(*mStatus))!=cudaSuccess
