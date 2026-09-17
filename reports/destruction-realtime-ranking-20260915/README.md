@@ -1034,6 +1034,11 @@ offset). The early commit's rollback set additionally carries the previous pass'
 after the pending sets were cleared), so the corrected pass applies trial ∪ corrected. Audit mode
 `PHYSX_DESTRUCTION_DEVICE_SLEEP=8`; the device-driven transition (mode 9) is the next increment.
 
+**Shipped (2026-09-18, `d05a631c`):** steps (2)–(4) are the default (`PHYSX_DESTRUCTION_DEVICE_SLEEP=9`), lossless
+(identical g16 histories, tests 8/8); −0.6 ms mean, −1.1 ms late window. The device reduction is exact; the CPU's
+"carried" re-application at the corrected commit is a no-op on the device and must not be mirrored. Remaining
+scheduling: copy-back and observation queue behind the early chain (~2.7 ms of relocated waits, `warm-screen.md`).
+
 ## 15. R5 route refined from the measurements (2026-09-17): dormant masks, no island parking
 
 Why the corrected pass is worth ~13 ms of the 20.5 ms tick: an idle tick costs 1.1 ms, so the

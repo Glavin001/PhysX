@@ -2059,3 +2059,42 @@ is read before the flip in both variants; the transition's sets, poses, kernels 
 Next step: a device-state diff at the pass boundary (body sims, solver body data, transform cache, bounds, changed
 map) between the arm-time and issue-time submit for the first transition tick, to name the consumer with the
 host-captured dependency. Until then mode 9 stays opt-in and off; the shipped defaults are unchanged.
+
+## §14 shipped: device-driven sleep transition and stress submit at the solver issue (default, commit `d05a631c`)
+
+The pass-boundary device-state diff (body sims, previous velocities and bounds dumped after each pass's finish
+wait, where the host had already joined the device) found the divergence: after the corrected pass of the first
+transition tick, exactly the 195 bodies deactivated by that trial differed in `body2World` and linear velocity. The
+default leaves them with one step of corrected-pass motion (velocity −0.327 = one gravity step, pose lowered by one
+step); mode 9 had re-applied the "carried" rollback for them at the corrected pass because the CPU's rollback set
+re-lists the previous pass's decisions there. At the device level that re-application is a no-op in the default, so
+the carried list was wrong for the device and is now off (`PHYSX_DESTRUCTION_DEVICE_SLEEP_CARRY=1` keeps it for
+audits). With it off, mode 9 reproduces the default's history exactly.
+
+Shipped semantics (`PHYSX_DESTRUCTION_DEVICE_SLEEP=9`, default; `0` restores the CPU early commit at the arm):
+the second of {solver launches issued, readiness mirror updated for the pass} enqueues, on the solver stream, the
+exact device sleep reduction (mode 8) into this pass's deactivation list; the transition gathers the pre-step poses
+on the solver stream and sets poses/cache/bounds and zeroes motion on the core stream (device-count kernels); the
+stress chain is submitted right after (the corrected pass performs its device acceptance first); the CPU commit
+callback at the arm keeps its pending-set bookkeeping and skips only its rollback application; individual
+finalizations (command owners after the restore) and the fetch-time re-application keep the CPU path; the broad-
+phase "GPU state changed" flag is raised at the arm when the CPU would have; the post-solve copy-back waits (bounded)
+for the transition's enqueue so its captured stream dependency includes it. Passes without a repair graph fall back
+to the CPU commit and the ordinary submit.
+
+g16 3 s bombardment, interleaved pairs, histories identical (56,077 bonds on every run), native tests 8/8:
+
+| arm | runs | mean | ticks 85–120 | 120–170 | peak |
+|---|---:|---:|---:|---:|---:|
+| mode 0 (CPU commit at the arm) | 5 | 20.46–20.91 ms | 35.8–37.0 | 33.0–34.0 | 93–100 |
+| mode 9 (default) | 5 | 19.87–20.39 | 35.0–36.0 | 31.7–32.6 | 96–98 |
+
+Phases (late window, per tick): `waitForGpu` 8.0 → 4.9 ms, `earlySubmit` 3.7 → 3.0, `acceptCorrection` 2.5 → 2.2;
+against that `bodyDmaWait` 0.3 → 2.0, `observeComponents` 1.0 → 2.0 and `bodyStatusWork` 0.8 → 1.3: the post-solve
+copy-back and the component observation now queue behind the early stress chain. Joining the copy-back to an
+event recorded right after the transition instead of the core-stream head recovers ~1.5 ms but breaks identity
+(the core stream also carries the correction's acceptance and installs after that point, which the copy-back must
+include): reverted. A higher-priority observe stream did not shorten the observe wait. Net: −0.6 ms mean, −1.1 ms
+in the late window on this machine; the remaining ~2.7 ms of relocated waits are the next scheduling item
+(copy-backs and observation on streams that do not queue behind the stress chain, with the acceptance's writes
+joined explicitly).
