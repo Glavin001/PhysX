@@ -318,9 +318,15 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         {
             PxScopedCudaLock lock(*mCudaContextManager);
             PxCudaContext* cuda = mCudaContextManager->getCudaContext();
-            if(mNativeSleepIndices) cuda->memFree(mNativeSleepIndices);
             if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
-            if(mNativeSleepPoses) cuda->memFree(mNativeSleepPoses);
+            for(PxU32 k=0;k<sNativeSleepRing;++k)
+            {
+                if(mNativeSleepIndicesRing[k]) cuda->memFree(mNativeSleepIndicesRing[k]);
+                if(mNativeSleepPosesRing[k]) cuda->memFree(mNativeSleepPosesRing[k]);
+                if(mNativeSleepIndicesHost[k]) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mNativeSleepIndicesHost[k]);
+                if(mNativeSleepGathered[k]) cuda->eventDestroy(mNativeSleepGathered[k]);
+                if(mNativeSleepPosed[k]) cuda->eventDestroy(mNativeSleepPosed[k]);
+            }
             if(mNativeSleepReady) cuda->eventDestroy(mNativeSleepReady);
         }
 
@@ -940,11 +946,17 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         bool ok;
         {
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
-        ok = mDestruction->prepareFrame(postCorrection);
+        {
+            PxProfileScoped prepare(PxGetProfilerCallback(),"GpuDestruction.submitDetail.prepareFrame",false,profileContext);
+            ok = mDestruction->prepareFrame(postCorrection);
+        }
         PxgDestructionSolvedContacts contacts;
-        if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
-            contacts,mDestruction->inputEvent(),mDynamicContext->getPatchStream(streamIndex),
-            mDynamicContext->getContactStream(streamIndex),mNpContext->getContext().mForceAndIndiceStreamPool->mDataStream);
+        {
+            PxProfileScoped borrow(PxGetProfilerCallback(),"GpuDestruction.submitDetail.borrowContacts",false,profileContext);
+            if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
+                contacts,mDestruction->inputEvent(),mDynamicContext->getPatchStream(streamIndex),
+                mDynamicContext->getContactStream(streamIndex),mNpContext->getContext().mForceAndIndiceStreamPool->mDataStream);
+        }
         if(ok) {
             const auto growStorage=[](void* owner,PxU32 capacity,PxgDestructionMotionStorage& storage)->bool {
                 auto& controller=*static_cast<PxgSimulationController*>(owner);
@@ -965,27 +977,29 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             const PxgDestructionCollisionStorage collision={shapes.getShapeSimsDeviceTypedPtr(),
                 reinterpret_cast<const PxNodeIndex*>(remap.getDevicePtr()),shapes.getNbTotalShapeSims(),
                 PxU32(remap.getSize()/sizeof(PxNodeIndex))};
+            PxProfileScoped adv(PxGetProfilerCallback(),"GpuDestruction.submitDetail.advance",false,profileContext);
             ok=mDestruction->advance(dt,gravity,storage,mSimulationCore->getStream(),growStorage,this,contacts,collision);
         }
         }
         return ok;
     }
 
-    // PHYSX_DESTRUCTION_EARLY_SUBMIT=1 (default off): the trial pass commits its
-    // sleep transitions and submits loads and the stress solve as soon as both
-    // the third island pass and the solver launch issue are done, so the
-    // solve is enqueued behind integration on the device without waiting for
-    // the CPU post-solve chain. The later advanceDestruction reuses the result.
-    // Measured lossless (identical histories) but neutral (23.9 vs 23.8 ms,
-    // three runs): the post-solve chain was already waiting on the GPU solver,
-    // and the exact commit's rollback gather joins the solver stream on the host.
+    // PHYSX_DESTRUCTION_EARLY_SUBMIT (default on, 0 disables): each pass commits
+    // its sleep transitions and submits loads and the stress solve as soon as
+    // both the third island pass and the solver launch issue are done, so the
+    // stress chain is queued behind integration on the device without waiting
+    // for the CPU post-solve chain; the corrected pass also runs its device
+    // acceptance there. Lossless (identical histories). It only pays once the
+    // sleep finalization and the pose setter are asynchronous (no host waits on
+    // the core stream) and the copy-backs run on their own stream: g16 3 s
+    // bombardment 20.8 -> 20.0-20.6 ms mean, late window 34.0 -> 32.5-33.2.
     static bool destructionEarlySubmit() {
-        static const bool value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EARLY_SUBMIT");return raw && std::atoi(raw)!=0;}();
+        static const bool value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EARLY_SUBMIT");return raw?std::atoi(raw)!=0:true;}();
         return value;
     }
     bool PxgSimulationController::submitDestructionEarly(PxReal dt, const PxVec3& gravity, bool (*commit)(void*), void* user)
     {
-        if(!destructionEarlySubmit() || !mDestruction || mDestructionCorrecting || !mDestruction->configured()) return false;
+        if(!destructionEarlySubmit() || !mDestruction || !mDestruction->configured()) return false;
         PxMutex::ScopedLock lock(mDestructionEarlyMutex);
         if(mDestructionEarlySubmitted || mDestructionEarlyArmed) return false;
         mDestructionEarlyArmed=true;mDestructionEarlyDt=dt;mDestructionEarlyGravity=gravity;mDestructionEarlyCommit=commit;mDestructionEarlyUser=user;
@@ -1021,8 +1035,29 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             PxScopedCudaLock lock(*mCudaContextManager);
             if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return;
         }
-        mDestructionEarlyOk=submitDestructionInternal(mDestructionEarlyDt,mDestructionEarlyGravity,false,mDynamicContext->getCurrentContactStreamIndex());
+        const bool postCorrection=mDestructionCorrecting;
+        if(postCorrection && !acceptDestructionCorrectionDevice()){mDestructionEarlyOk=false;mDestructionEarlySubmitted=true;return;}
+        mDestructionEarlyOk=submitDestructionInternal(mDestructionEarlyDt,mDestructionEarlyGravity,postCorrection,mDynamicContext->getCurrentContactStreamIndex());
         mDestructionEarlySubmitted=true;
+    }
+
+    // Device side of the corrected pass's acceptance (the transaction and the
+    // corrected-motion snapshot for split COM fitting); host bookkeeping of the
+    // correction state stays in advanceDestruction.
+    bool PxgSimulationController::acceptDestructionCorrectionDevice()
+    {
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.acceptCorrection",false,PxU64(reinterpret_cast<size_t>(this)));
+        PxScopedCudaLock lock(*mCudaContextManager);
+        const bool accepted=!mCudaContextManager->getCudaContext()->isInAbortMode()
+            && mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
+        if(!accepted)return false;
+        // A second fracture evaluation uses corrected end-of-tick motion.
+        // Keep a stable source snapshot for split COM fitting; never rewind
+        // to the original trial input and never schedule a third physics pass.
+        return mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+            mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+            mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream(),
+            PxgDestructionCheckpointPurpose::CorrectedMotion);
     }
 
     bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs)
@@ -1040,21 +1075,15 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                     gDestructionCorrectionZone,true,PxU64(reinterpret_cast<size_t>(this)));
                 mDestructionCorrectionProfiler=NULL;mDestructionCorrectionProfileData=NULL;
             }
-            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.acceptCorrection",false,PxU64(reinterpret_cast<size_t>(this)));
-            PxScopedCudaLock lock(*mCudaContextManager);
-            const bool accepted=!mCudaContextManager->getCudaContext()->isInAbortMode()
-                && mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
+            bool accepted;
+            {
+                PxMutex::ScopedLock earlyLock(mDestructionEarlyMutex);
+                // An early submission of this corrected pass already ran the
+                // device acceptance (its result is in mDestructionEarlyOk).
+                accepted=mDestructionEarlySubmitted?mDestructionEarlyOk:acceptDestructionCorrectionDevice();
+            }
             mDestructionCorrecting=false;mDestructionError=accepted?0:1;
             if(!accepted)return false;
-            // A second fracture evaluation uses corrected end-of-tick motion.
-            // Keep a stable source snapshot for split COM fitting; never rewind
-            // to the original trial input and never schedule a third physics pass.
-            if(!mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
-                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
-                mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream(),
-                PxgDestructionCheckpointPurpose::CorrectedMotion)) {
-                mDestructionError=1;return false;
-            }
         }
         if(!mDestruction->configured())
         {
@@ -1066,7 +1095,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         bool ok;
         {
             PxMutex::ScopedLock earlyLock(mDestructionEarlyMutex);
-            const bool reuse=mDestructionEarlySubmitted && !postCorrection;
+            const bool reuse=mDestructionEarlySubmitted;
             mDestructionEarlySubmitted=false;mDestructionEarlyArmed=false;mDestructionSolverIssued=false;
             if(reuse)ok=mDestructionEarlyOk;
             else ok=submitDestructionInternal(dt,gravity,postCorrection,1-mDynamicContext->getCurrentContactStreamIndex());
@@ -3672,29 +3701,53 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         PxScopedCudaLock lock(*mCudaContextManager);
         PxCudaContext* cuda = mCudaContextManager->getCudaContext();
         if(!mNativeSleepReady && cuda->eventCreate(&mNativeSleepReady,2u)!=0) return false;
-            if(count > mNativeSleepCapacity)
+        for(PxU32 k=0;k<sNativeSleepRing;++k)
+        {
+            if(!mNativeSleepGathered[k] && cuda->eventCreate(&mNativeSleepGathered[k],2u)!=0) return false;
+            if(!mNativeSleepPosed[k] && cuda->eventCreate(&mNativeSleepPosed[k],2u)!=0) return false;
+        }
+        if(count > mNativeSleepCapacity)
+        {
+            // Nothing in flight may still read the old ring: join both streams once.
+            cuda->streamSynchronize(mSimulationCore->getStream());
+            cuda->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
+            const PxU32 capacity = PxMax(count, PxMax(2u * mNativeSleepCapacity, 256u));
+            CUdeviceptr newZeros = 0;
+            if(cuda->memAlloc(&newZeros, PxU64(capacity)*sizeof(PxVec3)) != 0) return false;
+            if(cuda->memsetD32(newZeros, 0, PxU64(capacity)*3) != 0) { cuda->memFree(newZeros); return false; }
+            CUdeviceptr newIndices[4] = {0,0,0,0}, newPoses[4] = {0,0,0,0};
+            PxU32* newHost[4] = {NULL,NULL,NULL,NULL};
+            bool ok = true;
+            for(PxU32 k=0;k<sNativeSleepRing && ok;++k)
             {
-                CUdeviceptr newIndices = 0, newZeros = 0, newPoses = 0;
-                if(cuda->memAlloc(&newIndices, PxU64(count)*sizeof(PxU32)) != 0) return false;
-                if(cuda->memAlloc(&newZeros, PxU64(count)*sizeof(PxVec3)) != 0)
-                {
-                    cuda->memFree(newIndices);
-                    return false;
-                }
-                if(cuda->memAlloc(&newPoses, PxU64(count)*sizeof(PxTransform)) != 0)
-                {
-                    cuda->memFree(newIndices);
-                    cuda->memFree(newZeros);
-                    return false;
-                }
-                if(mNativeSleepIndices) cuda->memFree(mNativeSleepIndices);
-                if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
-                if(mNativeSleepPoses) cuda->memFree(mNativeSleepPoses);
-                mNativeSleepIndices = newIndices;
-                mNativeSleepZeros = newZeros;
-                mNativeSleepPoses = newPoses;
-                mNativeSleepCapacity = count;
+                ok = cuda->memAlloc(&newIndices[k], PxU64(capacity)*sizeof(PxU32)) == 0
+                    && cuda->memAlloc(&newPoses[k], PxU64(capacity)*sizeof(PxTransform)) == 0;
+                newHost[k] = PX_PINNED_MEMORY_ALLOC(PxU32, *mCudaContextManager, capacity);
+                ok = ok && newHost[k];
             }
+            if(!ok)
+            {
+                cuda->memFree(newZeros);
+                for(PxU32 k=0;k<sNativeSleepRing;++k)
+                {
+                    if(newIndices[k]) cuda->memFree(newIndices[k]);
+                    if(newPoses[k]) cuda->memFree(newPoses[k]);
+                    if(newHost[k]) PX_PINNED_MEMORY_FREE(*mCudaContextManager, newHost[k]);
+                }
+                return false;
+            }
+            if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
+            for(PxU32 k=0;k<sNativeSleepRing;++k)
+            {
+                if(mNativeSleepIndicesRing[k]) cuda->memFree(mNativeSleepIndicesRing[k]);
+                if(mNativeSleepPosesRing[k]) cuda->memFree(mNativeSleepPosesRing[k]);
+                if(mNativeSleepIndicesHost[k]) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mNativeSleepIndicesHost[k]);
+                mNativeSleepIndicesRing[k] = newIndices[k]; mNativeSleepPosesRing[k] = newPoses[k]; mNativeSleepIndicesHost[k] = newHost[k];
+            }
+            mNativeSleepZeros = newZeros;
+            mNativeSleepIndices = mNativeSleepIndicesRing[0]; mNativeSleepPoses = mNativeSleepPosesRing[0];
+            mNativeSleepCapacity = capacity;
+        }
         return true;
     }
 
@@ -3717,37 +3770,62 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     bool PxgSimulationController::finalizeSleepingRigidBodies(const PxU32* indices, PxU32 count, bool rollbackPose)
     {
         if(!count) return true;
-        if(!reserveNativeTransitionBuffers(count)) return false;
+        const PxU64 zoneContext=PxU64(reinterpret_cast<size_t>(this));
+        PxProfileScoped zoneAll(PxGetProfilerCallback(),rollbackPose?"GpuDestruction.sleepDetail.finalizeRollback":"GpuDestruction.sleepDetail.finalize",false,zoneContext);
         {
+            PxProfileScoped zoneReserve(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.reserve",false,zoneContext);
+            if(!reserveNativeTransitionBuffers(count)) return false;
+        }
+        // Everything below is asynchronous: the indices go through a pinned ring
+        // slot on the core stream, the rollback gather runs on the solver stream
+        // behind integration and hands its poses to the setter by event, and the
+        // zeroing waits for the copy-back of the previous state (it rewrites
+        // bounds and transforms the side-stream copy may still be reading).
+        const PxU32 slot = mNativeSleepSlot; mNativeSleepSlot = (mNativeSleepSlot + 1) % sNativeSleepRing;
+        mNativeSleepIndices = mNativeSleepIndicesRing[slot]; mNativeSleepPoses = mNativeSleepPosesRing[slot];
+        {
+            PxProfileScoped zoneUpload(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.upload",false,zoneContext);
             PxScopedCudaLock lock(*mCudaContextManager);
             mSimulationCore->gpuDmaUpdateData();
             PxCudaContext* cuda = mCudaContextManager->getCudaContext();
-            if(cuda->memcpyHtoD(mNativeSleepIndices, indices, PxU64(count)*sizeof(PxU32)) != 0
-                || cuda->memsetD32(mNativeSleepZeros, 0, PxU64(count)*3) != 0
-                || cuda->eventRecord(mNativeSleepReady,NULL) != 0) return false;
+            const CUstream stream = mSimulationCore->getStream();
+            if(CUevent done = mSimulationCore->getDmaBackDoneEvent())
+                if(cuda->streamWaitEvent(stream, done, 0) != 0) return false;
+            PxMemCopy(mNativeSleepIndicesHost[slot], indices, count * sizeof(PxU32));
+            if(cuda->memcpyHtoDAsync(mNativeSleepIndices, mNativeSleepIndicesHost[slot], PxU64(count)*sizeof(PxU32), stream) != 0
+                || cuda->eventRecord(mNativeSleepReady, stream) != 0) return false;
+        }
+        CUevent posesReady = mNativeSleepReady;
+        if(rollbackPose)
+        {
+            PxProfileScoped zoneGather(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.gather",false,zoneContext);
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxgSolverCore* solver = mDynamicContext->getGpuSolverCore();
+            const CUdeviceptr desc = solver->getSolverCoreDescDeviceptr();
+            const CUdeviceptr solverIndices = solver->getSolverBodyIndices();
+            PxCudaKernelParam params[] = {
+                PX_CUDA_KERNEL_PARAM(mNativeSleepPoses), PX_CUDA_KERNEL_PARAM(mNativeSleepIndices),
+                PX_CUDA_KERNEL_PARAM(desc), PX_CUDA_KERNEL_PARAM(solverIndices), PX_CUDA_KERNEL_PARAM(count)
+            };
+            const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_GATHER_POSES);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            if(cuda->streamWaitEvent(solver->getStream(),mNativeSleepReady,0) != 0
+                || cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, solver->getStream(),
+                params, sizeof(params), 0, PX_FL) != 0
+                || cuda->eventRecord(mNativeSleepGathered[slot], solver->getStream()) != 0)
+                return false;
+            posesReady = mNativeSleepGathered[slot];
         }
         if(rollbackPose)
         {
-            {
-                PxScopedCudaLock lock(*mCudaContextManager);
-                PxgSolverCore* solver = mDynamicContext->getGpuSolverCore();
-                const CUdeviceptr desc = solver->getSolverCoreDescDeviceptr();
-                const CUdeviceptr solverIndices = solver->getSolverBodyIndices();
-                PxCudaKernelParam params[] = {
-                    PX_CUDA_KERNEL_PARAM(mNativeSleepPoses), PX_CUDA_KERNEL_PARAM(mNativeSleepIndices),
-                    PX_CUDA_KERNEL_PARAM(desc), PX_CUDA_KERNEL_PARAM(solverIndices), PX_CUDA_KERNEL_PARAM(count)
-                };
-                const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_GATHER_POSES);
-                PxCudaContext* cuda = mCudaContextManager->getCudaContext();
-                if(cuda->streamWaitEvent(solver->getStream(),mNativeSleepReady,0) != 0
-                    || cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, solver->getStream(),
-                    params, sizeof(params), 0, PX_FL) != 0 || cuda->streamSynchronize(solver->getStream()) != 0)
-                    return false;
-            }
+            PxProfileScoped zoneSet(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.setPose",false,zoneContext);
             // The setter also refreshes GPU shape bounds and transform caches.
+            // A finish event keeps it asynchronous (without one the setter
+            // synchronises the whole core stream on the host).
             if(!setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepPoses),
                 reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, mNativeSleepReady, NULL)) return false;
+                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, posesReady, mNativeSleepPosed[slot])) return false;
+            posesReady = mNativeSleepPosed[slot];
         }
         // Sparse transition work completes before fetch returns or commands
         // wake a body. No stale CPU pose/velocity can overwrite a later write.
@@ -3756,6 +3834,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         static const bool fused=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_SLEEP_FUSED");return raw?std::atoi(raw)!=0:true;}();
         if(fused)
         {
+            PxProfileScoped zoneZero(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.zero",false,zoneContext);
             PxScopedCudaLock lock(*mCudaContextManager);
             PxCudaContext* cuda = mCudaContextManager->getCudaContext();
             const CUstream stream = mSimulationCore->getStream();
@@ -3766,21 +3845,21 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                 PX_CUDA_KERNEL_PARAM(prevVelocities), PX_CUDA_KERNEL_PARAM(count)
             };
             const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_ZERO_MOTION);
-            return cuda->streamWaitEvent(stream, mNativeSleepReady, 0) == 0
+            return cuda->streamWaitEvent(stream, posesReady, 0) == 0
                 && cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, stream, params, sizeof(params), 0, PX_FL) == 0;
         }
         return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, posesReady, NULL)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, posesReady, NULL)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, posesReady, NULL)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eTORQUE, count, mNativeSleepReady, NULL);
+                   PxRigidDynamicGPUAPIWriteType::eTORQUE, count, posesReady, NULL);
     }
 
 	void PxgSimulationController::updateScBodyAndShapeSim(PxsTransformCache& cache, Bp::BoundsArray& boundArray, PxBaseTask* continuation)

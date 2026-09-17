@@ -59,7 +59,9 @@ void compoundSleep() {
     auto* api=static_cast<NpScene&>(scene).getScScene().getSimulationController();
     auto* ctrl=static_cast<PxgSimulationController*>(api);
     auto& cuda=*context.cudaContextManager();
-    auto readBody=[&](){PxScopedCudaLock lock(cuda);PxgBodySim state{};
+    // The native sleep transition is asynchronous (it completes before fetch
+    // returns); reading the device body here needs the queued work finished.
+    auto readBody=[&](){PxScopedCudaLock lock(cuda);PxgBodySim state{};require(cuCtxSynchronize()==CUDA_SUCCESS,"compound body sync failed");
         require(cuMemcpyDtoH(&state,reinterpret_cast<CUdeviceptr>(ctrl->getSimulationCore()->getBodySimBufferDevicePtr().getPointer()+body->getGPUIndex()),sizeof(state))==CUDA_SUCCESS,"compound body observation failed");return state;};
     for(bool rollback:{false,true}){
         const PxTransform start(PxVec3(3,50,7),PxQuat(.37f,PxVec3(0,1,0)));

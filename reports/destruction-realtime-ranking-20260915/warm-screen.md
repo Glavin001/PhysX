@@ -1718,3 +1718,38 @@ Native tests: 8/9 `physx_native_*` pass (the snapshot test fails at HEAD too); t
 rebuilt because they include `PxgSimulationCore.h` and use its inline accessors. Not a sustained-window
 lever: when the whole city is awake nearly every shape moves every pass and the full copy is the cheapest
 transport; the gain is in the game's common case (a few buildings awake), where the tick was 3.2 ms.
+
+## Stress chain queued behind integration: asynchronous sleep finalization, copy-backs on a side stream, early submit on both passes (lossless, −0.6 ms/tick; 2026-09-17)
+
+Trace of the default configuration (`nsys-d`): the device sat idle for 2.31 ms (median; 2.64 in the late
+passes) between the end of integration and the stress chain's first kernel, because the chain is submitted
+by the host after the copy-back wait, body status, sleep commit and contact graph. Three pieces remove most
+of the host-side part of that gap:
+
+1. `finalizeSleepingRigidBodies` no longer synchronises the host: the indices go through a pinned ring
+   slot with an asynchronous upload, the rollback gather runs on the solver stream behind integration and
+   hands its poses to the pose setter by event, and the setter gets a finish event (without one
+   `PxgSimulationCore::setRigidDynamicData` ends with a full `streamSynchronize` of the core stream, which
+   with an early submission waited 3.9 ms per tick for the queued chain). The compound-sleep test, which
+   reads the device body right after the call, now synchronises first (the contract is completion before
+   fetch).
+2. The post-integration copy-backs (`gpuMemDmaBack`) run on a side stream (`PHYSX_GPU_DMABACK_STREAM`,
+   default 1) that waits on the core stream; the next pass's buffer memsets and the sleep pose-set (which
+   rewrites bounds and transforms the copy may still be reading) wait on its completion event, so the
+   mirror stays race-free. On its own it is neutral: the pose-set still waits for the copies.
+3. The early submission (`PHYSX_DESTRUCTION_EARLY_SUBMIT`, now default on) fires on the corrected pass
+   too; the controller performs the device acceptance and the corrected-motion snapshot before the submit,
+   and `advanceDestruction` reuses the result for either pass.
+
+Device gap integrate → startFrame: 2.31 → 1.44 ms median (min 0.14); chain span unchanged (3.3 ms median,
+4.5 late). The remaining gap in the all-awake regime is the ~1 ms of full copy-backs the pose-set waits on.
+
+g16 3 s bombardment, same build, early submit off vs on (histories identical, 56,077 bonds):
+
+| arm | runs | mean | ticks 30–80 | 85–120 | 120–170 |
+|---|---:|---:|---:|---:|---:|
+| early submit off | 3 | 21.33 ms | 2.36 | 37.00 | 34.55 |
+| early submit on (default) | 5 | 20.73 | 2.18 | 36.24 | 33.49 |
+
+Run-to-run spread on this VM is about ±0.6 ms of the mean, so single runs cannot rank sub-millisecond
+changes; the averages above are over alternating runs. Native tests 8/8.

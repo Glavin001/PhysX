@@ -509,6 +509,7 @@ class PxProfilerCallback;
         virtual void flushDeferredDestructionWork() PX_OVERRIDE PX_FINAL;
         bool submitDestructionInternal(PxReal dt, const PxVec3& gravity, bool postCorrection, PxU32 streamIndex);
         void runDestructionEarlySubmit();
+        bool acceptDestructionCorrectionDevice();
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
         virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
         bool usesDeviceDestructionContactInputs() const override;
@@ -723,6 +724,15 @@ class PxProfilerCallback;
         CUdeviceptr mNativeSleepPoses = 0;
         PxU32 mNativeSleepCapacity = 0;
         CUevent mNativeSleepReady = NULL;
+        // Asynchronous sleep finalization: a ring of pinned index staging and
+        // gather events so no host synchronisation sits on the post-solve path.
+        static const PxU32 sNativeSleepRing = 4;
+        PxU32* mNativeSleepIndicesHost[4] = {NULL, NULL, NULL, NULL};
+        CUdeviceptr mNativeSleepIndicesRing[4] = {0, 0, 0, 0};
+        CUdeviceptr mNativeSleepPosesRing[4] = {0, 0, 0, 0};
+        CUevent mNativeSleepGathered[4] = {NULL, NULL, NULL, NULL};
+        CUevent mNativeSleepPosed[4] = {NULL, NULL, NULL, NULL};
+        PxU32 mNativeSleepSlot = 0;
 		Cm::PinnableArray<PxU32>									mPathToRootPool;
 
 		Cm::PinnableArray<Dy::ArticulationMimicJointCore>			mMimicJointPool;

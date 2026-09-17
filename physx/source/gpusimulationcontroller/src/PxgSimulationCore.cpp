@@ -94,6 +94,13 @@ using namespace physx;
 // PHYSX_GPU_COMPACT_DMABACK: 1 (default) compacted CPU mirror of the transform
 // cache and bounds, 0 full copies every pass, 2 compacted plus a verifying
 // full copy (mismatches reported on stderr).
+// PHYSX_GPU_DMABACK_STREAM (default 1): issue the post-integration copy-backs on a
+// side stream; 0 keeps them on the core stream.
+static bool dmaBackSideStream()
+{
+	static const bool value = []{ const char* raw = ::getenv("PHYSX_GPU_DMABACK_STREAM"); return raw ? ::atoi(raw) != 0 : true; }();
+	return value;
+}
 static int compactDmaBackMode()
 {
 	static const int value = []{ const char* raw = ::getenv("PHYSX_GPU_COMPACT_DMABACK"); return raw ? ::atoi(raw) : 1; }();
@@ -590,6 +597,13 @@ void PxgSimulationCore::createGpuStreamsAndEvents()
 {
 	//create stream
 	mCudaContext->streamCreate(&mStream, CU_STREAM_NON_BLOCKING);
+	if(dmaBackSideStream())
+	{
+		mCudaContext->streamCreate(&mDmaBackStream, CU_STREAM_NON_BLOCKING);
+		mCudaContext->eventCreate(&mDmaBackReady, CU_EVENT_DISABLE_TIMING);
+		mCudaContext->eventCreate(&mDmaBackDone, CU_EVENT_DISABLE_TIMING);
+		mDmaBackOnSideStream = mDmaBackStream && mDmaBackReady && mDmaBackDone;
+	}
 
 	//create event
 	mCudaContext->eventCreate(&mEvent, CU_EVENT_DISABLE_TIMING);
@@ -620,6 +634,9 @@ void PxgSimulationCore::releaseGpuStreamsAndEvents()
 	mDmaEvent = NULL;
 
 	releaseCompactMirror();
+	if(mDmaBackStream) { mCudaContext->streamSynchronize(mDmaBackStream); mCudaContext->streamDestroy(mDmaBackStream); mDmaBackStream = NULL; }
+	if(mDmaBackReady) { mCudaContext->eventDestroy(mDmaBackReady); mDmaBackReady = NULL; }
+	if(mDmaBackDone) { mCudaContext->eventDestroy(mDmaBackDone); mDmaBackDone = NULL; }
 	PX_PINNED_MEMORY_FREE(*mCudaContextManager, mEventMapped);
 }
 
@@ -2204,6 +2221,8 @@ void PxgSimulationCore::gpuMemDmaUp(const PxU32 nbTotalBodies, const PxU32 nbTot
 	const PxU32 roundElement = bitMapWordCounts * 32;
 	mUpdatedBuffer.allocate(roundElement * sizeof(PxU32), PX_FL);
 	ensureTouchedCapacity(roundElement);
+	if(mDmaBackOnSideStream)
+		mCudaContext->streamWaitEvent(mStream, mDmaBackDone, 0);
 
 	//initialize all the sleeping stage buffers to be 0
 	mCudaContext->memsetD32Async(mFrozenBuffer.getDevicePtr(), 0, nbTotalShapes, mStream);
@@ -2250,23 +2269,34 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 	PxBounds3* bounds = boundArray.getBounds();
 	PxU32 boundCapacity = boundArray.size();
 
+	// Copy-backs go to a side stream that waits for everything queued on the
+	// core stream so far; the core stream keeps running. Core-stream writers of
+	// the copied buffers (sleep pose-sets, the next pass's memsets) wait on
+	// mDmaBackDone instead.
+	CUstream dmaStream = mStream;
+	if(mDmaBackOnSideStream)
+	{
+		mCudaContext->eventRecord(mDmaBackReady, mStream);
+		mCudaContext->streamWaitEvent(mDmaBackStream, mDmaBackReady, 0);
+		dmaStream = mDmaBackStream;
+	}
 	// AD: DtoH memcopies, need to be skip safe!
-	mCudaContext->memcpyDtoHAsync(mUpdatedCacheAndBoundsDesc.data(), mUpdatedCacheAndBoundsDescBuffer.getDevicePtr(), sizeof(PxgSimulationCoreDesc), mStream);
-	mCudaContext->memcpyDtoHAsync(activateArray.begin(), mActivateBuffer.getDevicePtr(), sizeof(PxU32)*numActiveBodies, mStream);
-	mCudaContext->memcpyDtoHAsync(deactiveArray.begin(), mDeactivateBuffer.getDevicePtr(), sizeof(PxU32)*numActiveBodies, mStream);
+	mCudaContext->memcpyDtoHAsync(mUpdatedCacheAndBoundsDesc.data(), mUpdatedCacheAndBoundsDescBuffer.getDevicePtr(), sizeof(PxgSimulationCoreDesc), dmaStream);
+	mCudaContext->memcpyDtoHAsync(activateArray.begin(), mActivateBuffer.getDevicePtr(), sizeof(PxU32)*numActiveBodies, dmaStream);
+	mCudaContext->memcpyDtoHAsync(deactiveArray.begin(), mDeactivateBuffer.getDevicePtr(), sizeof(PxU32)*numActiveBodies, dmaStream);
 
 	// DMA accelerations back to CPU (kernel was launched in update())
 	if (hasAccelerationBuffers())
 	{
 		const PxU32 nbBodies = mNbTotalBodySim;
-		mCudaContext->memcpyDtoHAsync(mBodySimAccelerationsPinned.begin(), mBodySimAccelerationsCudaBuffer.getDevicePtr(), sizeof(PxgRigidBodyAcceleration) * nbBodies, mStream);
+		mCudaContext->memcpyDtoHAsync(mBodySimAccelerationsPinned.begin(), mBodySimAccelerationsCudaBuffer.getDevicePtr(), sizeof(PxgRigidBodyAcceleration) * nbBodies, dmaStream);
 	}
 
 	// AD: frozen/unfrozen arrays are only needed for SQ tree updates, skipping for direct-GPU.
 	if (!enableDirectGPUAPI)
 	{
-		mCudaContext->memcpyDtoHAsync(frozenArray.begin(), mFrozenBlockAndResBuffer.getDevicePtr(), sizeof(PxU32)*numShapes, mStream);
-		mCudaContext->memcpyDtoHAsync(unfrozenArray.begin(), mUnfrozenBlockAndResBuffer.getDevicePtr(), sizeof(PxU32)*numShapes, mStream);
+		mCudaContext->memcpyDtoHAsync(frozenArray.begin(), mFrozenBlockAndResBuffer.getDevicePtr(), sizeof(PxU32)*numShapes, dmaStream);
+		mCudaContext->memcpyDtoHAsync(unfrozenArray.begin(), mUnfrozenBlockAndResBuffer.getDevicePtr(), sizeof(PxU32)*numShapes, dmaStream);
 	}
 	
 	// AD safety if the copies above fail.
@@ -2323,8 +2353,8 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 				++mCompactPassCounter;
 				if(!gather && (mCompactPassCounter & 7u) != 0)
 				{
-					mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
-					mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+					mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, dmaStream);
+					mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, dmaStream);
 					handled = true;
 				}
 				else
@@ -2338,7 +2368,7 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 				CUdeviceptr transformsOutd = gather ? mCompactTransformsStaging.getDevicePtr() : 0;
 				CUdeviceptr countd = mCompactCountBuffer.getDevicePtr();
 				const PxU32 capacity = gather ? mCompactCapacity : 0u;
-				mCudaContext->memsetD32Async(countd, 0, 1, mStream);
+				mCudaContext->memsetD32Async(countd, 0, 1, dmaStream);
 				PxCudaKernelParam params[] =
 				{
 					PX_CUDA_KERNEL_PARAM(scDescd),
@@ -2352,24 +2382,24 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 				};
 				CUfunction compactFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::COMPACT_TOUCHED_CACHE_AND_BOUNDS);
 				const PxU32 blocks = PxMin(2048u, (elementCount + 255u) / 256u);
-				CUresult compactResult = mCudaContext->launchKernel(compactFunction, blocks, 1, 1, 256, 1, 1, 0, mStream, params, sizeof(params), 0, PX_FL);
+				CUresult compactResult = mCudaContext->launchKernel(compactFunction, blocks, 1, 1, 256, 1, 1, 0, dmaStream, params, sizeof(params), 0, PX_FL);
 				PX_ASSERT(compactResult == CUDA_SUCCESS); PX_UNUSED(compactResult);
-				mCudaContext->memcpyDtoHAsync(mCompactCountMapped, countd, sizeof(PxU32), mStream);
+				mCudaContext->memcpyDtoHAsync(mCompactCountMapped, countd, sizeof(PxU32), dmaStream);
 				if(gather)
 				{
 					// Prefix sized from the previous pass with headroom; the
 					// remainder (rare) is fetched synchronously after the sync.
 					mCompactEstimate = PxMin(mCompactCapacity, PxMax(mCompactLastCount + (mCompactLastCount >> 2) + 1024u, 4096u));
-					mCudaContext->memcpyDtoHAsync(mCompactIndicesMapped, indicesd, sizeof(PxU32) * mCompactEstimate, mStream);
-					mCudaContext->memcpyDtoHAsync(mCompactBoundsMapped, boundsOutd, sizeof(PxBounds3) * mCompactEstimate, mStream);
-					mCudaContext->memcpyDtoHAsync(mCompactTransformsMapped, transformsOutd, sizeof(PxsCachedTransform) * mCompactEstimate, mStream);
+					mCudaContext->memcpyDtoHAsync(mCompactIndicesMapped, indicesd, sizeof(PxU32) * mCompactEstimate, dmaStream);
+					mCudaContext->memcpyDtoHAsync(mCompactBoundsMapped, boundsOutd, sizeof(PxBounds3) * mCompactEstimate, dmaStream);
+					mCudaContext->memcpyDtoHAsync(mCompactTransformsMapped, transformsOutd, sizeof(PxsCachedTransform) * mCompactEstimate, dmaStream);
 				}
 				else
 				{
-					mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
-					mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+					mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, dmaStream);
+					mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, dmaStream);
 				}
-				mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr(), 0, mTouchedBuffer.getSize() / sizeof(PxU32), mStream);
+				mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr(), 0, mTouchedBuffer.getSize() / sizeof(PxU32), dmaStream);
 				mDmaBackBounds = bounds; mDmaBackTransforms = cachedTransforms; mDmaBackElementCount = elementCount;
 				mCompactPending = true; mCompactGathered = gather; mCompactLastElements = elementCount;
 				if(compact == 2 && gather)
@@ -2382,8 +2412,8 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 						mVerifyBounds = PX_PINNED_MEMORY_ALLOC_FLAGS(PxBounds3, *mCudaContextManager, mVerifyCapacity, CU_MEMHOSTALLOC_PORTABLE);
 						mVerifyTransforms = PX_PINNED_MEMORY_ALLOC_FLAGS(PxsCachedTransform, *mCudaContextManager, mVerifyCapacity, CU_MEMHOSTALLOC_PORTABLE);
 					}
-					mCudaContext->memcpyDtoHAsync(mVerifyBounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
-					mCudaContext->memcpyDtoHAsync(mVerifyTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+					mCudaContext->memcpyDtoHAsync(mVerifyBounds, boundsd, sizeof(PxBounds3)*boundCapacity, dmaStream);
+					mCudaContext->memcpyDtoHAsync(mVerifyTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, dmaStream);
 				}
 				handled = true;
 				}
@@ -2391,10 +2421,10 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 		}
 		if(!handled)
 		{
-			mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
-			mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+			mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, dmaStream);
+			mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, dmaStream);
 			if(mTouchedBuffer.getSize())
-				mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr(), 0, mTouchedBuffer.getSize() / sizeof(PxU32), mStream);
+				mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr(), 0, mTouchedBuffer.getSize() / sizeof(PxU32), dmaStream);
 		}
 	}
     if(mGpuContext->getEnableDirectGPUAPI() || mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs())
@@ -2407,7 +2437,7 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 	// AD: I'm not sure about that one. It will bring back the list of changed AABB manager handles to CPU, which will then be appended
 	// with changes done using the public API. Then we copy back to GPU. Should be fine to skip if we're not allowing CPU-side updates?
 	CUdeviceptr changeAABBHandlesd = mUseGpuBp ? mGpuContext->getGpuBroadPhase()->getAABBManager()->getChangedAABBMgrHandles() : mChangedAABBMgrHandlesBuffer.getDevicePtr();
-	mCudaContext->memcpyDtoHAsync(changedAABBMgrHandles.getWords(), changeAABBHandlesd, sizeof(PxU32)*changedAABBMgrHandles.getWordCount(), mStream);
+	mCudaContext->memcpyDtoHAsync(changedAABBMgrHandles.getWords(), changeAABBHandlesd, sizeof(PxU32)*changedAABBMgrHandles.getWordCount(), dmaStream);
 
 	
 	*mEventMapped = 0;
@@ -2420,16 +2450,18 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 		PX_CUDA_KERNEL_PARAM(devicePtr)
 	};
 
-	CUresult resultR = mCudaContext->launchKernel(signalFunction, 1, 1, 1, 1, 1, 1, 0, mStream, signalParams, sizeof(signalParams), 0, PX_FL);
+	CUresult resultR = mCudaContext->launchKernel(signalFunction, 1, 1, 1, 1, 1, 1, 0, dmaStream, signalParams, sizeof(signalParams), 0, PX_FL);
 	PX_UNUSED(resultR);
 	PX_ASSERT(resultR == CUDA_SUCCESS);
 
 #if SC_GPU_DEBUG
-	mCudaContext->streamSynchronize(mStream);
+	mCudaContext->streamSynchronize(dmaStream);
 #else
 	//This push all the commands in the queue to execute, but it doesn't wait for the result
-	mCudaContext->streamFlush(mStream);
+	mCudaContext->streamFlush(dmaStream);
 #endif
+	if(mDmaBackOnSideStream)
+		mCudaContext->eventRecord(mDmaBackDone, dmaStream);
 }
 
 void PxgSimulationCore::syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnfrozenShapesThisFrame, bool didSimulate)
@@ -2444,7 +2476,7 @@ void PxgSimulationCore::syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnf
 		volatile PxU32* pEvent = mEventMapped;
 			
 		if (!spinWait(*pEvent, 0.1f))
-			mCudaContext->streamSynchronize(mStream);
+			mCudaContext->streamSynchronize(mDmaBackOnSideStream ? mDmaBackStream : mStream);
 	}
 
 	nbFrozenShapesThisFrame = mUpdatedCacheAndBoundsDesc.get().mTotalFrozenShapes;

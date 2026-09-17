@@ -451,6 +451,17 @@ namespace physx
 		PxU32						mCompactLastElements = 0;
 		bool						mCompactGathered = false;	// this pass gathered (else full copies + count only)
 		PxU32						mCompactPassCounter = 0;
+		// Copy-backs on a side stream so the core stream (and the destruction
+		// chain queued behind it) does not wait for host-bound transfers.
+		CUstream					mDmaBackStream = NULL;
+		CUevent						mDmaBackReady = NULL;
+		CUevent						mDmaBackDone = NULL;
+		bool						mDmaBackOnSideStream = false;
+	public:
+		// Event completing the latest copy-back; core-stream writers of the
+		// copied buffers (sleep pose-sets) wait on it.
+		CUevent						getDmaBackDoneEvent() const { return mDmaBackOnSideStream ? mDmaBackDone : NULL; }
+	private:
 		PxBounds3*					mDmaBackBounds = NULL;
 		PxsCachedTransform*			mDmaBackTransforms = NULL;
 		PxU32						mDmaBackElementCount = 0;

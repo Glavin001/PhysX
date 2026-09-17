@@ -2930,7 +2930,9 @@ void Sc::Scene::postThirdPassIslandGen(PxBaseTask* /*continuation*/)
     // the commit and the submission once the solver launches are issued, so the
     // solve overlaps the CPU post-solve chain. Experiment: the rollback set that
     // afterIntegration adds is applied later (order-changing until made exact).
-    if(!mDestructionCorrectionInProgress && !(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+    // Both passes: the corrected pass's acceptance and stress chain are
+    // enqueued the same way (the controller performs the acceptance first).
+    if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
         && mSimulationController->usesDeviceDestructionContactInputs())
         mSimulationController->submitDestructionEarly(mDt, mGravity, &Scene::destructionEarlySleepCommit, this);
 #endif

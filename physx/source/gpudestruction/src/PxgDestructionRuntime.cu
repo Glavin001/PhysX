@@ -618,6 +618,12 @@ class Runtime final : public PxgDestructionRuntime {
     bool mPreserveContactPairs=false;PxU32 mReservedContactPairs=0;
     bool mPostCorrection=false;PxDestructionStageStatus mFirstPassStatus{};
     PxProfilerCallback* mProfiler=nullptr;PxU64 mProfileContext=0;
+    struct AdvanceZone {
+        PxProfilerCallback* profiler;void* data;const char* name;PxU64 context;
+        AdvanceZone(PxProfilerCallback* p,const char* n,PxU64 c):profiler(p),data(nullptr),name(n),context(c){if(profiler)data=profiler->zoneStart(name,false,context);}
+        void end(){if(profiler)profiler->zoneEnd(data,name,false,context);profiler=nullptr;}
+        ~AdvanceZone(){end();}
+    };
     cudaEvent_t mStageEvents[6]{};bool mStageTimingPending=false;
     void stageMarker(PxU32 stage) {
         if(!mProfiler)return;
@@ -1659,12 +1665,15 @@ public:
                 check(mMotionAllocation.setNodes(mPreNodes,mPreRegistryCapacity,mStream));
                 prepareDeviceInputs();
             }
+            AdvanceZone zoneInputs(mProfiler,"GpuDestruction.advanceDetail.inputs",mProfileContext);
             stageMarker(0);
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
             mContactRouting.route(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates,mStream);
             check(cudaEventRecord(mReady,mStream));
             stageMarker(1);
+            zoneInputs.end();
+            AdvanceZone zoneSolve(mProfiler,"GpuDestruction.advanceDetail.solveEnqueue",mProfileContext);
             const PxDestructionVectorPair* forces=nullptr;
             const ExtStressGpuDeviceStatus* solveStatus=nullptr;
             if(mSolver) {
