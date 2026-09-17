@@ -2001,3 +2001,37 @@ device entries, 0 CPU-only, 0 device-only (kinematics skipped by the solver layo
 (4,966 over the run) are exactly the previous pass's fresh list, so a device-driven transition on a corrected pass
 must apply the union of the trial's device list and the corrected reduction; on a trial pass only the fresh list.
 That makes README §14 steps (2)–(4) derivable from device state and the design proceeds (mode 9).
+
+### §14 mode 9: device-driven sleep transition and stress submit at the solver issue (opt-in, 2026-09-17/18)
+
+`PHYSX_DESTRUCTION_DEVICE_SLEEP=9` (commit `875df0fb`) replaces the CPU's early sleep commit and the arm-time
+stress submit by device work enqueued by the second of {solver issued, readiness mirror updated}: the exact device
+reduction (mode 8) collects this pass's deactivation list; device-count kernels gather the pre-step poses on the
+solver stream, set poses/cache/bounds and zero motion on the core stream (`gatherNativeSleepPosesDevice`,
+`setRigidDynamicGlobalPoseDevice`, `zeroNativeSleepMotionDevice`); the apply list is the host's record of the
+previous pass's decision list (what `afterIntegration` re-inserts, minus bodies finalized individually by the
+correction's `wakeCommandOwners`, minus deleted or re-assigned nodes) plus the fresh reduction; the broad-phase
+"GPU state changed" flag is raised at the arm when the CPU would have; the CPU commit callback keeps its
+pending-set bookkeeping and skips only its rollback application. Isolation knobs: `..._KEEP_CPU=1` (CPU commit
+applies too), `..._AT_ARM=1` (transition at the arm), `..._SUBMIT_AT_ARM=1` (submit at the arm),
+`..._KERNELS=mask` (gather 1, setter 2, zero 4).
+
+Findings on the g16 3 s bombardment (default 56,077 bonds):
+
+| variant | bonds | note |
+|---|---:|---|
+| transition + kept CPU commit, kernels masked 0 or 1 (reduction, gather) | 56,077 | exact |
+| apply-list audit (transition at arm, CPU commit kept) | device = CPU rollback set on every pass with an enqueue; device-only 0 | exact set; poses equal except one pass (36 nodes) before the gather moved to the solver stream |
+| transition at the solver issue, submit at the arm | 56,469 / 59,199 / 57,003 / 59,874 / 59,874 | **nondeterministic** across runs of one binary |
+| transition and submit at the solver issue | 59,450 (8 runs) | deterministic, first physical difference at tick 87: the trial's stress iterations (16 → 12) and the corrected pass's contacts |
+
+Mechanism of the submit difference (read from `borrowDestructionSolvedContacts`): the loads iterate the
+narrowphase's `mTotalNumPairs` pairs at submit time; between the solver issue and the arm the third island pass
+destroys the contact managers of deactivated interactions (`putInteractionsToSleep`, speculative sim) and of lost
+overlaps (`processLostContacts3`), compacting them out, so the arm-time loads exclude those pairs' contact forces
+while the issue-time loads include them. An exact submit at the solver issue therefore needs the same exclusion
+derived on the device: pairs whose dynamic endpoints all belong to the *speculative* deactivation set (a second
+reduction over the speculative mirror and labels, as modes 6/7 already do) and pairs lost by this pass's broad
+phase; the routing kernel then skips them. The transition-at-issue nondeterminism (second row) is still open.
+The measured gain of the issue-time submit, once exact, is bounded by the gap between the solver issue and the
+arm (≈1.9 ms per pass minus the chain's own prologue).
