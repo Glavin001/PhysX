@@ -1502,3 +1502,14 @@ The steady-state perf profile puts about 4 % of CPU samples in the scene-query p
 | `--scene-query-shapes 0` (chunks not queryable) | 27.14 | 44.6 | 167 |
 
 So the pruner commit costs about 1.6 ms per tick and the mandatory bounds sync of ~10k moving fragments a further 0.8 ms. This is PhysX's scene-query system, not the destruction pipeline, and whether a game needs fragments queryable is the application's choice (bullets and line-of-sight against debris versus intact buildings). The demo default stays at PhysX's default so every earlier measurement remains comparable; an application targeting the plan's budget should use build-only mode (queries stay correct, the refit moves to the first query of the frame) or exclude debris from queries.
+
+## Continuous 600-tick A/B/A of the 2026-09-17 defaults (`out/direct-continuous-ab-20260917`)
+
+Candidate = commit `0e0fb2a3` binaries (R2 steps 1–3, solve occupancy 3/SM with dynamic staging, largest-first dispatch, reserved contact pairs, 128-thread solve CTAs, global staging); baseline = the session's fixed A arm. Two trials per arm, baseline measured before and after.
+
+| case | baseline mean | candidate mean | 60 Hz misses (of 600) | peak | counters |
+|---|---:|---:|---:|---:|---|
+| impacts-256 (heavy) | 53.2–54.6 ms | 25.6–25.8 | 519 → 270/283 | 187–196 → 160–162 | identical (28,596 bonds) |
+| idle-256 | 1.31 steady (first tick 13.5) | 1.68 steady (first tick 38.2) | 0 → 1 | 13 → 39 | identical |
+
+Heavy: 54.4 → 25.7 ms against 28.4 at the previous continuous A/B (0fb405e1). Idle: the single miss is the first tick, which now pays the page-touched pair-pool reserve (about 40–60 ms once, 9 ms with `--reserve-pairs 0`) instead of the impact tick; the +0.37 ms steady idle difference could not be attributed to any one default (toggling 256-thread shared staging, the pair reserve, largest-first and 2 CTAs/SM individually gave 1.36–1.69 ms, the same spread as repeated default runs with the desktop active), so it stays recorded as an unexplained drift within the idle noise band.
