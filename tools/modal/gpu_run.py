@@ -62,7 +62,7 @@ KNOWN_FAILURES = {'physx_native_gpu_body_allocation', 'physx_native_gpu_node_bir
                   'physx_native_gpu_state_initcheck_accepted-properties', 'physx_native_gpu_state_initcheck_accepted-properties-pgs',
                   'physx_native_gpu_bombardment_contacts'}
 NSYS = '/usr/local/cuda-13.0/bin/nsys'   # the CUDA 13.0 Nsight Systems traces kernels on Modal; the 13.4 one (2026.3.2) records none there
-CONTAINER_ENV = {'PHYSX_DESTRUCTION_DEVICE_GATE': 'sm120'}   # see tools/modal/patches/device-gate-sm120.patch
+CONTAINER_ENV = {'PHYSX_DESTRUCTION_DEVICE_GATE': 'sm120,sm89'}   # see tools/modal/patches/device-gate-sm120.patch
 SANITIZER = '/usr/local/cuda-13.4/bin/compute-sanitizer'
 
 # ----------------------------------------------------------------------------- image / app
@@ -185,6 +185,12 @@ def stage_bundle(build_id, into=REPO):
         os.chmod(dst, entry['mode'])
         if entry['size'] < (64 << 20) and sha256(dst) != entry['sha256']:
             raise RuntimeError(f'bundle blob mismatch: {entry["path"]}')
+    alias = manifest.get('rpath_alias')
+    if alias:
+        link = Path(into, alias)
+        link.parent.mkdir(parents=True, exist_ok=True)
+        if not link.exists():
+            link.symlink_to(Path(into, LIBDIR_REL))
     return manifest
 
 
@@ -729,32 +735,41 @@ def local_git():
     return {'sha': sha, 'dirty': bool(status.strip()), 'status': status, 'patch': patch}
 
 
-def bundle_files(profile_probe_dir):
-    """Repo-relative files that make up a run bundle (read-only scan of the local build outputs)."""
+def bundle_files(profile_probe_dir, build_root=''):
+    """Files that make up a run bundle as (local_path, canonical repo-relative path) pairs.
+    build_root='' scans the canonical trees; build_root='out/modal/sm89' scans an alternate tree laid out as
+    <root>/physx/bin/..., <root>/sdk-release, <root>/destruction-sdk and maps them to the canonical paths."""
     root = LOCAL_ROOT
     files = []
 
-    def add(rel):
-        p = root / rel
-        if p.is_file():
-            files.append(rel)
+    def local_of(rel):
+        if not build_root:
+            return root / rel
+        alt = rel.replace('out/sdk-release', f'{build_root}/sdk-release', 1).replace('out/destruction-sdk', f'{build_root}/destruction-sdk', 1)
+        alt = alt.replace('physx/bin/', f'{build_root}/physx/bin/', 1) if rel.startswith('physx/bin/') else alt
+        return root / alt
 
-    for p in sorted((root / LIBDIR_REL).glob('*.so')):
-        add(p.relative_to(root).as_posix())
+    def add(rel):
+        p = local_of(rel)
+        if p.is_file():
+            files.append((p.resolve(), rel))
+
+    for p in sorted(local_of(LIBDIR_REL).glob('*.so')):
+        add(f'{LIBDIR_REL}/{p.name}')
     add(f'{DIAG_REL}/libPhysXDestructionGpuRuntime_64.so')
     add('out/sdk-artifacts.json')
     add('out/destruction-sdk/CTestTestfile.cmake')
     for sub in (REF_REL, TOPO_REL):
         for name in ('CTestTestfile.cmake', 'DartConfiguration.tcl'):
             add(f'{sub}/{name}')
-        for p in sorted((root / sub).iterdir()):
+        for p in sorted(local_of(sub).iterdir()):
             if p.is_file() and os.access(p, os.X_OK) and not p.suffix in ('.a', '.cmake', '.tcl', '.txt') and p.name != 'Makefile':
-                add(p.relative_to(root).as_posix())
+                add(f'{sub}/{p.name}')
     pp = Path(profile_probe_dir)
-    if pp.is_dir():
+    if pp.is_dir() and not build_root:
         for name in ('serialization-probe', 'build.json'):
             if (pp / name).is_file():
-                files.append(('__probe__', (pp / name).resolve(), f'{PROBE_REL}/{name}'))
+                files.append(((pp / name).resolve(), f'{PROBE_REL}/{name}'))
     return files
 
 
@@ -765,10 +780,14 @@ def vol_read_json(vol, path, default=None):
         return default
 
 
+GPU_ARCH = {'RTX-PRO-6000': '120', 'L4': '89', 'L40S': '89'}
+
+
 def resolve_build(build_id):
     if build_id:
         return build_id
-    latest = vol_read_json(builds_vol, 'bundles/latest.json')
+    arch = GPU_ARCH.get(GPU.rstrip('!'), '120')
+    latest = vol_read_json(builds_vol, f'bundles/latest-sm{arch}.json') or (vol_read_json(builds_vol, 'bundles/latest.json') if arch == '120' else None)
     if not latest:
         sys.exit('no pushed bundle; run `modal run tools/modal/gpu_run.py::push` first')
     return latest['build_id']
@@ -807,6 +826,28 @@ def print_table(headers, rows):
 
 def estimate(gpu_minutes):
     return gpu_minutes * 60 * GPU_RATE_PER_S
+
+
+@app.function(image=image, gpu=GPU, cpu=1, memory=2048, timeout=600, max_containers=64)
+def capacity_remote(i: int, hold_s: int) -> dict:
+    t = time.time()
+    q = 'name,uuid,driver_version'
+    smi = sh(['nvidia-smi', f'--query-gpu={q}', '--format=csv,noheader'], check=False, cwd='/').stdout.strip()
+    time.sleep(hold_s)
+    return {'i': i, 'started': t, 'gpu': smi, 'region': os.environ.get('MODAL_REGION'), 'task': os.environ.get('MODAL_TASK_ID')}
+
+
+@app.local_entrypoint()
+def capacity(n: int = 12, hold_s: int = 60):
+    """Ask for n GPUs of the class in PHYSX_MODAL_GPU at once and report when each one actually started."""
+    t0 = time.time()
+    print(f'requesting {n} x {GPU}, holding each {hold_s}s')
+    starts = []
+    for r in capacity_remote.map(list(range(n)), [hold_s] * n, order_outputs=False):
+        starts.append(r['started'] - t0)
+        print(f'  #{len(starts):2d} started at {starts[-1]:6.1f}s  {r["gpu"][:60]}  {r["region"]}')
+    starts.sort()
+    print(f'{GPU}: first {starts[0]:.0f}s, 5th {starts[min(4, n - 1)]:.0f}s, 10th {starts[min(9, n - 1)]:.0f}s, last {starts[-1]:.0f}s of {n}; concurrent within 30 s of first: {sum(s < starts[0] + 30 for s in starts)}')
 
 
 @app.local_entrypoint()
@@ -861,18 +902,20 @@ def inputs(force: bool = False):
 
 
 @app.local_entrypoint()
-def push(profile_probe: str = 'out/probes/profile', note: str = ''):
-    """Hash the local build outputs, upload only new blobs, write bundles/<build_id>.json and latest.json."""
+def push(profile_probe: str = 'out/probes/profile', note: str = '', arch: str = '120', build_root: str = ''):
+    """Hash the local build outputs, upload only new blobs, write bundles/<build_id>.json and latest-<arch>.json.
+    --arch 89 --build-root out/modal/sm89 pushes an alternate tree (see README, L4/L40S)."""
     if not (LOCAL_ROOT / PROBE_REL).exists() and profile_probe == 'out/probes/profile' and (LOCAL_ROOT / 'out/warm-replay-20260915/profile').exists():
         profile_probe = 'out/warm-replay-20260915/profile'
     git = local_git()
-    files = bundle_files(LOCAL_ROOT / profile_probe)
+    files = bundle_files(LOCAL_ROOT / profile_probe, build_root)
     entries = []
-    for f in files:
-        local, rel = (f[1], f[2]) if isinstance(f, tuple) else (LOCAL_ROOT / f, f)
+    for local, rel in files:
         st = local.stat()
         entries.append({'path': rel, 'sha256': sha256(local), 'size': st.st_size, 'mode': st.st_mode & 0o777, 'local': str(local)})
-    build_id = f'{utc_stamp()}-{git["sha"][:10]}' + ('-dirty' if git['dirty'] else '')
+    if not entries:
+        sys.exit(f'no bundle files found under {build_root or "the canonical trees"}')
+    build_id = f'{utc_stamp()}-sm{arch}-{git["sha"][:10]}' + ('-dirty' if git['dirty'] else '')
     # ABI-skew guard: statically linked tests must be built from the same headers as the shipped modules.
     oldest = min(Path(e['local']).stat().st_mtime for e in entries if e['path'].endswith('.so') or '/reference/' in e['path'])
     newer = sorted(str(f.relative_to(LOCAL_ROOT)) for sub in ('physx/source', 'blast/source', 'demos') for f in (LOCAL_ROOT / sub).rglob('*')
@@ -893,12 +936,17 @@ def push(profile_probe: str = 'out/probes/profile', note: str = ''):
             batch.put_file(e['local'], f'blobs/{e["sha256"]}')
         if git['patch'] and patch_sha not in have:
             batch.put_file(io.BytesIO(git['patch']), f'blobs/{patch_sha}')
-        manifest = {'build_id': build_id, 'created': utc_stamp(), 'note': note, 'git': {k: git[k] for k in ('sha', 'dirty', 'status')},
+        # binaries in an alternate tree bake an rpath to <root>/<build_root>/physx/bin/...; the container aliases it to the canonical lib dir
+        rpath_alias = f'{build_root}/{LIBDIR_REL}' if build_root else ''
+        manifest = {'build_id': build_id, 'created': utc_stamp(), 'note': note, 'arch': arch, 'build_root': build_root, 'rpath_alias': rpath_alias,
+                    'git': {k: git[k] for k in ('sha', 'dirty', 'status')},
                     'worktree_patch_sha256': patch_sha, 'host': os.uname().nodename, 'local_root': str(LOCAL_ROOT), 'profile_probe_dir': profile_probe,
                     'files': [{k: v for k, v in e.items() if k != 'local'} for e in entries], 'bytes': sum(e['size'] for e in entries),
                     'skew': {'sources_newer_than_oldest_binary': newer, 'binary_mtime_spread_s': round(spread)}}
         batch.put_file(io.BytesIO(json.dumps(manifest, indent=2).encode()), f'bundles/{build_id}.json')
-        batch.put_file(io.BytesIO(json.dumps({'build_id': build_id}).encode()), 'bundles/latest.json')
+        batch.put_file(io.BytesIO(json.dumps({'build_id': build_id}).encode()), f'bundles/latest-sm{arch}.json')
+        if arch == '120':
+            batch.put_file(io.BytesIO(json.dumps({'build_id': build_id}).encode()), 'bundles/latest.json')
     print(f'build_id {build_id}: {len(entries)} files, {manifest["bytes"] / 1e6:.0f} MB, uploaded {len(todo)} new blobs '
           f'({sum(e["size"] for e in todo) / 1e6:.0f} MB); git {git["sha"][:10]} dirty={git["dirty"]}')
 

@@ -200,6 +200,29 @@ binary and records the same in the bundle manifest (`skew`). Push only after a c
 Whole-GPU throughput is roughly 2x the 5060 Ti (188 vs 36 SMs, same SM design); per-SM residency findings
 transfer, absolute tick means do not. Compare only against Modal-measured controls.
 
+Workspace plan limit: this workspace is on Modal's Starter plan, whose documented limit is **10 concurrent GPUs**
+(Team: 50, Enterprise: custom). That is why every run of more than ten containers stalled with "waiting to be
+scheduled": the eleventh and later requests wait for a slot, not for hardware. Keep waves at ten or upgrade the plan.
+`modal run tools/modal/gpu_run.py::capacity --n 12` measures the real start-up times per GPU class
+(`PHYSX_MODAL_GPU=L40S` selects the class).
+
+## L4 and L40S (sm_89)
+
+The runtime and tests accept CC 8.9 when `PHYSX_DESTRUCTION_DEVICE_GATE` contains `sm89` (the image sets `sm120,sm89`).
+Build an sm_89 tree without touching the sm_120 trees (see `out/modal/logs/build-sm89.log` for the exact
+configure lines: `PX_OUTPUT_LIB_DIR`/`PX_OUTPUT_BIN_DIR`=`out/modal/sm89/physx`, `PHYSX_LIB_DIR` overridden,
+`CMAKE_CUDA_ARCHITECTURES=89`), then:
+
+```sh
+modal run tools/modal/gpu_run.py::push --arch 89 --build-root out/modal/sm89
+PHYSX_MODAL_GPU=L40S modal run tools/modal/gpu_run.py::tests --subset eleven     # latest sm89 bundle is picked by GPU class
+PHYSX_MODAL_GPU=L4   modal run tools/modal/gpu_run.py::ab --grid 16 --seconds 3
+```
+
+Apples to apples: never mix GPU classes inside one comparison. Every paired job already runs both arms on one
+GPU, and `resolve_build` picks the bundle by the GPU class, but ratios from L40S and RTX PRO 6000 are different
+baselines. Use one class per campaign and record it (the provenance field in every result names the GPU).
+
 Observed capacity: a 15-container `qualify` got 10 GPUs within ~3 minutes (tests, A/B, eight warm windows done at 195 s) and the last five never scheduled in 35 minutes ("waiting to be scheduled on a GPU_RTX_PRO_6000 worker"); earlier, seven concurrent requests queued for several minutes with "waiting to be
 scheduled on a GPU_RTX_PRO_6000 worker"; plan fan-out width accordingly or use `L4`/`L40S` for correctness jobs.
 

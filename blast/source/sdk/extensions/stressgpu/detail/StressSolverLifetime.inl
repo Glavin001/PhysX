@@ -30,8 +30,10 @@
         checkCuda(cudaGetDeviceProperties(&properties, device), "query destruction capabilities");
         // PHYSX_DESTRUCTION_DEVICE_GATE=sm120 admits any CC 12.0 device (e.g. RTX PRO 6000 on Modal); default unchanged.
         const char* gate = std::getenv("PHYSX_DESTRUCTION_DEVICE_GATE");
-        const bool anySm120 = gate && std::string(gate)=="sm120" && properties.major==12 && properties.minor==0;
-        const bool supportedDevice = anySm120 ||
+        const std::string gates = gate ? gate : "";   // comma-separated: "sm120", "sm89" (Modal RTX PRO 6000 / L4 / L40S)
+        const bool anySm120 = gates.find("sm120")!=std::string::npos && properties.major==12 && properties.minor==0;
+        const bool anySm89 = gates.find("sm89")!=std::string::npos && properties.major==8 && properties.minor==9;
+        const bool supportedDevice = anySm120 || anySm89 ||
             (properties.major==8 && properties.minor==9 && std::string(properties.name)=="NVIDIA GeForce RTX 4090") ||
             (properties.major==12 && properties.minor==0 && std::string(properties.name)=="NVIDIA GeForce RTX 5060 Ti");
         if(!supportedDevice || !properties.cooperativeLaunch)
