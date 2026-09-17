@@ -1374,3 +1374,21 @@ Union span of the four registration stages 15.7 ms against a 29.2 ms sum. Conseq
 `PHYSX_DESTRUCTION_PREHEAT_PAIRS=N` allocates and releases N contact managers, shape interactions and N/4 markers at the first `simulate`, so the first impact's corrected pass finds warm free lists instead of growing slabs on one thread (the 24.5 ms serial `preallocateContactManagers`). It is order-changing by construction: warm free lists assign contact-manager indices in a different order than cold growth, the touch-event bitmap is walked in index order, and that order feeds island activation and partition insertion. g16 3 s bombardment, N = 150,000, motion audit on, two deterministic trials: impact tick 194.0 → 186.8 / 166.7 ms, but 63,923 bonds (+14 %, outside the mild-perturbation range of 58,237–60,797 and near the reversed order's 69,243), 14,044 peak clusters, and a run mean of 44 ms against 31.5 because the heavier cascade does more work. Initialization +0.1–0.2 s. Under the provisional rule this is rejected; more precisely, its effect on the peak cannot be separated from its effect on the trajectory. Kept off.
 
 Conclusion of the calibration series: on this scene, any change to the order in which pairs are created, activated or inserted, including allocation-only changes, produces a different cascade with bond totals spread over 56 k to 69 k and tick means spread accordingly. Evaluating order-changing work needs an ensemble protocol (several perturbations per arm, compare distributions of bonds, clusters, misses and peaks), not single-run totals. Setting that protocol is the owner's decision recorded in README §11.
+
+## Ensemble evaluation of the three env-gated candidates (`tools/scripts/run-destruction-order-ensemble.py`)
+
+Four insertion orders per arm (baseline, rotated by 7, 101, 1013; the rotation also applies to the narrowphase candidate list), g16 3 s bombardment, motion audit on, all runs deterministic:
+
+| arm | bonds (min–max, median) | peak clusters | tick mean ms (median) | peak tick ms | misses |
+|---|---|---|---|---|---|
+| control | 56,077–60,797 (58,458) | 12,248–14,337 | 31.0–35.8 (33.1) | 144–206 | 99/180 |
+| step 4 narrowphase partition source | 57,552–60,409 (59,249) | 12,920–13,657 | 32.1–33.9 (32.9) | 148–198 | 99/180 |
+| solver-derived device sleep verdicts (mode 1) | 58,106–60,232 (59,568) | 13,134–13,863 | 38.4–42.8 (40.9) | 175–202 | 99/180 |
+| pair pool pre-heat | 63,472–64,683 (64,048) | 13,871–14,232 | 38.7–42.4 (42.1) | 180–204 | 99/180 |
+
+Verdicts under the ensemble protocol:
+- **Step 4 accepted.** Bonds, clusters, tick mean and peaks all lie inside the control's spread; the median tick is the same. It is physically and temporally indistinguishable from an insertion-order perturbation. It stays off only because it improves nothing by itself; it is a qualified building block for steps 6 and 7.
+- **Mode 1 rejected on cost.** Physically inside the spread, but 8 ms per tick slower in every order: keeping fragments awake that the CPU would put to sleep at birth costs solver work. Modes 4 and 6 (exact reductions of CPU readiness) remain the sleep foundation.
+- **Pre-heat rejected.** A systematic shift, not an order effect: every rotation breaks 63–65 k bonds against the control's 56–61 k, with heavier ticks. Warm pools change more than the index order (memory placement of interactions and managers reaches pointer-ordered containers); the cause is not established and the 24.5 ms serial preallocation remains an open target that needs an index-preserving pool path instead.
+
+The protocol itself (four orders per arm, compare ranges and medians of bonds, clusters, tick mean, peak, misses; motion audit and no-collapse as hard gates) is adopted provisionally for all order-changing work; the owner can change the orders or the count.

@@ -917,6 +917,10 @@ Ensemble measured (`warm-screen.md`): rotations of the insertion order give 58,2
 12,911–14,337 peak clusters; the narrowphase partition source (60,409 / 13,657) and the solver-derived sleep
 verdicts (59,271 / 13,346) lie inside. Provisional rule (owner to confirm): accept order-changing candidates
 inside the mild-perturbation range with motion audit at the ensemble level and no collapse without cause.
+Adopted as the working protocol (2026-09-17): `tools/scripts/run-destruction-order-ensemble.py` runs four
+insertion orders per arm and compares ranges and medians. Verdicts: step 4 accepted (inside the control
+spread, tick median equal); solver-derived sleep verdicts rejected on cost (+8 ms per tick); pair pool
+pre-heat rejected (systematic +10 % bonds in every order, cause open).
 
 ## 12. R2 milestone 2 item 2: device-keyed partition edges — code map and plan (2026-09-16)
 

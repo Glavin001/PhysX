@@ -2292,9 +2292,10 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2_0(IG::IslandSim& is
 			static PxU64 passes = 0, islandItems = 0, npItems = 0, wokenItems = 0;
 			++passes;
 			mCandidateSeen.resizeAndClear(PxMax(islandSim.getNbEdges(), 1u));
+			static const PxU32 rotateCandidates = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_ROTATE_AUDIT"); return raw ? PxU32(::atoi(raw)) : 0u; }();
 			for(PxU32 c = 0; c < mCandidateCount; ++c)
 			{
-				const IG::EdgeIndex edgeId = mCandidateEdges[c];
+				const IG::EdgeIndex edgeId = mCandidateEdges[rotateCandidates ? (c + rotateCandidates) % mCandidateCount : c];
 				if(edgeId >= islandSim.getNbEdges() || mCandidateSeen.test(edgeId) || !activeCMBitmap.test(edgeId)) continue;
 				PxsContactManager* cm = islandManagerData.getContactManager(edgeId);
 				if(!cm || islandSimGpuData.getFirstPartitionEdge(edgeId) != NULL) continue;
