@@ -1053,3 +1053,14 @@ Expected: the corrected pass falls from ~11 ms toward the idle-tick floor plus t
 (2–4 ms), i.e. −7 to −9 ms per sustained tick, the only remaining item of that size. Cost: NP and
 solver kernel surgery across PhysX GPU buckets, multi-week; acceptance needs the owner's confirmation
 of the §11 ensemble rule because the result is not bit-comparable.
+
+Addendum (increment 1 result, 2026-09-17): a dormant broad-phase alone is neither exact nor faster
+(the corrected broad phase tests trial-end bounds and its cost is the created-handle/refilter region
+path), and removing dormant bodies from the solver alone (mode 4) is slower. The narrowphase step is
+the one that has to come first, and its scope is now known: for the city scene only the box-box,
+box-plane and sphere kernels plus the manifold reset and the output compaction iterate the pair
+lists, but retaining trial outputs for untested pairs crosses the per-pass double-buffered contact
+and patch streams (dormant pairs would point into the previous pass's buffer while the solver, the
+loads and the compaction read the current one). The dormant design therefore needs a per-pair
+"retained output" indirection in the stream pools before any kernel skip pays off; that is the first
+real R5 work item, and it is multi-week.
