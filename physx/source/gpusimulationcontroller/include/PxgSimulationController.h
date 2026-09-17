@@ -29,6 +29,7 @@
 #ifndef PXG_SIMULATION_CONTROLLER_H
 #define	PXG_SIMULATION_CONTROLLER_H
 
+#include "PxgCudaBuffer.h"
 #include "PxgBodySimManager.h"
 #include "PxgJointManager.h"
 #include "PxgArticulationLink.h"
@@ -632,6 +633,7 @@ class PxProfilerCallback;
 		virtual void ovdSnapshotRigidDynamicForces(const PxRigidDynamicGPUIndex* gpuIndices, PxU32 nbElements) PX_OVERRIDE;
 		virtual void ovdSnapshotArticulationForces(const PxArticulationGPUIndex* gpuIndices, PxU32 nbElements) PX_OVERRIDE;
 #endif
+
 		virtual bool hasDeformableSurfaces() const PX_OVERRIDE	{ return mFEMClothCore != NULL;  }
 		virtual bool hasDeformableVolumes() const PX_OVERRIDE	{ return mSoftBodyCore != NULL; }
 
@@ -834,6 +836,15 @@ class PxProfilerCallback;
 #if PX_SUPPORT_OMNI_PVD
 		PxsSimulationControllerOVDCallbacks*					mOvdCallbacks;
 #endif
+    public:
+        // Dormant corrected pass (mode 6): device list of the nodes remapped to the static solver body this pass.
+        CUdeviceptr destructionDormantNodesDevice(PxU32& count) const { count=mDestructionDormantCount; return mDestructionDormantCount?(mDestructionDormantSlot?mDestructionDormantDevice1.getDevicePtr():mDestructionDormantDevice.getDevicePtr()):0; }
+        PxgTypedCudaBuffer<PxU32> mDestructionDormantDevice;      // slot 0
+        PxgTypedCudaBuffer<PxU32> mDestructionDormantDevice1;     // slot 1 (alternating passes, no host wait)
+        PxU32* mDestructionDormantHost=NULL; PxU32* mDestructionDormantHost1=NULL; PxU32 mDestructionDormantHostCapacity=0; PxU32 mDestructionDormantCount=0; PxU32 mDestructionDormantSlot=0;
+        bool mDestructionDormantReinstated=false;
+        CUevent mDestructionDormantRefreshed=NULL;
+    private:
         PxU64 mDestructionContactInputCount = 0;
         PxU64 mDestructionContactReuseFallbackCount = 0;
         bool mDestructionPreservePairs = false;

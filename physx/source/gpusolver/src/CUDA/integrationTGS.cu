@@ -70,6 +70,21 @@ extern "C" __global__ void integrateCoreParallelLaunchTGS(
 		const PxU32 nodeIndex = data.islandNodeIndex.index();// >> 2;
 
 		PxgBodySim&	bodySim = solverCoreDesc->mBodySimBufferDeviceData[nodeIndex];
+		// Dormant corrected pass: a body remapped to the static index keeps its
+		// trial end-of-tick state; publish it unchanged and skip integration.
+		if(solverCoreDesc->solverBodyIndices && solverCoreDesc->solverBodyIndices[nodeIndex] != a)
+		{
+			const float4 lv = bodySim.linearVelocityXYZ_inverseMassW, av = bodySim.angularVelocityXYZ_maxPenBiasW;
+			outSolverVelocity[a] = make_float4(lv.x, lv.y, lv.z, 0.f);
+			outSolverVelocity[a + numSolverBodies] = make_float4(av.x, av.y, av.z, 0.f);
+			outBody2World[a] = bodySim.body2World;
+			// The per-pass sleep slot is otherwise stale (another body's from
+			// the previous pass): publish this body's persistent state.
+			PxgSolverBodySleepData& dormantSleep = solverCoreDesc->solverBodySleepDataPool[a];
+			dormantSleep.wakeCounter = bodySim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y;
+			dormantSleep.internalFlags = bodySim.internalFlags & ~PxU32(PxsRigidBody::eFREEZE_THIS_FRAME | PxsRigidBody::eUNFREEZE_THIS_FRAME | PxsRigidBody::eACTIVATE_THIS_FRAME | PxsRigidBody::eDEACTIVATE_THIS_FRAME);
+			return;
+		}
 
 		// PT: TODO: PGS version uses a reference here, what's better?
 		const PxMat33 sqrtInvInertia = txIDatas[a].sqrtInvInertia;

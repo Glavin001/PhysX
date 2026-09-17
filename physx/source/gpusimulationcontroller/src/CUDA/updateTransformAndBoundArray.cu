@@ -136,7 +136,20 @@ extern "C" __global__ void updateTransformCacheAndBoundArrayLaunch(const PxgSimu
 				const PxU32 activeNodeIndex = gBodyDataIndices[bodySimIndex];
 								
 				//if activeNodeIndex is valid, which means this node is active
-				if (activeNodeIndex != 0xFFFFFFFF)
+				if (activeNodeIndex == 0)
+				{
+					// Dormant corrected pass: the body was remapped to the static
+					// slot for the solver. It keeps its trial state; refresh its
+					// cache and bounds from that pose and leave sleep flags alone.
+					if (isBP)
+						updated[elementIndex] = 1;
+					const PxTransform body2World = bodySim.body2World.getTransform();
+					const PxTransform absPos = getAbsPose(body2World, shapeSim.mTransform, bodySim.body2Actor_maxImpulseW.getTransform());
+					updateCacheAndBound(absPos, shapeSim, elementIndex, gTransformCache, gBounds, gShapes, isBPOrSq);
+					if (touched && elementIndex < touchedCapacity)
+						touched[elementIndex] = 1;
+				}
+				else if (activeNodeIndex != 0xFFFFFFFF)
 				{
 					const PxU32 internalFlags = gSleepData[activeNodeIndex].internalFlags;
 					const PxTransform body2World = bodySim.body2World.getTransform();

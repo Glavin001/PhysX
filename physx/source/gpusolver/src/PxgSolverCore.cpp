@@ -209,6 +209,17 @@ bool PxgSolverCore::resetDestructionFrictionCaches()
     return !mCudaContext->isInAbortMode();
 }
 
+void PxgSolverCore::markDormantSolverBodies(CUdeviceptr nodes, PxU32 count)
+{
+	if(!count || !nodes) return;
+	const CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::MARK_DORMANT_SOLVER_BODIES);
+	CUdeviceptr indicesPtr = mSolverBodyIndices.getDevicePtr();
+	PxCudaKernelParam kernelParams[] = { PX_CUDA_KERNEL_PARAM(indicesPtr), PX_CUDA_KERNEL_PARAM(nodes), PX_CUDA_KERNEL_PARAM(count) };
+	CUresult result = mCudaContext->launchKernel(kernelFunction, (count + 255) / 256, 1, 1, 256, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
+	if(result != CUDA_SUCCESS)
+		PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU markDormantSolverBodies fail to launch kernel!!\n");
+}
+
 void PxgSolverCore::clearCurrentFrictionPatchCounts(const PxU32* edges, PxU32 count)
 {
 	if(!count || !edges)return;
@@ -489,6 +500,7 @@ void PxgSolverCore::constructSolverDesc(PxgSolverCoreDesc& scDesc, PxU32 numIsla
 	scDesc.solverBodyDataPool = reinterpret_cast<PxgSolverBodyData*>(mSolverBodyDataPool.getDevicePtr());
 	scDesc.solverBodyTxIDataPool = reinterpret_cast<PxgSolverTxIData*>(mSolverTxIDataPool.getDevicePtr());
 	scDesc.solverBodySleepDataPool = reinterpret_cast<PxgSolverBodySleepData*>(mSolverBodySleepDataPool.getDevicePtr());
+	scDesc.solverBodyIndices = reinterpret_cast<const PxU32*>(mSolverBodyIndices.getDevicePtr());
 
 	scDesc.outArtiVelocity = reinterpret_cast<float4*>(mOutArtiVelocityPool.getDevicePtr());
 		

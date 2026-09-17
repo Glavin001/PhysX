@@ -27,6 +27,8 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "ScScene.h"
+#include <cstdlib>
+#include <cstdio>
 #include "BpBroadPhase.h"
 #include "ScConstraintCore.h"
 #include "ScArticulationJointCore.h"
@@ -490,6 +492,23 @@ namespace
 				PxU32* frozenShapeIndices = simulationController->getFrozenShapes();
 
                 if(simulationController->usesDeviceDestructionContactInputs()) {
+                    {
+                        static const bool scopeDiag=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG")!=NULL;
+                        if(scopeDiag){static PxU32 passes=0;++passes;
+                            if(nbFrozenShapes+nbUnfrozenShapes>0){
+                                PxU32 parkedCount=0;const PxU32* parked=simulationController->destructionParkedNodes(parkedCount);
+                                PxBitMap parkedMap;PxU32 parkedUnfrozen=0,activeUnfrozen=0,sample[4]={0,0,0,0};
+                                PxBitMap seenBodies;seenBodies.resizeAndClear(mScene->getSimpleIslandManager()->getAccurateIslandSim().getNbNodes());PxU32 distinctBodies=0,distinctParked=0;
+                                if(parkedCount){parkedMap.resizeAndClear(mScene->getSimpleIslandManager()->getAccurateIslandSim().getNbNodes());for(PxU32 k=0;k<parkedCount;++k)parkedMap.set(parked[k]);}
+                                Sc::ShapeSimBase** shapes=simulationController->getShapeSims();const PxU32 shapeCount=simulationController->getNbShapes();
+                                for(PxU32 k=0;k<nbUnfrozenShapes;++k){const PxU32 id=unfrozenShapeIndices[k];if(id>=shapeCount||!shapes[id])continue;
+                                    Sc::BodySim* body=shapes[id]->getBodySim();if(!body)continue;const PxU32 node=body->getNodeIndex().index();
+                                    const bool isParked=parkedCount&&parkedMap.boundedTest(node);if(isParked)++parkedUnfrozen;else ++activeUnfrozen;
+                                    if(!seenBodies.boundedTest(node)){seenBodies.growAndSet(node);++distinctBodies;if(isParked)++distinctParked;}
+                                    if(k<2){sample[k*2]=node;sample[k*2+1]=PxU32(body->getLowLevelBody().mInternalFlags)|(body->isActive()?0x10000:0);}}
+                                fprintf(stderr,"[query-diag] pass %u correcting %d frozen %u unfrozen %u parkedUnfrozen %u activeUnfrozen %u distinctBodies %u distinctParked %u parkedList %u sample node %u flags 0x%x node %u flags 0x%x\n",
+                                    passes,int(mScene->destructionCorrectionInProgress()),nbFrozenShapes,nbUnfrozenShapes,parkedUnfrozen,activeUnfrozen,distinctBodies,distinctParked,parkedCount,sample[0],sample[1],sample[2],sample[3]);}}
+                    }
                     if(!mScene->queueDestructionQueryMembership(frozenShapeIndices,nbFrozenShapes)
                         || !mScene->queueDestructionQueryMembership(unfrozenShapeIndices,nbUnfrozenShapes)) {
                         PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY,PX_FL,"Native query observation queue failed; simulation is incomplete");

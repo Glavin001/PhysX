@@ -94,3 +94,15 @@ extern "C" __global__ void initStaticKinematics(
 		solverTxIDataPool[idx].sqrtInvInertia = PxMat33(PxZero);
 	}
 }
+
+// Dormant corrected pass (PHYSX_DESTRUCTION_ISLAND_SCOPE=6): bodies that keep
+// their trial result map to the static body for this pass, so every constraint
+// touching them is neutralised in prep and their integration is skipped
+// (integrateCoreParallel* detects the remapped index). The solver body list
+// itself is unchanged, so nothing else is renumbered.
+extern "C" __global__ void markDormantSolverBodies(PxU32* PX_RESTRICT solverBodyIndices, const PxU32* PX_RESTRICT nodes, const PxU32 count)
+{
+	const PxU32 i = threadIdx.x + blockIdx.x * blockDim.x;
+	if(i < count)
+		solverBodyIndices[nodes[i]] = 0;
+}

@@ -3120,6 +3120,11 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 		const PxNodeIndex*const deactivatingIndices = islandSim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
 
 		PxU32 previousNumBodiesToDeactivate = mNumDeactivatingNodes[IG::Node::eRIGID_BODY_TYPE];
+        {
+            static const bool scopeDiag=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG")!=NULL;
+            if(scopeDiag){static PxU32 passes=0;++passes;if(numBodiesToDeactivate>previousNumBodiesToDeactivate || (passes%32)==0)
+                fprintf(stderr,"[deact-diag] pass %u correcting %d deactivating %u (previous %u) active %u\n",passes,int(mDestructionCorrectionInProgress),numBodiesToDeactivate,previousNumBodiesToDeactivate,islandSim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE));}
+        }
         if((mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
             || (!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API) && mSimulationController->usesDeviceDestructionContactInputs()))
         {

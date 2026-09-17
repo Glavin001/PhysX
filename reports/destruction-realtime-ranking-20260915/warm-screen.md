@@ -1792,3 +1792,35 @@ Heavy 54.4 → 19.6 ms against 19.5 in campaign `17c` and 20.5 in `17b`: the con
 the whole city is awake, so the compacted mirror is inactive there and the early submit's ~0.6 ms is inside
 this campaign's run-to-run spread. The runner's exit 2 is its fixed ≤8 ms deadline gate, failed by design at
 this scale as in every earlier campaign.
+
+## R5 increment 1: dormant corrected pass, mode 6 (env-gated, off; 2026-09-17)
+
+`PHYSX_DESTRUCTION_ISLAND_SCOPE=6` implements the README §17 recipe's mechanism: the mode-4 candidate set
+(rigid nodes of trial islands without a correction target, no kinematics or articulations) keeps its trial
+end-of-tick body state. The pass-start bounds refresh runs on the restored (start-of-step) poses for every
+body, then the candidates are reinstated on the core stream behind an event from the narrowphase stream
+(the solver's pre-integration waits on the core stream only; reinstating on the narrowphase stream raced
+with it and made the outcome nondeterministic). After pre-integration a kernel remaps the frozen nodes to
+the static solver body in the node→solver-body table, so every constraint touching them is neutralised in
+prep (existing parked-contact writeback skip) without renumbering the solver bodies; integration detects the
+remap and publishes the body's trial state and persistent sleep flags instead of integrating; the
+post-integration cache/bounds kernel refreshes their cache and bounds from that pose and leaves the
+freeze/activation flags alone. The CPU restore already skips parked bodies; the stress solve republishes
+parked components' trial results.
+
+Two mode-6 runs of the g16 bombardment are identical (59,261 bonds, 11,164 awake bodies at tick 150, 13,254
+clusters), inside the §11 mild ensemble range (56,077–60,797), motion audit clean, native tests 8/8 and the
+default path unchanged (56,077). Not yet faster: mean 23.3–23.9 vs 21.1 ms, late window 39.1–40.0 vs 33.8.
+Per-phase (clean run vs default, sustained window): mechanism costs are the candidate walk (+0.64),
+the frozen-list build and upload (+0.65 inside updateDynamics), the corrected stress wait (+0.8, parked
+flag marking) and acceptance (+0.2); savings so far are the activity restore (−0.46), narrowphase result
+processing (−0.37) and the corrected broad phase (−0.2). The rest of the difference is the scene itself:
+dormant islands keep their warm trial motion instead of a cold re-solve, so 6 % more bodies stay awake and
+8 % more clusters exist, and every stage of both passes pays for them. A run with a bookkeeping anomaly
+(the post-integration copy-back reporting ~95 k "unfrozen" shapes per pass, physics identical) appeared
+intermittently before the stream-ordering fix and once after it; it is a host-visible race in the
+copy-back totals that mode 6 exposes and is still open.
+
+Next increments (README §17 order): scope the manifold and friction resets to affected pairs so dormant
+pairs produce no touch events, exclude dormant bodies' shapes from the corrected broad-phase update, skip
+dormant bodies in the CPU body-status and sleep loops, then the prep-level skip.

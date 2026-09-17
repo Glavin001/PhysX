@@ -614,3 +614,4 @@ KERNEL_DEF(sdf_CalculateDenseGridPointCloud, "sdfCalculateDenseGridPointCloud")
 
 KERNEL_DEF(NATIVE_SLEEP_GATHER_POSES, "gatherNativeSleepPoses")
 KERNEL_DEF(NATIVE_SLEEP_ZERO_MOTION, "zeroNativeSleepMotion")
+KERNEL_DEF(MARK_DORMANT_SOLVER_BODIES, "markDormantSolverBodies")

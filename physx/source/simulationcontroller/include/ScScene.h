@@ -554,6 +554,7 @@ namespace Sc
 		PX_FORCE_INLINE	BroadphaseManager&			getBroadphaseManager()						{ return mBroadphaseManager;			}
         // Trial notifications are not accepted results while native correction is incomplete.
         bool isSimulationResultAccepted() const;
+        bool destructionCorrectionInProgress() const { return mDestructionCorrectionInProgress; }
         // Explicit CPU query observer: accumulate provisional GPU deltas and
         // reconcile only accepted ownership/activity, never trial transitions.
         bool queueDestructionQueryMembership(const PxU32* indices, PxU32 count);

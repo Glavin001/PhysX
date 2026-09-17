@@ -311,6 +311,8 @@ namespace physx
 		PX_FORCE_INLINE CUstream getStream() { return mStream; } 
 
 		PX_FORCE_INLINE PxgDevicePointer<PxU32> getSolverBodyIndices() { return mSolverBodyIndices.getTypedDevicePtr(); }
+		// Dormant corrected pass: remap the listed nodes to the static solver body (after pre-integration).
+		void markDormantSolverBodies(CUdeviceptr nodes, PxU32 count);
 
 		PX_FORCE_INLINE PxgTypedCudaBuffer<PxgSolverBodyData>*	getSolverBodyData() { return &mSolverBodyDataPool; }
 

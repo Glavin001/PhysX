@@ -2088,6 +2088,13 @@ void PxgGpuContext::doPreIntegrationGPU()
 	const PxU32 offset = 1 + mKinematicCount;
 
 	mGpuSolverCore->preIntegration(offset, mSolverBodyPool.size(), mDt, mGravity);
+	{
+		// Dormant corrected pass: bodies keeping their trial result map to the static body.
+		PxU32 dormantCount = 0;
+		const CUdeviceptr dormant = static_cast<PxgSimulationController*>(mSimulationController)->destructionDormantNodesDevice(dormantCount);
+		if(dormantCount)
+			mGpuSolverCore->markDormantSolverBodies(dormant, dormantCount);
+	}
 
 	mIslandContextPool->mBiasCoefficients.set(true, mIsTGS, mIslandContextPool->mNumPositionIterations);
 }

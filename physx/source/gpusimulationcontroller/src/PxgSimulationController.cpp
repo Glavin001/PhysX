@@ -31,7 +31,12 @@
 namespace {
 // PHYSX_DESTRUCTION_ISLAND_SCOPE=1: island-scoped destruction correction.
 // 1: full (park islands, reinstate GPU state, skip parked stress components);
-// 2: stress skip only (bisection); 3: park + reinstate without the stress skip.
+// 2: stress skip only (bisection); 3: park + reinstate without the stress skip;
+// 4: frozen pass (bodies removed from the solver list); 6: dormant pass (README
+// section 17): bodies of islands without a correction target keep their trial
+// end-of-tick state, are reinstated after the pass-start bounds refresh (cache
+// and bounds stay at start of step), map to the static solver body for the
+// pass and skip integration; the solver body list is unchanged.
 int islandScopedCorrectionMode() { static const int value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");return raw?std::atoi(raw):0;}(); return value; }
 bool islandScopedCorrectionEnabled() { return islandScopedCorrectionMode()!=0; }
 
@@ -144,7 +149,9 @@ namespace physx
 // bodies, or NULL when the ordinary list applies.
 const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNodes(const IG::IslandSim& sim)
 {
-    if(islandScopedCorrectionMode()!=4 || !mDestructionCorrecting || !mDestructionFreezePending || !mDestruction)return NULL;
+    mDestructionDormantCount=0;
+    const int scopeMode=islandScopedCorrectionMode();
+    if((scopeMode!=4 && scopeMode!=6) || !mDestructionCorrecting || !mDestructionFreezePending || !mDestruction)return NULL;
     mDestructionFreezePending=false;
     const PxU32 islandCount=sim.getNbIslands(),nodeCount=sim.getNbNodes();
     const IG::IslandId* ids=sim.getIslandIds();
@@ -165,7 +172,8 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         frozen.set(node);mDestructionFrozenNodes.pushBack(node);
         // Static contacts of a frozen body are not batched this pass: their
         // current friction patch counts must be cleared (see PxgContext).
-        if(node<mBodySimManager.mStaticConstraints.size()) {
+        // The dormant pass batches and neutralises them instead.
+        if(scopeMode!=6 && node<mBodySimManager.mStaticConstraints.size()) {
             const PxgStaticConstraints& sc=mBodySimManager.mStaticConstraints[node];
             for(PxU32 k=0;k<sc.mStaticContacts.size();++k)mDestructionFrozenStaticEdges.pushBack(sc.mStaticContacts[k].uniqueId);
         }
@@ -202,6 +210,37 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     if(scopeDiag)printf("[island-scope] frozen pass: candidates=%u merged=%u frozen=%u removedFromSolver=%u active=%u staticEdges=%u reinstate=%d\n",
         mDestructionParkedNodes.size(),merged,mDestructionFrozenNodes.size(),removed,activeCount,mDestructionFrozenStaticEdges.size(),int(ok));
     if(!ok){mDestructionError=1;return NULL;}
+    if(scopeMode==6) {
+        // Dormant pass: keep the ordinary list; hand the frozen nodes to the
+        // solver, which remaps them to the static body after pre-integration.
+        const PxU32 count=mDestructionFrozenNodes.size();
+        if(count) {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+            if(count>mDestructionDormantHostCapacity) {
+                // Growth is the only host wait: both slots may be in flight.
+                cuda->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
+                if(mDestructionDormantHost)PX_PINNED_MEMORY_FREE(*mCudaContextManager,mDestructionDormantHost);
+                if(mDestructionDormantHost1)PX_PINNED_MEMORY_FREE(*mCudaContextManager,mDestructionDormantHost1);
+                mDestructionDormantHostCapacity=PxMax(count,2u*mDestructionDormantHostCapacity);
+                mDestructionDormantHost=PX_PINNED_MEMORY_ALLOC(PxU32,*mCudaContextManager,mDestructionDormantHostCapacity);
+                mDestructionDormantHost1=PX_PINNED_MEMORY_ALLOC(PxU32,*mCudaContextManager,mDestructionDormantHostCapacity);
+                mDestructionDormantDevice.allocate(sizeof(PxU32)*PxU64(mDestructionDormantHostCapacity),PX_FL);
+                mDestructionDormantDevice1.allocate(sizeof(PxU32)*PxU64(mDestructionDormantHostCapacity),PX_FL);
+            }
+            // Alternate slots: a pass's list is consumed by that pass's solver, and
+            // the pass after next starts only after the host has waited on this one.
+            mDestructionDormantSlot^=1u;
+            PxU32* host=mDestructionDormantSlot?mDestructionDormantHost1:mDestructionDormantHost;
+            const CUdeviceptr device=mDestructionDormantSlot?mDestructionDormantDevice1.getDevicePtr():mDestructionDormantDevice.getDevicePtr();
+            if(host && device) {
+                PxMemCopy(host,mDestructionFrozenNodes.begin(),count*sizeof(PxU32));
+                if(cuda->memcpyHtoDAsync(device,host,count*sizeof(PxU32),mDynamicContext->getGpuSolverCore()->getStream())==CUDA_SUCCESS)
+                    mDestructionDormantCount=count;
+            }
+        }
+        return NULL;
+    }
     if(!(freezeBits&2))return NULL;
     return &mDestructionSolverNodes;
 }
@@ -294,6 +333,8 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
 #if PX_SUPPORT_OMNI_PVD
 		,mOvdCallbacks(NULL)
 #endif
+		,mDestructionDormantDevice(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION)
+		,mDestructionDormantDevice1(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION)
 	{
 		// OMPE-70739: Hold a reference so the context manager is not destroyed while GPU simulation tasks may still run (use-after-free fix).
 		addRef(mCudaContextManager);
@@ -319,6 +360,9 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             PxScopedCudaLock lock(*mCudaContextManager);
             PxCudaContext* cuda = mCudaContextManager->getCudaContext();
             if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
+            if(mDestructionDormantHost) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mDestructionDormantHost);
+            if(mDestructionDormantHost1) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mDestructionDormantHost1);
+            if(mDestructionDormantRefreshed) cuda->eventDestroy(mDestructionDormantRefreshed);
             for(PxU32 k=0;k<sNativeSleepRing;++k)
             {
                 if(mNativeSleepIndicesRing[k]) cuda->memFree(mNativeSleepIndicesRing[k]);
@@ -1128,7 +1172,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                 auto* acceleration=mSimulationCore->getRigidBodyAccelerationsDevice();
                 const auto capacity=mSimulationCore->getBodySimStorageCapacity();const auto stream=mSimulationCore->getStream();
                 mDestructionParkedNodes.clear();mDestructionAffectedNodes.clear();mDestructionFrozenNodes.clear();mDestructionFrozenStaticEdges.clear();mDestructionFreezePending=false;
-                mDestruction->requestTrialSnapshot(islandScopedCorrectionMode()==1 || islandScopedCorrectionMode()==3 || islandScopedCorrectionMode()==4);
+                mDestruction->requestTrialSnapshot(islandScopedCorrectionMode()==1 || islandScopedCorrectionMode()==3 || islandScopedCorrectionMode()==4 || islandScopedCorrectionMode()==6);
                 ok=mDestruction->restoreRigidState(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
                     && mDestruction->installCollisionOwners(
@@ -1196,7 +1240,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                             while(node.index()!=PX_INVALID_NODE){mDestructionParkedNodes.pushBack(node.index());node=sim.getNode(node).mNextNode;}
                         }
                         const int mode=islandScopedCorrectionMode();
-                        if(mode==4) {
+                        if(mode==4 || mode==6) {
                             // Frozen pass: candidates keep their CPU trial state now
                             // (restoreDestructionActivity skips them); the GPU side is
                             // finalized after the corrected island gen.
@@ -1238,8 +1282,10 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                             // merges into an affected island is gathered back to the
                             // checkpoint before the solve (destructionFilteredActiveNodes).
                             static const bool reinstateAtInstall=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_REINSTATE_AT_INSTALL");return !raw || raw[0]!='0';}();
-                            mDestructionReinstatedAtInstall=reinstateAtInstall;
-                            if(mDestructionFreezePending && reinstateAtInstall) {
+                            // Mode 6 reinstates after the pass-start bounds refresh (updateBoundsAndShapes).
+                            mDestructionReinstatedAtInstall=mode==6?true:reinstateAtInstall;
+                            mDestructionDormantReinstated=false;
+                            if(mode==4 && mDestructionFreezePending && reinstateAtInstall) {
                                 PxScopedCudaLock lock(*mCudaContextManager);
                                 ok=ok && mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
                                     mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
@@ -1573,6 +1619,30 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                 "Failed to refresh persistent shape bounds from GPU motion");
             mCudaContextManager->getCudaContext()->setAbortMode(true);
             return;
+        }
+        // Dormant corrected pass: the transform cache and bounds above were
+        // computed from the restored (start-of-step) poses for every body;
+        // now the candidates take their trial end-of-tick body state back, so
+        // the broad phase and narrowphase see the trial's inputs while the
+        // solver (static remap) and integration (skip) leave them untouched.
+        if(islandScopedCorrectionMode()==6 && mDestructionCorrecting && mDestructionFreezePending && !mDestructionDormantReinstated && mDestruction && mDestructionParkedNodes.size())
+        {
+            mDestructionDormantReinstated=true;
+            // On the core stream behind the refresh: the solver's pre-integration
+            // waits for the core stream (syncData), not for the narrowphase stream.
+            PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+            const CUstream coreStream=mSimulationCore->getStream();
+            if(!mDestructionDormantRefreshed)cuda->eventCreate(&mDestructionDormantRefreshed,CU_EVENT_DISABLE_TIMING);
+            if(!mDestructionDormantRefreshed || cuda->eventRecord(mDestructionDormantRefreshed,npStream)!=CUDA_SUCCESS
+                || cuda->streamWaitEvent(coreStream,mDestructionDormantRefreshed,0)!=CUDA_SUCCESS
+                || !mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
+                mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),coreStream,true,true))
+            {
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Dormant corrected pass: reinstatement failed");
+                mCudaContextManager->getCudaContext()->setAbortMode(true);
+                return;
+            }
         }
 
         mNativeShapeAccessInitialized=nativeGroups;
