@@ -1606,3 +1606,15 @@ Standard bombardment (every building hit at once, debris sustained), 3 s runs, `
 | 256 | 114k / 229k | 10,945 | 56,077 | 38.5 | 53.5 | 126 | 90 of 90 |
 
 Single impact in a sleeping city (`single-g*`): 256 buildings / 114k chunks 4.5 ms mean, p95 6.7, 3 misses of 180 (first tick and the impact); 64 buildings 2.6 ms mean. Scene size is nearly free while settled (1.1–2.9 ms intact); the 60 Hz line is about 15–30k simultaneously active chunks (~3k clusters, ~15k bonds breaking per second). Simultaneous mass impacts remain the outlier (16 buildings at once peak 24 ms, 64 at 41 ms).
+
+## Staggered bombardment (impacts spread over time), 30 s runs, shipped defaults (2026-09-17)
+
+Every earlier bombardment number used `--launch-seconds 0`: all projectiles at t = 0, the worst case. With impacts spread over a launch window (`--launch-seconds`), `out/direct-factor-feasibility-20260915/stag-*`:
+
+| scenario | impacts/s | bonds broken | clusters at end | mean | p50 | p95 | max | ticks > 16.7 ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 64 buildings, 64 shots over 20 s | 3.2 | 14,844 | 3,245 | 5.4 ms | 4.4 | 12.5 | 30.5 | 8 of 1800 (0.4 %) |
+| 256 buildings, 256 shots over 20 s | 12.8 | 62,486 | 14,204 | 16.1 | 14.5 | 28.4 | 49.7 | 866 of 1800 (48 %) |
+| 256 buildings, 512 shots over 25 s | 20 | 104,515 | 31,699 | 35.0 | 30.7 | 65.4 | 116.8 | 89 % |
+
+Per-second means of the 256-building run rise from 4 to ~19–23 ms as tumbling debris accumulates (14k clusters) and fall back to 8 ms once impacts stop; the cost follows the amount of awake debris, not the impact rate itself. A 64-building city under continuous fire (one impact every 0.3 s) runs at 60 Hz with headroom and no spikes above 31 ms.
