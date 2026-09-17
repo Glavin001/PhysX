@@ -1375,6 +1375,38 @@ extern "C" __global__ void setRigidDynamicAngularVelocity(
 	}
 }
 
+// Native sleep finalization: one launch zeroes a sleeping body's velocities
+// (and previous velocities) and external accelerations, the same writes the
+// four setRigidDynamic{LinearVelocity,AngularVelocity,Force,Torque} launches
+// make with zero inputs, without four lock/launch round trips per pass.
+extern "C" __global__ void zeroNativeSleepMotion(
+	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
+	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
+	PxgBodySimVelocities* PX_RESTRICT prevVelocities,
+	const PxU32 nbElements
+)
+{
+	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x * blockIdx.x;
+
+	if (globalThreadIndex < nbElements)
+	{
+		PxgBodySim* gBodySimPool = updateActorDataDesc->mBodySimBufferDeviceData;
+		const PxU32 index = gpuIndices[globalThreadIndex];
+		PxgBodySim& bodySim = gBodySimPool[index];
+		const float4 lv = make_float4(0.f, 0.f, 0.f, bodySim.linearVelocityXYZ_inverseMassW.w);
+		const float4 av = make_float4(0.f, 0.f, 0.f, bodySim.angularVelocityXYZ_maxPenBiasW.w);
+		bodySim.linearVelocityXYZ_inverseMassW = lv;
+		bodySim.angularVelocityXYZ_maxPenBiasW = av;
+		if(prevVelocities)
+		{
+			prevVelocities[index].linearVelocity = lv;
+			prevVelocities[index].angularVelocity = av;
+		}
+		bodySim.externalLinearAcceleration = make_float4(0.f, 0.f, 0.f, 0.f);
+		bodySim.externalAngularAcceleration = make_float4(0.f, 0.f, 0.f, 0.f);
+	}
+}
+
 extern "C" __global__ void setRigidDynamicForce(
 	const PxVec3* PX_RESTRICT data,
 	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,

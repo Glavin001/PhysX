@@ -3681,6 +3681,24 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         }
         // Sparse transition work completes before fetch returns or commands
         // wake a body. No stale CPU pose/velocity can overwrite a later write.
+        // PHYSX_DESTRUCTION_SLEEP_FUSED=0 restores the four generic setters
+        // (a lock and a launch each, ~0.5 ms of host latency per pass).
+        static const bool fused=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_SLEEP_FUSED");return raw?std::atoi(raw)!=0:true;}();
+        if(fused)
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            const CUstream stream = mSimulationCore->getStream();
+            const CUdeviceptr actorDesc = CUdeviceptr(reinterpret_cast<size_t>(mSimulationCore->getUpdatedActorDescDesc().getPointer()));
+            const CUdeviceptr prevVelocities = mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr();
+            PxCudaKernelParam params[] = {
+                PX_CUDA_KERNEL_PARAM(mNativeSleepIndices), PX_CUDA_KERNEL_PARAM(actorDesc),
+                PX_CUDA_KERNEL_PARAM(prevVelocities), PX_CUDA_KERNEL_PARAM(count)
+            };
+            const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_ZERO_MOTION);
+            return cuda->streamWaitEvent(stream, mNativeSleepReady, 0) == 0
+                && cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, stream, params, sizeof(params), 0, PX_FL) == 0;
+        }
         return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
                    PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, mNativeSleepReady, NULL)
