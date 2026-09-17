@@ -2921,6 +2921,44 @@ void Sc::Scene::postThirdPassIslandGen(PxBaseTask* /*continuation*/)
 	PxvNphaseImplementationContext*	implCtx = mLLContext->getNphaseImplementationContext();
 	PxsContactManagerOutputIterator outputs = implCtx->getContactManagerOutputs();
 	mNPhaseCore->processPersistentContactEvents(outputs);
+#if PX_SUPPORT_GPU_PHYSX
+    // Early trial stress submission (PHYSX_DESTRUCTION_EARLY_SUBMIT): arm the
+    // controller with the sleep commit of the transitions known here; it runs
+    // the commit and the submission once the solver launches are issued, so the
+    // solve overlaps the CPU post-solve chain. Experiment: the rollback set that
+    // afterIntegration adds is applied later (order-changing until made exact).
+    if(!mDestructionCorrectionInProgress && !(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mSimulationController->usesDeviceDestructionContactInputs())
+        mSimulationController->submitDestructionEarly(mDt, mGravity, &Scene::destructionEarlySleepCommit, this);
+#endif
+}
+
+bool Sc::Scene::destructionEarlySleepCommit(void* user)
+{
+    Scene* scene=static_cast<Scene*>(user);
+    // The same set afterIntegration commits later: bodies the accurate island
+    // sim deactivated this pass may still have reached the solver, so their
+    // pre-step pose is rolled back and their motion zeroed (device gather).
+    // Committing them here keeps the early solve's inputs identical to the
+    // ordinary order; afterIntegration's re-insertion is then a no-op commit.
+    {
+        const IG::IslandSim& islandSim=scene->mSimpleIslandManager->getAccurateIslandSim();
+        const PxU32 count=islandSim.getNbNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
+        const PxNodeIndex* indices=islandSim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
+        const PxU32 rigidBodyOffset=BodySim::getRigidBodyOffset();
+        for(PxU32 i=0;i<count;++i) {
+            PxsRigidBody* rigid=getRigidBodyFromIG(islandSim,indices[i]);
+            BodySim* sim=reinterpret_cast<BodySim*>(reinterpret_cast<PxU8*>(rigid)-rigidBodyOffset);
+            scene->mGpuSleepPendingBodies.insert(&sim->getBodyCore());
+            scene->mGpuSleepRollbackBodies.insert(&sim->getBodyCore());
+        }
+    }
+    if(scene->finalizeGpuSleep())return true;
+    PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native destruction early sleep commit failed");
+#if PX_SUPPORT_GPU_PHYSX
+    scene->getCudaContextManager()->getCudaContext()->setAbortMode(true);
+#endif
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

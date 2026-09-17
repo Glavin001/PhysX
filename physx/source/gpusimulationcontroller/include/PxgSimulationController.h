@@ -504,6 +504,10 @@ class PxProfilerCallback;
         }
         virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*), PxvDestructionBodyAllocator* allocator) PX_OVERRIDE PX_FINAL;
         virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs) PX_OVERRIDE PX_FINAL;
+        virtual bool submitDestructionEarly(PxReal dt, const PxVec3& gravity, bool (*commit)(void*), void* user) PX_OVERRIDE PX_FINAL;
+        virtual void noteDestructionSolverIssued(void* solverEvent) PX_OVERRIDE PX_FINAL;
+        bool submitDestructionInternal(PxReal dt, const PxVec3& gravity, bool postCorrection, PxU32 streamIndex);
+        void runDestructionEarlySubmit();
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
         virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
         bool usesDeviceDestructionContactInputs() const override;
@@ -790,6 +794,10 @@ class PxProfilerCallback;
         bool mNativeShapeAccessInitialized = false;
         PxU32 mDestructionError = 0;
         bool mDestructionCorrecting = false;
+        bool mDestructionEarlySubmitted = false, mDestructionEarlyOk = false; // PHYSX_DESTRUCTION_EARLY_SUBMIT
+        PxMutex mDestructionEarlyMutex; bool mDestructionEarlyArmed = false, mDestructionSolverIssued = false;
+        void* mDestructionSolverIssuedEvent = NULL; PxReal mDestructionEarlyDt = 0; PxVec3 mDestructionEarlyGravity;
+        bool (*mDestructionEarlyCommit)(void*) = NULL; void* mDestructionEarlyUser = NULL;
         PxProfilerCallback* mDestructionCorrectionProfiler = NULL;
         void* mDestructionCorrectionProfileData = NULL;
 		PxCudaContextManager*									mCudaContextManager;

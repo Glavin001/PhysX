@@ -442,6 +442,7 @@ namespace Sc
 					void						postReportsCleanup();
 					void						fireCallbacksPostSync();
                     bool finalizeGpuSleep(BodyCore* body = NULL);
+                    static bool destructionEarlySleepCommit(void* scene);
 					void						syncSceneQueryBounds(SqBoundsSync& sync, SqRefFinder& finder);					
 
 					PxU32						getDefaultContactReportStreamBufferSize() const;

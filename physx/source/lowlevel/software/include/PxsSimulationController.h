@@ -309,6 +309,11 @@ namespace physx
     virtual bool importNativeSnapshot(const PxU32*,PxU32,const void*,PxU32) { return false; }
         virtual PxDestructionScene* getDestructionScene(void*, bool (*)(void*), PxvDestructionBodyAllocator*) { return NULL; }
         virtual bool advanceDestruction(PxReal, const PxVec3&, bool, bool) { return false; }
+        // Optional early submission of the trial stress solve (before the CPU post-solve chain); the later advanceDestruction reuses it.
+        // The scene arms it after its island passes with a sleep-commit callback; the GPU context reports the solver launch issue.
+        // Whichever arrives second runs the commit and the submission.
+        virtual bool submitDestructionEarly(PxReal, const PxVec3&, bool (*)(void*), void*) { return false; }
+        virtual void noteDestructionSolverIssued(void* /*CUevent*/) {}
         virtual PxU32 getDestructionError() const { return 0; }
         virtual void discardDestructionTrialBodyUpload(PxU32) {}
         // Island-scoped correction: rigid nodes whose islands hold no correction

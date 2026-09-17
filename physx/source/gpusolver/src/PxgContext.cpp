@@ -2153,6 +2153,16 @@ void PxgGpuTask::runInternal()
 	mContext.doConstraintPrepGPU();
 	mContext.doConstraintSolveGPU(mMaxNodes, *mChangedHandleMap);
 
+    // Every solver and integration launch of this pass is issued: let an early
+    // destruction submission join the solver stream here (no host wait).
+    if(PxgSimulationController* controller=mContext.getSimulationController()) {
+        if(!mContext.mDestructionSolverIssuedEvent)
+            mContext.getNarrowphaseCore()->mCudaContext->eventCreate(&mContext.mDestructionSolverIssuedEvent, CU_EVENT_DISABLE_TIMING);
+        if(mContext.mDestructionSolverIssuedEvent
+            && mContext.getNarrowphaseCore()->mCudaContext->eventRecord(mContext.mDestructionSolverIssuedEvent, mContext.mGpuSolverCore->getStream())==CUDA_SUCCESS)
+            controller->noteDestructionSolverIssued(mContext.mDestructionSolverIssuedEvent);
+    }
+
 	mContext.mGpuSolverCore->releaseContext();
 }
 

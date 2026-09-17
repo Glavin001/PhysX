@@ -1561,3 +1561,9 @@ Candidate = commit `4d75227f` runtime and GPU module (128-thread solve CTAs, glo
 | city25 impact | 23.8 / 23.3 | 15.9 |
 | city256 idle | 5.4 / 1.5 | 1.8 |
 | bridge64 / chain256 / dense12 / tower64 | 1.4–1.7 | 1.4–1.6 |
+
+## Early trial stress submission (README §14 increment): built, exact, neutral; env-gated off
+
+`PHYSX_DESTRUCTION_EARLY_SUBMIT=1` arms the controller at the end of the third island pass with the scene's sleep commit (pending bodies plus the accurate island sim's deactivation set, the same set `afterIntegration` commits later) and has the GPU solver task report its launch issue; whichever arrives second joins the simulation-core stream to the solver stream, runs the commit, builds the contact graph and submits loads and the stress solve, so the solve is enqueued behind integration on the device without the CPU post-solve chain. Two things had to be learned on the way: the solver's contact/patch streams flip in `postSolver`, so a submission before it reads the current index (the first attempt read the other stream and faulted in the load routing); and with a `streamWaitEvent` on the solver's launches the runtime needs no host wait.
+
+Result: histories identical (five counters), 14/14 tests, compute-sanitizer clean; tick 23.92 → 23.78 ms over three interleaved runs (noise). The phase timeline explains it: the "2.2 ms CPU post-solve chain" between island maintenance and the sleep commit was almost entirely the body DMA wait for the GPU solver, so the trial pass is GPU-serial (rigid solver → loads → topology → stress solve) and an earlier host submission cannot shorten it; the early trigger also sits behind the island maintenance (~2 ms after the solver launch issue), and the exact commit's rollback gather joins the solver stream on the host. The code stays as an option (off). The remaining lever on the trial pass is therefore the device chain itself, and on the corrected pass the R5 scoping.

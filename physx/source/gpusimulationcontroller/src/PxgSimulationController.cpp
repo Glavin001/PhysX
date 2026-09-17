@@ -930,6 +930,97 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         return ok;
     }
 
+    // streamIndex: the contact/patch streams the solver wrote this pass. They
+    // flip in postSolver (mergeResults), so a submission before it reads the
+    // current index and the ordinary one after it reads the other.
+    bool PxgSimulationController::submitDestructionInternal(PxReal dt, const PxVec3& gravity, bool postCorrection, PxU32 streamIndex)
+    {
+        const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
+        mDestruction->setProfiler(PxGetProfilerCallback(),profileContext);
+        bool ok;
+        {
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
+        ok = mDestruction->prepareFrame(postCorrection);
+        PxgDestructionSolvedContacts contacts;
+        if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
+            contacts,mDestruction->inputEvent(),mDynamicContext->getPatchStream(streamIndex),
+            mDynamicContext->getContactStream(streamIndex),mNpContext->getContext().mForceAndIndiceStreamPool->mDataStream);
+        if(ok) {
+            const auto growStorage=[](void* owner,PxU32 capacity,PxgDestructionMotionStorage& storage)->bool {
+                auto& controller=*static_cast<PxgSimulationController*>(owner);
+                PxScopedCudaLock lock(*controller.mCudaContextManager);
+                if(controller.mCudaContextManager->getCudaContext()->isInAbortMode())return false;
+                auto& core=*controller.mSimulationCore;
+                core.reserveBodySimCapacity(capacity,core.hasAccelerationBuffers());
+                core.gpuDmaUpdateData();
+                storage={core.getBodySimBufferDevicePtr().getPointer(),core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                    core.getRigidBodyAccelerationsDevice(),core.getBodySimStorageCapacity()};
+                return !controller.mCudaContextManager->getCudaContext()->isInAbortMode();
+            };
+            const PxgDestructionMotionStorage storage={mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),mSimulationCore->getRigidBodyAccelerationsDevice(),
+                mSimulationCore->getBodySimStorageCapacity()};
+            const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+            const auto& remap=mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer;
+            const PxgDestructionCollisionStorage collision={shapes.getShapeSimsDeviceTypedPtr(),
+                reinterpret_cast<const PxNodeIndex*>(remap.getDevicePtr()),shapes.getNbTotalShapeSims(),
+                PxU32(remap.getSize()/sizeof(PxNodeIndex))};
+            ok=mDestruction->advance(dt,gravity,storage,mSimulationCore->getStream(),growStorage,this,contacts,collision);
+        }
+        }
+        return ok;
+    }
+
+    // PHYSX_DESTRUCTION_EARLY_SUBMIT=1 (default off): the trial pass commits its
+    // sleep transitions and submits loads and the stress solve as soon as both
+    // the third island pass and the solver launch issue are done, so the
+    // solve is enqueued behind integration on the device without waiting for
+    // the CPU post-solve chain. The later advanceDestruction reuses the result.
+    // Measured lossless (identical histories) but neutral (23.9 vs 23.8 ms,
+    // three runs): the post-solve chain was already waiting on the GPU solver,
+    // and the exact commit's rollback gather joins the solver stream on the host.
+    static bool destructionEarlySubmit() {
+        static const bool value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EARLY_SUBMIT");return raw && std::atoi(raw)!=0;}();
+        return value;
+    }
+    bool PxgSimulationController::submitDestructionEarly(PxReal dt, const PxVec3& gravity, bool (*commit)(void*), void* user)
+    {
+        if(!destructionEarlySubmit() || !mDestruction || mDestructionCorrecting || !mDestruction->configured()) return false;
+        PxMutex::ScopedLock lock(mDestructionEarlyMutex);
+        if(mDestructionEarlySubmitted || mDestructionEarlyArmed) return false;
+        mDestructionEarlyArmed=true;mDestructionEarlyDt=dt;mDestructionEarlyGravity=gravity;mDestructionEarlyCommit=commit;mDestructionEarlyUser=user;
+        if(mDestructionSolverIssued)runDestructionEarlySubmit();
+        return true;
+    }
+    void PxgSimulationController::noteDestructionSolverIssued(void* solverEvent)
+    {
+        if(!destructionEarlySubmit() || !mDestruction) return;
+        PxMutex::ScopedLock lock(mDestructionEarlyMutex);
+        mDestructionSolverIssued=true;mDestructionSolverIssuedEvent=solverEvent;
+        if(mDestructionEarlyArmed && !mDestructionEarlySubmitted && !mDestructionCorrecting)runDestructionEarlySubmit();
+    }
+    // Under mDestructionEarlyMutex: the sleep commit and the submission, with
+    // the simulation core stream joined to the solver's issued launches.
+    void PxgSimulationController::runDestructionEarlySubmit()
+    {
+        mDestructionEarlyArmed=false;
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.earlySubmit",false,PxU64(reinterpret_cast<size_t>(this)));
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+            if(cuda->isInAbortMode())return;
+            if(mDestructionSolverIssuedEvent && cuda->streamWaitEvent(mSimulationCore->getStream(),reinterpret_cast<CUevent>(mDestructionSolverIssuedEvent),0)!=0)return;
+        }
+        if(mDestructionEarlyCommit && !mDestructionEarlyCommit(mDestructionEarlyUser))return;
+        if(usesDeviceDestructionContactInputs()) {
+            PxProfileScoped graph(PxGetProfilerCallback(),"GpuDestruction.task.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
+            PxScopedCudaLock lock(*mCudaContextManager);
+            if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return;
+        }
+        mDestructionEarlyOk=submitDestructionInternal(mDestructionEarlyDt,mDestructionEarlyGravity,false,mDynamicContext->getCurrentContactStreamIndex());
+        mDestructionEarlySubmitted=true;
+    }
+
     bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs)
     {
         if(!mDestruction) return false;
@@ -968,38 +1059,13 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         }
         PX_PROFILE_ZONE("GpuDestruction.contactStress", 0);
         const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
-        mDestruction->setProfiler(PxGetProfilerCallback(),profileContext);
         bool ok;
         {
-        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
-        ok = mDestruction->prepareFrame(postCorrection);
-        PxgDestructionSolvedContacts contacts;
-        const PxU32 streamIndex=1-mDynamicContext->getCurrentContactStreamIndex();
-        if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
-            contacts,mDestruction->inputEvent(),mDynamicContext->getPatchStream(streamIndex),
-            mDynamicContext->getContactStream(streamIndex),mNpContext->getContext().mForceAndIndiceStreamPool->mDataStream);
-        if(ok) {
-            const auto growStorage=[](void* owner,PxU32 capacity,PxgDestructionMotionStorage& storage)->bool {
-                auto& controller=*static_cast<PxgSimulationController*>(owner);
-                PxScopedCudaLock lock(*controller.mCudaContextManager);
-                if(controller.mCudaContextManager->getCudaContext()->isInAbortMode())return false;
-                auto& core=*controller.mSimulationCore;
-                core.reserveBodySimCapacity(capacity,core.hasAccelerationBuffers());
-                core.gpuDmaUpdateData();
-                storage={core.getBodySimBufferDevicePtr().getPointer(),core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
-                    core.getRigidBodyAccelerationsDevice(),core.getBodySimStorageCapacity()};
-                return !controller.mCudaContextManager->getCudaContext()->isInAbortMode();
-            };
-            const PxgDestructionMotionStorage storage={mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
-                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),mSimulationCore->getRigidBodyAccelerationsDevice(),
-                mSimulationCore->getBodySimStorageCapacity()};
-            const auto& shapes=mSimulationCore->mPxgShapeSimManager;
-            const auto& remap=mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer;
-            const PxgDestructionCollisionStorage collision={shapes.getShapeSimsDeviceTypedPtr(),
-                reinterpret_cast<const PxNodeIndex*>(remap.getDevicePtr()),shapes.getNbTotalShapeSims(),
-                PxU32(remap.getSize()/sizeof(PxNodeIndex))};
-            ok=mDestruction->advance(dt,gravity,storage,mSimulationCore->getStream(),growStorage,this,contacts,collision);
-        }
+            PxMutex::ScopedLock earlyLock(mDestructionEarlyMutex);
+            const bool reuse=mDestructionEarlySubmitted && !postCorrection;
+            mDestructionEarlySubmitted=false;mDestructionEarlyArmed=false;mDestructionSolverIssued=false;
+            if(reuse)ok=mDestructionEarlyOk;
+            else ok=submitDestructionInternal(dt,gravity,postCorrection,1-mDynamicContext->getCurrentContactStreamIndex());
         }
         // Complete before contact buffers can be recycled or the scene is
         // published. Only compact new-body allocation metadata and status leave

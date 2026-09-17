@@ -660,6 +660,7 @@ namespace physx
 		PxgGpuPrePrepTask						mGpuPrePrepTask;
 		PxgGpuIntegrationTask					mGpuIntegrationTask;
 		PxgGpuTask								mGpuTask; //this task include preprepare constraint, prepare constraint, solve and integration tasks
+		CUevent									mDestructionSolverIssuedEvent = NULL; // recorded after the pass's solver launches (early destruction submit)
 		PxgPostSolveTask						mPostSolveTask;
 
 		void									doConstraintPrepGPU();
