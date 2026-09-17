@@ -442,6 +442,19 @@ unsigned nativeSolveBlocksPerSm()
     static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_SOLVE_BLOCKS"); const long v = raw ? std::atol(raw) : 4; return unsigned(std::min(16L, std::max(1L, v))); }();
     return value;
 }
+/// BLAST_GPU_NATIVE_SOLVE_THREADS: threads per CTA of the large solve
+/// instantiation (default 128). The per-component chain is barrier-latency
+/// bound (74 levels, most narrower than four warps), so halving the CTA
+/// doubles the resident components per SM (registers: 6 CTAs of 128 threads
+/// at 80 registers) and the throughput-bound launch drops 5.9 -> 4.5 ms on the
+/// city256 trial solve; 64 threads ties on the mean (shared-memory bound at
+/// 7 CTAs) with a slower corrected solve. The persistent grid scales by
+/// kBlockSize/threads. Histories are identical at 32..256 threads.
+unsigned nativeSolveThreads()
+{
+    static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_SOLVE_THREADS"); long v = raw ? std::atol(raw) : 128L; v = std::min(long(kBlockSize), std::max(32L, v)); return unsigned(v / 32) * 32u; }();
+    return value;
+}
 /// BLAST_GPU_NATIVE_FACTOR_BLOCKS: CTAs per SM for the batched refactor grid.
 /// Default 8 (2026-09-15): the impact tick refactors hundreds of components at
 /// once; city256 peak tick 194.6 -> 177.9 ms (2 -> 8), mean 31.0 -> 30.2,
@@ -4701,13 +4714,54 @@ private:
     // 22 ms). Every m_stream use of the direct state first joins m_factorDone.
     unsigned* m_deviceMaxComponentNodes = nullptr; unsigned m_directCapacityNodes = 0; // solve staging bound (setup-time)
     cudaStream_t m_factorStream{}; cudaEvent_t m_factorDone{}, m_topologyReady{}; bool m_factorPending = false, m_eagerFactorRequested = false;
+    // BLAST_GPU_NATIVE_FACTOR_JOIN_DIAG=1: measures, on the device, how long
+    // the solver stream idles at each join of the factor stream (exposed
+    // refactor latency) and the host slack between the eager launch and the
+    // join. Timed event pairs in a small ring are harvested without syncing.
+    struct FactorJoinDiag {
+        static constexpr unsigned kRing = 8;
+        cudaEvent_t before[kRing]{}, after[kRing]{}; bool armed[kRing]{};
+        unsigned head = 0, joins = 0, pendingJoins = 0, harvested = 0, skipped = 0;
+        double exposedSum = 0, exposedMax = 0, slackSum = 0;
+        std::chrono::steady_clock::time_point launchHost{}; bool launchHostValid = false;
+    } m_factorJoinDiag;
+    static bool nativeFactorJoinDiag() {
+        static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_FACTOR_JOIN_DIAG"); return raw && std::atoi(raw) != 0; }();
+        return value;
+    }
     void joinFactorStream() {
         // A requested but not yet flushed eager launch is dropped: the solver
         // stream's own factor launch before the solve covers the invalid slots.
         m_eagerFactorRequested = false;
+        ++m_factorJoinDiag.joins;
         if (!m_factorPending) return;
+        ++m_factorJoinDiag.pendingJoins;
+        const bool diag = nativeFactorJoinDiag();
+        FactorJoinDiag& d = m_factorJoinDiag;
+        if (diag) {
+            if (d.launchHostValid) { d.slackSum += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - d.launchHost).count(); d.launchHostValid = false; }
+            const unsigned i = d.head % FactorJoinDiag::kRing;
+            if (!d.before[i]) { checkCuda(cudaEventCreate(&d.before[i]), "join diag event"); checkCuda(cudaEventCreate(&d.after[i]), "join diag event"); }
+            if (d.armed[i]) {
+                float ms = 0;
+                if (cudaEventQuery(d.after[i]) == cudaSuccess && cudaEventElapsedTime(&ms, d.before[i], d.after[i]) == cudaSuccess) {
+                    d.exposedSum += ms; if (ms > d.exposedMax) d.exposedMax = ms; ++d.harvested;
+                } else { ++d.skipped; cudaGetLastError(); }
+                d.armed[i] = false;
+            }
+            checkCuda(cudaEventRecord(d.before[i], m_stream), "join diag before");
+        }
         checkCuda(cudaStreamWaitEvent(m_stream, m_factorDone, 0), "join factor stream");
         m_factorPending = false;
+        if (diag) {
+            const unsigned i = d.head % FactorJoinDiag::kRing;
+            checkCuda(cudaEventRecord(d.after[i], m_stream), "join diag after");
+            d.armed[i] = true; ++d.head;
+            if ((d.pendingJoins % 100) == 0)
+                std::fprintf(stderr, "factor join diag: joins=%u pending=%u harvested=%u skipped=%u exposed avg %.3f ms max %.3f ms (sum %.1f) host slack avg %.2f ms\n",
+                    d.joins, d.pendingJoins, d.harvested, d.skipped, d.harvested ? d.exposedSum / d.harvested : 0.0, d.exposedMax, d.exposedSum,
+                    d.pendingJoins ? d.slackSum / d.pendingJoins : 0.0);
+        }
     }
     cudaGraph_t m_graph{};
     cudaGraphExec_t m_graphExec{};

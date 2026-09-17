@@ -243,5 +243,6 @@
         launchNativeDirectFactor(m_factorStream, nativeEagerFactorBlocksPerSm());
         checkCuda(cudaEventRecord(m_factorDone, m_factorStream), "record factor done");
         m_factorPending = true;
+        if (nativeFactorJoinDiag()) { m_factorJoinDiag.launchHost = std::chrono::steady_clock::now(); m_factorJoinDiag.launchHostValid = true; }
 #endif
     }

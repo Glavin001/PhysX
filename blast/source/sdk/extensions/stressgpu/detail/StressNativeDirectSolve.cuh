@@ -107,7 +107,11 @@ __device__ __forceinline__ bool directSolveNativeComponent(const PersistentStres
     // per-warp partials that the next step sums in a fixed order. This takes
     // the entry-bound gathers of the dense top off the serial chain.
     __shared__ float scratch[2][kBlockSize / 32u][6];
-    const unsigned T = (v.pipeline && warps >= 2u && P.lateFwdPtr) ? P.topLevel : P.levels;
+    unsigned T = (v.pipeline && warps >= 2u && P.lateFwdPtr) ? P.topLevel : P.levels;
+    // The pattern's top level assumes kBlockSize/32 warps; a launch with fewer
+    // warps treats only the suffix of levels narrower than its warp count as
+    // pipelined (the scratch partials are indexed by warp).
+    if (T < P.levels && warps < kBlockSize / 32u) { unsigned t = P.levels; while (t > T && P.levelPtr[t] - P.levelPtr[t - 1u] < warps) --t; T = t; }
     const bool useInv = v.slots.diagInv != nullptr;
     const unsigned Tf = (v.pipeline == 3u) ? P.levels : T, Tb = (v.pipeline == 2u) ? P.levels : T; // debug split: 2 forward only, 3 backward only
     for (unsigned l = 0; l < Tf; ++l) {
