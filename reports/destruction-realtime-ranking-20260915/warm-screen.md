@@ -1947,3 +1947,23 @@ immediate stress submit would change the deactivation set (order-changing), whic
 reached for the device sleep scheduler: it needs device-owned activation state (the multi-week R2 core), not a
 reduction. The 1.95 ms integrate → stress gap per pass therefore stays; mode 8 remains as the audit tool.
 Histories under mode 8 are identical to the default (56,077 bonds).
+
+## Warm nine-window screen of the session-f defaults (`results-17g-v4`, commit `0b6bef24`)
+
+Candidate = runtime, GPU module and demo at `0b6bef24` (session-e defaults plus the copy-back query-index guard;
+every other addition of the session is env-gated off). Same plan as `17f` (`plan-17f.json`, rebuilt 09-15 probes,
+09-13 baseline controls), contract v4; the suite still exits 1 on the stale nsys profile job, so the table is from
+`summarize-warm-screen.py`. All nine windows pass; the city force/health signatures are identical to `17f`
+(cascade 1.25e-03 / 1.1e-06, impact 4.37e-04 / 1.2e-06, debris 1.89e-02 / 3.0e-05, city25 1.53e-03 / 1.1e-06); the
+four small windows' relL2 sit at 1e-8–1e-7 and vary run to run at that level as in every previous screen.
+
+| window | A0 / B / A1 mean | previous B (`17f`) | B max | misses A0/B/A1 |
+|---|---:|---:|---:|---:|
+| city256 cascade | 112.3 / 56.8 / 110.8 ms | 60.1 | 102.7 | 16/16/16 of 16 |
+| city256 impact | 94.9 / 59.2 / 97.8 | 60.3 | 161.9 | 16/16/16 |
+| city256 debris | 130.4 / 66.2 / 132.1 | 68.2 | 77.5 | 16/16/16 |
+| city25 impact | 23.7 / 14.1 / 23.7 | 15.0 | 28.6 | 10/4/10 |
+| city256 idle | 3.06 / 2.65 / 1.62 | 2.00 | 4.97 | 0/0/0 of 32 |
+| bridge64, chain256, dense12, tower64 | 1.5–1.7 / 1.4–1.7 / 1.4–1.6 | 1.5–1.9 | ≤2.4 | 0 |
+
+The idle window's A0 and B ran first after the desktop stop and carry the settling penalty noted before (A1 = 1.62).
