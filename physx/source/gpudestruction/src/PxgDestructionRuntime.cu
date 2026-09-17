@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <chrono>
+#include <thread>
 #include <thrust/iterator/counting_iterator.h>
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxgDestructionRuntime.h"
@@ -54,6 +55,33 @@ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T
 __global__ void copyDeviceWords16(uint4* dst,const uint4* src,size_t count){const size_t i=blockIdx.x*size_t(blockDim.x)+threadIdx.x;if(i<count)dst[i]=src[i];}
 __global__ void copyDeviceWords4(unsigned* dst,const unsigned* src,size_t count){const size_t i=blockIdx.x*size_t(blockDim.x)+threadIdx.x;if(i<count)dst[i]=src[i];}
 static bool kernelCopiesEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_KERNEL_COPIES");return !raw || raw[0]!='0';}();return v;}
+// Host readback buffers. Device-to-host copies into pageable memory (std::vector)
+// are staged by the driver with context-wide waits: at a city impact the
+// correction preparation's and binding application's readbacks each waited the
+// whole eager refactor burst (~22 ms) although they depend on none of it.
+// Pinned, persistent, grown by doubling. PHYSX_DESTRUCTION_PINNED_READBACK=0
+// keeps the same buffers in pageable memory (A/B).
+static bool pinnedReadbackEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_PINNED_READBACK");return !raw || raw[0]!='0';}();return v;}
+template<class T> class PinnedVector {
+    T* mData=nullptr;size_t mSize=0,mCapacity=0;bool mPinned=false;
+public:
+    PinnedVector()=default;PinnedVector(const PinnedVector&)=delete;PinnedVector& operator=(const PinnedVector&)=delete;
+    ~PinnedVector(){release();}
+    void release(){if(mData){if(mPinned)cudaFreeHost(mData);else std::free(mData);}mData=nullptr;mSize=mCapacity=0;}
+    void resize(size_t n){
+        if(n>mCapacity){const size_t capacity=std::max(n,std::max<size_t>(64,mCapacity*2));T* fresh=nullptr;const bool pin=pinnedReadbackEnabled();
+            if(pin){void* raw=nullptr;check(cudaHostAlloc(&raw,capacity*sizeof(T),cudaHostAllocPortable));fresh=static_cast<T*>(raw);}
+            else{fresh=static_cast<T*>(std::malloc(capacity*sizeof(T)));if(!fresh)throw std::bad_alloc();}
+            if(mSize)std::memcpy(fresh,mData,mSize*sizeof(T));release();mData=fresh;mCapacity=capacity;mPinned=pin;}
+        if(n>mSize)std::memset(reinterpret_cast<void*>(mData+mSize),0,(n-mSize)*sizeof(T));
+        mSize=n;
+    }
+    void clear(){mSize=0;}
+    size_t size()const{return mSize;}bool empty()const{return mSize==0;}
+    T* data(){return mData;}const T* data()const{return mData;}
+    T* begin(){return mData;}T* end(){return mData+mSize;}const T* begin()const{return mData;}const T* end()const{return mData+mSize;}
+    T& operator[](size_t i){return mData[i];}const T& operator[](size_t i)const{return mData[i];}
+};
 template<class T> void deviceCopy(T* dst,const T* src,size_t n,cudaStream_t stream) {
     const size_t bytes=n*sizeof(T);if(!bytes)return;
     if(!kernelCopiesEnabled()){check(cudaMemcpyAsync(dst,src,bytes,cudaMemcpyDeviceToDevice,stream));return;}
@@ -687,7 +715,8 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionBodyAllocationStatus mHostBodyAllocation{};
     PxDestructionBodyAllocationStatus* mBodyAllocationObservation{};
     cudaEvent_t mMotionAllocationEvents[2]{};bool mMotionTimingPending=false,mMotionTimingRetry=false;
-    std::vector<PxU32> mHostReservedIndices;
+    PinnedVector<PxU32> mHostReservedIndices;
+    PinnedVector<PxvDestructionBodyProperties> mPinnedObservations;PinnedVector<PxDestructionCollisionBinding> mPinnedShapeObservations,mPinnedBindings;PinnedVector<PxvDestructionBodyRequest> mPinnedRequests,mPinnedBindRequests;
     bool mCompatibilityPrepared=false;
     PxU32* mAffectedClusters{};PxU32* mCandidateSlots{};
     PxDestructionCollisionBinding *mCollisionBindings{},*mCompactCollisionBindings{};
@@ -772,7 +801,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxgDestructionContactGraphObservationStats mGraphObservationStats{};
     void* mGraphSortScratch{};
     size_t mGraphSortScratchBytes{};
-    std::vector<PxU32> mHostCorrectionTargets;
+    PinnedVector<PxU32> mHostCorrectionTargets;
 public:
     Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
         Context current(c);
@@ -1556,7 +1585,7 @@ public:
             mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatus);
             if(mTopology)mChanges.publish(mStream);
             const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
-            std::vector<PxvDestructionBodyProperties> observations(capacity);PxU32 count=0;
+            PinnedVector<PxvDestructionBodyProperties>& observations=mPinnedObservations;observations.resize(capacity);PxU32 count=0;
             if(capacity) {
                 const auto topology=mTopology->accepted();
                 check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
@@ -1568,7 +1597,7 @@ public:
                 check(cudaMemcpyAsync(observations.data(),mCorrectionBodies,capacity*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
             }
             const PxU32 shapeCapacity=std::min(mN,mPendingShapeCapacity);
-            std::vector<PxDestructionCollisionBinding> shapeObservations(shapeCapacity);
+            PinnedVector<PxDestructionCollisionBinding>& shapeObservations=mPinnedShapeObservations;shapeObservations.resize(shapeCapacity);
             if(shapeCapacity) {
                 // Reuse private preparation scratch. The compact trial batch
                 // remains exposed by getDeviceView with its original count.
@@ -1665,6 +1694,17 @@ public:
                     throw std::runtime_error("resident stress solve submission failed");
                 const auto view=mSolver->deviceView();
                 check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(view.readyEvent),0));
+                {   // Diagnostic (PHYSX_DESTRUCTION_BIND_DIAG=3): does a fresh-stream
+                    // trivial kernel dispatch while the stress solve kernel runs?
+                    static const bool solveProbe=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_BIND_DIAG");return raw && raw[0]=='3';}();
+                    static cudaStream_t ps{};static cudaEvent_t pe0{},pe1{};static unsigned* pm{};static unsigned probes=0;
+                    if(solveProbe && !mPostCorrection && (probes++%20)==5){
+                        if(!ps){int lo=0,hi=0;check(cudaDeviceGetStreamPriorityRange(&lo,&hi));check(cudaStreamCreateWithPriority(&ps,cudaStreamNonBlocking,hi));check(cudaEventCreate(&pe0));check(cudaEventCreate(&pe1));check(cudaMalloc(&pm,256));}
+                        std::this_thread::sleep_for(std::chrono::microseconds(1500));
+                        check(cudaEventRecord(pe0,ps));copyDeviceWords4<<<1,32,0,ps>>>(pm,pm+32,32);check(cudaEventRecord(pe1,ps));
+                        const auto p0=std::chrono::steady_clock::now();check(cudaEventSynchronize(pe1));float pk=0;check(cudaEventElapsedTime(&pk,pe0,pe1));
+                        std::fprintf(stderr,"[solve-probe] fresh-stream kernel 1.5 ms after solve submission: host wait %.2f ms, device %.3f ms\n",std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-p0).count(),pk);}
+                }
                 forces=reinterpret_cast<const PxDestructionVectorPair*>(view.bondImpulses);solveStatus=view.status;
             }
             stageMarker(2);
@@ -1899,7 +1939,7 @@ public:
         if(mHostStatus->error!=8u || !mHostCompletion->collision.valid || !mHostCompletion->correction.valid)return false;
         auto& allocation=mHostBodyAllocation;
         const PxU32 requested=allocation.reserved;
-        std::vector<PxvDestructionBodyRequest> requests(requested);mHostReservedIndices.resize(requested);
+        PinnedVector<PxvDestructionBodyRequest>& requests=mPinnedRequests;requests.resize(requested);mHostReservedIndices.resize(requested);
         auto& indices=mHostReservedIndices;
         {
             PxProfileScoped requestProfile(mProfiler,"GpuDestruction.compatibility.requestReadback",false,mProfileContext);
@@ -2591,25 +2631,45 @@ public:
             || !mHostCompletion->correction.valid || mHostCompletion->correction.loadedSources
             || mHostCompletion->collision.removed || !mBodyAllocator)return false;
         try {
+            static const bool bindDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_BIND_DIAG");return raw && raw[0]!='0';}();
+            const auto bindT0=std::chrono::steady_clock::now();auto bindMs=[&]{return std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-bindT0).count();};
             Context current(mContext);check(cudaEventSynchronize(mReady));
-            std::vector<PxDestructionCollisionBinding> bindings(mHostCompletion->collision.migrating);
+            const double tEntry=bindMs();
+            PinnedVector<PxDestructionCollisionBinding>& bindings=mPinnedBindings;bindings.resize(mHostCompletion->collision.migrating);
             // CUDA has already selected every retained/new owner whose source
             // changed. Unchanged clusters need neither CPU ownership updates nor
             // a physical-state readback. Full rigid checkpoint replay remains
             // unchanged and still corrects ordinary interaction participants.
             const PxU32 count=mHostCompletion->correction.count;
-            std::vector<PxvDestructionBodyRequest> requests(count);
+            PinnedVector<PxvDestructionBodyRequest>& requests=mPinnedBindRequests;requests.resize(count);
             mHostCorrectionTargets.resize(count);
+            static cudaEvent_t bindE0{},bindE1{},bindE2{};
+            if(bindDiag){if(!bindE0){check(cudaEventCreate(&bindE0));check(cudaEventCreate(&bindE1));check(cudaEventCreate(&bindE2));}check(cudaEventRecord(bindE0,mStream));}
             if(count) gatherCorrectionOwnerMetadata<<<(count+127)/128,128,0,mStream>>>(
                 mCompactCorrectionBodies,count,mCandidateSlots,mBodyRequests,mCorrectionOwnerRequests,mCorrectionOwnerTargets);
             check(cudaGetLastError());
+            if(bindDiag)check(cudaEventRecord(bindE1,mStream));
+            // Diagnostic level 2: a trivial kernel on a fresh high-priority stream
+            // launched right now tells whether the wait is a dependency of mStream
+            // (fresh stream finishes immediately) or device-wide (both wait).
+            static cudaStream_t probeStream{};static cudaEvent_t probeE0{},probeE1{};static unsigned* probeMem{};
+            static const bool bindDiag2=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_BIND_DIAG");return raw && raw[0]=='2';}();
+            if(bindDiag2){if(!probeStream){int lo=0,hi=0;check(cudaDeviceGetStreamPriorityRange(&lo,&hi));check(cudaStreamCreateWithPriority(&probeStream,cudaStreamNonBlocking,hi));check(cudaEventCreate(&probeE0));check(cudaEventCreate(&probeE1));check(cudaMalloc(&probeMem,256));}
+                check(cudaEventRecord(probeE0,probeStream));copyDeviceWords4<<<1,32,0,probeStream>>>(probeMem,probeMem+32,32);check(cudaEventRecord(probeE1,probeStream));
+                const auto p0=std::chrono::steady_clock::now();check(cudaEventSynchronize(probeE1));float pk=0;check(cudaEventElapsedTime(&pk,probeE0,probeE1));
+                std::fprintf(stderr,"[bind-diag] fresh-stream probe kernel: host wait %.2f ms, device %.3f ms\n",std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-p0).count(),pk);}
             if(!bindings.empty())check(cudaMemcpyAsync(bindings.data(),mMigratingCollisionBindings,bindings.size()*sizeof(bindings[0]),cudaMemcpyDeviceToHost,mStream));
             if(count) {
                 check(cudaMemcpyAsync(requests.data(),mCorrectionOwnerRequests,count*sizeof(requests[0]),cudaMemcpyDeviceToHost,mStream));
                 check(cudaMemcpyAsync(mHostCorrectionTargets.data(),mCorrectionOwnerTargets,count*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
             }
+            if(bindDiag)check(cudaEventRecord(bindE2,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            return mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
+            const double tGather=bindMs();
+            if(bindDiag){float k=0,c=0;check(cudaEventElapsedTime(&k,bindE0,bindE1));check(cudaEventElapsedTime(&c,bindE1,bindE2));int pr=0;cudaStreamGetPriority(mStream,&pr);int lo=0,hi=0;cudaDeviceGetStreamPriorityRange(&lo,&hi);if(tGather>5.0)std::fprintf(stderr,"[bind-diag] device: gather kernel %.2f ms, D2H copies %.2f ms (mStream priority %d, range %d..%d)\n",k,c,pr,lo,hi);}
+            const bool applied=mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
+            if(bindDiag && bindMs()>5.0)std::fprintf(stderr,"[bind-diag] entry sync %.2f ms, gather+readback %.2f ms, CPU applyBindings %.2f ms (migrating=%u targets=%u)\n",tEntry,tGather-tEntry,bindMs()-tGather,mHostCompletion->collision.migrating,count);
+            return applied;
         }catch(...){mFailed=true;return false;}
     }
     bool acceptCorrection(const PxgBodySim* bodies,CUstream coreStream) override {

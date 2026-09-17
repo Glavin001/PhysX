@@ -549,6 +549,16 @@ float nativeElasticMargin()
 /// measured.
 /// BLAST_GPU_NATIVE_FACTOR_STREAM (default 1): eager refactorization on a side
 /// stream joined by every solver-stream consumer of the direct state.
+/// BLAST_GPU_NATIVE_FACTOR_CHUNKED=1 (default off): the eager refactor burst
+/// runs one item per CTA so CTAs retire continuously. Measured neutral on the
+/// city impact (the gather of the correction bindings still waited 14 ms):
+/// on this GPU/driver other streams' kernels are not dispatched during the
+/// burst regardless of priority (-5 vs 0), residency (1 CTA/SM) or chunking.
+bool nativeFactorChunked()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_FACTOR_CHUNKED"); return raw && std::string(raw) != "0"; }();
+    return value;
+}
 bool nativeFactorStream()
 {
     static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_FACTOR_STREAM"); return !raw || std::string(raw) != "0"; }();

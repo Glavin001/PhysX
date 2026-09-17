@@ -61,6 +61,14 @@ struct NativeDirectSlotView {
     unsigned* slotPinned = nullptr;        // pinned node the factor was built with (kNoIsland for anchored); a stale factor is only applied to the same pinning
     unsigned long long* slotGeneration = nullptr;
     unsigned* freeList = nullptr;          // scratch for deterministic assignment (slotCount entries)
+    // Compacted work list of the slots to (re)factor this launch, built by
+    // assignNativeDirectSlots in component-list order; refactorCounter[0] is
+    // its length, [1] the CTAs' claim cursor. One CTA claims one item at a
+    // time, so a burst of hundreds of fresh factors retires CTAs continuously
+    // and other streams' kernels get SM slots between items instead of
+    // waiting for a whole persistent grid to drain (22 ms at a city impact).
+    unsigned* refactorList = nullptr;      // slotCount entries
+    unsigned* refactorCounter = nullptr;   // [0] count, [1] cursor
     // Woodbury updates (StressNativeWoodbury.cuh).
     unsigned* slotRemovedCount = nullptr;   // removed bonds since the factor (per slot)
     unsigned* slotRemoved = nullptr;        // slot * kWoodburyMaxBonds edges
@@ -386,14 +394,38 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
             __syncthreads();
         }
     }
+    // Pass 3: compact the slots that need a (re)factor, component-list order.
+    __syncthreads();
+    if (!threadIdx.x) { needTotal = 0; if (v.slots.refactorCounter) { v.slots.refactorCounter[0] = 0; v.slots.refactorCounter[1] = 0; } }
+    __syncthreads();
+    if (v.slots.refactorList && v.slots.refactorCounter) {
+        for (unsigned base = 0; base < total; base += kBlockSize) {
+            const unsigned t = base + threadIdx.x;
+            unsigned need = 0u, id = kNoIsland;
+            if (t < total) {
+                id = c.ids[t];
+                const unsigned s = v.slots.componentSlot[id];
+                need = (s != kNoIsland && !(v.slots.slotValid[s] && !v.slots.slotStale[s]) && !v.slots.slotFailed[s]
+                    && v.pattern.nodeParent[c.nodes[c.begin[id]]] != kNoIsland) ? 1u : 0u;
+            }
+            const unsigned inclusive = directBlockScanInclusive(scan, need);
+            if (need) v.slots.refactorList[needTotal + inclusive - 1u] = id;
+            __syncthreads();
+            if (threadIdx.x == kBlockSize - 1) needTotal += inclusive;
+            __syncthreads();
+        }
+        if (!threadIdx.x) v.slots.refactorCounter[0] = needTotal;
+    }
 }
 
 // Numeric block Cholesky of every assigned-but-invalid slot: one CTA per
 // component, warp per column, columns of one elimination-tree level in
 // parallel, left-looking updates gathered in a fixed order (deterministic).
 __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirectView v, NativeDirectOperator op,
-    ResidentStressComponentView c, const StressHierarchy::MotionComponent* modes, const ExtStressGpuDeviceTopologyStatus* state) {
-    __shared__ unsigned failed;
+    ResidentStressComponentView c, const StressHierarchy::MotionComponent* modes, const ExtStressGpuDeviceTopologyStatus* state,
+    unsigned itemsPerCta) {
+    __shared__ unsigned failed, sItem;
+    unsigned claimed = 0;
     // Present columns of the pattern (nodes of this component other than the
     // pinned one). Columns of absent nodes are identity with zero couplings, so
     // every gather or update that reads or writes them is skipped: a small
@@ -401,8 +433,20 @@ __global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirect
     __shared__ unsigned presentMask[kWoodburyPresentWords];
     if (!v.enabled) return;
     const unsigned warp = threadIdx.x >> 5, lane = threadIdx.x & 31, warps = blockDim.x >> 5;
-    for (unsigned t = blockIdx.x; t < *c.count; t += gridDim.x) {
-        const unsigned id = c.ids[t], s = v.slots.componentSlot[id];
+    const bool listed = v.slots.refactorList && v.slots.refactorCounter;
+    for (unsigned t = blockIdx.x; ; t += gridDim.x) {
+        if (listed) {
+            // Claim the next listed item; a bounded launch (itemsPerCta) retires
+            // after its share so pending kernels of other streams get the SM.
+            if (itemsPerCta && claimed >= itemsPerCta) break;
+            __syncthreads();
+            if (!threadIdx.x) sItem = atomicAdd(v.slots.refactorCounter + 1, 1u);
+            __syncthreads();
+            t = sItem;
+            if (t >= v.slots.refactorCounter[0]) break;
+            ++claimed;
+        } else if (t >= *c.count) break;
+        const unsigned id = listed ? v.slots.refactorList[t] : c.ids[t], s = v.slots.componentSlot[id];
         if (s == kNoIsland || (v.slots.slotValid[s] && !v.slots.slotStale[s]) || v.slots.slotFailed[s]) continue;
         const unsigned p = v.pattern.nodeParent[c.nodes[c.begin[id]]];
         if (p == kNoIsland) continue;

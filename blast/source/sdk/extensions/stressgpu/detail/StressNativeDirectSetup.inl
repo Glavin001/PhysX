@@ -302,6 +302,7 @@
         view.slots.componentSlot = directUpload(componentSlot); view.slots.slotValid = directUpload(zeros);
         view.slots.slotFailed = directUpload(zeros); view.slots.slotGeneration = directUpload(generations);
         view.slots.freeList = directUpload(zeros); view.slots.slotStale = directUpload(zeros); view.slots.slotPinned = directUpload(std::vector<unsigned>(slotCount, kNoIsland));
+        view.slots.refactorList = directUpload(zeros); view.slots.refactorCounter = directUpload(std::vector<unsigned>(2, 0u));
         view.slots.slotCount = slotCount; view.slots.stride = stride; view.enabled = 1;
         // Woodbury pool (StressNativeWoodbury.cuh): W is 6 np x m floats per
         // buffer; buffers come from BLAST_GPU_NATIVE_WOODBURY_BUDGET_MB.
@@ -394,8 +395,13 @@
             attr.id = cudaLaunchAttributeClusterDimension; attr.val.clusterDim.x = m_directClusterSize; attr.val.clusterDim.y = 1; attr.val.clusterDim.z = 1;
             cfg.attrs = &attr; cfg.numAttrs = 1;
             checkCuda(cudaLaunchKernelEx(&cfg, factorNativeDirectCluster, m_direct, op, components, view.modes.components, m_deviceTopology->status()), "native direct cluster factor launch");
+        } else if (launchStream && nativeFactorChunked()) {
+            // Eager burst: one item per CTA over a wide grid (CTAs retire per
+            // item), then a persistent tail for anything beyond the grid.
+            factorNativeDirect<<<std::min(m_nodeCount, m_directSms * nativeFactorBlocksPerSm()), kBlockSize, 0, stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status(), 1u);
+            factorNativeDirect<<<std::min(m_nodeCount, m_directSms * 2u), kBlockSize, 0, stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status(), 0u);
         } else
-            factorNativeDirect<<<grid, kBlockSize, 0, stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status());
+            factorNativeDirect<<<grid, kBlockSize, 0, stream>>>(m_direct, op, components, view.modes.components, m_deviceTopology->status(), 0u);
         checkCuda(cudaGetLastError(), "native direct factor launch");
     }
     unsigned m_directGrid = 0, m_directClusterSize = ~0u, m_directSms = 1;

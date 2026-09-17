@@ -253,6 +253,7 @@
         ContextGuard context(m_cudaContext);
         m_eagerFactorRequested = false;
         checkCuda(cudaStreamWaitEvent(m_factorStream, m_topologyReady, 0), "factor stream waits for topology");
+        { static bool once=false; if(!once){once=true;int pf=0,ps=0;cudaStreamGetPriority(m_factorStream,&pf);cudaStreamGetPriority(m_stream,&ps);std::fprintf(stderr,"[factor-diag] factor stream priority %d, stress stream priority %d\n",pf,ps);} }
         launchNativeDirectFactor(m_factorStream, nativeEagerFactorBlocksPerSm());
         checkCuda(cudaEventRecord(m_factorDone, m_factorStream), "record factor done");
         m_factorPending = true;
