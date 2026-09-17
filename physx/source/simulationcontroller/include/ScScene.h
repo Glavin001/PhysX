@@ -935,7 +935,7 @@ namespace Sc
                     PxBitMap mDestructionQueryDirty;
                     PxArray<PxU32> mDestructionQueryShapes;
                     PxArray<PxU32> mDestructionPartitionCandidates, mDestructionPartitionCandidatesTrial;
-                    bool mPairPoolsPreheated = false;
+                    bool mPairPoolsPreheated = false, mPairPoolsPrefaulted = false;
                     void captureDestructionActivity();
                     void restoreDestructionActivity();
 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;

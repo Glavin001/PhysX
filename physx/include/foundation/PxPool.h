@@ -47,7 +47,7 @@ class PxPoolBase : public PxUserAllocated, public Alloc
 	PX_NOCOPY(PxPoolBase)
   protected:
 	PxPoolBase(const Alloc& alloc, uint32_t elementsPerSlab, uint32_t slabSize)
-	: Alloc(alloc), mSlabs(alloc), mElementsPerSlab(elementsPerSlab), mUsed(0), mSlabSize(slabSize), mFreeElement(0)
+	: Alloc(alloc), mSlabs(alloc), mReservedSlabs(alloc), mElementsPerSlab(elementsPerSlab), mUsed(0), mSlabSize(slabSize), mFreeElement(0)
 	{
 		mSlabs.reserve(64);
 		PX_COMPILE_TIME_ASSERT(sizeof(T) >= sizeof(size_t));
@@ -60,6 +60,8 @@ class PxPoolBase : public PxUserAllocated, public Alloc
 			disposeElements();
 
 		for(void** slabIt = mSlabs.begin(), *slabEnd = mSlabs.end(); slabIt != slabEnd; ++slabIt)
+			Alloc::deallocate(*slabIt);
+		for(void** slabIt = mReservedSlabs.begin(), *slabEnd = mReservedSlabs.end(); slabIt != slabEnd; ++slabIt)
 			Alloc::deallocate(*slabIt);
 	}
 
@@ -180,6 +182,7 @@ class PxPoolBase : public PxUserAllocated, public Alloc
 
 	// All the allocated slabs, sorted by pointer
 	PxArray<void*, Alloc> mSlabs;
+	PxArray<void*, Alloc> mReservedSlabs;
 
 	const uint32_t mElementsPerSlab;
 	uint32_t mUsed;
@@ -196,9 +199,24 @@ class PxPoolBase : public PxUserAllocated, public Alloc
 	}
 
 	// Allocate a slab and segregate it into the freelist
+public:
+	// Reserve raw slab memory with its pages touched so later growth on the
+	// simulation thread does not page-fault; free-list order is unchanged.
+	void reserveSlabs(uint32_t nbSlabs)
+	{
+		for(uint32_t i = 0; i < nbSlabs; ++i)
+		{
+			void* slab = Alloc::allocate(mSlabSize, PX_FL);
+			if(!slab) break;
+			PxMemZero(slab, mSlabSize);
+			mReservedSlabs.pushBack(slab);
+		}
+	}
+	PX_FORCE_INLINE uint32_t getElementsPerSlab() const { return mElementsPerSlab; }
+protected:
 	void allocateSlab()
 	{
-		T* slab = reinterpret_cast<T*>(Alloc::allocate(mSlabSize, PX_FL));
+		T* slab = mReservedSlabs.size() ? reinterpret_cast<T*>(mReservedSlabs.popBack()) : reinterpret_cast<T*>(Alloc::allocate(mSlabSize, PX_FL));
 
 		mSlabs.pushBack(slab);
 

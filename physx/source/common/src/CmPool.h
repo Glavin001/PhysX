@@ -29,6 +29,7 @@
 #ifndef CM_POOL_H
 #define CM_POOL_H
 
+#include "foundation/PxMemory.h"
 #include "foundation/PxSort.h"
 #include "foundation/PxMutex.h"
 #include "foundation/PxBasicTemplates.h"
@@ -91,6 +92,11 @@ public:
 			mSlabs[i] = NULL;
 		}
 		mSlabCount = 0;
+		for(PxU32 i=0;i<mReservedCount;i++)
+			Alloc::deallocate(mReservedSlabs[i]);
+		if(mReservedSlabs)
+			Alloc::deallocate(mReservedSlabs);
+		mReservedSlabs = NULL; mReservedCount = mReservedCapacity = 0;
 
 		if(mFreeList)
 			Alloc::deallocate(mFreeList);
@@ -101,6 +107,40 @@ public:
 			mSlabs = NULL;
 		}
 	}
+
+	PX_INLINE T* takeSlab()
+	{
+		if(mReservedCount)
+			return mReservedSlabs[--mReservedCount];
+		return reinterpret_cast<T*>(Alloc::allocate(mEltsPerSlab * sizeof(T), PX_FL));
+	}
+	// Reserve raw slab memory and touch its pages now, so later growth does not
+	// pay first-touch page faults on the simulation thread. Elements are not
+	// constructed and the free list is untouched: allocation order is identical.
+	void reserveSlabs(PxU32 nbSlabs)
+	{
+		if(!nbSlabs)
+			return;
+		const PxU32 needed = mReservedCount + nbSlabs;
+		if(needed > mReservedCapacity)
+		{
+			T** grown = reinterpret_cast<T**>(Alloc::allocate(needed * sizeof(T*), PX_FL));
+			if(mReservedSlabs)
+			{
+				PxMemCopy(grown, mReservedSlabs, sizeof(T*) * mReservedCount);
+				Alloc::deallocate(mReservedSlabs);
+			}
+			mReservedSlabs = grown; mReservedCapacity = needed;
+		}
+		for(PxU32 i = 0; i < nbSlabs; ++i)
+		{
+			T* slab = reinterpret_cast<T*>(Alloc::allocate(mEltsPerSlab * sizeof(T), PX_FL));
+			if(!slab) break;
+			PxMemZero(slab, mEltsPerSlab * sizeof(T));
+			mReservedSlabs[mReservedCount++] = slab;
+		}
+	}
+	PX_FORCE_INLINE PxU32 getEltsPerSlab() const { return mEltsPerSlab; }
 
 	PxU32 preallocate(const PxU32 nbRequired, T** elements)
 	{
@@ -127,7 +167,7 @@ public:
 			{
 
 				//KS - would be great to allocate this using a single allocation but it will make releasing slabs fail later :(
-				T * mAddr = reinterpret_cast<T*>(Alloc::allocate(mEltsPerSlab * sizeof(T), PX_FL));
+				T * mAddr = takeSlab();
 				if (!mAddr)
 					return nbElements; //Allocation failed so only return the set of elements we could allocate from the free list
 
@@ -228,7 +268,7 @@ public:
 
 	bool extend()
 	{
-		T * mAddr = reinterpret_cast<T*>(Alloc::allocate(mEltsPerSlab * sizeof(T), PX_FL));
+		T * mAddr = takeSlab();
 		if(!mAddr)
 			return false;
 
@@ -286,6 +326,10 @@ private:
 	T**						mFreeList;
 	PxU32					mFreeCount;
 	T**						mSlabs;
+	// Raw, page-touched slabs reserved ahead of growth (reserveSlabs); consumed
+	// before the allocator so element construction and index order are unchanged.
+	T**		mReservedSlabs = NULL;
+	PxU32	mReservedCount = 0, mReservedCapacity = 0;
 	PxBitMap				mUseBitmap;
 };
 

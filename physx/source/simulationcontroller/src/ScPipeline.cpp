@@ -117,6 +117,19 @@ void Sc::Scene::simulate(PxReal timeStep, PxBaseTask* continuation)
 	// on one thread (PHYSX_DESTRUCTION_PREHEAT_PAIRS=N). Order-changing: warm free
 	// lists assign contact-manager indices differently from cold slab growth.
 	{
+		// Index-preserving variant: reserve raw, page-touched slabs only (no elements
+		// constructed, free lists untouched), so the first impact's growth is
+		// bit-identical to cold growth minus the page faults (PHYSX_DESTRUCTION_PREFAULT_PAIRS=N).
+		static const PxU32 prefault = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PREFAULT_PAIRS"); return raw ? PxU32(::atoi(raw)) : 0u; }();
+		if(prefault && !mPairPoolsPrefaulted)
+		{
+			mPairPoolsPrefaulted = true;
+			PX_PROFILE_ZONE("Sim.prefaultPairPools", mContextId);
+			Cm::PoolList<PxsContactManager>& cmPool = mLLContext->getContactManagerPool();
+			cmPool.reserveSlabs((prefault + cmPool.getEltsPerSlab() - 1) / cmPool.getEltsPerSlab());
+			mNPhaseCore->mShapeInteractionPool.reserveSlabs((prefault + mNPhaseCore->mShapeInteractionPool.getElementsPerSlab() - 1) / mNPhaseCore->mShapeInteractionPool.getElementsPerSlab());
+			mNPhaseCore->mInteractionMarkerPool.reserveSlabs((prefault / 4 + mNPhaseCore->mInteractionMarkerPool.getElementsPerSlab() - 1) / mNPhaseCore->mInteractionMarkerPool.getElementsPerSlab());
+		}
 		static const PxU32 preheat = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PREHEAT_PAIRS"); return raw ? PxU32(::atoi(raw)) : 0u; }();
 		if(preheat && !mPairPoolsPreheated)
 		{

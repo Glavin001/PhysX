@@ -1414,3 +1414,16 @@ The large `componentStressSolve` instantiation now stages the direct step in dyn
 g16 3 s bombardment, interleaved against the control binary, three trials each, histories bit-identical: run mean 32.91 → 31.85 ms, late window 54.71 → 52.60 (this A/B includes the previous commit's occupancy change; the staging alone is neutral to slightly positive within the noise band and removes the shared-memory ceiling). Launch bounds of 4 blocks per SM (64 registers, stack 576 → 624 bytes) measured against the 3-block module: 30.15 → 30.42 ms, not better; 3 stays. `BLAST_GPU_NATIVE_DIRECT_CAPACITY` overrides the bound for experiments.
 
 Device-stage profile after both occupancy commits (`--profile-phases 1`, g16, ticks 120–170): stress 9.54 → 7.88 ms per tick (two solves), commit and stress topology 1.47, topology and candidates 0.76, contact loads 0.74; profiled tick mean 31.4 ms, late window 51.4. The stress solve is still the largest GPU block on the tick's critical path; the remaining levers on it are a register diet toward 4 CTAs per SM without spills (R3's FP32 refinement is the candidate) and fewer barrier levels per remnant.
+
+## Impact tick: page-touched slab reserve for the pair pools (bit-identical; env-gated, recommended)
+
+`PHYSX_DESTRUCTION_PREFAULT_PAIRS=N` reserves raw slabs for N contact managers, N shape interactions and N/4 interaction markers at the first `simulate`, touching their pages, and the pools' growth paths (`Cm::PoolList::takeSlab`, `PxPoolBase::allocateSlab`) consume those slabs before calling the allocator. No element is constructed and no free list is touched, so allocation order is identical to cold growth; the earlier pre-heat's systematic shift is absent. g16 3 s bombardment, `--profile-phases 1`, three interleaved pairs, histories bit-identical:
+
+| | no reserve | reserve 150 k |
+|---|---|---|
+| preallocateContactManagers at the impact tick, trial + corrected (ms) | 21.6 / 18.4 / 8.5 | 5.1 / 2.3 / 5.9 |
+| impact tick (ms) | 223.6 / 202.0 / 203.7 | 203.2 / 207.1 / 197.2 |
+| run mean (ms) | 31.25 | 31.36 |
+| initialization (s) | 3.21 / 3.13 / 2.76 | 2.96 / 2.95 / 3.05 |
+
+The serial preallocation was mostly first-touch page faults on ~80 MB of fresh slabs. Env-gated because N is a scene-scale choice (about 550 bytes per pair); a scene-description field is the right home for it.
