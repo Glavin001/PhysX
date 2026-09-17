@@ -1753,3 +1753,27 @@ g16 3 s bombardment, same build, early submit off vs on (histories identical, 56
 
 Run-to-run spread on this VM is about ±0.6 ms of the mean, so single runs cannot rank sub-millisecond
 changes; the averages above are over alternating runs. Native tests 8/8.
+
+## Warm nine-window screen of the 2026-09-17 session-e defaults (`results-17f-v4`, commit `e637a774`)
+
+Candidate = runtime and GPU module at `e637a774` (compacted cache/bounds mirror, side-stream copy-backs,
+asynchronous sleep finalization, early submit on both passes) with probes rebuilt against the current SDK
+(the plan's B arm must name the rebuilt probe, `plan-17f.json`; the 09-14 probe segfaults on the changed
+controller layout). Controls A0/A1 = the 2026-09-13 baseline artifacts. All nine windows pass; force relL2
+and health signatures identical to every screen since `results-16d-v4` (stress solves bit-identical).
+
+| window | A0 / B / A1 mean | previous B (`17e`) | B max | misses A0/B/A1 |
+|---|---:|---:|---:|---:|
+| city256 cascade | 112.1 / 60.1 / 114.8 ms | 55.5 | 102.9 | 16/16/16 of 16 |
+| city256 impact | 98.7 / 60.3 / 96.4 | 59.4 | 151.5 | 16/16/16 |
+| city256 debris | 129.4 / 68.2 / 135.4 | 64.6 | 73.3 | 16/16/16 |
+| city25 impact | 25.8 / 15.0 / 24.2 | 13.5 | 35.9 | 10/6/10 |
+| city256 idle | 1.80 / 2.00 / 1.87 | 1.88 | 2.95 | 0/0/0 of 32 |
+| bridge64, chain256, dense12, tower64 | 1.1–1.5 / 1.5–1.9 / 1.6–1.7 | 1.1–1.6 | ≤4.4 | 0 |
+
+The B means sit 1–5 ms above the previous screen while the controls match, so the cascade window was
+re-run standalone with each new default toggled: all defaults 55.19 ms (= previous screen), early submit
+off 56.16, compaction off 56.55, side stream off 56.58, all three off 58.32. The defaults are each worth
+about a millisecond in that window; the screen's B arm ran slower for environmental reasons (its B windows
+follow the runner's desktop restart, the pitfall recorded earlier). The optional `city256-debris-nsys` job
+failed only because the plan still names the 09-14 profile probe.
