@@ -1191,7 +1191,10 @@ public:
             check(cudaMemcpyAsync(mGraphHostStatus,mGraphStatus,sizeof(*mGraphHostStatus),cudaMemcpyDeviceToHost,mStream));
             if(needAccurate)check(cudaMemcpyAsync(mGraphHostAccurate,mGraphAccurate,size_t(n)*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
             if(needSpeculative)check(cudaMemcpyAsync(mGraphHostSpeculative,mGraphSpeculative,size_t(n)*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
+            static const bool observeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_OBSERVE_DIAG");return raw && raw[0]=='1';}();
+            const auto tWait0=std::chrono::steady_clock::now();
             check(cudaStreamSynchronize(mStream));
+            const auto tWait1=std::chrono::steady_clock::now();
             const PxgDestructionContactGraphStatus status=*mGraphHostStatus;
             ++mGraphObservationStats.observations;mGraphObservationStats.deviceToHostBytes+=sizeof(status);
             if(status.error || status.omittedPairs)return false;
@@ -1212,6 +1215,9 @@ public:
                 }
             }
             const PxU32 graphs=PxU32(needAccurate)+PxU32(needSpeculative);
+            if(observeDiag){static double waitMs=0,loopMs=0;static unsigned calls=0;
+                waitMs+=std::chrono::duration<double,std::milli>(tWait1-tWait0).count();loopMs+=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-tWait1).count();
+                if((++calls%64)==0)std::fprintf(stderr,"[observe-diag] calls %u n %u graphs %u: wait %.3f ms/call, host chains %.3f ms/call\n",calls,n,graphs,waitMs/calls,loopMs/calls);}
             mGraphObservationStats.sortedGraphs+=graphs;
             mGraphObservationStats.deviceToHostBytes+=PxU64(graphs)*n*(sizeof(PxU32)+sizeof(PxU64));
             accurate=needAccurate?mGraphHostAccurate:nullptr;speculative=needSpeculative?mGraphHostSpeculative:nullptr;
