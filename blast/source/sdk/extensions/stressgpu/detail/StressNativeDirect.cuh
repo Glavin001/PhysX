@@ -421,7 +421,10 @@ __global__ void assignNativeDirectSlots(NativeDirectView v, ResidentStressCompon
 // Numeric block Cholesky of every assigned-but-invalid slot: one CTA per
 // component, warp per column, columns of one elimination-tree level in
 // parallel, left-looking updates gathered in a fixed order (deterministic).
-__global__ void __launch_bounds__(kBlockSize, 2) factorNativeDirect(NativeDirectView v, NativeDirectOperator op,
+#ifndef BLAST_GPU_FACTOR_MIN_BLOCKS
+#define BLAST_GPU_FACTOR_MIN_BLOCKS 2
+#endif
+__global__ void __launch_bounds__(kBlockSize, BLAST_GPU_FACTOR_MIN_BLOCKS) factorNativeDirect(NativeDirectView v, NativeDirectOperator op,
     ResidentStressComponentView c, const StressHierarchy::MotionComponent* modes, const ExtStressGpuDeviceTopologyStatus* state,
     unsigned itemsPerCta) {
     __shared__ unsigned failed, sItem;

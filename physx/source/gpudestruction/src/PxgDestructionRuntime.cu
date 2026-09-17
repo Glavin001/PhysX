@@ -1951,7 +1951,11 @@ public:
                 check(cudaStreamSynchronize(mStream));
             }
         }
-        if(mEagerFlushDeferred){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
+        // The deferred burst is flushed later still, after the binding application's
+        // gather and readback (PHYSX_DESTRUCTION_EAGER_FLUSH_LATE=2, default), so it
+        // overlaps the CPU shape migration and registration; 1 flushes here.
+        static const int flushLateMode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EAGER_FLUSH_LATE");return raw?std::atoi(raw):2;}();
+        if(mEagerFlushDeferred && flushLateMode==1){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
         bool allocated=false;
         {
             PxProfileScoped records(mProfiler,"GpuDestruction.compatibility.allocateNativeBodies",false,mProfileContext);
@@ -2666,6 +2670,7 @@ public:
             if(bindDiag)check(cudaEventRecord(bindE2,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             const double tGather=bindMs();
+            if(mEagerFlushDeferred){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
             if(bindDiag){float k=0,c=0;check(cudaEventElapsedTime(&k,bindE0,bindE1));check(cudaEventElapsedTime(&c,bindE1,bindE2));int pr=0;cudaStreamGetPriority(mStream,&pr);int lo=0,hi=0;cudaDeviceGetStreamPriorityRange(&lo,&hi);if(tGather>5.0)std::fprintf(stderr,"[bind-diag] device: gather kernel %.2f ms, D2H copies %.2f ms (mStream priority %d, range %d..%d)\n",k,c,pr,lo,hi);}
             const bool applied=mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
             if(bindDiag && bindMs()>5.0)std::fprintf(stderr,"[bind-diag] entry sync %.2f ms, gather+readback %.2f ms, CPU applyBindings %.2f ms (migrating=%u targets=%u)\n",tEntry,tGather-tEntry,bindMs()-tGather,mHostCompletion->collision.migrating,count);

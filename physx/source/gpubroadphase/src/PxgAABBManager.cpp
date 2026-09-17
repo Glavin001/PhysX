@@ -27,6 +27,8 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "PxgAABBManager.h"
+#include <cstdlib>
+#include <cstdio>
 #include "PxgAggregate.h"
 #include "PxgAggregateDesc.h"
 #include "common/PxPhysXCommonConfig.h"
@@ -855,6 +857,11 @@ void PxgAABBManager::preBpUpdate_GPU()
 
 		// PT: this updateData is actually only used for preBroadPhase(), which doesn't actually use all the data.
 		// PT: the code below does NOT modify e.g. mGPUStateChanged so the bool doesn't need to be in updateData here.
+		{	// PHYSX_BP_DIAG=1: per-pass handle churn (added/updated/removed) to size the insertion path.
+			static const bool bpDiag = []{ const char* raw = ::getenv("PHYSX_BP_DIAG"); return raw && raw[0]=='1'; }();
+			if(bpDiag && (mAddedHandles.size() || mRemovedHandles.size()))
+				printf("[bp-diag] added=%u updated=%u removed=%u boxes=%u\n", mAddedHandles.size(), mUpdatedHandles.size(), mRemovedHandles.size(), mBoundsArray.size());
+		}
 		const BroadPhaseUpdateData updateData(mAddedHandles.begin(), mAddedHandles.size(),
 			mUpdatedHandles.begin(), mUpdatedHandles.size(),
 			mRemovedHandles.begin(), mRemovedHandles.size(),
