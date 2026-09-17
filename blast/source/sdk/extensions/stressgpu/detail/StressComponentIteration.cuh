@@ -75,7 +75,7 @@ __global__ void maxComponentNodes(ResidentStressComponentView c,unsigned* out){
     if((threadIdx.x&31)==0)atomicMax(out,best);
 }
 template <bool Tiny>
-__global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c, unsigned tinyLimit, unsigned directCapacityNodes)
+__global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c, unsigned tinyLimit, unsigned directCapacityNodes, float* stagingGlobal)
 {
     __shared__ unsigned counts[2], iteration, activeCount, slot, directApplied, directNormValid;
     __shared__ float directNorm;
@@ -86,7 +86,10 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
     // for the large one, so its occupancy is not bound by the 1,024-node cap.
     __shared__ float directXTiny[Tiny?6u*8u:1u];
     extern __shared__ float directXDynamic[];
-    float* const directX=Tiny?directXTiny:directXDynamic;
+    // BLAST_GPU_NATIVE_SOLVE_STAGING=1: the staging vector lives in a per-CTA
+    // global scratch (L1/L2) instead of shared memory, so residency is bound by
+    // registers alone (64-thread CTAs: 12 per SM instead of 7).
+    float* const directX=Tiny?directXTiny:(stagingGlobal?stagingGlobal+size_t(blockIdx.x)*6u*directCapacityNodes:directXDynamic);
     COMPONENT_PROBE_BEGIN
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
     // Diagnostic split of the pre-monitor phase: [0] operator/rigid setup,

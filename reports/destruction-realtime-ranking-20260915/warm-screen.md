@@ -1455,3 +1455,37 @@ An nsys CUDA API trace attributed 660 µs on average (4 ms for the stress topolo
 The kernel summary of a traced bombardment run puts `factorNativeDirect` at 44.7 % of all GPU kernel time (744 ms over 324 launches, 2.4–2.8 ms each, about 1.3 launches per tick), with the solve waiting on it. New diagnostic counters (`BLAST_GPU_NATIVE_DIRECT_DIAG=1`: refactor size buckets, reasons, inheritance and Woodbury-failure counts) attribute the 1,359 full refactors of the run: 1,116 are components with more than 256 present nodes (building remnants, ~350 nodes on average), 256 of them the first factors at the impact, 860 on slots that had a valid factor and were invalidated. Not a single one is a lost identity (slot inheritance to the largest child at a split, added as `BLAST_GPU_NATIVE_SLOT_INHERIT`, moved 31 of 63,053 slots and changed nothing; off by default) and Woodbury never failed. The invalidations come from `trackNativeDirectRemovedBonds`: a slot is invalidated once its cumulative removed bonds pass `kWoodburyMaxBonds` (16), and a remnant under bombardment loses about six bonds per tick, so every large remnant refactors every few ticks.
 
 Raising the cap to 32 (pool budget 1 GB, 407 buffers) cut the large refactors to 862 (invalidated 606) but made the tick slower, 30.6 → 32.5 ms interleaved, histories bit-identical: the correction is applied at every solve as a dense rows × 6k mat-vec per stale remnant (W is rows × 96 floats at k = 16, 0.9 MB per remnant, twice per tick for ~250 remnants), so the cap doubles that bandwidth and costs more than the refactors it saves. The cap stays at 16. The remaining lever on this item is the refactor's own latency (a ~380-node level chain on one CTA; ordering, cooperative rows and CTA clusters were all measured slower) or a cheaper correction representation (e.g. half-precision W, order-changing).
+
+## Eager refactor exposure measured on the device: already hidden (join diagnostic)
+
+`BLAST_GPU_NATIVE_FACTOR_JOIN_DIAG=1` records timed events on the solver stream immediately before and after each wait on the factor stream's completion event, so the elapsed time is the solver stream's idle time caused by a refactor still running when the solve needed it. City256 bombardment, 3 s: 300 pending joins in 631 joins, exposed wait 0.48 ms per pending join on average (maximum 7.9 ms at the impact burst), 139 ms over the run, about 0.8 ms per sustained tick; the host issued the eager launch 12 ms before the join on average, five times the launch's 2.4 ms duration. The refactor's 45 % share of GPU kernel time is therefore not on the tick's critical path, and neither its latency nor a cheaper Woodbury representation is a tick lever; this closes the direct-factor item.
+
+Two other leads were closed by measurement at the same time: pinned host allocation (`cuMemHostAlloc` via PhysX's pinned linear allocator, 18 % of all CPU samples of a whole-process perf profile) occurs only during setup (0.25–2 s) and teardown, with 0–2 samples per quarter second during the sustained window, so it is not a tick cost; and the 32-thread tiny-component launch (`BLAST_GPU_NATIVE_TINY_CTAS=16/32`) trades −0.3/−0.4 ms on the trial solve for +0.5 ms on the corrected solve (its extra serialized launch), net neutral, and stays off.
+
+## Stress solve: 128-thread CTAs (lossless, −1.2 ms/tick, default on)
+
+Node-level graph tracing (`nsys --cuda-graph-trace=node`) put the trial solve kernel at 5.7 ms and the corrected solve at 1.5 ms per sustained tick, the largest single item on the critical path after the two rigid passes. The component chain is barrier-latency bound (74 levels, 68 narrower than the eight warps of a 256-thread CTA) while the launch is throughput bound (total cycles ÷ resident CTAs, 3 per SM at 80 registers), so most resident warps idle at barriers. Launching the large instantiation with 128 threads keeps the per-level latency (narrow levels use one warp) and doubles the resident components (6 CTAs per SM by registers, 84 KB shared). `BLAST_GPU_NATIVE_SOLVE_THREADS` (default 128; the persistent grid scales by 256/threads). The narrow-level pipeline indexed its per-warp scratch by the pattern's eight-warp top level; it now raises the top level to the launch's warp count (compute-sanitizer memcheck clean at 128 threads on a grid-4 run).
+
+| threads | trial solve span | corrected span | tick mean (3 runs) | late 90+ | peak |
+|---|---:|---:|---:|---:|---:|
+| 256 (before) | 5.93 ms | 2.09 | 29.76 [29.35, 29.79, 30.14] | 49.3 | 183 |
+| 128 | 4.46 | 2.01 | 28.54 [28.58, 28.84, 28.19] | 46.9 | 171 |
+| 64 | 4.16 | 2.32 | 28.59 [28.97, 28.87, 27.92] | 47.0 | 177 |
+| 32 | 4.92 | 3.07 | 29.97 (1 run) | 49.2 | — |
+
+Histories identical for every thread count (five counters, 56,077 bonds). 64 threads is shared-memory bound at 7 CTAs per SM (13.4 KB each: 2.8 KB static plus the 6-float-per-node staging vector of the largest component) and its corrected solve, with few components, pays the halved warps per component; 128 is the default. 14/14 native tests. The next residency lever is the staging vector: moving it out of shared memory would let 64-thread CTAs reach 12 per SM (registers) and 96-thread CTAs 8.
+
+## Warm nine-window screen of the 128-thread solve default (contract v4, `results-thr128-v4`)
+
+All nine windows pass (candidate B against paired controls A0/A1 of the 09-14 runtime): city256 cascade 66.2 ms (controls 112.0/112.0), impact 67.7 (92.5/94.6), debris 74.6 (128.4/132.1), city25 impact 17.5 (22.9/23.8), idle 3.8 (2.7/1.7; the idle window's spread between the two controls is of the same size). Force and health signatures are within the contract (debris relL2 1.9e-2 from the elastic reuse, unchanged). The windows are 16 ticks each, so the sustained −1.2 ms is inside their spread; the 3 s bombardment (three interleaved runs) is the measurement of record.
+
+## Stress solve: staging vector in a per-CTA global scratch (lossless, −0.9 ms/tick, default on)
+
+With 128-thread CTAs the launch is register-bound at 6 CTAs per SM, but the 64-thread launch was shared-memory bound at 7 (13.4 KB per CTA, of which 10.6 KB is the 6-float-per-node staging vector of the largest component). `BLAST_GPU_NATIVE_SOLVE_STAGING=1` (default) moves that vector to a per-CTA global scratch allocated once at setup for the widest persistent grid (grid × 6 × capacity floats, 12 MB at city256), so the solve launches with only its 2.8 KB static shared memory. The chain's reads of just-written x entries become L1/L2 accesses (block-level coherence across `__syncthreads`), which cost nothing measurable: the trial solve span is 4.24 ms against 4.46 with shared staging at 128 threads, 3.95 at 96 threads.
+
+| arm (5 interleaved runs, desktop active) | tick mean | sd | late 90+ | peak |
+|---|---:|---:|---:|---:|
+| shared staging, 128 threads | 29.37 | 0.53 | 48.3 | 184 |
+| global staging, 128 threads | 28.49 | 0.32 | 46.9 | 173 |
+
+Global staging wins in all five pairs; 96 threads (28.59, two runs) and 64 threads (28.91, now 12 CTAs per SM but a slower corrected solve) do not beat 128. Histories identical (56,077 bonds, five counters), 14/14 native tests, compute-sanitizer memcheck clean on a grid-4 run. A first measurement of this change taken minutes after the warm screen restored the desktop session showed every CPU phase 15–20 % slower and was discarded: measurements must not start while a fresh desktop login is settling.

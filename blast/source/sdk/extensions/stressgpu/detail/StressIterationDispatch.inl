@@ -278,9 +278,12 @@
                 const unsigned tinyLimit=tinyCtas?kTinyComponentNodes:0u;
                 const unsigned directCapacity=m_directCapacityNodes?m_directCapacityNodes:kResidentComponentMaxNodes;
                 const ResidentStressComponentView dispatch=m_deviceTopology->componentsForSolve();
-                if(tinyCtas)componentStressSolve<true><<<std::min(m_nodeCount,unsigned(sms*tinyCtas)),32,0,m_stream>>>(args,dispatch,tinyLimit,8u);
+                if(tinyCtas)componentStressSolve<true><<<std::min(m_nodeCount,unsigned(sms*tinyCtas)),32,0,m_stream>>>(args,dispatch,tinyLimit,8u,nullptr);
                 const unsigned solveThreads=nativeSolveThreads();
-                componentStressSolve<false><<<std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm()*(kBlockSize/solveThreads))),solveThreads,6u*sizeof(float)*directCapacity,m_stream>>>(args,dispatch,tinyLimit,directCapacity);
+                const unsigned solveGrid=std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm()*(kBlockSize/solveThreads)));
+                // Allocated at setup (this launch may be inside a graph capture).
+                float* const staging=(m_directStagingGlobal && size_t(solveGrid)*6u*directCapacity<=m_directStagingCapacity)?m_directStagingGlobal:nullptr;
+                componentStressSolve<false><<<solveGrid,solveThreads,staging?0u:6u*sizeof(float)*directCapacity,m_stream>>>(args,dispatch,tinyLimit,directCapacity,staging);
             }
             args.islandIds=components.largeIds;
             args.liveIslandCount=components.largeCount;

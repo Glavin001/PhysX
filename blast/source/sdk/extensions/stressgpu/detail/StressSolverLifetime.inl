@@ -121,6 +121,7 @@ uploadIslands();
         cudaFree(m_parkedFlags);
         cudaFree(m_auditInput);
         cudaFree(m_deviceMaxComponentNodes); m_deviceMaxComponentNodes = nullptr;
+        cudaFree(m_directStagingGlobal); m_directStagingGlobal = nullptr; m_directStagingCapacity = 0;
         cudaFree(m_auditCounters);
         cudaFree(m_deviceIslandDirty);
         cudaFree(m_status);

@@ -155,6 +155,19 @@
                 checkCuda(cudaStreamSynchronize(m_stream),"sync max component nodes");
                 static const unsigned forced=[]{const char* raw=std::getenv("BLAST_GPU_NATIVE_DIRECT_CAPACITY");return raw?unsigned(std::atoi(raw)):0u;}();
                 m_directCapacityNodes=std::min(kResidentComponentMaxNodes,forced?forced:std::max(largest,8u));
+                // Optional per-CTA global staging for the solve (bounded by the
+                // widest persistent grid: 32-thread CTAs, kBlockSize/32 per block slot).
+                if(nativeSolveStagingGlobal()){
+                    int device=0,sms=0;
+                    checkCuda(cudaGetDevice(&device),"staging device");
+                    checkCuda(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device),"staging multiprocessors");
+                    const size_t need=size_t(std::max(1,sms))*nativeSolveBlocksPerSm()*(kBlockSize/32u)*6u*m_directCapacityNodes;
+                    if(need>m_directStagingCapacity){
+                        if(m_directStagingGlobal)cudaFree(m_directStagingGlobal);
+                        checkCuda(cudaMalloc(reinterpret_cast<void**>(&m_directStagingGlobal),need*sizeof(float)),"allocate solve staging scratch");
+                        m_directStagingCapacity=need;
+                    }
+                }
             }
 #endif
             m_jacobiBuilt = true; // topology rebuild maintains it on the device

@@ -455,6 +455,16 @@ unsigned nativeSolveThreads()
     static const unsigned value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_SOLVE_THREADS"); long v = raw ? std::atol(raw) : 128L; v = std::min(long(kBlockSize), std::max(32L, v)); return unsigned(v / 32) * 32u; }();
     return value;
 }
+/// BLAST_GPU_NATIVE_SOLVE_STAGING: 1 (default) keeps the solve's staging
+/// vector in a per-CTA global scratch (L1/L2 resident) instead of dynamic
+/// shared memory, so the launch needs no shared carve-out beyond 2.8 KB:
+/// five interleaved city256 bombardment pairs 29.37 -> 28.49 ms (late window
+/// 48.3 -> 46.9, peak 184 -> 173), histories identical. 0 restores shared.
+bool nativeSolveStagingGlobal()
+{
+    static const bool value = []() { const char* raw = std::getenv("BLAST_GPU_NATIVE_SOLVE_STAGING"); return raw ? std::atoi(raw) != 0 : true; }();
+    return value;
+}
 /// BLAST_GPU_NATIVE_FACTOR_BLOCKS: CTAs per SM for the batched refactor grid.
 /// Default 8 (2026-09-15): the impact tick refactors hundreds of components at
 /// once; city256 peak tick 194.6 -> 177.9 ms (2 -> 8), mean 31.0 -> 30.2,
@@ -4713,6 +4723,7 @@ private:
     // status readback is not queued behind a refactor burst (impact ticks:
     // 22 ms). Every m_stream use of the direct state first joins m_factorDone.
     unsigned* m_deviceMaxComponentNodes = nullptr; unsigned m_directCapacityNodes = 0; // solve staging bound (setup-time)
+    float* m_directStagingGlobal = nullptr; size_t m_directStagingCapacity = 0; // per-CTA global staging (BLAST_GPU_NATIVE_SOLVE_STAGING=1)
     cudaStream_t m_factorStream{}; cudaEvent_t m_factorDone{}, m_topologyReady{}; bool m_factorPending = false, m_eagerFactorRequested = false;
     // BLAST_GPU_NATIVE_FACTOR_JOIN_DIAG=1: measures, on the device, how long
     // the solver stream idles at each join of the factor stream (exposed
