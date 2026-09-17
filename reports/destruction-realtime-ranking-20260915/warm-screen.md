@@ -1336,3 +1336,19 @@ Design consequence for step 4: the source is (touch bitmap ∩ touching per narr
 Calibration (`PHYSX_DESTRUCTION_PARTITION_REVERSE_AUDIT=1`, default source, same set of partition edges, insertion order reversed): 69,243 bonds (+23 %), 12,389 clusters at t = 2 s against 10,945, deterministic over two trials. A pure order change moves the total three times more than either rejected candidate did. The bombardment cascade is chaotic at the level of bond totals, so a ±3 % bound on totals cannot distinguish a defect from an insertion order; every order-changing R2 step (sleep verdicts from solver data, this source, steps 6 and 7, CPU-level scoped correction) would fail it.
 
 Consequence: the envelope for order-changing work must be statistical over an ensemble of order perturbations (the reversed and narrowphase orders are two samples: 56,077 / 60,409 / 69,243), or use order-insensitive gates (motion audit bounds, no collapse without cause, per-building damage distributions, the warm windows' physical traits), and a candidate is accepted when it lies inside that ensemble. Setting that bound is a decision for the owner; until then both env-gated paths stay off.
+
+## Order-perturbation ensemble for the g16 bombardment (provisional acceptance rule)
+
+Same set of partition edges, only the insertion order of the island's activated list changed (`PHYSX_DESTRUCTION_PARTITION_ROTATE_AUDIT=k` rotates by k, `_REVERSE_AUDIT=1` reverses), motion audit on, one trial each (all deterministic):
+
+| variant | bonds broken (3 s) | peak clusters | motion audit error |
+|---|---:|---:|---:|
+| baseline order | 56,077 | 12,248 | 0 |
+| rotate 7 | 58,680 | 13,280 | 2.2e-5 |
+| rotate 101 | 60,797 | 14,337 | 1.7e-5 |
+| rotate 1013 | 58,237 | 12,911 | 2.2e-5 |
+| reverse | 69,243 | 16,080 | 0 |
+| candidate: narrowphase partition source | 60,409 | 13,657 | 1.7e-5 |
+| candidate: solver-derived sleep verdicts (mode 1) | 59,271 | 13,346 | 1.7e-5 |
+
+Provisional rule for order-changing work (assumption until the owner confirms it): a candidate is accepted when its bond total and peak cluster count lie within the range of the mild order perturbations of the same baseline (rotations; here 58,237–60,797 bonds, 12,911–14,337 clusters), its motion audit error is at the ensemble's level, and it shows no collapse without cause. Under this rule both candidates are indistinguishable from an insertion-order change and pass. The baseline order is the lowest of all samples, which suggests the island's activation order happens to be a favourable one, not a physically special one. Both candidates remain off by default because neither improves the tick on its own; they are accepted foundations for steps 6 and 7.

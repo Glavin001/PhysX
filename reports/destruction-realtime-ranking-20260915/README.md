@@ -913,6 +913,10 @@ the scene's own order sensitivity and rejects every order-changing change; the r
 (+5.7 % solver-derived sleep verdicts, +7.7 % narrowphase partition source) lie inside that sensitivity.
 The envelope needs an ensemble-based or order-insensitive definition before any order-changing R2 step can
 be accepted or refused on evidence.
+Ensemble measured (`warm-screen.md`): rotations of the insertion order give 58,237–60,797 bonds and
+12,911–14,337 peak clusters; the narrowphase partition source (60,409 / 13,657) and the solver-derived sleep
+verdicts (59,271 / 13,346) lie inside. Provisional rule (owner to confirm): accept order-changing candidates
+inside the mild-perturbation range with motion audit at the ensemble level and no collapse without cause.
 
 ## 12. R2 milestone 2 item 2: device-keyed partition edges — code map and plan (2026-09-16)
 

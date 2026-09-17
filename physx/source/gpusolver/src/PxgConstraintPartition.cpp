@@ -2339,9 +2339,11 @@ void PxgIncrementalPartition::updateIncrementalIslands_Part2_0(IG::IslandSim& is
 
 		// Envelope calibration (env-gated): same set, reversed insertion order.
 		static const bool reverseOrder = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_REVERSE_AUDIT"); return raw && raw[0] == '1'; }();
+		static const PxU32 rotateOrder = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_ROTATE_AUDIT"); return raw ? PxU32(::atoi(raw)) : 0u; }();
 		for (PxU32 a = 0; a < activatedContactCount && !npSource; ++a)
 		{
-			const IG::EdgeIndex edgeId = activatedContacts[reverseOrder ? activatedContactCount - 1 - a : a];
+			const PxU32 pick = reverseOrder ? activatedContactCount - 1 - a : (rotateOrder ? (a + rotateOrder) % activatedContactCount : a);
+			const IG::EdgeIndex edgeId = activatedContacts[pick];
 			if(activeCMBitmap.test(edgeId))
 			{
 				PxsContactManager* cm = islandManagerData.getContactManager(edgeId);
