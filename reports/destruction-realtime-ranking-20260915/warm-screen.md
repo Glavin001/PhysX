@@ -1648,3 +1648,15 @@ With the no-op transaction skipped, the binding application still waited ~15 ms 
 Since nothing else dispatches while the burst runs, the burst is now flushed after the binding application's gather and readback (`PHYSX_DESTRUCTION_EAGER_FLUSH_LATE=2`, default; 1 flushes after the preparation readback), so it overlaps the CPU shape migration and registration instead of the preparation's device work. Two interleaved runs: 256-impact tick 127.9 → 116.5 ms (bindings 33 → 15 ms; the corrected broad-phase wait grows 13.5 → 19 because the burst's tail now overlaps it), sustained mean 21.95 → 21.72, histories identical.
 
 Follow-up: the corrected pass's own burst had been deferred by the same late-flush flag and was only released by the next tick's trial solve, which then refactored in-line. It is flushed immediately at the post-correction finish again; three runs: sustained mean 22.25 → 21.57 ms, late 36.9 → 35.7, 256-impact tick 117 → 114, histories identical; the solver stream's factor joins are now never exposed (join diagnostic: 0.001 ms average).
+
+## Warm nine-window screen of the 2026-09-17 scheduling defaults (contract v4, `results-17e-v4`)
+
+Candidate = commit `f9d422c3` runtime and GPU module with the rebuilt probes (which now also carry the demo's yield-thread dispatcher default), against the paired 09-14 controls. All nine windows pass with the same force and health signatures as every screen since `results-16d-v4`.
+
+| window | controls A0/A1 | candidate B | previous candidate (`results-17d-v4`) |
+|---|---:|---:|---:|
+| city256 cascade | 113.5 / 114.9 ms | 55.5 | 63.9 |
+| city256 impact | 128.9 / 96.1 | 59.4 | 65.9 |
+| city256 debris | 129.5 / 131.3 | 64.6 | 73.4 |
+| city25 impact | 25.5 / 23.7 | 13.5 | 15.9 |
+| city256 idle | 2.4 / 1.6 | 1.9 | 1.8 |
