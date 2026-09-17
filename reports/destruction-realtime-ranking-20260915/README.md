@@ -1078,3 +1078,29 @@ narrowphase kernels alone (with retained outputs) would save ~0.15 ms per pass. 
 work: first the CPU-side filtered lists (activity restore, NP result processing, post-solve body
 status, island maintenance), then constraint prep and solver skips, then the broad-phase insertion
 fast path. Expected value is unchanged (−7 to −9 ms per sustained tick) and so is the cost.
+
+## 16. Impact-tick program, state after the first day (2026-09-17)
+
+User decisions recorded the same day: no artificial caps on simultaneous destruction, one long frame
+per mass event is acceptable, the same-tick correction is mandatory, and the CPU-visible publication
+may lag a tick. Shipped since §13 (all lossless, histories identical on the five counters):
+
+| change | sustained mean | 256-impact tick |
+|---|---:|---:|
+| state at §13 | 23.0 ms | 134 ms |
+| no-op acceptance transaction skipped (was joining the refactor burst) | 21.9 | 129 |
+| pipeline streams above least priority, device copies as kernels | | |
+| burst flushed after the binding readback | 21.7 | 116 |
+| corrected pass's burst flushed immediately (late-flush flag had deferred it) | 21.6 | 114 |
+
+Findings that bound the rest of the impact tick (warm-screen.md has the probes): on this GPU and
+driver nothing from other streams is dispatched while the fresh-factor burst runs, whatever the
+priority, residency or chunking, so the burst's ~22 ms (256 buildings) is hidden only where the CPU
+works alone; the corrected broad phase's 12–19 ms is `performIncrementalSAP` undoing the trial's
+motion of thousands of scattered chunks (refiltered shapes are marked "new" for overlap discovery
+but not re-inserted; no bounds are created at fracture); the CPU bookkeeping (allocation 8, migration
+13, registration and island insertion ~8, publication 7 ms) is the R2 registry migration.
+
+Order of the remaining program, per the user's decisions: CPU record creation and publication may
+be moved off the tick (a tick late) but the device-side corrected pass must not change; then R2
+steps 6–7; then R5 dormant masks for the sustained corrected pass.
