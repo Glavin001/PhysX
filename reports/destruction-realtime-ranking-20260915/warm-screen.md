@@ -1529,3 +1529,14 @@ The sustained tick is a chain of a few hundred small PhysX and destruction tasks
 | yield thread + `PHYSX_DEMO_SQ_UPDATE_MODE=1` | 4 | 22.21 | 37.2 | 125 |
 
 The demo default is now yield-thread with four workers (the earlier "2–4 workers equal, 6 worse" finding was measured under wake-up latency; it still holds under spinning). This is application configuration, like a game's job system, not a runtime change: the runtime A/B arms remain comparable because each arm carries its own demo binary, and the report states which dispatcher a number was taken with. From here every measurement uses the new default unless stated.
+
+## Continuous 600-tick A/B/A with the yield-thread demo (`out/direct-continuous-ab-20260917b`)
+
+Same runtime as the previous campaign, candidate demo with yield-thread workers; baseline arm unchanged (wait-for-work demo, 09-15 runtime). Two trials per arm, baseline before and after.
+
+| case | baseline mean | candidate mean | 60 Hz misses (of 600) | peak | counters |
+|---|---:|---:|---:|---:|---|
+| impacts-256 (heavy) | 54.2–54.8 ms | 20.5–20.6 | 519 → 248 | 184–217 → 127–132 | identical (28,596 bonds) |
+| idle-256 | 1.63–1.82 | 1.12–1.13 | 0 → 1 (first tick, pair reserve) | 14–15 → 36 | identical |
+
+The idle difference of the previous campaign (1.31 → 1.68) reverses under spinning workers (1.8 → 1.13): the idle tick, too, was dominated by task wake-up latency. Against the plan's starting point (continuous heavy 50.5–51.7 ms, 519 misses) the sustained tick is now 2.5× faster with identical physics; the ≤8 ms target remains 2.5× away, in the two CPU-bound rigid passes.
