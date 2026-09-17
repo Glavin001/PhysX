@@ -1777,3 +1777,18 @@ off 56.16, compaction off 56.55, side stream off 56.58, all three off 58.32. The
 about a millisecond in that window; the screen's B arm ran slower for environmental reasons (its B windows
 follow the runner's desktop restart, the pitfall recorded earlier). The optional `city256-debris-nsys` job
 failed only because the plan still names the 09-14 profile probe.
+
+## Continuous 600-tick A/B/A of the session-e defaults (`out/direct-continuous-ab-20260917e`, desktop stopped for the run)
+
+Candidate = commit `e637a774` runtime, GPU module and demo; baseline arm unchanged (2026-09-13 artifacts).
+Two trials per arm, baseline before and after; correctness receipt `out/direct-ab-arms/B/correctness-20260917e.json`.
+
+| case | baseline mean (before / after) | candidate mean | 60 Hz misses (of 600) | peak | physical counters |
+|---|---:|---:|---:|---:|---|
+| impacts-256 (heavy) | 54.6 / 54.1 ms | 19.6 | 519 → 249–256 | 197 / 185 → 102 | 0 differences |
+| idle-256 | 1.59 / 1.65 | 1.10 | 0 → 1 (first tick, pair reserve 38–40 ms once) | 14 → 38 (that tick) | 0 differences |
+
+Heavy 54.4 → 19.6 ms against 19.5 in campaign `17c` and 20.5 in `17b`: the continuous heavy case is where
+the whole city is awake, so the compacted mirror is inactive there and the early submit's ~0.6 ms is inside
+this campaign's run-to-run spread. The runner's exit 2 is its fixed ≤8 ms deadline gate, failed by design at
+this scale as in every earlier campaign.
