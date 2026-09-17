@@ -873,6 +873,7 @@ public:
             for(PxU32 i=0;i<contacts->retiredCount;++i)if(contacts->retired[i]>=contacts->pairCount)return false;
         }
         if((preSolveNodeSnapshotRequired(count) && !fullSnapshot) || (fullSnapshot && updateCount!=count))return false;
+        if(mEagerFlushDeferred && mPostCorrection){mEagerFlushDeferred=false;Context flushContext(mContext);if(mSolver)mSolver->flushEagerFactor();}
         for(PxU32 i=0;i<updateCount;++i)
             if(updates[i].index>=count || (i && updates[i-1].index>=updates[i].index)
                 || updates[i].value.live>1 || (updates[i].value.live && !updates[i].value.lifetime)
@@ -1620,15 +1621,10 @@ public:
             const PxU32 shapeCount=shapeCapacity?mHostCompletion->shapeCount:0;
             if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(shapeObservations.data(),shapeCount)))return false;
             mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPostCorrection=false;
-            // The eager refactor burst is flushed after the correction preparation's
-            // readback (completeCorrectionPreparation) rather than here: launched
-            // now, a city-impact burst (256 fresh factors, ~22 ms of every SM)
-            // starves the preparation's device copies and kernels, and the CPU
-            // waits for them; launched after the readback it overlaps the
-            // CPU-only body allocation, shape migration and registration.
-            static const bool flushLate=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EAGER_FLUSH_LATE");return !raw || raw[0]!='0';}();
-            if(mSolver && !flushLate)mSolver->flushEagerFactor();
-            mEagerFlushDeferred=flushLate && mSolver;
+            // The corrected pass's refactor burst is flushed now: nothing in this
+            // tick waits on it and the next tick's trial solve needs the factors
+            // (deferring it here made that solve refactor in-line).
+            mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();
             return true;
         }catch(...){mFailed=true;return false;}
     }
@@ -2670,7 +2666,8 @@ public:
             if(bindDiag)check(cudaEventRecord(bindE2,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             const double tGather=bindMs();
-            if(mEagerFlushDeferred){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
+            static const int flushLateMode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EAGER_FLUSH_LATE");return raw?std::atoi(raw):2;}();
+            if(mEagerFlushDeferred && flushLateMode<=2){mEagerFlushDeferred=false;if(mSolver)mSolver->flushEagerFactor();}
             if(bindDiag){float k=0,c=0;check(cudaEventElapsedTime(&k,bindE0,bindE1));check(cudaEventElapsedTime(&c,bindE1,bindE2));int pr=0;cudaStreamGetPriority(mStream,&pr);int lo=0,hi=0;cudaDeviceGetStreamPriorityRange(&lo,&hi);if(tGather>5.0)std::fprintf(stderr,"[bind-diag] device: gather kernel %.2f ms, D2H copies %.2f ms (mStream priority %d, range %d..%d)\n",k,c,pr,lo,hi);}
             const bool applied=mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
             if(bindDiag && bindMs()>5.0)std::fprintf(stderr,"[bind-diag] entry sync %.2f ms, gather+readback %.2f ms, CPU applyBindings %.2f ms (migrating=%u targets=%u)\n",tEntry,tGather-tEntry,bindMs()-tGather,mHostCompletion->collision.migrating,count);

@@ -1646,3 +1646,5 @@ With the no-op transaction skipped, the binding application still waited ~15 ms 
 ## Impact tick: burst flushed after the binding readback (lossless, −11 ms at the 256-impact tick)
 
 Since nothing else dispatches while the burst runs, the burst is now flushed after the binding application's gather and readback (`PHYSX_DESTRUCTION_EAGER_FLUSH_LATE=2`, default; 1 flushes after the preparation readback), so it overlaps the CPU shape migration and registration instead of the preparation's device work. Two interleaved runs: 256-impact tick 127.9 → 116.5 ms (bindings 33 → 15 ms; the corrected broad-phase wait grows 13.5 → 19 because the burst's tail now overlaps it), sustained mean 21.95 → 21.72, histories identical.
+
+Follow-up: the corrected pass's own burst had been deferred by the same late-flush flag and was only released by the next tick's trial solve, which then refactored in-line. It is flushed immediately at the post-correction finish again; three runs: sustained mean 22.25 → 21.57 ms, late 36.9 → 35.7, 256-impact tick 117 → 114, histories identical; the solver stream's factor joins are now never exposed (join diagnostic: 0.001 ms average).
