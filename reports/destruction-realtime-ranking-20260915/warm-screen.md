@@ -1967,3 +1967,23 @@ four small windows' relL2 sit at 1e-8–1e-7 and vary run to run at that level a
 | bridge64, chain256, dense12, tower64 | 1.5–1.7 / 1.4–1.7 / 1.4–1.6 | 1.5–1.9 | ≤2.4 | 0 |
 
 The idle window's A0 and B ran first after the desktop stop and carry the settling penalty noted before (A1 = 1.62).
+
+## Continuous 600-tick A/B/A of the session-f defaults (`direct-continuous-ab-20260917g`, commit `0b6bef24`)
+
+Same procedure (`run-destruction-ab.py --seconds 10`, two trials per arm, A/B/A, desktop stopped; the runner exits 2
+on the fixed 8 ms gate as always). Candidate receipt `out/direct-ab-arms/B/correctness-20260917f.json`. Physical
+counter differences: none in any comparison (histories identical to the 09-15 baseline arm).
+
+| case | A before (2 trials) | B (2 trials) | A after (2 trials) |
+|---|---:|---:|---:|
+| impacts-256 mean | 53.99 / 54.97 ms | 19.45 / 19.07 | 54.89 / 55.31 |
+| impacts-256 peak | 191.6 / 189.6 | 98.8 / 98.1 | 196.7 / 212.2 |
+| impacts-256 60 Hz misses /600 | 519 / 519 | 249 / 248 | 519 / 519 |
+| idle-256 mean | 1.78 / 1.77 | 1.09 / 1.04 | 1.78 / 1.81 |
+| idle-256 peak | 12.9 / 14.8 | 35.4 / 34.9 (first tick pays the pair reserve) | 14.4 / 14.4 |
+
+Against the previous continuous run of the session-e defaults (`20260917e`: heavy 19.6 ms, misses 249–256, peak
+102, idle 1.10) the session-f defaults are within the run-to-run band (19.1–19.5, 248–249, 98, 1.04–1.09); the
+day's shipped state is heavy 54.5 → 19.3 ms (2.8×), peak 191 → 98, misses 519 → 248, idle 1.78 → 1.07, all
+lossless. A 3 s A/B of the same arms (`20260917f`, 180 ticks) reads heavy 58.2 → 21.4, peak 183 → 100, idle 1.75 →
+1.21, also with identical counters.
