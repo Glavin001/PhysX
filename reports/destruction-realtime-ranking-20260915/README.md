@@ -979,3 +979,26 @@ Plan (each step measurable):
    checkpoint: zero host staging in `native.graph-diagnostics.json`.
 Step 6 keeps the sleeping gate (`mPreSolveSleepingDisabled`, `PxgContext.h:338`) as analysed in
 `r2-consumer-inventory.md:82-84`.
+
+## 13. State at 2026-09-17 (session d): stress-solve residency, closed leads, configuration costs
+
+Shipped defaults added this session (all lossless: identical histories on the g16 screen, 14/14 native
+tests, warm nine windows pass under contract v4): R2 steps 1–3 (dense pair slots), stress-solve
+occupancy 3 CTAs/SM with dynamic staging, largest-first dispatch, reserved contact pairs
+(`PxDestructionStressDesc::reservedContactPairs`), 128-thread solve CTAs and the staging vector in a
+per-CTA global scratch. City256 3 s bombardment mean: 31.7 → ~28.5 ms (late window 52 → 47, impact
+peak 195 → ~173); the continuous 600-tick A/B of these defaults is in `out/direct-continuous-ab-20260917`.
+
+Closed by measurement (details in `warm-screen.md`): the refactor's 45 % share of GPU kernel time is
+hidden behind the CPU pipeline (0.8 ms/tick exposed at the factor-stream join, 12 ms of host slack);
+Woodbury cap 32 and slot inheritance; the tiny-component split launch (twice); pinned host allocation
+(setup/teardown only); nsys graph-launch API times (tracer artifact); 96/64-thread solve CTAs.
+
+Measured composition of a sustained tick on this machine (19-vCPU Xeon E5-2673 v4 VM at 2.3 GHz,
+RTX 5060 Ti): trial rigid pass ~10–13 ms of CPU-bound PhysX pipeline, trial stress solve 4.2 ms on the
+device, corrected rigid pass ~11–15 ms, corrected stress 2 ms. Scene-query maintenance of the chunk
+shapes is 2.4 ms of that (pruner commit 1.6, bounds sync 0.8), an application choice exposed as demo
+knobs with the default unchanged. What remains is the two CPU-bound rigid passes, whose components are
+diffuse (island sims 6 %, new-pair pipeline 3 %, activity snapshot/restore 1.7 % of CPU samples; the rest
+is PhysX's task chain and GPU waits); the structural answers stay R2 (device-owned lifecycle and islands)
+and R5 (partition-level scoping of the corrected pass), both multi-week and order-changing.
