@@ -229,6 +229,18 @@ class Transaction final : public PxgDestructionTopologyTransaction {
             && (!done || cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(done),0)==cudaSuccess);
     }
     bool signal() {return cudaGetLastError()==cudaSuccess && cudaEventRecord(mReady,mStream)==cudaSuccess;}
+    // PHYSX_DESTRUCTION_LAUNCH_DIAG=1 prints the host time of each graph launch
+    // (the device-updatable transaction graphs measured milliseconds per launch
+    // under node-level nsys tracing; this confirms it without the profiler).
+    static bool launchDiagEnabled(){static const bool v=(std::getenv("PHYSX_DESTRUCTION_LAUNCH_DIAG")!=nullptr && std::getenv("PHYSX_DESTRUCTION_LAUNCH_DIAG")[0]=='1');return v;}
+    bool timedLaunch(cudaGraphExec_t exec,const char* what) {
+        if(!launchDiagEnabled())return cudaGraphLaunch(exec,mStream)==cudaSuccess;
+        const auto t0=std::chrono::steady_clock::now();
+        const bool ok=cudaGraphLaunch(exec,mStream)==cudaSuccess;
+        const double us=std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-t0).count();
+        std::fprintf(stderr,"[launch-diag] transaction %s graph launch %.1f us\n",what,us);
+        return ok;
+    }
 public:
     explicit Transaction(Topology* accepted):mAccepted(accepted){}
     bool init(const PxgDestructionChunk* chunks,unsigned n,const PxgDestructionBond* bonds,unsigned m) {
@@ -246,12 +258,12 @@ public:
         if(!count || (capacity && !edits) || capacity>unsigned(std::numeric_limits<int>::max()) || !order(ready,done))return false;
         const TransactionBatch batch={edits,count,abort,nullptr,sourceMotion,capacity,abortMask};
         setTransactionBatch<<<1,1,0,mStream>>>(mBatch,batch);
-        return cudaGraphLaunch(mPrepareExec,mStream)==cudaSuccess && signal();
+        return timedLaunch(mPrepareExec,"prepare") && signal();
     }
     bool commit(const unsigned* accept,void* ready,void* done) override {
         if(!accept || !order(ready,done))return false;
         setTransactionAccept<<<1,1,0,mStream>>>(mBatch,accept);
-        return cudaGraphLaunch(mCommitExec,mStream)==cudaSuccess && signal();
+        return timedLaunch(mCommitExec,"commit") && signal();
     }
     bool discard(void* ready,void* done) override {
         if(!order(ready,done))return false;

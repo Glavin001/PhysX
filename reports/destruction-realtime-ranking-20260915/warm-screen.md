@@ -1909,3 +1909,16 @@ the host wait moves to the corrected pass's next GPU dependency (the corrected p
 device work before the acceptance chain anyway, and the CPU has no independent work to overlap in that
 gap). The synchronous wait therefore stays the default; the asynchronous path is kept as an opt-in for
 a later stage that gives the CPU work to overlap (R2 registry migration).
+
+### Closed lead: graph launch host cost is a node-level tracing artifact (2026-09-17)
+
+In node-level nsys traces (`nsys-f`, `nsys-g`, `--cuda-graph-trace=node`) the topology transaction's
+prepare graph (45 device-updatable kernel nodes, 0.34 ms of GPU work) showed 1.9 ms median / 4.5 ms p90 of
+host time per `cudaGraphLaunch`, and the commit graph 0.44 ms. Timed in-process without the profiler
+(`PHYSX_DESTRUCTION_LAUNCH_DIAG=1`, g16 3 s bombardment): prepare 6 µs median / 7 µs p90 / 20 µs max over
+267 launches, commit 5 / 12 / 26 µs over 410. The submitting thread also runs ~4 ms ahead of the GPU at that
+point of the chain, so even the traced cost was hidden. Do not rank graph launches from node-level traces.
+The same traces do give consistent device-side facts for the sustained trial pass on the current build:
+integrate → startFrame gap 1.95 ms median, prologue (loads sort and routing, host-launch-bound) 0.89 ms with
+0.37 ms of GPU idle, chain to verdict 3.78 ms of which the solve kernel is 2.54, verdict → candidate bodies
+0.62 ms.
