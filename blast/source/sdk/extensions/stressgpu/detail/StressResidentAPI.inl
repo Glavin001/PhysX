@@ -143,6 +143,19 @@
             // Factor every initial component now, at the asset/topology boundary,
             // so the first simulated tick does not pay the whole-city burst.
             prefactorNativeDirect();
+            // Largest component of the configured topology bounds every later
+            // solve (components only split); it sizes the solve kernel's dynamic
+            // shared staging. BLAST_GPU_NATIVE_DIRECT_CAPACITY overrides (experiments).
+            {
+                if(!m_deviceMaxComponentNodes)checkCuda(cudaMalloc(reinterpret_cast<void**>(&m_deviceMaxComponentNodes),sizeof(unsigned)),"allocate max component nodes");
+                checkCuda(cudaMemsetAsync(m_deviceMaxComponentNodes,0,sizeof(unsigned),m_stream),"clear max component nodes");
+                maxComponentNodes<<<1,kBlockSize,0,m_stream>>>(m_deviceTopology->components(),m_deviceMaxComponentNodes);
+                unsigned largest=0;
+                checkCuda(cudaMemcpyAsync(&largest,m_deviceMaxComponentNodes,sizeof(unsigned),cudaMemcpyDeviceToHost,m_stream),"read max component nodes");
+                checkCuda(cudaStreamSynchronize(m_stream),"sync max component nodes");
+                static const unsigned forced=[]{const char* raw=std::getenv("BLAST_GPU_NATIVE_DIRECT_CAPACITY");return raw?unsigned(std::atoi(raw)):0u;}();
+                m_directCapacityNodes=std::min(kResidentComponentMaxNodes,forced?forced:std::max(largest,8u));
+            }
 #endif
             m_jacobiBuilt = true; // topology rebuild maintains it on the device
             checkCuda(cudaEventRecord(m_statusReady,m_stream), "record device topology preparation");

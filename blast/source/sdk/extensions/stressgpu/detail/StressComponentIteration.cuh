@@ -60,19 +60,33 @@ __device__ __forceinline__ float nativeComponentResidualNorm(const PersistentStr
 // direct-solve array, so many more of them are resident at once. Either way a
 // component's numerical order is unchanged; only the CTA that runs it differs.
 constexpr unsigned kTinyComponentNodes = 7u;
-template<bool Tiny>
 #ifndef BLAST_GPU_SOLVE_MIN_BLOCKS
 #define BLAST_GPU_SOLVE_MIN_BLOCKS 3
 #endif
 // Residency of the persistent component grid: 128 registers allow two CTAs
 // per SM, so only 72 of the 144 launched CTAs ever claim work on a 36-SM part.
-__global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c, unsigned tinyLimit)
+// One-time reduction at setup: the largest component's node count. Components
+// only split after configuration, so this bounds every later solve and sizes
+// the large instantiation's dynamic shared staging vector exactly.
+__global__ void maxComponentNodes(ResidentStressComponentView c,unsigned* out){
+    unsigned best=0;
+    for(unsigned slot=threadIdx.x;slot<*c.count;slot+=blockDim.x){const unsigned id=c.ids[slot];best=max(best,c.end[id]-c.begin[id]);}
+    for(unsigned step=16;step;step>>=1)best=max(best,__shfl_down_sync(0xffffffffu,best,step));
+    if((threadIdx.x&31)==0)atomicMax(out,best);
+}
+template <bool Tiny>
+__global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c, unsigned tinyLimit, unsigned directCapacityNodes)
 {
     __shared__ unsigned counts[2], iteration, activeCount, slot, directApplied, directNormValid;
     __shared__ float directNorm;
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
-    __shared__ float directX[Tiny?6u*8u:6u*kResidentComponentMaxNodes];
+    // Direct-step staging: static for the tiny instantiation, dynamic shared
+    // memory sized by the launch (6 floats per node of the largest component)
+    // for the large one, so its occupancy is not bound by the 1,024-node cap.
+    __shared__ float directXTiny[Tiny?6u*8u:1u];
+    extern __shared__ float directXDynamic[];
+    float* const directX=Tiny?directXTiny:directXDynamic;
     COMPONENT_PROBE_BEGIN
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
     // Diagnostic split of the pre-monitor phase: [0] operator/rigid setup,
@@ -98,8 +112,10 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
         if(!threadIdx.x)a.hierarchy.verification[id]=0;
         // Size partition between the two instantiations (tinyLimit 0: no split).
         if(Tiny?count>tinyLimit:(tinyLimit && count<=tinyLimit)){__syncthreads();continue;}
-        if(count>kResidentComponentMaxNodes) {
+        if(count>kResidentComponentMaxNodes || (!Tiny && count>directCapacityNodes)) {
             COMPONENT_WORK_UNMEASURED(id,count)
+            // A component larger than the launch's staging capacity cannot occur
+            // (components only split after setup); it is skipped like an oversized one.
             // All readers must finish using the shared ticket before reuse.
             __syncthreads();continue;
         }

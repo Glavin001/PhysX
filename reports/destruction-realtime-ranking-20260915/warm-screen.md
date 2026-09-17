@@ -1406,3 +1406,9 @@ g16 3 s bombardment, interleaved against the control binary, three trials each, 
 | peak tick | 183–199 | 183–202 |
 
 Consistent 0.7 ms per tick, 1.5 ms on the late window, from the remnant solve's throughput. A fourth CTA per SM would need shared memory under 25,600 bytes (the staging vector alone is 24,576 for the 1,024-node resident cap) and 64 registers; not pursued.
+
+## Stress solve staging in dynamic shared memory sized by the largest component (lossless, default on); 4 blocks/SM measured, not better
+
+The large `componentStressSolve` instantiation now stages the direct step in dynamic shared memory sized at launch to 6 floats per node of the largest component (a one-time reduction at setup, `maxComponentNodes`, read back once outside stream capture; components only split after configuration, so the bound holds for every later solve; a component beyond it would be skipped like an oversized one, which cannot occur). Static shared memory drops from 27,344 to 2,768 bytes; on city256 the dynamic block is 10.7 KB (444-node buildings). Occupancy is now register-bound at 3 CTAs per SM (80 registers × 256 threads).
+
+g16 3 s bombardment, interleaved against the control binary, three trials each, histories bit-identical: run mean 32.91 → 31.85 ms, late window 54.71 → 52.60 (this A/B includes the previous commit's occupancy change; the staging alone is neutral to slightly positive within the noise band and removes the shared-memory ceiling). Launch bounds of 4 blocks per SM (64 registers, stack 576 → 624 bytes) measured against the 3-block module: 30.15 → 30.42 ms, not better; 3 stays. `BLAST_GPU_NATIVE_DIRECT_CAPACITY` overrides the bound for experiments.

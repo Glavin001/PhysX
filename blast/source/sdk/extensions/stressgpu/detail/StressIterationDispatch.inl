@@ -276,8 +276,9 @@
                 // per SM (default 16; 0 keeps the single launch).
                 const unsigned tinyCtas=nativeTinyCtasPerSm();
                 const unsigned tinyLimit=tinyCtas?kTinyComponentNodes:0u;
-                if(tinyCtas)componentStressSolve<true><<<std::min(m_nodeCount,unsigned(sms*tinyCtas)),32,0,m_stream>>>(args,components,tinyLimit);
-                componentStressSolve<false><<<std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm())),kBlockSize,0,m_stream>>>(args,components,tinyLimit);
+                const unsigned directCapacity=m_directCapacityNodes?m_directCapacityNodes:kResidentComponentMaxNodes;
+                if(tinyCtas)componentStressSolve<true><<<std::min(m_nodeCount,unsigned(sms*tinyCtas)),32,0,m_stream>>>(args,components,tinyLimit,8u);
+                componentStressSolve<false><<<std::min(m_nodeCount,unsigned(sms*nativeSolveBlocksPerSm())),kBlockSize,6u*sizeof(float)*directCapacity,m_stream>>>(args,components,tinyLimit,directCapacity);
             }
             args.islandIds=components.largeIds;
             args.liveIslandCount=components.largeCount;

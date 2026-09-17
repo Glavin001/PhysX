@@ -4689,6 +4689,7 @@ private:
     // Eager refactorization runs on its own stream so the topology consumers'
     // status readback is not queued behind a refactor burst (impact ticks:
     // 22 ms). Every m_stream use of the direct state first joins m_factorDone.
+    unsigned* m_deviceMaxComponentNodes = nullptr; unsigned m_directCapacityNodes = 0; // solve staging bound (setup-time)
     cudaStream_t m_factorStream{}; cudaEvent_t m_factorDone{}, m_topologyReady{}; bool m_factorPending = false, m_eagerFactorRequested = false;
     void joinFactorStream() {
         // A requested but not yet flushed eager launch is dropped: the solver
