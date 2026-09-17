@@ -1888,3 +1888,24 @@ cost: three mode-6 runs with the diag firing on 145 passes are the fastest yet (
 window 31.2–31.6, peaks 96–98, 61,130 bonds each). Native tests 8/8. Root cause (which flag the
 reinstatement or the integrate early-out leaves cleared) is still open and only matters for scene-query
 bookkeeping cost.
+
+### Asynchronous correction acceptance (opt-in, `PHYSX_DESTRUCTION_ACCEPT_SYNC=0`; neutral)
+
+`acceptCorrection` ends with a host wait on the acceptance chain (~2.5 ms on fragment ticks) that gates the
+corrected pass's `prepareFrame` (host status check, first-pass status snapshot). The asynchronous variant
+removes the wait: the first-pass status is snapshotted on the device (stream-ordered after the acceptance
+chain), `startFrame` validates the preconditions on the device (error bit 16 marks a rejected acceptance,
+every stage kernel early-outs on it and `finishPostCorrection` reports the failure at its own readback),
+and the merge kernel reads the device snapshot. Runs: g16 3 s bombardment, COMMON flags, three runs per arm.
+
+| arm | tick mean | early window | late window | peak | bonds |
+|---|---:|---:|---:|---:|---:|
+| synchronous (acS3/acS4/acS5) | 20.49 / 20.28 / 20.88 | 35.7 / 35.6 / 36.8 | 32.9 / 32.8 / 33.7 | 108 / 92 / 100 | 56,077 |
+| asynchronous (acA1/acA2/acA3) | 20.74 / 21.44 / 20.83 | 36.7 / 38.6 / 36.4 | 33.4 / 34.1 / 33.7 | 96 / 100 / 96 | 56,077 |
+| default after the change (acD1, synchronous) | 21.50 | – | 34.5 | 98 | 56,077 |
+
+Histories are identical (same five counters) and the native tests pass 8/8, but there is no timing gain:
+the host wait moves to the corrected pass's next GPU dependency (the corrected pass cannot start its
+device work before the acceptance chain anyway, and the CPU has no independent work to overlap in that
+gap). The synchronous wait therefore stays the default; the asynchronous path is kept as an opt-in for
+a later stage that gives the CPU work to overlap (R2 registry migration).

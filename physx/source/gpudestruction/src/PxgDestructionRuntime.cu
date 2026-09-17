@@ -54,6 +54,14 @@ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T
 // PHYSX_DESTRUCTION_KERNEL_COPIES=0 restores cudaMemcpyAsync (A/B).
 __global__ void copyDeviceWords16(uint4* dst,const uint4* src,size_t count){const size_t i=blockIdx.x*size_t(blockDim.x)+threadIdx.x;if(i<count)dst[i]=src[i];}
 __global__ void copyDeviceWords4(unsigned* dst,const unsigned* src,size_t count){const size_t i=blockIdx.x*size_t(blockDim.x)+threadIdx.x;if(i<count)dst[i]=src[i];}
+// PHYSX_DESTRUCTION_ACCEPT_SYNC=0 makes the correction acceptance asynchronous:
+// the host does not wait for the acceptance chain; the first-pass status is
+// snapshotted on the device and startFrame validates it (error bit 16), so a
+// rejected acceptance surfaces at the finish readback instead of before the
+// corrected pass. Measured 2026-09-17 (g16 3 s bombardment): identical
+// histories, no timing gain (the host wait moves to the corrected pass's next
+// dependency), so the synchronous wait stays the default.
+static bool acceptSyncEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ACCEPT_SYNC");return !(raw && raw[0]=='0');}();return v;}
 static bool kernelCopiesEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_KERNEL_COPIES");return !raw || raw[0]!='0';}();return v;}
 // Host readback buffers. Device-to-host copies into pageable memory (std::vector)
 // are staged by the driver with context-wide waits: at a city impact the
@@ -254,10 +262,16 @@ __device__ void add(PxVec3& target,const PxVec3& value) {
     target.x=__fadd_rn(target.x,value.x);target.y=__fadd_rn(target.y,value.y);target.z=__fadd_rn(target.z,value.z);
 }
 __global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool postCorrection) {
+    // The corrected pass must start from an accepted, single-pass status; the
+    // check runs here (device) because the host no longer waits for the
+    // acceptance chain before submitting.
+    const bool bad=postCorrection && (status->error || status->correctionPasses!=1u || status->stressPasses!=1u);
     const PxU64 frame=status->frame+(postCorrection?0:1); *status={}; status->frame=frame;
     if(sequence && sequence->error)status->error|=8192u;
+    if(bad)status->error|=16u;
 }
-__global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDestructionStageStatus first) {
+__global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,const PxDestructionStageStatus* firstPass) {
+    const PxDestructionStageStatus first=*firstPass;
     status->postCorrectionBrokenBonds=status->brokenBonds;
     status->normalContacts+=first.normalContacts;status->frictionAnchors+=first.frictionAnchors;
     status->iterations=max(status->iterations,first.iterations);
@@ -636,7 +650,7 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 class Runtime final : public PxgDestructionRuntime {
     snapshot::Data mSnapshotAsset;
     bool mPreserveContactPairs=false;PxU32 mReservedContactPairs=0;
-    bool mPostCorrection=false;PxDestructionStageStatus mFirstPassStatus{};
+    bool mPostCorrection=false;PxDestructionStageStatus* mFirstPassStatusDevice=nullptr;
     PxProfilerCallback* mProfiler=nullptr;PxU64 mProfileContext=0;
     struct AdvanceZone {
         PxProfilerCallback* profiler;void* data;const char* name;PxU64 context;
@@ -1198,7 +1212,7 @@ public:
         for(auto event:mMotionAllocationEvents)if(event)cudaEventDestroy(event);
         for(auto event:mCorrectionEvents)if(event)cudaEventDestroy(event);
         mRigidIterationLimits.clear();
-        cudaFree(mCompletion);cudaFreeHost(mHostCompletion);
+        cudaFree(mCompletion);cudaFreeHost(mHostCompletion);cudaFree(mFirstPassStatusDevice);mFirstPassStatusDevice=nullptr;
         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
@@ -1572,8 +1586,11 @@ public:
         try {Context current(mContext);if(!configured() || mPending)return false;
             mPostCorrection=postCorrection;
             if(postCorrection) {
-                if(mHostStatus->error || mHostStatus->correctionPasses!=1 || mHostStatus->stressPasses!=1)return false;
-                mFirstPassStatus=*mHostStatus;
+                // First-pass snapshot on the device, stream-ordered after the
+                // acceptance chain; startFrame validates the preconditions.
+                if(acceptSyncEnabled() && (mHostStatus->error || mHostStatus->correctionPasses!=1 || mHostStatus->stressPasses!=1))return false;
+                if(!mFirstPassStatusDevice)allocate(mFirstPassStatusDevice,1);
+                check(cudaMemcpyAsync(mFirstPassStatusDevice,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToDevice,mStream));
             }
             if(!postCorrection){mInstalledOwnerGeneration=0;mPendingPropertyCapacity=0;mPendingShapeCapacity=0;}
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
@@ -1611,9 +1628,11 @@ public:
         try{Context current(mContext);mEagerFlushDeferred=false;mSolver->flushEagerFactor();}catch(...){mFailed=true;}
     }
     bool finishPostCorrection() override {
-        if(!mPostCorrection || mFailed || mPending || mHostStatus->error)return false;
+        // The acceptance's status copy may still be in flight; the status is
+        // checked below after this stage's own event wait.
+        if(!mPostCorrection || mFailed || mPending)return false;
         try {Context current(mContext);
-            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatus);
+            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatusDevice);
             if(mTopology)mChanges.publish(mStream);
             const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
             PinnedVector<PxvDestructionBodyProperties>& observations=mPinnedObservations;observations.resize(capacity);PxU32 count=0;
@@ -2791,10 +2810,13 @@ public:
                 PxU64(mPendingShapeCapacity)+mHostCompletion->collision.migrating));
             check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             tSubmit=acceptMs();
-            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            tSync=acceptMs();
-            collectCorrectionTimings();
-            if(mHostStatus->error)return false;
+            check(cudaEventRecord(mReady,mStream));
+            // The acceptance chain waits for the corrected pass's integration on
+            // the device; a host wait here (2.5 ms per fragment-bearing tick)
+            // only delays the stress submission queued behind it. The status is
+            // re-read at the finish readback, where the host waits anyway.
+            // PHYSX_DESTRUCTION_ACCEPT_SYNC=1 restores the wait.
+            if(acceptSyncEnabled() || acceptDiag){check(cudaEventSynchronize(mReady));tSync=acceptMs();collectCorrectionTimings();if(mHostStatus->error)return false;}
             mCommittedMotionSlots+=mHostBodyAllocation.reserved;
             mSpeculativeStressOutstanding=false;
             mBodyAllocator->acceptReservations();
