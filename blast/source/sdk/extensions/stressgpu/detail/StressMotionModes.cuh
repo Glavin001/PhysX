@@ -2,6 +2,7 @@
 #pragma once
 #include "StressMotionForest.cuh"
 #include <algorithm>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 namespace Nv { namespace Blast { namespace StressHierarchy {
@@ -60,18 +61,23 @@ __device__ void buildMotionFactor(Input a,MotionBuffers b,Status* status,unsigne
 // large tree depth never becomes one host submission per graph edge.
 __global__ void constructMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work){
     const auto grid=cooperative_groups::this_grid();const unsigned thread=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
-    if(!thread)beginBuild(a,status,work);grid.sync();if(!work->active)return;
+    if(!thread){beginBuild(a,status,work);if(b.arcCount)*b.arcCount=0;}grid.sync();if(!work->active)return;
     initializeMotionForest(a,forest,b,status,thread,stride);grid.sync();
     if(!thread)work->pending=!status->error;grid.sync();if(!work->pending)return;
     for(unsigned node=thread/32;node<a.nodes;node+=stride/32)if(motionChanged(b,node))buildMotionTour(a,forest,b,status,node);grid.sync();
-    // Every tree component must have exactly one broken Euler-tour link.
+    // Every tree component must have exactly one broken Euler-tour link. This
+    // sweep also compacts the changed forest arcs for the rounds below.
     for(unsigned arc=thread;arc<2*a.bonds;arc+=stride)if(forest[arc/2] && motionEdgeChanged(a,b,arc/2)){
         auto& c=b.components[a.component[a.node0[arc/2]]];
         if(b.previous[0][arc]==Invalid)atomicAdd(&c.cuts,1u);if(!(arc&1u))atomicAdd(&c.edges,1u);
+        if(b.arcs)b.arcs[atomicAdd(b.arcCount,1u)]=arc;
     }
     grid.sync();if(!thread)work->pending=!status->error;grid.sync();if(!work->pending)return;
     unsigned source=0;
-    for(std::uint64_t covered=1;covered<2ull*a.bonds;covered*=2){jumpMotionTour(a,forest,b,status,source,thread,stride);grid.sync();source^=1u;}
+    // Pointer jumping needs ceil(log2(longest tour)) rounds; a tour is at most
+    // the changed arc count, and further rounds only copy finished values.
+    const std::uint64_t span=b.arcs?std::uint64_t(*b.arcCount):2ull*a.bonds;
+    for(std::uint64_t covered=1;covered<span;covered*=2){jumpMotionTour(a,forest,b,status,source,thread,stride);grid.sync();source^=1u;}
     publishMotionPositions(a,forest,b,status,source,thread,stride);grid.sync();
     discoverMotionClosures(a,b,status,thread,stride);grid.sync();
     initializeMotionAxes(a,b,status,thread,stride);grid.sync();
@@ -107,7 +113,7 @@ class ResidentMotionModes {
     MotionBuffers mBuffers{};Status* mStatus=nullptr;Work* mWork=nullptr;
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident motion modes: ")+cudaGetErrorString(e));}
     template<class T>static void allocate(T*& p,size_t count){check(cudaMalloc(&p,std::max(size_t(1),count)*sizeof(T)));}
-    void release()noexcept{for(unsigned k=0;k<2;++k){cudaFree(mBuffers.previous[k]);cudaFree(mBuffers.sum[k]);}cudaFree(mBuffers.first);cudaFree(mBuffers.position);cudaFree(mBuffers.components);cudaFree(mStatus);cudaFree(mWork);}
+    void release()noexcept{for(unsigned k=0;k<2;++k){cudaFree(mBuffers.previous[k]);cudaFree(mBuffers.sum[k]);}cudaFree(mBuffers.first);cudaFree(mBuffers.position);cudaFree(mBuffers.components);cudaFree(mBuffers.arcs);cudaFree(mBuffers.arcCount);cudaFree(mStatus);cudaFree(mWork);}
 public:
     ResidentMotionModes(Input input,const unsigned* forest,cudaStream_t stream):mInput(input),mForest(forest),mStream(stream){
         if(input.levelBonds || input.nodes>0x7fffffffu || input.bonds>0x7fffffffu || !input.generation || !input.partition.count
@@ -121,6 +127,8 @@ public:
             mBlocks=std::min(std::max(1u,(input.nodes+7)/8),unsigned(sms*blocks));
             for(unsigned k=0;k<2;++k){allocate(mBuffers.previous[k],size_t(input.bonds)*2);allocate(mBuffers.sum[k],size_t(input.bonds)*2);}
             allocate(mBuffers.first,input.nodes);allocate(mBuffers.position,input.nodes);allocate(mBuffers.components,input.nodes);allocate(mStatus,1);allocate(mWork,1);
+            static const bool compact=[]{const char* raw=std::getenv("BLAST_GPU_NATIVE_MOTION_ARCS");return raw?std::atoi(raw)!=0:true;}();
+            if(compact){allocate(mBuffers.arcs,size_t(input.bonds)*2);allocate(mBuffers.arcCount,1);check(cudaMemsetAsync(mBuffers.arcCount,0,sizeof(unsigned),stream));}
             check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
         }catch(...){release();throw;}
     }

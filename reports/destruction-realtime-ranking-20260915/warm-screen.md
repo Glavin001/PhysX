@@ -1540,3 +1540,7 @@ Same runtime as the previous campaign, candidate demo with yield-thread workers;
 | idle-256 | 1.63–1.82 | 1.12–1.13 | 0 → 1 (first tick, pair reserve) | 14–15 → 36 | identical |
 
 The idle difference of the previous campaign (1.31 → 1.68) reverses under spinning workers (1.8 → 1.13): the idle tick, too, was dominated by task wake-up latency. Against the plan's starting point (continuous heavy 50.5–51.7 ms, 519 misses) the sustained tick is now 2.5× faster with identical physics; the ≤8 ms target remains 2.5× away, in the two CPU-bound rigid passes.
+
+## Motion-mode build: compacted changed-arc list (lossless, −0.28 ms/tick, default on)
+
+The cooperative motion-mode construction (rigid modes of free components, rebuilt for the components changed by a topology transaction) filtered its Euler-tour pointer-jumping rounds by a per-node changed mask but still swept all 458k arcs of the scene for 19 rounds, each with a grid sync. The cut-counting sweep now also compacts the changed forest arcs into a device list (`BLAST_GPU_NATIVE_MOTION_ARCS`, default 1), the jump rounds and the tour check visit only that list, and the round count is bounded by its length (further rounds only copy finished values). Device `commitAndStressTopology` span 0.80 → 0.66 ms per pass (two passes per tick); tick 23.83 → 23.67 ms (two runs each, within noise); histories identical; 14/14 tests; compute-sanitizer memcheck clean.

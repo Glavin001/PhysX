@@ -16,6 +16,11 @@ struct MotionBuffers {
     // this topology transaction (or on the first build). Null rebuilds everything.
     // Unchanged components keep their tour, positions, closure, axes and factor.
     const unsigned* changed=nullptr;
+    // Compacted list of the changed forest arcs of this build (filled once by
+    // the construction kernel), so the pointer-jumping rounds and the tour
+    // checks visit only those arcs instead of every arc of the scene. Null
+    // keeps the full sweeps. Order is irrelevant: every arc owns its slots.
+    unsigned* arcs=nullptr;unsigned* arcCount=nullptr;
 };
 __device__ __forceinline__ bool motionChanged(const MotionBuffers& b,unsigned node){return !b.changed || b.changed[node];}
 __device__ __forceinline__ bool motionEdgeChanged(const Input& a,const MotionBuffers& b,unsigned edge){
@@ -98,18 +103,24 @@ __device__ void buildMotionTour(Input a,const unsigned* forest,MotionBuffers b,S
         if(first!=Invalid)b.previous[0][first]=a.component[node]==node?Invalid:(last^1u);
     }
 }
+__device__ __forceinline__ void jumpMotionArc(Input a,const unsigned* forest,MotionBuffers b,Status* status,unsigned source,unsigned target,unsigned arc){
+    const unsigned previous=b.previous[source][arc];
+    double3 value=b.sum[source][arc];unsigned next=Invalid;
+    if(previous!=Invalid){if(previous>=2*a.bonds || !forest[previous/2])atomicOr(&status->error,2u);
+        else {value=exactMotionAdd(value,b.sum[source][previous],status);next=b.previous[source][previous];}}
+    b.previous[target][arc]=next;b.sum[target][arc]=value;
+}
 __device__ void jumpMotionTour(Input a,const unsigned* forest,MotionBuffers b,Status* status,unsigned source,unsigned thread,unsigned stride){
     const unsigned target=source^1u;
+    if(b.arcs){const unsigned count=*b.arcCount;for(unsigned i=thread;i<count;i+=stride)jumpMotionArc(a,forest,b,status,source,target,b.arcs[i]);return;}
     for(unsigned arc=thread;arc<2*a.bonds;arc+=stride){
-        if(!forest[arc/2] || !motionEdgeChanged(a,b,arc/2))continue;const unsigned previous=b.previous[source][arc];
-        double3 value=b.sum[source][arc];unsigned next=Invalid;
-        if(previous!=Invalid){if(previous>=2*a.bonds || !forest[previous/2])atomicOr(&status->error,2u);
-            else {value=exactMotionAdd(value,b.sum[source][previous],status);next=b.previous[source][previous];}}
-        b.previous[target][arc]=next;b.sum[target][arc]=value;
+        if(!forest[arc/2] || !motionEdgeChanged(a,b,arc/2))continue;
+        jumpMotionArc(a,forest,b,status,source,target,arc);
     }
 }
 __device__ void publishMotionPositions(Input a,const unsigned* forest,MotionBuffers b,Status* status,unsigned source,unsigned thread,unsigned stride){
-    for(unsigned arc=thread;arc<2*a.bonds;arc+=stride)if(forest[arc/2] && motionEdgeChanged(a,b,arc/2)){
+    if(b.arcs){const unsigned count=*b.arcCount;for(unsigned i=thread;i<count;i+=stride)if(b.previous[source][b.arcs[i]]!=Invalid)atomicOr(&status->error,2u);}
+    else for(unsigned arc=thread;arc<2*a.bonds;arc+=stride)if(forest[arc/2] && motionEdgeChanged(a,b,arc/2)){
         if(b.previous[source][arc]!=Invalid)atomicOr(&status->error,2u);
     }
     for(unsigned node=thread;node<a.nodes;node+=stride){
