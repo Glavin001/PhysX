@@ -2298,16 +2298,23 @@ runs as 1,024-body chunks on worker tasks joined at `afterIntegration`, the firs
 (the solver's CPU chain only reads; the issue-time sleep finalizer reads `eFIRST_BODY_COPY_GPU` and touches device
 state), so the records are identical. `PHYSX_DESTRUCTION_ACTIVITY_CAPTURE_TASKS=0` restores the inline loop.
 
-g16 3 s bombardment, three interleaved pairs (A = inline, B = tasks), identity 56,077 in all six:
+g16 3 s bombardment, three interleaved pairs (A = inline, B = tasks), identity 56,077 in all six. (A first
+measurement of this item compared identical binaries: the CPU SDK is built in `out/sdk-release`, and only
+`out/destruction-sdk` had been rebuilt; the numbers below are from the rebuilt SDK, object time 01:28.)
 
 | run | A mean | B mean | A late | B late |
 |---|---:|---:|---:|---:|
-| 1 | 20.12 | 19.95 | 32.44 | 32.09 |
-| 2 | 20.01 | 19.92 | 32.04 | 31.93 |
-| 3 | 20.08 | 19.61 | 32.29 | 31.32 |
+| 1 | 20.48 | 20.12 | 32.89 | 31.57 |
+| 2 | 19.80 | 19.39 | 31.57 | 30.91 |
+| 3 | 19.89 | 19.68 | 32.17 | 31.35 |
 
-Mean −0.24 ms, late −0.5 ms (the checkpoint sat between the island passes and the solver issue on the critical path;
-the rest of the before-solver chain still runs there). Runner: `out/direct-factor-feasibility-20260915/run-env-pairs.sh`.
+Mean −0.33 ms, late −0.9 ms. Step-150 timeline: `beforeSolver` 1.02 → 0.05 ms, the checkpoint runs as ten 0.06–0.11 ms
+chunks on the other three workers alongside `updateDynamics`, and the trial solver issue (early submit) moves from
+7.9 to 6.7 ms into the tick. Runner: `out/direct-factor-feasibility-20260915/run-env-pairs.sh`.
+
+New trial-pipeline zones (`setEdgesConnected` 0.43 ms, `processNarrowPhaseTouchEvents` 0.07, `updateSimulationController`
+0.36, `islandGenPart2`/`wakeObjectsUp` only under the split island gen) attribute the remaining unzoned gap between
+`postIslandGen` and `beforeSolver` to the touch-found edge connection and the second island-gen pass.
 
 ### Correction activity restore on worker chunks: neutral, not kept (2026-09-18)
 
@@ -2315,6 +2322,5 @@ The corrected pass's activity restore (1.25 ms serial on the late window, 2.4 ms
 chunks for bodies that stayed active in Sc and both island sims (per-body fields, readiness deltas) with a serial
 finish task (activations, woken marks, notifications, corrected-pass setup). Lossless (56,077 in all six runs) but
 neutral: A (one thread) 20.30/20.12/20.24 ms, B (chunks) 20.39/20.27/20.43; late 32.62/32.41/32.79 vs
-32.45/32.40/32.80. The corrected pass start is device-bound (eager refactor and the corrected broad phase), so the
-CPU restore only overlaps a wait that reappears in `broadPhaseWait`. Patch kept at
-`out/direct-factor-feasibility-20260915/restore-tasks-neutral.patch`; code reverted.
+32.45/32.40/32.80. INVALID: both arms ran the stale SDK (see the build note above); re-measured below. Patch kept at
+`out/direct-factor-feasibility-20260915/restore-tasks-neutral.patch`.

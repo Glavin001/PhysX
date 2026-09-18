@@ -548,6 +548,7 @@ namespace Sc
 
 		PX_FORCE_INLINE	PxPool2<ConstraintInteraction, 4096>&	getConstraintInteractionPool()			{ return mConstraintInteractionPool;	}
 	public:
+					void captureDestructionActivityRange(PxU32 begin, PxU32 end); // parallel chunks of the activity checkpoint (worker task entry)
 		PX_FORCE_INLINE	const PxsMaterialManager&	getMaterialManager()				const	{ return mMaterialManager;			}
 		PX_FORCE_INLINE	PxsMaterialManager&			getMaterialManager()						{ return mMaterialManager;			}
 
@@ -940,7 +941,6 @@ namespace Sc
                     PxArray<PxU32> mDestructionPartitionCandidates, mDestructionPartitionCandidatesTrial;
                     bool mPairPoolsPreheated = false, mPairPoolsPrefaulted = false;
                     void captureDestructionActivity(PxBaseTask* joinTask);
-                    void captureDestructionActivityRange(PxU32 begin, PxU32 end); // parallel chunks of the activity checkpoint
                     void restoreDestructionActivity();
 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;
 

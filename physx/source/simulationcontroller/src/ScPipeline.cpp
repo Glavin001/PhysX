@@ -1718,6 +1718,8 @@ namespace
 
 void Sc::Scene::processNarrowPhaseTouchEvents(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.processNarrowPhaseTouchEvents":"GpuDestruction.trialDetail.processNarrowPhaseTouchEvents",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sc::Scene::processNarrowPhaseTouchEvents", mContextId);
 
 	PxsContext* context = mLLContext;
@@ -1833,6 +1835,8 @@ void Sc::Scene::postIslandGen(PxBaseTask* continuation)
 
 void Sc::Scene::setEdgesConnected(PxBaseTask*)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.setEdgesConnected":"GpuDestruction.trialDetail.setEdgesConnected",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.preIslandGen.islandTouches", mContextId);
 
 #if USE_SPLIT_SECOND_PASS_ISLAND_GEN
@@ -1878,9 +1882,16 @@ void Sc::Scene::solver(PxBaseTask* continuation)
 #if USE_SPLIT_SECOND_PASS_ISLAND_GEN
 	// PT: we run here the last part of Sc::Scene::setEdgesConnected()
 	// PT: TODO: move to a non solver part?
+	{
+	PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+		mDestructionCorrectionInProgress?"GpuDestruction.detail.islandGenPart2":"GpuDestruction.trialDetail.islandGenPart2",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	mSimpleIslandManager->secondPassIslandGenPart2();
-
+	}
+	{
+	PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+		mDestructionCorrectionInProgress?"GpuDestruction.detail.wakeObjectsUp":"GpuDestruction.trialDetail.wakeObjectsUp",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	wakeObjectsUp();
+	}
 #endif
 
 	//Update forces per body in parallel. This can overlap with the other work in this phase.
@@ -3034,6 +3045,8 @@ bool Sc::Scene::destructionEarlySleepCommit(void* user)
 //This is called after solver finish
 void Sc::Scene::updateSimulationController(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.updateSimulationController":"GpuDestruction.trialDetail.updateSimulationController",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.updateSimulationController", mContextId);
 	
 	PX_ASSERT(isUsingGpuDynamicsOrBp());	// PT: this is not called anymore in the CPU pipeline
