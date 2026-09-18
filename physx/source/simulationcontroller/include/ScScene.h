@@ -939,7 +939,8 @@ namespace Sc
                     PxArray<PxU32> mDestructionQueryShapes;
                     PxArray<PxU32> mDestructionPartitionCandidates, mDestructionPartitionCandidatesTrial;
                     bool mPairPoolsPreheated = false, mPairPoolsPrefaulted = false;
-                    void captureDestructionActivity();
+                    void captureDestructionActivity(PxBaseTask* joinTask);
+                    void captureDestructionActivityRange(PxU32 begin, PxU32 end); // parallel chunks of the activity checkpoint
                     void restoreDestructionActivity();
 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;
 

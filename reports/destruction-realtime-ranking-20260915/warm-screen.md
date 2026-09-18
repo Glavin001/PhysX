@@ -2288,3 +2288,23 @@ for island wakes/deactivations/births) equals the CPU flag on every active rigid
 island sims. Runner: `out/direct-factor-feasibility-20260915/run-readiness-audit.sh`. Timing unchanged (ra1 21.6 vs
 ra0 21.1 ms with the audit's per-pass D2H). Stage 0 stays opt-in until stage 0(c) (device-owned active list) gives it
 a tick-time reason to ship.
+
+## Trial activity checkpoint on worker tasks (2026-09-18, default on)
+
+The trial pass's activity checkpoint (`captureDestructionActivity`: wake counter, sleep flags, readiness of both island
+sims and the wake-notify bit for every active rigid body, ~1.0 ms serial in `beforeSolver` on the g16 late window) now
+runs as 1,024-body chunks on worker tasks joined at `afterIntegration`, the first writer of the captured state
+(sleep check, activate/deactivate flags). Nothing between `beforeSolver` and `afterIntegration` writes those fields
+(the solver's CPU chain only reads; the issue-time sleep finalizer reads `eFIRST_BODY_COPY_GPU` and touches device
+state), so the records are identical. `PHYSX_DESTRUCTION_ACTIVITY_CAPTURE_TASKS=0` restores the inline loop.
+
+g16 3 s bombardment, three interleaved pairs (A = inline, B = tasks), identity 56,077 in all six:
+
+| run | A mean | B mean | A late | B late |
+|---|---:|---:|---:|---:|
+| 1 | 20.12 | 19.95 | 32.44 | 32.09 |
+| 2 | 20.01 | 19.92 | 32.04 | 31.93 |
+| 3 | 20.08 | 19.61 | 32.29 | 31.32 |
+
+Mean −0.24 ms, late −0.5 ms (the checkpoint sat between the island passes and the solver issue on the critical path;
+the rest of the before-solver chain still runs there). Runner: `out/direct-factor-feasibility-20260915/run-env-pairs.sh`.

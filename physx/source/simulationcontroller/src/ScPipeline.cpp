@@ -2081,7 +2081,36 @@ void Sc::Scene::publishDestructionQueryMembership()
     mDestructionQueryShapes.clear();
 }
 
-void Sc::Scene::captureDestructionActivity()
+namespace
+{
+    // One chunk of the trial activity checkpoint (README R6): records are written
+    // in place into the pre-sized array, so chunking keeps the array order.
+    class ScDestructionCaptureTask : public Cm::Task
+    {
+    public:
+        Sc::Scene* mScene; PxU32 mBegin, mEnd;
+        ScDestructionCaptureTask(PxU64 contextID, Sc::Scene* scene, PxU32 begin, PxU32 end) : Cm::Task(contextID), mScene(scene), mBegin(begin), mEnd(end) {}
+        virtual void runInternal() PX_OVERRIDE { mScene->captureDestructionActivityRange(mBegin, mEnd); }
+        virtual const char* getName() const PX_OVERRIDE { return "ScScene.destructionActivityCapture"; }
+    private:
+        PX_NOCOPY(ScDestructionCaptureTask)
+    };
+}
+void Sc::Scene::captureDestructionActivityRange(PxU32 begin, PxU32 end)
+{
+    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.activityCheckpointChunk",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    const auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+    const auto& speculative=mSimpleIslandManager->getSpeculativeIslandSim();
+    const auto* active=accurate.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    for(PxU32 i=begin;i<end;++i) {
+        auto* rigid=getRigidBodyFromIG(accurate,active[i]);
+        auto* body=reinterpret_cast<BodySim*>(reinterpret_cast<PxU8*>(rigid)-BodySim::getRigidBodyOffset());
+        mDestructionTrialActivity[i]={body,rigid->getCore().wakeCounter,
+            PxU16(rigid->mInternalFlags & PxsRigidBody::eSLEEPING_FLAGS),
+            bool(accurate.getNode(active[i]).isReadyForSleeping()),bool(speculative.getNode(active[i]).isReadyForSleeping()),bool(body->readInternalFlag(ActorSim::BF_WAKEUP_NOTIFY))};
+    }
+}
+void Sc::Scene::captureDestructionActivity(PxBaseTask* joinTask)
 {
     PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
         "GpuDestruction.task.activityCheckpoint",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
@@ -2105,14 +2134,21 @@ void Sc::Scene::captureDestructionActivity()
     const auto& speculative=mSimpleIslandManager->getSpeculativeIslandSim();
     const auto* active=accurate.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
     const PxU32 count=accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
-    mDestructionTrialActivity.reserve(count);
-    for(PxU32 i=0;i<count;++i) {
-        auto* rigid=getRigidBodyFromIG(accurate,active[i]);
-        auto* body=reinterpret_cast<BodySim*>(reinterpret_cast<PxU8*>(rigid)-BodySim::getRigidBodyOffset());
-        mDestructionTrialActivity.pushBack({body,rigid->getCore().wakeCounter,
-            PxU16(rigid->mInternalFlags & PxsRigidBody::eSLEEPING_FLAGS),
-            bool(accurate.getNode(active[i]).isReadyForSleeping()),bool(speculative.getNode(active[i]).isReadyForSleeping()),bool(body->readInternalFlag(ActorSim::BF_WAKEUP_NOTIFY))});
+    PX_UNUSED(active);PX_UNUSED(speculative);
+    // Chunked onto worker tasks (PHYSX_DESTRUCTION_ACTIVITY_CAPTURE_TASKS=0 keeps the
+    // inline loop). Nothing between beforeSolver and afterIntegration writes the
+    // captured fields (wake counters, sleep flags, readiness, wake notify), and the
+    // join task is the first writer, so the records are identical to the inline capture.
+    static const PxU32 chunk=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ACTIVITY_CAPTURE_TASKS");if(!raw)return 1024u;const int v=std::atoi(raw);return v<=0?0u:PxU32(v);}();
+    mDestructionTrialActivity.forceSize_Unsafe(0);mDestructionTrialActivity.resize(count);
+    if(joinTask && chunk && count>2u*chunk) {
+        Cm::FlushPool& flushPool=mLLContext->getTaskPool();
+        for(PxU32 begin=0;begin<count;begin+=chunk) {
+            ScDestructionCaptureTask* task=PX_PLACEMENT_NEW(flushPool.allocate(sizeof(ScDestructionCaptureTask)),ScDestructionCaptureTask)(mContextId,this,begin,PxMin(count,begin+chunk));
+            startTask(task,joinTask);
+        }
     }
+    else captureDestructionActivityRange(0,count);
 }
 void Sc::Scene::restoreDestructionActivity()
 {
@@ -2191,7 +2227,9 @@ void Sc::Scene::beforeSolver(PxBaseTask* continuation)
     PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
         mDestructionCorrectionInProgress?"GpuDestruction.detail.beforeSolver":"GpuDestruction.trialDetail.beforeSolver",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.updateForces", mContextId);
-    if(!mDestructionCorrectionInProgress)captureDestructionActivity();
+    // The activity checkpoint runs on worker tasks joined at afterIntegration (the
+    // first writer of the captured state); the solver's CPU chain no longer waits for it.
+    if(!mDestructionCorrectionInProgress)captureDestructionActivity(&mAfterIntegration);
 
 	// Note: For contact notifications it is important that force threshold checks are done after new/lost touches have been processed
 	//       because pairs might get added to the list processed below
