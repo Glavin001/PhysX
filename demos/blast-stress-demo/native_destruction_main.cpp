@@ -55,6 +55,7 @@ int run(int argc,char** argv){
     std::string geometryName="building";
     const auto initializationBegin=Clock::now();
     bool standardScene=true,standardSleeping=true,traceStress=false,sceneQueryShapes=true;
+    unsigned renderWidth=960,renderHeight=540;
     unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0,reservePairs=~0u;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
@@ -87,7 +88,8 @@ int run(int argc,char** argv){
         else if(flag=="--record-fps"){recordFps=std::stoul(value);require(recordFps==30 || recordFps==60,"--record-fps requires 30 or 60");}
         else if(flag=="--gpu-render"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-render requires 0 or 1");gpuRender=std::string(value)=="1";}
         else if(flag=="--gpu-video")videoPath=value;
-        else if(flag=="--gpu-camera"){gpuCamera=value;require(gpuCamera=="close" || gpuCamera=="overview" || gpuCamera=="diagnostic" || gpuCamera=="penetration","--gpu-camera requires close, overview, diagnostic or penetration");}
+        else if(flag=="--gpu-resolution"){const std::string v(value);const auto x=v.find('x');require(x!=std::string::npos,"--gpu-resolution requires WIDTHxHEIGHT");renderWidth=unsigned(std::atoi(v.substr(0,x).c_str()));renderHeight=unsigned(std::atoi(v.substr(x+1).c_str()));require(renderWidth>=320 && renderWidth<=3840 && renderHeight>=180 && renderHeight<=2160,"--gpu-resolution out of range");}
+        else if(flag=="--gpu-camera"){gpuCamera=value;require(gpuCamera=="close" || gpuCamera=="overview" || gpuCamera=="diagnostic" || gpuCamera=="penetration" || gpuCamera=="mid","--gpu-camera requires close, overview, diagnostic or penetration");}
         else if(flag=="--state-path")statePath=value;
         else if(flag=="--motion-path")motionPath=value;
         else if(flag=="--record-state"){require(std::string(value)=="0" || std::string(value)=="1","--record-state requires 0 or 1");recordState=std::string(value)=="1";}
@@ -207,6 +209,11 @@ int run(int argc,char** argv){
         const PxVec3 focus(grid==1?0:8,5,grid==1?0:8);
         gpuView.eye=focus+PxVec3(29,21,-39);gpuView.direction=(focus-gpuView.eye).getNormalized();
     }
+    if(gpuCamera=="mid") {
+        // A quarter of the city at building scale: look at the near corner quadrant from ~150 m.
+        const PxVec3 focus(float(grid-1)*3,6,float(grid-1)*3);
+        gpuView.eye=focus+PxVec3(-float(grid)*4.5f,float(grid)*3.2f,-float(grid)*6.5f);gpuView.direction=(focus-gpuView.eye).getNormalized();gpuView.fovDegrees=45;
+    }
     if(gpuCamera=="diagnostic") {
         const PxVec3 focus(0,6,0);gpuView.eye=PxVec3(26,15,-24);
         gpuView.direction=(focus-gpuView.eye).getNormalized();gpuView.fovDegrees=40;
@@ -223,10 +230,10 @@ int run(int argc,char** argv){
         motionTrace.open(motionPath);require(bool(motionTrace),"motion trace creation failed");motionTrace<<std::setprecision(9);
         motionTrace<<"step,chunk,root,slot,generation,body,cluster_chunks,supported,render_x,render_y,render_z,physics_x,physics_y,physics_z,com_x,com_y,com_z,vx,vy,vz,wx,wy,wz,origin_x,origin_y,origin_z,qx,qy,qz,qw,local_x,local_y,local_z,com_local_x,com_local_y,com_local_z,correction\n";
     }
-    if(gpuRender)gpuConsumer.enableRenderer(960,540,gpuView,videoPath,recordFps);
+    if(gpuRender)gpuConsumer.enableRenderer(renderWidth,renderHeight,gpuView,videoPath,recordFps);
     const bool observePoses=recordState || auditMotion;
     unsigned long long poseReadbackBytes=0,motionTraceReadbackBytes=0;float maxComError=0;
-    StateWriter writer;if(recordState)require(writer.open(statePath,recordFps,recordFrames,960,540,buildings,seconds,0,cameras),"state output failed");
+    StateWriter writer;if(recordState)require(writer.open(statePath,recordFps,recordFrames,renderWidth,renderHeight,buildings,seconds,0,cameras),"state output failed");
     if(recordState)for(unsigned i=0;i<chunks.size();++i){VisualActor visual;visual.parameters=half;visual.part=chunks[i].building%4;require(writer.defineActor(i,visual),"chunk visual definition failed");}
     std::ofstream telemetry(output+"/native.frames.csv");
     telemetry<<std::setprecision(17);

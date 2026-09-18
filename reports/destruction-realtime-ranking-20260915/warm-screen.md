@@ -2439,3 +2439,34 @@ optimization work. To take the measurement: build `out/sdk-release` then `out/de
 bombardment with the diag, and read the second refactoring line (`refactored=256`). If the affected share is under
 ~70 %, the partial refactorization (design in the previous section: mark changed columns, close over parents,
 recompute only those with the original gather order, zero departed rows in unchanged columns) is worth building.
+
+## Demo videos with perf overlays (2026-09-18), `videos/*-realtime.mp4`
+
+Recorded with the demo's CUDA renderer at 1920×1080 (`--gpu-render 1 --gpu-resolution 1920x1080 --gpu-video`,
+new flag `--gpu-resolution`, new camera `--gpu-camera mid` = a quarter of the city at building scale). Two overlay
+variants are generated from each recording by `tools/scripts/demo-videos/`:
+
+- `*.mp4` (in `out/demo-videos-20260918/`): 60 fps, one tick per frame, stats per tick.
+- `*-realtime.mp4` (committed here): **real-time playback** — every frame is held for max(16.7 ms, its physics step
+  time), so heavy ticks slow the video exactly as a game running this physics would (no speed-up over the budget).
+  The overlay shows wall vs simulation time, playback factor, FPS (0.5 s and 1 s rolling averages of the game-side
+  frame time, capped at 60), physics ms, stress solve ms, corrected pass, awake bodies, cumulative bonds broken,
+  contacts, and the running count of over-budget ticks.
+
+Physics timing is `physics_step_ms` (excludes the renderer's own cost) but the CUDA renderer shares the GPU, so the
+city256 numbers are ~1–2 ms above the headless runs (17–20 ms). The rendered bombardment breaks 62,665 bonds versus
+56,077 headless because the renderer registers the projectile visuals, which changes registration order.
+
+| video (…-realtime.mp4) | ticks | physics mean ms | max ms | ticks >16.7 ms | sim s → wall s | bonds broken |
+|---|---:|---:|---:|---:|---|---:|
+| through-wall | 360 | 2.64 | 13.7 | 0 | 6 → 6.0 | 182 |
+| building-close | 480 | 2.65 | 15.2 | 0 | 8 → 8.0 | 194 |
+| city256-close | 480 | 21.86 | 166.2 | 254 | 8 → 12.4 | 62,665 |
+| city256-mid | 480 | 20.86 | 107.0 | 247 | 8 → 12.1 | 62,665 |
+| city256-overview | 480 | 20.59 | 104.0 | 248 | 8 → 12.0 | 62,665 |
+| city16-staggered-close | 600 | 4.62 | 19.9 | 1 | 10 → 10.0 | 3,737 |
+| city16-staggered-mid | 600 | 4.52 | 19.2 | 1 | 10 → 10.0 | 3,737 |
+| city64-staggered-overview | 720 | 10.64 | 40.6 | 67 | 12 → 12.4 | 15,520 |
+| city64-staggered-mid | 720 | 10.64 | 41.3 | 65 | 12 → 12.4 | 15,520 |
+| city256-staggered-overview | 1200 | 20.91 | 56.9 | 894 | 20 → 27.0 | 67,021 |
+| city256-staggered-mid | 1200 | 20.81 | 46.9 | 881 | 20 → 26.9 | 67,021 |
