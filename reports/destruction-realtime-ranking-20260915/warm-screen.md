@@ -2098,3 +2098,27 @@ include): reverted. A higher-priority observe stream did not shorten the observe
 in the late window on this machine; the remaining ~2.7 ms of relocated waits are the next scheduling item
 (copy-backs and observation on streams that do not queue behind the stress chain, with the acceptance's writes
 joined explicitly).
+
+## Continuous 600-tick A/B/A of the mode-9 default (`direct-continuous-ab-20260917h2`, commit `d05a631c`)
+
+Same procedure (`run-destruction-ab.py --seconds 10`, two trials per arm, A/B/A, desktop stopped; exit 2 = the fixed
+8 ms gate). Candidate receipt `out/direct-ab-arms/B/correctness-20260917h.json`. Physical counter differences: none.
+
+| case | A before | B (mode 9 default) | A after |
+|---|---:|---:|---:|
+| impacts-256 mean | 55.04 / 54.97 ms | 18.19 / 18.26 | 54.31 / 55.14 |
+| impacts-256 peak | 185 / 213 | 96.4 / 95.8 | 196 / 193 |
+| impacts-256 60 Hz misses /600 | 519 / 519 | 247 / 247 | 519 / 519 |
+| idle-256 mean | 1.67 / 1.66 | 1.06 / 1.06 | 1.74 / 1.73 |
+
+Against the session-f defaults (`20260917g`: heavy 19.3 ms, misses 248–249, peak 98, idle 1.07) the mode-9 default
+is −1.1 ms on the heavy mean at identical counters; the day's shipped state is heavy 55.0 → 18.2 ms (3.0×), peak
+199 → 96, misses 519 → 247, idle 1.7 → 1.06.
+
+Warm screen note: the first two screens of this default (`17h`, `17h2`) were invalid: `17h` ran the 09-15 probe
+against a simulation core whose layout had changed (a data member added), faulting in every city window in both
+modes (sanitizer: illegal write in `updateTransformCacheAndBoundArrayLaunch`); after relinking the probes
+(`build-candidate-probes.py`) `17h2` passed bridge64, chain256, city25 (14.0 ms), city256 impact, debris and idle,
+and failed only city256-cascade-B with pinned host memory exhaustion in its second scene lifetime. The controller's
+transition buffer and events were not released on scene destruction; fixed, standalone cascade re-run and `17h3`
+below.

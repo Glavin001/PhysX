@@ -360,6 +360,9 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                 if(mNativeSleepPosed[k]) cuda->eventDestroy(mNativeSleepPosed[k]);
             }
             if(mNativeSleepReady) cuda->eventDestroy(mNativeSleepReady);
+            if(mDestructionTransitionPoses) cuda->memFree(mDestructionTransitionPoses);mDestructionTransitionPoses=0;mDestructionTransitionPoseCapacity=0;
+            if(mDestructionTransitionStaged) cuda->eventDestroy(mDestructionTransitionStaged);if(mDestructionTransitionGathered) cuda->eventDestroy(mDestructionTransitionGathered);if(mDestructionTransitionDone) cuda->eventDestroy(mDestructionTransitionDone);
+            mDestructionTransitionStaged=mDestructionTransitionGathered=mDestructionTransitionDone=NULL;
         }
 
 		PX_DELETE(mSimulationCore);
@@ -1358,7 +1361,11 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             }
             mDestructionSleepAuditCpu.forceSize_Unsafe(0);mDestructionSleepAuditNonRollback=0;
         }
-        if(usesDeviceDestructionContactInputs()) {
+        // Mode 9 submits at the solver issue, while the CPU's lost-contact stage may still
+        // mutate the narrowphase's removed-pair arrays that a graph rebuild reads; the
+        // prepare-time graph already serves the chain, so the reuse/rebuild is skipped there.
+        static const bool graphAtIssue=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_GRAPH_AT_ISSUE");return raw && raw[0]=='1';}();
+        if(usesDeviceDestructionContactInputs() && (destructionDeviceSleepMode()!=9 || graphAtIssue || mDestructionEarlyCommit)) {
             PxProfileScoped graph(PxGetProfilerCallback(),"GpuDestruction.task.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
             PxScopedCudaLock lock(*mCudaContextManager);
             if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return;
