@@ -2592,3 +2592,16 @@ With correct fragment–parent contacts the city bombardment now breaks 61,406 b
 buildings they fall inside) and the staggered city 63,026; the sustained city rate is unchanged (19–22 ms with the
 renderer sharing the GPU). The standing tower runs at 9.2 ms mean after its base hit; the toppling tower is the open
 performance item (88 ms mean, its 1,440-tick real-time video plays 130 s).
+
+### Requalification of the collision-fix default (2026-09-18, `out/direct-continuous-ab-20260918c-B`)
+
+Native tests 8/8. Continuous 600-tick, B arm (the fix + node limit 4096 + block cap 262,144), two trials:
+
+| case | mean ms | 60 Hz misses / 600 | peak ms |
+|---|---:|---:|---:|
+| idle-256 | 1.06 / 1.08 | 1 / 1 | 35 / 41 |
+| impacts-256 (heavy) | 18.51 / 18.01 | 259 / 257 | 95.9 / 98.1 |
+
+Versus the pre-fix default (17.4–18.1 ms, 246–248 misses, 97 ms): +0.5 ms mean and +10 misses from the contacts that
+were missing before; peaks unchanged. Fracture history differs by construction (fragments now push on their parent).
+This is the new reference for further optimisation work.
