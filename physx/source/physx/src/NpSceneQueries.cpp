@@ -110,6 +110,14 @@ PrunerHandle NpSqAdapter::findPrunerHandle(const PxQueryCache& cache, PrunerComp
 	const PxU32 actorIndex = getQueryActorIndex(npActor);
 
 	const ActorShapeData actorShapeData = mDatabase.find(actorIndex, &npActor, static_cast<NpShape*>(cache.shape));
+	if(actorShapeData == Gu::ACTOR_SHAPE_DATA_NOT_FOUND)
+	{
+		// The cached shape's owner is not in the database. Report no cache
+		// rather than decoding the sentinel into a plausible-looking handle.
+		compoundId = INVALID_COMPOUND_ID;
+		prunerIndex = 0xffffffff;
+		return INVALID_PRUNERHANDLE;
+	}
 
 	const PrunerData prunerData = getPrunerData(actorShapeData);
 	compoundId = getCompoundID(actorShapeData);
@@ -306,6 +314,7 @@ namespace
             const auto& source=NpActor::getFromPxActor(from);const auto& target=NpActor::getFromPxActor(to);
             const auto sourceIndex=getQueryActorIndex(source),targetIndex=getQueryActorIndex(target);
             const ActorShapeData data=mAdapter.mDatabase.find(sourceIndex,&source,&npShape);
+            if(data==Gu::ACTOR_SHAPE_DATA_NOT_FOUND)return false;
             if(getCompoundID(data)!=INVALID_COMPOUND_ID || getPrunerIndex(getPrunerData(data))!=PruningIndex::eDYNAMIC)return false;
             // Insert the new lookup before deleting the old one. Geometry,
             // transforms, dirty bounds, pruner handles and payloads all persist.
@@ -437,6 +446,14 @@ namespace
 			const PxU32 actorIndex = getQueryActorIndex(npActor);
 
 			const ActorShapeData actorShapeData = mAdapter.mDatabase.find(actorIndex, &npActor, &npShape);
+			if(actorShapeData == Gu::ACTOR_SHAPE_DATA_NOT_FOUND)
+			{
+				// No scene-query entry for this owner. The caller drops the
+				// shape from the bounds sync; decoding the sentinel would hand
+				// it a pruner index of 1 and a garbage handle.
+				prunerIndex = 0xffffffff;
+				return PxSQPrunerHandle(INVALID_PRUNERHANDLE);
+			}
 
 			const PrunerData prunerData = getPrunerData(actorShapeData);
 

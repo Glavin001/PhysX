@@ -135,7 +135,10 @@ ActorShapeData ActorShapeMap::find(PxU32 actorIndex, const void* actor, const vo
 	}
 
 	const PxHashMap<ActorShape, ActorShapeData>::Entry* e = mDatabase.find(ActorShape(actor, shape));
-	PX_ASSERT(e);
-	return e->second;
+	// Absent is a legitimate answer, not a programming error: see
+	// ACTOR_SHAPE_DATA_NOT_FOUND. This used to dereference the null entry,
+	// which in a release build is a segmentation fault in the middle of
+	// fetchResults.
+	return e ? e->second : ACTOR_SHAPE_DATA_NOT_FOUND;
 }
 

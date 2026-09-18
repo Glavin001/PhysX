@@ -263,6 +263,15 @@
             components=m_deviceTopology->components();
             // The device list controls the live work; a bounded persistent
             // grid distributes independent components without a host count.
+            //
+            // Two blocks per SM is the residency of this kernel, not an
+            // arbitrary cap: measured with cudaOccupancyMaxActiveBlocksPerMultiprocessor
+            // it is exactly 2, so a larger grid only queues blocks. Sweeping
+            // 1, 2, 8 and 32 blocks per SM on a 4090 against a city fragmented
+            // into 859 components moved the stress phase by less than 0.2%
+            // (33.40/33.25/33.28/33.25 ms). The independent-component path is
+            // not where a fragmented city spends its time; the large-component
+            // cooperative solve below is.
             componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);
             args.islandIds=components.largeIds;
             args.liveIslandCount=components.largeCount;

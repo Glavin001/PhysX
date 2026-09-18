@@ -280,7 +280,18 @@ void SqBoundsManagerEx::syncBounds(SqBoundsSync& sync, SqRefFinder& finder, cons
 			PxU32 prunerIndex = 0xffffffff;
 			const ScPrunerHandle prunerHandle = finder.find(static_cast<PxRigidBody*>(sim->getBodySim()->getPxActor()), sim->getPxShape(), prunerIndex);
 
-			PX_ASSERT(prunerIndex!=0xffffffff);
+			// The shape's owner is not in the scene-query database, so there is
+			// no pruner entry to keep in sync. This happens when the destruction
+			// stage rebinds a chunk shape onto a private fragment body: the
+			// shape is still a scene-query shape, but nothing ever registered
+			// the new owner. Drop it from the sync instead of indexing with an
+			// invalid pruner. The shape can be picked up again if it is ever
+			// rebound onto an owner the database does know.
+			if(prunerIndex==0xffffffff)
+			{
+				sim->setSqBoundsId(PX_INVALID_U32);
+				continue;
+			}
 
 			if(prunerIndex>=mPrunerSyncDataSize)
 				resize(prunerIndex);

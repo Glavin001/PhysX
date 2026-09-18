@@ -39,6 +39,13 @@ namespace Gu
 {
 	typedef PxU64	ActorShapeData;
 
+	// Returned by find() when the (actor, shape) pair is not in the database.
+	// A shape can outlive its registration -- the destruction stage moves chunk
+	// shapes onto private fragment bodies that were never added through the
+	// public API -- and the caller must be able to see that rather than read
+	// through a null hash entry.
+	static const ActorShapeData ACTOR_SHAPE_DATA_NOT_FOUND = ActorShapeData(-1);
+
 	#define	PX_INVALID_INDEX	0xffffffff
 
 	class ActorShapeMap

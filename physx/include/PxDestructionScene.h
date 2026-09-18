@@ -102,7 +102,10 @@ struct PxDestructionStageStatus {
                  // 64: resident stress topology update, 128: solver-body preparation,
                  // 256: native body allocation, 512: native GPU body initialization,
                  // 1024: persistent collision binding preparation; 2048: correction body preparation
-                 // 4096: unconverged stress solve in enabled native correction mode
+                 // 4096: retired -- an unconverged stress solve no longer fails the step.
+                 //       Read `converged` instead: a tick that has not converged keeps
+                 //       its warm-started iterate, withholds every fracture and crush
+                 //       verdict, and refines the same solve on the next tick.
                  // 8192: GPU contact lifetime space exhausted (scene cannot continue)
 
     PxU32 normalContacts, frictionAnchors;
