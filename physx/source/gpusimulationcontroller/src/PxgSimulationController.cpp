@@ -39,7 +39,8 @@ namespace {
 // end-of-tick state, are reinstated after the pass-start bounds refresh (cache
 // and bounds stay at start of step), map to the static solver body for the
 // pass and skip integration; the solver body list is unchanged.
-int islandScopedCorrectionMode() { static const int value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");return raw?std::atoi(raw):0;}(); return value; }
+// Default 6 (2026-09-18, owner approval): dormant corrected pass for islands without a correction target (README section 17, warm-screen.md ensemble verdict). 0 restores the full corrected pass.
+int islandScopedCorrectionMode() { static const int value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");return raw?std::atoi(raw):6;}(); return value; }
 bool islandScopedCorrectionEnabled() { return islandScopedCorrectionMode()!=0; }
 
 }

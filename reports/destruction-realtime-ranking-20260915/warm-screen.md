@@ -2379,3 +2379,19 @@ comparisons each with no created/removed handles, and the Y axis carries 85–90
 buildings' chunks every tick. The SAP cost after an impact is therefore the incremental sort work along the
 vertical axis, not handle churn; the levers are the broad-phase algorithm/axis choice (application-level) rather
 than the destruction pipeline. Not pursued further in this session.
+
+## Mode 6 (dormant corrected pass) is the default (2026-09-18, owner approval)
+
+`PHYSX_DESTRUCTION_ISLAND_SCOPE` now defaults to 6 (`PxgSimulationController.cpp`, `islandScopedCorrectionMode`);
+0 restores the full corrected pass. Acceptance path: the §11 order-perturbation ensemble (order-changing flip), rerun
+on the rebuilt SDK (`out/direct-ensemble-20260918-mode6`, four rotations per arm):
+
+| arm | bonds (rotations 0/7/101/1013) | median | clusters | mean ms | peak ms | 60 Hz misses | motion audit |
+|---|---|---:|---|---:|---:|---:|---:|
+| control (mode 0) | 56,077 / 58,680 / 60,797 / 58,237 | 58,458 | 12,248–14,337 | 19.7–21.3 (median 20.1) | 92–95 | 93–97 | ≤2.2e-5 |
+| mode 6 | 61,130 / 61,150 / 60,333 / 61,551 | 61,140 | 12,910–13,194 | 18.7–19.9 (median 19.2) | 95–98 | 94–98 | ≤3.1e-5 |
+
+Same verdict as 2026-09-17: mode 6 overlaps the top of the control's range (+4.6 % on the median), motion audits clean,
+no collapse without cause, and it is faster on the sustained mean (−0.9 ms median; g16 late window 31.4 → 29.7–30.0).
+Peaks are 2–3 ms higher (more fracture on the impact tick). Deterministic (61,130 on two consecutive runs). Native
+tests 8/8. Continuous 600-tick A/B (`out/direct-continuous-ab-20260918b`) below.
