@@ -2273,5 +2273,18 @@ on; the first differing nodes are the impact fragments (5460 onward), CPU "not r
 readiness write in `PxsIslandSim` records a delta (`addNode`, `activateNode`, `deactivateNode`, the `_ForGPUSolver`
 variants), so the gap is in the delta stream's order or capacity around the impact tick (thousands of births and
 island wakes in one pass), not a missing record; decisions are unaffected (identity holds in every variant).
-Next: a per-node delta trace (recorded values vs CPU flag transitions) for one fragment across the birth tick,
-then the device rule's own residual. Stage 0 stays opt-in and off.
+Resolved (same day): the differences were an audit artefact. The audit's mirror readback used a synchronous
+legacy-stream `cudaMemcpy`, which does not order after the runtime's non-blocking stream where this pass's deltas
+are applied; freshly added fragment nodes (mirror grown and zeroed, delta still in flight) read as "ready". With
+the readback issued on the delta stream and synchronized, both arms audit clean on every pass of the g16 run:
+
+| arm | env | passes | active-node checks (accurate / speculative) | diffs | bonds |
+|---|---|---:|---:|---:|---:|
+| ra0 (host deltas only) | `PHYSX_DESTRUCTION_READINESS_AUDIT=1` | 256 | 1,671,872 / n.a. | 0 | 56,077 |
+| ra1 (device readiness) | `+ PHYSX_DESTRUCTION_DEVICE_READINESS=1` | 256 | 1,671,872 / 1,695,340 | 0 | 56,077 |
+
+Stage-0 checkpoint met: the device-owned readiness mirror (solver frame flags applied on the device, host deltas
+for island wakes/deactivations/births) equals the CPU flag on every active rigid node at every prepare, in both
+island sims. Runner: `out/direct-factor-feasibility-20260915/run-readiness-audit.sh`. Timing unchanged (ra1 21.6 vs
+ra0 21.1 ms with the audit's per-pass D2H). Stage 0 stays opt-in until stage 0(c) (device-owned active list) gives it
+a tick-time reason to ship.

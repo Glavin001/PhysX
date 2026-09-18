@@ -2471,7 +2471,11 @@ public:
         try {
             Context current(mContext);
             if(n>mReadinessMirrorHostCapacity){if(mReadinessMirrorHost)cudaFreeHost(mReadinessMirrorHost);mReadinessMirrorHost=nullptr;check(cudaMallocHost(reinterpret_cast<void**>(&mReadinessMirrorHost),n));mReadinessMirrorHostCapacity=n;}
-            check(cudaMemcpy(mReadinessMirrorHost,mReadinessMirror[slot],n,cudaMemcpyDeviceToHost));
+            // Audit readback: order after this pass's delta application on mStream
+            // (non-blocking stream; a legacy-stream cudaMemcpy would read the mirror
+            // before the pending deltas of freshly added nodes land).
+            check(cudaMemcpyAsync(mReadinessMirrorHost,mReadinessMirror[slot],n,cudaMemcpyDeviceToHost,mStream));
+            check(cudaStreamSynchronize(mStream));
             capacity=n;return mReadinessMirrorHost;
         }catch(...){return nullptr;}
     }
