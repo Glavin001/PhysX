@@ -2242,3 +2242,27 @@ chain plus the contention with the refactor, not broad-phase work (0.5 ms; regio
 refactor cannot be deferred without delaying the corrected stress solve it feeds (it finishes at ~7.9 ms, the
 corrected stress solve starts at ~8–9 ms). Candidate closed; the corrected pass's remaining levers are its scope
 (mode 6) and the per-pass CPU pipeline (R2 core).
+
+## R2 core stage 0 started (2026-09-18): device-owned solver readiness and a pre-solve device verdict (opt-in, off)
+
+Two env-gated pieces, both lossless on the g16 bombardment (56,077 bonds in every variant):
+
+1. `PHYSX_DESTRUCTION_DEVICE_READINESS=1` (modes 8/9): after integration a device kernel applies the solver's
+   `eACTIVATE_THIS_FRAME`/`eDEACTIVATE_THIS_FRAME` flags to both readiness mirrors (nodes of this pass's fresh
+   deactivation list are left as the island generation set them) and the host pauses delta recording around its
+   own application of the same rule (`ScAfterIntegrationTask`). Audit (`PHYSX_DESTRUCTION_READINESS_AUDIT=1`,
+   mirror vs CPU flags at prepare, all non-deleted rigid nodes): 0.57 % accurate / 0.49 % speculative differ over
+   1.8 M checks; the control with host deltas only differs on 0.24 %. The differences do not change decisions
+   (identity holds) because the audit counts sleeping nodes whose flags are never evaluated; the audit must be
+   restricted to active nodes before this becomes a stage-0 checkpoint.
+2. `PHYSX_DESTRUCTION_DEVICE_VERDICT=1` (with 1): the two mirrors are reduced over this pass's repair-graph labels
+   on the observation stream right after the graph build and copied back with the component observation; both
+   CPU island sims consume the per-node verdict (mode-4 semantics) and skip their readiness walk. Lossless.
+   Late-window CPU zones: accurate/speculative island maintenance 1.16/1.05 → 0.96/0.87 ms, deactivation
+   0.61/0.47 → 0.42/0.30; but `waitForGpu` 4.69 → 5.62 and `prepareIslandRepair` +0.32 (the verdict join), tick
+   20.50 → 20.68 (noise), late 32.75 → 32.99. As predicted from the mode-9 profile, the CPU third pass overlaps
+   the device chain, so cheaper island work only relocates the wait.
+
+Conclusion for the R2 core: readiness and sleep verdicts can be device-owned exactly (decisions identical), but no
+tick time is released until the CPU island sims stop being the source of the solver's active list and the
+registration pipeline (stages 0(c) onward, order-changing by body order, ensemble-judged). The pieces stay opt-in.

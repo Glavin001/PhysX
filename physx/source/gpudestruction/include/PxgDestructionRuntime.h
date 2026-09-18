@@ -156,6 +156,16 @@ public:
     virtual bool enqueueDeviceSleepTransition(const PxNodeIndex* nodes, PxU32 count, PxU32 firstRigid, CUstream solverStream, const PxU32* carried, PxU32 carriedCount) = 0; // solver bodies [firstRigid, count) are rigid dynamics
     virtual PxU32 readDeviceSleepTransition(const PxU32*& list) = 0;
     virtual PxU32 readDeviceSleepApply(const PxU32*& list) = 0; // synchronous audit readback of the apply list
+    // R2 stage 0: apply the solver's activate/deactivate frame flags to both readiness
+    // mirrors after integration (nodes of this pass's fresh deactivation list are left
+    // as the island generation set them), replacing the host's recorded deltas.
+    // R2 stage 0(b): pre-solve device verdict. Reduces both readiness mirrors over this
+    // pass's repair-graph labels on the observation stream (after the graph build) and
+    // copies the per-node verdicts (1 = not ready) back with the component observation;
+    // deviceSleepVerdict returns the host copy after observeContactComponents synchronised.
+    virtual bool enqueueDeviceSleepVerdicts() = 0;
+    virtual const PxU8* deviceSleepVerdict(bool speculative, PxU32& capacity) = 0;
+    virtual bool enqueueDeviceReadinessFromSleep(const PxNodeIndex* nodes, const struct PxgSolverBodySleepData* sleep, PxU32 firstRigid, PxU32 count, CUstream solverStream) = 0;
     // The list the transition applies: this pass's fresh list plus, on a corrected
     // pass, every fresh list since the tick's trial (the CPU's rollback set carries
     // those through afterIntegration). Device pointers, valid after the ready event.

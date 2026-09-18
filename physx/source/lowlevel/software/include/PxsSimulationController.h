@@ -324,6 +324,9 @@ namespace physx
         // snapshot loads, user sleeps). Registered each pass by the scene; the device sleep
         // transition applies it before an issue-time stress submit.
         virtual void registerDestructionSleepFinalizer(bool (*)(void*), void*) {}
+        // R2 stage 0: the device applies the solver's activate/deactivate frame flags to its
+        // readiness mirrors; the host's after-integration application must not record deltas.
+        virtual bool deviceOwnsSolverReadiness() const { return false; }
         // Island-scoped correction: rigid nodes whose islands hold no correction
         // target and stay at their trial result for the corrected pass.
         virtual const PxU32* destructionParkedNodes(PxU32& count) const { count=0; return NULL; }

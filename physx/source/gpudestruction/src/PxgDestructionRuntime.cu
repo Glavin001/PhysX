@@ -159,6 +159,19 @@ __global__ void collectSleepTransitions(const PxNodeIndex* nodes,unsigned first,
     list[atomicAdd(counter,1u)]=n;
     const unsigned k=atomicAdd(applyCounter,1u);if(k<applyCapacity)apply[k]=n;
 }
+// R2 stage 0: solver-driven readiness on the device. Mirrors store "not ready".
+__global__ void markFreshDeactivations(const unsigned* list,const unsigned* count,unsigned char* fresh,unsigned capacity) {
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=*count)return;const unsigned n=list[i];if(n<capacity)fresh[n]=1;
+}
+__global__ void readinessFromSleep(const PxNodeIndex* nodes,const PxgSolverBodySleepData* sleep,unsigned first,unsigned count,
+    const unsigned char* fresh,unsigned capacity,unsigned char* mirror0,unsigned char* mirror1,unsigned activateFlag,unsigned deactivateFlag) {
+    const unsigned i=first+blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxNodeIndex node=nodes[i];if(node.isArticulation())return;
+    const unsigned n=node.index();if(n>=capacity || fresh[n])return;
+    const unsigned flags=sleep[i].internalFlags;
+    if(flags&activateFlag){mirror0[n]=1u;mirror1[n]=1u;}
+    else if(flags&deactivateFlag){mirror0[n]=0u;mirror1[n]=0u;}
+}
 __global__ void sleepComponentFromFlags(const unsigned char* notReady,const unsigned* labels,unsigned capacity,unsigned char* componentNotReady) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i>=capacity || !notReady[i])return;
@@ -1310,7 +1323,7 @@ public:
         mSleepComponentNotReady=mSleepNodeNotReady=mSleepOwnNotReady=mHostSleepNodeNotReady=nullptr;mSleepVerdictCapacity=mSleepVerdictCount=0;mSleepVerdictPending=false;
         delete[] mHostSleepPublished;mHostSleepPublished=nullptr;mHostSleepPublishedCapacity=mSleepPublishedCount=0;mPreSolveLabelCount=0;
         cudaFree(mSleepTransitionList);cudaFree(mSleepTransitionCount);cudaFree(mSleepTransitionComponent);mSleepTransitionList=mSleepTransitionCount=nullptr;mSleepTransitionComponent=nullptr;cudaFree(mSleepApplyList);cudaFree(mSleepApplyCount);mSleepApplyList=mSleepApplyCount=nullptr;mSleepApplyCapacity=0;
-        mSleepTransitionCapacity=mSleepTransitionComponentCapacity=0;delete[] mSleepTransitionHost;mSleepTransitionHost=nullptr;mSleepTransitionHostCapacity=0;delete[] mSleepApplyHost;mSleepApplyHost=nullptr;mSleepApplyHostCapacity=0;if(mSleepCarryStaging)cudaFreeHost(mSleepCarryStaging);mSleepCarryStaging=nullptr;mSleepCarryStagingCapacity=0;
+        mSleepTransitionCapacity=mSleepTransitionComponentCapacity=0;delete[] mSleepTransitionHost;mSleepTransitionHost=nullptr;mSleepTransitionHostCapacity=0;delete[] mSleepApplyHost;mSleepApplyHost=nullptr;mSleepApplyHostCapacity=0;cudaFree(mFreshBits);mFreshBits=nullptr;mFreshBitsCapacity=0;for(int k=0;k<2;++k){cudaFree(mVerdictComponent[k]);cudaFree(mVerdictDevice[k]);if(mVerdictHost[k])cudaFreeHost(mVerdictHost[k]);mVerdictComponent[k]=mVerdictDevice[k]=mVerdictHost[k]=nullptr;}mVerdictCapacity=0;mVerdictPending=false;if(mSleepCarryStaging)cudaFreeHost(mSleepCarryStaging);mSleepCarryStaging=nullptr;mSleepCarryStagingCapacity=0;
         if(mSleepTransitionReady)cudaEventDestroy(mSleepTransitionReady);if(mSleepMirrorReady)cudaEventDestroy(mSleepMirrorReady);mSleepTransitionReady=mSleepMirrorReady=nullptr;mSleepTransitionPending=false;
         cudaFree(mReadinessUpload);if(mReadinessHost)cudaFreeHost(mReadinessHost);mReadinessUpload=mReadinessHost=nullptr;mReadinessCapacity=0;
         for(int k=0;k<2;++k){cudaFree(mReadinessVerdict[k]);if(mReadinessVerdictHost[k])cudaFreeHost(mReadinessVerdictHost[k]);mReadinessVerdict[k]=mReadinessVerdictHost[k]=nullptr;}mReadinessVerdictCapacity=0;
@@ -2386,6 +2399,61 @@ public:
         }catch(...){return 0;}
     }
     unsigned* mSleepApplyHost=nullptr;PxU32 mSleepApplyHostCapacity=0;
+    unsigned char* mFreshBits=nullptr;PxU32 mFreshBitsCapacity=0;
+    bool enqueueDeviceReadinessFromSleep(const PxNodeIndex* nodes,const PxgSolverBodySleepData* sleep,PxU32 firstRigid,PxU32 count,CUstream solverStream) override {
+        const PxU32 capacity=mGraphView.nodeCapacity;
+        if(!mSleepTransitionPending || !nodes || !sleep || !solverStream || !capacity)return false;
+        try {
+            Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(solverStream);
+            if(!growReadinessMirror(0,capacity,mStream) || !growReadinessMirror(1,capacity,mStream))return false;
+            if(capacity>mFreshBitsCapacity){cudaFree(mFreshBits);mFreshBits=nullptr;check(cudaMalloc(reinterpret_cast<void**>(&mFreshBits),capacity));mFreshBitsCapacity=capacity;}
+            check(cudaStreamWaitEvent(stream,mSleepMirrorReady,0)); // both mirrors grown/updated on mStream
+            check(cudaMemsetAsync(mFreshBits,0,capacity,stream));
+            markFreshDeactivations<<<(count+255u)/256u,256,0,stream>>>(mSleepTransitionList,mSleepTransitionCount,mFreshBits,capacity);
+            if(count>firstRigid)readinessFromSleep<<<(count-firstRigid+255u)/256u,256,0,stream>>>(nodes,sleep,firstRigid,count,mFreshBits,capacity,mReadinessMirror[0],mReadinessMirror[1],
+                PxU32(PxsRigidBody::eACTIVATE_THIS_FRAME),PxU32(PxsRigidBody::eDEACTIVATE_THIS_FRAME));
+            check(cudaGetLastError());
+            // The next pass's delta upload and reduction on mStream follow this.
+            check(cudaEventRecord(mSleepTransitionReady,stream));check(cudaStreamWaitEvent(mStream,mSleepTransitionReady,0));
+            return true;
+        }catch(...){return false;}
+    }
+    unsigned char* mVerdictComponent[2]={nullptr,nullptr};unsigned char* mVerdictDevice[2]={nullptr,nullptr};unsigned char* mVerdictHost[2]={nullptr,nullptr};PxU32 mVerdictCapacity=0;bool mVerdictPending=false;
+    bool enqueueDeviceSleepVerdicts() override {
+        mVerdictPending=false;
+        const PxU32 capacity=mGraphView.nodeCapacity;
+        if(!capacity || !mGraphAccurate || !mGraphSpeculative)return false;
+        try {
+            Context current(mContext);
+            if(!mObserveStream){int lo=0,hi=0;cudaDeviceGetStreamPriorityRange(&lo,&hi);check(cudaStreamCreateWithPriority(&mObserveStream,cudaStreamNonBlocking,hi));}
+            const auto stream=mObserveStream;
+            if(!growReadinessMirror(0,capacity,mStream) || !growReadinessMirror(1,capacity,mStream))return false;
+            if(capacity>mVerdictCapacity){
+                for(int k=0;k<2;++k){cudaFree(mVerdictComponent[k]);cudaFree(mVerdictDevice[k]);if(mVerdictHost[k])cudaFreeHost(mVerdictHost[k]);
+                    check(cudaMalloc(reinterpret_cast<void**>(&mVerdictComponent[k]),capacity));check(cudaMalloc(reinterpret_cast<void**>(&mVerdictDevice[k]),capacity));check(cudaMallocHost(reinterpret_cast<void**>(&mVerdictHost[k]),capacity));}
+                mVerdictCapacity=capacity;}
+            // Mirrors: the host deltas were applied on mStream before this call; the
+            // device readiness of the previous pass was joined to mStream as well.
+            if(!mSleepMirrorReady)check(cudaEventCreateWithFlags(&mSleepMirrorReady,cudaEventDisableTiming));
+            check(cudaEventRecord(mSleepMirrorReady,mStream));check(cudaStreamWaitEvent(stream,mSleepMirrorReady,0));
+            check(cudaStreamWaitEvent(stream,mGraphReady,0));
+            for(int k=0;k<2;++k){
+                const unsigned* labels=k?mGraphSpeculative:mGraphAccurate;
+                check(cudaMemsetAsync(mVerdictComponent[k],0,capacity,stream));
+                sleepComponentFromFlags<<<(capacity+255u)/256u,256,0,stream>>>(mReadinessMirror[k],labels,capacity,mVerdictComponent[k]);
+                sleepNodeVerdict<<<(capacity+255u)/256u,256,0,stream>>>(labels,capacity,mVerdictComponent[k],mReadinessMirror[k],mVerdictDevice[k]);
+                check(cudaMemcpyAsync(mVerdictHost[k],mVerdictDevice[k],capacity,cudaMemcpyDeviceToHost,stream));
+            }
+            check(cudaGetLastError());mVerdictPending=true;mVerdictSynced=false;return true;
+        }catch(...){return false;}
+    }
+    bool mVerdictSynced=false;
+    const PxU8* deviceSleepVerdict(bool speculative,PxU32& capacity) override {
+        capacity=0;if(!mVerdictPending)return nullptr;
+        // The observation may not run on every pass: join the observe stream once here.
+        if(!mVerdictSynced){try{Context current(mContext);check(cudaStreamSynchronize(mObserveStream));mVerdictSynced=true;}catch(...){return nullptr;}}
+        capacity=mVerdictCapacity;return mVerdictHost[speculative?1:0];
+    }
     PxU32 readDeviceSleepApply(const PxU32*& list) override {
         list=nullptr;if(!mSleepTransitionPending || !mSleepApplyList || !mSleepApplyCount)return 0;
         try {

@@ -863,6 +863,14 @@ contact-manager preallocation and registration from the impact tick. Each
 of these is a fidelity-neutral but non-bitwise change (body order), so the
 physical gates are the acceptance path from the first step.
 
+### R2 core stage 0 (2026-09-18)
+
+Built opt-in (`warm-screen.md`): device-owned solver readiness (mirror updated on the device from the solver's frame
+flags; host delta recording paused) and a pre-solve device verdict consumed by both CPU island sims (mode-4
+semantics). Lossless; the third pass's CPU zones drop ~0.75 ms per tick but the tick is neutral because that work
+overlaps the device chain. Next stage-0 items: active-node-only readiness audit (checkpoint 0), then a device-owned
+active list for the solver (order-changing, ensemble-judged), then the registration retirements of §12.
+
 ## 11. State at the end of 2026-09-16 (session c)
 
 Shipped defaults (all lossless, bit-identical histories on the g16 screen,

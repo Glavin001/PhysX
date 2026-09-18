@@ -778,7 +778,7 @@ public:
 	// into a preallocated buffer; overflow is reported so the consumer reseeds.
 	PX_FORCE_INLINE void noteReadiness(PxU32 index, bool ready)
 	{
-		if(!mReadinessRecording) return;
+		if(!mReadinessRecording || mReadinessPaused) return;
 		const PxU32 slot = PxU32(PxAtomicIncrement(&mReadinessDeltaCount)) - 1u;
 		if(slot < mReadinessDeltas.size()) mReadinessDeltas[slot] = (index << 1) | (ready ? 1u : 0u);
 		else mReadinessDeltaOverflow = true;
@@ -798,6 +798,10 @@ public:
 	PxArray<PxU32> mReadinessDeltas;
 	volatile PxI32 mReadinessDeltaCount = 0;
 	bool mReadinessRecording = false, mReadinessDeltaOverflow = false;
+	// R2 stage 0: solver-driven readiness changes are applied on the device; the host
+	// pauses delta recording around its own application of the same rule.
+	bool mReadinessPaused = false;
+	PX_FORCE_INLINE void pauseReadinessRecording(bool pause) { mReadinessPaused = pause; }
 	// R2 core: islands with a node woken this frame by a CPU-side path cannot be
 	// deactivated by a device verdict (the device saw only the solver's flags).
 	PX_INLINE void noteNodeWoken(PxU32 index)

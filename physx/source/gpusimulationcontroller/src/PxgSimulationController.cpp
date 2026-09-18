@@ -790,6 +790,14 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     // and/or keep the stress submit at the CPU arm instead of the solver issue.
     static bool deviceSleepKeepCpuCommit(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_KEEP_CPU");return raw && raw[0]=='1';}();return v;}
     static unsigned deviceSleepKernelMask(){static const unsigned v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_KERNELS");return raw?unsigned(std::atoi(raw)):7u;}();return v;}
+    // R2 stage 0 (PHYSX_DESTRUCTION_DEVICE_READINESS=1, modes 8/9): the device applies the
+    // solver's frame flags to its readiness mirrors; the host stops recording those deltas.
+    static bool deviceReadinessEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_READINESS");return raw && raw[0]=='1';}();return v;}
+    // R2 stage 0(b) (PHYSX_DESTRUCTION_DEVICE_VERDICT=1, modes 8/9 with device readiness): the
+    // CPU island sims consume the pre-solve device verdict (mode-4 semantics) instead of walking.
+    static bool deviceVerdictEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_VERDICT");return raw && raw[0]=='1';}();return v;}
+    static bool readinessAuditEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_READINESS_AUDIT");return raw && raw[0]=='1';}();return v;}
+    bool PxgSimulationController::deviceOwnsSolverReadiness() const { return destructionDeviceSleepMode()>=8 && deviceReadinessEnabled(); }
     static bool deviceSleepAtArm(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_AT_ARM");return raw && raw[0]=='1';}();return v;}
     static bool deviceSleepSubmitAtArm(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_SUBMIT_AT_ARM");return raw && raw[0]=='1';}();return v;}
 
@@ -829,7 +837,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                 // reduction reads the mirror. Mode 7 also audits mirror == CPU flags.
                 // Modes 8/9 (device sleep transition, README §14) keep only the
                 // accurate mirror and reduce on the device at the solver issue.
-                for(int which=0;which<(deviceSleep>=8?1:2);++which) {
+                for(int which=0;which<((deviceSleep>=8 && !deviceReadinessEnabled())?1:2);++which) {
                     IG::IslandSim& sim=which?islands.getSpeculativeIslandSim():islands.getAccurateIslandSim();
                     const PxU32 nodeCount=sim.getNbNodes();
                     const auto cpuFlags=[&](PxU32 i){const IG::Node& node=sim.getNode(PxNodeIndex(i));
@@ -845,10 +853,11 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                         if(!mDestruction->applyReadinessDeltas(deltas,deltaCount,which!=0))mDestructionReadinessSeeded[which]=false;
                     }
                     sim.clearReadinessDeltas(PxMax(4u*nodeCount,65536u));
-                    if(deviceSleep>=8)continue;
+                    if(deviceSleep<8){
                     PxU32 capacity=0;const PxU8* verdicts=mDestructionReadinessSeeded[which]?mDestruction->reduceMirroredReadiness(which!=0,capacity):NULL;
                     if(verdicts && capacity)sim.setGpuSleepVerdicts(verdicts,capacity,deviceSleep==6?4u:5u,0);
-                    if(deviceSleep==7) {
+                    }
+                    if(deviceSleep==7 || readinessAuditEnabled()) {
                         PxU32 mirrorCapacity=0;const PxU8* mirror=mDestruction->readinessMirror(which!=0,mirrorCapacity);
                         static PxU64 passes[2]={0,0},checked[2]={0,0},diffs[2]={0,0};++passes[which];
                         if(mirror){
@@ -888,6 +897,9 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                 if(verdicts && capacity){islands.getAccurateIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),tag);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),tag);}
             }
         }
+        if(destructionDeviceSleepMode()>=8 && deviceReadinessEnabled() && deviceVerdictEnabled() && mDestructionReadinessSeeded[0] && mDestructionReadinessSeeded[1])
+            mDestructionVerdictEnqueued=mDestruction->enqueueDeviceSleepVerdicts();
+        else mDestructionVerdictEnqueued=false;
         if(destructionDeviceSleepMode()>=8){
             mDestructionAuditIslands=&islands;mDestructionInPrepare=true;
             if(destructionDeviceSleepMode()==8){const IG::IslandSim& sim=islands.getAccurateIslandSim();const PxU32 n=sim.getNbNodes();
@@ -911,6 +923,11 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
             PxProfileScoped install(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair.installComponents",false,PxU64(reinterpret_cast<size_t>(this)));
             islands.getAccurateIslandSim().setGpuContactComponents(accurate,aMembers,count);
             islands.getSpeculativeIslandSim().setGpuContactComponents(speculative,sMembers,count);
+        }
+        if(mDestructionVerdictEnqueued) {
+            // The observation synchronised the observe stream: the verdict copies are complete.
+            for(int which=0;which<2;++which){PxU32 cap=0;const PxU8* v=mDestruction->deviceSleepVerdict(which!=0,cap);
+                if(v && cap)(which?islands.getSpeculativeIslandSim():islands.getAccurateIslandSim()).setGpuSleepVerdicts(v,cap,4u,0);}
         }
     }
 
@@ -1140,6 +1157,7 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         }
         PxScopedCudaLock lock(*mCudaContextManager);
         mDestructionTransitionEnqueued=mDestruction->enqueueDeviceSleepTransition(core->getGpuIslandNodeIndices().getPointer(),bodies,1u+mDynamicContext->getKinematicCount(),core->getStream(),mDestructionCarried.begin(),mDestructionCarried.size());
+        if(mDestructionTransitionEnqueued && deviceReadinessEnabled())mDestruction->enqueueDeviceReadinessFromSleep(core->getGpuIslandNodeIndices().getPointer(),core->getSolverBodySleepData().getPointer(),1u+mDynamicContext->getKinematicCount(),bodies,core->getStream());
         if(destructionDeviceSleepMode()==9 && mDestructionTransitionEnqueued && !deviceSleepAtArm()) {
             PxMutex::ScopedLock early(mDestructionEarlyMutex);
             if(mDestructionEarlySubmitted)return;

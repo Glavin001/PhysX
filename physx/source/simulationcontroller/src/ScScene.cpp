@@ -227,11 +227,17 @@ namespace
 					unfrozen[i]->createSqBounds();
 				}
 			
+				// R2 stage 0: when the device applies the solver's frame flags to its readiness
+				// mirrors, the host's identical application must not be recorded as deltas.
+				const bool deviceReadiness = mScene.getSimulationController()->deviceOwnsSolverReadiness();
+				IG::SimpleIslandManager* islands = mScene.getSimpleIslandManager();
+				if(deviceReadiness){islands->getAccurateIslandSim().pauseReadinessRecording(true);islands->getSpeculativeIslandSim().pauseReadinessRecording(true);}
 				for(PxU32 i = 0; i < nbActivated; ++i)
 					activateBodies[i]->notifyNotReadyForSleeping();
 
 				for(PxU32 i = 0; i < nbDeactivated; ++i)
 					deactivateBodies[i]->notifyReadyForSleeping();
+				if(deviceReadiness){islands->getAccurateIslandSim().pauseReadinessRecording(false);islands->getSpeculativeIslandSim().pauseReadinessRecording(false);}
 
 				mContext->getLock().unlock();
 			}
