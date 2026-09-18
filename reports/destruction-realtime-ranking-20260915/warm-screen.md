@@ -2412,3 +2412,19 @@ fair mode 0 figure today is lower still). The 3 s ensemble gain (−0.9 ms media
 window. The default is back to 0; mode 6 stays opt-in on fidelity grounds only (`PHYSX_DESTRUCTION_ISLAND_SCOPE=6`).
 Lesson for the §11 protocol: order-changing candidates must also be judged on the 600-tick trajectory, not only the
 3 s ensemble, because fracture-count differences compound.
+
+### Impact-tick refactor burst sized (2026-09-18)
+
+`BLAST_GPU_NATIVE_DIRECT_DIAG=1` at the 256-impact tick: `refactored=256 refactorSizes=0/0/256 nodes=91,904
+bigInvalidated=256` — the 22 ms burst is the 256 impacted buildings' fresh factors (≈359 present nodes of 380 each,
+≈112 removed bonds each, far beyond the 16-bond Woodbury cap), not fragment components. Under full occupancy
+(288 CTAs, 8 per SM) each factor takes the whole 22 ms wave; alone it takes 2.7 ms, so the burst is throughput-bound
+at ~1 TFLOP/s effective (6×6 block arithmetic with per-column barriers).
+
+Candidate: partial refactorization from the intact factor. The kernel is left-looking over an elimination-tree level
+schedule, so a column whose subtree saw no change (no removed bond, no departed node) keeps its factor bit-for-bit;
+only the elimination-tree closure of the changed columns must be recomputed, with the same gather order (unchanged
+tail columns still apply their right-looking rank-6 updates into affected later columns, in the original k order, so
+the sums round identically). Needs a per-slot alive-bond bitmask at factor time (the Woodbury list is capped at 16).
+Gate before building it: the affected-column and affected-block fraction of the 256 impact factors, measured in the
+kernel (next diagnostic). If the affected share is above ~70 % the item is closed.
