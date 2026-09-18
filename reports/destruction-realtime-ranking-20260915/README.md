@@ -1039,8 +1039,9 @@ g16 histories, tests 8/8, all nine warm windows pass with identical signatures (
 impact 57.5, debris 62.2, city25 13.6). Three findings were needed: the device reduction is exact; the CPU's
 "carried" re-application at the corrected commit is a no-op on the device and must not be mirrored; bodies pending
 outside the island passes (snapshot loads, user sleeps) must be finalized before the issue-time submit (pending-only
-finalizer), and the issue-time submit must not rebuild the contact graph (it races `removeLostPairs`). Remaining
-scheduling: copy-back and observation queue behind the early chain (~2.7 ms of relocated waits, `warm-screen.md`).
+finalizer), and the issue-time submit must not rebuild the contact graph (it races `removeLostPairs`). The
+"relocated waits" (copy-back and observation behind the early chain) are not separately recoverable: the CPU parks
+there until the same verdict (`warm-screen.md`, closing analysis).
 
 ## 15. R5 route refined from the measurements (2026-09-17): dormant masks, no island parking
 

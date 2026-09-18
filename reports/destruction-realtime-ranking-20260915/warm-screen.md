@@ -2197,3 +2197,18 @@ Campaign state after this commit: sustained city256 heavy tick 54 → 17.4–18.
 every change lossless (identical histories and signatures). Remaining plan items: R2 registry migration (steps 6/7,
 impact tick), the relocated copy-back/observe waits behind the early chain (~2.7 ms), R5 CPU-level scoping of the
 corrected pass (mode 6 opt-in awaiting the owner's decision).
+
+### Closing analysis of the "relocated waits" after mode 9 (2026-09-18)
+
+The phase profile after the mode-9 default shows `waitForGpu` 8.0 → 4.9 ms per tick while `bodyDmaWait` and
+`observeComponents` rose 0.3 → 2.0 and 1.0 → 2.0. The GPU-wait zones sum to 8.9 ms (mode 9) against 9.3 (mode 0)
+while the tick fell by 1.1 ms: the CPU simply parks in different zones until the same stress verdict, whose device
+critical path is what shortened. Nothing the CPU does after those waits can proceed without the verdict, so the
+waits are not separately recoverable; the only levers left on the sustained tick are the device critical path
+(stress solve, throughput-bound; the corrected pass, mode 6) and the CPU pipeline itself. An attempt to join the
+copy-back to a mid-stream event confirmed the dependency is real (identity broke). Item closed.
+
+Remaining plan items and their nature: R2 step 6 (skip island insertion and manager registration for native pairs
+at the impact tick) is order-changing and worth at most ~7 ms of a ~97 ms impact tick; step 7 (device retained-edge
+deltas) replaces well under 0.5 ms of host staging; R5 beyond mode 6 is multi-week and mode 6 itself awaits the
+owner's decision (+4.6 % bonds under the ensemble, −1.2 ms mean, −2.5 ms late window).
