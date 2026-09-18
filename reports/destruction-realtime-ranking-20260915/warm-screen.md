@@ -2349,3 +2349,16 @@ Versus 18a (cascade 55.9, impact 57.5, debris 62.2, city25 13.6, idle 1.94): cas
 Measurement note: the demo's phase profiler inflates the g16 impact tick from 93–98 ms (unprofiled runs) to 105–121 ms,
 mostly through the four per-shape `migrateDetail.*` zones (5,492 shapes × 4 zones); those zones are now gated behind
 `PHYSX_DESTRUCTION_PROFILE_FINE=1` so `--profile-phases 1` attributes the impact tick honestly.
+
+### Body pool re-measured on the 18c defaults: still rejected (2026-09-18)
+
+`PHYSX_DESTRUCTION_BODY_POOL=auto` (pre-created fragment bodies; the impact tick's serial `allocateNativeBodies` is
+7.5 ms on the honest profile) changes the history (59,991 bonds vs 56,077 in all three pairs: body handles and thus
+registration order differ) and is slower: mean 21.38/21.50/21.38 vs 19.96/20.03/20.06, late 35.6/35.2/35.4 vs
+32.0/32.1/31.9. Off.
+
+Honest impact tick (`--profile-phases 1` without the fine zones, step 82 = 94.4 ms, 5,376 fragments): trial GPU wait
+5.2 + finish 2.7, body allocation 7.5, bindings 6.1 (validate 1.5, migrate 4.0), corrected broad-phase wait 13.4, pair
+pipeline (prealloc 1.3, register 4.4, stage 2 1.8, island insertion 4.2, narrowphase ~7, post-NP 2.7,
+`setEdgesConnected` 6.0 = wakeIslands + processNewEdges), dynamics ~4, contact graph 1.4 + submit 1.8, corrected GPU
+wait 2.6 + finish 3.1, publication 4.3.
