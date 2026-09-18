@@ -2470,3 +2470,40 @@ city256 numbers are ~1–2 ms above the headless runs (17–20 ms). The rendered
 | city64-staggered-mid | 720 | 10.64 | 41.3 | 65 | 12 → 12.4 | 15,520 |
 | city256-staggered-overview | 1200 | 20.91 | 56.9 | 894 | 20 → 27.0 | 67,021 |
 | city256-staggered-mid | 1200 | 20.81 | 46.9 | 881 | 20 → 26.9 | 67,021 |
+
+### Structure and material scenarios (2026-09-18), `videos/*-realtime.mp4`
+
+The demo now allows impacts on the synthetic structures (`--geometry tower64|bridge64|cantilever64|dense12|panel32`
+with `--workload bombardment`, one structure), an authored aim point (`--impact-target x,y,z`, metres from the
+structure origin; approach distance and 1.5 s flight unchanged) and a `--gpu-camera structure` preset that frames
+the whole shape. Chunks are 0.96 m cubes on a 1 m pitch; the building is 8×12×8 (448 chunks), the tower 8×64×8
+(2,368), the bridge a 64×4×4 hollow deck on end supports (768), the block 12³ solid (1,728), the plate 32×32 on four
+corner supports (1,024), the cantilever a 64-chunk beam fixed at one end.
+
+| video (…-realtime.mp4) | scenario | physics mean ms | max ms | ticks >16.7 ms | sim → wall | bonds broken | fragments at end |
+|---|---|---:|---:|---:|---|---:|---:|
+| tower64-collapse | two 18 t shots at the base, strength 8 | 65.6 | 220 | 637/840 | 14 → 57.4 s | 4,127 | 1,647 |
+| tower64-stands | same shots, strength 24 | 45.8 | 208 | 637/720 | 12 → 34.2 s | 339 | 40 |
+| bridge64-midspan | two 120 t shots at mid-span, strength 300 | 3.4 | 39 | 1/600 | 10 → 10.0 s | 1,107 | 143 |
+| cantilever64-tip | 18 t shot near the free tip | 2.2 | 20 | 1/600 | 10 → 10.0 s | 63 | 1 |
+| dense12-block | two 120 t shots, strength 3 | 4.3 | 60 | 3/600 | 10 → 10.1 s | 4,466 | 1,183 |
+| panel32-plate | 18 t shot at the centre | 2.9 | 52 | 3/600 | 10 → 10.0 s | 1,279 | 40 |
+| building-weak | four 18 t shots, strength 6 | 2.9 | 14 | 0/480 | 8 → 8.0 s | 497 | 52 |
+| building-strong | four 18 t shots, strength 100 | 2.9 | 18 | 1/480 | 8 → 8.0 s | 151 | 43 |
+| building-heavy-shot | four 120 t shots, strength 24 | 3.2 | 15 | 0/480 | 8 → 8.0 s | 603 | 146 |
+
+What they show: the weak tower's base shatters and the whole 64-storey column topples and lies on the ground; the
+strength-24 tower loses its base floors but stands; the bridge deck breaks into segments; the plate on four supports
+tears into strips after the centre punch; the solid block only chips at the default strength (21 bonds) and shatters
+at strength 3 with 120 t shots; the three building variants show the fracture sensitivity to material strength and
+projectile mass.
+
+Two findings for the engine, not the videos:
+- **The tower runs at 12–14 FPS after the hit.** Its 2,368-node anchored remnant exceeds the direct solver's
+  component limit (`kResidentComponentMaxNodes`, the R1 factor path covers building-size components), so every tick
+  solves it with the iterative PCG at 45–70 ms; the same structure at rest is 1.5 ms. Large single anchored
+  structures need the direct path's node limit raised (larger patterns and slots) to run at 60 Hz.
+- **`chain256` (a 256-chunk slender column) hits a native destruction stage failure** at the first fracture tick
+  (`INCOMPLETE native step 88: stage=4136`, 201 bonds broken in one tick, `PxgSimulationController.cpp:1774`). Not
+  investigated; recorded here as a known defect. The default bridge (strength 24–100) fractures under its own
+  weight before the shot arrives and the demo aborts on that check, hence strength 300.

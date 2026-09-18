@@ -55,7 +55,7 @@ int run(int argc,char** argv){
     std::string geometryName="building";
     const auto initializationBegin=Clock::now();
     bool standardScene=true,standardSleeping=true,traceStress=false,sceneQueryShapes=true;
-    unsigned renderWidth=960,renderHeight=540;
+    unsigned renderWidth=960,renderHeight=540;PxVec3 impactTarget(0);bool impactTargetSet=false;
     unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0,reservePairs=~0u;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
@@ -88,8 +88,9 @@ int run(int argc,char** argv){
         else if(flag=="--record-fps"){recordFps=std::stoul(value);require(recordFps==30 || recordFps==60,"--record-fps requires 30 or 60");}
         else if(flag=="--gpu-render"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-render requires 0 or 1");gpuRender=std::string(value)=="1";}
         else if(flag=="--gpu-video")videoPath=value;
+        else if(flag=="--impact-target"){float x=0,y=0,z=0;require(std::sscanf(value,"%f,%f,%f",&x,&y,&z)==3,"--impact-target requires x,y,z (metres, relative to the structure origin)");impactTarget=PxVec3(x,y,z);impactTargetSet=true;}
         else if(flag=="--gpu-resolution"){const std::string v(value);const auto x=v.find('x');require(x!=std::string::npos,"--gpu-resolution requires WIDTHxHEIGHT");renderWidth=unsigned(std::atoi(v.substr(0,x).c_str()));renderHeight=unsigned(std::atoi(v.substr(x+1).c_str()));require(renderWidth>=320 && renderWidth<=3840 && renderHeight>=180 && renderHeight<=2160,"--gpu-resolution out of range");}
-        else if(flag=="--gpu-camera"){gpuCamera=value;require(gpuCamera=="close" || gpuCamera=="overview" || gpuCamera=="diagnostic" || gpuCamera=="penetration" || gpuCamera=="mid","--gpu-camera requires close, overview, diagnostic or penetration");}
+        else if(flag=="--gpu-camera"){gpuCamera=value;require(gpuCamera=="close" || gpuCamera=="overview" || gpuCamera=="diagnostic" || gpuCamera=="penetration" || gpuCamera=="mid" || gpuCamera=="structure","--gpu-camera requires close, overview, diagnostic or penetration");}
         else if(flag=="--state-path")statePath=value;
         else if(flag=="--motion-path")motionPath=value;
         else if(flag=="--record-state"){require(std::string(value)=="0" || std::string(value)=="1","--record-state requires 0 or 1");recordState=std::string(value)=="1";}
@@ -102,7 +103,7 @@ int run(int argc,char** argv){
     require(layout=="grid" || layout=="impact-corridor","unknown scene layout");
     require(snapshotSteps.empty() || (standardScene && standardSleeping),"snapshot capture requires ordinary sleeping scene");
     const NativeScenarioGeometry geometry(geometryName);
-    require(geometryName=="building" || (grid==1 && workload=="idle"),"synthetic geometry currently requires one gravity-only structure");
+    require(geometryName=="building" || grid==1,"synthetic geometry currently requires a single structure");
     require(shotPath=="aerial" || (shotPath=="through-wall" && (grid==1 || layout=="impact-corridor") && workload=="single-impact"),"through-wall launch requires a single impact and an unobstructed corridor");
     require(std::isfinite(frameStrength) && frameStrength>=1 && frameStrength<=1e6f,"invalid authored frame strength");
     require(std::isfinite(materialStrength) && materialStrength>0 && materialStrength<=1e6f,"invalid authored material strength");
@@ -209,6 +210,13 @@ int run(int argc,char** argv){
         const PxVec3 focus(grid==1?0:8,5,grid==1?0:8);
         gpuView.eye=focus+PxVec3(29,21,-39);gpuView.direction=(focus-gpuView.eye).getNormalized();
     }
+    if(gpuCamera=="structure") {
+        // Frame the whole synthetic structure (tower, bridge, beam...) from a three-quarter view.
+        const float extent=float(std::max(geometry.nx,std::max(geometry.ny,geometry.nz)));
+        const PxVec3 focus(0,float(geometry.ny)*.45f,0);
+        gpuView.eye=focus+PxVec3(.62f,.30f,-.72f).getNormalized()*(extent*1.35f+12.f);
+        gpuView.direction=(focus-gpuView.eye).getNormalized();gpuView.fovDegrees=45;
+    }
     if(gpuCamera=="mid") {
         // A quarter of the city at building scale: look at the near corner quadrant from ~150 m.
         const PxVec3 focus(float(grid-1)*3,6,float(grid-1)*3);
@@ -268,6 +276,13 @@ int run(int argc,char** argv){
         while(launched<plannedShots && time>=launchWindow*float(launched)/float(plannedShots)){
             const unsigned building=launched%buildings,wave=launched/buildings;const auto origin=origins[building];
             auto launch=nativeBombardmentLaunch(origin,wave,12.5f);
+            if(impactTargetSet){
+                // Authored aim point (metres, relative to the structure origin); same approach distance and flight time.
+                launch.target=origin+impactTarget;
+                const PxVec3 directions[]={PxVec3(0,0,1),PxVec3(1,0,0),PxVec3(0,0,-1),PxVec3(-1,0,0)};
+                launch.position=launch.target-directions[wave%4]*48;launch.position.y=PxMax(launch.target.y+15.5f,24.0f);
+                launch.velocity=(launch.target-launch.position)/1.5f;launch.velocity.y+=.5f*9.81f*1.5f;
+            }
             if(shotPath=="through-wall")launch=nativeWallPenetrationLaunch(origin);
             // Explicit gameplay observation: CUDA checks committed chunks and
             // projectiles and returns one clearance height. Pose arrays are
