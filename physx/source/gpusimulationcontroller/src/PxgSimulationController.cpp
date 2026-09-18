@@ -39,8 +39,10 @@ namespace {
 // end-of-tick state, are reinstated after the pass-start bounds refresh (cache
 // and bounds stay at start of step), map to the static solver body for the
 // pass and skip integration; the solver body list is unchanged.
-// Default 6 (2026-09-18, owner approval): dormant corrected pass for islands without a correction target (README section 17, warm-screen.md ensemble verdict). 0 restores the full corrected pass.
-int islandScopedCorrectionMode() { static const int value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");return raw?std::atoi(raw):6;}(); return value; }
+// Default 0. Mode 6 (dormant corrected pass, README section 17) was flipped on 2026-09-18 and reverted the same day: faster on the
+// 3 s ensemble (-0.9 ms) but neutral-to-slower on the 600-tick heavy trajectory (18.05-18.10 ms, 258-259 misses vs 17.4-18.1, 246-248):
+// its +4.6 % fracture costs more later than the dormant pass saves per tick. Opt in with PHYSX_DESTRUCTION_ISLAND_SCOPE=6.
+int islandScopedCorrectionMode() { static const int value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");return raw?std::atoi(raw):0;}(); return value; }
 bool islandScopedCorrectionEnabled() { return islandScopedCorrectionMode()!=0; }
 
 }

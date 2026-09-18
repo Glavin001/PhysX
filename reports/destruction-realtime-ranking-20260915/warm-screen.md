@@ -2395,3 +2395,20 @@ Same verdict as 2026-09-17: mode 6 overlaps the top of the control's range (+4.6
 no collapse without cause, and it is faster on the sustained mean (−0.9 ms median; g16 late window 31.4 → 29.7–30.0).
 Peaks are 2–3 ms higher (more fracture on the impact tick). Deterministic (61,130 on two consecutive runs). Native
 tests 8/8. Continuous 600-tick A/B (`out/direct-continuous-ab-20260918b`) below.
+
+### Mode 6 default reverted the same day: the 600-tick trajectory does not confirm the 3 s gain
+
+Continuous runner, B arm alone (`out/direct-continuous-ab-20260918b-B`; the paired A arm cannot run today's demo
+against the pre-plan modules, it segfaults at startup, so the 18a A/B arms are the reference):
+
+| arm | heavy mean ms | 60 Hz misses / 600 | peak ms | idle ms |
+|---|---:|---:|---:|---:|
+| 18a B (mode 0 default, before the capture tasks) | 17.40 / 18.10 | 246 / 248 | 96.8 / 97.4 | 1.05–1.07 |
+| 18b-B (mode 6 default + capture tasks) | 18.05 / 18.10 | 258 / 259 | 98.7 / 105.9 | 1.11 / 1.16 |
+
+Mode 6 breaks 4.6 % more bonds, and over 600 ticks the extra fragments cost more than the dormant corrected pass
+saves per tick: misses +10–13, peak +2–9 ms, mean equal-to-worse (the capture tasks alone are worth −0.3 ms, so the
+fair mode 0 figure today is lower still). The 3 s ensemble gain (−0.9 ms median) is real but confined to the early
+window. The default is back to 0; mode 6 stays opt-in on fidelity grounds only (`PHYSX_DESTRUCTION_ISLAND_SCOPE=6`).
+Lesson for the §11 protocol: order-changing candidates must also be judged on the 600-tick trajectory, not only the
+3 s ensemble, because fracture-count differences compound.
